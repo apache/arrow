@@ -706,6 +706,8 @@ AzureFileSystem$create <- function(account_name, ...) {
       call. = FALSE
     )
   }
+  # The c++ codes assumes that the various combinations of authentication methods
+  # have been validated in this function.
   if (!is.null(options$tenant_id) || !is.null(options$client_id) || !is.null(options$client_secret)) {
     if (is.null(options$client_id)) {
       stop(

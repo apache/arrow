@@ -76,12 +76,14 @@ jobs:
         run: |
           brew install sccache ninja
           brew install openssl@3.0
+          brew install libxml2
       - name: Build libarrow
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           MACOSX_DEPLOYMENT_TARGET: "11.6"
           ARROW_GCS: ON
+          ARROW_AZURE: ON
           ARROW_DEPENDENCY_SOURCE: BUNDLED
           CMAKE_GENERATOR: Ninja
           LIBARROW_MINIMAL: false
