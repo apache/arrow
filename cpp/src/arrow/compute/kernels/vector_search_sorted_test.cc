@@ -43,9 +43,9 @@ Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_
 }
 
 void CheckSearchSorted(const Datum& values, const Datum& needles,
-                       SearchSortedOptions::Side side,
-                       const std::string& expected_json) {
-  ASSERT_OK_AND_ASSIGN(auto result, SearchSorted(values, needles, SearchSortedOptions(side)));
+                       SearchSortedOptions::Side side, const std::string& expected_json) {
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       SearchSorted(values, needles, SearchSortedOptions(side)));
   ASSERT_TRUE(result.is_array());
   ASSERT_OK(result.make_array()->ValidateFull());
 
@@ -67,7 +67,8 @@ void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
   auto values = ArrayFromJSON(type, values_json);
   auto needles = ArrayFromJSON(type, needles_json);
 
-  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json, expected_right_json);
+  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json,
+                    expected_right_json);
 }
 
 void CheckScalarSearchSorted(const Datum& values, const std::shared_ptr<Array>& needles,
@@ -105,7 +106,8 @@ void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
                                    const std::string& expected_right_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto needles = ArrayFromJSON(type, needles_json);
-  CheckScalarSearchSorted(Datum(values), needles, expected_left_json, expected_right_json);
+  CheckScalarSearchSorted(Datum(values), needles, expected_left_json,
+                          expected_right_json);
 }
 
 void CheckSimpleSearchSortedAndScalar(const std::shared_ptr<DataType>& type,
@@ -116,15 +118,16 @@ void CheckSimpleSearchSortedAndScalar(const std::shared_ptr<DataType>& type,
   auto values = ArrayFromJSON(type, values_json);
   auto needles = ArrayFromJSON(type, needles_json);
 
-  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json, expected_right_json);
+  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json,
+                    expected_right_json);
   CheckScalarSearchSorted(Datum(values), needles, expected_left_json,
                           expected_right_json);
 }
 
-void CheckChunkedSearchSortedAndConcatenated(
-    const std::shared_ptr<ChunkedArray>& values,
-    const std::shared_ptr<ChunkedArray>& needles, const std::string& expected_left_json,
-    const std::string& expected_right_json) {
+void CheckChunkedSearchSortedAndConcatenated(const std::shared_ptr<ChunkedArray>& values,
+                                             const std::shared_ptr<ChunkedArray>& needles,
+                                             const std::string& expected_left_json,
+                                             const std::string& expected_right_json) {
   CheckSearchSorted(Datum(values), Datum(needles), expected_left_json,
                     expected_right_json);
 
@@ -146,114 +149,113 @@ struct SearchSortedSmokeCase {
 
 std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
   return {
-    {"Boolean", boolean(), "[false, false, false, true, true]", "[false, true]",
-     "[0, 3]", "[3, 5]"},
+      {"Boolean", boolean(), "[false, false, false, true, true]", "[false, true]",
+       "[0, 3]", "[3, 5]"},
       {
           "Int8",
           int8(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "Int16",
           int16(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "Int32",
           int32(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "Int64",
           int64(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "UInt8",
           uint8(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "UInt16",
           uint16(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "UInt32",
           uint32(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "UInt64",
           uint64(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
-    {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]",
-     "[0, 1, 5]", "[0, 3, 5]"},
-    {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]",
-     "[0, 1, 5]", "[0, 3, 5]"},
+      {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]", "[0, 1, 5]",
+       "[0, 3, 5]"},
+      {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]", "[0, 1, 5]",
+       "[0, 3, 5]"},
       {
           "Date32",
           date32(),
-      "[1, 3, 3, 5, 8]",
-      "[0, 3, 9]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[1, 3, 3, 5, 8]",
+          "[0, 3, 9]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
       {
           "Date64",
           date64(),
-      "[86400000, 259200000, 259200000, 432000000, 691200000]",
-      "[0, 259200000, 777600000]",
-      "[0, 1, 5]",
-      "[0, 3, 5]",
+          "[86400000, 259200000, 259200000, 432000000, 691200000]",
+          "[0, 259200000, 777600000]",
+          "[0, 1, 5]",
+          "[0, 3, 5]",
       },
-    {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
-     "[0, 3, 5]"},
-    {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
-     "[0, 3, 5]"},
+      {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
+       "[0, 3, 5]"},
+      {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
+       "[0, 3, 5]"},
       {"Timestamp", timestamp(TimeUnit::SECOND),
-     R"(["1970-01-02", "1970-01-04", "1970-01-04", "1970-01-06", "1970-01-09"])",
-     R"(["1970-01-01", "1970-01-04", "1970-01-10"])", "[0, 1, 5]",
-     "[0, 3, 5]"},
-    {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]",
-     "[0, 1, 5]", "[0, 3, 5]"},
-    {"Binary", binary(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
-     "[0, 1, 5]", "[0, 3, 5]"},
-    {"String", utf8(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
-     "[0, 1, 5]", "[0, 3, 5]"},
-    {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd", "ff"])",
-     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
-    {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd", "ff"])",
-     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
-    {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
-     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
-    {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
-     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+       R"(["1970-01-02", "1970-01-04", "1970-01-04", "1970-01-06", "1970-01-09"])",
+       R"(["1970-01-01", "1970-01-04", "1970-01-10"])", "[0, 1, 5]", "[0, 3, 5]"},
+      {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
+       "[0, 3, 5]"},
+      {"Binary", binary(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
+       "[0, 1, 5]", "[0, 3, 5]"},
+      {"String", utf8(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
+       "[0, 1, 5]", "[0, 3, 5]"},
+      {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd", "ff"])",
+       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+      {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd", "ff"])",
+       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+      {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
+       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+      {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
+       R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
   };
 }
 
@@ -303,29 +305,25 @@ TEST(SearchSorted, ValuesAllNull) {
 }
 
 TEST(SearchSorted, ValuesWithTrailingNulls) {
-  CheckSimpleSearchSorted(int32(), "[200, 300, 300, null, null]",
-                          "[50, 200, 250, 400]", "[0, 0, 1, 3]",
-                          "[0, 1, 1, 3]");
+  CheckSimpleSearchSorted(int32(), "[200, 300, 300, null, null]", "[50, 200, 250, 400]",
+                          "[0, 0, 1, 3]", "[0, 1, 1, 3]");
 }
 
 TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNulls) {
-  CheckSimpleSearchSortedAndScalar(float64(),
-                                   "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
+  CheckSimpleSearchSortedAndScalar(float64(), "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
                                    "[0.0, 3.0, 4.0, NaN]", "[0, 1, 3, 4]",
                                    "[0, 3, 3, 6]");
 }
 
 TEST(SearchSorted, FloatValuesWithLeadingNullsAndTrailingNaNs) {
-  CheckSimpleSearchSortedAndScalar(float64(),
-                                   "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
+  CheckSimpleSearchSortedAndScalar(float64(), "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
                                    "[0.0, 3.0, 4.0, NaN]", "[1, 2, 4, 5]",
                                    "[1, 4, 4, 7]");
 }
 
 TEST(SearchSorted, NullNeedlesEmitNull) {
-  CheckSimpleSearchSorted(int32(), "[null, 200, 300, 300]",
-                          "[null, 50, 200, null, 400]", "[null, 1, 1, null, 4]",
-                          "[null, 1, 2, null, 4]");
+  CheckSimpleSearchSorted(int32(), "[null, 200, 300, 300]", "[null, 50, 200, null, 400]",
+                          "[null, 1, 1, null, 4]", "[null, 1, 2, null, 4]");
 
   auto values = ArrayFromJSON(int32(), "[null, 200, 300, 300]");
 
@@ -370,8 +368,7 @@ TEST(SearchSorted, ChunkedValuesChunkedNeedles) {
       ArrayFromJSON(int32(), "[null, 9]"),
   });
 
-  CheckChunkedSearchSortedAndConcatenated(values, needles,
-                                          "[null, 0, 0, 3, null, 5]",
+  CheckChunkedSearchSortedAndConcatenated(values, needles, "[null, 0, 0, 3, null, 5]",
                                           "[null, 0, 2, 3, null, 5]");
 }
 
@@ -501,8 +498,8 @@ TEST(SearchSorted, RunEndEncodedNeedlesWithNullRuns) {
       REEFromJSON(needles_type, "[null, null, 0, 0, 0, 1, 1, 4, 4, 4, null, 9, 9]"));
 
   CheckSearchSorted(Datum(values), Datum(ree_needles),
-          "[null, null, 0, 0, 0, 0, 0, 3, 3, 3, null, 5, 5]",
-          "[null, null, 0, 0, 0, 2, 2, 3, 3, 3, null, 5, 5]");
+                    "[null, null, 0, 0, 0, 0, 0, 3, 3, 3, null, 5, 5]",
+                    "[null, null, 0, 0, 0, 2, 2, 3, 3, 3, null, 5, 5]");
 }
 
 TEST(SearchSorted, RunEndEncodedAllNullValues) {
