@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Constants and type traits for ALP compression
+// Constants and type traits for ALP (Adaptive Lossless floating-Point) compression.
+// Spec: https://github.com/apache/parquet-format/blob/master/Encodings.md#alp
 
 #pragma once
 
@@ -42,13 +43,18 @@ class AlpConstants {
   /// would overflow. This allows vector sizes up to 32768.
   static constexpr uint8_t kMaxLogVectorSize = 15;
 
+  /// Sampling constants below are from the ALP paper (Afroozeh et al.,
+  /// "ALP: Adaptive Lossless floating-Point Compression", SIGMOD 2023).
+
   /// Number of elements to use when determining sampling parameters.
   static constexpr uint64_t kSamplerVectorSize = 4096;
 
   /// Total number of elements in a rowgroup for sampling purposes.
+  /// 122880 = kSamplerVectorSize * 30 rowgroup vectors.
   static constexpr uint64_t kSamplerRowgroupSize = 122880;
 
   /// Number of samples to collect per vector during the sampling phase.
+  /// 256 = kSamplerVectorSize / 16, i.e. sample every 16th element.
   static constexpr uint64_t kSamplerSamplesPerVector = 256;
 
   /// Number of sample vectors to collect per rowgroup.

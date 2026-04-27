@@ -534,7 +534,7 @@ inline uint64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding encoding) {
 /// \note This class is NOT used with the current offset-based interleaved layout.
 /// With the new layout [Header][Offsets...][Vector0][Vector1]..., the offset
 /// array provides O(1) random access directly, making this cache unnecessary.
-/// The AlpWrapper::DecodeAlp function reads offsets and metadata inline.
+/// The AlpCodec::DecodeAlp function reads offsets and metadata inline.
 ///
 /// This class was designed for the old grouped metadata layout:
 ///   [Header][AlpInfos...][ForInfos...][Data...]
@@ -640,7 +640,7 @@ class AlpMetadataCache {
 };
 
 // ----------------------------------------------------------------------
-// AlpEncodingPreset
+// AlpEncodingParameters
 
 /// \brief Preset for ALP compression
 ///
@@ -648,11 +648,11 @@ class AlpMetadataCache {
 /// a preset is generated, which contains multiple combinations of exponents and
 /// factors. For each vector that is compressed, one of the combinations of this
 /// preset is chosen dynamically.
-struct AlpEncodingPreset {
+struct AlpEncodingParameters {
   /// Combinations of exponents and factors
   std::vector<AlpExponentAndFactor> combinations;
-  /// Best compressed size for the preset
-  uint64_t best_compressed_size = 0;
+  /// Best compressed size for the parameters
+  int64_t best_compressed_size = 0;
   /// Bit packing layout used for bitpacking
   AlpIntegerEncoding integer_encoding = AlpIntegerEncoding::kForBitPack;
 };
@@ -667,7 +667,7 @@ class AlpSampler;
 /// \brief ALP compression and decompression facilities
 ///
 /// AlpCompression contains all facilities to compress and decompress data with
-/// ALP in a vectorized fashion. Use CreateEncodingPreset() first on a sample of
+/// ALP in a vectorized fashion. Use CreateEncodingParameters() first on a sample of
 /// the input data, then compress it vector-wise via CompressVector(). To
 /// serialize the data, use the facilities provided by AlpEncodedVector.
 ///
@@ -688,7 +688,7 @@ class AlpCompression : private AlpConstants {
   /// \return an ALP encoded vector
   static AlpEncodedVector<T> CompressVector(const T* input_vector,
                                             uint16_t num_elements,
-                                            const AlpEncodingPreset& preset);
+                                            const AlpEncodingParameters& preset);
 
   /// \brief Decompress a compressed vector with ALP
   ///
@@ -717,11 +717,11 @@ class AlpCompression : private AlpConstants {
                                    TargetType* output_vector);
 
  protected:
-  /// \brief Creates an EncodingPreset consisting of multiple factors/exponents
+  /// \brief Creates an EncodingParameters consisting of multiple factors/exponents
   ///
   /// \param[in] vectors_sampled the sampled vectors to derive combinations from
-  /// \return the EncodingPreset
-  static AlpEncodingPreset CreateEncodingPreset(
+  /// \return the EncodingParameters
+  static AlpEncodingParameters CreateEncodingParameters(
       const std::vector<std::vector<T>>& vectors_sampled);
   friend AlpSampler<T>;
 

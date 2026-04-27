@@ -32,12 +32,12 @@ namespace util {
 namespace alp {
 
 // ----------------------------------------------------------------------
-// AlpWrapper
+// AlpCodec
 
-/// \class AlpWrapper
+/// \class AlpCodec
 /// \brief High-level interface for ALP compression
 ///
-/// AlpWrapper is an interface for Adaptive Lossless floating-Point Compression
+/// AlpCodec is an interface for Adaptive Lossless floating-Point Compression
 /// (ALP) (https://dl.acm.org/doi/10.1145/3626717). For encoding, it samples
 /// the data and applies decimal compression (Alp) to floating point values.
 /// This class acts as a wrapper around the vector-based interfaces of
@@ -45,7 +45,7 @@ namespace alp {
 ///
 /// \tparam T the floating point type (float or double)
 template <typename T>
-class AlpWrapper {
+class AlpCodec {
  public:
   /// Type alias for the sampler result containing encoding presets
   using AlpSamplerResult = typename AlpSampler<T>::AlpSamplerResult;
@@ -71,7 +71,7 @@ class AlpWrapper {
   /// \param[in] decomp_size size of decomp in bytes.
   ///            This needs to be a multiple of sizeof(T).
   /// \param[out] comp pointer to the memory region we will encode into.
-  ///             The caller is responsible for ensuring this is big enough.
+  ///             Must be at least GetMaxCompressedSize(decomp_size) bytes.
   /// \param[in,out] comp_size the actual size of the encoded data in bytes,
   ///                expects the size of comp as input. If this is too small,
   ///                this is set to 0 and we bail out.
@@ -85,7 +85,7 @@ class AlpWrapper {
   /// \param[in] decomp_size size of decomp in bytes.
   ///            This needs to be a multiple of sizeof(T).
   /// \param[out] comp pointer to the memory region we will encode into.
-  ///             The caller is responsible for ensuring this is big enough.
+  ///             Must be at least GetMaxCompressedSize(decomp_size) bytes.
   /// \param[in,out] comp_size the actual size of the encoded data in bytes,
   ///                expects the size of comp as input. If this is too small,
   ///                this is set to 0 and we bail out.
@@ -97,25 +97,24 @@ class AlpWrapper {
 
   /// \brief Decode floating point values
   ///
+  /// \param[in] num_elements number of elements to decode (from page header)
+  /// \param[in] comp pointer to the input that is to be decoded
+  /// \param[in] comp_size size of the input in bytes (from page header)
   /// \param[out] decomp pointer to the memory region we will decode into.
   ///             The caller is responsible for ensuring this is big enough
   ///             to hold num_elements values.
-  /// \param[in] num_elements number of elements to decode (from page header).
-  ///            Uses uint32_t since Parquet page headers use i32 for num_values.
-  /// \param[in] comp pointer to the input that is to be decoded
-  /// \param[in] comp_size size of the input in bytes (from page header)
   /// \return Status::OK on success, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Status Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
-                       size_t comp_size);
+  static Status Decode(int32_t num_elements, const char* comp, size_t comp_size,
+                       TargetType* decomp);
 
   /// \brief Get the maximum compressed size of an uncompressed buffer
   ///
-  /// \param[in] decomp_size the size of the uncompressed buffer in bytes
+  /// \param[in] uncompressed_size the size of the uncompressed buffer in bytes
   /// \return the maximum size of the compressed buffer
-  static uint64_t GetMaxCompressedSize(uint64_t decomp_size);
+  static int64_t GetMaxCompressedSize(int64_t uncompressed_size);
 
  private:
   struct AlpHeader;
@@ -125,9 +124,9 @@ class AlpWrapper {
   /// Used to report how much data was consumed and produced during encoding.
   struct CompressionProgress {
     /// Number of compressed bytes written to output
-    uint64_t num_compressed_bytes_produced = 0;
+    int64_t num_compressed_bytes_produced = 0;
     /// Number of input elements consumed
-    uint64_t num_uncompressed_elements_taken = 0;
+    int64_t num_uncompressed_elements_taken = 0;
   };
 
   /// \brief Tracks the progress of a decompression operation
@@ -135,9 +134,9 @@ class AlpWrapper {
   /// Used to report how much data was consumed and produced during decoding.
   struct DecompressionProgress {
     /// Number of decompressed elements written
-    uint64_t num_decompressed_elements_produced = 0;
+    int64_t num_decompressed_elements_produced = 0;
     /// Number of compressed bytes consumed
-    uint64_t num_compressed_bytes_taken = 0;
+    int64_t num_compressed_bytes_taken = 0;
   };
 
   /// \brief Compress a buffer using the ALP variant
@@ -150,11 +149,10 @@ class AlpWrapper {
   /// \return the compression progress
   static CompressionProgress EncodeAlp(const T* decomp, uint64_t element_count,
                                        char* comp, size_t comp_size,
-                                       const AlpEncodingPreset& combinations);
+                                       const AlpEncodingParameters& combinations);
 
   /// \brief Decompress a buffer using the ALP variant
   ///
-  /// \param[out] decomp the buffer to be decompressed into
   /// \param[in] decomp_element_count the number of floats to decompress
   /// \param[in] comp the compressed buffer to be decompressed
   /// \param[in] comp_size the size of the compressed data
@@ -162,16 +160,17 @@ class AlpWrapper {
   /// \param[in] vector_size the number of elements per vector (from header)
   /// \param[in] total_elements the total number of elements in the page (from header).
   ///            Uses uint32_t since Parquet page headers use i32 for num_values.
+  /// \param[out] decomp the buffer to be decompressed into
   /// \return the decompression progress, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Result<DecompressionProgress> DecodeAlp(TargetType* decomp,
-                                                  size_t decomp_element_count,
+  static Result<DecompressionProgress> DecodeAlp(size_t decomp_element_count,
                                                   const char* comp, size_t comp_size,
                                                   AlpIntegerEncoding integer_encoding,
                                                   uint32_t vector_size,
-                                                  uint32_t total_elements);
+                                                  uint32_t total_elements,
+                                                  TargetType* decomp);
 
   /// \brief Load the AlpHeader from compressed data
   ///
