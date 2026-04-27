@@ -135,11 +135,11 @@ x-hierarchy:
       - debian-ruby
     - debian-python:
       - debian-docs
+  - dremio
   - fedora-cpp:
     - fedora-python
   - fedora-r-clang
   - python-sdist
-  - dremio
   - ubuntu-cpp:
     - ubuntu-cpp-static
     - ubuntu-c-glib:
@@ -204,11 +204,6 @@ volumes:
     name: python-wheel-musllinux-1-2-ccache
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
-
-networks:
-  # GH-48068 for Flight SQL ODBC Testing
-  odbc_net:
-    external: true
 
 services:
 
@@ -392,8 +387,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
-    networks:
-      - odbc_net
 
   ubuntu-cpp: &ubuntu-cpp-base
     # Usage:
@@ -542,8 +535,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
     # Register ODBC before running tests
-    networks:
-      - odbc_net
+    depends_on:
+      - dremio
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
