@@ -565,6 +565,17 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
   auto metadata_length = decoder->next_required_size();
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(metadata_length));
   if (metadata->size() != metadata_length) {
+    // The first sizeof(int32_t) bytes of the Arrow file magic ("ARRO") may have been
+    // misread as metadata_length. Check if the remaining bytes complete the magic.
+    const auto remaining_magic = internal::kArrowMagicBytes.substr(sizeof(int32_t));
+    if (metadata->size() >= static_cast<int64_t>(remaining_magic.size()) &&
+        std::string_view(reinterpret_cast<const char*>(metadata->data()),
+                         remaining_magic.size()) == remaining_magic) {
+      return Status::Invalid("Expected to read ", metadata_length,
+                             " metadata bytes, but only read ", metadata->size(),
+                             ". This appears to be an Arrow IPC file. "
+                             "Try the IPC file reader instead of the IPC stream reader.");
+    }
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
   }
