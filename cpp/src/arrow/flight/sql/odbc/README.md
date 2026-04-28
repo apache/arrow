@@ -21,46 +21,44 @@
 
 After building the repository you will find the built ODBC binaries in the build artifacts.
 
-On Windows, the driver binary will be located at `build\debug\Debug\arrow_flight_sql_odbc.dll` for a debug build and `build\release\Release\arrow_flight_sql_odbc.dll` for a release build.
+On Windows, the driver binary will be located at `C:\path\to\arrow\cpp\build\debug\Debug\arrow_flight_sql_odbc.dll` for a debug build and `C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll` for a release build.
 
-On MacOS, the driver binary will be located at `build/debug/libarrow_flight_sql_odbc.dylib` for a debug build and `build/release/libarrow_flight_sql_odbc.dylib` for a release build.
+On macOS, the driver binary will be located at `/path/to/arrow/cpp/build/debug/libarrow_flight_sql_odbc.dylib` for a debug build and `/path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.dylib` for a release build.
 
-On Linux, the driver binary will be located at `build/debug/libarrow_flight_sql_odbc.so` for a debug build and `build/release/libarrow_flight_sql_odbc.so` for a release build.
+On Linux, the driver binary will be located at `/path/to/arrow/cpp/build/debug/libarrow_flight_sql_odbc.so` for a debug build and `/path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.so` for a release build.
 
-1. Open your system terminal. On Windows this should be Power Shell in administrator mode.
+1. Open your system terminal. On Windows this should be PowerShell in administrator mode.
 
 2. Register your ODBC binary:
 
-   These commands need `<path/to/repo>` to be replaced with the actual path to the repository.
-
-   1. `cd <path/to/repo>`
+   1. Navigate to the root of the Arrow repo.
    2. Run script to register your ODBC driver binary as Apache Arrow Flight SQL ODBC Driver.<br>
       On Windows:
       ```
-      .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
+      .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
       ```
       Example command for reference:
       ```
       .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll
       ```
-      On MacOS:
+      On macOS:
       ```
-      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/repo>/cpp/build/< release | debug >/libarrow_flight_sql_odbc.dylib
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/< release | debug >/libarrow_flight_sql_odbc.dylib
       ```
       Example command for reference:
       ```
-      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/arrow>/cpp/build/release/libarrow_flight_sql_odbc.dylib
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.dylib
       ```
       On Linux:
       ```
-      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/repo>/cpp/build/< release | debug >/libarrow_flight_sql_odbc.so
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/< release | debug >/libarrow_flight_sql_odbc.so
       ```
       Example command for reference:
       ```
-      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/arrow>/cpp/build/release/libarrow_flight_sql_odbc.so
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.so
       ```
 
-If the registration is successful, then Apache Arrow Flight SQL ODBC Driver should show as an available ODBC driver. On Windows this should be visible in the x64 ODBC Driver Manager. On MacOS & Linux this should be visible in your system odbc.ini.
+If the registration is successful, then Apache Arrow Flight SQL ODBC Driver should show as an available ODBC driver. On Windows this should be visible in the x64 ODBC Driver Manager. On macOS this should be visible in `$HOME/Library/ODBC/odbcinst.ini`. On Linux this should be visible in `/etc/odbcinst.ini`.
 
 ## Steps to Generate Windows Installer
 1. Install WiX toolset v6 from [GitHub](https://github.com/wixtoolset/wix/releases/).
