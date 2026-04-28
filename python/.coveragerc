@@ -17,3 +17,15 @@
 
 [run]
 plugins = Cython.Coverage
+source =
+    pyarrow
+branch = True
+
+[report]
+omit =
+    */tests/*
+    */benchmarks/*
+show_missing = True
+
+[html]
+directory = coverage_html_report

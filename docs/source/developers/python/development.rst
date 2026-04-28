@@ -101,6 +101,70 @@ The test groups currently include:
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
+.. _python-cython-coverage:
+
+Code Coverage
+-------------
+
+PyArrow supports Cython line-level coverage via the ``PYARROW_GENERATE_COVERAGE``
+CMake option. When enabled, it passes ``-Xlinetrace=True`` to the Cython compiler
+and sets the ``CYTHON_TRACE=1`` and ``CYTHON_TRACE_NOGIL=1`` compile definitions
+on every Cython extension. This instructs the generated C++ code to call
+Python's trace hook on each Cython source line, enabling ``coverage.py`` to
+report per-line coverage for ``.pyx`` files.
+
+.. note::
+
+   Arrow C++ must already be built and installed before building PyArrow with
+   coverage support. See :ref:`python-development` for environment setup.
+
+**1. Build PyArrow with coverage instrumentation:**
+
+Two CMake options must be set together:
+
+* ``PYARROW_GENERATE_COVERAGE=ON`` — embeds ``CYTHON_TRACE=1`` in the compiled
+  ``.so`` extensions.
+* ``PYARROW_BUNDLE_CYTHON_CPP=ON`` — installs the generated ``.cpp`` files
+  alongside the ``.so`` files. The ``Cython.Coverage`` plugin requires these
+  to map traced line numbers back to ``.pyx`` source lines.
+
+.. code-block:: shell
+
+   $ pushd arrow/python
+   $ PYARROW_GENERATE_COVERAGE=ON PYARROW_BUNDLE_CYTHON_CPP=ON \
+       pip install --no-build-isolation .
+   $ popd
+
+**2. Install the required packages:**
+
+.. code-block:: shell
+
+   $ pip install coverage Cython
+
+**3. Run the tests under coverage.py:**
+
+The ``python/.coveragerc`` file configures the ``Cython.Coverage`` plugin,
+which maps execution traces back to ``.pyx`` source lines:
+
+.. code-block:: shell
+
+   $ pushd arrow/python
+   $ python -m coverage run --rcfile=.coveragerc -m pytest pyarrow/tests
+   $ python -m coverage report --rcfile=.coveragerc
+   $ python -m coverage html --rcfile=.coveragerc   # optional: produces coverage_html_report/
+   $ popd
+
+.. note::
+
+   The ``Cython.Coverage`` plugin (configured via ``plugins = Cython.Coverage``
+   in ``python/.coveragerc``) locates ``.pyx`` source lines by parsing the
+   generated ``.cpp`` file that corresponds to each ``.so`` extension. It looks
+   for that ``.cpp`` file in the same directory as the ``.so``. This is why
+   ``PYARROW_BUNDLE_CYTHON_CPP=ON`` is required alongside
+   ``PYARROW_GENERATE_COVERAGE=ON``: without the ``.cpp`` files co-located with
+   the ``.so`` files, the plugin silently disables itself and no ``.pyx``
+   coverage is reported.
+
 Type Checking
 =============
 

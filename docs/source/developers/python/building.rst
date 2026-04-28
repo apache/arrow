@@ -553,8 +553,11 @@ PyArrow are:
      - Extra C++ compiler flags
      - ``''``
    * - ``PYARROW_GENERATE_COVERAGE``
-     - Setting ``Xlinetrace`` flag to true for the Cython compiler
-     - ``false``
+     - Build Cython extensions with line-tracing support (``-Xlinetrace=True``,
+       ``CYTHON_TRACE=1``, ``CYTHON_TRACE_NOGIL=1``). Use together with
+       ``PYARROW_BUNDLE_CYTHON_CPP=ON`` to enable ``.pyx`` line coverage via
+       ``coverage.py``. See :ref:`python-cython-coverage`.
+     - ``OFF``
    * - ``PYARROW_BUNDLE_ARROW_CPP``
      - Bundle the Arrow C++ libraries
      - ``0`` (``OFF``)
