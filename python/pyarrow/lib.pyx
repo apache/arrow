@@ -239,6 +239,9 @@ include "io.pxi"
 # IPC / Messaging
 include "ipc.pxi"
 
+# Async IPC
+include "ipc_async.pxi"
+
 # Micro-benchmark routines
 include "benchmark.pxi"
 
