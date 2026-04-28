@@ -923,7 +923,14 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   td <- tempfile()
   dir.create(td)
   cleanup(td)
-  find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
+  find_package <- paste0(
+    "cmake_minimum_required(VERSION 3.10)\n",
+    "find_package(",
+    pkg,
+    " ",
+    version,
+    " REQUIRED)"
+  )
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   env_vars <- env_vars_as_string(env_var_list)
   cmake_cmd <- paste0(
@@ -936,7 +943,7 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
     " ."
   )
-  system(cmake_cmd, ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
+  system(cmake_cmd, ignore.stdout = quietly, ignore.stderr = quietly) == 0
 }
 
 ############### Main logic #############
