@@ -28,7 +28,8 @@ URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl (optional);
+SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl, and
+    libxml2 for Azure (optional);
     cmake >= 3.26 (build-time only, and only for full source build)
 Biarch: true
 Imports:
@@ -44,7 +45,7 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.3.3
+RoxygenNote: 7.3.3.9000
 Config/testthat/edition: 3
 Config/build/bootstrap: TRUE
 Suggests:

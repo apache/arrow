@@ -1420,6 +1420,10 @@ fs___GcsFileSystem__options <- function(fs) {
   .Call(`_arrow_fs___GcsFileSystem__options`, fs)
 }
 
+fs___AzureFileSystem__Make <- function(options) {
+  .Call(`_arrow_fs___AzureFileSystem__Make`, options)
+}
+
 io___Readable__Read <- function(x, nbytes) {
   .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }

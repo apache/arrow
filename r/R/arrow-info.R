@@ -46,6 +46,7 @@ arrow_info <- function() {
       json = arrow_with_json(),
       s3 = arrow_with_s3(),
       gcs = arrow_with_gcs(),
+      azure = arrow_with_azure(),
       utf8proc = "utf8_upper" %in% compute_funcs,
       re2 = "replace_substring_regex" %in% compute_funcs,
       vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
@@ -127,6 +128,15 @@ arrow_with_gcs <- function() {
     return(FALSE)
   })
 }
+
+#' @rdname arrow_info
+#' @export
+arrow_with_azure <- function() {
+  tryCatch(.Call(`_azure_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
 
 #' @rdname arrow_info
 #' @export

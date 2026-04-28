@@ -189,6 +189,31 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `default_metadata`: default metadata to write in new objects.
 #' - `project_id`: the project to use for creating buckets.
 #'
+#' `AzureFileSystem$create()` takes following required argument:
+#'
+#' - `account_name`: Azure Blob Storage account name.
+#'
+#' `AzureFileSystem$create()` takes following optional arguments:
+#'
+#' - `account_key`: Account key of the storage account. Cannot be used with
+#'   `sas_token`.
+#' - `blob_storage_authority`: Hostname of the blob service, defaulting to
+#'   `"blob.core.windows.net"`.
+#' - `blob_storage_scheme`: Either `"http"` or `"https"` (the default).
+#' - `client_id`: The client/application ID for Azure Active Directory
+#'   authentication. If used with `client_secret` and `tenant_id` then it is the
+#'   application ID for a registered Azure AD application. Otherwise, it is the
+#'   client ID of a user-assigned managed identity.
+#' - `client_secret`: Client secret for Azure Active Directory authentication.
+#'   Must be provided with both `client_id` and `tenant_id`.
+#' - `dfs_storage_authority`: Hostname of the data lake (gen 2) service,
+#'   defaulting to `"dfs.core.windows.net"`.
+#' - `dfs_storage_scheme`: Either `"http"` or `"https"` (the default).
+#' - `sas_token`: Shared access signature (SAS) token for the storage account.
+#'   Cannot be used with `account key`.
+#' - `tenant_id`: Tenant ID for Azure Active Directory authentication. Must
+#'   be provided with both `client_id` and `client_secret`.
+#'
 #' @section Methods:
 #'
 #' - `path(x)`: Create a `SubTreeFileSystem` from the current `FileSystem`
@@ -252,6 +277,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' to running any code that interacts with S3. Possible values include 'FATAL'
 #' (the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
 #' 'OFF'.
+#'
+#' On `AzureFileSystem`, passing no arguments for authentication uses the
+#' `AzureDefaultCredential` for authentication, so that several authentication
+#' types are tried until one succeeds.
 #'
 #' @usage NULL
 #' @format NULL
@@ -643,6 +672,95 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
   }
 
   fs___GcsFileSystem__Make(anonymous, options)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @importFrom utils modifyList
+#' @export
+AzureFileSystem <- R6Class(
+  "AzureFileSystem",
+  inherit = FileSystem
+)
+
+AzureFileSystem$create <- function(account_name, ...) {
+  options <- list(...)
+  valid_opts <- c(
+    "account_key",
+    "blob_storage_authority",
+    "blob_storage_scheme",
+    "client_id",
+    "client_secret",
+    "dfs_storage_authority",
+    "dfs_storage_scheme",
+    "sas_token",
+    "tenant_id"
+  )
+
+  invalid_opts <- setdiff(names(options), valid_opts)
+  if (length(invalid_opts)) {
+    stop(
+      "Invalid options for AzureFileSystem: ",
+      oxford_paste(invalid_opts),
+      call. = FALSE
+    )
+  }
+  # The c++ codes assumes that the various combinations of authentication methods
+  # have been validated in this function.
+  if (!is.null(options$tenant_id) || !is.null(options$client_id) || !is.null(options$client_secret)) {
+    if (is.null(options$client_id)) {
+      stop(
+        "`client_id` must be given with `tenant_id` and `client_secret`",
+        call. = FALSE
+      )
+    }
+    if (sum(is.null(options$tenant_id), is.null(options$client_secret)) == 1) {
+      stop(
+        "Provide only `client_id` to authenticate with ",
+        "Managed Identity Credential, or provide `client_id`, `tenant_id`, ",
+        "and`client_secret` to authenticate with Client Secret Credential",
+        call. = FALSE
+      )
+    }
+  } else if (!is.null(options$account_key) && !is.null(options$sas_token)) {
+    stop(
+      "Cannot specify both `account_key` and `sas_token`",
+      call. = FALSE
+    )
+  }
+
+  fs___AzureFileSystem__Make(c(account_name = account_name, options))
+}
+
+#' Connect to an Azure Blob Storage container
+#'
+#' `az_conainer` is a convenience function to create an `AzureFileSystem` object
+#' that provides a file system interface for blob storage containers in an Azure
+#' Storage Account.
+#'
+#' @param container_path string Container name or path.
+#' @param ... Additional connection options, passed to `AzureFileSystem$create()`.
+#'
+#' @return A `SubTreeFileSystem` containing an `AzureFileSystem` and the container's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the container's contents.
+#' @examplesIf FALSE
+#' container_fs <- az_container(
+#'   container_path = "arrow-datasets",
+#'   account_name = azurite_account_name,
+#'   account_key = azurite_account_key,
+#'   blob_storage_authority = azurite_blob_storage_authority,
+#'   blob_storage_scheme = azurite_blob_storage_scheme
+#' )
+#' @export
+az_container <- function(container_path, ...) {
+  assert_that(is.string(container_path))
+  args <- list2(...)
+
+  fs <- exec(AzureFileSystem$create, !!!args)
+
+  SubTreeFileSystem$create(container_path, fs)
 }
 
 #' @usage NULL

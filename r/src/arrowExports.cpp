@@ -3667,6 +3667,21 @@ extern "C" SEXP _arrow_fs___GcsFileSystem__options(SEXP fs_sexp){
 }
 #endif
 
+// filesystem.cpp
+#if defined(ARROW_R_WITH_AZURE)
+std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list options);
+extern "C" SEXP _arrow_fs___AzureFileSystem__Make(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(fs___AzureFileSystem__Make(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___AzureFileSystem__Make(SEXP options_sexp){
+	Rf_error("Cannot call fs___AzureFileSystem__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // io.cpp
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
 extern "C" SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
@@ -5716,6 +5731,15 @@ return Rf_ScalarLogical(
 #endif
 );
 }
+extern "C" SEXP _azure_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_AZURE)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
 extern "C" SEXP _json_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_JSON)
@@ -5732,6 +5756,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_gcs_available", (DL_FUNC)& _gcs_available, 0 },
+		{ "_azure_available", (DL_FUNC)& _azure_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_test_arrow_altrep_set_string_elt", (DL_FUNC) &_arrow_test_arrow_altrep_set_string_elt, 3}, 
@@ -6088,6 +6113,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FinalizeS3", (DL_FUNC) &_arrow_FinalizeS3, 0}, 
 		{ "_arrow_fs___GcsFileSystem__Make", (DL_FUNC) &_arrow_fs___GcsFileSystem__Make, 2}, 
 		{ "_arrow_fs___GcsFileSystem__options", (DL_FUNC) &_arrow_fs___GcsFileSystem__options, 1}, 
+		{ "_arrow_fs___AzureFileSystem__Make", (DL_FUNC) &_arrow_fs___AzureFileSystem__Make, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 
