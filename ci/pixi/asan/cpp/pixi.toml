@@ -35,7 +35,6 @@ UBSAN_OPTIONS = "print_stacktrace=1"
 [feature.test.dependencies]
 binutils = "*"
 cmake = "*"
-python = "*"
 
 [feature.test.tasks]
 # This path mangling feels extremely finicky. Investigate alternatives to make this more robust.

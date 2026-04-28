@@ -140,7 +140,8 @@ x-hierarchy:
   - fedora-r-clang
   - pixi-cpp:
     - pixi-cpp-sanitizer
-  - pixi-python
+  - pixi-python:
+    - pixi-python-sanitizer
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -205,6 +206,8 @@ volumes:
     name: ${ARCH}-pixi-cpp-sanitizer-build
   pixi-python-build:
     name: ${ARCH}-pixi-python-build
+  pixi-python-sanitizer-build:
+    name: ${ARCH}-pixi-python-sanitizer-build
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
@@ -1220,6 +1223,31 @@ services:
     command: >
       /bin/sh -c "pixi build --path /arrow/ci/pixi/default/python &&
         pixi run --environment test --manifest-path /arrow/ci/pixi/default/python test"
+
+  pixi-python-sanitizer:
+    # PyArrow build with pixi against sanitizer-instrumented CPython, NumPy
+    # and Arrow C++. Builds CPython and NumPy from source via pixi-build.
+    #
+    # Usage:
+    #   docker compose build pixi-python-sanitizer
+    #   docker compose run --rm pixi-python-sanitizer
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    cap_add:
+      # For LeakSanitizer
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-python-sanitizer-build:/arrow/ci/pixi/asan/python/.pixi:delegated
+    command: >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/asan/python &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/asan/python test"
 
   ############################ Python wheels ##################################
 

@@ -24,6 +24,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y -q \
     curl \
     gdb \
+    git \
     libc6-dbg \
     tzdata \
     wget && \
