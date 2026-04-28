@@ -366,7 +366,8 @@ tasks:
 
 {% for image in ["pixi-cpp",
                  "pixi-cpp-sanitizer",
-                 "pixi-python"] %}
+                 "pixi-python",
+                 "pixi-python-sanitizer"] %}
   test-{{ image }}:
     ci: github
     template: docker-tests/github.linux.yml

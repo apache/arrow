@@ -40,6 +40,12 @@ hypothesis = "*"
 pyarrow = { path = "." }
 pytest = "*"
 pytest-timeout = "*"
+python.git = "https://github.com/python/cpython"
+python.subdirectory = "Tools/pixi-packages/asan"
+python.rev = "15b216f30d0445469ec31bc7509fcc55a216ef7c"
+numpy.git = "https://github.com/numpy/numpy"
+numpy.subdirectory = "pixi-packages/asan"
+numpy.rev = "0419105da9cd0a15a4e02bc22019c2b65272c68a"
 
 [feature.test.tasks]
 test = "pytest -r s --pyargs pyarrow --timeout=60"
