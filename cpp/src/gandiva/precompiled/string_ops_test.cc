@@ -2413,6 +2413,13 @@ TEST(TestStringOps, TestConcatWs) {
 
   out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
                                            word1_len, true, word2, word2_len, true, word3,
+                                           word3_len, true, word4, -25, true, word5,
+                                           word5_len, true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_result, false);
+
+  out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
+                                           word1_len, true, word2, word2_len, true, word3,
                                            word3_len, true, word4, word4_len, true, word5,
                                            word5_len, true, &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey&&hello&&wow&&awesome&&super");
