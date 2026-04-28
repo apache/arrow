@@ -248,7 +248,7 @@ if needs_lz4
 endif
 
 if needs_snappy
-    arrow_util_srcs += ['util/compression_snappy.cc']
+    arrow_util_srcs += ['util/compression_snappy.cc', 'util/crc32c.cc']
     arrow_util_deps += dependency('snappy', 'Snappy')
 endif
 
