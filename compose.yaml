@@ -199,6 +199,8 @@ volumes:
     name: maven-cache
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
+  python-wheel-manylinux-2-39-ccache:
+    name: python-wheel-manylinux-2-39-ccache
   python-wheel-musllinux-1-2-ccache:
     name: python-wheel-musllinux-1-2-ccache
   ubuntu-ccache:
@@ -1183,6 +1185,31 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux_2_39_riscv64?tab=tags
+  python-wheel-manylinux-2-39:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-39-vcpkg-${VCPKG}
+    build:
+      args:
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        base: quay.io/pypa/manylinux_2_39_riscv64:2026.03.01-1
+        manylinux: 2_39
+        python: ${PYTHON}
+        python_abi_tag: ${PYTHON_ABI_TAG}
+        vcpkg: ${VCPKG}
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-39-vcpkg-${VCPKG}
+      secrets: *vcpkg-build-secrets
+    environment:
+      <<: [*common, *ccache]
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-39-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_xlinux_build.sh
 
   # See available versions at:

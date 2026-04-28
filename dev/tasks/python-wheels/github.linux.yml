@@ -27,6 +27,8 @@ jobs:
     name: "Build wheel for {{ linux_wheel_kind }} {{ linux_wheel_version }}"
     {% if arch == "amd64" %}
     runs-on: ubuntu-latest
+    {% elif arch == "riscv64" %}
+    runs-on: ubuntu-24.04-riscv
     {% else %}
     runs-on: ubuntu-24.04-arm
     {% endif %}
@@ -37,6 +39,8 @@ jobs:
       # archery uses these environment variables
       {% if arch == "amd64" %}
       ARCH: amd64
+      {% elif arch == "riscv64" %}
+      ARCH: riscv64
       {% else %}
       ARCH: arm64v8
       {% endif %}
