@@ -179,8 +179,19 @@ s3_finalizer <- new.env(parent = emptyenv())
 
 configure_tzdb <- function() {
   if (requireNamespace("tzdb", quietly = TRUE)) {
-    tzdb::tzdb_initialize()
-    set_timezone_database(tzdb::tzdb_path("text"))
+    tryCatch(
+      {
+        tzdb::tzdb_initialize()
+        set_timezone_database(tzdb::tzdb_path("text"))
+      },
+      error = function(e) {
+        packageStartupMessage(
+          "The tzdb package was available but failed to initialize: ",
+          e,
+          "Timezones will not be available to Arrow compute functions."
+        )
+      }
+    )
   } else {
     packageStartupMessage(
       "The tzdb package is not installed. ",
