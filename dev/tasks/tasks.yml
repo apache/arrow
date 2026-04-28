@@ -373,6 +373,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       image: {{ image }}
+    {% if image == "pixi-python-sanitizer" %}
+      timeout: 120
+    {% endif %}
 {% endfor %}
 
   test-ubuntu-22.04-cpp:

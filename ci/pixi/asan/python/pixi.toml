@@ -66,11 +66,15 @@ version = "*"
 [package.build.config]
 noarch = false
 compilers = ["c", "cxx"]
+extra-args = [
+    "-Ccmake.build-type=Debug",
+    "-Ccmake.define.ARROW_USE_ASAN=ON",
+    "-Ccmake.define.ARROW_USE_UBSAN=ON",
+]
 env = {
     PYARROW_BUNDLE_ARROW_CPP = "0",
     CMAKE_GENERATOR = "Ninja",
     ARROW_HOME = "$PREFIX",
-    PYARROW_CMAKE_OPTIONS = "-DARROW_USE_ASAN=ON -DARROW_USE_UBSAN=ON -DCMAKE_BUILD_TYPE=Debug",
     ASAN_OPTIONS = "detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1:use_sigaltstack=0"
 }
 
