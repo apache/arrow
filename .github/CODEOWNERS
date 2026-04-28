@@ -25,19 +25,36 @@
 # Arrow Format
 # /format/
 
-## Components
+# Components
+
+## C Glib
 /c_glib/ @kou
-# /cpp/
+
+## C++
 /cpp/src/arrow/acero @westonpace
 /cpp/src/arrow/adapters/orc @wgtmac
 /cpp/src/arrow/engine @westonpace
 /cpp/src/arrow/flight/ @lidavidm
 /cpp/src/parquet @wgtmac
+
+## MATLAB
 /matlab/ @kevingurney @kou @sgilmore10
+/.github/workflows/matlab.yml @kevingurney @sgilmore10
+
+## Python
 /python/ @AlenkaF @raulcd @rok
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
+
+## R
 /r/ @jonkeane @thisisnic
+/r/configure* @assignUser
+/r/Makefile @assignUser
+/r/PACKAGING.md @assignUser
+/r/tools/ @assignUser
+/r/.Rbuildignore @assignUser
+
+## Ruby
 /ruby/ @kou
 
 # Docs
@@ -59,10 +76,3 @@
 .dockerignore @raulcd
 .env @assignUser @jonkeane @kou @raulcd
 compose.yaml @assignUser @jonkeane @kou @raulcd
-
-# R specific packaging tooling
-/r/configure* @assignUser
-/r/Makefile @assignUser
-/r/PACKAGING.md @assignUser
-/r/tools/ @assignUser
-/r/.Rbuildignore @assignUser
