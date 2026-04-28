@@ -31,6 +31,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
+#include "arrow/util/windows_compatibility.h"
 
 #include "arrow/util/tracing_internal.h"
 
@@ -630,9 +631,67 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   state_->finished_workers_.clear();
 }
 
+// MinGW's __emutls implementation for C++ thread_local has known race conditions
+// during thread creation. When a new worker thread is spawned and immediately
+// writes to a thread_local variable (here: current_thread_pool_), __emutls may
+// not have finished initializing TLS for that thread, causing it to dereference
+// a stale/invalid pointer and segfault. This is a known upstream GCC/MinGW bug:
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78605
+// The crash surfaces specifically in arrow-json-test (ReaderTest.MultipleChunksParallel)
+// because that test creates a fresh ThreadPool and immediately dispatches work,
+// hitting the narrow startup race before __emutls can initialize. Other tests
+// that rely on the already-warmed global thread pool do not trigger this window.
+// Use native Win32 TLS (TlsAlloc/TlsGetValue/TlsSetValue) to bypass __emutls.
+// See also: https://github.com/apache/arrow/issues/49272
+#  ifdef __MINGW32__
+
+namespace {
+DWORD GetPoolTlsIndex() {
+  static DWORD index = [] {
+    DWORD i = TlsAlloc();
+    if (i == TLS_OUT_OF_INDEXES) {
+      ARROW_LOG(FATAL) << "TlsAlloc failed for thread pool TLS: "
+                       << WinErrorMessage(GetLastError());
+    }
+    return i;
+  }();
+  return index;
+}
+}  // namespace
+
+static ThreadPool* GetCurrentThreadPool() {
+  // Preserve the caller's last-error value while also detecting TLS failures.
+  DWORD original_error = GetLastError();
+  // Ensure a successful TlsGetValue() leaves GetLastError() == 0.
+  SetLastError(0);
+  auto* pool = static_cast<ThreadPool*>(TlsGetValue(GetPoolTlsIndex()));
+  DWORD tls_error = GetLastError();
+  if (tls_error != 0) {
+    // Restore the original error before logging a fatal TLS failure.
+    SetLastError(original_error);
+    ARROW_LOG(FATAL) << "TlsGetValue failed for thread pool TLS: "
+                     << WinErrorMessage(tls_error);
+  }
+  // No TLS error: restore the caller's last-error value and return the pool.
+  SetLastError(original_error);
+  return pool;
+}
+
+static void SetCurrentThreadPool(ThreadPool* pool) {
+  BOOL ok = TlsSetValue(GetPoolTlsIndex(), pool);
+  if (!ok) {
+    ARROW_LOG(FATAL) << "TlsSetValue failed for thread pool TLS: "
+                     << WinErrorMessage(GetLastError());
+  }
+}
+#  else
 thread_local ThreadPool* current_thread_pool_ = nullptr;
 
-bool ThreadPool::OwnsThisThread() { return current_thread_pool_ == this; }
+static ThreadPool* GetCurrentThreadPool() { return current_thread_pool_; }
+static void SetCurrentThreadPool(ThreadPool* pool) { current_thread_pool_ = pool; }
+#  endif
+
+bool ThreadPool::OwnsThisThread() { return GetCurrentThreadPool() == this; }
 
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
@@ -641,7 +700,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
     *it = std::thread([this, state, it] {
-      current_thread_pool_ = this;
+      SetCurrentThreadPool(this);
       WorkerLoop(state, it);
     });
   }
