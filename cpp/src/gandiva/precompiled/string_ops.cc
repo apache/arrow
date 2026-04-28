@@ -1925,9 +1925,19 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
     return "";
   }
 
-  int32_t alloc_length = 0;
+  int32_t double_len = 0;
+  // Test multiply overflow for in_len
   if (ARROW_PREDICT_FALSE(
-          arrow::internal::AddWithOverflow(2, (2 * in_len), &alloc_length))) {
+          arrow::internal::MultiplyWithOverflow(2, in_len, &double_len))) {
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t alloc_length = 0;
+  // Test add overflow for in_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::AddWithOverflow(2, double_len, &alloc_length))) {
     gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
     *out_len = 0;
     return "";
@@ -2464,6 +2474,10 @@ static inline bool safe_accumulate_word(SafeLengthState& state, int32_t word_len
                                         bool word_validity) {
   if (not word_validity) return true;
 
+  if (word_len < 0) {
+    return false;
+  }
+
   int32_t temp = 0;
   if (ARROW_PREDICT_FALSE(
           arrow::internal::AddWithOverflow(state.total_len, word_len, &temp))) {
@@ -2498,7 +2512,7 @@ static inline bool safe_add_separators(SafeLengthState* state, int32_t separator
   return true;
 }
 
-// Helper to handle overflow failure (sets output parameters and returns nullptr)
+// Helper to handle overflow failure (sets output parameters and returns empty string)
 static inline const char* handle_overflow_failure(bool* out_valid, int32_t* out_len) {
   *out_len = 0;
   *out_valid = false;
@@ -2529,31 +2543,33 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
     *out_valid = false;
     return "";
   }
+  if (separator_len < 0) {
+    *out_valid = false;
+    return "";
+  }
 
   SafeLengthState state;
 
   // Accumulate all word lengths safely
   for (const WordArg& w : words) {
-    safe_accumulate_word(state, w.len, w.valid);
-    if (state.overflow) {
-      *out_valid = false;
+    if (not safe_accumulate_word(state, w.len, w.valid)) {
       *out_len = 0;
+      *out_valid = false;
       return "";
+    }
+    if (state.overflow) {
+      return handle_overflow_failure(out_valid, out_len);
     }
   }
 
   // Add separator lengths
   if (not safe_add_separators(&state, separator_len)) {
-    *out_valid = false;
-    *out_len = 0;
-    return "";
+    return handle_overflow_failure(out_valid, out_len);
   }
 
   // Empty result
   if (state.total_len == 0) {
-    *out_valid = true;
-    *out_len = 0;
-    return "";
+    return handle_empty_result(out_valid, out_len);
   }
 
   // Allocate memory
@@ -2561,9 +2577,7 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
       reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_valid = false;
-    *out_len = 0;
-    return "";
+    return handle_overflow_failure(out_valid, out_len);
   }
 
   // Concatenate all words
@@ -2771,11 +2785,19 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
     return "";
   }
 
-  int32_t alloc_length = 0;
-
-  // Check overflow for text_len
+  int32_t double_len = 0;
+  // Check multiply overflow for text_len
   if (ARROW_PREDICT_FALSE(
-          arrow::internal::AddWithOverflow(1, (2 * text_len), &alloc_length))) {
+          arrow::internal::MultiplyWithOverflow(2, text_len, &double_len))) {
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t alloc_length = 0;
+  // Check add overflow for text_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::AddWithOverflow(1, double_len, &alloc_length))) {
     gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
     *out_len = 0;
     return "";
