@@ -41,9 +41,15 @@ enum class DispatchLevel : int {
   MAX
 };
 
-/// A pair of function dispatch level and
+/// A dispatch target pairing a dispatch level with a function pointer.
 template <typename Func>
-using DynamicDispatchTarget = std::pair<DispatchLevel, Func>;
+struct DynamicDispatchTarget {
+  DispatchLevel level = DispatchLevel::NONE;
+  Func func = {};
+};
+
+template <typename Func>
+DynamicDispatchTarget(DispatchLevel, Func) -> DynamicDispatchTarget<Func>;
 
 namespace detail {
 
@@ -90,7 +96,7 @@ constexpr bool DispatchIsStatic(DispatchLevel level) {
 template <typename Func>
 constexpr bool DispatchFullyStatic(const DynamicDispatchTargets<Func> auto& targets) {
   return std::ranges::all_of(targets, [](const DynamicDispatchTarget<Func>& trgt) {
-    return DispatchIsStatic(trgt.first);
+    return DispatchIsStatic(trgt.level);
   });
 }
 
@@ -99,7 +105,7 @@ constexpr bool DispatchFullyStatic(const DynamicDispatchTargets<Func> auto& targ
 template <typename Func>
 constexpr bool DispatchHasStatic(const DynamicDispatchTargets<Func> auto& targets) {
   return std::ranges::any_of(targets, [](const DynamicDispatchTarget<Func>& trgt) {
-    return DispatchIsStatic(trgt.first);
+    return DispatchIsStatic(trgt.level);
   });
 }
 
@@ -109,7 +115,7 @@ constexpr DynamicDispatchTarget<Func> BestDispatchTarget(
     const DynamicDispatchTargets<Func> auto& targets, Filter filter) {
   DynamicDispatchTarget<Func> best = {};
   for (const auto& trgt : targets) {
-    if (trgt.first >= best.first && filter(trgt)) {
+    if (trgt.level >= best.level && filter(trgt)) {
       best = trgt;
     }
   }
@@ -202,7 +208,7 @@ concept DynamicDispatchFullyStaticSpec =
     struct MyDynamicFunction {
       using FunctionType = decltype(&my_function_default);
 
-      static std::array<std::pair<DispatchLevel, FunctionType>, N> implementations() {
+      static std::array<DynamicDispatchTarget<FunctionType>, N> implementations() {
         return {
           { DispatchLevel::NONE, my_function_default }
     #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -269,8 +275,8 @@ class DynamicDispatch {
 
   DynamicDispatch() {
     const auto best = BestDispatchTarget<FunctionType>(
-        kTargets, [this](const Target& trgt) { return IsSupported(trgt.first); });
-    func = best.second;
+        kTargets, [this](const Target& trgt) { return IsSupported(trgt.level); });
+    func = best.func;
   }
 
   template <typename... Args>
@@ -315,7 +321,7 @@ class DynamicDispatch<DynamicFunction> {
   using FunctionType = typename DynamicFunction::FunctionType;
   using Target = DynamicDispatchTarget<FunctionType>;
   static constexpr auto kTargets = DynamicFunction::implementations();
-  static constexpr FunctionType kBest = BestDispatchTarget<FunctionType>(kTargets).second;
+  static constexpr FunctionType kBest = BestDispatchTarget<FunctionType>(kTargets).func;
 
   template <typename... Args>
   auto operator()(Args&&... args) const -> decltype(auto) {
