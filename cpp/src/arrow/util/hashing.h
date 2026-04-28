@@ -286,15 +286,16 @@ class HashTable {
   uint64_t size() const { return size_; }
 
   // Visit all non-empty entries in the table
-  // The visit_func should have signature void(const Entry*)
+  // The visit_func should have signature Status(const Entry*)
   template <typename VisitFunc>
-  void VisitEntries(VisitFunc&& visit_func) const {
+  Status VisitEntries(VisitFunc&& visit_func) const {
     for (uint64_t i = 0; i < capacity_; i++) {
       const auto& entry = entries_[i];
       if (entry) {
-        visit_func(&entry);
+        RETURN_NOT_OK(visit_func(&entry));
       }
     }
+    return Status::OK();
   }
 
  protected:
@@ -494,12 +495,13 @@ class ScalarMemoTable : public MemoTable {
     // So that both uint16_t and Float16 are allowed
     static_assert(sizeof(Value) == sizeof(Scalar));
     Scalar* out = reinterpret_cast<Scalar*>(out_data);
-    hash_table_.VisitEntries([=](const HashTableEntry* entry) {
+    ARROW_DCHECK_OK(hash_table_.VisitEntries([=](const HashTableEntry* entry) {
       int32_t index = entry->payload.memo_index - start;
       if (index >= 0) {
         out[index] = entry->payload.value;
       }
-    });
+      return Status::OK();
+    }));
     // Zero-initialize the null entry
     if (null_index_ != kKeyNotFound) {
       int32_t index = null_index_ - start;
@@ -534,12 +536,10 @@ class ScalarMemoTable : public MemoTable {
   // Merge entries from `other_table` into `this->hash_table_`.
   Status MergeTable(const ScalarMemoTable& other_table) {
     const HashTableType& other_hashtable = other_table.hash_table_;
-
-    other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
+    RETURN_NOT_OK(other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
       int32_t unused;
-      ARROW_DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
-    });
-    // TODO: ARROW-17074 - implement proper error handling
+      return this->GetOrInsert(other_entry->payload.value, &unused);
+    }));
     return Status::OK();
   }
 };
@@ -899,11 +899,15 @@ class BinaryMemoTable : public MemoTable {
 
  public:
   Status MergeTable(const BinaryMemoTable& other_table) {
-    other_table.VisitValues(0, [this](std::string_view other_value) {
+    Status status = Status::OK();
+    other_table.VisitValues(0, [this, &status](std::string_view other_value) {
+      if (ARROW_PREDICT_FALSE(!status.ok())) {
+        return;
+      }
       int32_t unused;
-      ARROW_DCHECK_OK(this->GetOrInsert(other_value, &unused));
+      status = this->GetOrInsert(other_value, &unused);
     });
-    return Status::OK();
+    return status;
   }
 };
 
