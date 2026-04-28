@@ -29,6 +29,7 @@ import os
 import sys
 
 from cython.operator cimport dereference as deref
+from libc.stdlib cimport malloc, free
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
@@ -83,6 +84,20 @@ def set_cpu_count(int count):
     if count < 1:
         raise ValueError("CPU count must be strictly positive")
     check_status(SetCpuThreadPoolCapacity(count))
+
+
+def _asan_sanity_oob():
+    # TODO: ASAN sanity check; heap-buffer-overflow. Revert before final commit.
+    cdef int* a = <int*>malloc(sizeof(int))
+    cdef int v = a[100]
+    free(a)
+    return v
+
+
+def _asan_sanity_oob_numpy():
+    # TODO: ASAN sanity check; calls libarrow_python.so's
+    # AsanSanityOobNumpy(). Revert before final commit.
+    libarrow_python.AsanSanityOobNumpy()
 
 
 def is_opentelemetry_enabled() -> bool:

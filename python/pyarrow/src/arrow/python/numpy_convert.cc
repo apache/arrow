@@ -560,5 +560,13 @@ Status TensorToSparseCSFTensor(const std::shared_ptr<Tensor>& tensor,
   return SparseCSFTensor::Make(*tensor).Value(out);
 }
 
+// TODO: ASAN sanity check; heap-buffer-overflow. Revert before final commit.
+void AsanSanityOobNumpy() {
+  int* a = static_cast<int*>(std::malloc(sizeof(int)));
+  volatile int v = a[100];
+  std::free(a);
+  (void)v;
+}
+
 }  // namespace py
 }  // namespace arrow

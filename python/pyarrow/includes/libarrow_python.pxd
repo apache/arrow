@@ -35,6 +35,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
     CResult[shared_ptr[CDataType]] InferArrowType(
         object obj, object mask, c_bool pandas_null_sentinels)
+    # TODO: ASAN sanity check; heap-buffer-overflow. Revert before final commit.
+    void AsanSanityOobNumpy()
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":

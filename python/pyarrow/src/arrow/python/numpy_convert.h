@@ -118,5 +118,9 @@ ARROW_PYTHON_EXPORT Status
 TensorToSparseCSFTensor(const std::shared_ptr<Tensor>& tensor,
                         std::shared_ptr<SparseCSFTensor>* csparse_tensor);
 
+// TODO: ASAN sanity check; heap-buffer-overflow in libarrow_python's
+// numpy conversion module. Revert before final commit.
+ARROW_PYTHON_EXPORT void AsanSanityOobNumpy();
+
 }  // namespace py
 }  // namespace arrow
