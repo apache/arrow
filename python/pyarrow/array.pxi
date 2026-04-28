@@ -356,8 +356,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values.codes, mask, index_type, memory_pool)
             try:
                 dictionary = array(
-                    values.categories.values, type=value_type,
-                    memory_pool=memory_pool)
+                    values.categories, type=value_type,
+                    from_pandas=True, memory_pool=memory_pool)
             except TypeError:
                 # TODO when removing the deprecation warning, this whole
                 # try/except can be removed (to bubble the TypeError of
@@ -371,7 +371,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                         "TypeError",
                         FutureWarning, stacklevel=2)
                     dictionary = array(
-                        values.categories.values, memory_pool=memory_pool)
+                        values.categories, from_pandas=True,
+                        memory_pool=memory_pool)
                 else:
                     raise
 
