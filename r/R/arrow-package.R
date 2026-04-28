@@ -184,7 +184,9 @@ configure_tzdb <- function() {
   } else {
     packageStartupMessage(
       "The tzdb package is not installed. ",
-      "Timezones will not be available to Arrow compute functions."
+      "Timezones will not be available to Arrow compute functions. ",
+      "If you get errors when using Arrow on datetimes, try running ",
+      "`install.packages('tzdb')` and trying again."
     )
   }
 }
