@@ -77,6 +77,8 @@ struct ARROW_EXPORT ConvertOptions {
   /// Optional per-column types (disabling type inference on those columns)
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
   /// Default type to use for columns not in `column_types`
+  ///
+  /// If set, this disables type inference on all columns.
   std::shared_ptr<DataType> default_column_type;
   /// Recognized spellings for null values
   std::vector<std::string> null_values;
