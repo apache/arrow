@@ -97,8 +97,6 @@ if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables
 fi
 
-ctest_options+=(-V -R bit-utility)
-
 pushd "${build_dir}"
 
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
@@ -115,6 +113,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
     "$@"
 else
   ctest \
+    --label-regex unittest \
     --output-on-failure \
     --parallel "${n_jobs}" \
     --repeat until-pass:3 \
