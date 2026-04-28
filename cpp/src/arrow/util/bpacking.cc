@@ -30,7 +30,7 @@ template <typename Uint>
 struct UnpackDynamicFunction {
   using FunctionType = decltype(&bpacking::unpack_scalar<Uint>);
 
-  static constexpr auto implementations() {
+  static constexpr auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&bpacking::unpack_scalar<Uint>)    //
         ARROW_DISPATCH_TARGET_NEON(&bpacking::unpack_neon<Uint>)      //

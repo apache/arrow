@@ -34,7 +34,7 @@ template <int kNumStreams>
 struct ByteStreamSplitDecodeDynamic {
   using FunctionType = decltype(&ByteStreamSplitDecodeScalar<kNumStreams>);
 
-  constexpr static auto implementations() {
+  constexpr static auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&ByteStreamSplitDecodeScalar<kNumStreams>)  //
         ARROW_DISPATCH_TARGET_NEON(
@@ -69,7 +69,7 @@ template <int kNumStreams>
 struct ByteStreamSplitEncodeDynamic {
   using FunctionType = decltype(&ByteStreamSplitEncodeScalar<kNumStreams>);
 
-  constexpr static auto implementations() {
+  constexpr static auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&ByteStreamSplitEncodeScalar<kNumStreams>)  //
         ARROW_DISPATCH_TARGET_NEON(                                            //

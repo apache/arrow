@@ -42,7 +42,7 @@ using ::arrow::internal::DynamicDispatchTarget;
 struct GreaterThanDynamicFunction {
   using FunctionType = decltype(&GreaterThanBitmap);
 
-  static constexpr auto implementations() {
+  static constexpr auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&standard::GreaterThanBitmapImpl)  //
         ARROW_DISPATCH_TARGET_AVX2(&GreaterThanBitmapAvx2)            //
@@ -53,7 +53,7 @@ struct GreaterThanDynamicFunction {
 struct MinMaxDynamicFunction {
   using FunctionType = decltype(&FindMinMax);
 
-  static constexpr auto implementations() {
+  static constexpr auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&standard::FindMinMaxImpl)  //
         ARROW_DISPATCH_TARGET_AVX2(&FindMinMaxAvx2)            //

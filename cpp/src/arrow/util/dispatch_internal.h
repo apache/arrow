@@ -213,9 +213,9 @@ template <typename T>
 concept DynamicDispatchSpec = requires {
   typename T::FunctionType;
 
-  { T::implementations() } -> DynamicDispatchTargets<typename T::FunctionType>;
-  requires T::implementations().size() > 0;
-  requires DispatchHasStatic<typename T::FunctionType>(T::implementations());
+  { T::targets() } -> DynamicDispatchTargets<typename T::FunctionType>;
+  requires T::targets().size() > 0;
+  requires DispatchHasStatic<typename T::FunctionType>(T::targets());
 };
 
 /// Refinement of DynamicDispatchSpec where all targets are statically available.
@@ -224,8 +224,7 @@ concept DynamicDispatchSpec = requires {
 /// implementation.
 template <typename T>
 concept DynamicDispatchFullyStaticSpec =
-    DynamicDispatchSpec<T> &&
-    DispatchFullyStatic<typename T::FunctionType>(T::implementations());
+    DynamicDispatchSpec<T> && DispatchFullyStatic<typename T::FunctionType>(T::targets());
 
 /*
   A facility for dynamic dispatch according to available DispatchLevel.
@@ -238,7 +237,7 @@ concept DynamicDispatchFullyStaticSpec =
     struct MyDynamicFunction {
       using FunctionType = decltype(&my_function_default);
 
-      static std::array<DynamicDispatchTarget<FunctionType>, N> implementations() {
+      static std::array<DynamicDispatchTarget<FunctionType>, N> targets() {
         return {
           { DispatchLevel::NONE, my_function_default }
     #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -273,7 +272,7 @@ concept DynamicDispatchFullyStaticSpec =
 /// struct MyFunctionDyn {
 ///   using FunctionType = decltype(&MyFuncScalar);
 ///
-///   static constexpr auto implementations() {
+///   static constexpr auto targets() {
 ///     return std::array{
 ///         ARROW_DISPATCH_TARGET_NONE(&MyFuncScalar)    //
 ///         ARROW_DISPATCH_TARGET_NEON(&MyFuncNeon)      //
@@ -301,7 +300,7 @@ class DynamicDispatch {
  public:
   using FunctionType = typename DynamicFunction::FunctionType;
   using Target = DynamicDispatchTarget<FunctionType>;
-  static constexpr auto kTargets = DynamicFunction::implementations();
+  static constexpr auto kTargets = DynamicFunction::targets();
 
   DynamicDispatch() {
     const auto best = BestDispatchTarget<FunctionType>(
@@ -350,7 +349,7 @@ class DynamicDispatch<DynamicFunction> {
  public:
   using FunctionType = typename DynamicFunction::FunctionType;
   using Target = DynamicDispatchTarget<FunctionType>;
-  static constexpr auto kTargets = DynamicFunction::implementations();
+  static constexpr auto kTargets = DynamicFunction::targets();
   static constexpr FunctionType kBest = BestDispatchTarget<FunctionType>(kTargets).func;
 
   template <typename... Args>
