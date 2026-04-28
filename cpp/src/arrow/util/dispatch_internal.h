@@ -175,6 +175,36 @@ constexpr DynamicDispatchTarget<Func> BestDispatchTarget(
 #  define ARROW_DISPATCH_TARGET_NEON(func)
 #endif
 
+#if defined(ARROW_HAVE_SVE128) || defined(ARROW_HAVE_RUNTIME_SVE128)
+#  define ARROW_DISPATCH_TARGET_SVE128(func)      \
+    ::arrow::internal::DynamicDispatchTarget{     \
+        ::arrow::internal::DispatchLevel::SVE128, \
+        (func),                                   \
+    },
+#else
+#  define ARROW_DISPATCH_TARGET_SVE128(func)
+#endif
+
+#if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
+#  define ARROW_DISPATCH_TARGET_SVE256(func)      \
+    ::arrow::internal::DynamicDispatchTarget{     \
+        ::arrow::internal::DispatchLevel::SVE256, \
+        (func),                                   \
+    },
+#else
+#  define ARROW_DISPATCH_TARGET_SVE256(func)
+#endif
+
+#if defined(ARROW_HAVE_SVE512) || defined(ARROW_HAVE_RUNTIME_SVE512)
+#  define ARROW_DISPATCH_TARGET_SVE512(func)      \
+    ::arrow::internal::DynamicDispatchTarget{     \
+        ::arrow::internal::DispatchLevel::SVE512, \
+        (func),                                   \
+    },
+#else
+#  define ARROW_DISPATCH_TARGET_SVE512(func)
+#endif
+
 /// A concept to specify how dynamic dispatch should be handled.
 ///
 /// A requirement is that the list of available targets must be compile time

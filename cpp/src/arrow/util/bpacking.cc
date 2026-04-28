@@ -29,34 +29,16 @@ namespace {
 template <typename Uint>
 struct UnpackDynamicFunction {
   using FunctionType = decltype(&bpacking::unpack_scalar<Uint>);
-  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static constexpr auto implementations() {
     return std::array{
-    // x86 implementations
-#if defined(ARROW_HAVE_SSE4_2)
-        Implementation{DispatchLevel::NONE, &bpacking::unpack_sse4_2<Uint>},
-#  if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, &bpacking::unpack_avx2<Uint>},
-#  endif
-#  if defined(ARROW_HAVE_RUNTIME_AVX512)
-        Implementation{DispatchLevel::AVX512, &bpacking::unpack_avx512<Uint>},
-#  endif
-
-    // ARM implementations
-#elif defined(ARROW_HAVE_NEON)
-        Implementation{DispatchLevel::NONE, &bpacking::unpack_neon<Uint>},
-#  if defined(ARROW_HAVE_RUNTIME_SVE128)
-        Implementation{DispatchLevel::SVE128, &bpacking::unpack_sve128<Uint>},
-#  endif
-#  if defined(ARROW_HAVE_RUNTIME_SVE256)
-        Implementation{DispatchLevel::SVE256, &bpacking::unpack_sve256<Uint>},
-#  endif
-
-    // Other implementations
-#else
-        Implementation{DispatchLevel::NONE, &bpacking::unpack_scalar<Uint>},
-#endif
+        ARROW_DISPATCH_TARGET_NONE(&bpacking::unpack_scalar<Uint>)    //
+        ARROW_DISPATCH_TARGET_NEON(&bpacking::unpack_neon<Uint>)      //
+        ARROW_DISPATCH_TARGET_SVE128(&bpacking::unpack_sve128<Uint>)  //
+        ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_sve256<Uint>)  //
+        ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_sse4_2<Uint>)  //
+        ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_avx2<Uint>)      //
+        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_avx512<Uint>)  //
     };
   }
 };
@@ -65,7 +47,7 @@ struct UnpackDynamicFunction {
 
 template <typename Uint>
 void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-  static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
+  static const DynamicDispatch<UnpackDynamicFunction<Uint>> dispatch;
   return dispatch(in, out, opts);
 }
 
