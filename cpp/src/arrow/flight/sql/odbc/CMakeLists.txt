@@ -62,23 +62,34 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def install/versioninfo.rc)
 endif()
 
-# On Windows, dynmaic build for ODBC is supported.
-# On unix systems, static build for ODBC is supported, all libraries are linked statically on unix.
-set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES "")
+# Initialize install interface libs (only set in Windows static build)
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
+
 if(WIN32)
-  set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES arrow_flight_sql)
-  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared arrow_odbc_spi_impl)
-  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
-       ArrowFlight::arrow_flight_sql_shared)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
-       ArrowFlight::arrow_flight_sql_static)
+  if(ARROW_BUILD_STATIC)
+    # Static Arrow deps on Windows — self-contained ODBC DLL
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static
+                                               arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+  else()
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
+                                               arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_shared)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+  endif()
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
 else()
-  # Unix
+  # Unix/macOS: driver dynamically links arrow_flight_sql so the driver and test
+  # binary share the same grpc/arrow_flight runtime.
   set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
   set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
 endif()
@@ -94,8 +105,6 @@ add_arrow_lib(arrow_flight_sql_odbc
               ${ARROW_FLIGHT_SQL_ODBC_SRCS}
               DEFINITIONS
               UNICODE
-              DEPENDENCIES
-              ${ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
@@ -108,6 +117,16 @@ add_arrow_lib(arrow_flight_sql_odbc
               ${ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_PRIVATE_LINK_LIBS
               ${ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS})
+
+# NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
+# ../../CMakeLists.txt.
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
+    target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
+  endforeach()
+endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)
@@ -135,22 +154,34 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   # GH-47876 TODO: set up `arrow_flight_sql_odbc` component for macOS Installer
   # GH-47877 TODO: set up `arrow_flight_sql_odbc` component for Linux Installer
   if(WIN32)
-    # Install ODBC and its Arrow dependencies
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
             DESTINATION bin
             COMPONENT arrow_flight_sql_odbc)
-    install(TARGETS arrow_shared
-                    arrow_compute_shared
-                    arrow_flight_shared
-                    arrow_flight_sql_shared
-                    arrow_flight_sql_odbc_shared
-                    RUNTIME_DEPENDENCIES
-                    PRE_EXCLUDE_REGEXES
-                    "api-ms-.*"
-                    "ext-ms-.*"
-                    POST_EXCLUDE_REGEXES
-                    ".*system32/.*\\.dll"
-            RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
+    if(ARROW_BUILD_STATIC)
+      # Static build: only install the self-contained ODBC DLL
+      install(TARGETS arrow_flight_sql_odbc_shared
+                      RUNTIME_DEPENDENCIES
+                      PRE_EXCLUDE_REGEXES
+                      "api-ms-.*"
+                      "ext-ms-.*"
+                      POST_EXCLUDE_REGEXES
+                      ".*system32/.*\\.dll"
+              RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
+    else()
+      # Dynamic build: install ODBC DLL + Arrow dependency DLLs
+      install(TARGETS arrow_shared
+                      arrow_compute_shared
+                      arrow_flight_shared
+                      arrow_flight_sql_shared
+                      arrow_flight_sql_odbc_shared
+                      RUNTIME_DEPENDENCIES
+                      PRE_EXCLUDE_REGEXES
+                      "api-ms-.*"
+                      "ext-ms-.*"
+                      POST_EXCLUDE_REGEXES
+                      ".*system32/.*\\.dll"
+              RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
+    endif()
 
     set(CPACK_WIX_EXTRA_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-flight-sql-odbc.wxs")

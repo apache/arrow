@@ -93,12 +93,26 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_flight_sql_static PUBLIC ARROW_FLIGHT_SQL_STATIC)
 endif()
 
+# NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
+# ../CMakeLists.txt.
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
+    target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
+  endforeach()
+endif()
+
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts)
   set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_OPTIONS "/wd4267")
 endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)
+  if(MSVC)
+    # Suppress warnings caused by Protobuf (dll-interface)
+    target_compile_options(${LIB_TARGET} PRIVATE "/wd4275")
+  endif()
 endforeach()
 
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
@@ -175,6 +189,18 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
       target_compile_definitions(${TEST_TARGET} PUBLIC ARROW_FLIGHT_STATIC
                                                        ARROW_FLIGHT_SQL_STATIC)
+    endforeach()
+  endif()
+
+  # NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
+  # ../CMakeLists.txt.
+  if(WIN32
+     AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+     AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+    foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
+      if(TARGET ${TEST_TARGET})
+        target_link_options(${TEST_TARGET} PRIVATE "/FORCE:MULTIPLE")
+      endif()
     endforeach()
   endif()
 endif()

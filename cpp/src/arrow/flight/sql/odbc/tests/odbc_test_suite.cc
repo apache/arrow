@@ -181,7 +181,11 @@ void ODBCTestBase::TearDown() {
 
 void ODBCTestBase::TearDownTestSuite() {
   if (connected) {
-    Disconnect();
+    // GH-49808 TODO: Without commenting this out, Disconnect() makes this test
+    // executable segfault when run under ctest but not when the test executable
+    // is run directly. This only happens under static test linkage.
+    //
+    //  Disconnect();
     connected = false;
   }
 }

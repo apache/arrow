@@ -133,9 +133,15 @@ endif()
 if(WIN32)
   find_package(ODBC REQUIRED)
   target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
-  target_link_libraries(arrow_odbc_spi_impl
-                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
-                               ${ODBCINST})
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(arrow_odbc_spi_impl
+                          PUBLIC arrow_flight_sql_static arrow_compute_static
+                                 Boost::locale ${ODBCINST})
+  else()
+    target_link_libraries(arrow_odbc_spi_impl
+                          PUBLIC arrow_flight_sql_shared arrow_compute_shared
+                                 Boost::locale ${ODBCINST})
+  endif()
 else()
   # Unix
   target_include_directories(arrow_odbc_spi_impl SYSTEM BEFORE PUBLIC ${ODBC_INCLUDE_DIR})
@@ -163,11 +169,19 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # On Windows, dynamic linking ODBC is supported.
 # On unix systems, static linking ODBC is supported, thus the library linking is static.
-if(WIN32)
-  set(ODBC_SPI_IMPL_TEST_LINK_LIBS arrow_flight_testing_shared)
+# Use STATIC_LINK_LIBS when Flight tests require static linkage to avoid mixing static/shared Arrow
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
+                                     ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
+elseif(WIN32)
+  set(ODBC_SPI_IMPL_TEST_STATIC_LIBS "")
+  set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS arrow_odbc_spi_impl arrow_flight_testing_shared)
 else()
-  # unix
-  set(ODBC_SPI_IMPL_TEST_LINK_LIBS arrow_flight_testing_static)
+  # Unix - always static
+  set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
+                                     ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
 endif()
 
 add_arrow_test(odbc_spi_impl_test
@@ -187,5 +201,19 @@ add_arrow_test(odbc_spi_impl_test
                record_batch_transformer_test.cc
                util_test.cc
                EXTRA_LINK_LIBS
-               arrow_odbc_spi_impl
-               ${ODBC_SPI_IMPL_TEST_LINK_LIBS})
+               ${ODBC_SPI_IMPL_TEST_EXTRA_LIBS}
+               STATIC_LINK_LIBS
+               ${ODBC_SPI_IMPL_TEST_STATIC_LIBS})
+
+# NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
+# ../../../CMakeLists.txt.
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  if(TARGET arrow_odbc_spi_impl_cli)
+    target_link_options(arrow_odbc_spi_impl_cli PRIVATE "/FORCE:MULTIPLE")
+  endif()
+  if(TARGET arrow-odbc-spi-impl-test)
+    target_link_options(arrow-odbc-spi-impl-test PRIVATE "/FORCE:MULTIPLE")
+  endif()
+endif()
