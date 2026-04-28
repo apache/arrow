@@ -17,26 +17,30 @@
 
 [workspace]
 channels = ["https://prefix.dev/conda-forge"]
-platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
+platforms = ["linux-64"]
 preview = ["pixi-build"]
 
 [environments]
 default = []
 test    = ["test"]
 
-[feature.test.activation.env]                                                                                                                                                                                       
+[feature.test.activation.env]
 ARROW_TEST_DATA = "/arrow/testing/data"
 PARQUET_TEST_DATA = "/arrow/cpp/submodules/parquet-testing/data"
+# GH-39973: debug memory pool conflicts with ASAN
+ARROW_DEBUG_MEMORY_POOL = "none"
+ASAN_OPTIONS = "allocator_may_return_null=1:detect_leaks=0:symbolize=1"
+UBSAN_OPTIONS = "print_stacktrace=1"
 
 [feature.test.dependencies]
 binutils = "*"
 cmake = "*"
 python = "*"
-                                                                                                                                                                                           
+
 [feature.test.tasks]
 # This path mangling feels extremely finicky. Investigate alternatives to make this more robust.
-test = "cd $(ls -d /arrow/ci/pixi/cpp/.pixi/build/work/arrow-cpp-*/work/build | head -n 1) && ctest --output-on-failure"
-                                                                                                                                                                                                                      
+test = "cd $(ls -d /arrow/ci/pixi/asan/cpp/.pixi/build/work/arrow-cpp-*/work/build | head -n 1) && ctest --output-on-failure"
+
 [package]
 name = "arrow-cpp"
 # TODO: Incorporate this to the bump version script and tests
@@ -44,7 +48,7 @@ version = "25.0.0.dev"
 authors = ["Apache Arrow"]
 
 [package.build]
-source.path = "../../../cpp"
+source.path = "../../../../cpp"
 
 [package.build.backend]
 name = "pixi-build-cmake"
@@ -52,7 +56,11 @@ version = "*"
 
 [package.build.config]
 extra-args = [
-  "-DCMAKE_BUILD_TYPE=Release",
+  "-DCMAKE_BUILD_TYPE=Debug",
+  "-DARROW_USE_ASAN=ON",
+  "-DARROW_USE_UBSAN=ON",
+  # Avoid creating huge static libraries with sanitizer instrumentation
+  "-DARROW_BUILD_STATIC=OFF",
   "-DARROW_BUILD_TESTS=ON",
   "-DARROW_COMPUTE=ON",
   "-DARROW_CSV=ON",

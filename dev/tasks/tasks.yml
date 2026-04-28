@@ -364,17 +364,15 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
-  test-pixi-cpp:
+{% for image in ["pixi-cpp",
+                 "pixi-cpp-sanitizer",
+                 "pixi-python"] %}
+  test-{{ image }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      image: pixi-cpp
-
-  test-pixi-python:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      image: pixi-python
+      image: {{ image }}
+{% endfor %}
 
   test-ubuntu-22.04-cpp:
     ci: github

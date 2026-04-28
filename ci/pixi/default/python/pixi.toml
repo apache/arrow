@@ -47,7 +47,7 @@ version = "25.0.0.dev"
 authors = ["Apache Arrow"]
 
 [package.build]
-source.path = "../../../python"
+source.path = "../../../../python"
 
 [package.build.backend]
 name = "pixi-build-python"
