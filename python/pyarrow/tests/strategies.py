@@ -144,15 +144,22 @@ time_types = st.sampled_from([
 ])
 
 # UTC-12 to UTC+14, minute offsets 0/30/45 cover all real-world IANA offsets
-fixed_offset_timezones = st.builds(
-    lambda h, m: datetime.timezone(datetime.timedelta(hours=h, minutes=m)),
-    h=st.integers(min_value=-12, max_value=14),
-    m=st.sampled_from([0, 30, 45]),
-).filter(
-    lambda tz: datetime.timedelta(hours=-12)
-    <= tz.utcoffset(None)
+_fixed_offset_timezone_list = [
+    datetime.timezone(datetime.timedelta(hours=h, minutes=m))
+    for h in range(-12, 15)
+    for m in [0, 30, 45]
+    if datetime.timedelta(hours=-12)
+    <= datetime.timedelta(hours=h, minutes=m)
     <= datetime.timedelta(hours=14)
-)
+]
+
+
+@st.composite
+def _draw_fixed_offset_timezone(draw):
+    return draw(st.sampled_from(_fixed_offset_timezone_list))
+
+
+fixed_offset_timezones = _draw_fixed_offset_timezone()
 
 if tzst and zoneinfo:
     timezones = st.one_of(
