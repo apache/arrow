@@ -21,7 +21,6 @@ platforms = ["linux-64"]
 preview = ["pixi-build"]
 
 [environments]
-default = []
 test    = ["test"]
 
 [feature.test]
@@ -40,12 +39,6 @@ hypothesis = "*"
 pyarrow = { path = "." }
 pytest = "*"
 pytest-timeout = "*"
-python.git = "https://github.com/python/cpython"
-python.subdirectory = "Tools/pixi-packages/asan"
-python.rev = "15b216f30d0445469ec31bc7509fcc55a216ef7c"
-numpy.git = "https://github.com/numpy/numpy"
-numpy.subdirectory = "pixi-packages/asan"
-numpy.rev = "0419105da9cd0a15a4e02bc22019c2b65272c68a"
 
 [feature.test.tasks]
 test = "pytest -r s --pyargs pyarrow --timeout=60"
@@ -64,7 +57,6 @@ name = "pixi-build-python"
 version = "*"
 
 [package.build.config]
-noarch = false
 compilers = ["c", "cxx"]
 extra-args = [
     "-Ccmake.build-type=Debug",
@@ -106,3 +98,13 @@ numpy.rev = "0419105da9cd0a15a4e02bc22019c2b65272c68a"
 
 [package.run-dependencies]
 arrow-cpp = { path = "../cpp" }
+# The following are necessary to run the Python test suite,
+# which otherwise won't be run with the instrumented Python and NumPy.
+# Important to use the same revisions as in host-dependencies to avoid
+# mismatches between build and test environments.
+python.git = "https://github.com/python/cpython"
+python.subdirectory = "Tools/pixi-packages/asan"
+python.rev = "15b216f30d0445469ec31bc7509fcc55a216ef7c"
+numpy.git = "https://github.com/numpy/numpy"
+numpy.subdirectory = "pixi-packages/asan"
+numpy.rev = "0419105da9cd0a15a4e02bc22019c2b65272c68a"

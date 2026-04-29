@@ -21,7 +21,6 @@ platforms = ["linux-64"]
 preview = ["pixi-build"]
 
 [environments]
-default = []
 test    = ["test"]
 
 [feature.test.activation.env]
