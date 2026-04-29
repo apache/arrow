@@ -148,7 +148,7 @@ class DelayedBufferReader : public ::arrow::io::BufferReader {
     return DeferNotOk(::arrow::io::internal::SubmitIO(
         io_context, [self, position, nbytes]() -> Result<std::shared_ptr<Buffer>> {
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          return self->DoReadAt(position, nbytes);
+          return self->DoReadAt(position, nbytes, /*allow_short_read=*/false);
         }));
   }
 

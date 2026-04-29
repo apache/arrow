@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/io/caching.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
