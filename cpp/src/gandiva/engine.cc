@@ -346,7 +346,8 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 
 Engine::~Engine() {}
 
-Status Engine::Init() {
+Status Engine::Init(std::unordered_set<std::string> function_names) {
+  used_functions_ = std::move(function_names);
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
 
   // Add mappings for global functions that can be accessed from LLVM/IR module.
@@ -394,7 +395,6 @@ Result<std::unique_ptr<Engine>> Engine::Make(
   std::unique_ptr<Engine> engine{
       new Engine(conf, std::move(jit), std::move(shared_target_machine), cached)};
 
-  ARROW_RETURN_NOT_OK(engine->Init());
   return engine;
 }
 

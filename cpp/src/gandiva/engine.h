@@ -93,13 +93,14 @@ class GANDIVA_EXPORT Engine {
   // Create a global string as a pointer with "i8*" type.
   llvm::Constant* CreateGlobalStringPtr(const std::string& string);
 
+  Status Init(std::unordered_set<std::string> function_names);
+
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::orc::LLJIT> lljit,
          std::shared_ptr<llvm::TargetMachine> target_machine, bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
-  Status Init();
 
   static void InitOnce();
 
@@ -123,6 +124,7 @@ class GANDIVA_EXPORT Engine {
   LLVMTypes types_;
 
   std::vector<std::string> functions_to_compile_;
+  std::unordered_set<std::string> used_functions_;
 
   bool optimize_ = true;
   bool module_finalized_ = false;
