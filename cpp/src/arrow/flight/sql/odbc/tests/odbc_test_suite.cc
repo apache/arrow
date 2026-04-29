@@ -244,7 +244,7 @@ void FlightSQLODBCRemoteTestBase::SetUpTestSuite() {
 
   env = remote_odbcv3_handles.env;
   conn = remote_odbcv3_handles.conn;
-  stmt = remote_odbcv3_handles.stmt;
+  stmt = SQL_NULL_HSTMT;
 }
 
 void FlightSQLOdbcV2RemoteTestBase::SetUpTestSuite() {
@@ -256,7 +256,7 @@ void FlightSQLOdbcV2RemoteTestBase::SetUpTestSuite() {
 
   env = remote_odbcv2_handles.env;
   conn = remote_odbcv2_handles.conn;
-  stmt = remote_odbcv2_handles.stmt;
+  stmt = SQL_NULL_HSTMT;
 }
 
 void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUpTestSuite() {
@@ -447,13 +447,13 @@ void ODBCMockTestBase::DropUnicodeTable() {
 void FlightSQLODBCMockTestBase::SetUpTestSuite() {
   env = mock_odbcv3_handles.env;
   conn = mock_odbcv3_handles.conn;
-  stmt = mock_odbcv3_handles.stmt;
+  stmt = SQL_NULL_HSTMT;
 }
 
 void FlightSQLOdbcV2MockTestBase::SetUpTestSuite() {
   env = mock_odbcv2_handles.env;
   conn = mock_odbcv2_handles.conn;
-  stmt = mock_odbcv2_handles.stmt;
+  stmt = SQL_NULL_HSTMT;
 }
 
 void FlightSQLOdbcEnvConnHandleMockTestBase::SetUpTestSuite() {

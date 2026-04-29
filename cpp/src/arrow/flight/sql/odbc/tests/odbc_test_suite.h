@@ -46,7 +46,6 @@ inline std::string remote_test_connect_str = "";
 struct OdbcHandles {
   SQLHENV env = SQL_NULL_HENV;
   SQLHDBC conn = SQL_NULL_HDBC;
-  SQLHSTMT stmt = SQL_NULL_HSTMT;
 };
 
 inline OdbcHandles remote_odbcv3_handles;
@@ -72,7 +71,7 @@ class ODBCTestBase : public ::testing::Test {
   /// \brief Free environment and connection handles
   static void FreeEnvConnHandles(SQLHENV& env_handle, SQLHDBC& conn_handle);
   /// \brief Connect to Arrow Flight SQL server using connection string defined in
-  /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN", allocate statement handle.
+  /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN".
   /// Connects using ODBC Ver 3 by default
   static void Connect(std::string connect_str, SQLHENV& env_handle, SQLHDBC& conn_handle,
                       SQLINTEGER odbc_ver = SQL_OV_ODBC3);
