@@ -126,6 +126,24 @@ class GANDIVA_EXPORT Engine {
   std::vector<std::string> functions_to_compile_;
   std::unordered_set<std::string> used_functions_;
 
+  static inline const std::unordered_set<std::string> internal_functions_ = {
+    "gdv_fn_context_arena_malloc",
+    "gdv_fn_context_set_error_msg",
+    "gdv_fn_populate_varlen_vector",
+    "gdv_fn_context_arena_reset",
+    "gdv_fn_in_expr_lookup_int32",
+    "gdv_fn_in_expr_lookup_int64",
+    "gdv_fn_in_expr_lookup_float",
+    "gdv_fn_in_expr_lookup_double",
+    "gdv_fn_in_expr_lookup_decimal",
+    "gdv_fn_in_expr_lookup_utf8",
+
+    "bitMapGetBit",
+    "bitMapSetBit",
+    "bitMapValidityGetBit",
+    "bitMapClearBitIfFalse",
+  };
+
   bool optimize_ = true;
   bool module_finalized_ = false;
   bool cached_;

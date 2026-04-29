@@ -599,6 +599,13 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
+  bool is_internal_func =
+      internal_functions_.find(name) != internal_functions_.end();
+
+  if (!(is_internal_func ||
+        used_functions_.find(name) != used_functions_.end())) {
+    return;
+  }
   const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
   AddAbsoluteSymbol(*lljit_, name, func);
