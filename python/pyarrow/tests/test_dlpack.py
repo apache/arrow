@@ -55,6 +55,8 @@ def check_bytes_allocated(f):
     return wrapper
 
 
+# Asan tests are flacky on check_bytes_allocated assertion.
+@pytest.mark.fail_asan
 @check_bytes_allocated
 @pytest.mark.parametrize(
     ('value_type', 'np_type_str'),
