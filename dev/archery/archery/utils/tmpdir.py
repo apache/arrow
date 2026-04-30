@@ -22,10 +22,11 @@ from tempfile import mkdtemp, TemporaryDirectory
 
 @contextmanager
 def tmpdir(preserve=False, prefix="arrow-archery-", preserve_dir=None):
-    if preserve:
-        if preserve_dir is not None:
-            os.makedirs(preserve_dir, exist_ok=True)
-        yield mkdtemp(prefix=prefix, dir=preserve_dir)
+    if preserve and preserve_dir is not None:
+        os.makedirs(preserve_dir, exist_ok=True)
+        yield preserve_dir
+    elif preserve:
+        yield mkdtemp(prefix=prefix)
     else:
         with TemporaryDirectory(prefix=prefix) as tmp:
             yield tmp

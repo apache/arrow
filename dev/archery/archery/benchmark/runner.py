@@ -18,6 +18,7 @@
 import glob
 import json
 import os
+import random
 import re
 
 from .core import BenchmarkSuite
@@ -26,8 +27,22 @@ from .jmh import JavaMicrobenchmarkHarnessCommand, JavaMicrobenchmarkHarness
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..lang.java import JavaMavenDefinition, JavaConfiguration
 from ..utils.cmake import CMakeBuild
+from ..utils.git import git
 from ..utils.maven import MavenBuild
 from ..utils.logger import logger
+from ..utils.source import ArrowSources
+
+
+def _rev_or_path_dirname(src, rev_or_path):
+    if rev_or_path == ArrowSources.WORKSPACE:
+        return rev_or_path
+    try:
+        sha = git.rev_parse(rev_or_path, git_dir=src.path)
+        if isinstance(sha, bytes):
+            sha = sha.decode("ascii")
+        return sha
+    except Exception:
+        return rev_or_path.replace("/", "_")
 
 
 def regex_filter(re_expr):
@@ -108,10 +123,11 @@ class StaticBenchmarkRunner(BenchmarkRunner):
 class CppBenchmarkRunner(BenchmarkRunner):
     """ Run suites from a CMakeBuild. """
 
-    def __init__(self, build, benchmark_extras, **kwargs):
+    def __init__(self, build, benchmark_extras, run_id=None, **kwargs):
         """ Initialize a CppBenchmarkRunner. """
         self.build = build
         self.benchmark_extras = benchmark_extras
+        self.run_id = run_id
         super().__init__(**kwargs)
 
     @staticmethod
@@ -217,19 +233,22 @@ class CppBenchmarkRunner(BenchmarkRunner):
             build = CMakeBuild.from_path(rev_or_path)
             return CppBenchmarkRunner(build, **kwargs)
         else:
-            # Revisions can references remote via the `/` character, ensure
-            # that the revision is path friendly
-            path_rev = rev_or_path.replace("/", "_")
+            path_rev = _rev_or_path_dirname(src, rev_or_path)
             root_rev = os.path.join(root, path_rev)
-            os.mkdir(root_rev)
+            os.makedirs(root_rev, exist_ok=True)
 
             clone_dir = os.path.join(root_rev, "arrow")
-            # Possibly checkout the sources at given revision, no need to
-            # perform cleanup on cloned repository as root_rev is reclaimed.
-            src_rev, _ = src.at_revision(rev_or_path, clone_dir)
+            if os.path.isdir(clone_dir):
+                src_rev = ArrowSources(clone_dir)
+            else:
+                src_rev, _ = src.at_revision(rev_or_path, clone_dir)
             cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
-            build_dir = os.path.join(root_rev, "build")
-            return CppBenchmarkRunner(cmake_def.build(build_dir), **kwargs)
+            run_root = os.path.join(root_rev, "build", "run")
+            os.makedirs(run_root, exist_ok=True)
+            run_id = f"{random.randrange(16**8):08x}"
+            build_dir = os.path.join(run_root, run_id)
+            build = cmake_def.build(build_dir)
+            return CppBenchmarkRunner(build, run_id=run_id, **kwargs)
 
 
 class JavaBenchmarkRunner(BenchmarkRunner):
@@ -310,16 +329,15 @@ class JavaBenchmarkRunner(BenchmarkRunner):
             maven_def = JavaMavenDefinition(rev_or_path, maven_conf)
             return JavaBenchmarkRunner(maven_def.build(rev_or_path), **kwargs)
         else:
-            # Revisions can references remote via the `/` character, ensure
-            # that the revision is path friendly
-            path_rev = rev_or_path.replace("/", "_")
+            path_rev = _rev_or_path_dirname(src, rev_or_path)
             root_rev = os.path.join(root, path_rev)
-            os.mkdir(root_rev)
+            os.makedirs(root_rev, exist_ok=True)
 
             clone_dir = os.path.join(root_rev, "arrow")
-            # Possibly checkout the sources at given revision, no need to
-            # perform cleanup on cloned repository as root_rev is reclaimed.
-            src_rev, _ = src.at_revision(rev_or_path, clone_dir)
+            if os.path.isdir(clone_dir):
+                src_rev = ArrowSources(clone_dir)
+            else:
+                src_rev, _ = src.at_revision(rev_or_path, clone_dir)
             maven_def = JavaMavenDefinition(src_rev.java, maven_conf)
             build_dir = os.path.join(root_rev, "arrow/java")
             return JavaBenchmarkRunner(maven_def.build(build_dir), **kwargs)
