@@ -15,14 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 from contextlib import contextmanager
 from tempfile import mkdtemp, TemporaryDirectory
 
 
 @contextmanager
-def tmpdir(preserve=False, prefix="arrow-archery-"):
+def tmpdir(preserve=False, prefix="arrow-archery-", preserve_dir=None):
     if preserve:
-        yield mkdtemp(prefix=prefix)
+        if preserve_dir is not None:
+            os.makedirs(preserve_dir, exist_ok=True)
+        yield mkdtemp(prefix=prefix, dir=preserve_dir)
     else:
         with TemporaryDirectory(prefix=prefix) as tmp:
             yield tmp

@@ -305,6 +305,11 @@ def benchmark_common_options(cmd):
         click.option("--preserve", type=BOOL, default=False, show_default=True,
                      is_flag=True,
                      help="Preserve workspace for investigation."),
+        click.option("--preserve-dir", metavar="<path>",
+                     type=click.Path(file_okay=False, resolve_path=True),
+                     default=None,
+                     help="Parent directory in which to create the preserved "
+                     "workspace. Has no effect without --preserve."),
         click.option("--output", metavar="<output>",
                      type=click.File("w", encoding="utf8"), default=None,
                      help="Capture output result into file."),
@@ -347,12 +352,12 @@ def benchmark_filter_options(cmd):
                 default="WORKSPACE", required=False)
 @benchmark_common_options
 @click.pass_context
-def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
-                   java_home, java_options, build_extras, benchmark_extras,
-                   cpp_benchmark_extras, language, **kwargs):
+def benchmark_list(ctx, rev_or_path, src, preserve, preserve_dir, output,
+                   cmake_extras, java_home, java_options, build_extras,
+                   benchmark_extras, cpp_benchmark_extras, language, **kwargs):
     """ List benchmark suite.
     """
-    with tmpdir(preserve=preserve) as root:
+    with tmpdir(preserve=preserve, preserve_dir=preserve_dir) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
         if language == "cpp":
@@ -392,10 +397,11 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                     "Currently only supported for language=cpp. "
                     "[default: use runner-specific defaults]"))
 @click.pass_context
-def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
-                  java_home, java_options, build_extras, benchmark_extras,
-                  language, suite_filter, benchmark_filter, repetitions,
-                  repetition_min_time, cpp_benchmark_extras, **kwargs):
+def benchmark_run(ctx, rev_or_path, src, preserve, preserve_dir, output,
+                  cmake_extras, java_home, java_options, build_extras,
+                  benchmark_extras, language, suite_filter, benchmark_filter,
+                  repetitions, repetition_min_time, cpp_benchmark_extras,
+                  **kwargs):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -433,7 +439,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     \b
     archery benchmark run --output=run.json
     """
-    with tmpdir(preserve=preserve) as root:
+    with tmpdir(preserve=preserve, preserve_dir=preserve_dir) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
         if language == "cpp":
@@ -486,11 +492,11 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.argument("baseline", metavar="[<baseline>]]", default="origin/HEAD",
                 required=False)
 @click.pass_context
-def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
-                   suite_filter, benchmark_filter, repetitions, no_counters,
-                   java_home, java_options, build_extras, benchmark_extras,
-                   cpp_benchmark_extras, threshold, contender, baseline,
-                   **kwargs):
+def benchmark_diff(ctx, src, preserve, preserve_dir, output, language,
+                   cmake_extras, suite_filter, benchmark_filter, repetitions,
+                   no_counters, java_home, java_options, build_extras,
+                   benchmark_extras, cpp_benchmark_extras, threshold,
+                   contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -564,7 +570,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     # This should not recompute the benchmark from run.json
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
-    with tmpdir(preserve=preserve) as root:
+    with tmpdir(preserve=preserve, preserve_dir=preserve_dir) as root:
         logger.debug(f"Comparing {contender} (contender) with {baseline} (baseline)")
 
         if language == "cpp":
