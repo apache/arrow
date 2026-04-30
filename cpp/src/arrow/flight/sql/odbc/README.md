@@ -148,4 +148,4 @@ After ODBC has been registered, you can run the ODBC tests. It is recommended to
 
 - Conversion from timestamp data type with specified time zone value to strings is not supported at the moment. This doesn't impact driver's usage of retrieving timestamp data from Power BI on Windows, and Excel on macOS and Windows. See GH-47504 for more context.
 - Conversion from strings to big int data type has a limit range of -9007199254740992 to 9007199254740992.
-- On Linux, `isql` commands `tables` and `columns` don’t work due to GH-49702. Users are not blocked from fetching data tables.
+- On Linux, `isql` commands `tables` and `columns` don't work due to GH-49702. Users are not blocked from fetching data tables.

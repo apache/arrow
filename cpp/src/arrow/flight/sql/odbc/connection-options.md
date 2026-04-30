@@ -21,13 +21,13 @@
 
 ## Setting ODBC Connection Properties
 
-ODBC connection parameters can be set in a connection string or defined in a DSN inside your system's odbc.ini.
+ODBC connection parameters can be set in a connection string or defined in a DSN. On macOS and Linux, DSNs are typically defined in your system's `odbc.ini`. On Windows they are typically configured with the ODBC Data Source Administrator.
 
 The following sample connection string and sample DSN are two equivalent ways to connect to Arrow.
 
 ### Sample Connection String
 ```
-"driver={Apache Arrow Flight SQL ODBC Driver};host=127.0.0.1;port=12345;uid=sample_user;pwd=sample_password;useEncryption=false;useWideChar=true;"
+driver={Apache Arrow Flight SQL ODBC Driver};host=127.0.0.1;port=12345;uid=sample_user;pwd=sample_password;useEncryption=false;useWideChar=true;
 ```
 
 ### Sample DSN
@@ -45,8 +45,8 @@ useWideChar   = true
 ### Driver Connection Options
 | Option | Description | Default |
 |--------|-------------|---------------|
-| `driver` | Required: the driver for this ODBC driver. | Apache Arrow Flight SQL |
-| `dsn` | Data Source Name used for configuring the connection. | `NONE` |
+| `driver` | Required: the driver for this ODBC driver. | `Apache Arrow Flight SQL ODBC Driver` |
+| `dsn` | Data Source Name used for configuring the connection. | `Apache Arrow Flight SQL` |
 | `host` | The IP address or hostname for the server. | `NONE` |
 | `port` | The TCP port number the server uses for ODBC connections. | `NONE` |
 | `user` | The username for authentication to the server. | `NONE` |
