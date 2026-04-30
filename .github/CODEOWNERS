@@ -38,7 +38,6 @@
 /cpp/src/parquet @wgtmac
 
 ## MATLAB
-/.github/workflows/matlab.yml @kevingurney @sgilmore10
 /matlab/ @kevingurney @kou @sgilmore10
 
 ## Python
@@ -66,6 +65,7 @@
 
 # PR CI and repository files
 /.github/ @assignUser @jonkeane @kou @raulcd
+/.github/workflows/matlab.yml @kevingurney @sgilmore10
 .asf.yaml @assignUser @kou @raulcd
 .pre-commit-config.yaml @raulcd
 # .git*
