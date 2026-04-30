@@ -258,21 +258,21 @@ def check_debug_memory_pool_disabled(pool_factory, env_value, msg):
 
 
 # Asan test fails as we are doing an out-of-bounds write.
-@pytest.mark.fail_asan
+@pytest.mark.noasan
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_none(pool_factory):
     check_debug_memory_pool_disabled(pool_factory, "none", "")
 
 
 # Asan test fails as we are doing an out-of-bounds write.
-@pytest.mark.fail_asan
+@pytest.mark.noasan
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_empty(pool_factory):
     check_debug_memory_pool_disabled(pool_factory, "", "")
 
 
 # Asan test fails as we are doing an out-of-bounds write.
-@pytest.mark.fail_asan
+@pytest.mark.noasan
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_unknown(pool_factory):
     env_value = "some_arbitrary_value"

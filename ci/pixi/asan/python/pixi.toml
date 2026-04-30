@@ -41,7 +41,7 @@ pytest = "*"
 pytest-timeout = "*"
 
 [feature.test.tasks]
-test = "pytest -r s --pyargs pyarrow --timeout=180 -m 'not fail_asan'"
+test = "pytest -r s --pyargs pyarrow --timeout=180"
 
 [package]
 name = "pyarrow"
