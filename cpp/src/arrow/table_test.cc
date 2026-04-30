@@ -932,8 +932,7 @@ TYPED_TEST_P(TestTableToTensorColumnMajor, SupportedTypes) {
                      shape_sliced, f_strides_sliced);
 
   EXPECT_TRUE(tensor_expected_sliced->Equals(*tensor_sliced));
-  CheckTableToTensor<DataType>(tensor_expected_sliced, 24, shape_sliced,
-                               f_strides_sliced);
+  CheckTableToTensor<DataType>(tensor_sliced, 24, shape_sliced, f_strides_sliced);
 
   auto table_slice_1 = table->Slice(1, 5);
 
@@ -950,8 +949,7 @@ TYPED_TEST_P(TestTableToTensorColumnMajor, SupportedTypes) {
                      shape_sliced_1, f_strides_sliced_1);
 
   EXPECT_TRUE(tensor_expected_sliced_1->Equals(*tensor_sliced_1));
-  CheckTableToTensor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1,
-                               f_strides_sliced_1);
+  CheckTableToTensor<DataType>(tensor_sliced_1, 15, shape_sliced_1, f_strides_sliced_1);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TestTableToTensorColumnMajor, SupportedTypes);
