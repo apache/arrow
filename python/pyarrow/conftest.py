@@ -27,6 +27,8 @@ import sys
 
 
 def _is_asan_build():
+    if sys.platform == "win32":
+        return False
     try:
         ctypes.CDLL(None).__asan_init
         return True
