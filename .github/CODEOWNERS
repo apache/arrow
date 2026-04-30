@@ -38,8 +38,8 @@
 /cpp/src/parquet @wgtmac
 
 ## MATLAB
-/matlab/ @kevingurney @kou @sgilmore10
 /.github/workflows/matlab.yml @kevingurney @sgilmore10
+/matlab/ @kevingurney @kou @sgilmore10
 
 ## Python
 /python/ @AlenkaF @raulcd @rok
