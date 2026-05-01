@@ -30,8 +30,14 @@ namespace arrow::util::test {
 #  define CAN_TEST_DEALLOCATED_AREAS 1
 #endif
 
+// Reading the unused tail past size() is undefined behavior, exclude MSVC
+// from the tail check.
 std::string_view StringArea(const std::string& string) {
+#if defined(_MSC_VER)
+  return {string.data(), string.size()};
+#else
   return {string.data(), string.capacity()};
+#endif
 }
 
 // same as GTest ASSERT_PRED_FORMAT2 macro, but without the outer GTEST_ASSERT_
