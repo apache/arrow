@@ -1934,7 +1934,7 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   // Test multiply overflow for in_len
   if (ARROW_PREDICT_FALSE(
           arrow::internal::MultiplyWithOverflow(2, in_len, &double_len))) {
-    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large.");
     *out_len = 0;
     return "";
   }
@@ -2562,9 +2562,6 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
       *out_valid = false;
       return "";
     }
-    if (state.overflow) {
-      return handle_overflow_failure(out_valid, out_len);
-    }
   }
 
   // Add separator lengths
@@ -2785,7 +2782,8 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 FORCE_INLINE
 const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
                           int32_t* out_len) {
-  if (ARROW_PREDICT_FALSE(text_len <= 0)) {
+  if (ARROW_PREDICT_FALSE(text_len < 0)) {
+    gdv_fn_context_set_error_msg(context, "Text length invalid(negative).");
     *out_len = 0;
     return "";
   }
@@ -2794,7 +2792,7 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
   // Check multiply overflow for text_len
   if (ARROW_PREDICT_FALSE(
           arrow::internal::MultiplyWithOverflow(2, text_len, &double_len))) {
-    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large.");
     *out_len = 0;
     return "";
   }

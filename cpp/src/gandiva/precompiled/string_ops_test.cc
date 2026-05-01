@@ -1168,11 +1168,13 @@ TEST(TestStringOps, TestQuote) {
 
   int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 1;
   out_str = quote_utf8(ctx_ptr, "YYZ", bad_in_len, &out_len);
+  EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
   EXPECT_EQ(out_len, 0);
   EXPECT_STREQ(out_str, "");
 
   bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 20;
   out_str = quote_utf8(ctx_ptr, "ABCDE", bad_in_len, &out_len);
+  EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
   EXPECT_EQ(out_len, 0);
   EXPECT_STREQ(out_str, "");
 }
@@ -2573,12 +2575,14 @@ TEST(TestStringOps, TestToHex) {
   out_str = to_hex_binary(ctx_ptr, binary_string, bad_text_len, &out_len);
   EXPECT_EQ(out_len, 0);
   EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
   ctx.Reset();
 
   int32_t neg_in_len = -20;
   out_str = to_hex_binary(ctx_ptr, binary_string, neg_in_len, &out_len);
   EXPECT_EQ(out_len, 0);
   EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(ctx.get_error(), "Text length invalid(negative).");
   ctx.Reset();
 }
 

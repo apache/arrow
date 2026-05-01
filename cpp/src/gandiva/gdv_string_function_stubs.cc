@@ -485,10 +485,6 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
     return out;
 
   } else {
-    if (txt_len < 0) {
-      *out_len = 0;
-      return "";
-    }
     memcpy(out, txt, static_cast<size_t>(txt_len));
     *out_len = txt_len;
     return out;
