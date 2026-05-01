@@ -25,6 +25,26 @@
 # Arrow Format
 # /format/
 
+# Docs
+# /docs/
+# *.md
+# *.rmd
+# *.rst
+# *.txt
+
+# PR CI and repository files
+/.github/ @assignUser @jonkeane @kou @raulcd
+.asf.yaml @assignUser @kou @raulcd
+.pre-commit-config.yaml @raulcd
+# .git*
+
+# Release scripts, archery etc.
+/ci/ @assignUser @jonkeane @kou @raulcd
+/dev/ @assignUser @jonkeane @kou @raulcd
+.dockerignore @raulcd
+.env @assignUser @jonkeane @kou @raulcd
+compose.yaml @assignUser @jonkeane @kou @raulcd
+
 # Components
 
 ## C GLib
@@ -38,6 +58,7 @@
 /cpp/src/parquet @wgtmac
 
 ## MATLAB
+/.github/workflows/matlab.yml @kevingurney @sgilmore10
 /matlab/ @kevingurney @kou @sgilmore10
 
 ## Python
@@ -55,24 +76,3 @@
 
 ## Ruby
 /ruby/ @kou
-
-# Docs
-# /docs/
-# *.md
-# *.rmd
-# *.rst
-# *.txt
-
-# PR CI and repository files
-/.github/ @assignUser @jonkeane @kou @raulcd
-/.github/workflows/matlab.yml @kevingurney @sgilmore10
-.asf.yaml @assignUser @kou @raulcd
-.pre-commit-config.yaml @raulcd
-# .git*
-
-# release scripts, archery etc.
-/ci/ @assignUser @jonkeane @kou @raulcd
-/dev/ @assignUser @jonkeane @kou @raulcd
-.dockerignore @raulcd
-.env @assignUser @jonkeane @kou @raulcd
-compose.yaml @assignUser @jonkeane @kou @raulcd
