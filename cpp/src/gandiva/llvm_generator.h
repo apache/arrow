@@ -194,7 +194,7 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   // Generate the code for one expression for default mode, with the output of
   // the expression going to 'output'.
-  Status Add(const ExpressionPtr expr, ValueValidityPairPtr value_validity, 
+  Status Add(const ExpressionPtr expr, ValueValidityPairPtr value_validity,
              const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.

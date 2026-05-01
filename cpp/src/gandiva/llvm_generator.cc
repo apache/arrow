@@ -67,23 +67,20 @@ Status LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   return engine_->SetLLVMObjectCache(object_cache);
 }
 
-arrow::Result<ValueValidityPairPtr> LLVMGenerator::Decompose(
-    const ExpressionPtr& expr) {
+arrow::Result<ValueValidityPairPtr> LLVMGenerator::Decompose(const ExpressionPtr& expr) {
   ExprDecomposer decomposer(*function_registry_, annotator_);
 
   ValueValidityPairPtr value_validity;
-  ARROW_RETURN_NOT_OK(
-      decomposer.Decompose(*expr->root(), &value_validity));
+  ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
 
   auto& used_functions = decomposer.UsedFunctions();
-  functions_in_exprs_.insert(
-      used_functions.begin(),
-      used_functions.end());
+  functions_in_exprs_.insert(used_functions.begin(), used_functions.end());
 
   return value_validity;
 }
 
-Status LLVMGenerator::Add(const ExpressionPtr expr, ValueValidityPairPtr value_validity, const FieldDescriptorPtr output) {
+Status LLVMGenerator::Add(const ExpressionPtr expr, ValueValidityPairPtr value_validity,
+                          const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // Generate the IR function for the decomposed expression.
   auto compiled_expr = std::make_unique<CompiledExpr>(value_validity, output);
