@@ -1022,6 +1022,16 @@ def test_bitwise_dunders():
     assert (scl2 >> scl1).equals(pc.shift_right_checked(scl2, scl1))
 
 
+def test_scalar_radd_unknown_operand():
+    # GH-49826: Scalar.__add__ on an unknown right operand must return
+    # NotImplemented so Python falls back to right.__radd__.
+    class WithRadd:
+        def __radd__(self, other):
+            return "radd-called"
+
+    assert pa.scalar(1) + WithRadd() == "radd-called"
+
+
 def test_dunders_unmatching_types():
     # GH-32007
     error_match = r"Function '\w+' has no kernel matching input types"
