@@ -774,36 +774,38 @@ def create_decryption_properties(
     >>> table = pq.read_table('encrypted.parquet', decryption_properties=props)
     """
     cdef:
+        c_string c_footer_key_str
         CSecureString c_footer_key
-        c_string c_aad_prefix
-        CFileDecryptionPropertiesBuilder* builder
+        CFileDecryptionPropertiesBuilder builder
         shared_ptr[CFileDecryptionProperties] props
 
-    footer_key_bytes = tobytes(footer_key)
-    if len(footer_key_bytes) not in (16, 24, 32):
+    if not isinstance(footer_key, bytes):
+        raise TypeError(
+            f"footer_key must be bytes, not {type(footer_key).__name__}"
+        )
+    if len(footer_key) not in (16, 24, 32):
         raise ValueError(
-            f"footer_key must be 16, 24, or 32 bytes, got {len(footer_key_bytes)}"
+            f"footer_key must be 16, 24, or 32 bytes, got {len(footer_key)}"
         )
 
-    c_footer_key = CSecureString(<c_string>footer_key_bytes)
-    builder = new CFileDecryptionPropertiesBuilder()
+    c_footer_key_str = <c_string>footer_key
+    c_footer_key = CSecureString(move(c_footer_key_str))
+    builder.footer_key(c_footer_key)
 
-    try:
-        builder.footer_key(c_footer_key)
+    if aad_prefix is not None:
+        if not isinstance(aad_prefix, bytes):
+            raise TypeError(
+                f"aad_prefix must be bytes, not {type(aad_prefix).__name__}"
+            )
+        builder.aad_prefix(<c_string>aad_prefix)
 
-        if aad_prefix is not None:
-            c_aad_prefix = tobytes(aad_prefix)
-            builder.aad_prefix(c_aad_prefix)
+    if not check_footer_integrity:
+        builder.disable_footer_signature_verification()
 
-        if not check_footer_integrity:
-            builder.disable_footer_signature_verification()
+    if allow_plaintext_files:
+        builder.plaintext_files_allowed()
 
-        if allow_plaintext_files:
-            builder.plaintext_files_allowed()
-
-        props = builder.build()
-    finally:
-        del builder
+    props = builder.build()
 
     return FileDecryptionProperties.wrap(props)
 
@@ -879,36 +881,40 @@ def create_encryption_properties(
     >>> pq.write_table(table, 'encrypted.parquet', encryption_properties=props)
     """
     cdef:
+        c_string c_footer_key_str
         CSecureString c_footer_key
-        c_string c_aad_prefix
-        CFileEncryptionPropertiesBuilder* builder
         shared_ptr[CFileEncryptionProperties] props
         ParquetCipher cipher
 
-    footer_key_bytes = tobytes(footer_key)
-    if len(footer_key_bytes) not in (16, 24, 32):
+    if not isinstance(footer_key, bytes):
+        raise TypeError(
+            f"footer_key must be bytes, not {type(footer_key).__name__}"
+        )
+    if len(footer_key) not in (16, 24, 32):
         raise ValueError(
-            f"footer_key must be 16, 24, or 32 bytes, got {len(footer_key_bytes)}"
+            f"footer_key must be 16, 24, or 32 bytes, got {len(footer_key)}"
         )
 
     cipher = cipher_from_name(encryption_algorithm)
-    c_footer_key = CSecureString(<c_string>footer_key_bytes)
-    builder = new CFileEncryptionPropertiesBuilder(c_footer_key)
+    c_footer_key_str = <c_string>footer_key
+    c_footer_key = CSecureString(move(c_footer_key_str))
+    cdef CFileEncryptionPropertiesBuilder builder = \
+        CFileEncryptionPropertiesBuilder(c_footer_key)
 
-    try:
-        builder.algorithm(cipher)
+    builder.algorithm(cipher)
 
-        if aad_prefix is not None:
-            c_aad_prefix = tobytes(aad_prefix)
-            builder.aad_prefix(c_aad_prefix)
-            if not store_aad_prefix:
-                builder.disable_aad_prefix_storage()
+    if aad_prefix is not None:
+        if not isinstance(aad_prefix, bytes):
+            raise TypeError(
+                f"aad_prefix must be bytes, not {type(aad_prefix).__name__}"
+            )
+        builder.aad_prefix(<c_string>aad_prefix)
+        if not store_aad_prefix:
+            builder.disable_aad_prefix_storage()
 
-        if plaintext_footer:
-            builder.set_plaintext_footer()
+    if plaintext_footer:
+        builder.set_plaintext_footer()
 
-        props = builder.build()
-    finally:
-        del builder
+    props = builder.build()
 
     return FileEncryptionProperties.wrap(props)
