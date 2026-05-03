@@ -1936,17 +1936,13 @@ def get_generated_json_files(tempdir=None):
         generate_decimal32_case()
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('nanoarrow')
         .skip_tester('Ruby')
-        .skip_tester('Rust')
         .skip_tester('Go'),
 
         generate_decimal64_case()
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('nanoarrow')
         .skip_tester('Ruby')
-        .skip_tester('Rust')
         .skip_tester('Go'),
 
         generate_datetime_case(),
@@ -1979,20 +1975,15 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('JS'),
 
         generate_dictionary_case()
-        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
-        .skip_tester('nanoarrow')
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_dictionary_unsigned_case()
-        .skip_tester('nanoarrow')
         .skip_tester('Java')  # TODO(ARROW-9377)
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_nested_dictionary_case()
-        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
-        .skip_tester('nanoarrow')
         .skip_tester('Java')  # TODO(ARROW-7779)
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET')
@@ -2003,26 +1994,22 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_binary_view_case()
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_list_view_case()
         .skip_tester('.NET')     # Doesn't support large list views
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_extension_case()
-        .skip_tester('nanoarrow')
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET')
         .skip_tester('Ruby'),
