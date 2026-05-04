@@ -76,6 +76,8 @@ jobs:
         with:
           persist-credentials: false
           repository: apache/arrow-rs
+          # Temporary: check with the arros-rs fix
+          ref: refs/pull/9888/head
           path: rust
       - name: Checkout Arrow nanoarrow
         uses: actions/checkout@v6
