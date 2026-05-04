@@ -45,6 +45,7 @@ source.path = "../../../../cpp"
 
 [package.build.backend]
 name = "pixi-build-cmake"
+version = "*"
 
 [package.build.config]
 extra-args = [

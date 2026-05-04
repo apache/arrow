@@ -72,7 +72,7 @@ update_versions() {
 
   pushd "${ARROW_DIR}/ci/pixi"
     sed -i.bak -E -e \
-    "s/^version = \".+\"/version = \"${python_version}\"/" \
+    "s/^version = \"[0-9].*\"/version = \"${python_version}\"/" \
     */*/pixi.toml
   rm -f */*/pixi.toml.bak
   git add */*/pixi.toml

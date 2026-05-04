@@ -53,6 +53,7 @@ source.path = "../../../../python"
 
 [package.build.backend]
 name = "pixi-build-python"
+version = "*"
 
 [package.build.config]
 compilers = ["c", "cxx"]
