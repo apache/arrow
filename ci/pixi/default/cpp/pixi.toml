@@ -38,7 +38,7 @@ test = "cd $(ls -d /arrow/ci/pixi/default/cpp/.pixi/build/work/arrow-cpp-*/work/
 [package]
 name = "arrow-cpp"
 # TODO: Incorporate this to the bump version script and tests
-version = "25.0.0.dev"
+version = "25.0.0a0"
 authors = ["Apache Arrow"]
 
 [package.build]
@@ -46,7 +46,6 @@ source.path = "../../../../cpp"
 
 [package.build.backend]
 name = "pixi-build-cmake"
-version = "*"
 
 [package.build.config]
 extra-args = [

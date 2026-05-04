@@ -42,7 +42,7 @@ test = "pytest -r s --pyargs pyarrow --timeout=60"
 [package]
 name = "pyarrow"
 # TODO: Incorporate this to the bump version script and tests
-version = "25.0.0.dev"
+version = "25.0.0a0"
 authors = ["Apache Arrow"]
 
 [package.build]
@@ -50,7 +50,6 @@ source.path = "../../../../python"
 
 [package.build.backend]
 name = "pixi-build-python"
-version = "*"
 
 [package.build.config]
 compilers = ["c", "cxx"]
