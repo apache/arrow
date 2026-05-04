@@ -24,7 +24,7 @@ class VoteEmailTest < Test::Unit::TestCase
     detect_versions
     @tag_name_no_rc = "apache-arrow-#{@release_version}"
     @archive_name = "apache-arrow-#{@release_version}.tar.gz"
-    @script = File.expand_path("dev/release/09-vote-email.sh")
+    @script = File.expand_path("dev/release/10-vote-email.sh")
     @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
     @env = File.expand_path("dev/release/.env")
 

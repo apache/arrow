@@ -147,8 +147,7 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
     FAIL() << "No exception raised";
   } catch (const ParquetException& e) {
     std::string ex_what =
-        ("Tried reading 15 bytes starting at position 12"
-         " from file but only got 9");
+        "IOError: File too short: expected to be able to read 15 bytes, got 9";
     ASSERT_EQ(ex_what, e.what());
   }
 }

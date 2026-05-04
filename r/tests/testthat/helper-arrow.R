@@ -35,6 +35,7 @@ options(arrow.pull_as_vector = FALSE)
 
 with_language <- function(lang, expr) {
   skip_on_cran()
+  skip_if_not(capabilities("NLS"))
   old <- Sys.getenv("LANGUAGE")
   # Check what this message is before changing languages; this will
   # trigger caching the translations if the OS does that (some do).

@@ -1716,6 +1716,7 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
   explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : Base(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
+        pool_(pool),
         len_decoder_(nullptr, pool),
         buffered_length_(AllocateBuffer(pool, 0)) {}
 
@@ -1804,15 +1805,19 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values - null_count);
-    const int num_valid_values = Decode(values.data(), num_values - null_count);
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        ::arrow::AllocateBuffer(sizeof(ByteArray) * (num_values - null_count), pool_));
+    auto values_data = values_buffer->template mutable_data_as<ByteArray>();
+
+    const int num_valid_values = Decode(values_data, num_values - null_count);
     if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
       throw ParquetException("Expected to decode ", num_values - null_count,
                              " values, but decoded ", num_valid_values, " values.");
     }
 
     auto visit_binary_helper = [&](auto* helper) {
-      auto values_ptr = values.data();
+      auto values_ptr = reinterpret_cast<const ByteArray*>(values_data);
       int value_idx = 0;
 
       RETURN_NOT_OK(
@@ -1837,6 +1842,7 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
         out, num_values, /*estimated_data_length=*/{}, visit_binary_helper);
   }
 
+  MemoryPool* pool_;
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_{0};
@@ -2140,15 +2146,19 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values - null_count);
-    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        ::arrow::AllocateBuffer(sizeof(ByteArray) * (num_values - null_count), pool_));
+    auto values_data = values_buffer->template mutable_data_as<ByteArray>();
+
+    const int num_valid_values = GetInternal(values_data, num_values - null_count);
     if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
       throw ParquetException("Expected to decode ", num_values - null_count,
                              " values, but decoded ", num_valid_values, " values.");
     }
 
     auto visit_binary_helper = [&](auto* helper) {
-      auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
+      auto values_ptr = reinterpret_cast<const ByteArray*>(values_data);
       int value_idx = 0;
 
       PARQUET_THROW_NOT_OK(

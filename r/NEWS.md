@@ -21,6 +21,8 @@
 
 # arrow 24.0.0
 
+# arrow 24.0.0
+
 ## New features
 
 - `dplyr::when_any()` and `dplyr::when_all()` helper bindings (#49535).

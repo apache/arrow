@@ -56,6 +56,10 @@ class ARROW_EXPORT CpuInfo {
 
   /// Arm features
   static constexpr int64_t ASIMD = (1LL << 32);
+  static constexpr int64_t SVE = (1LL << 33);
+  static constexpr int64_t SVE128 = (1LL << 36);
+  static constexpr int64_t SVE256 = (1LL << 34);
+  static constexpr int64_t SVE512 = (1LL << 35);
 
   /// Cache enums for L1 (data), L2 and L3
   enum class CacheLevel { L1 = 0, L2, L3, Last = L3 };

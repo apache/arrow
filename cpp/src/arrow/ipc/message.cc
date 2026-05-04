@@ -233,11 +233,8 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
   MessageDecoder decoder(listener, MessageDecoder::State::METADATA, metadata->size());
   ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
 
-  ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset, decoder.next_required_size()));
-  if (body->size() < decoder.next_required_size()) {
-    return Status::IOError("Expected to be able to read ", decoder.next_required_size(),
-                           " bytes for message body, got ", body->size());
-  }
+  ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset, decoder.next_required_size(),
+                                                /*allow_short_read=*/false));
   RETURN_NOT_OK(decoder.Consume(body));
   return result;
 }
@@ -383,13 +380,8 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
   // When body_length is known, read metadata + body in one IO call.
   // Otherwise, read only metadata first.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
-                        file->ReadAt(offset, metadata_length + body_length.value_or(0)));
-
-  if (metadata->size() < metadata_length) {
-    return Status::Invalid("Expected to read ", metadata_length,
-                           " metadata bytes at offset ", offset, " but got ",
-                           metadata->size());
-  }
+                        file->ReadAt(offset, metadata_length + body_length.value_or(0),
+                                     /*allow_short_read=*/false));
 
   ARROW_RETURN_NOT_OK(decoder.Consume(SliceBuffer(metadata, 0, metadata_length)));
 
@@ -415,21 +407,22 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
                                        decoder.next_required_size(), body));
       } else if (body_length.has_value()) {
         // Body was already read as part of the combined IO; just slice it out.
+        if (*body_length != decoder.next_required_size()) {
+          // The streaming decoder got out of sync with the actual advertised
+          // metadata and body size, which signals an invalid IPC file.
+          return Status::IOError("Invalid IPC file: advertised body size is ",
+                                 *body_length, ", but message decoder expects to read ",
+                                 decoder.next_required_size(), " bytes instead");
+        }
         body = SliceBuffer(metadata, metadata_length,
                            std::min(*body_length, metadata->size() - metadata_length));
       } else {
         // Body length was unknown; do a separate IO to read the body.
         ARROW_ASSIGN_OR_RAISE(
-            body, file->ReadAt(offset + metadata_length, decoder.next_required_size()));
+            body, file->ReadAt(offset + metadata_length, decoder.next_required_size(),
+                               /*allow_short_read=*/false));
       }
 
-      if (body->size() != decoder.next_required_size()) {
-        // The streaming decoder got out of sync with the actual advertised
-        // metadata and body size, which signals an invalid IPC file.
-        return Status::IOError("Invalid IPC file: advertised body size is ", body->size(),
-                               ", but message decoder expects to read ",
-                               decoder.next_required_size(), " bytes instead");
-      }
       RETURN_NOT_OK(decoder.Consume(body));
       return result;
     }
@@ -472,12 +465,11 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
     return Status::Invalid("metadata_length should be at least ",
                            state->decoder->next_required_size());
   }
-  return file->ReadAsync(context, offset, metadata_length + body_length)
+  return file
+      ->ReadAsync(context, offset, metadata_length + body_length,
+                  /*allow_short_read=*/false)
       .Then([=](std::shared_ptr<Buffer> metadata) -> Result<std::shared_ptr<Message>> {
-        if (metadata->size() < metadata_length) {
-          return Status::Invalid("Expected to read ", metadata_length,
-                                 " metadata bytes but got ", metadata->size());
-        }
+        DCHECK_EQ(metadata->size(), metadata_length + body_length);
         ARROW_RETURN_NOT_OK(
             state->decoder->Consume(SliceBuffer(metadata, 0, metadata_length)));
         switch (state->decoder->state()) {
