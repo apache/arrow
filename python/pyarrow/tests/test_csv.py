@@ -1444,6 +1444,9 @@ class BaseCSVTableRead(BaseTestCSV):
         # Column 'a' should be int64 without default, string with default
         assert table_no_default.schema.field('a').type == pa.int64()
         assert table_with_default.schema.field('a').type == pa.string()
+        # Column 'b' should always be float64 since explicitly typed
+        assert table_no_default.schema.field('b').type == pa.float64()
+        assert table_with_default.schema.field('b').type == pa.float64()
 
     def test_no_ending_newline(self):
         # No \n after last line
