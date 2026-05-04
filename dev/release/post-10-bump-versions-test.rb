@@ -258,7 +258,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
-          path: "ci/pixi/asan/cpp.toml",
+          path: "ci/pixi/asan/cpp/pixi.toml",
           hunks: [
             ["-version = \"#{@release_version}a0\"",
              "+version = \"#{@next_version}a0\""],
