@@ -498,6 +498,16 @@ TEST(SearchSorted, RunEndEncodedNulls) {
                     "[null, null, 2, 3, 3, null, 5]");
 }
 
+TEST(SearchSorted, SlicedRunEndEncodedValuesIgnoreNullRunsOutsideSlice) {
+  auto values_type = run_end_encoded(int16(), int32());
+  ASSERT_OK_AND_ASSIGN(auto ree_values,
+                       REEFromJSON(values_type, "[null, null, 2, 4, 4, null]"));
+  auto sliced = ree_values->Slice(2, 3);
+  auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
+
+  CheckSearchSorted(Datum(sliced), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
+}
+
 TEST(SearchSorted, RunEndEncodedNeedlesWithNullRuns) {
   auto values = ArrayFromJSON(int32(), "[1, 1, 3, 5, 8]");
   auto needles_type = run_end_encoded(int32(), int32());
