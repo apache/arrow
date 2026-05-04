@@ -30,15 +30,14 @@ try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import _write_table
 except ImportError:
-    pq = None
+    pass
 
 try:
-    import pandas as pd
     import pandas.testing as tm
 
     from pyarrow.tests.parquet.common import alltypes_sample
 except ImportError:
-    pd = tm = None
+    pass
 
 
 # Marks all of the tests in this module
@@ -172,7 +171,7 @@ def test_scan_contents():
     pf = pq.ParquetFile(buf)
 
     assert pf.scan_contents() == 10000
-    assert pf.scan_contents(df.columns[:4]) == 10000
+    assert pf.scan_contents(list(df.columns[:4])) == 10000
 
 
 def test_parquet_file_pass_directory_instead_of_file(tempdir):
@@ -215,7 +214,7 @@ def test_iter_batches_columns_reader(tempdir, batch_size):
                  chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
-    for columns in [df.columns[:10], df.columns[10:]]:
+    for columns in [list(df.columns[:10]), list(df.columns[10:])]:
         batches = file_.iter_batches(batch_size=batch_size, columns=columns)
         batch_starts = range(0, total_size+batch_size, batch_size)
         for batch, start in zip(batches, batch_starts):
@@ -263,9 +262,10 @@ def test_iter_batches_reader(tempdir, chunk_size):
 
         tm.assert_frame_equal(
             batches[batch_no].to_pandas().reset_index(drop=True),
-            file_.read_row_groups([i]).to_pandas().iloc[900:].reset_index(
-                drop=True
-            )
+            file_
+            .read_row_groups([i])
+            .to_pandas().iloc[900:]
+            .reset_index(drop=True)  # type: ignore[arg-type]
         )
 
         batch_no += 1
@@ -346,6 +346,7 @@ def test_read_statistics():
     buf.seek(0)
 
     statistics = pq.ParquetFile(buf).read().columns[0].chunks[0].statistics
+    assert statistics is not None
     assert statistics.is_null_count_exact is True
     assert statistics.null_count == 1
     assert statistics.distinct_count is None
@@ -389,7 +390,8 @@ def test_parquet_file_fsspec_support():
 
 def test_parquet_file_fsspec_support_through_filesystem_argument():
     try:
-        from fsspec.implementations.memory import MemoryFileSystem
+        from fsspec.implementations.memory import (  # type: ignore[import-untyped]
+            MemoryFileSystem)
     except ImportError:
         pytest.skip("fsspec is not installed, skipping test")
 
@@ -412,7 +414,7 @@ def test_parquet_file_hugginface_support():
         pytest.skip("fsspec is not installed, skipping Hugging Face test")
 
     fake_hf_module = types.ModuleType("huggingface_hub")
-    fake_hf_module.HfFileSystem = MemoryFileSystem
+    fake_hf_module.HfFileSystem = MemoryFileSystem  # type: ignore[attr-defined]
     with mock.patch.dict("sys.modules", {"huggingface_hub": fake_hf_module}):
         uri = "hf://datasets/apache/arrow/test.parquet"
         table = pa.table({"a": range(10)})
@@ -424,7 +426,7 @@ def test_parquet_file_hugginface_support():
 def test_fsspec_uri_raises_if_fsspec_is_not_available():
     # sadly cannot patch sys.modules because cython will still be able to import fsspec
     try:
-        import fsspec  # noqa: F401
+        import fsspec  # type: ignore[import-untyped]  # noqa: F401
     except ImportError:
         pass
     else:

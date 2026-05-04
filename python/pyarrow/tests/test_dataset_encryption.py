@@ -30,8 +30,8 @@ try:
     import pyarrow.parquet as pq
     import pyarrow.dataset as ds
 except ImportError:
-    pq = None
-    ds = None
+    pq = None  # type: ignore[assignment]
+    ds = None  # type: ignore[assignment]
 
 try:
     from pyarrow.tests.parquet.encryption import InMemoryKmsClient
@@ -85,7 +85,7 @@ def create_encryption_config(footer_key=FOOTER_KEY_NAME, column_keys=COLUMN_KEYS
 
 
 def create_decryption_config():
-    return pe.DecryptionConfiguration(cache_lifetime=300)
+    return pe.DecryptionConfiguration(cache_lifetime=timedelta(seconds=300))
 
 
 def create_kms_connection_config(keys=KEYS):
@@ -135,6 +135,8 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
         encrypt_kms_connection_config = create_kms_connection_config(write_keys)
         decrypt_kms_connection_config = create_kms_connection_config(read_keys)
 
+        assert ds is not None
+        assert pe is not None
         crypto_factory = pe.CryptoFactory(kms_factory)
         parquet_encryption_cfg = ds.ParquetEncryptionConfig(
             crypto_factory, encrypt_kms_connection_config, encryption_config
@@ -370,11 +372,12 @@ def test_large_row_encryption_decryption():
     """Test encryption and decryption of a large number of rows."""
 
     class NoOpKmsClient(pe.KmsClient):
-        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:
+        def wrap_key(self, key_bytes: bytes, _: str) -> bytes:  # type: ignore[override]
             b = base64.b64encode(key_bytes)
             return b
 
-        def unwrap_key(self, wrapped_key: bytes, _: str) -> bytes:
+        def unwrap_key(self, wrapped_key: bytes, _: str  # type: ignore[override]
+                       ) -> bytes:
             b = base64.b64decode(wrapped_key)
             return b
 
@@ -395,6 +398,9 @@ def test_large_row_encryption_decryption():
         plaintext_footer=False,
         data_key_length_bits=128,
     )
+    assert ds is not None
+    assert pe is not None
+    assert pq is not None
     pqe_config = ds.ParquetEncryptionConfig(
         crypto_factory, kms_config, encryption_config
     )
@@ -429,6 +435,9 @@ def test_large_row_encryption_decryption():
     encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )
 def test_dataset_encryption_with_selected_column_statistics():
+    assert ds is not None
+    assert pq is not None
+
     table = create_sample_table()
 
     encryption_config = create_encryption_config()
@@ -472,7 +481,7 @@ def test_dataset_encryption_with_selected_column_statistics():
 
     for fragment in dataset.get_fragments():
         decryption_properties = crypto_factory.file_decryption_properties(
-            kms_connection_config, decryption_config, fragment.path, mockfs)
+            kms_connection_config, decryption_config, fragment.path, mockfs)  # type: ignore[call-arg]
         with pq.ParquetFile(
             fragment.path,
             decryption_properties=decryption_properties,
@@ -481,12 +490,14 @@ def test_dataset_encryption_with_selected_column_statistics():
             for rg_idx in range(parquet_file.metadata.num_row_groups):
                 row_group = parquet_file.metadata.row_group(rg_idx)
 
-                assert row_group.column(0).statistics is not None
-                assert row_group.column(0).statistics.min == 2019
-                assert row_group.column(0).statistics.max == 2022
+                stats0 = row_group.column(0).statistics
+                assert stats0 is not None
+                assert stats0.min == 2019
+                assert stats0.max == 2022
 
-                assert row_group.column(1).statistics is not None
-                assert row_group.column(1).statistics.min == 2
-                assert row_group.column(1).statistics.max == 100
+                stats1 = row_group.column(1).statistics
+                assert stats1 is not None
+                assert stats1.min == 2
+                assert stats1.max == 100
 
                 assert row_group.column(2).statistics is None

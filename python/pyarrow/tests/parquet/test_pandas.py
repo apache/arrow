@@ -17,11 +17,12 @@
 
 import io
 import json
+from typing import TYPE_CHECKING, cast
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 import pytest
 
 import pyarrow as pa
@@ -29,22 +30,29 @@ from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.util import guid
 from pyarrow.vendored.version import Version
 
-try:
-    import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
-                                              _write_table)
-except ImportError:
-    pq = None
-
-
-try:
+if TYPE_CHECKING:
     import pandas as pd
     import pandas.testing as tm
+    import pyarrow.parquet as pq
+    from pyarrow.tests.parquet.common import (
+        _read_table, _roundtrip_pandas_dataframe, _test_dataframe,
+        _write_table, alltypes_sample
+    )
+else:
+    try:
+        import pyarrow.parquet as pq
+        from pyarrow.tests.parquet.common import (
+            _read_table, _test_dataframe, _write_table, alltypes_sample,
+            _roundtrip_pandas_dataframe
+        )
 
-    from pyarrow.tests.parquet.common import (_roundtrip_pandas_dataframe,
-                                              alltypes_sample)
-except ImportError:
-    pd = tm = None
+    except ImportError:
+        pass
+    try:
+        import pandas as pd
+        import pandas.testing as tm
+    except ImportError:
+        pass
 
 
 # Marks all of the tests in this module
@@ -58,11 +66,14 @@ def test_pandas_parquet_custom_metadata(tempdir):
 
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
+    assert arrow_table.schema.metadata is not None
     assert b'pandas' in arrow_table.schema.metadata
 
     _write_table(arrow_table, filename)
 
-    metadata = pq.read_metadata(filename).metadata
+    file_metadata = pq.read_metadata(filename)
+    metadata = file_metadata.metadata
+    assert metadata is not None
     assert b'pandas' in metadata
 
     js = json.loads(metadata[b'pandas'].decode('utf8'))
@@ -117,10 +128,13 @@ def test_attributes_metadata_persistence(tempdir):
     }
 
     table = pa.Table.from_pandas(df)
+    assert table.schema.metadata is not None
     assert b'attributes' in table.schema.metadata[b'pandas']
 
     _write_table(table, filename)
-    metadata = pq.read_metadata(filename).metadata
+    file_metadata = pq.read_metadata(filename)
+    metadata = file_metadata.metadata
+    assert metadata is not None
     js = json.loads(metadata[b'pandas'].decode('utf8'))
     assert 'attributes' in js
     assert js['attributes'] == df.attrs
@@ -297,8 +311,8 @@ def test_pandas_parquet_configuration_options(tempdir):
 @pytest.mark.pandas
 def test_spark_flavor_preserves_pandas_metadata():
     df = _test_dataframe(size=100)
-    df.index = np.arange(0, 10 * len(df), 10)
-    df.index.name = 'foo'
+    df.index = np.arange(0, 10 * len(df), 10)  # type: ignore[assignment]
+    df.index.name = 'foo'  # type: ignore[attr-defined]
 
     result = _roundtrip_pandas_dataframe(df, {'flavor': 'spark'})
     tm.assert_frame_equal(result, df)
@@ -450,7 +464,9 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     table = _read_table(
         path, columns=['a'])
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
+    expected_df = expected[['a']].reset_index(drop=True)
+    assert isinstance(expected_df, pd.DataFrame)
+    tm.assert_frame_equal(result, expected_df)
 
 
 @pytest.mark.pandas
@@ -510,7 +526,7 @@ def test_pandas_categorical_roundtrip():
     codes = np.array([2, 0, 0, 2, 0, -1, 2], dtype='int32')
     categories = ['foo', 'bar', 'baz']
     df = pd.DataFrame({'x': pd.Categorical.from_codes(
-        codes, categories=categories)})
+        codes, categories=categories)})  # type: ignore[arg-type]
 
     buf = pa.BufferOutputStream()
     pq.write_table(pa.table(df), buf)
@@ -555,15 +571,18 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(tempdir):
         table, str(tempdir / "case1"), partition_cols=['part'],
     )
     result = pq.read_table(str(tempdir / "case1")).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
+    tm.assert_frame_equal(
+        result[["col"]], df[["col"]])
 
     pq.write_to_dataset(table, str(tempdir / "case2"))
     result = pq.read_table(str(tempdir / "case2")).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
+    tm.assert_frame_equal(
+        result[["col"]], df[["col"]])
 
     pq.write_table(table, str(tempdir / "data.parquet"))
     result = pq.read_table(str(tempdir / "data.parquet")).to_pandas()
-    tm.assert_frame_equal(result[["col"]], df[["col"]])
+    tm.assert_frame_equal(
+        result[["col"]], df[["col"]])
 
 
 @pytest.mark.pandas
