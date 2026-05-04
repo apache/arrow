@@ -30,37 +30,6 @@ def test_get_include():
     assert os.path.exists(os.path.join(include_dir, 'arrow', 'api.h'))
 
 
-def test_asan_sanity_oob():
-    # TODO: ASAN sanity check (cython side). ASAN aborts the subprocess on
-    # the heap-buffer-overflow; the test fails with the report visible in the
-    # assertion message. Revert before final commit.
-    res = subprocess.run(
-        [sys.executable, "-c",
-         "import pyarrow.lib; pyarrow.lib._asan_sanity_oob()"],
-        capture_output=True, text=True, timeout=30,
-    )
-    assert res.returncode == 0, (
-        f"ASAN caught cython-emitted heap-buffer-overflow.\n"
-        f"returncode={res.returncode}\n"
-        f"stderr:\n{res.stderr}"
-    )
-
-
-def test_asan_sanity_oob_numpy():
-    # TODO: ASAN sanity check (libarrow_python.so / numpy_convert.cc).
-    # Same pattern as test_asan_sanity_oob. Revert before final commit.
-    res = subprocess.run(
-        [sys.executable, "-c",
-         "import pyarrow.lib; pyarrow.lib._asan_sanity_oob_numpy()"],
-        capture_output=True, text=True, timeout=30,
-    )
-    assert res.returncode == 0, (
-        f"ASAN caught heap-buffer-overflow in libarrow_python.\n"
-        f"returncode={res.returncode}\n"
-        f"stderr:\n{res.stderr}"
-    )
-
-
 @pytest.mark.skipif('sys.platform != "win32"')
 def test_get_library_dirs_win32():
     assert any(os.path.exists(os.path.join(directory, 'arrow.lib'))
