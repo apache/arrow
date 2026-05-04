@@ -45,7 +45,6 @@ test = "pytest -r s --pyargs pyarrow --timeout=180"
 
 [package]
 name = "pyarrow"
-# TODO: Incorporate this to the bump version script and tests
 version = "25.0.0a0"
 authors = ["Apache Arrow"]
 
