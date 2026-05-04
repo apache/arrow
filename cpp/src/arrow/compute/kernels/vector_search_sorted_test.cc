@@ -301,7 +301,7 @@ TEST(SearchSorted, ValuesWithLeadingNulls) {
 
 TEST(SearchSorted, ValuesAllNull) {
   CheckSimpleSearchSorted(int32(), "[null, null, null]", "[50, 200, null]",
-                          "[3, 3, null]", "[3, 3, null]");
+                          "[0, 0, null]", "[0, 0, null]");
 }
 
 TEST(SearchSorted, ValuesWithTrailingNulls) {
@@ -315,10 +315,18 @@ TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNulls) {
                                    "[0, 3, 3, 6]");
 }
 
-TEST(SearchSorted, FloatValuesWithLeadingNullsAndTrailingNaNs) {
-  CheckSimpleSearchSortedAndScalar(float64(), "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
-                                   "[0.0, 3.0, 4.0, NaN]", "[1, 2, 4, 5]",
-                                   "[1, 4, 4, 7]");
+
+TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNullsAndNullNeedles) {
+  CheckSimpleSearchSortedAndScalar(float64(), "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
+                                   "[0.0, 3.0, 4.0, NaN, null]", "[0, 1, 3, 4, null]",
+                                   "[0, 3, 3, 6, null]");
+}
+
+TEST(SearchSorted, FloatValuesWithLeadingNullsAndTrailingNaNsAndNullNeedles) {
+  CheckSimpleSearchSortedAndScalar(float64(),
+                                   "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
+                                   "[0.0, 3.0, 4.0, NaN, null]", "[1, 2, 4, 5, null]",
+                                   "[1, 4, 4, 7, null]");
 }
 
 TEST(SearchSorted, NullNeedlesEmitNull) {
@@ -439,7 +447,7 @@ TEST(SearchSorted, ChunkedRunEndEncodedAllNullValuesAcrossEmptyChunks) {
       ArrayVector{empty_chunk, null_chunk, empty_chunk, last_null_chunk});
   auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
 
-  CheckSearchSorted(Datum(values), Datum(needles), "[3, 3, null]", "[3, 3, null]");
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, null]", "[0, 0, null]");
 }
 
 TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
@@ -475,7 +483,7 @@ TEST(SearchSorted, ChunkedValuesAllNullAcrossEmptyChunks) {
   });
   auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
 
-  CheckSearchSorted(Datum(values), Datum(needles), "[3, 3, null]", "[3, 3, null]");
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, null]", "[0, 0, null]");
 }
 
 TEST(SearchSorted, RunEndEncodedNulls) {
@@ -509,7 +517,7 @@ TEST(SearchSorted, RunEndEncodedAllNullValues) {
   auto needles = ArrayFromJSON(int32(), "[null, 1, 8]");
 
   CheckSearchSorted(Datum(ree_values), Datum(needles), SearchSortedOptions::Left,
-                    "[null, 4, 4]");
+                    "[null, 0, 0]");
 }
 
 TEST(SearchSorted, RejectMismatchedTypes) {

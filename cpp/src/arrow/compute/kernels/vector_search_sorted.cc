@@ -29,8 +29,8 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/array_run_end.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/array/util.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/codegen_internal.h"
@@ -90,11 +90,10 @@ const FunctionDoc search_sorted_doc(
 // rebuild a temporary run-end encoded uint64 result with the same run ends,
 // and run-end decode it back to the dense output shape.
 //
-// Output materialization is unified behind small output sinks. Non-null-only
-// needles write directly into a preallocated uint64 buffer, while nullable
-// needles append null and non-null runs through a UInt64Builder. The builder
-// path is optimized for repeated runs by bulk-filling reserved memory instead
-// of appending one insertion index at a time.
+// Output materialization is unified behind a typed-buffer builder with an
+// optional validity bitmap. Non-null-only needles only build the uint64 values
+// buffer, while nullable needles also emit a null bitmap. Repeated runs are
+// still bulk-filled instead of appending one insertion index at a time.
 //
 // High-level flow:
 //
@@ -144,15 +143,13 @@ const FunctionDoc search_sorted_doc(
 //   result materialization
 //       |
 //       +--> no needle nulls
-//       |     +--> MakeMutableUInt64Array
-//       |     `--> PreallocatedInsertionIndexOutput
-//       |           `--> fill output buffer directly
+//       |     `--> InsertionIndexBuilder<false>
+//       |           `--> fill uint64 buffer directly
 //       |
 //       `--> nullable needles
-//             +--> UInt64Builder
-//             `--> BuilderInsertionIndexOutput
+//             `--> InsertionIndexBuilder<true>
 //                   +--> AppendNulls for null runs
-//                   `--> bulk fill + UnsafeAdvance for repeated indices
+//                   `--> bulk fill repeated indices and validity bits
 //
 // A rough map of the file:
 //
@@ -464,7 +461,6 @@ inline Result<NonNullValuesRange> MakeNonNullValuesRange(int64_t full_length,
   NonNullValuesRange non_null_values_range{.offset = 0, .length = full_length};
 
   if (leading_null_count == full_length) {
-    non_null_values_range.offset = full_length;
     non_null_values_range.length = 0;
     return non_null_values_range;
   }
@@ -732,17 +728,6 @@ SearchValue<ArrowType> ExtractScalarValue(const Scalar& scalar) {
   }
 }
 
-/// Append the same insertion index repeatedly for a logical run of needles.
-inline void AppendInsertionIndex(UInt64Builder& builder, uint64_t insertion_index,
-                                 int64_t count) {
-  if (count == 0) {
-    return;
-  }
-  DCHECK_LE(builder.length() + count, builder.capacity());
-  std::fill_n(builder.GetMutableValue(builder.length()), count, insertion_index);
-  builder.UnsafeAdvance(count);
-}
-
 template <typename ArrowType, bool EmitNulls>
 using VisitedNeedle = std::conditional_t<EmitNulls, std::optional<SearchValue<ArrowType>>,
                                          SearchValue<ArrowType>>;
@@ -810,54 +795,74 @@ Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
   return VisitArrayNeedleRuns<ArrowType, EmitNulls>(needle_data, visitor);
 }
 
-/// Output sink for the no-null needle path.
-///
-/// This preserves the cheapest materialization strategy: write repeated
-/// insertion indices directly into the preallocated result buffer, while still
-/// sharing the same EmitInsertionIndices traversal used by the nullable path.
-class PreallocatedInsertionIndexOutput {
+/// Build uint64 insertion-index arrays with an optional null bitmap.
+template <bool EmitNulls>
+class InsertionIndexBuilder {
  public:
-  explicit PreallocatedInsertionIndexOutput(uint64_t* out_values)
-      : out_values_(out_values) {}
+  explicit InsertionIndexBuilder(MemoryPool* pool)
+      : indices_builder_(pool), null_bitmap_builder_(pool) {}
 
-  Status AppendValue(uint64_t insertion_index, int64_t run_length) {
-    std::ranges::fill(
-        std::span<uint64_t>(out_values_ + length_, static_cast<size_t>(run_length)),
-        insertion_index);
+  Status Init(int64_t length) {
+    expected_length_ = length;
+    RETURN_NOT_OK(indices_builder_.Reserve(length));
+    if constexpr (EmitNulls) {
+      RETURN_NOT_OK(null_bitmap_builder_.Reserve(length));
+    }
+    return Status::OK();
+  }
+
+  Status AppendNulls(int64_t run_length) {
+    DCHECK_GE(run_length, 0);
+    DCHECK_LE(length_ + run_length, expected_length_);
+    indices_builder_.UnsafeAppend(run_length, uint64_t{0});
     length_ += run_length;
+    if constexpr (EmitNulls) {
+      null_bitmap_builder_.UnsafeAppend(run_length, false);
+      null_count_ += run_length;
+    } else {
+      DCHECK_EQ(run_length, 0);
+    }
     return Status::OK();
   }
-
- private:
-  uint64_t* out_values_;
-  int64_t length_ = 0;
-};
-
-/// Output sink for the nullable needle path.
-///
-/// This keeps null emission and repeated-value appends behind the same output
-/// interface as the preallocated fast path, so the search loop itself does not
-/// need separate nullable and non-null implementations.
-class BuilderInsertionIndexOutput {
- public:
-  explicit BuilderInsertionIndexOutput(UInt64Builder* builder) : builder_(builder) {}
-
-  Status AppendNulls(int64_t run_length) { return builder_->AppendNulls(run_length); }
 
   Status AppendValue(uint64_t insertion_index, int64_t run_length) {
-    AppendInsertionIndex(*builder_, insertion_index, run_length);
+    DCHECK_GE(run_length, 0);
+    DCHECK_LE(length_ + run_length, expected_length_);
+    indices_builder_.UnsafeAppend(run_length, insertion_index);
+    length_ += run_length;
+    if constexpr (EmitNulls) {
+      null_bitmap_builder_.UnsafeAppend(run_length, true);
+    }
     return Status::OK();
   }
 
+  Result<std::shared_ptr<Array>> Finish() && {
+    DCHECK_EQ(length_, expected_length_);
+    ARROW_ASSIGN_OR_RAISE(auto indices, indices_builder_.Finish());
+
+    std::shared_ptr<Buffer> null_bitmap;
+    if constexpr (EmitNulls) {
+      ARROW_ASSIGN_OR_RAISE(null_bitmap, null_bitmap_builder_.Finish());
+    }
+
+    return MakeArray(
+        ArrayData::Make(uint64(), length_, {std::move(null_bitmap), std::move(indices)},
+                        null_count_));
+  }
+
  private:
-  UInt64Builder* builder_;
+  TypedBufferBuilder<uint64_t> indices_builder_;
+  TypedBufferBuilder<bool> null_bitmap_builder_;
+  int64_t expected_length_ = 0;
+  int64_t length_ = 0;
+  int64_t null_count_ = 0;
 };
 
 /// Visit normalized needle runs and emit insertion indices through an output
 /// policy object.
 ///
 /// The output sink abstraction keeps the binary-search traversal shared between
-/// the preallocated no-null fast path and the builder-backed nullable path.
+/// the non-null and nullable materialization paths.
 template <typename ArrowType, bool EmitNulls, typename ValuesAccessor, typename Output>
 Status EmitInsertionIndices(const ValuesAccessor& sorted_values, const Datum& needles,
                             SearchSortedOptions::Side side, uint64_t insertion_offset,
@@ -896,31 +901,32 @@ Result<Datum> ComputeRunEndEncodedNeedleInsertionIndices(
 
   std::shared_ptr<Array> physical_results;
   if (physical_needles.null_count() > 0) {
-    UInt64Builder builder(ctx->memory_pool());
-    ARROW_RETURN_NOT_OK(builder.Reserve(physical_length));
+    InsertionIndexBuilder<true> builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Init(physical_length));
     for (int64_t index = 0; index < physical_length; ++index) {
       if (physical_needles.IsNull(index)) {
-        ARROW_RETURN_NOT_OK(builder.AppendNull());
+        ARROW_RETURN_NOT_OK(builder.AppendNulls(1));
         continue;
       }
 
-      ARROW_RETURN_NOT_OK(builder.Append(FindLogicalInsertionIndex<ArrowType>(
+      ARROW_RETURN_NOT_OK(builder.AppendValue(FindLogicalInsertionIndex<ArrowType>(
           sorted_values,
           GetViewType<ArrowType>::LogicalValue(physical_needles.GetView(index)), side,
-          insertion_offset)));
+          insertion_offset),
+                                             1));
     }
-    ARROW_ASSIGN_OR_RAISE(physical_results, builder.Finish());
+    ARROW_ASSIGN_OR_RAISE(physical_results, std::move(builder).Finish());
   } else {
-    ARROW_ASSIGN_OR_RAISE(auto out,
-                          MakeMutableUInt64Array(physical_length, ctx->memory_pool()));
-    auto* out_values = out->GetMutableValues<uint64_t>(1);
+    InsertionIndexBuilder<false> builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Init(physical_length));
     for (int64_t index = 0; index < physical_length; ++index) {
-      out_values[index] = FindLogicalInsertionIndex<ArrowType>(
+      ARROW_RETURN_NOT_OK(builder.AppendValue(FindLogicalInsertionIndex<ArrowType>(
           sorted_values,
           GetViewType<ArrowType>::LogicalValue(physical_needles.GetView(index)), side,
-          insertion_offset);
+          insertion_offset),
+                                             1));
     }
-    physical_results = MakeArray(std::move(out));
+    ARROW_ASSIGN_OR_RAISE(physical_results, std::move(builder).Finish());
   }
 
   ARROW_ASSIGN_OR_RAISE(auto logical_run_ends, needles.LogicalRunEnds(ctx->memory_pool()));
@@ -968,23 +974,21 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
   }
 
   if (DatumHasNulls(needles)) {
-    UInt64Builder builder(ctx->memory_pool());
-    ARROW_RETURN_NOT_OK(builder.Reserve(needles.length()));
-    BuilderInsertionIndexOutput output(&builder);
+    InsertionIndexBuilder<true> output(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(output.Init(needles.length()));
     ARROW_RETURN_NOT_OK((EmitInsertionIndices<ArrowType, true>(
         sorted_values, needles, side, insertion_offset, &output)));
-    ARROW_ASSIGN_OR_RAISE(auto out, builder.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto out, std::move(output).Finish());
     return Datum(std::move(out));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out,
-                        MakeMutableUInt64Array(needles.length(), ctx->memory_pool()));
-  auto* out_values = out->GetMutableValues<uint64_t>(1);
-  PreallocatedInsertionIndexOutput output(out_values);
+  InsertionIndexBuilder<false> output(ctx->memory_pool());
+  ARROW_RETURN_NOT_OK(output.Init(needles.length()));
 
   ARROW_RETURN_NOT_OK((EmitInsertionIndices<ArrowType, false>(
       sorted_values, needles, side, insertion_offset, &output)));
-  return Datum(MakeArray(std::move(out)));
+  ARROW_ASSIGN_OR_RAISE(auto out, std::move(output).Finish());
+  return Datum(std::move(out));
 }
 
 // Main entry point for search_sorted over a single array of sorted values and scalar or
