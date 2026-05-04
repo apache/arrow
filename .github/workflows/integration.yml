@@ -76,7 +76,7 @@ jobs:
         with:
           persist-credentials: false
           repository: apache/arrow-rs
-          # Temporary: check with the arros-rs fix
+          # Temporary: check with the arrow-rs fix
           ref: refs/pull/9888/head
           path: rust
       - name: Checkout Arrow nanoarrow
@@ -84,6 +84,8 @@ jobs:
         with:
           persist-credentials: false
           repository: apache/arrow-nanoarrow
+          # Temporary: check with the nanoarrow fix
+          ref: refs/pull/880/head
           path: nanoarrow
       - name: Checkout Arrow Go
         uses: actions/checkout@v6
@@ -139,6 +141,7 @@ jobs:
             -e ARCHERY_INTEGRATION_WITH_JS=1 \
             -e ARCHERY_INTEGRATION_WITH_NANOARROW=1 \
             -e ARCHERY_INTEGRATION_WITH_RUST=1 \
+            -e RUST_BACKTRACE=1 \
             conda-integration
       - name: Docker Push
         if: >-
