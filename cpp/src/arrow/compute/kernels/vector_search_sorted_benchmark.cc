@@ -49,13 +49,6 @@ void SetSearchSortedQuickArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 
-void SetSearchSortedArgs(benchmark::internal::Benchmark* bench) {
-  bench->Unit(benchmark::kMicrosecond);
-  for (const auto size : {kL1Size, kL2Size}) {
-    bench->Arg(size);
-  }
-}
-
 int64_t Int64LengthFromBytes(int64_t size_bytes) {
   return std::max<int64_t>(1, size_bytes / static_cast<int64_t>(sizeof(int64_t)));
 }
@@ -182,6 +175,7 @@ void SetBenchmarkCounters(benchmark::State& state, const Datum& values,
   const auto values_length = values.length();
   const auto needles_length = needles.length();
   state.counters["values_length"] = static_cast<double>(values_length);
+  state.counters["values_null_percentage"] = values.null_count() * 100.0 / values_length;
   state.counters["needles_length"] = static_cast<double>(needles_length);
   state.SetItemsProcessed(state.iterations() * needles_length);
 }
@@ -249,87 +243,42 @@ static void BM_SearchSortedStringArrayNeedles(benchmark::State& state,
   RunSearchSortedBenchmark(state, values, needles, side);
 }
 
-static void BM_SearchSortedInt64ArrayNeedlesQuick(benchmark::State& state,
-                                                  SearchSortedOptions::Side side) {
-  BM_SearchSortedInt64ArrayNeedles(state, side);
-}
-
-static void BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick(
-    benchmark::State& state, SearchSortedOptions::Side side) {
-  BM_SearchSortedRunEndEncodedValuesAndNeedles(state, side);
-}
-
-static void BM_SearchSortedInt64NeedlesWithNullRunsQuick(benchmark::State& state,
-                                                         SearchSortedOptions::Side side) {
-  BM_SearchSortedInt64NeedlesWithNullRuns(state, side);
-}
-
-static void BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick(
-    benchmark::State& state, SearchSortedOptions::Side side) {
-  BM_SearchSortedRunEndEncodedNeedlesWithNullRuns(state, side);
-}
-
 // Primitive-array and REE cases are the main baselines for the kernel TODOs around
 // SIMD batched search, vectorized REE writeback, and future parallel needle traversal.
 
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedles, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedles, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ScalarNeedle, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ScalarNeedle, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValues, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValues, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedles, left,
                   SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedles, right,
                   SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRuns, left,
                   SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRuns, right,
                   SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRuns, left,
                   SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRuns, right,
                   SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedArgs);
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedArgs);
-
-// Lightweight L1/L2 regressions keep a fast local loop for future optimization work.
-BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedlesQuick, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedlesQuick, right,
-                  SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRunsQuick, left,
-                  SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRunsQuick, right,
-                  SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick, left,
-                  SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick, right,
-                  SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick, left,
-                  SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick, right,
-                  SearchSortedOptions::Right)
     ->Apply(SetSearchSortedQuickArgs);
 
 }  // namespace compute

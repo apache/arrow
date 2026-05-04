@@ -22,25 +22,25 @@
 #include <numeric>
 #include <optional>
 #include <ranges>
-#include <span>
 #include <type_traits>
 #include <utility>
 
 #include "arrow/array/array_primitive.h"
-#include "arrow/array/concatenate.h"
 #include "arrow/array/array_run_end.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
-#include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
@@ -174,6 +174,7 @@ const FunctionDoc search_sorted_doc(
   VISIT(UInt16Type)                      \
   VISIT(UInt32Type)                      \
   VISIT(UInt64Type)                      \
+  VISIT(HalfFloatType)                   \
   VISIT(FloatType)                       \
   VISIT(DoubleType)                      \
   VISIT(Date32Type)                      \
@@ -264,18 +265,11 @@ class RunEndEncodedValuesAccessor {
 
   /// Build a typed accessor over a run-end encoded payload.
   explicit RunEndEncodedValuesAccessor(const RunEndEncodedArray& array)
-      : RunEndEncodedValuesAccessor(array, /*logical_offset=*/0,
-                                    /*logical_length=*/array.length()) {}
-
-  RunEndEncodedValuesAccessor(const RunEndEncodedArray& array, int64_t logical_offset,
-                              int64_t logical_length)
       : array_(array),
         values_(array.values()->data()),
         array_span_(*array.data()),
-        absolute_offset_(array.offset() + logical_offset),
-        logical_length_(logical_length),
-        physical_range_(ree_util::FindPhysicalRange(array_span_, absolute_offset_,
-                                                    logical_length_)) {}
+        physical_range_(
+            ree_util::FindPhysicalRange(array_span_, array.offset(), array.length())) {}
 
   /// Return the number of physical runs used as the search domain.
   int64_t length() const { return physical_range_.second; }
@@ -286,10 +280,26 @@ class RunEndEncodedValuesAccessor {
     return GetViewType<ArrowType>::LogicalValue(values_.GetView(physical_index));
   }
 
-  ValueType LogicalValue(int64_t index) const {
-    const auto physical_index =
-        ree_util::FindPhysicalIndex(array_span_, index, absolute_offset_);
-    return GetViewType<ArrowType>::LogicalValue(values_.GetView(physical_index));
+  int64_t LeadingNullRunCount() const {
+    int64_t null_run_count = 0;
+    for (int64_t index = 0; index < physical_range_.second; ++index) {
+      if (!values_.IsNull(physical_range_.first + index)) {
+        break;
+      }
+      ++null_run_count;
+    }
+    return null_run_count;
+  }
+
+  int64_t TrailingNullRunCount() const {
+    int64_t null_run_count = 0;
+    for (int64_t index = physical_range_.second; index > 0; --index) {
+      if (!values_.IsNull(physical_range_.first + index - 1)) {
+        break;
+      }
+      ++null_run_count;
+    }
+    return null_run_count;
   }
 
   uint64_t LogicalInsertionIndex(int64_t index) const {
@@ -300,27 +310,25 @@ class RunEndEncodedValuesAccessor {
       return 0;
     }
     if (index == physical_range_.second) {
-      return static_cast<uint64_t>(logical_length_);
+      return static_cast<uint64_t>(array_.length());
     }
     return static_cast<uint64_t>(LogicalRunEnd(physical_range_.first + index - 1));
   }
 
-  const RunEndEncodedArray& array() const { return array_; }
+  int64_t logical_length() const { return array_.length(); }
 
  private:
   int64_t LogicalRunEnd(int64_t physical_index) const {
     const int64_t logical_run_end = std::max<int64_t>(
         GetRunEndValue(ree_util::RunEndsArray(array_span_), physical_index) -
-            absolute_offset_,
+            array_.offset(),
         0);
-    return std::min(logical_run_end, logical_length_);
+    return std::min(logical_run_end, array_.length());
   }
 
   const RunEndEncodedArray& array_;
   ArrayType values_;
   ArraySpan array_span_;
-  int64_t absolute_offset_;
-  int64_t logical_length_;
   std::pair<int64_t, int64_t> physical_range_;
 };
 
@@ -365,43 +373,27 @@ class ChunkedRunEndEncodedValuesAccessor {
   using ValueType = SearchValue<ArrowType>;
 
   explicit ChunkedRunEndEncodedValuesAccessor(const ChunkedArray& chunked_array)
-      : ChunkedRunEndEncodedValuesAccessor(chunked_array, /*logical_offset=*/0,
-                                           /*logical_length=*/chunked_array.length()) {}
-
-  ChunkedRunEndEncodedValuesAccessor(const ChunkedArray& chunked_array,
-                                     int64_t logical_offset, int64_t logical_length)
-      : chunked_array_(chunked_array), logical_length_(logical_length) {
+      : chunked_array_(chunked_array), logical_length_(chunked_array.length()) {
     const auto chunk_count = chunked_array_.num_chunks();
     run_offsets_.reserve(static_cast<size_t>(chunk_count));
     logical_offsets_.reserve(static_cast<size_t>(chunk_count));
     accessors_.reserve(static_cast<size_t>(chunk_count));
 
-    int64_t chunk_logical_start = 0;
     int64_t selected_run_start = 0;
     int64_t selected_logical_start = 0;
-    const int64_t logical_end = logical_offset + logical_length;
 
     for (const auto& chunk : chunked_array_.chunks()) {
-      const int64_t chunk_logical_end = chunk_logical_start + chunk->length();
-      const int64_t local_offset =
-          std::max<int64_t>(logical_offset, chunk_logical_start) - chunk_logical_start;
-      const int64_t local_end =
-          std::min<int64_t>(logical_end, chunk_logical_end) - chunk_logical_start;
-      const int64_t local_length = local_end - local_offset;
-
-      if (local_length > 0) {
+      if (chunk->length() != 0) {
         DCHECK_EQ(chunk->type_id(), Type::RUN_END_ENCODED);
 
         const auto& ree_chunk = checked_cast<const RunEndEncodedArray&>(*chunk);
         run_offsets_.push_back(selected_run_start);
         logical_offsets_.push_back(selected_logical_start);
-        accessors_.emplace_back(ree_chunk, local_offset, local_length);
+        accessors_.emplace_back(ree_chunk);
 
         selected_run_start += accessors_.back().length();
-        selected_logical_start += local_length;
+        selected_logical_start += chunk->length();
       }
-
-      chunk_logical_start = chunk_logical_end;
     }
 
     DCHECK_EQ(selected_logical_start, logical_length_);
@@ -413,6 +405,30 @@ class ChunkedRunEndEncodedValuesAccessor {
   ValueType Value(int64_t index) const {
     const auto [chunk_index, local_index] = ResolveRun(index);
     return accessors_[chunk_index].Value(local_index);
+  }
+
+  int64_t LeadingNullRunCount() const {
+    int64_t null_run_count = 0;
+    for (const auto& accessor : accessors_) {
+      const auto local_null_run_count = accessor.LeadingNullRunCount();
+      null_run_count += local_null_run_count;
+      if (local_null_run_count != accessor.length()) {
+        break;
+      }
+    }
+    return null_run_count;
+  }
+
+  int64_t TrailingNullRunCount() const {
+    int64_t null_run_count = 0;
+    for (auto it = accessors_.rbegin(); it != accessors_.rend(); ++it) {
+      const auto local_null_run_count = it->TrailingNullRunCount();
+      null_run_count += local_null_run_count;
+      if (local_null_run_count != it->length()) {
+        break;
+      }
+    }
+    return null_run_count;
   }
 
   uint64_t LogicalInsertionIndex(int64_t index) const {
@@ -431,7 +447,7 @@ class ChunkedRunEndEncodedValuesAccessor {
            accessors_[chunk_index].LogicalInsertionIndex(local_index);
   }
 
-  const ChunkedArray& chunked_array() const { return chunked_array_; }
+  int64_t logical_length() const { return logical_length_; }
 
  private:
   std::pair<size_t, int64_t> ResolveRun(int64_t index) const {
@@ -700,9 +716,8 @@ uint64_t FindInsertionPoint(const Accessor& sorted_values,
       return FindInsertionPointImpl<SearchSortedOptions::Right, ArrowType>(sorted_values,
                                                                            needle);
   }
-  DCHECK(false) << "Unexpected SearchSortedOptions::Side value";
-  return FindInsertionPointImpl<SearchSortedOptions::Left, ArrowType>(sorted_values,
-                                                                      needle);
+  ::arrow::Unreachable("Invalid SearchSortedOptions::Side value");
+  return 0;
 }
 
 template <typename ArrowType, typename Accessor>
@@ -1010,19 +1025,33 @@ Result<Datum> SearchWithAccessor(const ValuesAccessor& values_accessor,
       ctx);
 }
 
-template <typename ArrowType>
-Result<Datum> SearchWithAccessor(
-    const RunEndEncodedValuesAccessor<ArrowType>& values_accessor,
+template <typename ValuesAccessor>
+NonNullValuesRange MakePhysicalNonNullValuesRange(
+    const ValuesAccessor& values_accessor,
+    const NonNullValuesRange& non_null_values_range) {
+  const auto leading_null_run_count =
+      non_null_values_range.offset > 0 ? values_accessor.LeadingNullRunCount() : 0;
+  const auto trailing_null_run_count =
+      non_null_values_range.offset > 0 ? 0 : values_accessor.TrailingNullRunCount();
+  return NonNullValuesRange{
+      .offset = leading_null_run_count,
+      .length = values_accessor.length() - leading_null_run_count -
+                trailing_null_run_count};
+}
+
+template <typename ArrowType, typename ValuesAccessor>
+Result<Datum> SearchWithRunEndEncodedAccessor(
+    const ValuesAccessor& values_accessor,
     const NonNullValuesRange& non_null_values_range, const Datum& needles,
     SearchSortedOptions::Side side, ExecContext* ctx) {
-  if (non_null_values_range.is_identity(values_accessor.array().length())) {
+  if (non_null_values_range.is_identity(values_accessor.logical_length())) {
     return ComputeInsertionIndices<ArrowType>(values_accessor, needles, side,
                                               /*insertion_offset=*/0, ctx);
   }
 
-  RunEndEncodedValuesAccessor<ArrowType> non_null_values(values_accessor.array(),
-                                                         non_null_values_range.offset,
-                                                         non_null_values_range.length);
+  NonNullValuesAccessor non_null_values(
+      values_accessor,
+      MakePhysicalNonNullValuesRange(values_accessor, non_null_values_range));
   return ComputeInsertionIndices<ArrowType>(
       non_null_values, needles, side, static_cast<uint64_t>(non_null_values_range.offset),
       ctx);
@@ -1030,19 +1059,20 @@ Result<Datum> SearchWithAccessor(
 
 template <typename ArrowType>
 Result<Datum> SearchWithAccessor(
+    const RunEndEncodedValuesAccessor<ArrowType>& values_accessor,
+    const NonNullValuesRange& non_null_values_range, const Datum& needles,
+    SearchSortedOptions::Side side, ExecContext* ctx) {
+  return SearchWithRunEndEncodedAccessor<ArrowType>(
+      values_accessor, non_null_values_range, needles, side, ctx);
+}
+
+template <typename ArrowType>
+Result<Datum> SearchWithAccessor(
     const ChunkedRunEndEncodedValuesAccessor<ArrowType>& values_accessor,
     const NonNullValuesRange& non_null_values_range, const Datum& needles,
     SearchSortedOptions::Side side, ExecContext* ctx) {
-  if (non_null_values_range.is_identity(values_accessor.chunked_array().length())) {
-    return ComputeInsertionIndices<ArrowType>(values_accessor, needles, side,
-                                              /*insertion_offset=*/0, ctx);
-  }
-  ChunkedRunEndEncodedValuesAccessor<ArrowType> non_null_values(
-      values_accessor.chunked_array(), non_null_values_range.offset,
-      non_null_values_range.length);
-  return ComputeInsertionIndices<ArrowType>(
-      non_null_values, needles, side, static_cast<uint64_t>(non_null_values_range.offset),
-      ctx);
+  return SearchWithRunEndEncodedAccessor<ArrowType>(
+      values_accessor, non_null_values_range, needles, side, ctx);
 }
 
 // Meta-function implementation for the search_sorted public compute entrypoint.
