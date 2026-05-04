@@ -380,10 +380,12 @@ def test_convert_options(pickle_module):
     assert opts.timestamp_parsers == [ISO8601]
 
     opts = cls(column_types={'a': pa.null()},
+               default_column_type=pa.int16(),
                null_values=['N', 'nn'], true_values=['T', 'tt'],
                false_values=['F', 'ff'], auto_dict_max_cardinality=999,
                timestamp_parsers=[ISO8601, '%Y-%m-%d'])
     assert opts.column_types == {'a': pa.null()}
+    assert opts.default_column_type == pa.int16()
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
@@ -393,6 +395,7 @@ def test_convert_options(pickle_module):
     expected_repr_inner = ("""
     check_utf8=True,
     column_types={'a': DataType(null)},
+    default_column_type=DataType(int16),
     null_values=['N', 'nn'],
     true_values=['T', 'tt'],
     false_values=['F', 'ff'],
