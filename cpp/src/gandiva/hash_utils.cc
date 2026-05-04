@@ -22,7 +22,7 @@
 #include "openssl/evp.h"
 
 namespace {
-/// \brief Hashes a generic message using SHA algorithm.
+/// \brief Hashes a generic message using a hash/digest algorithm.
 ///
 /// It uses the EVP API in the OpenSSL library to generate
 /// the hash. The type of the hash is defined by the

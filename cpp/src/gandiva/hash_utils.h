@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include "gandiva/visibility.h"
-#include "openssl/evp.h"
 
 namespace gandiva {
 
