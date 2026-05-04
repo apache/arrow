@@ -492,22 +492,6 @@ class TestConvertMetadata:
 
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_categorical_with_timezone(self):
-        # pandas Categorical with timezone-aware datetime categories
-        # GH-49875: timezone was dropped when converting tz-aware categorical
-        cats = pd.DatetimeIndex(["2024-01-01", "2024-01-02"]).tz_localize("US/Eastern")
-        cat = pd.Categorical(values=[cats[0], cats[1], cats[0]], categories=cats)
-
-        # Verify pandas keeps the timezone on categories
-        assert "US/Eastern" in str(cat.dtype.categories.dtype)
-
-        # Convert to PyArrow
-        arr = pa.array(cat, from_pandas=True)
-
-        # Verify timezone is preserved in the dictionary value type
-        assert arr.type.value_type.tz is not None
-        assert str(arr.type.value_type.tz) == "US/Eastern"
-
     def test_duplicate_column_names_does_not_crash(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b')], columns=list('aa'))
         with pytest.raises(ValueError):
@@ -3062,6 +3046,15 @@ class TestConvertMisc:
         df = pd.DataFrame({'a': [None, None, None]})
         df['a'] = df['a'].astype('category')
         _check_pandas_roundtrip(df)
+
+    def test_categorical_with_timezone(self):
+        # GH-49875: timezone was dropped when converting tz-aware categorical
+        cats = pd.DatetimeIndex(["2024-01-01", "2024-01-02"]).tz_localize("US/Eastern")
+        cat = pd.Categorical(values=[cats[0], cats[1], cats[0]], categories=cats)
+
+        arr = pa.array(cat, from_pandas=True)
+
+        assert arr.type.value_type.tz == "US/Eastern"
 
     def test_empty_arrays(self):
         for dtype_str, pa_type in self.type_pairs:
