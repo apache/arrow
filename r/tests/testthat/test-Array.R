@@ -203,6 +203,14 @@ test_that("Array supports character vectors (ARROW-3339)", {
   # with NA
   expect_array_roundtrip(c("itsy", NA, "spider"), utf8())
   expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8(), as = large_utf8())
+
+  # string_view
+  expect_array_roundtrip(c("itsy", "bitsy", "spider"), string_view(), as = string_view())
+  expect_array_roundtrip(c("itsy", NA, "spider"), string_view(), as = string_view())
+
+  # string_view with empty strings
+  expect_array_roundtrip(c("", "bitsy", ""), string_view(), as = string_view())
+  expect_array_roundtrip(c("", NA, ""), string_view(), as = string_view())
 })
 
 test_that("Character vectors > 2GB become large_utf8", {
