@@ -1565,7 +1565,7 @@ cdef class ParquetReader(_Weakrefable):
     def open(self, object source not None, *, bint use_memory_map=False,
              read_dictionary=None, binary_type=None, list_type=None,
              FileMetaData metadata=None,
-             int buffer_size=0, bint pre_buffer=False,
+             int buffer_size=0, bint pre_buffer=True,
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
@@ -1584,7 +1584,7 @@ cdef class ParquetReader(_Weakrefable):
         list_type : subclass of pyarrow.DataType, optional
         metadata : FileMetaData, optional
         buffer_size : int, default 0
-        pre_buffer : bool, default False
+        pre_buffer : bool, default True
         coerce_int96_timestamp_unit : str, optional
         decryption_properties : FileDecryptionProperties, optional
         thrift_string_size_limit : int, optional

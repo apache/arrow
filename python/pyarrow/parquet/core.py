@@ -236,10 +236,13 @@ class ParquetFile:
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
-    pre_buffer : bool, default False
+    pre_buffer : bool, default True
         Coalesce and issue file reads in parallel to improve performance on
-        high-latency filesystems (e.g. S3). If True, Arrow will use a
-        background I/O thread pool.
+        high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
+        background I/O thread pool. If using a filesystem layer that itself
+        performs readahead (e.g. fsspec's S3FS), disable readahead for best
+        results. Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
     coerce_int96_timestamp_unit : str, default None
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
@@ -310,7 +313,7 @@ class ParquetFile:
 
     def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, binary_type=None, list_type=None,
-                 memory_map=False, buffer_size=0, pre_buffer=False,
+                 memory_map=False, buffer_size=0, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
