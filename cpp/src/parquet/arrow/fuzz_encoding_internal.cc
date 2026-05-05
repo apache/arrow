@@ -22,6 +22,7 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <new>
 #include <sstream>
 #include <string_view>
 
@@ -32,6 +33,7 @@
 #include "arrow/compare.h"
 #include "arrow/io/memory.h"
 #include "arrow/pretty_print.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/type.h"
 #include "arrow/util/fuzz_internal.h"
 #include "arrow/util/logging.h"
@@ -153,6 +155,19 @@ namespace {
 // Just to use std::vector<T> while avoiding std::vector<bool>
 using BooleanSlot = std::array<uint8_t, sizeof(bool)>;
 
+template <typename T>
+using PoolAllocator = ::arrow::stl::allocator<T>;
+
+template <typename T>
+using PoolVector = std::vector<T, PoolAllocator<T>>;
+
+#define BEGIN_CATCH_BAD_ALLOC try {
+#define END_CATCH_BAD_ALLOC               \
+  }                                       \
+  catch (const std::bad_alloc& e) {       \
+    return Status::OutOfMemory(e.what()); \
+  }
+
 template <typename DType>
 struct TypedFuzzEncoding {
   static constexpr Type::type kType = DType::type_num;
@@ -176,9 +191,9 @@ struct TypedFuzzEncoding {
   // decoder's internal scratch space, which get invalidated on the
   // following decoder call. We circumvent the issue by executing a
   // functor on each decoded chunk before moving to the next one.
-  Status RunOnDecodedChunks(Encoding::type encoding,
-                            std::span<const uint8_t> encoded_data, int chunk_size,
-                            std::function<Status(int offset, std::vector<c_type>)> func) {
+  Status RunOnDecodedChunks(
+      Encoding::type encoding, std::span<const uint8_t> encoded_data, int chunk_size,
+      std::function<Status(int offset, std::span<const c_type>)> func) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     int total_values = 0;
     auto decoder = MakeDecoder(encoding);
@@ -191,8 +206,10 @@ struct TypedFuzzEncoding {
                      static_cast<int>(encoded_data.size()));
     while (total_values < num_values_) {
       const int read_size = std::min(num_values_ - total_values, chunk_size);
-      // ARROW_ASSIGN_OR_RAISE(auto chunk_values, DecodeChunk(read_size));
-      std::vector<c_type> chunk_values(read_size);
+      PoolVector<c_type> chunk_values(pool());
+      BEGIN_CATCH_BAD_ALLOC
+      chunk_values.resize(read_size);
+      END_CATCH_BAD_ALLOC
       int values_read;
       if constexpr (kType == Type::BOOLEAN) {
         values_read =
@@ -201,8 +218,7 @@ struct TypedFuzzEncoding {
         values_read = decoder->Decode(chunk_values.data(), read_size);
       }
       ARROW_CHECK_LE(values_read, read_size);
-      chunk_values.resize(values_read);
-      RETURN_NOT_OK(func(total_values, std::move(chunk_values)));
+      RETURN_NOT_OK(func(total_values, std::span(chunk_values).first(values_read)));
       total_values += values_read;
       if (values_read < chunk_size) {
         break;
@@ -215,14 +231,16 @@ struct TypedFuzzEncoding {
     return Status::OK();
   }
 
-  Result<std::vector<c_type>> Decode(Encoding::type encoding,
-                                     std::span<const uint8_t> encoded_data,
-                                     int chunk_size) {
+  Result<PoolVector<c_type>> Decode(Encoding::type encoding,
+                                    std::span<const uint8_t> encoded_data,
+                                    int chunk_size) {
     // Decoded chunk values shouldn't embed pointers to decoder scratch space.
     static_assert(decoded_values_can_be_persisted());
-    std::vector<c_type> values;
-    auto accumulate_chunk = [&](int offset, std::vector<c_type> chunk_values) {
+    PoolVector<c_type> values(pool());
+    auto accumulate_chunk = [&](int offset, std::span<const c_type> chunk_values) {
+      BEGIN_CATCH_BAD_ALLOC
       values.insert(values.end(), chunk_values.begin(), chunk_values.end());
+      END_CATCH_BAD_ALLOC
       return Status::OK();
     };
     RETURN_NOT_OK(
@@ -273,7 +291,7 @@ struct TypedFuzzEncoding {
 
     // Re-encode and re-decode using roundtrip encoding
     {
-      auto compare_chunk = [&](int offset, std::vector<c_type> chunk_values) {
+      auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
         return CompareChunkAgainstReference(offset, chunk_values);
       };
       auto encoder = MakeEncoder(roundtrip_encoding_);
@@ -291,7 +309,8 @@ struct TypedFuzzEncoding {
                                             chunk_size, compare_chunk));
         }
       } else {
-        encoder->Put(reference_values_);
+        encoder->Put(reference_values_.data(),
+                     static_cast<int>(reference_values_.size()));
         auto reencoded_buffer = encoder->FlushValues();
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
         // Vary chunk sizes
@@ -462,7 +481,7 @@ struct TypedFuzzEncoding {
 
   std::shared_ptr<Array> reference_array_;
   // Only for INT96 as there is no strictly equivalent Arrow type
-  std::vector<c_type> reference_values_;
+  PoolVector<c_type> reference_values_;
 };
 
 }  // namespace
