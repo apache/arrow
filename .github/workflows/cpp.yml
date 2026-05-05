@@ -367,12 +367,16 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Pin MSYS2 packages
-        # Workaround for upstream regressions:
-        # - gcc 16.1.0 has a libstdc++ regression that breaks threading
-        #   tests on MINGW64. We also pin C++ packages rebuilt against
-        #   the new libstdc++ since they reference symbols missing from 15.2.
-        # - aws-sdk-cpp 1.11.801 drops Content-Md5 on DeleteObjects which
-        #   our bundled MinIO (RELEASE.2024-09-13) still requires.
+        # Temporary workarounds for upstream issues, both with concrete exit
+        # criteria.
+        # - MINGW64: gcc 16 makes the intermittent __emutls race in ThreadPool's
+        #   `thread_local current_thread_pool_` (#49272) crash on every run. The
+        #   list also pins C++ packages rebuilt at pkgrel 2 since they reference
+        #   libstdc++ symbols missing from 15.2. Remove once #49462 lands. CLANG64
+        #   uses libc++ and is unaffected.
+        # - MINGW64 + CLANG64 jobs: aws-sdk-cpp 1.11.801 dropped Content-Md5 on
+        #   DeleteObjects, which the bundled MinIO (RELEASE.2024-09-13) still
+        #   requires. Remove once MinIO is bumped or the SDK keeps sending MD5.
         shell: msys2 {0}
         run: |
           set -ex
@@ -427,6 +431,8 @@ jobs:
           # https://github.com/apache/arrow/issues/48593
           ci/scripts/download_tz_database.sh
       - name: Download MinIO
+        # Pinned in tandem with aws-sdk-cpp 1.11.479 (see "Pin MSYS2
+        # packages" step). Bump this version and remove the SDK pin together.
         shell: msys2 {0}
         run: |
           mkdir -p /usr/local/bin
