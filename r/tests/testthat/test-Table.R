@@ -390,8 +390,23 @@ test_that("Table converts dictionary arrays with wider index types back to R", {
 test_that("Table converts dictionary arrays with string_view values", {
   expected <- data.frame(foo = factor(c("x", "y", "x")))
   tab <- Table$create(expected, schema = schema(foo = dictionary(uint32(), string_view())))
-
   expect_equal_data_frame(tab, expected)
+
+  # with NAs
+  expected_na <- data.frame(foo = factor(c("x", NA, "x")))
+  tab_na <- Table$create(expected_na, schema = schema(foo = dictionary(uint32(), string_view())))
+  expect_equal_data_frame(tab_na, expected_na)
+})
+
+test_that("Table round-trips string_view columns", {
+  expected <- data.frame(x = c("hello", "world", ""))
+  tab <- Table$create(expected, schema = schema(x = string_view()))
+  expect_equal_data_frame(tab, expected)
+
+  # with NAs
+  expected_na <- data.frame(x = c("hello", NA, ""))
+  tab_na <- Table$create(expected_na, schema = schema(x = string_view()))
+  expect_equal_data_frame(tab_na, expected_na)
 })
 
 test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
