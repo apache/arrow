@@ -101,9 +101,8 @@ If you need to preserve timezone information, there are two alternatives:
      1   2025-01-01 00:00:00+00:00
      dtype: datetime64[s, UTC]
 
-  To convert back to NumPy while preserving timezone information, use
-  ``timestamp_as_object=True`` to get an object array of Python ``datetime``
-  objects:
+  To get a NumPy array while preserving timezone information, use
+  ``timestamp_as_object=True``:
 
   .. code-block:: python
 
