@@ -290,6 +290,8 @@ struct Converter_String : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    // StringViewArray uses a different memory layout (views + data buffers) rather
+    // than offsets, so skip the offset-based fast path and fall through to GetString().
     if constexpr (!std::is_same_v<StringArrayType, arrow::StringViewArray>) {
       auto p_offset = array->data()->GetValues<int32_t>(1);
       if (!p_offset) {
