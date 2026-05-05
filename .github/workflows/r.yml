@@ -205,7 +205,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 40, arch: 'ucrt64' }
+        - { rtools: 42, arch: 'ucrt64' }
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
@@ -228,10 +228,10 @@ jobs:
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       - uses: r-lib/actions/setup-r@v2
         with:
-          # Note: RTools must be 40 here because RTools40 + ucrt is how we build the Arrow C++
-          # static library. The R is not used here but R 4.1 was the last R to use
-          # Rtools40.
-          r-version: "4.1"
+          # Note: RTools must be 42 here because RTools42 + ucrt is how we build the Arrow C++
+          # static library. The R is not used here but R 4.2 was the last R to use
+          # Rtools42.
+          r-version: "4.2"
           rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - name: Build Arrow C++
@@ -284,14 +284,13 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: |
-          # RTools 40 uses GCC 8.x which does not support C++20 chrono timezones,
-          # so Arrow uses the vendored date library which requires tzdata
+          # Download tzdata in case the vendored date library is used for timezones
           ci/scripts/download_tz_database.sh
       - run: mkdir r/windows
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
-          name: libarrow-rtools40-ucrt64.zip
+          name: libarrow-rtools42-ucrt64.zip
           path: r/windows
       - name: Unzip and rezip libarrows
         shell: bash
