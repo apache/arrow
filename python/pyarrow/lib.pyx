@@ -29,7 +29,6 @@ import os
 import sys
 
 from cython.operator cimport dereference as deref
-from libc.stdlib cimport malloc, free
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
