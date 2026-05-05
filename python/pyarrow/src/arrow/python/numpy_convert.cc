@@ -395,7 +395,6 @@ Status SparseCSFTensorToNdarray(const std::shared_ptr<SparseCSFTensor>& sparse_t
     PyObject* item;
     RETURN_NOT_OK(TensorToNdarray(sparse_index.indptr()[i], base, &item));
     if (PyList_SetItem(indptr.obj(), i, item) < 0) {
-      Py_XDECREF(item);
       RETURN_IF_PYERROR();
     }
   }
