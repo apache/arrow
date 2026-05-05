@@ -363,6 +363,35 @@ jobs:
         with:
           msystem: ${{ matrix.msystem_upper }}
           update: true
+      - name: Pin MSYS2 packages
+        # Pin upstream packages whose latest versions break this job:
+        # - mingw-w64-x86_64-gcc 16.1.0 ships a libstdc++ regression that
+        #   breaks std::shared_ptr/threading tests on MINGW64 (bad_weak_ptr,
+        #   heap corruption 0xc0000374, segfaults, hangs).
+        # - mingw-w64-{x86_64,clang-x86_64}-aws-sdk-cpp 1.11.801 stopped
+        #   sending the legacy Content-Md5 header on DeleteObjects, which the
+        #   bundled MinIO test server (2024-09-13) still requires.
+        shell: msys2 {0}
+        run: |
+          set -ex
+          case "${{ matrix.msystem_lower }}" in
+            mingw64)
+              urls=(
+                "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-15.2.0-14-any.pkg.tar.zst"
+                "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-15.2.0-14-any.pkg.tar.zst"
+                "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
+              )
+              ignore="mingw-w64-x86_64-gcc mingw-w64-x86_64-gcc-libs mingw-w64-x86_64-aws-sdk-cpp"
+              ;;
+            clang64)
+              urls=(
+                "https://repo.msys2.org/mingw/clang64/mingw-w64-clang-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
+              )
+              ignore="mingw-w64-clang-x86_64-aws-sdk-cpp"
+              ;;
+          esac
+          pacman -U --noconfirm "${urls[@]}"
+          printf '\nIgnorePkg = %s\n' "$ignore" >> /etc/pacman.conf
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
