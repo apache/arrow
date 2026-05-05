@@ -363,38 +363,50 @@ jobs:
         with:
           msystem: ${{ matrix.msystem_upper }}
           update: true
-      - name: Pin MSYS2 packages
-        # Pin upstream packages whose latest versions break this job:
-        # - mingw-w64-x86_64-gcc 16.1.0 ships a libstdc++ regression that
-        #   breaks std::shared_ptr/threading tests on MINGW64 (bad_weak_ptr,
-        #   heap corruption 0xc0000374, segfaults, hangs).
-        # - mingw-w64-{x86_64,clang-x86_64}-aws-sdk-cpp 1.11.801 stopped
-        #   sending the legacy Content-Md5 header on DeleteObjects, which the
-        #   bundled MinIO test server (2024-09-13) still requires.
-        shell: msys2 {0}
-        run: |
-          set -ex
-          case "${{ matrix.msystem_lower }}" in
-            mingw64)
-              urls=(
-                "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-15.2.0-14-any.pkg.tar.zst"
-                "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-15.2.0-14-any.pkg.tar.zst"
-                "https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
-              )
-              ignore="mingw-w64-x86_64-gcc mingw-w64-x86_64-gcc-libs mingw-w64-x86_64-aws-sdk-cpp"
-              ;;
-            clang64)
-              urls=(
-                "https://repo.msys2.org/mingw/clang64/mingw-w64-clang-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
-              )
-              ignore="mingw-w64-clang-x86_64-aws-sdk-cpp"
-              ;;
-          esac
-          pacman -U --noconfirm "${urls[@]}"
-          printf '\nIgnorePkg = %s\n' "$ignore" >> /etc/pacman.conf
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
+      - name: Pin MSYS2 packages
+        # Workaround for upstream regressions:
+        # - gcc 16.1.0 has a libstdc++ regression that breaks threading
+        #   tests on MINGW64. We also pin C++ packages rebuilt against
+        #   the new libstdc++ since they reference symbols missing from 15.2.
+        # - aws-sdk-cpp 1.11.801 drops Content-Md5 on DeleteObjects which
+        #   our bundled MinIO (RELEASE.2024-09-13) still requires.
+        shell: msys2 {0}
+        run: |
+          set -ex
+          base="https://repo.msys2.org/mingw"
+          case "${{ matrix.msystem_lower }}" in
+            mingw64)
+              urls=(
+                "$base/mingw64/mingw-w64-x86_64-gcc-libs-15.2.0-14-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-gcc-15.2.0-14-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-aws-crt-cpp-0.38.4-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-boost-libs-1.91.0-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-boost-1.91.0-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-ccache-4.13.2-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-clang-libs-22.1.4-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-clang-22.1.4-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-cmake-4.3.2-2-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-icu-78.3-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-llvm-libs-22.1.4-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-llvm-tools-22.1.4-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-llvm-22.1.4-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-tbb-2022.3.0-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-thrift-0.22.0-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-zstd-1.5.7-1-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-gflags-2.2.2-7-any.pkg.tar.zst"
+                "$base/mingw64/mingw-w64-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
+              )
+              ;;
+            clang64)
+              urls=(
+                "$base/clang64/mingw-w64-clang-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
+              )
+              ;;
+          esac
+          pacman -U --noconfirm "${urls[@]}"
       - name: Cache ccache
         uses: actions/cache@v5
         with:
