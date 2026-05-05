@@ -60,7 +60,7 @@ class allocator {
   /// \brief Construct an allocator from the default MemoryPool
   allocator() noexcept : pool_(default_memory_pool()) {}
   /// \brief Construct an allocator from the given MemoryPool
-  allocator(MemoryPool* pool) noexcept : pool_(pool) {}
+  allocator(MemoryPool* pool) noexcept : pool_(pool) {}  // NOLINT: runtime/explicit
 
   template <class U>
   allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool()) {}
