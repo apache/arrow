@@ -2850,11 +2850,15 @@ def test_count():
 
 
 def test_count_run_end_encoded_nulls():
-    arr = pc.run_end_encode(pa.array([1, None]))
+    arr = pc.run_end_encode(
+        pa.array([1, 1, None, None, None, 2, 2, 2, None, 3]))
 
-    assert pc.count(arr, mode="only_valid").as_py() == 1
-    assert pc.count(arr, mode="only_null").as_py() == 1
-    assert pc.count(arr, mode="all").as_py() == 2
+    assert pc.count(arr, mode="only_valid").as_py() == 6
+    assert pc.count(arr, mode="only_null").as_py() == 4
+    assert pc.count(arr, mode="all").as_py() == 10
+    # Slice crosses run boundaries: logical [None, None, 2, 2, 2, None].
+    assert pc.count(arr.slice(3, 6), mode="only_valid").as_py() == 3
+    assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
 
 
 def test_index():
