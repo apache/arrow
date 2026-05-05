@@ -7,7 +7,7 @@
 schema(...)
 }
 \arguments{
-\item{...}{\link[vctrs:fields]{fields}, field name/\link[=data-type]{data type} pairs (or a list of), or object from which to extract
+\item{...}{\link[=field]{fields}, field name/\link[=data-type]{data type} pairs (or a list of), or object from which to extract
 a schema}
 }
 \description{
