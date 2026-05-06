@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/alp/alp_wrapper.h"
+#include "arrow/util/alp/alp_codec.h"
 
 using namespace arrow::util::alp;
 

@@ -34,7 +34,7 @@ namespace alp {
 // ALP Overview
 //
 // IMPORTANT: For abstract interfaces or examples how to use ALP, consult
-// alp_wrapper.h.
+// alp_codec.h.
 // This is our implementation of the adaptive lossless floating-point
 // compression for decimals (ALP) (https://dl.acm.org/doi/10.1145/3626717).
 // It works by converting a float into a decimal (if possible). The exponent
