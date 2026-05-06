@@ -683,8 +683,8 @@ static void BM_AlpDecodingFloat(benchmark::State& state) {
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
+  auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP);
   for (auto _ : state) {
-    auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP);
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
     std::vector<float> output(values.size());
@@ -716,8 +716,8 @@ static void BM_AlpDecodingDouble(benchmark::State& state) {
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
+  auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP);
   for (auto _ : state) {
-    auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP);
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
     std::vector<double> output(values.size());
