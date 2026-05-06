@@ -73,6 +73,22 @@ ARROW_FORCE_INLINE constexpr T max_value(const std::array<T, N>& arr) {
   return out;
 }
 
+template <std::array kArr, typename Arch, std::size_t... Is>
+ARROW_FORCE_INLINE constexpr auto array_to_batch_constant_impl(
+    std::index_sequence<Is...>) {
+  using Array = std::decay_t<decltype(kArr)>;
+  using value_type = typename Array::value_type;
+
+  return xsimd::batch_constant<value_type, Arch, kArr[Is]...>{};
+}
+
+/// Make a ``xsimd::batch_constant`` from a static constexpr array.
+template <std::array kArr, typename Arch>
+ARROW_FORCE_INLINE constexpr auto array_to_batch_constant() {
+  return array_to_batch_constant_impl<kArr, Arch>(
+      std::make_index_sequence<kArr.size()>());
+}
+
 template <typename Uint, typename Arch>
 ARROW_FORCE_INLINE xsimd::batch<uint8_t, Arch> load_val_as(const uint8_t* in) {
   const Uint val = util::SafeLoadAs<Uint>(in);
@@ -123,7 +139,7 @@ ARROW_FORCE_INLINE constexpr auto select_stride(
   constexpr auto kStridesArr =
       select_stride_impl<ToInt, kOffset, sizeof(ToInt) / sizeof(Int)>(
           std::array{kShifts...});
-  return xsimd::make_batch_constant<kStridesArr, Arch>();
+  return array_to_batch_constant<kStridesArr, Arch>();
 }
 
 /// Whether we are compiling for the SSE2 or above in the SSE family (not AVX).
@@ -634,8 +650,7 @@ struct MediumKernel {
                                                        unpacked_type* out) {
     constexpr auto kRightShiftsArr =
         kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
-    constexpr auto kRightShifts =
-        xsimd::make_batch_constant<kRightShiftsArr, arch_type>();
+    constexpr auto kRightShifts = array_to_batch_constant<kRightShiftsArr, arch_type>();
     constexpr auto kMask = kPlan.mask;
     constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
                                  kSwizzleIdx * kPlan.unpacked_per_swizzle() +
@@ -659,7 +674,7 @@ struct MediumKernel {
       const simd_bytes& bytes, unpacked_type* out,
       std::integer_sequence<int, kShiftIds...>) {
     constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
-    constexpr auto kSwizzles = xsimd::make_batch_constant<kSwizzlesArr, arch_type>();
+    constexpr auto kSwizzles = array_to_batch_constant<kSwizzlesArr, arch_type>();
 
     const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
     const auto words = xsimd::bitwise_cast<uint_type>(swizzled);
@@ -923,13 +938,13 @@ struct LargeKernel {
   ARROW_FORCE_INLINE static void unpack_one_read_impl(const uint8_t* in,
                                                       unpacked_type* out) {
     constexpr auto kLowSwizzles =
-        xsimd::make_batch_constant<kPlan.low_swizzles.at(kReadIdx), arch_type>();
+        array_to_batch_constant<kPlan.low_swizzles.at(kReadIdx), arch_type>();
     constexpr auto kLowRShifts =
-        xsimd::make_batch_constant<kPlan.low_rshifts.at(kReadIdx), arch_type>();
+        array_to_batch_constant<kPlan.low_rshifts.at(kReadIdx), arch_type>();
     constexpr auto kHighSwizzles =
-        xsimd::make_batch_constant<kPlan.high_swizzles.at(kReadIdx), arch_type>();
+        array_to_batch_constant<kPlan.high_swizzles.at(kReadIdx), arch_type>();
     constexpr auto kHighLShifts =
-        xsimd::make_batch_constant<kPlan.high_lshifts.at(kReadIdx), arch_type>();
+        array_to_batch_constant<kPlan.high_lshifts.at(kReadIdx), arch_type>();
 
     const auto bytes =
         safe_load_bytes<kPlan.bytes_per_read(), arch_type>(in + kPlan.reads.at(kReadIdx));
