@@ -284,7 +284,8 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: |
-          # Download tzdata in case the vendored date library is used for timezones
+          # MinGW (non-MSVC) builds use the vendored date library for timezone
+          # handling, which requires a local copy of the IANA tzdata database.
           ci/scripts/download_tz_database.sh
       - run: mkdir r/windows
       - name: Download artifacts
