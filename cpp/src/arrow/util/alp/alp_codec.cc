@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/alp/alp_wrapper.h"
+#include "arrow/util/alp/alp_codec.h"
 
 #include <cmath>
 #include <optional>
