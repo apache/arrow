@@ -160,7 +160,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(start_int_size, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(false) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -173,7 +174,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(false) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -187,7 +189,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(index_type, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(false) {}
 
   template <typename B = BuilderType, typename T1 = T>
   DictionaryBuilderBase(uint8_t start_int_size,
@@ -202,7 +205,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(start_int_size, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(false) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -214,7 +218,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(false) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -227,7 +232,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(index_type, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(false) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -243,7 +249,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool, alignment),
-        value_type_(dictionary->type()) {}
+        value_type_(dictionary->type()),
+        ordered_(false) {}
 
   ~DictionaryBuilderBase() override = default;
 
@@ -490,8 +497,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override {
-    return ::arrow::dictionary(indices_builder_.type(), value_type_);
+    return ::arrow::dictionary(indices_builder_.type(), value_type_, ordered_);
   }
+
+  void set_ordered(bool ordered) { ordered_ = ordered; }
 
  protected:
   template <typename c_type>
@@ -561,6 +570,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   BuilderType indices_builder_;
   std::shared_ptr<DataType> value_type_;
+  bool ordered_;
 };
 
 template <typename BuilderType>
@@ -647,7 +657,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
-    (*out)->type = dictionary((*out)->type, null());
+    (*out)->type = dictionary((*out)->type, null(), ordered_);
     (*out)->dictionary = NullArray(0).data();
     return Status::OK();
   }
@@ -659,11 +669,14 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override {
-    return ::arrow::dictionary(indices_builder_.type(), null());
+    return ::arrow::dictionary(indices_builder_.type(), null(), ordered_);
   }
+
+  void set_ordered(bool ordered) { ordered_ = ordered; }
 
  protected:
   BuilderType indices_builder_;
+  bool ordered_ = false;
 };
 
 }  // namespace internal
