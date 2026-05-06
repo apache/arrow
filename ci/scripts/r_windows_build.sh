@@ -29,6 +29,9 @@ if [ ! -f /usr/ssl/certs/ca-bundle.crt ]; then
   cp "/c/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt" /usr/ssl/certs/ca-bundle.crt
 fi
 
+# RTools42+ needs its toolchain on PATH for makepkg-mingw to find strip etc.
+export PATH="/c/rtools${RTOOLS_VERSION}/ucrt64/bin:$PATH"
+
 pacman --noconfirm -Syy
 
 RWINLIB_LIB_DIR="lib"
