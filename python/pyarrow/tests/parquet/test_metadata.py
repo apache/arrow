@@ -803,9 +803,9 @@ def test_bloom_filter_offset_in_metadata():
 
     buf = pa.BufferOutputStream()
     pq.write_table(
-        table, 
+        table,
         buf,
-        bloom_filter_options={"a": {"ndv": 1000}} # apply bloom filter on col a
+        bloom_filter_options={"a": {"ndv": 1000}}  # apply bloom filter on col a
     )
     metadata = pq.read_metadata(pa.BufferReader(buf.getvalue()))
 
