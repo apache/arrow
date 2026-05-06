@@ -195,7 +195,7 @@ struct DictionaryBuilderCase {
   MemoryPool* pool;
   const std::shared_ptr<DataType>& index_type;
   const std::shared_ptr<DataType>& value_type;
-  const std::shared_ptr<Array>& dictionary;
+  std::shared_ptr<Array> dictionary;
   bool exact_index_type;
   bool ordered;
   std::unique_ptr<ArrayBuilder>* out;
