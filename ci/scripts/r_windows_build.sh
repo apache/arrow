@@ -23,14 +23,21 @@ set -ex
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-# Ensure CA certificates are available for pacman (Rtools42+ may not bundle them)
-if [ ! -f /usr/ssl/certs/ca-bundle.crt ]; then
-  mkdir -p /usr/ssl/certs
-  cp "/c/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt" /usr/ssl/certs/ca-bundle.crt
-fi
-
-# RTools42+ needs its toolchain on PATH for makepkg-mingw to find strip etc.
-export PATH="/c/rtools${RTOOLS_VERSION}/ucrt64/bin:$PATH"
+# Debug: understand the RTools environment on this runner
+echo "=== RTools debug info ==="
+echo "Shell: $SHELL / BASH: $BASH"
+echo "MSYSTEM: $MSYSTEM"
+echo "RTOOLS_VERSION: $RTOOLS_VERSION"
+echo "which bash: $(which bash)"
+echo "which pacman: $(which pacman)"
+echo "which strip: $(which strip 2>/dev/null || echo 'not found')"
+echo "which makepkg-mingw: $(which makepkg-mingw 2>/dev/null || echo 'not found')"
+ls -la /usr/ssl/certs/ 2>/dev/null || echo "/usr/ssl/certs/ does not exist"
+ls -la /etc/pki/ca-trust/ 2>/dev/null || echo "/etc/pki/ca-trust/ does not exist"
+ls /c/rtools42/ 2>/dev/null || echo "/c/rtools42/ does not exist"
+ls /c/rtools45/ 2>/dev/null || echo "/c/rtools45/ does not exist"
+echo "cygpath /: $(cygpath -w /)"
+echo "=== end debug ==="
 
 pacman --noconfirm -Syy
 
