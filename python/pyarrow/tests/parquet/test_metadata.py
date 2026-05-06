@@ -797,13 +797,16 @@ def test_column_chunk_key_value_metadata(parquet_test_datadir):
 
 
 def test_bloom_filter_offset_in_metadata():
-    # GH-XXXXX: bloom_filter_offset and bloom_filter_length must appear in
     # ColumnChunkMetaData.to_dict() when a bloom filter is written.
     table = pa.table({"a": [f"id_{i}" for i in range(1000)],
                       "b": list(range(1000))})
 
     buf = pa.BufferOutputStream()
-    pq.write_table(table, buf, bloom_filter_options={"a": {"ndv": 1000}})
+    pq.write_table(
+        table, 
+        buf,
+        bloom_filter_options={"a": {"ndv": 1000}} # apply bloom filter on col a
+    )
     metadata = pq.read_metadata(pa.BufferReader(buf.getvalue()))
 
     col_a = metadata.row_group(0).column(0)  # bloom filter written
