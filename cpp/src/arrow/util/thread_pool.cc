@@ -667,12 +667,11 @@ static ThreadPool* GetCurrentThreadPool() {
   auto* pool = static_cast<ThreadPool*>(TlsGetValue(GetPoolTlsIndex()));
   DWORD tls_error = GetLastError();
   if (tls_error != 0) {
-    // Restore the original error before logging a fatal TLS failure.
-    SetLastError(original_error);
+    // No need to restore original_error here: ARROW_LOG(FATAL) aborts the process.
     ARROW_LOG(FATAL) << "TlsGetValue failed for thread pool TLS: "
                      << WinErrorMessage(tls_error);
   }
-  // No TLS error: restore the caller's last-error value and return the pool.
+  // Restore the caller's last-error value.
   SetLastError(original_error);
   return pool;
 }
