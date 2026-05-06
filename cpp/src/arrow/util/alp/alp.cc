@@ -45,33 +45,33 @@ static_assert(ARROW_LITTLE_ENDIAN,
 // ----------------------------------------------------------------------
 // AlpEncodedVectorInfo implementation (non-templated, 4 bytes)
 
-void AlpEncodedVectorInfo::Store(arrow::util::span<char> output_buffer) const {
+void AlpEncodedVectorInfo::Store(arrow::util::span<uint8_t> output_buffer) const {
   ARROW_CHECK(output_buffer.size() >= GetStoredSize())
       << "alp_vector_info_output_too_small: " << output_buffer.size() << " vs "
       << GetStoredSize();
 
-  char* ptr = output_buffer.data();
+  uint8_t* ptr = output_buffer.data();
 
   // exponent, factor: 1 byte each
-  *ptr++ = static_cast<char>(exponent);
-  *ptr++ = static_cast<char>(factor);
+  *ptr++ = exponent;
+  *ptr++ = factor;
 
   // num_exceptions: 2 bytes
   std::memcpy(ptr, &num_exceptions, sizeof(num_exceptions));
 }
 
 AlpEncodedVectorInfo AlpEncodedVectorInfo::Load(
-    arrow::util::span<const char> input_buffer) {
+    arrow::util::span<const uint8_t> input_buffer) {
   ARROW_CHECK(input_buffer.size() >= GetStoredSize())
       << "alp_vector_info_input_too_small: " << input_buffer.size() << " vs "
       << GetStoredSize();
 
   AlpEncodedVectorInfo result{};
-  const char* ptr = input_buffer.data();
+  const uint8_t* ptr = input_buffer.data();
 
   // exponent, factor: 1 byte each
-  result.exponent = static_cast<uint8_t>(*ptr++);
-  result.factor = static_cast<uint8_t>(*ptr++);
+  result.exponent = *ptr++;
+  result.factor = *ptr++;
 
   // num_exceptions: 2 bytes
   std::memcpy(&result.num_exceptions, ptr, sizeof(result.num_exceptions));
@@ -83,37 +83,37 @@ AlpEncodedVectorInfo AlpEncodedVectorInfo::Load(
 // AlpEncodedForVectorInfo implementation (templated, 5/9 bytes)
 
 template <typename T>
-void AlpEncodedForVectorInfo<T>::Store(arrow::util::span<char> output_buffer) const {
+void AlpEncodedForVectorInfo<T>::Store(arrow::util::span<uint8_t> output_buffer) const {
   ARROW_CHECK(output_buffer.size() >= GetStoredSize())
       << "alp_for_vector_info_output_too_small: " << output_buffer.size() << " vs "
       << GetStoredSize();
 
-  char* ptr = output_buffer.data();
+  uint8_t* ptr = output_buffer.data();
 
   // frame_of_reference: 4 bytes for float, 8 bytes for double
   std::memcpy(ptr, &frame_of_reference, sizeof(frame_of_reference));
   ptr += sizeof(frame_of_reference);
 
   // bit_width: 1 byte
-  *ptr = static_cast<char>(bit_width);
+  *ptr = bit_width;
 }
 
 template <typename T>
 AlpEncodedForVectorInfo<T> AlpEncodedForVectorInfo<T>::Load(
-    arrow::util::span<const char> input_buffer) {
+    arrow::util::span<const uint8_t> input_buffer) {
   ARROW_CHECK(input_buffer.size() >= GetStoredSize())
       << "alp_for_vector_info_input_too_small: " << input_buffer.size() << " vs "
       << GetStoredSize();
 
   AlpEncodedForVectorInfo<T> result{};
-  const char* ptr = input_buffer.data();
+  const uint8_t* ptr = input_buffer.data();
 
   // frame_of_reference: 4 bytes for float, 8 bytes for double
   std::memcpy(&result.frame_of_reference, ptr, sizeof(result.frame_of_reference));
   ptr += sizeof(result.frame_of_reference);
 
   // bit_width: 1 byte
-  result.bit_width = static_cast<uint8_t>(*ptr);
+  result.bit_width = *ptr;
 
   return result;
 }
@@ -126,7 +126,7 @@ template struct AlpEncodedForVectorInfo<double>;
 // AlpEncodedVector implementation
 
 template <typename T>
-void AlpEncodedVector<T>::Store(arrow::util::span<char> output_buffer) const {
+void AlpEncodedVector<T>::Store(arrow::util::span<uint8_t> output_buffer) const {
   const uint64_t overall_size = GetStoredSize();
   ARROW_CHECK(output_buffer.size() >= overall_size)
       << "alp_bit_packed_vector_store_output_too_small: " << output_buffer.size()
@@ -147,7 +147,7 @@ void AlpEncodedVector<T>::Store(arrow::util::span<char> output_buffer) const {
 }
 
 template <typename T>
-void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<char> output_buffer) const {
+void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<uint8_t> output_buffer) const {
   const uint64_t data_size = GetDataStoredSize();
   ARROW_CHECK(output_buffer.size() >= data_size)
       << "alp_bit_packed_vector_store_data_output_too_small: " << output_buffer.size()
@@ -187,7 +187,7 @@ void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<char> output_buffer) c
 
 template <typename T>
 AlpEncodedVector<T> AlpEncodedVector<T>::Load(
-    arrow::util::span<const char> input_buffer, uint16_t num_elements) {
+    arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements) {
   ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
       << "alp_compression_state_element_count_too_large: " << num_elements << " vs "
       << AlpConstants::kAlpVectorSize;
@@ -240,15 +240,15 @@ AlpEncodedVector<T> AlpEncodedVector<T>::Load(
 }
 
 template <typename T>
-uint64_t AlpEncodedVector<T>::GetStoredSize() const {
+int64_t AlpEncodedVector<T>::GetStoredSize() const {
   return GetStoredSize(alp_info, for_info, num_elements);
 }
 
 template <typename T>
-uint64_t AlpEncodedVector<T>::GetStoredSize(const AlpEncodedVectorInfo& alp_info,
-                                            const AlpEncodedForVectorInfo<T>& for_info,
-                                            uint16_t num_elements) {
-  const uint64_t bit_packed_size =
+int64_t AlpEncodedVector<T>::GetStoredSize(const AlpEncodedVectorInfo& alp_info,
+                                           const AlpEncodedForVectorInfo<T>& for_info,
+                                           uint16_t num_elements) {
+  const int64_t bit_packed_size =
       AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width);
   return AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize +
          bit_packed_size +
@@ -282,7 +282,7 @@ bool AlpEncodedVector<T>::operator==(const AlpEncodedVector<T>& other) const {
 
 template <typename T>
 AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
-    arrow::util::span<const char> input_buffer, uint16_t num_elements) {
+    arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements) {
   ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
       << "alp_view_element_count_too_large: " << num_elements << " vs "
       << AlpConstants::kAlpVectorSize;
@@ -323,7 +323,7 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
 
 template <typename T>
 AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadViewDataOnly(
-    arrow::util::span<const char> input_buffer, const AlpEncodedVectorInfo& alp_info,
+    arrow::util::span<const uint8_t> input_buffer, const AlpEncodedVectorInfo& alp_info,
     const AlpEncodedForVectorInfo<T>& for_info, uint16_t num_elements) {
   ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
       << "alp_view_data_only_element_count_too_large: " << num_elements << " vs "
@@ -346,9 +346,7 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadViewDataOnly(
       AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width);
 
   // Zero-copy for packed values (bytes have no alignment requirements)
-  result.packed_values = {
-      reinterpret_cast<const uint8_t*>(input_buffer.data() + input_offset),
-      bit_packed_size};
+  result.packed_values = {input_buffer.data() + input_offset, bit_packed_size};
   input_offset += bit_packed_size;
 
   // Copy exception positions into aligned storage to avoid UB from misaligned access.
@@ -370,7 +368,7 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadViewDataOnly(
 }
 
 template <typename T>
-uint64_t AlpEncodedVectorView<T>::GetStoredSize() const {
+int64_t AlpEncodedVectorView<T>::GetStoredSize() const {
   return AlpEncodedVector<T>::GetStoredSize(alp_info, for_info, num_elements);
 }
 
@@ -384,8 +382,8 @@ template <typename T>
 AlpMetadataCache<T> AlpMetadataCache<T>::Load(
     uint32_t num_vectors, uint32_t vector_size, uint32_t total_elements,
     AlpIntegerEncoding integer_encoding,
-    arrow::util::span<const char> alp_metadata_buffer,
-    arrow::util::span<const char> int_encoding_metadata_buffer) {
+    arrow::util::span<const uint8_t> alp_metadata_buffer,
+    arrow::util::span<const uint8_t> int_encoding_metadata_buffer) {
   AlpMetadataCache<T> cache;
 
   if (num_vectors == 0) {
