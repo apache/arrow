@@ -130,8 +130,8 @@ struct AlpHeader {
   /// \brief Calculate the number of elements for a given vector index
   ///
   /// \param[in] vector_index the 0-based index of the vector
-  /// \return the number of elements in this vector
-  uint16_t GetVectorNumElements(uint64_t vector_index) const {
+  /// \return the number of elements in this vector, or error if index is out of range
+  Result<uint16_t> GetVectorNumElements(uint64_t vector_index) const {
     const uint32_t vector_size = GetVectorSize();
     const uint64_t num_full_vectors = num_elements / vector_size;
     const uint64_t remainder = num_elements % vector_size;
@@ -140,9 +140,8 @@ struct AlpHeader {
     } else if (vector_index == num_full_vectors && remainder > 0) {
       return static_cast<uint16_t>(remainder);  // Last partial vector
     }
-    ARROW_CHECK(false) << "alp_invalid_vector_index: " << vector_index
-                       << " (num_vectors=" << GetNumVectors() << ")";
-    return 0;  // Unreachable, but silences compiler warning
+    return Status::Invalid("ALP invalid vector index: ", vector_index,
+                           " (num_vectors=", GetNumVectors(), ")");
   }
 
   /// \brief Get the AlpMode enum from the stored uint8_t
@@ -318,10 +317,11 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
   encoded_vectors.reserve(num_vectors);
 
   uint64_t input_offset = 0;
+  const uint64_t vector_size = static_cast<uint64_t>(AlpConstants::kAlpVectorSize);
   for (uint64_t remaining_elements = element_count; remaining_elements > 0;
-       remaining_elements -= std::min(AlpConstants::kAlpVectorSize, remaining_elements)) {
+       remaining_elements -= std::min(vector_size, remaining_elements)) {
     const uint64_t elements_to_encode =
-        std::min(AlpConstants::kAlpVectorSize, remaining_elements);
+        std::min(vector_size, remaining_elements);
     encoded_vectors.push_back(AlpCompression<T>::CompressVector(
         decomp + input_offset, static_cast<uint16_t>(elements_to_encode), combinations));
     input_offset += elements_to_encode;
@@ -426,6 +426,17 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
                            comp_size, " < ", offsets_section_size);
   }
 
+  // Sanity check: each vector must have at least its metadata. Reject obviously
+  // corrupted num_vectors before allocating (avoids OOM on malicious data).
+  constexpr uint64_t kMinBytesPerVector =
+      AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
+  if (offsets_section_size + static_cast<uint64_t>(num_vectors) * kMinBytesPerVector >
+      comp_size) {
+    return Status::Invalid(
+        "ALP num_vectors inconsistent with buffer size: num_vectors=", num_vectors,
+        ", comp_size=", comp_size);
+  }
+
   // Read all offsets
   std::vector<AlpConstants::OffsetType> vector_offsets(num_vectors);
   std::memcpy(vector_offsets.data(), comp,
@@ -445,7 +456,9 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
     } else if (vector_index == num_full_vectors && remainder > 0) {
       this_vector_elements = static_cast<uint16_t>(remainder);
     } else {
-      this_vector_elements = 0;
+      return Status::Invalid("ALP vector index out of range: ", vector_index,
+                             " (total_elements=", total_elements,
+                             ", vector_size=", vector_size, ")");
     }
 
     if (output_offset + this_vector_elements > decomp_element_count) {
@@ -471,50 +484,49 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
     const uint64_t remaining = comp_size - vector_offset;
 
     // Read AlpInfo (interleaved)
-    const AlpEncodedVectorInfo alp_info =
-        AlpEncodedVectorInfo::Load({vector_start, remaining});
+    ARROW_ASSIGN_OR_RAISE(const AlpEncodedVectorInfo alp_info,
+                          AlpEncodedVectorInfo::Load({vector_start, remaining}));
     const uint8_t* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
-    // Decode based on integer encoding type
-    switch (integer_encoding) {
-      case AlpIntegerEncoding::kForBitPack: {
-        // Read ForInfo (interleaved)
-        const AlpEncodedForVectorInfo<T> for_info =
-            AlpEncodedForVectorInfo<T>::Load(
-                {ptr, remaining - AlpEncodedVectorInfo::kStoredSize});
-        ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
+    // Validate integer encoding before decoding
+    if (integer_encoding != AlpIntegerEncoding::kForBitPack) {
+      return Status::Invalid("Unsupported ALP integer encoding: ",
+                             static_cast<int>(integer_encoding));
+    }
 
-        // Validate enough buffer remains for the data section
-        const int64_t data_remaining = static_cast<int64_t>(
-            comp_size - static_cast<uint64_t>(ptr - reinterpret_cast<const uint8_t*>(comp)));
-        const int64_t data_size =
-            for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
-        if (data_size > data_remaining) {
-          return Status::Invalid("ALP insufficient buffer for vector data: need=",
-                                 data_size, ", remaining=", data_remaining,
-                                 ", vector_index=", vector_index);
-        }
+    // Read ForInfo (interleaved)
+    ARROW_ASSIGN_OR_RAISE(
+        const AlpEncodedForVectorInfo<T> for_info,
+        AlpEncodedForVectorInfo<T>::Load(
+            {ptr, remaining - AlpEncodedVectorInfo::kStoredSize}));
+    ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
 
-        // Load view from data section (packed values + exceptions)
-        const AlpEncodedVectorView<T> encoded_view =
-            AlpEncodedVectorView<T>::LoadViewDataOnly(
-                {ptr, data_remaining},
-                alp_info, for_info, this_vector_elements);
+    // Validate enough buffer remains for the data section
+    const int64_t data_remaining = static_cast<int64_t>(
+        comp_size - static_cast<uint64_t>(ptr - reinterpret_cast<const uint8_t*>(comp)));
+    const int64_t data_size =
+        for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+    if (data_size > data_remaining) {
+      return Status::Invalid("ALP insufficient buffer for vector data: need=",
+                             data_size, ", remaining=", data_remaining,
+                             ", vector_index=", vector_index);
+    }
 
-        AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
-                                                decomp + output_offset);
+    // Load view from data section (packed values + exceptions)
+    ARROW_ASSIGN_OR_RAISE(
+        const AlpEncodedVectorView<T> encoded_view,
+        AlpEncodedVectorView<T>::LoadViewDataOnly(
+            {ptr, static_cast<size_t>(data_remaining)},
+            alp_info, for_info, this_vector_elements));
 
-        // Track bytes consumed for last vector
-        if (vector_index == num_vectors - 1) {
-          bytes_consumed =
-              static_cast<uint64_t>(ptr - reinterpret_cast<const uint8_t*>(comp)) +
-              for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
-        }
-      } break;
+    AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
+                                            decomp + output_offset);
 
-      default:
-        return Status::Invalid("Unsupported ALP integer encoding: ",
-                               static_cast<int>(integer_encoding));
+    // Track bytes consumed for last vector
+    if (vector_index == num_vectors - 1) {
+      bytes_consumed =
+          static_cast<uint64_t>(ptr - reinterpret_cast<const uint8_t*>(comp)) +
+          for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
     }
 
     output_offset += this_vector_elements;

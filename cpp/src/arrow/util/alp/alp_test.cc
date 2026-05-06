@@ -234,11 +234,11 @@ TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   info.factor = 3;
   info.num_exceptions = 10;
 
-  std::vector<char> buffer(AlpEncodedVectorInfo::kStoredSize + 10);
+  std::vector<uint8_t> buffer(AlpEncodedVectorInfo::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
 
-  AlpEncodedVectorInfo loaded =
-      AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()});
+  ASSERT_OK_AND_ASSIGN(AlpEncodedVectorInfo loaded,
+                       AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.exponent, 5);
   EXPECT_EQ(loaded.factor, 3);
@@ -251,11 +251,11 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripFloat) {
   info.frame_of_reference = 0x12345678U;
   info.bit_width = 12;
 
-  std::vector<char> buffer(AlpEncodedForVectorInfo<float>::kStoredSize + 10);
+  std::vector<uint8_t> buffer(AlpEncodedForVectorInfo<float>::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
 
-  AlpEncodedForVectorInfo<float> loaded =
-      AlpEncodedForVectorInfo<float>::Load({buffer.data(), buffer.size()});
+  ASSERT_OK_AND_ASSIGN(AlpEncodedForVectorInfo<float> loaded,
+                       AlpEncodedForVectorInfo<float>::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference, 0x12345678U);
   EXPECT_EQ(loaded.bit_width, 12);
@@ -267,11 +267,11 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripDouble) {
   info.frame_of_reference = 0x123456789ABCDEF0ULL;
   info.bit_width = 20;
 
-  std::vector<char> buffer(AlpEncodedForVectorInfo<double>::kStoredSize + 10);
+  std::vector<uint8_t> buffer(AlpEncodedForVectorInfo<double>::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
 
-  AlpEncodedForVectorInfo<double> loaded =
-      AlpEncodedForVectorInfo<double>::Load({buffer.data(), buffer.size()});
+  ASSERT_OK_AND_ASSIGN(AlpEncodedForVectorInfo<double> loaded,
+                       AlpEncodedForVectorInfo<double>::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference, 0x123456789ABCDEF0ULL);
   EXPECT_EQ(loaded.bit_width, 20);
@@ -304,8 +304,10 @@ TYPED_TEST_SUITE(AlpMetadataCacheTest, MetadataCacheTypes);
 
 TYPED_TEST(AlpMetadataCacheTest, LoadEmptyBuffer) {
   // Test loading empty cache
-  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      0, 1024, 0, AlpIntegerEncoding::kForBitPack, {}, {});
+  ASSERT_OK_AND_ASSIGN(
+      AlpMetadataCache<TypeParam> cache,
+      AlpMetadataCache<TypeParam>::Load(
+          0, 1024, 0, AlpIntegerEncoding::kForBitPack, {}, {}));
   EXPECT_EQ(cache.GetNumVectors(), 0);
   EXPECT_EQ(cache.GetTotalDataSize(), 0);
   EXPECT_EQ(cache.GetTotalMetadataSectionSize(), 0);
@@ -325,16 +327,19 @@ TYPED_TEST(AlpMetadataCacheTest, LoadSingleVector) {
   const uint16_t num_elements = 1024;
 
   // Store them in separate buffers
-  std::vector<char> alp_buffer(AlpEncodedVectorInfo::kStoredSize);
+  std::vector<uint8_t> alp_buffer(AlpEncodedVectorInfo::kStoredSize);
   alp_info.Store({alp_buffer.data(), alp_buffer.size()});
 
-  std::vector<char> for_buffer(AlpEncodedForVectorInfo<TypeParam>::kStoredSize);
+  std::vector<uint8_t> for_buffer(AlpEncodedForVectorInfo<TypeParam>::kStoredSize);
   for_info.Store({for_buffer.data(), for_buffer.size()});
 
   // Load into cache
-  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      1, 1024, num_elements, AlpIntegerEncoding::kForBitPack,
-      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
+  ASSERT_OK_AND_ASSIGN(
+      AlpMetadataCache<TypeParam> cache,
+      AlpMetadataCache<TypeParam>::Load(
+          1, 1024, num_elements, AlpIntegerEncoding::kForBitPack,
+          {alp_buffer.data(), alp_buffer.size()},
+          {for_buffer.data(), for_buffer.size()}));
 
   EXPECT_EQ(cache.GetNumVectors(), 1);
   EXPECT_EQ(cache.GetVectorNumElements(0), num_elements);
@@ -388,22 +393,25 @@ TYPED_TEST(AlpMetadataCacheTest, LoadMultipleVectors) {
 
   // Store all AlpInfos contiguously
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
-  std::vector<char> alp_buffer(num_vectors * alp_info_size);
+  std::vector<uint8_t> alp_buffer(num_vectors * alp_info_size);
   for (uint32_t i = 0; i < num_vectors; i++) {
     alp_infos[i].Store({alp_buffer.data() + i * alp_info_size, alp_info_size});
   }
 
   // Store all ForInfos contiguously
   const uint64_t for_info_size = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
-  std::vector<char> for_buffer(num_vectors * for_info_size);
+  std::vector<uint8_t> for_buffer(num_vectors * for_info_size);
   for (uint32_t i = 0; i < num_vectors; i++) {
     for_infos[i].Store({for_buffer.data() + i * for_info_size, for_info_size});
   }
 
   // Load into cache
-  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      num_vectors, vector_size, total_elements, AlpIntegerEncoding::kForBitPack,
-      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
+  ASSERT_OK_AND_ASSIGN(
+      AlpMetadataCache<TypeParam> cache,
+      AlpMetadataCache<TypeParam>::Load(
+          num_vectors, vector_size, total_elements, AlpIntegerEncoding::kForBitPack,
+          {alp_buffer.data(), alp_buffer.size()},
+          {for_buffer.data(), for_buffer.size()}));
 
   EXPECT_EQ(cache.GetNumVectors(), num_vectors);
 
@@ -455,19 +463,22 @@ TYPED_TEST(AlpMetadataCacheTest, RandomAccessToVectors) {
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t for_info_size = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
 
-  std::vector<char> alp_buffer(num_vectors * alp_info_size);
+  std::vector<uint8_t> alp_buffer(num_vectors * alp_info_size);
   for (uint32_t i = 0; i < num_vectors; i++) {
     alp_infos[i].Store({alp_buffer.data() + i * alp_info_size, alp_info_size});
   }
 
-  std::vector<char> for_buffer(num_vectors * for_info_size);
+  std::vector<uint8_t> for_buffer(num_vectors * for_info_size);
   for (uint32_t i = 0; i < num_vectors; i++) {
     for_infos[i].Store({for_buffer.data() + i * for_info_size, for_info_size});
   }
 
-  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      num_vectors, vector_size, total_elements, AlpIntegerEncoding::kForBitPack,
-      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
+  ASSERT_OK_AND_ASSIGN(
+      AlpMetadataCache<TypeParam> cache,
+      AlpMetadataCache<TypeParam>::Load(
+          num_vectors, vector_size, total_elements, AlpIntegerEncoding::kForBitPack,
+          {alp_buffer.data(), alp_buffer.size()},
+          {for_buffer.data(), for_buffer.size()}));
 
   // Verify random access works correctly - access in non-sequential order
   std::vector<uint32_t> access_order = {5, 0, 9, 3, 7, 1, 8, 2, 6, 4};
@@ -758,12 +769,14 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // Store
-  std::vector<char> buffer(encoded.GetStoredSize());
+  std::vector<uint8_t> buffer(encoded.GetStoredSize());
   encoded.Store({buffer.data(), buffer.size()});
 
   // Load (pass num_elements since it's not stored in the buffer)
-  auto loaded = AlpEncodedVector<TypeParam>::Load(
-      {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size()));
+  ASSERT_OK_AND_ASSIGN(
+      auto loaded,
+      AlpEncodedVector<TypeParam>::Load(
+          {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
 
   // Verify metadata
   EXPECT_EQ(encoded.alp_info, loaded.alp_info);
@@ -789,7 +802,7 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // Verify GetStoredSize matches actual storage
-  std::vector<char> buffer(encoded.GetStoredSize());
+  std::vector<uint8_t> buffer(encoded.GetStoredSize());
   encoded.Store({buffer.data(), buffer.size()});
 
   EXPECT_EQ(buffer.size(), encoded.GetStoredSize());
@@ -833,12 +846,14 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
       << "Test requires exceptions to exercise alignment code path";
 
   // Store to buffer
-  std::vector<char> buffer(encoded.GetStoredSize());
+  std::vector<uint8_t> buffer(encoded.GetStoredSize());
   encoded.Store({buffer.data(), buffer.size()});
 
   // Load using zero-copy view - this was where the ubsan error occurred
-  auto view = AlpEncodedVectorView<TypeParam>::LoadView(
-      {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size()));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      AlpEncodedVectorView<TypeParam>::LoadView(
+          {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
 
   // Verify view loaded correctly
   EXPECT_EQ(view.alp_info, encoded.alp_info);
@@ -886,7 +901,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
       << "Expected at least 2 exceptions (NaN and Inf)";
 
   // Store to buffer
-  std::vector<char> buffer(encoded.GetStoredSize());
+  std::vector<uint8_t> buffer(encoded.GetStoredSize());
   encoded.Store({buffer.data(), buffer.size()});
 
   // Calculate where exceptions start to verify potential misalignment
@@ -905,8 +920,10 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
                std::to_string(exception_pos_offset % alignof(uint16_t) == 0));
 
   // Load using view - with old code, this would trigger ubsan if misaligned
-  auto view = AlpEncodedVectorView<TypeParam>::LoadView(
-      {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size()));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      AlpEncodedVectorView<TypeParam>::LoadView(
+          {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
 
   // Access exceptions explicitly - with old code using spans, this would
   // be undefined behavior if the buffer wasn't properly aligned
@@ -947,19 +964,21 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
   EXPECT_GT(encoded.alp_info.num_exceptions, 0);
 
   // Allocate buffer with extra byte, then use offset to create misaligned start
-  std::vector<char> oversized_buffer(encoded.GetStoredSize() + 16);
+  std::vector<uint8_t> oversized_buffer(encoded.GetStoredSize() + 16);
 
   // Try different offsets to hit various alignment scenarios
   for (size_t offset = 0; offset < 8; ++offset) {
-    char* buffer_start = oversized_buffer.data() + offset;
-    arrow::util::span<char> buffer(buffer_start, encoded.GetStoredSize());
+    uint8_t* buffer_start = oversized_buffer.data() + offset;
+    arrow::util::span<uint8_t> buffer(buffer_start, encoded.GetStoredSize());
 
     encoded.Store(buffer);
 
     // Load view from potentially misaligned buffer
-    auto view = AlpEncodedVectorView<TypeParam>::LoadView(
-        {buffer_start, encoded.GetStoredSize()},
-        static_cast<uint16_t>(input.size()));
+    ASSERT_OK_AND_ASSIGN(
+        auto view,
+        AlpEncodedVectorView<TypeParam>::LoadView(
+            {buffer_start, static_cast<size_t>(encoded.GetStoredSize())},
+            static_cast<uint16_t>(input.size())));
 
     // Decompress - this is where the fix matters
     std::vector<TypeParam> output(input.size());
@@ -1451,17 +1470,20 @@ TEST(AlpRobustnessTest, MetadataCacheOutOfBounds) {
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t for_info_size = AlpEncodedForVectorInfo<double>::kStoredSize;
 
-  std::vector<char> alp_buffer(num_vectors * alp_info_size);
-  std::vector<char> for_buffer(num_vectors * for_info_size);
+  std::vector<uint8_t> alp_buffer(num_vectors * alp_info_size);
+  std::vector<uint8_t> for_buffer(num_vectors * for_info_size);
 
   for (uint32_t i = 0; i < num_vectors; i++) {
     alp_info.Store({alp_buffer.data() + i * alp_info_size, alp_info_size});
     for_info.Store({for_buffer.data() + i * for_info_size, for_info_size});
   }
 
-  AlpMetadataCache<double> cache = AlpMetadataCache<double>::Load(
-      num_vectors, 1024, 2048, AlpIntegerEncoding::kForBitPack,
-      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
+  ASSERT_OK_AND_ASSIGN(
+      AlpMetadataCache<double> cache,
+      AlpMetadataCache<double>::Load(
+          num_vectors, 1024, 2048, AlpIntegerEncoding::kForBitPack,
+          {alp_buffer.data(), alp_buffer.size()},
+          {for_buffer.data(), for_buffer.size()}));
 
   // Valid accesses should work
   EXPECT_EQ(cache.GetNumVectors(), 2);
