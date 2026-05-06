@@ -53,8 +53,11 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
 }
 
 NumPyBuffer::~NumPyBuffer() {
-  PyAcquireGIL lock;
-  Py_XDECREF(arr_);
+  // GH-38626: destructor may be called after the Python interpreter is finalized.
+  if (Py_IsInitialized()) {
+    PyAcquireGIL lock;
+    Py_XDECREF(arr_);
+  }
 }
 
 #define TO_ARROW_TYPE_CASE(NPY_NAME, FACTORY) \
