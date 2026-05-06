@@ -1768,7 +1768,7 @@ TEST(TestDictionaryBuilderOrdered, TypePreservesOrderedFlag) {
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
 
-  auto builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
+  const auto& builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
   ASSERT_TRUE(builder_type.ordered());
 }
 
@@ -1777,7 +1777,7 @@ TEST(TestDictionaryBuilderOrdered, UnorderedTypeStaysUnordered) {
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), unordered_type, &boxed_builder));
 
-  auto builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
+  const auto& builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
   ASSERT_FALSE(builder_type.ordered());
 }
 
@@ -1794,7 +1794,7 @@ TEST(TestDictionaryBuilderOrdered, FinishPreservesOrderedFlag) {
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 
-  auto result_type = checked_cast<const DictionaryType&>(*result->type());
+  const auto& result_type = checked_cast<const DictionaryType&>(*result->type());
   ASSERT_TRUE(result_type.ordered());
 
   auto ex_dict = ArrayFromJSON(utf8(), R"(["a", "b"])");
@@ -1822,8 +1822,8 @@ TEST(TestDictionaryBuilderOrdered, ListOfOrderedDictionary) {
   std::shared_ptr<Array> result;
   ASSERT_OK(list_builder.Finish(&result));
 
-  auto result_list_type = checked_cast<const ListType&>(*result->type());
-  auto result_dict_type =
+  const auto& result_list_type = checked_cast<const ListType&>(*result->type());
+  const auto& result_dict_type =
       checked_cast<const DictionaryType&>(*result_list_type.value_type());
   ASSERT_TRUE(result_dict_type.ordered());
 }
@@ -1834,7 +1834,7 @@ TEST(TestDictionaryBuilderOrdered, MakeDictionaryBuilderPreservesOrdered) {
   ASSERT_OK(MakeDictionaryBuilder(default_memory_pool(), ordered_type,
                                   /*dictionary=*/nullptr, &builder));
 
-  auto builder_type = checked_cast<const DictionaryType&>(*builder->type());
+  const auto& builder_type = checked_cast<const DictionaryType&>(*builder->type());
   ASSERT_TRUE(builder_type.ordered());
 }
 
