@@ -1761,4 +1761,81 @@ TEST(TestDictionaryUnifier, TableZeroColumns) {
   AssertTablesEqual(*table, *unified);
 }
 
+// GH-49689: Ordered dictionary tests
+
+TEST(TestDictionaryBuilderOrdered, TypePreservesOrderedFlag) {
+  auto ordered_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
+
+  auto builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
+  ASSERT_TRUE(builder_type.ordered());
+}
+
+TEST(TestDictionaryBuilderOrdered, UnorderedTypeStaysUnordered) {
+  auto unordered_type = dictionary(int8(), utf8(), /*ordered=*/false);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), unordered_type, &boxed_builder));
+
+  auto builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
+  ASSERT_FALSE(builder_type.ordered());
+}
+
+TEST(TestDictionaryBuilderOrdered, FinishPreservesOrderedFlag) {
+  auto ordered_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+
+  ASSERT_OK(builder.Append("a"));
+  ASSERT_OK(builder.Append("b"));
+  ASSERT_OK(builder.Append("a"));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  auto result_type = checked_cast<const DictionaryType&>(*result->type());
+  ASSERT_TRUE(result_type.ordered());
+
+  auto ex_dict = ArrayFromJSON(utf8(), R"(["a", "b"])");
+  auto ex_indices = ArrayFromJSON(int8(), "[0, 1, 0]");
+  DictionaryArray expected(ordered_type, ex_indices, ex_dict);
+  AssertArraysEqual(expected, *result);
+}
+
+TEST(TestDictionaryBuilderOrdered, ListOfOrderedDictionary) {
+  auto ordered_dict_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  auto list_type = list(field("item", ordered_dict_type));
+
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), list_type, &boxed_builder));
+  auto& list_builder = checked_cast<ListBuilder&>(*boxed_builder);
+  auto& dict_builder =
+      checked_cast<DictionaryBuilder<StringType>&>(*list_builder.value_builder());
+
+  ASSERT_OK(list_builder.Append());
+  ASSERT_OK(dict_builder.Append("a"));
+  ASSERT_OK(dict_builder.Append("b"));
+  ASSERT_OK(list_builder.Append());
+  ASSERT_OK(dict_builder.Append("a"));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(list_builder.Finish(&result));
+
+  auto result_list_type = checked_cast<const ListType&>(*result->type());
+  auto result_dict_type =
+      checked_cast<const DictionaryType&>(*result_list_type.value_type());
+  ASSERT_TRUE(result_dict_type.ordered());
+}
+
+TEST(TestDictionaryBuilderOrdered, MakeDictionaryBuilderPreservesOrdered) {
+  auto ordered_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeDictionaryBuilder(default_memory_pool(), ordered_type,
+                                  /*dictionary=*/nullptr, &builder));
+
+  auto builder_type = checked_cast<const DictionaryType&>(*builder->type());
+  ASSERT_TRUE(builder_type.ordered());
+}
+
 }  // namespace arrow

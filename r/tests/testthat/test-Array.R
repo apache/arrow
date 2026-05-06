@@ -643,6 +643,13 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
   expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
   expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+  expect_array_roundtrip(list(ordered(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8(), ordered = TRUE)))
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -742,6 +749,13 @@ test_that("arrow_array() handles vector -> large list arrays", {
     as = large_list_of(dictionary(int8(), utf8()))
   )
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    large_list_of(dictionary(int8(), utf8(), ordered = TRUE)),
+    as = large_list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -807,6 +821,13 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
     list(factor(c("b", "a"), levels = c("a", "b"))),
     fixed_size_list_of(dictionary(int8(), utf8()), 2L),
     as = fixed_size_list_of(dictionary(int8(), utf8()), 2L)
+  )
+
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L),
+    as = fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L)
   )
 
   # struct
