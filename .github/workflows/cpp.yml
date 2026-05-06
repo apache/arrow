@@ -367,12 +367,7 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Pin MSYS2 packages
-        # Temporary workaround for #49272: gcc 16 makes the intermittent
-        # __emutls race in ThreadPool crash on every run.
-        # Also pins C++ packages whose latest MSYS2 build is against
-        # gcc-libs 16.1, reverting each to a build against gcc-libs 15.2 for
-        # ABI compat. Remove once #49462 is solved.
-        if: matrix.msystem_upper == 'MINGW64'
+        if: false
         shell: msys2 {0}
         run: |
           set -ex
