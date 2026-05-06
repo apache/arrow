@@ -1768,8 +1768,8 @@ TEST(TestDictionaryBuilderOrdered, TypePreservesOrderedFlag) {
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
 
-  const auto& builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
-  ASSERT_TRUE(builder_type.ordered());
+  auto builder_type = boxed_builder->type();
+  ASSERT_TRUE(checked_cast<const DictionaryType&>(*builder_type).ordered());
 }
 
 TEST(TestDictionaryBuilderOrdered, UnorderedTypeStaysUnordered) {
@@ -1777,8 +1777,8 @@ TEST(TestDictionaryBuilderOrdered, UnorderedTypeStaysUnordered) {
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), unordered_type, &boxed_builder));
 
-  const auto& builder_type = checked_cast<const DictionaryType&>(*boxed_builder->type());
-  ASSERT_FALSE(builder_type.ordered());
+  auto builder_type = boxed_builder->type();
+  ASSERT_FALSE(checked_cast<const DictionaryType&>(*builder_type).ordered());
 }
 
 TEST(TestDictionaryBuilderOrdered, FinishPreservesOrderedFlag) {
@@ -1834,8 +1834,8 @@ TEST(TestDictionaryBuilderOrdered, MakeDictionaryBuilderPreservesOrdered) {
   ASSERT_OK(MakeDictionaryBuilder(default_memory_pool(), ordered_type,
                                   /*dictionary=*/nullptr, &builder));
 
-  const auto& builder_type = checked_cast<const DictionaryType&>(*builder->type());
-  ASSERT_TRUE(builder_type.ordered());
+  auto builder_type = builder->type();
+  ASSERT_TRUE(checked_cast<const DictionaryType&>(*builder_type).ordered());
 }
 
 }  // namespace arrow
