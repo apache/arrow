@@ -1,6 +1,7 @@
 {
   "name": "arrow",
   "version-string": "",
+  "builtin-baseline": "77826283b4676c526da3a5c59e6717e3775ba722",
   "description": "Cross-language development platform for in-memory analytics",
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
