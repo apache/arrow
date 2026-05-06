@@ -67,7 +67,7 @@ class AlpConstants {
   using OffsetType = uint32_t;
 
   /// Type used to store exception positions within a compressed vector.
-  using PositionType = uint16_t;
+  using PositionType = int16_t;
 
   /// Threshold for early exit during sampling when compression quality is poor.
   /// Used in FindBestExponentAndFactor to stop early if this many consecutive

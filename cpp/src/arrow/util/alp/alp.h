@@ -187,7 +187,7 @@ struct AlpEncodedVectorInfo {
   /// Factor used for decimal encoding (divide by 10^factor)
   uint8_t factor = 0;
   /// Number of exceptions stored in this vector
-  uint16_t num_exceptions = 0;
+  int16_t num_exceptions = 0;
 
   /// Size of the serialized portion (4 bytes, fixed)
   static constexpr int64_t kStoredSize =
@@ -277,7 +277,7 @@ struct AlpEncodedForVectorInfo {
   /// \param[in] num_elements number of elements in this vector
   /// \param[in] bit_width bits per element
   /// \return the size in bytes of the bitpacked data
-  static int64_t GetBitPackedSize(uint16_t num_elements, uint8_t bit_width) {
+  static int64_t GetBitPackedSize(int32_t num_elements, uint8_t bit_width) {
     return (static_cast<int64_t>(num_elements) * bit_width + 7) / 8;
   }
 
@@ -300,10 +300,10 @@ struct AlpEncodedForVectorInfo {
   /// \param[in] num_elements number of elements in this vector
   /// \param[in] num_exceptions number of exceptions (from AlpEncodedVectorInfo)
   /// \return the size in bytes of packed values + exception positions + exceptions
-  int64_t GetDataStoredSize(uint16_t num_elements, uint16_t num_exceptions) const {
+  int64_t GetDataStoredSize(int32_t num_elements, int32_t num_exceptions) const {
     const int64_t bit_packed_size = GetBitPackedSize(num_elements, bit_width);
     return bit_packed_size +
-           num_exceptions * (sizeof(AlpConstants::PositionType) + sizeof(T));
+           num_exceptions * static_cast<int64_t>(sizeof(AlpConstants::PositionType) + sizeof(T));
   }
 
   bool operator==(const AlpEncodedForVectorInfo& other) const {
@@ -373,14 +373,14 @@ class AlpEncodedVector {
   /// FOR-specific metadata (frame_of_reference, bit_width)
   AlpEncodedForVectorInfo<T> for_info;
   /// Number of elements in this vector (not serialized; from page header)
-  uint16_t num_elements = 0;
+  int32_t num_elements = 0;
   /// Successfully encoded and bitpacked data
   arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
       packed_values;
   /// Float values that could not be converted successfully
   arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
   /// Positions of the exceptions in the decompressed vector
-  arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exception_positions;
+  arrow::internal::StaticVector<int16_t, AlpConstants::kAlpVectorSize> exception_positions;
 
   /// Total metadata size (AlpInfo + ForInfo)
   static constexpr int64_t kMetadataStoredSize =
@@ -399,7 +399,7 @@ class AlpEncodedVector {
   /// \return the stored size in bytes
   static int64_t GetStoredSize(const AlpEncodedVectorInfo& alp_info,
                                const AlpEncodedForVectorInfo<T>& for_info,
-                               uint16_t num_elements);
+                               int32_t num_elements);
 
   /// \brief Get the number of elements in this vector
   ///
@@ -434,7 +434,7 @@ class AlpEncodedVector {
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the loaded AlpEncodedVector, or Status::Invalid if data is malformed
   static Result<AlpEncodedVector> Load(arrow::util::span<const uint8_t> input_buffer,
-                                       uint16_t num_elements);
+                                       int32_t num_elements);
 
   bool operator==(const AlpEncodedVector<T>& other) const;
 };
@@ -466,11 +466,11 @@ struct AlpEncodedVectorView {
   /// FOR-specific metadata (frame_of_reference, bit_width)
   AlpEncodedForVectorInfo<T> for_info;
   /// Number of elements in this vector (not serialized; from page header)
-  uint16_t num_elements = 0;
+  int32_t num_elements = 0;
   /// View into bitpacked data (zero-copy, bytes have no alignment requirements)
   arrow::util::span<const uint8_t> packed_values;
   /// Exception positions (copied into aligned storage to avoid UB from misaligned access)
-  arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exception_positions;
+  arrow::internal::StaticVector<int16_t, AlpConstants::kAlpVectorSize> exception_positions;
   /// Exception values (copied into aligned storage to avoid UB from misaligned access)
   arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
 
@@ -482,7 +482,7 @@ struct AlpEncodedVectorView {
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data, or Status::Invalid if data is malformed
   static Result<AlpEncodedVectorView> LoadView(
-      arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements);
+      arrow::util::span<const uint8_t> input_buffer, int32_t num_elements);
 
   /// \brief Create a zero-copy view from data-only buffer (metadata provided separately)
   ///
@@ -499,7 +499,7 @@ struct AlpEncodedVectorView {
       arrow::util::span<const uint8_t> input_buffer,
       const AlpEncodedVectorInfo& alp_info,
       const AlpEncodedForVectorInfo<T>& for_info,
-      uint16_t num_elements);
+      int32_t num_elements);
 
   /// \brief Get the stored size of this vector in the buffer
   ///
@@ -570,8 +570,8 @@ class AlpMetadataCache {
   /// \return a metadata cache with all metadata and precomputed offsets,
   ///         or Status::Invalid if data is malformed
   static Result<AlpMetadataCache> Load(
-      uint32_t num_vectors, uint32_t vector_size,
-      uint32_t total_elements,
+      int32_t num_vectors, int32_t vector_size,
+      int32_t total_elements,
       AlpIntegerEncoding integer_encoding,
       arrow::util::span<const uint8_t> alp_metadata_buffer,
       arrow::util::span<const uint8_t> int_encoding_metadata_buffer);
@@ -580,8 +580,8 @@ class AlpMetadataCache {
   ///
   /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
   /// \return reference to the vector's ALP metadata
-  const AlpEncodedVectorInfo& GetAlpInfo(uint32_t vector_idx) const {
-    ARROW_CHECK(vector_idx < alp_infos_.size())
+  const AlpEncodedVectorInfo& GetAlpInfo(int32_t vector_idx) const {
+    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(alp_infos_.size()))
         << "vector_index_out_of_range: " << vector_idx;
     return alp_infos_[vector_idx];
   }
@@ -590,8 +590,8 @@ class AlpMetadataCache {
   ///
   /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
   /// \return reference to the vector's FOR metadata
-  const AlpEncodedForVectorInfo<T>& GetForInfo(uint32_t vector_idx) const {
-    ARROW_CHECK(vector_idx < for_infos_.size())
+  const AlpEncodedForVectorInfo<T>& GetForInfo(int32_t vector_idx) const {
+    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(for_infos_.size()))
         << "vector_index_out_of_range: " << vector_idx;
     return for_infos_[vector_idx];
   }
@@ -600,8 +600,8 @@ class AlpMetadataCache {
   ///
   /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
   /// \return byte offset from start of data section to this vector's data
-  int64_t GetVectorDataOffset(uint32_t vector_idx) const {
-    ARROW_CHECK(vector_idx < cumulative_data_offsets_.size())
+  int64_t GetVectorDataOffset(int32_t vector_idx) const {
+    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(cumulative_data_offsets_.size()))
         << "vector_index_out_of_range: " << vector_idx;
     return cumulative_data_offsets_[vector_idx];
   }
@@ -610,8 +610,8 @@ class AlpMetadataCache {
   ///
   /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
   /// \return number of elements in this vector
-  uint16_t GetVectorNumElements(uint32_t vector_idx) const {
-    ARROW_CHECK(vector_idx < vector_num_elements_.size())
+  int32_t GetVectorNumElements(int32_t vector_idx) const {
+    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(vector_num_elements_.size()))
         << "vector_index_out_of_range: " << vector_idx;
     return vector_num_elements_[vector_idx];
   }
@@ -619,7 +619,7 @@ class AlpMetadataCache {
   /// \brief Get number of vectors in the cache
   ///
   /// \return number of vectors
-  uint32_t GetNumVectors() const { return static_cast<uint32_t>(alp_infos_.size()); }
+  int32_t GetNumVectors() const { return static_cast<int32_t>(alp_infos_.size()); }
 
   /// \brief Get total size of the data section in bytes
   ///
@@ -651,7 +651,7 @@ class AlpMetadataCache {
   std::vector<AlpEncodedVectorInfo> alp_infos_;           // ALP metadata per vector
   std::vector<AlpEncodedForVectorInfo<T>> for_infos_;     // FOR metadata per vector
   std::vector<int64_t> cumulative_data_offsets_;          // Offset from data section start
-  std::vector<uint16_t> vector_num_elements_;             // Number of elements in each vector
+  std::vector<int32_t> vector_num_elements_;               // Number of elements in each vector
   int64_t total_data_size_ = 0;                           // Total size of data section
 };
 
@@ -703,7 +703,7 @@ class AlpCompression : private AlpConstants {
   /// \param[in] preset the preset to be used for compression
   /// \return an ALP encoded vector
   static AlpEncodedVector<T> CompressVector(const T* input_vector,
-                                            uint16_t num_elements,
+                                            int32_t num_elements,
                                             const AlpEncodingParameters& preset);
 
   /// \brief Decompress a compressed vector with ALP
@@ -755,7 +755,7 @@ class AlpCompression : private AlpConstants {
   /// \param[in] penalize_exceptions if true, applies a penalty for exceptions
   /// \return the estimated compressed size in bytes, or std::nullopt if the
   ///         data is not compressible using these settings
-  static std::optional<uint64_t> EstimateCompressedSize(
+  static std::optional<int64_t> EstimateCompressedSize(
       const std::vector<T>& input_vector,
       AlpExponentAndFactor exponent_and_factor,
       bool penalize_exceptions);
@@ -777,7 +777,7 @@ class AlpCompression : private AlpConstants {
     arrow::internal::StaticVector<SignedExactType, AlpConstants::kAlpVectorSize>
         encoded_integers;
     arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
-    arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize>
+    arrow::internal::StaticVector<int16_t, AlpConstants::kAlpVectorSize>
         exception_positions;
     ExactType min_max_diff = 0;
     ExactType frame_of_reference = 0;
@@ -805,14 +805,14 @@ class AlpCompression : private AlpConstants {
                            arrow::util::span<ExactType> input_vector,
                            const AlpEncodedVectorInfo& alp_info,
                            const AlpEncodedForVectorInfo<T>& for_info,
-                           uint16_t num_elements);
+                           int32_t num_elements);
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
     arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
         packed_integers;
     uint8_t bit_width = 0;
-    uint16_t bit_packed_size = 0;
+    int32_t bit_packed_size = 0;
   };
 
   /// \brief Bitpack the encoded integers as the final step of compression
@@ -837,7 +837,7 @@ class AlpCompression : private AlpConstants {
   /// \return a vector of unpacked integers (still with frame of reference)
   static arrow::internal::StaticVector<ExactType, kAlpVectorSize> BitUnpackIntegers(
       arrow::util::span<const uint8_t> packed_integers,
-      const AlpEncodedForVectorInfo<T>& for_info, uint16_t num_elements);
+      const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
 
   /// \brief Patch exceptions into the decoded output vector
   ///
@@ -852,7 +852,7 @@ class AlpCompression : private AlpConstants {
   template <typename TargetType>
   static void PatchExceptions(TargetType* output,
                               arrow::util::span<const T> exceptions,
-                              arrow::util::span<const uint16_t> exception_positions);
+                              arrow::util::span<const int16_t> exception_positions);
 };
 
 }  // namespace alp
