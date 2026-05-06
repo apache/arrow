@@ -46,7 +46,7 @@ static_assert(ARROW_LITTLE_ENDIAN,
 // AlpEncodedVectorInfo implementation (non-templated, 4 bytes)
 
 void AlpEncodedVectorInfo::Store(arrow::util::span<uint8_t> output_buffer) const {
-  ARROW_CHECK(output_buffer.size() >= GetStoredSize())
+  ARROW_CHECK(output_buffer.size() >= static_cast<size_t>(GetStoredSize()))
       << "alp_vector_info_output_too_small: " << output_buffer.size() << " vs "
       << GetStoredSize();
 
@@ -60,11 +60,12 @@ void AlpEncodedVectorInfo::Store(arrow::util::span<uint8_t> output_buffer) const
   std::memcpy(ptr, &num_exceptions, sizeof(num_exceptions));
 }
 
-AlpEncodedVectorInfo AlpEncodedVectorInfo::Load(
+Result<AlpEncodedVectorInfo> AlpEncodedVectorInfo::Load(
     arrow::util::span<const uint8_t> input_buffer) {
-  ARROW_CHECK(input_buffer.size() >= GetStoredSize())
-      << "alp_vector_info_input_too_small: " << input_buffer.size() << " vs "
-      << GetStoredSize();
+  if (input_buffer.size() < static_cast<size_t>(GetStoredSize())) {
+    return Status::Invalid("ALP vector info buffer too small: ", input_buffer.size(),
+                           " < ", GetStoredSize());
+  }
 
   AlpEncodedVectorInfo result{};
   const uint8_t* ptr = input_buffer.data();
@@ -84,7 +85,7 @@ AlpEncodedVectorInfo AlpEncodedVectorInfo::Load(
 
 template <typename T>
 void AlpEncodedForVectorInfo<T>::Store(arrow::util::span<uint8_t> output_buffer) const {
-  ARROW_CHECK(output_buffer.size() >= GetStoredSize())
+  ARROW_CHECK(output_buffer.size() >= static_cast<size_t>(GetStoredSize()))
       << "alp_for_vector_info_output_too_small: " << output_buffer.size() << " vs "
       << GetStoredSize();
 
@@ -99,11 +100,12 @@ void AlpEncodedForVectorInfo<T>::Store(arrow::util::span<uint8_t> output_buffer)
 }
 
 template <typename T>
-AlpEncodedForVectorInfo<T> AlpEncodedForVectorInfo<T>::Load(
+Result<AlpEncodedForVectorInfo<T>> AlpEncodedForVectorInfo<T>::Load(
     arrow::util::span<const uint8_t> input_buffer) {
-  ARROW_CHECK(input_buffer.size() >= GetStoredSize())
-      << "alp_for_vector_info_input_too_small: " << input_buffer.size() << " vs "
-      << GetStoredSize();
+  if (input_buffer.size() < static_cast<size_t>(GetStoredSize())) {
+    return Status::Invalid("ALP FOR vector info buffer too small: ", input_buffer.size(),
+                           " < ", GetStoredSize());
+  }
 
   AlpEncodedForVectorInfo<T> result{};
   const uint8_t* ptr = input_buffer.data();
@@ -186,23 +188,28 @@ void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<uint8_t> output_buffer
 }
 
 template <typename T>
-AlpEncodedVector<T> AlpEncodedVector<T>::Load(
+Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
     arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements) {
-  ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
-      << "alp_compression_state_element_count_too_large: " << num_elements << " vs "
-      << AlpConstants::kAlpVectorSize;
+  if (num_elements > AlpConstants::kAlpVectorSize) {
+    return Status::Invalid("ALP element count too large: ", num_elements,
+                           " > ", AlpConstants::kAlpVectorSize);
+  }
 
   AlpEncodedVector<T> result;
   uint64_t input_offset = 0;
 
   // Load AlpInfo (4 bytes)
-  result.alp_info = AlpEncodedVectorInfo::Load(
-      {input_buffer.data() + input_offset, AlpEncodedVectorInfo::kStoredSize});
+  ARROW_ASSIGN_OR_RAISE(
+      result.alp_info,
+      AlpEncodedVectorInfo::Load(
+          {input_buffer.data() + input_offset, AlpEncodedVectorInfo::kStoredSize}));
   input_offset += AlpEncodedVectorInfo::kStoredSize;
 
   // Load ForInfo (6/10 bytes)
-  result.for_info = AlpEncodedForVectorInfo<T>::Load(
-      {input_buffer.data() + input_offset, AlpEncodedForVectorInfo<T>::kStoredSize});
+  ARROW_ASSIGN_OR_RAISE(
+      result.for_info,
+      AlpEncodedForVectorInfo<T>::Load(
+          {input_buffer.data() + input_offset, AlpEncodedForVectorInfo<T>::kStoredSize}));
   input_offset += AlpEncodedForVectorInfo<T>::kStoredSize;
 
   result.num_elements = num_elements;
@@ -210,9 +217,10 @@ AlpEncodedVector<T> AlpEncodedVector<T>::Load(
   const uint64_t overall_size =
       GetStoredSize(result.alp_info, result.for_info, num_elements);
 
-  ARROW_CHECK(input_buffer.size() >= overall_size)
-      << "alp_compression_state_input_too_small: " << input_buffer.size() << " vs "
-      << overall_size;
+  if (input_buffer.size() < overall_size) {
+    return Status::Invalid("ALP compressed vector buffer too small: ",
+                           input_buffer.size(), " < ", overall_size);
+  }
 
   // Compute bit_packed_size from num_elements and bit_width
   const uint64_t bit_packed_size =
@@ -281,23 +289,28 @@ bool AlpEncodedVector<T>::operator==(const AlpEncodedVector<T>& other) const {
 // AlpEncodedVectorView implementation
 
 template <typename T>
-AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
+Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadView(
     arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements) {
-  ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
-      << "alp_view_element_count_too_large: " << num_elements << " vs "
-      << AlpConstants::kAlpVectorSize;
+  if (num_elements > AlpConstants::kAlpVectorSize) {
+    return Status::Invalid("ALP view element count too large: ", num_elements,
+                           " > ", AlpConstants::kAlpVectorSize);
+  }
 
   AlpEncodedVectorView<T> result;
   uint64_t input_offset = 0;
 
   // Load AlpInfo (4 bytes)
-  result.alp_info = AlpEncodedVectorInfo::Load(
-      {input_buffer.data() + input_offset, AlpEncodedVectorInfo::kStoredSize});
+  ARROW_ASSIGN_OR_RAISE(
+      result.alp_info,
+      AlpEncodedVectorInfo::Load(
+          {input_buffer.data() + input_offset, AlpEncodedVectorInfo::kStoredSize}));
   input_offset += AlpEncodedVectorInfo::kStoredSize;
 
   // Load ForInfo (6/10 bytes)
-  result.for_info = AlpEncodedForVectorInfo<T>::Load(
-      {input_buffer.data() + input_offset, AlpEncodedForVectorInfo<T>::kStoredSize});
+  ARROW_ASSIGN_OR_RAISE(
+      result.for_info,
+      AlpEncodedForVectorInfo<T>::Load(
+          {input_buffer.data() + input_offset, AlpEncodedForVectorInfo<T>::kStoredSize}));
   input_offset += AlpEncodedForVectorInfo<T>::kStoredSize;
 
   result.num_elements = num_elements;
@@ -305,13 +318,17 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
   const uint64_t overall_size =
       AlpEncodedVector<T>::GetStoredSize(result.alp_info, result.for_info, num_elements);
 
-  ARROW_CHECK(input_buffer.size() >= overall_size)
-      << "alp_view_input_too_small: " << input_buffer.size() << " vs " << overall_size;
+  if (input_buffer.size() < overall_size) {
+    return Status::Invalid("ALP view buffer too small: ", input_buffer.size(),
+                           " < ", overall_size);
+  }
 
   // Load data section (after metadata)
-  AlpEncodedVectorView<T> data_view = LoadViewDataOnly(
-      {input_buffer.data() + input_offset, input_buffer.size() - input_offset},
-      result.alp_info, result.for_info, num_elements);
+  ARROW_ASSIGN_OR_RAISE(
+      AlpEncodedVectorView<T> data_view,
+      LoadViewDataOnly(
+          {input_buffer.data() + input_offset, input_buffer.size() - input_offset},
+          result.alp_info, result.for_info, num_elements));
 
   // Copy the loaded data into result
   result.packed_values = data_view.packed_values;
@@ -322,12 +339,13 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
 }
 
 template <typename T>
-AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadViewDataOnly(
+Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
     arrow::util::span<const uint8_t> input_buffer, const AlpEncodedVectorInfo& alp_info,
     const AlpEncodedForVectorInfo<T>& for_info, uint16_t num_elements) {
-  ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
-      << "alp_view_data_only_element_count_too_large: " << num_elements << " vs "
-      << AlpConstants::kAlpVectorSize;
+  if (num_elements > AlpConstants::kAlpVectorSize) {
+    return Status::Invalid("ALP view data element count too large: ", num_elements,
+                           " > ", AlpConstants::kAlpVectorSize);
+  }
 
   AlpEncodedVectorView<T> result;
   result.alp_info = alp_info;
@@ -335,9 +353,10 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadViewDataOnly(
   result.num_elements = num_elements;
 
   const uint64_t data_size = for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
-  ARROW_CHECK(input_buffer.size() >= data_size)
-      << "alp_view_data_only_input_too_small: " << input_buffer.size() << " vs "
-      << data_size;
+  if (input_buffer.size() < data_size) {
+    return Status::Invalid("ALP view data buffer too small: ", input_buffer.size(),
+                           " < ", data_size);
+  }
 
   uint64_t input_offset = 0;
 
@@ -379,7 +398,7 @@ template struct AlpEncodedVectorView<double>;
 // AlpMetadataCache implementation
 
 template <typename T>
-AlpMetadataCache<T> AlpMetadataCache<T>::Load(
+Result<AlpMetadataCache<T>> AlpMetadataCache<T>::Load(
     uint32_t num_vectors, uint32_t vector_size, uint32_t total_elements,
     AlpIntegerEncoding integer_encoding,
     arrow::util::span<const uint8_t> alp_metadata_buffer,
@@ -393,9 +412,10 @@ AlpMetadataCache<T> AlpMetadataCache<T>::Load(
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t expected_alp_size = num_vectors * alp_info_size;
 
-  ARROW_CHECK(alp_metadata_buffer.size() >= expected_alp_size)
-      << "alp_metadata_cache_alp_buffer_too_small: " << alp_metadata_buffer.size()
-      << " vs " << expected_alp_size;
+  if (alp_metadata_buffer.size() < expected_alp_size) {
+    return Status::Invalid("ALP metadata cache buffer too small: ",
+                           alp_metadata_buffer.size(), " < ", expected_alp_size);
+  }
 
   cache.alp_infos_.reserve(num_vectors);
   cache.cumulative_data_offsets_.reserve(num_vectors);
@@ -405,49 +425,50 @@ AlpMetadataCache<T> AlpMetadataCache<T>::Load(
   const uint32_t num_full_vectors = total_elements / vector_size;
   const uint32_t remainder = total_elements % vector_size;
 
-  // Load integer encoding metadata based on encoding type
-  switch (integer_encoding) {
-    case AlpIntegerEncoding::kForBitPack: {
-      const uint64_t for_info_size = AlpEncodedForVectorInfo<T>::kStoredSize;
-      const uint64_t expected_for_size = num_vectors * for_info_size;
-      ARROW_CHECK(int_encoding_metadata_buffer.size() >= expected_for_size)
-          << "alp_metadata_cache_for_buffer_too_small: "
-          << int_encoding_metadata_buffer.size() << " vs " << expected_for_size;
-      cache.for_infos_.reserve(num_vectors);
-
-      uint64_t cumulative_offset = 0;
-      for (uint32_t i = 0; i < num_vectors; i++) {
-        // Load AlpInfo
-        const AlpEncodedVectorInfo alp_info = AlpEncodedVectorInfo::Load(
-            {alp_metadata_buffer.data() + i * alp_info_size, alp_info_size});
-        cache.alp_infos_.push_back(alp_info);
-
-        // Load ForInfo for kForBitPack encoding
-        const AlpEncodedForVectorInfo<T> for_info = AlpEncodedForVectorInfo<T>::Load(
-            {int_encoding_metadata_buffer.data() + i * for_info_size, for_info_size});
-        cache.for_infos_.push_back(for_info);
-
-        // Calculate number of elements for this vector
-        const uint16_t this_vector_elements =
-            (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
-                                   : static_cast<uint16_t>(remainder);
-        cache.vector_num_elements_.push_back(this_vector_elements);
-
-        // Store cumulative offset (offset to start of this vector's data)
-        cache.cumulative_data_offsets_.push_back(cumulative_offset);
-
-        // Advance offset by this vector's data size
-        cumulative_offset +=
-            for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
-      }
-      cache.total_data_size_ = cumulative_offset;
-    } break;
-
-    default:
-      ARROW_CHECK(false) << "unsupported_integer_encoding: "
-                         << static_cast<int>(integer_encoding);
-      break;
+  if (integer_encoding != AlpIntegerEncoding::kForBitPack) {
+    return Status::Invalid("Unsupported ALP integer encoding in metadata cache: ",
+                           static_cast<int>(integer_encoding));
   }
+
+  const uint64_t for_info_size = AlpEncodedForVectorInfo<T>::kStoredSize;
+  const uint64_t expected_for_size = num_vectors * for_info_size;
+  if (int_encoding_metadata_buffer.size() < expected_for_size) {
+    return Status::Invalid("ALP FOR metadata cache buffer too small: ",
+                           int_encoding_metadata_buffer.size(), " < ",
+                           expected_for_size);
+  }
+  cache.for_infos_.reserve(num_vectors);
+
+  uint64_t cumulative_offset = 0;
+  for (uint32_t i = 0; i < num_vectors; i++) {
+    // Load AlpInfo
+    ARROW_ASSIGN_OR_RAISE(
+        const AlpEncodedVectorInfo alp_info,
+        AlpEncodedVectorInfo::Load(
+            {alp_metadata_buffer.data() + i * alp_info_size, alp_info_size}));
+    cache.alp_infos_.push_back(alp_info);
+
+    // Load ForInfo for kForBitPack encoding
+    ARROW_ASSIGN_OR_RAISE(
+        const AlpEncodedForVectorInfo<T> for_info,
+        AlpEncodedForVectorInfo<T>::Load(
+            {int_encoding_metadata_buffer.data() + i * for_info_size, for_info_size}));
+    cache.for_infos_.push_back(for_info);
+
+    // Calculate number of elements for this vector
+    const uint16_t this_vector_elements =
+        (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
+                               : static_cast<uint16_t>(remainder);
+    cache.vector_num_elements_.push_back(this_vector_elements);
+
+    // Store cumulative offset (offset to start of this vector's data)
+    cache.cumulative_data_offsets_.push_back(cumulative_offset);
+
+    // Advance offset by this vector's data size
+    cumulative_offset +=
+        for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+  }
+  cache.total_data_size_ = cumulative_offset;
 
   return cache;
 }
