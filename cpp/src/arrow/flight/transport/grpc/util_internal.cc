@@ -331,6 +331,49 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   return status;
 }
 
+#if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+Status FromAbslStatus(const ::absl::Status& absl_status) {
+  switch (absl_status.code()) {
+    case ::absl::StatusCode::kOk:
+      return Status::OK();
+    case ::absl::StatusCode::kCancelled:
+      return Status::Cancelled(absl_status.ToString());
+    case ::absl::StatusCode::kUnknown:
+      return Status::UnknownError(absl_status.ToString());
+    case ::absl::StatusCode::kInvalidArgument:
+      return Status::Invalid(absl_status.ToString());
+    case ::absl::StatusCode::kDeadlineExceeded:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kNotFound:
+      return Status::KeyError(absl_status.ToString());
+    case ::absl::StatusCode::kAlreadyExists:
+      return Status::AlreadyExists(absl_status.ToString());
+    case ::absl::StatusCode::kPermissionDenied:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kResourceExhausted:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kFailedPrecondition:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kAborted:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kOutOfRange:
+      return Status::Invalid(absl_status.ToString());
+    case ::absl::StatusCode::kUnimplemented:
+      return Status::NotImplemented(absl_status.ToString());
+    case ::absl::StatusCode::kInternal:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kUnavailable:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kDataLoss:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kUnauthenticated:
+      return Status::IOError(absl_status.ToString());
+    default:
+      return Status::UnknownError(absl_status.ToString());
+  }
+}
+#endif
+
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight

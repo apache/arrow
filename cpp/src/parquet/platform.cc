@@ -21,6 +21,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 
 #include "parquet/exception.h"

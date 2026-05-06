@@ -166,6 +166,30 @@ ARROW_EXPORT
 void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
+/// \brief Do a "bitmap and" on two buffers, handling null buffers safely.
+///
+/// If both buffers are null, returns nullptr.
+/// If one buffer is null, returns a potentially sliced view of the valid buffer
+/// (if bit-alignment allows) or a new copy of it.
+/// If both buffers are valid, allocates a new buffer and performs a bitwise AND.
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] left left source buffer (may be null)
+/// \param[in] left_offset bit offset into the left buffer
+/// \param[in] right right source buffer (may be null)
+/// \param[in] right_offset bit offset into the right buffer
+/// \param[in] length number of bits to compute
+/// \param[in] out_offset bit offset into the output buffer
+///
+/// \return Resulting buffer (may be null)
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool,
+                                                  const std::shared_ptr<Buffer>& left,
+                                                  int64_t left_offset,
+                                                  const std::shared_ptr<Buffer>& right,
+                                                  int64_t right_offset, int64_t length,
+                                                  int64_t out_offset = 0);
+
 /// \brief Do a "bitmap or" for the given bit length on right and left buffers
 /// starting at their respective bit-offsets and put the results in out_buffer
 /// starting at the given bit-offset.

@@ -52,7 +52,8 @@ std::string EncryptKeyLocally(const SecureString& key_bytes,
 
 SecureString DecryptKeyLocally(const std::string& encoded_encrypted_key,
                                const SecureString& master_key, const std::string& aad) {
-  std::string encrypted_key = ::arrow::util::base64_decode(encoded_encrypted_key);
+  PARQUET_ASSIGN_OR_THROW(auto encrypted_key,
+                          ::arrow::util::base64_decode(encoded_encrypted_key));
 
   AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1,
                              static_cast<int>(master_key.size()), false,

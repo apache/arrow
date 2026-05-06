@@ -124,10 +124,12 @@ class ARROW_EXPORT ReadableFile
   Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
 
   /// \brief Thread-safe implementation of ReadAt
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                           void* out);
 
   /// \brief Thread-safe implementation of ReadAt
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes,
+                                           bool allow_short_read);
 
   Result<int64_t> DoGetSize();
   Status DoSeek(int64_t position);

@@ -177,8 +177,10 @@ class ARROW_CUDA_EXPORT CudaBufferReader
 
   Result<int64_t> DoRead(int64_t nbytes, void* buffer);
   Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                           void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes,
+                                           bool allow_short_read);
 
   Result<int64_t> DoTell() const;
   Status DoSeek(int64_t position);

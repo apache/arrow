@@ -77,7 +77,6 @@ jobs:
   check-labels:
     if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
-    secrets: inherit
     with:
       parent-workflow: r_extra
 
@@ -131,27 +130,20 @@ jobs:
             runs-on: ubuntu-latest
             title: Rhub
           - envs:
-              - R_CUSTOM_CCACHE=true
-              - R_IMAGE=ubuntu-gcc12
-              - R_ORG=rhub
-            image: r
-            runs-on: ubuntu-latest
-            title: Rhub GCC 12
-          - envs:
-              - R_IMAGE=gcc13
+              - R_IMAGE=ubuntu-gcc15
               - R_ORG=rhub
             image: r
             runs-on: ubuntu-latest
             run-options: >-
               -e INSTALL_ARGS=--use-LTO
-            title: Rhub GCC 13 with LTO
+            title: Rhub GCC 15 with LTO
           - envs:
               - R_IMAGE=r-base
               - R_ORG=rstudio
-              - R_TAG=4.2-jammy
+              - R_TAG=4.5-jammy
             image: r
             runs-on: ubuntu-latest
-            title: RStudio R-Base 4.2
+            title: RStudio R-Base 4.5
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
@@ -160,6 +152,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -220,4 +213,6 @@ jobs:
     needs:
       - docker
     uses: ./.github/workflows/report_ci.yml
-    secrets: inherit
+    secrets:
+      ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+      ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}

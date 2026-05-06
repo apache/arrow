@@ -19,6 +19,7 @@ import os
 import sys
 from collections import OrderedDict
 import io
+import re
 import warnings
 from shutil import copytree
 from decimal import Decimal
@@ -130,6 +131,23 @@ def test_memory_map(tempdir):
         _write_table(table, f, version='2.6')
     table_read = pq.read_pandas(filename, memory_map=True)
     assert table_read.equals(table)
+
+
+def test_parquet_read_write_table_raw_fd(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = str(tempdir / 'raw-fd.parquet')
+    binary_flag = getattr(os, "O_BINARY", 0)
+
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | binary_flag,
+                 0o666)
+    with pa.OSFile(fd, mode='wb') as sink:
+        pq.write_table(table, sink)
+
+    fd = os.open(path, os.O_RDONLY | binary_flag)
+    with pa.OSFile(fd, mode='rb') as source:
+        result = pq.read_table(source)
+
+    assert result.equals(table)
 
 
 @pytest.mark.pandas
@@ -618,6 +636,73 @@ def test_lz4_raw_compression_alias():
     table = pa.Table.from_arrays([arr, arr], names=['a', 'b'])
     _check_roundtrip(table, expected=table, compression="lz4_raw")
     _check_roundtrip(table, expected=table, compression="LZ4_RAW")
+
+
+def test_bloom_filter_options():
+    arr_int = pa.array(list(map(int, range(100))))
+    arr_bin = pa.array([str(x) for x in range(100)], type=pa.binary())
+    data = [arr_int, arr_bin]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # bloom filter for one column
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': 0.05}})
+
+    # bloom filter for two columns
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': 0.05}, 'b': {'ndv': 10, 'fpp': 0.1}})
+
+    # bloom filter for one column with default ndv
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'fpp': 0.05}})
+
+    # bloom filter for one column with default fpp
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100}})
+
+    # bloom filter for one column with default ndv and fpp
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {}})
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': True})
+
+    # should remain disabled
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': False})
+
+    # wrong type for ndv
+    buf = io.BytesIO()
+    expect = "'bloom_filter_options:ndv' for column 'a' must be an int"
+    with pytest.raises(TypeError, match=expect):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': '100', 'fpp': 0.05}})
+
+    # wrong type for fpp
+    expect = "'bloom_filter_options:fpp' for column 'a' must be a float"
+    with pytest.raises(TypeError, match=expect):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': '0.05'}})
+
+    # wrong type for options
+    with pytest.raises(TypeError, match="'bloom_filter_options' must be a dictionary"):
+        _write_table(table, buf, bloom_filter_options=True)
+
+    # invalid ndv value
+    expect = \
+        "'bloom_filter_options:ndv' for column 'a' must be greater than zero, got -10"
+    with pytest.raises(ValueError, match=expect):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': -10}})
+
+    # invalid fpp values
+    expect = "'bloom_filter_options:fpp' for column 'a' must be in (0.0, 1.0), got 2.0"
+    with pytest.raises(ValueError, match=re.escape(expect)):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'fpp': 2.0}})
+    expect = "'bloom_filter_options:fpp' for column 'a' must be in (0.0, 1.0), got -0.5"
+    with pytest.raises(ValueError, match=re.escape(expect)):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'fpp': -0.5}})
 
 
 def test_sanitized_spark_field_names():

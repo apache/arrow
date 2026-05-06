@@ -329,6 +329,36 @@ bool OptionalBitmapEquals(const std::shared_ptr<Buffer>& left, int64_t left_offs
                               right ? right->data() : nullptr, right_offset, length);
 }
 
+Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool,
+                                                  const std::shared_ptr<Buffer>& left,
+                                                  int64_t left_offset,
+                                                  const std::shared_ptr<Buffer>& right,
+                                                  int64_t right_offset, int64_t length,
+                                                  int64_t out_offset) {
+  if (left == nullptr && right == nullptr) {
+    return nullptr;
+  }
+  if (left == nullptr) {
+    if (right_offset >= out_offset && (right_offset - out_offset) % 8 == 0) {
+      int64_t byte_shift = (right_offset - out_offset) / 8;
+      int64_t byte_length = bit_util::BytesForBits(out_offset + length);
+      return SliceBuffer(right, byte_shift, byte_length);
+    }
+    return CopyBitmap(pool, right->data(), right_offset, length, out_offset);
+  }
+  if (right == nullptr) {
+    if (left_offset >= out_offset && (left_offset - out_offset) % 8 == 0) {
+      int64_t byte_shift = (left_offset - out_offset) / 8;
+      int64_t byte_length = bit_util::BytesForBits(out_offset + length);
+      return SliceBuffer(left, byte_shift, byte_length);
+    }
+    return CopyBitmap(pool, left->data(), left_offset, length, out_offset);
+  }
+
+  return BitmapAnd(pool, left->data(), left_offset, right->data(), right_offset, length,
+                   out_offset);
+}
+
 namespace {
 
 template <template <typename> class BitOp>

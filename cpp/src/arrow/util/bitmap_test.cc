@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <cstring>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
@@ -1234,6 +1235,69 @@ TEST(BitmapOpTest, PartialLeadingByteSafety) {
       }
     }
   }
+}
+
+TEST(BitmapOpTest, OptionalBitmapAnd) {
+  MemoryPool* pool = default_memory_pool();
+
+  // Define non-trivial, messy bit patterns
+  std::vector<int> left_bits = {0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1};
+  std::vector<int> right_bits = {0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0};
+  std::vector<int> expected_bits = {0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0};
+
+  std::shared_ptr<Buffer> left, right, expected;
+  int64_t length;
+
+  // Convert our vectors into actual memory-aligned Arrow buffers
+  BitmapFromVector(left_bits, /*offset=*/0, &left, &length);
+  BitmapFromVector(right_bits, /*offset=*/0, &right, &length);
+  BitmapFromVector(expected_bits, /*offset=*/0, &expected, &length);
+
+  // State 1: Both nullptr. Should return nullptr.
+  ASSERT_OK_AND_ASSIGN(auto result1,
+                       OptionalBitmapAnd(pool, nullptr, 0, nullptr, 0, length, 0));
+  ASSERT_EQ(result1, nullptr);
+
+  // State 2: Left nullptr, Right valid. Zero offset (triggers SliceBuffer).
+  ASSERT_OK_AND_ASSIGN(auto result2,
+                       OptionalBitmapAnd(pool, nullptr, 0, right, 0, length, 0));
+  ASSERT_NE(result2, nullptr);
+  EXPECT_TRUE(BitmapEquals(right->data(), 0, result2->data(), 0, length));
+
+  // State 3: Left valid, Right nullptr. Zero offset (triggers SliceBuffer).
+  ASSERT_OK_AND_ASSIGN(auto result3,
+                       OptionalBitmapAnd(pool, left, 0, nullptr, 0, length, 0));
+  ASSERT_NE(result3, nullptr);
+  EXPECT_TRUE(BitmapEquals(left->data(), 0, result3->data(), 0, length));
+
+  // State 4: Both valid (Non-trivial bitwise AND)
+  ASSERT_OK_AND_ASSIGN(auto result4,
+                       OptionalBitmapAnd(pool, left, 0, right, 0, length, 0));
+  ASSERT_NE(result4, nullptr);
+
+  // Verify the bitwise AND matches our expected messy pattern
+  EXPECT_TRUE(BitmapEquals(expected->data(), 0, result4->data(), 0, length));
+
+  // State 5: Left nullptr, Right valid. Matching offset modulo 8 (triggers SliceBuffer).
+  int64_t offset1 = 2;
+  int64_t length1 = length - offset1;
+  ASSERT_OK_AND_ASSIGN(auto result5, OptionalBitmapAnd(pool, nullptr, 0, right, offset1,
+                                                       length1, offset1));
+  ASSERT_NE(result5, nullptr);
+  EXPECT_TRUE(BitmapEquals(right->data(), offset1, result5->data(), offset1, length1));
+
+  // State 6: Left nullptr, Right valid. Differing offset modulo 8 (triggers CopyBitmap).
+  int64_t offset2 = 3;
+  ASSERT_OK_AND_ASSIGN(auto result6, OptionalBitmapAnd(pool, nullptr, 0, right, offset1,
+                                                       length1, offset2));
+  ASSERT_NE(result6, nullptr);
+  EXPECT_TRUE(BitmapEquals(right->data(), offset1, result6->data(), offset2, length1));
+
+  // State 7: Left valid, Right nullptr. Differing offset modulo 8 (triggers CopyBitmap).
+  ASSERT_OK_AND_ASSIGN(
+      auto result7, OptionalBitmapAnd(pool, left, offset1, nullptr, 0, length1, offset2));
+  ASSERT_NE(result7, nullptr);
+  EXPECT_TRUE(BitmapEquals(left->data(), offset1, result7->data(), offset2, length1));
 }
 
 // Tests for Bitmap visiting.

@@ -576,6 +576,16 @@ test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file", {
   )
 })
 
+test_that("max_rows_per_file = 0 does not trigger max_rows_per_group adjustment (ARROW-40742)", {
+  skip_if_not_available("parquet")
+
+  # max_rows_per_file = 0 means "no limit" and should not error
+  dst_dir <- make_temp_dir()
+  expect_no_error(
+    write_dataset(df1, dst_dir, max_rows_per_file = 0L)
+  )
+})
+
 
 test_that("write_dataset checks for format-specific arguments", {
   df <- tibble::tibble(

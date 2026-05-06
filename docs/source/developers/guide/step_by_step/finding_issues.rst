@@ -59,7 +59,18 @@ GitHub issues.
    <https://github.com/apache/arrow/labels/good-first-issue>`_
 
 The issues labeled as good first issues should take no more than two days or
-a weekend to fix them. Once you dig into the code you may find that the issue
+a weekend to fix them.
+
+Another way to find issues is to look for the **"Status: needs champion"**
+label. These are enhancement requests that the community has confirmed are
+still wanted, but that have no current owner. They may be more complex than
+good first issues, but they are a great way to make a meaningful contribution.
+
+.. seealso::
+   Search for needs champion issues `needs champion label listing
+   <https://github.com/apache/arrow/labels/Status%3A%20needs%20champion>`_
+
+Once you dig into the code you may find that the issue
 is not easy at all - this can happen as the problem could be harder than the
 person who triaged the ticket expected it to be. Don't hesitate to write that
 in the comments.
