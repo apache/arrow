@@ -22,6 +22,8 @@
 #include <optional>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/small_vector.h"
 #include "arrow/util/span.h"
@@ -196,7 +198,9 @@ struct AlpEncodedVectorInfo {
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Load ALP metadata from an input buffer
-  static AlpEncodedVectorInfo Load(arrow::util::span<const uint8_t> input_buffer);
+  ///
+  /// \return the loaded metadata, or Status::Invalid if the buffer is too small
+  static Result<AlpEncodedVectorInfo> Load(arrow::util::span<const uint8_t> input_buffer);
 
   /// \brief Get serialized size of the ALP metadata
   static int64_t GetStoredSize() { return kStoredSize; }
@@ -279,7 +283,10 @@ struct AlpEncodedForVectorInfo {
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Load FOR metadata from an input buffer
-  static AlpEncodedForVectorInfo Load(arrow::util::span<const uint8_t> input_buffer);
+  ///
+  /// \return the loaded metadata, or Status::Invalid if the buffer is too small
+  static Result<AlpEncodedForVectorInfo> Load(
+      arrow::util::span<const uint8_t> input_buffer);
 
   /// \brief Get serialized size of the FOR metadata
   static int64_t GetStoredSize() { return kStoredSize; }
@@ -421,9 +428,9 @@ class AlpEncodedVector {
   ///
   /// \param[in] input_buffer the buffer to load from
   /// \param[in] num_elements the number of elements (from page header)
-  /// \return the loaded AlpEncodedVector
-  static AlpEncodedVector Load(arrow::util::span<const uint8_t> input_buffer,
-                               uint16_t num_elements);
+  /// \return the loaded AlpEncodedVector, or Status::Invalid if data is malformed
+  static Result<AlpEncodedVector> Load(arrow::util::span<const uint8_t> input_buffer,
+                                       uint16_t num_elements);
 
   bool operator==(const AlpEncodedVector<T>& other) const;
 };
@@ -469,9 +476,9 @@ struct AlpEncodedVectorView {
   ///
   /// \param[in] input_buffer the buffer to create a view into
   /// \param[in] num_elements the number of elements (from page header)
-  /// \return the view into the compressed data
-  static AlpEncodedVectorView LoadView(arrow::util::span<const uint8_t> input_buffer,
-                                       uint16_t num_elements);
+  /// \return the view into the compressed data, or Status::Invalid if data is malformed
+  static Result<AlpEncodedVectorView> LoadView(
+      arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements);
 
   /// \brief Create a zero-copy view from data-only buffer (metadata provided separately)
   ///
@@ -483,11 +490,12 @@ struct AlpEncodedVectorView {
   /// \param[in] alp_info the ALP metadata (already read)
   /// \param[in] for_info the FOR metadata (already read)
   /// \param[in] num_elements the number of elements (from page header)
-  /// \return the view into the compressed data
-  static AlpEncodedVectorView LoadViewDataOnly(arrow::util::span<const uint8_t> input_buffer,
-                                               const AlpEncodedVectorInfo& alp_info,
-                                               const AlpEncodedForVectorInfo<T>& for_info,
-                                               uint16_t num_elements);
+  /// \return the view into the compressed data, or Status::Invalid if data is malformed
+  static Result<AlpEncodedVectorView> LoadViewDataOnly(
+      arrow::util::span<const uint8_t> input_buffer,
+      const AlpEncodedVectorInfo& alp_info,
+      const AlpEncodedForVectorInfo<T>& for_info,
+      uint16_t num_elements);
 
   /// \brief Get the stored size of this vector in the buffer
   ///
@@ -555,12 +563,14 @@ class AlpMetadataCache {
   /// \param[in] alp_metadata_buffer buffer containing all AlpEncodedVectorInfo contiguously
   /// \param[in] int_encoding_metadata_buffer buffer containing integer encoding metadata
   ///            (AlpEncodedForVectorInfo for kForBitPack)
-  /// \return a metadata cache with all metadata and precomputed offsets
-  static AlpMetadataCache Load(uint32_t num_vectors, uint32_t vector_size,
-                               uint32_t total_elements,
-                               AlpIntegerEncoding integer_encoding,
-                               arrow::util::span<const uint8_t> alp_metadata_buffer,
-                               arrow::util::span<const uint8_t> int_encoding_metadata_buffer);
+  /// \return a metadata cache with all metadata and precomputed offsets,
+  ///         or Status::Invalid if data is malformed
+  static Result<AlpMetadataCache> Load(
+      uint32_t num_vectors, uint32_t vector_size,
+      uint32_t total_elements,
+      AlpIntegerEncoding integer_encoding,
+      arrow::util::span<const uint8_t> alp_metadata_buffer,
+      arrow::util::span<const uint8_t> int_encoding_metadata_buffer);
 
   /// \brief Get ALP metadata for vector at given index
   ///
