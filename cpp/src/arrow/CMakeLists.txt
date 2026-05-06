@@ -569,7 +569,7 @@ endif()
 list(APPEND ARROW_UTIL_SRCS
   util/alp/alp.cc
   util/alp/alp_sampler.cc
-  util/alp/alp_wrapper.cc)
+  util/alp/alp_codec.cc)
 
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 

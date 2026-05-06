@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// High-level wrapper interface for ALP compression
+// High-level codec interface for ALP compression
 
 #pragma once
 

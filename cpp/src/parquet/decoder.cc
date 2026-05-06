@@ -43,7 +43,7 @@
 #include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_constants.h"
-#include "arrow/util/alp/alp_wrapper.h"
+#include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"

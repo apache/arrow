@@ -26,7 +26,7 @@
 #include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/alp/alp_sampler.h"
-#include "arrow/util/alp/alp_wrapper.h"
+#include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
 
