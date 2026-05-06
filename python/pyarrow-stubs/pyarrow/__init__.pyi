@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Type stubs for PyArrow.
-# This is a placeholder stub file.
-# Complete type annotations will be added in subsequent PRs.
+"""Type stubs for PyArrow.
+
+This is a placeholder stub file.
+Complete type annotations will be added in subsequent PRs.
+"""
 
 from typing import Any
 
