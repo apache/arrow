@@ -195,6 +195,8 @@ struct AlpEncodedVectorInfo {
   static_assert(kStoredSize == 4, "AlpEncodedVectorInfo stored size must be 4 bytes");
 
   /// \brief Store the ALP metadata into an output buffer
+  ///
+  /// \pre output_buffer.size() >= kStoredSize
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Load ALP metadata from an input buffer
@@ -280,6 +282,8 @@ struct AlpEncodedForVectorInfo {
   }
 
   /// \brief Store the FOR metadata into an output buffer
+  ///
+  /// \pre output_buffer.size() >= kStoredSize
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Load FOR metadata from an input buffer
