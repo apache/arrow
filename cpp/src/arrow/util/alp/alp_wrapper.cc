@@ -364,11 +364,11 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
   // Phase 4: Write interleaved vectors [AlpInfo | ForInfo | Data]
   for (size_t i = 0; i < encoded_vectors.size(); i++) {
     const auto& vec = encoded_vectors[i];
-    char* vector_start = comp + vector_offsets[i];
+    uint8_t* vector_start = reinterpret_cast<uint8_t*>(comp) + vector_offsets[i];
 
     // Write AlpInfo
     vec.alp_info.Store({vector_start, AlpEncodedVectorInfo::kStoredSize});
-    char* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
+    uint8_t* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
     // Write ForInfo (or other integer encoding metadata)
     switch (integer_encoding) {
@@ -384,8 +384,8 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
     }
 
     // Write data (packed values + exception positions + exception values)
-    const uint64_t data_size = vec.GetDataStoredSize();
-    vec.StoreDataOnly({ptr, data_size});
+    const int64_t data_size = vec.GetDataStoredSize();
+    vec.StoreDataOnly({ptr, static_cast<size_t>(data_size)});
   }
 
   return CompressionProgress{static_cast<int64_t>(total_size),
@@ -466,13 +466,14 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
     }
 
     // Jump directly to this vector using its offset
-    const char* vector_start = comp + vector_offset;
+    const uint8_t* vector_start =
+        reinterpret_cast<const uint8_t*>(comp) + vector_offset;
     const uint64_t remaining = comp_size - vector_offset;
 
     // Read AlpInfo (interleaved)
     const AlpEncodedVectorInfo alp_info =
         AlpEncodedVectorInfo::Load({vector_start, remaining});
-    const char* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
+    const uint8_t* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
     // Decode based on integer encoding type
     switch (integer_encoding) {
@@ -484,8 +485,9 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
         ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
 
         // Validate enough buffer remains for the data section
-        const uint64_t data_remaining = comp_size - static_cast<uint64_t>(ptr - comp);
-        const uint64_t data_size =
+        const int64_t data_remaining = static_cast<int64_t>(
+            comp_size - static_cast<uint64_t>(ptr - reinterpret_cast<const uint8_t*>(comp)));
+        const int64_t data_size =
             for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
         if (data_size > data_remaining) {
           return Status::Invalid("ALP insufficient buffer for vector data: need=",
@@ -504,7 +506,8 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
 
         // Track bytes consumed for last vector
         if (vector_index == num_vectors - 1) {
-          bytes_consumed = (ptr - comp) +
+          bytes_consumed =
+              static_cast<uint64_t>(ptr - reinterpret_cast<const uint8_t*>(comp)) +
               for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
         }
       } break;

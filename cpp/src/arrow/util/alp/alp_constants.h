@@ -31,12 +31,15 @@ namespace alp {
 // ----------------------------------------------------------------------
 // AlpConstants
 
-/// \brief Constants used throughout ALP compression
+/// \brief Constants for Adaptive Lossless floating-Point (ALP) compression
+/// See: https://github.com/apache/parquet-format/blob/master/Encodings.md#alp
 class AlpConstants {
  public:
-  /// Number of elements compressed together as a unit. Fixed for compatibility.
+  /// Number of elements compressed together as a unit.
+  /// The format supports arbitrary power-of-2 sizes via log_vector_size in the
+  /// page header, but this implementation currently only supports 1024.
   /// Must fit in uint16_t (max 65535), so log_vector_size must be <= 15.
-  static constexpr uint64_t kAlpVectorSize = 1024;
+  static constexpr int64_t kAlpVectorSize = 1024;
 
   /// Maximum supported log_vector_size value. Capped at 15 because per-vector
   /// element counts are stored as uint16_t (max 65535), and 2^16 = 65536
@@ -47,18 +50,18 @@ class AlpConstants {
   /// "ALP: Adaptive Lossless floating-Point Compression", SIGMOD 2023).
 
   /// Number of elements to use when determining sampling parameters.
-  static constexpr uint64_t kSamplerVectorSize = 4096;
+  static constexpr int64_t kSamplerVectorSize = 4096;
 
   /// Total number of elements in a rowgroup for sampling purposes.
   /// 122880 = kSamplerVectorSize * 30 rowgroup vectors.
-  static constexpr uint64_t kSamplerRowgroupSize = 122880;
+  static constexpr int64_t kSamplerRowgroupSize = 122880;
 
   /// Number of samples to collect per vector during the sampling phase.
   /// 256 = kSamplerVectorSize / 16, i.e. sample every 16th element.
-  static constexpr uint64_t kSamplerSamplesPerVector = 256;
+  static constexpr int64_t kSamplerSamplesPerVector = 256;
 
   /// Number of sample vectors to collect per rowgroup.
-  static constexpr uint64_t kSamplerSampleVectorsPerRowgroup = 8;
+  static constexpr int64_t kSamplerSampleVectorsPerRowgroup = 8;
 
   /// Type used to store vector data offsets (supports pages up to 4GB)
   using OffsetType = uint32_t;
@@ -84,7 +87,7 @@ class AlpConstants {
   /// Loop unroll factor for tight loops in ALP compression/decompression.
   /// ALP has multiple tight loops that profit from unrolling. Setting this
   /// might affect performance, so benchmarking is recommended.
-  static constexpr uint64_t kLoopUnrolls = 4;
+  static constexpr int64_t kLoopUnrolls = 4;
 
   /// \brief Get power of ten as uint64_t
   ///
