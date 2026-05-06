@@ -147,8 +147,8 @@ class AlpCodec {
   /// \param[in] comp_size the size of the compression buffer
   /// \param[in] combinations the encoding preset to use
   /// \return the compression progress
-  static CompressionProgress EncodeAlp(const T* decomp, uint64_t element_count,
-                                       char* comp, size_t comp_size,
+  static CompressionProgress EncodeAlp(const T* decomp, int64_t element_count,
+                                       char* comp, int64_t comp_size,
                                        const AlpEncodingParameters& combinations);
 
   /// \brief Decompress a buffer using the ALP variant
@@ -158,18 +158,17 @@ class AlpCodec {
   /// \param[in] comp_size the size of the compressed data
   /// \param[in] integer_encoding the bit packing layout used
   /// \param[in] vector_size the number of elements per vector (from header)
-  /// \param[in] total_elements the total number of elements in the page (from header).
-  ///            Uses uint32_t since Parquet page headers use i32 for num_values.
+  /// \param[in] total_elements the total number of elements in the page (from header)
   /// \param[out] decomp the buffer to be decompressed into
   /// \return the decompression progress, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Result<DecompressionProgress> DecodeAlp(size_t decomp_element_count,
-                                                  const char* comp, size_t comp_size,
+  static Result<DecompressionProgress> DecodeAlp(int64_t decomp_element_count,
+                                                  const char* comp, int64_t comp_size,
                                                   AlpIntegerEncoding integer_encoding,
-                                                  uint32_t vector_size,
-                                                  uint32_t total_elements,
+                                                  int32_t vector_size,
+                                                  int32_t total_elements,
                                                   TargetType* decomp);
 
   /// \brief Load the AlpHeader from compressed data

@@ -129,12 +129,12 @@ template struct AlpEncodedForVectorInfo<double>;
 
 template <typename T>
 void AlpEncodedVector<T>::Store(arrow::util::span<uint8_t> output_buffer) const {
-  const uint64_t overall_size = GetStoredSize();
-  ARROW_CHECK(output_buffer.size() >= overall_size)
+  const int64_t overall_size = GetStoredSize();
+  ARROW_CHECK(static_cast<int64_t>(output_buffer.size()) >= overall_size)
       << "alp_bit_packed_vector_store_output_too_small: " << output_buffer.size()
       << " vs " << overall_size;
 
-  uint64_t offset = 0;
+  int64_t offset = 0;
 
   // Store AlpInfo (4 bytes)
   alp_info.Store({output_buffer.data() + offset, AlpEncodedVectorInfo::kStoredSize});
@@ -150,21 +150,21 @@ void AlpEncodedVector<T>::Store(arrow::util::span<uint8_t> output_buffer) const 
 
 template <typename T>
 void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<uint8_t> output_buffer) const {
-  const uint64_t data_size = GetDataStoredSize();
-  ARROW_CHECK(output_buffer.size() >= data_size)
+  const int64_t data_size = GetDataStoredSize();
+  ARROW_CHECK(static_cast<int64_t>(output_buffer.size()) >= data_size)
       << "alp_bit_packed_vector_store_data_output_too_small: " << output_buffer.size()
       << " vs " << data_size;
 
-  ARROW_CHECK(alp_info.num_exceptions == exceptions.size() &&
-              alp_info.num_exceptions == exception_positions.size())
+  ARROW_CHECK(static_cast<size_t>(alp_info.num_exceptions) == exceptions.size() &&
+              static_cast<size_t>(alp_info.num_exceptions) == exception_positions.size())
       << "alp_bit_packed_vector_store_num_exceptions_mismatch: "
       << alp_info.num_exceptions << " vs " << exceptions.size() << " vs "
       << exception_positions.size();
 
-  uint64_t offset = 0;
+  int64_t offset = 0;
 
   // Compute bit_packed_size from num_elements and bit_width
-  const uint64_t bit_packed_size =
+  const int64_t bit_packed_size =
       AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width);
 
   // Store all successfully compressed values first.
@@ -172,14 +172,14 @@ void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<uint8_t> output_buffer
   offset += bit_packed_size;
 
   // Store exception positions.
-  const uint64_t exception_position_size =
+  const int64_t exception_position_size =
       alp_info.num_exceptions * sizeof(AlpConstants::PositionType);
   std::memcpy(output_buffer.data() + offset, exception_positions.data(),
               exception_position_size);
   offset += exception_position_size;
 
   // Store exception values.
-  const uint64_t exception_size = alp_info.num_exceptions * sizeof(T);
+  const int64_t exception_size = alp_info.num_exceptions * sizeof(T);
   std::memcpy(output_buffer.data() + offset, exceptions.data(), exception_size);
   offset += exception_size;
 
@@ -189,14 +189,14 @@ void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<uint8_t> output_buffer
 
 template <typename T>
 Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
-    arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements) {
+    arrow::util::span<const uint8_t> input_buffer, int32_t num_elements) {
   if (num_elements > AlpConstants::kAlpVectorSize) {
     return Status::Invalid("ALP element count too large: ", num_elements,
                            " > ", AlpConstants::kAlpVectorSize);
   }
 
   AlpEncodedVector<T> result;
-  uint64_t input_offset = 0;
+  int64_t input_offset = 0;
 
   // Load AlpInfo (4 bytes)
   ARROW_ASSIGN_OR_RAISE(
@@ -214,16 +214,16 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
 
   result.num_elements = num_elements;
 
-  const uint64_t overall_size =
+  const int64_t overall_size =
       GetStoredSize(result.alp_info, result.for_info, num_elements);
 
-  if (input_buffer.size() < overall_size) {
+  if (static_cast<int64_t>(input_buffer.size()) < overall_size) {
     return Status::Invalid("ALP compressed vector buffer too small: ",
                            input_buffer.size(), " < ", overall_size);
   }
 
   // Compute bit_packed_size from num_elements and bit_width
-  const uint64_t bit_packed_size =
+  const int64_t bit_packed_size =
       AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, result.for_info.bit_width);
 
   // Optimization: Use UnsafeResize to avoid zero-initialization before memcpy.
@@ -234,14 +234,14 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
   input_offset += bit_packed_size;
 
   result.exception_positions.UnsafeResize(result.alp_info.num_exceptions);
-  const uint64_t exception_position_size =
+  const int64_t exception_position_size =
       result.alp_info.num_exceptions * sizeof(AlpConstants::PositionType);
   std::memcpy(result.exception_positions.data(), input_buffer.data() + input_offset,
               exception_position_size);
   input_offset += exception_position_size;
 
   result.exceptions.UnsafeResize(result.alp_info.num_exceptions);
-  const uint64_t exception_size = result.alp_info.num_exceptions * sizeof(T);
+  const int64_t exception_size = result.alp_info.num_exceptions * sizeof(T);
   std::memcpy(result.exceptions.data(), input_buffer.data() + input_offset,
               exception_size);
   return result;
@@ -255,7 +255,7 @@ int64_t AlpEncodedVector<T>::GetStoredSize() const {
 template <typename T>
 int64_t AlpEncodedVector<T>::GetStoredSize(const AlpEncodedVectorInfo& alp_info,
                                            const AlpEncodedForVectorInfo<T>& for_info,
-                                           uint16_t num_elements) {
+                                           int32_t num_elements) {
   const int64_t bit_packed_size =
       AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width);
   return AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize +
@@ -290,14 +290,14 @@ bool AlpEncodedVector<T>::operator==(const AlpEncodedVector<T>& other) const {
 
 template <typename T>
 Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadView(
-    arrow::util::span<const uint8_t> input_buffer, uint16_t num_elements) {
+    arrow::util::span<const uint8_t> input_buffer, int32_t num_elements) {
   if (num_elements > AlpConstants::kAlpVectorSize) {
     return Status::Invalid("ALP view element count too large: ", num_elements,
                            " > ", AlpConstants::kAlpVectorSize);
   }
 
   AlpEncodedVectorView<T> result;
-  uint64_t input_offset = 0;
+  int64_t input_offset = 0;
 
   // Load AlpInfo (4 bytes)
   ARROW_ASSIGN_OR_RAISE(
@@ -315,10 +315,10 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadView(
 
   result.num_elements = num_elements;
 
-  const uint64_t overall_size =
+  const int64_t overall_size =
       AlpEncodedVector<T>::GetStoredSize(result.alp_info, result.for_info, num_elements);
 
-  if (input_buffer.size() < overall_size) {
+  if (static_cast<int64_t>(input_buffer.size()) < overall_size) {
     return Status::Invalid("ALP view buffer too small: ", input_buffer.size(),
                            " < ", overall_size);
   }
@@ -341,7 +341,7 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadView(
 template <typename T>
 Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
     arrow::util::span<const uint8_t> input_buffer, const AlpEncodedVectorInfo& alp_info,
-    const AlpEncodedForVectorInfo<T>& for_info, uint16_t num_elements) {
+    const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements) {
   if (num_elements > AlpConstants::kAlpVectorSize) {
     return Status::Invalid("ALP view data element count too large: ", num_elements,
                            " > ", AlpConstants::kAlpVectorSize);
@@ -352,25 +352,25 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
   result.for_info = for_info;
   result.num_elements = num_elements;
 
-  const uint64_t data_size = for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
-  if (input_buffer.size() < data_size) {
+  const int64_t data_size = for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
+  if (static_cast<int64_t>(input_buffer.size()) < data_size) {
     return Status::Invalid("ALP view data buffer too small: ", input_buffer.size(),
                            " < ", data_size);
   }
 
-  uint64_t input_offset = 0;
+  int64_t input_offset = 0;
 
   // Compute bit_packed_size from num_elements and bit_width
-  const uint64_t bit_packed_size =
+  const int64_t bit_packed_size =
       AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width);
 
   // Zero-copy for packed values (bytes have no alignment requirements)
-  result.packed_values = {input_buffer.data() + input_offset, bit_packed_size};
+  result.packed_values = {input_buffer.data() + input_offset, static_cast<size_t>(bit_packed_size)};
   input_offset += bit_packed_size;
 
   // Copy exception positions into aligned storage to avoid UB from misaligned access.
   // Exceptions are rare (typically < 5%), so the copy overhead is negligible.
-  const uint64_t exception_position_size =
+  const int64_t exception_position_size =
       alp_info.num_exceptions * sizeof(AlpConstants::PositionType);
   result.exception_positions.UnsafeResize(alp_info.num_exceptions);
   std::memcpy(result.exception_positions.data(), input_buffer.data() + input_offset,
@@ -378,7 +378,7 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
   input_offset += exception_position_size;
 
   // Copy exception values into aligned storage to avoid UB from misaligned access.
-  const uint64_t exception_size = alp_info.num_exceptions * sizeof(T);
+  const int64_t exception_size = alp_info.num_exceptions * sizeof(T);
   result.exceptions.UnsafeResize(alp_info.num_exceptions);
   std::memcpy(result.exceptions.data(), input_buffer.data() + input_offset,
               exception_size);
@@ -399,7 +399,7 @@ template struct AlpEncodedVectorView<double>;
 
 template <typename T>
 Result<AlpMetadataCache<T>> AlpMetadataCache<T>::Load(
-    uint32_t num_vectors, uint32_t vector_size, uint32_t total_elements,
+    int32_t num_vectors, int32_t vector_size, int32_t total_elements,
     AlpIntegerEncoding integer_encoding,
     arrow::util::span<const uint8_t> alp_metadata_buffer,
     arrow::util::span<const uint8_t> int_encoding_metadata_buffer) {
@@ -409,10 +409,10 @@ Result<AlpMetadataCache<T>> AlpMetadataCache<T>::Load(
     return cache;
   }
 
-  const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
-  const uint64_t expected_alp_size = num_vectors * alp_info_size;
+  const int64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
+  const int64_t expected_alp_size = num_vectors * alp_info_size;
 
-  if (alp_metadata_buffer.size() < expected_alp_size) {
+  if (static_cast<int64_t>(alp_metadata_buffer.size()) < expected_alp_size) {
     return Status::Invalid("ALP metadata cache buffer too small: ",
                            alp_metadata_buffer.size(), " < ", expected_alp_size);
   }
@@ -422,25 +422,25 @@ Result<AlpMetadataCache<T>> AlpMetadataCache<T>::Load(
   cache.vector_num_elements_.reserve(num_vectors);
 
   // Calculate number of full vectors and remainder
-  const uint32_t num_full_vectors = total_elements / vector_size;
-  const uint32_t remainder = total_elements % vector_size;
+  const int32_t num_full_vectors = total_elements / vector_size;
+  const int32_t remainder = total_elements % vector_size;
 
   if (integer_encoding != AlpIntegerEncoding::kForBitPack) {
     return Status::Invalid("Unsupported ALP integer encoding in metadata cache: ",
                            static_cast<int>(integer_encoding));
   }
 
-  const uint64_t for_info_size = AlpEncodedForVectorInfo<T>::kStoredSize;
-  const uint64_t expected_for_size = num_vectors * for_info_size;
-  if (int_encoding_metadata_buffer.size() < expected_for_size) {
+  const int64_t for_info_size = AlpEncodedForVectorInfo<T>::kStoredSize;
+  const int64_t expected_for_size = num_vectors * for_info_size;
+  if (static_cast<int64_t>(int_encoding_metadata_buffer.size()) < expected_for_size) {
     return Status::Invalid("ALP FOR metadata cache buffer too small: ",
                            int_encoding_metadata_buffer.size(), " < ",
                            expected_for_size);
   }
   cache.for_infos_.reserve(num_vectors);
 
-  uint64_t cumulative_offset = 0;
-  for (uint32_t i = 0; i < num_vectors; i++) {
+  int64_t cumulative_offset = 0;
+  for (int32_t i = 0; i < num_vectors; i++) {
     // Load AlpInfo
     ARROW_ASSIGN_OR_RAISE(
         const AlpEncodedVectorInfo alp_info,
@@ -456,9 +456,8 @@ Result<AlpMetadataCache<T>> AlpMetadataCache<T>::Load(
     cache.for_infos_.push_back(for_info);
 
     // Calculate number of elements for this vector
-    const uint16_t this_vector_elements =
-        (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
-                               : static_cast<uint16_t>(remainder);
+    const int32_t this_vector_elements =
+        (i < num_full_vectors) ? vector_size : remainder;
     cache.vector_num_elements_.push_back(this_vector_elements);
 
     // Store cumulative offset (offset to start of this vector's data)
@@ -537,8 +536,8 @@ class AlpInlines : private AlpConstants {
 /// \brief Helper struct for tracking compression combinations
 struct AlpCombination {
   AlpExponentAndFactor exponent_and_factor;
-  uint64_t num_appearances{0};
-  uint64_t estimated_compression_size{0};
+  int64_t num_appearances{0};
+  int64_t estimated_compression_size{0};
 };
 
 /// \brief Compare two ALP combinations to determine which is better
@@ -567,7 +566,7 @@ bool CompareAlpCombinations(const AlpCombination& c1, const AlpCombination& c2) 
 // AlpCompression implementation
 
 template <typename T>
-std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
+std::optional<int64_t> AlpCompression<T>::EstimateCompressedSize(
     const std::vector<T>& input_vector,
     const AlpExponentAndFactor exponent_and_factor,
     const bool penalize_exceptions) {
@@ -580,7 +579,7 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
   // compiler can vectorize the encode and decode passes independently.
   static constexpr int kBatchSize = 8;
   const size_t n = input_vector.size();
-  uint64_t num_exceptions = 0;
+  int64_t num_exceptions = 0;
 
   size_t i = 0;
   for (; i + kBatchSize <= n; i += kBatchSize) {
@@ -621,7 +620,7 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
     }
   }
 
-  const uint64_t num_non_exceptions = input_vector.size() - num_exceptions;
+  const int64_t num_non_exceptions = static_cast<int64_t>(input_vector.size()) - num_exceptions;
 
   // We penalize combinations which yield almost all exceptions.
   if (penalize_exceptions && num_non_exceptions < 2) {
@@ -632,9 +631,10 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
   const ExactType delta = (static_cast<ExactType>(max_encoded_value) -
                            static_cast<ExactType>(min_encoded_value));
 
-  const uint32_t estimated_bits_per_value =
-      static_cast<uint32_t>(bit_util::NumRequiredBits(delta));
-  uint64_t estimated_compression_size = input_vector.size() * estimated_bits_per_value;
+  const int32_t estimated_bits_per_value =
+      static_cast<int32_t>(bit_util::NumRequiredBits(delta));
+  int64_t estimated_compression_size =
+      static_cast<int64_t>(input_vector.size()) * estimated_bits_per_value;
   estimated_compression_size +=
       num_exceptions * (kExactTypeBitSize + (sizeof(PositionType) * 8));
   return estimated_compression_size;
@@ -646,31 +646,31 @@ AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
   // Find the best combinations of factor-exponent from each sampled vector.
   // This function is called once per segment.
   // This operates over ALP first level samples.
-  static constexpr uint64_t kMaxCombinationCount =
+  static constexpr size_t kMaxCombinationCount =
       (Constants::kMaxExponent + 1) * (Constants::kMaxExponent + 2) / 2;
 
-  std::map<AlpExponentAndFactor, uint64_t> best_k_combinations_hash;
+  std::map<AlpExponentAndFactor, int64_t> best_k_combinations_hash;
 
   // Find the best exponent/factor combination for a single sampled vector by
   // trying all (exponent, factor) pairs and picking the one that minimizes
   // estimated compression size. Returns {best_combination, best_size_bits}.
   auto find_best_for_vector = [](const std::vector<T>& sampled_vector)
-      -> std::pair<AlpCombination, uint64_t> {
-    const uint64_t num_samples = sampled_vector.size();
+      -> std::pair<AlpCombination, int64_t> {
+    const int64_t num_samples = sampled_vector.size();
     const AlpExponentAndFactor worst_case{Constants::kMaxExponent,
                                           Constants::kMaxExponent};
     // Start with worst possible total bits.
-    const uint64_t worst_total_bits =
+    const int64_t worst_total_bits =
         (num_samples * (kExactTypeBitSize + sizeof(PositionType) * 8)) +
         (num_samples * kExactTypeBitSize);
 
     AlpCombination best{worst_case, 0, worst_total_bits};
-    uint64_t best_size_bits = std::numeric_limits<uint64_t>::max();
+    int64_t best_size_bits = std::numeric_limits<int64_t>::max();
 
     for (uint8_t exp_idx = 0; exp_idx <= Constants::kMaxExponent; exp_idx++) {
       for (uint8_t factor_idx = 0; factor_idx <= exp_idx; factor_idx++) {
         const AlpExponentAndFactor current{exp_idx, factor_idx};
-        std::optional<uint64_t> size = EstimateCompressedSize(
+        std::optional<int64_t> size = EstimateCompressedSize(
             sampled_vector, current, /*penalize_exceptions=*/true);
         if (!size.has_value()) {
           continue;
@@ -685,7 +685,7 @@ AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
     return {best, best_size_bits};
   };
 
-  uint64_t best_compressed_size_bits = std::numeric_limits<uint64_t>::max();
+  int64_t best_compressed_size_bits = std::numeric_limits<int64_t>::max();
   for (const std::vector<T>& sampled_vector : vectors_sampled) {
     auto [best, size_bits] = find_best_for_vector(sampled_vector);
     best_k_combinations_hash[best.exponent_and_factor]++;
@@ -723,12 +723,12 @@ AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
 template <typename T>
 std::vector<T> AlpCompression<T>::CreateSample(arrow::util::span<const T> input) {
   // Sample equidistant values within a vector; skip a fixed number of values.
-  const auto idx_increments = std::max<uint32_t>(
-      1, static_cast<uint32_t>(std::ceil(static_cast<double>(input.size()) /
-                                         AlpConstants::kSamplerSamplesPerVector)));
+  const int32_t idx_increments = std::max<int32_t>(
+      1, static_cast<int32_t>(std::ceil(static_cast<double>(input.size()) /
+                                        AlpConstants::kSamplerSamplesPerVector)));
   std::vector<T> vector_sample;
   vector_sample.reserve(std::ceil(input.size() / static_cast<double>(idx_increments)));
-  for (uint64_t i = 0; i < input.size(); i += idx_increments) {
+  for (size_t i = 0; i < input.size(); i += idx_increments) {
     vector_sample.push_back(input[i]);
   }
   return vector_sample;
@@ -747,15 +747,15 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
   const std::vector<T> sample_vector = CreateSample(input);
 
   AlpExponentAndFactor best_exponent_and_factor;
-  uint64_t best_total_bits = std::numeric_limits<uint64_t>::max();
-  uint64_t worse_total_bits_counter = 0;
+  int64_t best_total_bits = std::numeric_limits<int64_t>::max();
+  int64_t worse_total_bits_counter = 0;
 
   // Try each K combination to find the one which minimizes compression size.
   // penalize_exceptions=false because this is second-level sampling: the preset
   // already filtered out bad combinations during first-level sampling, so we
   // just pick whichever pre-vetted combination compresses this vector best.
   for (const AlpExponentAndFactor& exponent_and_factor : combinations) {
-    std::optional<uint64_t> estimated_compression_size = EstimateCompressedSize(
+    std::optional<int64_t> estimated_compression_size = EstimateCompressedSize(
         sample_vector, exponent_and_factor, /*penalize_exceptions=*/false);
 
     // Skip exponents and factors which result in many exceptions.
@@ -790,7 +790,7 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
 
   // Encoding Float/Double to SignedExactType(Int32, Int64).
   // Encode all values regardless of correctness to recover original floating-point.
-  uint64_t input_offset = 0;
+  int64_t input_offset = 0;
   for (const T input : input_vector) {
     const SignedExactType encoded_value =
         AlpInlines<T>::EncodeValue(input, exponent_and_factor);
@@ -849,7 +849,7 @@ auto AlpCompression<T>::BitPackIntegers(
   if (min_max_diff > 0) {
     bit_width = static_cast<uint8_t>(bit_util::NumRequiredBits(min_max_diff));
   }
-  const uint16_t bit_packed_size = static_cast<uint16_t>(
+  const int32_t bit_packed_size = static_cast<int32_t>(
       bit_util::BytesForBits(bit_width * static_cast<int64_t>(integers.size())));
 
   arrow::internal::StaticVector<uint8_t, kAlpVectorSize * sizeof(T)> packed_integers;
@@ -858,9 +858,8 @@ auto AlpCompression<T>::BitPackIntegers(
   packed_integers.UnsafeResize(bit_packed_size);
   if (bit_width > 0) {  // Only execute BP if writing data.
     // Use Arrow's BitWriter for packing (loop-based).
-    arrow::bit_util::BitWriter writer(packed_integers.data(),
-                                      static_cast<int>(bit_packed_size));
-    for (uint64_t i = 0; i < integers.size(); ++i) {
+    arrow::bit_util::BitWriter writer(packed_integers.data(), bit_packed_size);
+    for (size_t i = 0; i < integers.size(); ++i) {
       writer.PutValue(static_cast<uint64_t>(integers[i]), bit_width);
     }
     writer.Flush(false);
@@ -870,10 +869,10 @@ auto AlpCompression<T>::BitPackIntegers(
 
 template <typename T>
 AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
-                                                      uint16_t num_elements,
+                                                      int32_t num_elements,
                                                       const AlpEncodingParameters& preset) {
   // Compress by finding a fitting exponent/factor, encode input, and bitpack.
-  const arrow::util::span<const T> input_span{input_vector, num_elements};
+  const arrow::util::span<const T> input_span{input_vector, static_cast<size_t>(num_elements)};
   const AlpExponentAndFactor exponent_and_factor =
       FindBestExponentAndFactor(input_span, preset.combinations);
   const EncodingResult encoding_result = EncodeVector(input_span, exponent_and_factor);
@@ -896,7 +895,7 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
   result.alp_info.exponent = exponent_and_factor.exponent;
   result.alp_info.factor = exponent_and_factor.factor;
   result.alp_info.num_exceptions =
-      static_cast<uint16_t>(encoding_result.exceptions.size());
+      static_cast<int16_t>(encoding_result.exceptions.size());
 
   // FOR metadata (5/9 bytes)
   result.for_info.frame_of_reference = encoding_result.frame_of_reference;
@@ -912,7 +911,7 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
 template <typename T>
 auto AlpCompression<T>::BitUnpackIntegers(
     arrow::util::span<const uint8_t> packed_integers,
-    const AlpEncodedForVectorInfo<T>& for_info, uint16_t num_elements)
+    const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements)
     -> arrow::internal::StaticVector<ExactType, kAlpVectorSize> {
   arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers;
   // Optimization: Use UnsafeResize to avoid zero-initialization.
@@ -936,7 +935,7 @@ void AlpCompression<T>::DecodeVector(TargetType* output_vector,
                                      arrow::util::span<ExactType> input_vector,
                                      const AlpEncodedVectorInfo& alp_info,
                                      const AlpEncodedForVectorInfo<T>& for_info,
-                                     uint16_t num_elements) {
+                                     int32_t num_elements) {
   // Fused unFOR + decode loop - reduces memory traffic by avoiding
   // intermediate write-then-read of the unFOR'd values.
   const ExactType* data = input_vector.data();
@@ -944,7 +943,7 @@ void AlpCompression<T>::DecodeVector(TargetType* output_vector,
 
 #pragma GCC unroll AlpConstants::kLoopUnrolls
 #pragma GCC ivdep
-  for (size_t i = 0; i < num_elements; ++i) {
+  for (int32_t i = 0; i < num_elements; ++i) {
     // 1. Apply frame of reference (unFOR) - unsigned arithmetic
     const ExactType unfored_value = data[i] + frame_of_ref;
     // 2. Reinterpret as signed integer for decode
@@ -959,12 +958,12 @@ template <typename T>
 template <typename TargetType>
 void AlpCompression<T>::PatchExceptions(
     TargetType* output, arrow::util::span<const T> exceptions,
-    arrow::util::span<const uint16_t> exception_positions) {
+    arrow::util::span<const int16_t> exception_positions) {
   // Exceptions Patching.
-  uint64_t exception_idx = 0;
+  int64_t exception_idx = 0;
 #pragma GCC unroll AlpConstants::kLoopUnrolls
 #pragma GCC ivdep
-  for (uint16_t const exception_position : exception_positions) {
+  for (int16_t const exception_position : exception_positions) {
     output[exception_position] = static_cast<T>(exceptions[exception_idx]);
     exception_idx++;
   }
@@ -978,13 +977,13 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
   static_assert(sizeof(T) <= sizeof(TargetType));
   const AlpEncodedVectorInfo& alp_info = packed_vector.alp_info;
   const AlpEncodedForVectorInfo<T>& for_info = packed_vector.for_info;
-  const uint16_t num_elements = packed_vector.num_elements;
+  const int32_t num_elements = packed_vector.num_elements;
 
   switch (integer_encoding) {
     case AlpIntegerEncoding::kForBitPack: {
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(packed_vector.packed_values, for_info, num_elements);
-      DecodeVector<TargetType>(output, {encoded_integers.data(), num_elements},
+      DecodeVector<TargetType>(output, {encoded_integers.data(), static_cast<size_t>(num_elements)},
                                alp_info, for_info, num_elements);
       PatchExceptions<TargetType>(output, packed_vector.exceptions,
                                   packed_vector.exception_positions);
@@ -1004,14 +1003,14 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
   static_assert(sizeof(T) <= sizeof(TargetType));
   const AlpEncodedVectorInfo& alp_info = encoded_view.alp_info;
   const AlpEncodedForVectorInfo<T>& for_info = encoded_view.for_info;
-  const uint16_t num_elements = encoded_view.num_elements;
+  const int32_t num_elements = encoded_view.num_elements;
 
   switch (integer_encoding) {
     case AlpIntegerEncoding::kForBitPack: {
       // Use zero-copy for packed values, aligned copies for exceptions
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(encoded_view.packed_values, for_info, num_elements);
-      DecodeVector<TargetType>(output, {encoded_integers.data(), num_elements},
+      DecodeVector<TargetType>(output, {encoded_integers.data(), static_cast<size_t>(num_elements)},
                                alp_info, for_info, num_elements);
       // Create spans from the aligned StaticVectors for PatchExceptions
       PatchExceptions<TargetType>(
