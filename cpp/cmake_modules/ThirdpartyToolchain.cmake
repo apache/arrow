@@ -1934,13 +1934,6 @@ function(build_protobuf)
   list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
   message(STATUS "Building Protocol Buffers from source using FetchContent")
 
-  # Protobuf requires Abseil. Build Abseil first with OVERRIDE_FIND_PACKAGE
-  # so that protobuf doesn't build its own copy and we can reuse it on google-cloud-cpp
-  # if it's also being built.
-  if(NOT TARGET absl::strings)
-    build_absl()
-  endif()
-
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
@@ -2099,6 +2092,38 @@ function(build_protobuf)
   endif()
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
+
+# Abseil must be resolved before Protobuf because Protobuf 22+ requires
+# Abseil during its own configure. See GH-49764.
+if(ARROW_WITH_GOOGLE_CLOUD_CPP
+   OR ARROW_WITH_GRPC
+   OR ARROW_WITH_PROTOBUF)
+  # Abseil 20230125 released CRC32C which is necessary for GCS builds
+  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
+  # Google Cloud C++ SDK, gRPC and any dependency that pulls Protobuf
+  # requires Abseil.
+  if(ARROW_WITH_GOOGLE_CLOUD_CPP
+     OR ARROW_ORC
+     OR ARROW_SUBSTRAIT
+     OR ARROW_WITH_OPENTELEMETRY)
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
+  else()
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
+  endif()
+  resolve_dependency(absl
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_ABSL_PC_PACKAGE_NAME}
+                     HAVE_ALT
+                     TRUE
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_ABSL_REQUIRED_VERSION})
+endif()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
@@ -3252,30 +3277,6 @@ function(build_grpc)
       PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
-
-if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
-  # Abseil 20230125 released CRC32C which is necessary for GCS builds
-  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
-  # Google Cloud C++ SDK and gRPC require Google Abseil
-  if(ARROW_WITH_GOOGLE_CLOUD_CPP)
-    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
-    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
-  else()
-    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
-    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
-  endif()
-  resolve_dependency(absl
-                     ARROW_CMAKE_PACKAGE_NAME
-                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
-                     ARROW_PC_PACKAGE_NAME
-                     ${ARROW_ABSL_PC_PACKAGE_NAME}
-                     HAVE_ALT
-                     TRUE
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_ABSL_REQUIRED_VERSION})
-endif()
 
 if(ARROW_WITH_GRPC)
   if(NOT ARROW_ENABLE_THREADING)
