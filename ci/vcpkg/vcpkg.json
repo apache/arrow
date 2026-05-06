@@ -21,7 +21,7 @@
     "utf8proc",
     {
       "name": "xsimd",
-      "version>=": "14.2",
+      "version>=": "14.2"
     },
     "zlib",
     "zstd",
