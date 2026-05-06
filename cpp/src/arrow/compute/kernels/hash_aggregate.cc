@@ -1339,13 +1339,10 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
       null_count = kUnknownNullCount;
       ARROW_ASSIGN_OR_RAISE(auto no_nulls, no_nulls_.Finish());
       Impl::AdjustForMinCount(no_nulls->mutable_data(), reduced->data(), num_groups_);
-      if (null_bitmap) {
-        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
-                                   no_nulls->data(), /*right_offset=*/0, num_groups_,
-                                   /*out_offset=*/0, null_bitmap->mutable_data());
-      } else {
-        null_bitmap = std::move(no_nulls);
-      }
+
+      ARROW_ASSIGN_OR_RAISE(null_bitmap, arrow::internal::OptionalBitmapAnd(
+                                             pool_, null_bitmap, /*left_offset=*/0,
+                                             no_nulls, /*right_offset=*/0, num_groups_));
     }
 
     return ArrayData::Make(out_type(), num_groups_,

@@ -219,6 +219,73 @@ TEST_F(TestFixedShapeTensorType, MetadataSerializationRoundtrip) {
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"shape":[3],"dim_names":["x","y"]})",
                              "Invalid dim_names");
+
+  // Validate shape values must be integers. Error message should include the
+  // JSON type name of the offending value.
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[3.5,4]})",
+                             "shape must contain integers, got Number");
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":["3","4"]})",
+                             "shape must contain integers, got String");
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[null]})",
+                             "shape must contain integers, got Null");
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[true]})",
+                             "shape must contain integers, got True");
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[false]})",
+                             "shape must contain integers, got False");
+
+  // Validate shape values must be non-negative
+  CheckDeserializationRaises(ext_type_, fixed_size_list(int64(), 1), R"({"shape":[-1]})",
+                             "shape must have non-negative values");
+
+  // Validate product of shape matches storage list_size
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[3,3]})",
+                             "Product of shape dimensions");
+
+  // Validate permutation member must be an array with integer values
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":"invalid"})",
+                             "permutation must be an array, got String");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":{"a":1}})",
+                             "permutation must be an array, got Object");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":[1.5,0.5]})",
+                             "permutation must contain integers, got Number");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":["a","b"]})",
+                             "permutation must contain integers, got String");
+
+  // Validate permutation values must be unique integers in [0, N-1]
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":[0,0]})",
+                             "Permutation indices");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":[0,5]})",
+                             "Permutation indices");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"permutation":[-1,0]})",
+                             "Permutation indices");
+
+  // Validate dim_names member must be an array with string values
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"dim_names":"invalid"})",
+                             "dim_names must be an array, got String");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"dim_names":[1,2]})",
+                             "dim_names must contain strings, got Number");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"shape":[3,4],"dim_names":[null,null]})",
+                             "dim_names must contain strings, got Null");
+}
+
+TEST_F(TestFixedShapeTensorType, MakeValidatesShape) {
+  // Negative shape values should be rejected
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("shape must have non-negative values"),
+      FixedShapeTensorType::Make(value_type_, {-1}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("shape must have non-negative values"),
+      FixedShapeTensorType::Make(value_type_, {3, -1, 4}));
 }
 
 TEST_F(TestFixedShapeTensorType, RoundtripBatch) {
@@ -794,6 +861,32 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
                              "Invalid: permutation");
   CheckDeserializationRaises(ext_type_, storage_type, R"({"dim_names":["x","y"]})",
                              "Invalid: dim_names");
+
+  // Validate permutation member must be an array with integer values. Error
+  // message should include the JSON type name of the offending value.
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"permutation":"invalid"})",
+                             "permutation must be an array, got String");
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"permutation":[1.5,0.5,2.5]})",
+                             "permutation must contain integers, got Number");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"permutation":[null,null,null]})",
+                             "permutation must contain integers, got Null");
+
+  // Validate dim_names member must be an array with string values
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"dim_names":"invalid"})",
+                             "dim_names must be an array, got String");
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"dim_names":[1,2,3]})",
+                             "dim_names must contain strings, got Number");
+
+  // Validate uniform_shape member must be an array with integer-or-null values
+  CheckDeserializationRaises(ext_type_, storage_type, R"({"uniform_shape":"invalid"})",
+                             "uniform_shape must be an array, got String");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"uniform_shape":[1.5,null,null]})",
+                             "uniform_shape must contain integers or nulls, got Number");
+  CheckDeserializationRaises(ext_type_, storage_type,
+                             R"({"uniform_shape":["x",null,null]})",
+                             "uniform_shape must contain integers or nulls, got String");
 }
 
 TEST_F(TestVariableShapeTensorType, RoundtripBatch) {

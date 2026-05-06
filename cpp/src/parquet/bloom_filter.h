@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"

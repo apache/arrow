@@ -87,7 +87,6 @@ jobs:
   check-labels:
     if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
-    secrets: inherit
     with:
       parent-workflow: cpp_extra
 
@@ -139,6 +138,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -221,6 +221,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Free up disk space
@@ -273,6 +274,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install dependencies
@@ -367,6 +369,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -410,7 +413,7 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
-    timeout-minutes: 75
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -431,6 +434,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
@@ -552,6 +556,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Download Timezone Database
@@ -579,6 +584,7 @@ jobs:
       - name: Checkout vcpkg
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           path: vcpkg
           repository: microsoft/vcpkg
@@ -706,6 +712,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 1
           path: arrow
           repository: apache/arrow
@@ -736,6 +743,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Download the artifacts
@@ -769,4 +777,6 @@ jobs:
       - odbc-msvc
       - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
-    secrets: inherit
+    secrets:
+      ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+      ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}

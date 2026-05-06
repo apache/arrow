@@ -167,7 +167,8 @@ struct ReadRangeCache::Impl {
     std::vector<RangeCacheEntry> new_entries;
     new_entries.reserve(ranges.size());
     for (const auto& range : ranges) {
-      new_entries.emplace_back(range, file->ReadAsync(ctx, range.offset, range.length));
+      new_entries.emplace_back(range, file->ReadAsync(ctx, range.offset, range.length,
+                                                      /*allow_short_read=*/false));
     }
     return new_entries;
   }
@@ -219,7 +220,8 @@ struct ReadRangeCache::Impl {
              ++next_it) {
           if (!next_it->future.is_valid()) {
             next_it->future =
-                file->ReadAsync(ctx, next_it->range.offset, next_it->range.length);
+                file->ReadAsync(ctx, next_it->range.offset, next_it->range.length,
+                                /*allow_short_read=*/false);
           }
           ++num_prefetched;
         }
@@ -272,7 +274,8 @@ struct ReadRangeCache::LazyImpl : public ReadRangeCache::Impl {
   Future<std::shared_ptr<Buffer>> MaybeRead(RangeCacheEntry* entry) override {
     // Called by superclass Read()/WaitFor() so we have the lock
     if (!entry->future.is_valid()) {
-      entry->future = file->ReadAsync(ctx, entry->range.offset, entry->range.length);
+      entry->future = file->ReadAsync(ctx, entry->range.offset, entry->range.length,
+                                      /*allow_short_read=*/false);
     }
     return entry->future;
   }

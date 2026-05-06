@@ -28,6 +28,9 @@ function featherwrite(filename, t)
         t table
     end
 
+    warning("arrow:io:feather:v1:FeatherWriteDeprecated", ...
+        "Writing to Feather V1 files is deprecated. Use arrow.io.ipc.RecordBatchFileWriter to write to Feather V2 (Arrow IPC) files.");
+
     recordBatch = arrow.recordBatch(t);
     writer = arrow.internal.io.feather.Writer(filename);
     writer.write(recordBatch);

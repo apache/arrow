@@ -20,11 +20,11 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/buffer.h"         // IWYU pragma: export
-#include "arrow/io/interfaces.h"  // IWYU pragma: export
+#include "arrow/io/type_fwd.h"    // IWYU pragma: export
 #include "arrow/status.h"         // IWYU pragma: export
 #include "arrow/type_fwd.h"       // IWYU pragma: export
 #include "arrow/util/macros.h"    // IWYU pragma: export
+#include "arrow/util/type_fwd.h"  // IWYU pragma: export
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 

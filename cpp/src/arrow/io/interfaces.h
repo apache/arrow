@@ -267,8 +267,9 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
 
   /// \brief Read data from given file position.
   ///
-  /// At most `nbytes` bytes are read.  The number of bytes read is returned
-  /// (it can be less than `nbytes` if EOF is reached).
+  /// At most `nbytes` bytes are read. The number of bytes read is returned.
+  /// If `allow_short_read` is true, the number of bytes read can be less than
+  /// `nbytes` if EOF is reached, otherwise an error is returned.
   ///
   /// This method can be safely called from multiple threads concurrently.
   /// It is unspecified whether this method updates the file position or not.
@@ -279,13 +280,40 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   ///
   /// \param[in] position Where to read bytes from
   /// \param[in] nbytes The number of bytes to read
+  /// \param[in] allow_short_read Whether to allow reading less than `nbytes`
+  /// \param[out] out The buffer to read bytes into
+  /// \return The number of bytes read, or an error
+  virtual Result<int64_t> ReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                                 void* out);
+
+  /// \brief Read data from given file position.
+  ///
+  /// Like `ReadAt(position, nbytes, allow_short_read, out)` with `allow_short_read`
+  /// set to true.
+  ///
+  /// \param[in] position Where to read bytes from
+  /// \param[in] nbytes The number of bytes to read
   /// \param[out] out The buffer to read bytes into
   /// \return The number of bytes read, or an error
   virtual Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out);
 
   /// \brief Read data from given file position.
   ///
-  /// At most `nbytes` bytes are read, but it can be less if EOF is reached.
+  /// At most `nbytes` bytes are read.  If `allow_short_read` is true, the
+  /// number of bytes read can be less than `nbytes` if EOF is reached,
+  /// otherwise an error is returned.
+  ///
+  /// \param[in] position Where to read bytes from
+  /// \param[in] nbytes The number of bytes to read
+  /// \param[in] allow_short_read Whether to allow reading less than `nbytes`
+  /// \return A buffer containing the bytes read, or an error
+  virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes,
+                                                 bool allow_short_read);
+
+  /// \brief Read data from given file position.
+  ///
+  /// Like `ReadAt(position, nbytes, allow_short_read)` with `allow_short_read`
+  /// set to true.
   ///
   /// \param[in] position Where to read bytes from
   /// \param[in] nbytes The number of bytes to read
@@ -294,9 +322,14 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
 
   /// EXPERIMENTAL: Read data asynchronously.
   virtual Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
+                                                    int64_t nbytes,
+                                                    bool allow_short_read);
+  virtual Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                                     int64_t nbytes);
 
   /// EXPERIMENTAL: Read data asynchronously, using the file's IOContext.
+  Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes,
+                                            bool allow_short_read);
   Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
   /// EXPERIMENTAL: Explicit multi-read.

@@ -3047,6 +3047,15 @@ class TestConvertMisc:
         df['a'] = df['a'].astype('category')
         _check_pandas_roundtrip(df)
 
+    def test_categorical_with_timezone(self):
+        # GH-49875: timezone was dropped when converting tz-aware categorical
+        cats = pd.DatetimeIndex(["2024-01-01", "2024-01-02"]).tz_localize("US/Eastern")
+        cat = pd.Categorical(values=[cats[0], cats[1], cats[0]], categories=cats)
+
+        arr = pa.array(cat, from_pandas=True)
+
+        assert arr.type.value_type.tz == "US/Eastern"
+
     def test_empty_arrays(self):
         for dtype_str, pa_type in self.type_pairs:
             if (Version(pd.__version__) >= Version("3.0.0") and

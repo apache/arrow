@@ -733,9 +733,10 @@ class CountingBufferReader : public BufferReader {
  public:
   using BufferReader::BufferReader;
   Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext& context, int64_t position,
-                                            int64_t nbytes) override {
+                                            int64_t nbytes,
+                                            bool allow_short_read) override {
     read_count_++;
-    return BufferReader::ReadAsync(context, position, nbytes);
+    return BufferReader::ReadAsync(context, position, nbytes, allow_short_read);
   }
   int64_t read_count() const { return read_count_; }
 
