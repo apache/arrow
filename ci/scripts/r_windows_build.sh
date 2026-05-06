@@ -26,13 +26,7 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 # Ensure CA certificates are available for pacman (Rtools42+ may not bundle them)
 if [ ! -f /usr/ssl/certs/ca-bundle.crt ]; then
   mkdir -p /usr/ssl/certs
-  for src in /c/rtools45/usr/ssl/certs/ca-bundle.crt \
-             "/c/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt"; do
-    if [ -f "$src" ]; then
-      cp "$src" /usr/ssl/certs/ca-bundle.crt
-      break
-    fi
-  done
+  cp "/c/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt" /usr/ssl/certs/ca-bundle.crt
 fi
 
 pacman --noconfirm -Syy
