@@ -307,7 +307,8 @@ TEST(ReaderTest, MultipleChunksParallelRegression) {
     json += "{\"a\":" + std::to_string(i) + "}\n";
   }
 
-  ASSERT_OK_AND_ASSIGN(auto table, ReadToTable(std::move(json), read_options, parse_options));
+  ASSERT_OK_AND_ASSIGN(auto table,
+                       ReadToTable(std::move(json), read_options, parse_options));
   ASSERT_EQ(table->num_rows(), count);
 }
 
