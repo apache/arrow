@@ -316,8 +316,6 @@ static Result<std::shared_ptr<Table>> ReadMultipleChunksParallelTable(
 TEST(ReaderTest, MultipleChunksParallelRegression) {
   int64_t count = 1 << 10;
   ParseOptions parse_options;
-  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-
   ASSERT_OK_AND_ASSIGN(auto table, ReadMultipleChunksParallelTable(
                                        count, /*use_threads=*/true, parse_options));
   ASSERT_EQ(table->num_rows(), count);
