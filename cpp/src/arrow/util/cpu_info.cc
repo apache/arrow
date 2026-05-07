@@ -17,7 +17,26 @@
 
 // From Apache Impala (incubating) as of 2016-01-29.
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cerrno>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <thread>
+
+#include <xsimd/xsimd.hpp>
+
+#include "arrow/result.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
+
+#ifdef __linux__
+#  include <fstream>
+#endif
 
 #ifdef __APPLE__
 #  include <sys/sysctl.h>
@@ -31,35 +50,6 @@
 #  include <intrin.h>
 
 #  include "arrow/util/windows_compatibility.h"
-#endif
-
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <cerrno>
-#include <cstdint>
-#include <optional>
-#include <string>
-#include <thread>
-
-#include <xsimd/xsimd.hpp>
-
-#include "arrow/result.h"
-#include "arrow/util/io_util.h"
-#include "arrow/util/logging_internal.h"
-#include "arrow/util/string.h"
-
-#undef CPUINFO_ARCH_X86
-#undef CPUINFO_ARCH_ARM
-#undef CPUINFO_ARCH_PPC
-
-#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-#  define CPUINFO_ARCH_X86
-#elif defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__)
-#  define CPUINFO_ARCH_ARM
-#elif defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) || \
-    defined(__powerpc64__)
-#  define CPUINFO_ARCH_PPC
 #endif
 
 namespace arrow::internal {
@@ -211,11 +201,6 @@ void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
 
 #else
 //------------------------------ LINUX ------------------------------//
-#  if defined(CPUINFO_ARCH_ARM)
-#    include <asm/hwcap.h>
-#    include <sys/auxv.h>
-#    include <sys/prctl.h>
-#  endif
 
 // Get cache size, return 0 on error
 int64_t LinuxGetCacheSize(int level) {
@@ -276,7 +261,7 @@ void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
 
 //============================== Arch Dependent ==============================//
 
-#if defined(CPUINFO_ARCH_X86)
+#if XSIMD_TARGET_X86
 //------------------------------ X86_64 ------------------------------//
 bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
   enum {
@@ -328,7 +313,7 @@ void ArchVerifyCpuRequirements(const CpuInfo* ci) {
 #  endif
 }
 
-#elif defined(CPUINFO_ARCH_ARM)
+#elif XSIMD_TARGET_ARM64
 //------------------------------ AARCH64 ------------------------------//
 bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
   enum {
@@ -441,7 +426,3 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
 }
 
 }  // namespace arrow::internal
-
-#undef CPUINFO_ARCH_X86
-#undef CPUINFO_ARCH_ARM
-#undef CPUINFO_ARCH_PPC
