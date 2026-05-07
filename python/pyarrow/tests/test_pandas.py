@@ -638,8 +638,8 @@ class TestConvertMetadata:
             table_subset = table.remove_column(1)
             result = table_subset.to_pandas()
             expected = df[['a']]
-            if isinstance(df.index, pd.DatetimeIndex):
-                df.index.freq = None
+            if isinstance(expected.index, pd.DatetimeIndex):
+                expected.index.freq = None
             tm.assert_frame_equal(result, expected)
 
             table_subset2 = table_subset.remove_column(1)
