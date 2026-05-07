@@ -23,21 +23,12 @@ set -ex
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-# Debug: understand the RTools environment on this runner
-echo "=== RTools debug info ==="
-echo "Shell: $SHELL / BASH: $BASH"
-echo "MSYSTEM: $MSYSTEM"
-echo "RTOOLS_VERSION: $RTOOLS_VERSION"
-echo "which bash: $(which bash)"
-echo "which pacman: $(which pacman)"
-echo "which strip: $(which strip 2>/dev/null || echo 'not found')"
-echo "which makepkg-mingw: $(which makepkg-mingw 2>/dev/null || echo 'not found')"
-ls -la /usr/ssl/certs/ 2>/dev/null || echo "/usr/ssl/certs/ does not exist"
-ls -la /etc/pki/ca-trust/ 2>/dev/null || echo "/etc/pki/ca-trust/ does not exist"
-ls /c/rtools42/ 2>/dev/null || echo "/c/rtools42/ does not exist"
-ls /c/rtools45/ 2>/dev/null || echo "/c/rtools45/ does not exist"
-echo "cygpath /: $(cygpath -w /)"
-echo "=== end debug ==="
+# The RTools42 release (r-hub/rtools42) ships with 0-byte ca-bundle.crt files
+# due to an MSYS2 build bug (msys2/msys2-installer#40). Regenerate them from
+# the trust anchors that are already installed.
+if [ ! -s /usr/ssl/certs/ca-bundle.crt ]; then
+  update-ca-trust
+fi
 
 pacman --noconfirm -Syy
 
