@@ -20,8 +20,6 @@
 #pragma once
 
 #include <cstddef>
-#include <optional>
-
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/alp/alp.h"
@@ -70,14 +68,15 @@ class AlpCodec {
   /// \param[in] decomp pointer to the input that is to be encoded
   /// \param[in] decomp_size size of decomp in bytes.
   ///            This needs to be a multiple of sizeof(T).
+  /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
   /// \param[out] comp pointer to the memory region we will encode into.
   ///             Must be at least GetMaxCompressedSize(decomp_size) bytes.
   /// \param[in,out] comp_size the actual size of the encoded data in bytes,
   ///                expects the size of comp as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
-  static void EncodeWithPreset(const T* decomp, size_t decomp_size, char* comp,
-                               size_t* comp_size, const AlpSamplerResult& preset);
+  static void EncodeWithPreset(const T* decomp, size_t decomp_size,
+                               const AlpSamplerResult& preset, char* comp,
+                               size_t* comp_size);
 
   /// \brief Encode floating point values using ALP decimal compression
   ///
@@ -89,11 +88,8 @@ class AlpCodec {
   /// \param[in,out] comp_size the actual size of the encoded data in bytes,
   ///                expects the size of comp as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  /// \param[in] enforce_mode reserved for future use.
-  ///            Currently only AlpMode::kAlp is supported.
   static void Encode(const T* decomp, size_t decomp_size, char* comp,
-                     size_t* comp_size,
-                     std::optional<AlpMode> enforce_mode = std::nullopt);
+                     size_t* comp_size);
 
   /// \brief Decode floating point values
   ///

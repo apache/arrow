@@ -1237,7 +1237,7 @@ TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
   size_t comp_size2 = comp_buffer2.size();
 
   AlpCodec<TypeParam>::EncodeWithPreset(input.data(), input.size() * sizeof(TypeParam),
-                                          comp_buffer2.data(), &comp_size2, preset);
+                                          preset, comp_buffer2.data(), &comp_size2);
 
   // Both should produce identical output
   EXPECT_EQ(comp_size1, comp_size2);
@@ -1274,13 +1274,13 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   std::vector<char> comp1(max_comp_size);
   size_t comp_size1 = comp1.size();
   AlpCodec<TypeParam>::EncodeWithPreset(batch1.data(), batch1.size() * sizeof(TypeParam),
-                                          comp1.data(), &comp_size1, preset);
+                                          preset, comp1.data(), &comp_size1);
 
   // Encode batch2 with same preset (reuse)
   std::vector<char> comp2(max_comp_size);
   size_t comp_size2 = comp2.size();
   AlpCodec<TypeParam>::EncodeWithPreset(batch2.data(), batch2.size() * sizeof(TypeParam),
-                                          comp2.data(), &comp_size2, preset);
+                                          preset, comp2.data(), &comp_size2);
 
   // Both should encode successfully
   EXPECT_GT(comp_size1, 0);

@@ -931,11 +931,11 @@ auto AlpCompression<T>::BitUnpackIntegers(
 
 template <typename T>
 template <typename TargetType>
-void AlpCompression<T>::DecodeVector(TargetType* output_vector,
-                                     arrow::util::span<ExactType> input_vector,
+void AlpCompression<T>::DecodeVector(arrow::util::span<ExactType> input_vector,
                                      const AlpEncodedVectorInfo& alp_info,
                                      const AlpEncodedForVectorInfo<T>& for_info,
-                                     int32_t num_elements) {
+                                     int32_t num_elements,
+                                     TargetType* output_vector) {
   // Fused unFOR + decode loop - reduces memory traffic by avoiding
   // intermediate write-then-read of the unFOR'd values.
   const ExactType* data = input_vector.data();
@@ -957,8 +957,9 @@ void AlpCompression<T>::DecodeVector(TargetType* output_vector,
 template <typename T>
 template <typename TargetType>
 void AlpCompression<T>::PatchExceptions(
-    TargetType* output, arrow::util::span<const T> exceptions,
-    arrow::util::span<const int16_t> exception_positions) {
+    arrow::util::span<const T> exceptions,
+    arrow::util::span<const int16_t> exception_positions,
+    TargetType* output) {
   // Exceptions Patching.
   int64_t exception_idx = 0;
 #pragma GCC unroll AlpConstants::kLoopUnrolls
@@ -983,10 +984,10 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
     case AlpIntegerEncoding::kForBitPack: {
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(packed_vector.packed_values, for_info, num_elements);
-      DecodeVector<TargetType>(output, {encoded_integers.data(), static_cast<size_t>(num_elements)},
-                               alp_info, for_info, num_elements);
-      PatchExceptions<TargetType>(output, packed_vector.exceptions,
-                                  packed_vector.exception_positions);
+      DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
+                               alp_info, for_info, num_elements, output);
+      PatchExceptions<TargetType>(packed_vector.exceptions,
+                                  packed_vector.exception_positions, output);
     } break;
     default:
       ARROW_CHECK(false) << "invalid_integer_encoding: "
@@ -1010,14 +1011,14 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
       // Use zero-copy for packed values, aligned copies for exceptions
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(encoded_view.packed_values, for_info, num_elements);
-      DecodeVector<TargetType>(output, {encoded_integers.data(), static_cast<size_t>(num_elements)},
-                               alp_info, for_info, num_elements);
+      DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
+                               alp_info, for_info, num_elements, output);
       // Create spans from the aligned StaticVectors for PatchExceptions
       PatchExceptions<TargetType>(
-          output,
           {encoded_view.exceptions.data(), encoded_view.exceptions.size()},
           {encoded_view.exception_positions.data(),
-           encoded_view.exception_positions.size()});
+           encoded_view.exception_positions.size()},
+          output);
     } break;
     default:
       ARROW_CHECK(false) << "invalid_integer_encoding: "
