@@ -793,19 +793,19 @@ class AlpCompression : private AlpConstants {
 
   /// \brief Decode a vector of integers back to floating point values
   ///
-  /// \param[out] output_vector output buffer to write decoded floats to
   /// \param[in] input_vector encoded integers (after bit unpacking, still with FOR)
   /// \param[in] alp_info ALP metadata with exponent and factor
   /// \param[in] for_info FOR metadata with frame_of_reference
   /// \param[in] num_elements number of elements to decode
+  /// \param[out] output_vector output buffer to write decoded floats to
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void DecodeVector(TargetType* output_vector,
-                           arrow::util::span<ExactType> input_vector,
+  static void DecodeVector(arrow::util::span<ExactType> input_vector,
                            const AlpEncodedVectorInfo& alp_info,
                            const AlpEncodedForVectorInfo<T>& for_info,
-                           int32_t num_elements);
+                           int32_t num_elements,
+                           TargetType* output_vector);
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
@@ -844,15 +844,15 @@ class AlpCompression : private AlpConstants {
   /// Replaces placeholder values at exception positions with the original
   /// floating point values that could not be losslessly encoded.
   ///
-  /// \param[out] output the decoded output vector to patch exceptions into
   /// \param[in] exceptions the original floats stored as exceptions
   /// \param[in] exception_positions indices where exceptions should be placed
+  /// \param[out] output the decoded output vector to patch exceptions into
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void PatchExceptions(TargetType* output,
-                              arrow::util::span<const T> exceptions,
-                              arrow::util::span<const int16_t> exception_positions);
+  static void PatchExceptions(arrow::util::span<const T> exceptions,
+                              arrow::util::span<const int16_t> exception_positions,
+                              TargetType* output);
 };
 
 }  // namespace alp
