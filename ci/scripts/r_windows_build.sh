@@ -40,6 +40,8 @@ echo "=== strip debug ==="
 ls -la /${MSYSTEM,,}/bin/strip* 2>/dev/null || echo "no strip in /${MSYSTEM,,}/bin/"
 which strip 2>/dev/null || echo "strip not on PATH"
 type -a strip 2>/dev/null || echo "no strip found at all"
+grep -n "strip" /etc/makepkg.conf 2>/dev/null || echo "no makepkg.conf"
+grep -n "strip" /etc/makepkg_mingw.conf 2>/dev/null || echo "no makepkg_mingw.conf"
 echo "=== end strip debug ==="
 
 pacman --noconfirm -Syy
