@@ -269,7 +269,7 @@ class RunEndEncodedValuesAccessor {
         values_(array.values()->data()),
         array_span_(*array.data()),
         physical_range_(
-            ree_util::FindPhysicalRange(array_span_, array.offset(), array.length())) {}
+            ::arrow::ree_util::FindPhysicalRange(array_span_, array.offset(), array.length())) {}
 
   /// Return the number of physical runs used as the search domain.
   int64_t length() const { return physical_range_.second; }
@@ -320,7 +320,7 @@ class RunEndEncodedValuesAccessor {
  private:
   int64_t LogicalRunEnd(int64_t physical_index) const {
     const int64_t logical_run_end = std::max<int64_t>(
-        GetRunEndValue(ree_util::RunEndsArray(array_span_), physical_index) -
+        GetRunEndValue(::arrow::ree_util::RunEndsArray(array_span_), physical_index) -
             array_.offset(),
         0);
     return std::min(logical_run_end, array_.length());
