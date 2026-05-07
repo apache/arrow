@@ -35,6 +35,13 @@ fi
 export MSYSTEM=${MSYSTEM:-UCRT64}
 export PATH="/${MSYSTEM,,}/bin:$PATH"
 
+# Debug strip location
+echo "=== strip debug ==="
+ls -la /${MSYSTEM,,}/bin/strip* 2>/dev/null || echo "no strip in /${MSYSTEM,,}/bin/"
+which strip 2>/dev/null || echo "strip not on PATH"
+type -a strip 2>/dev/null || echo "no strip found at all"
+echo "=== end strip debug ==="
+
 pacman --noconfirm -Syy
 
 RWINLIB_LIB_DIR="lib"
