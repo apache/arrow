@@ -629,6 +629,15 @@ enum Encoding {
       Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
   BYTE_STREAM_SPLIT = 9;
+
+  /** Adaptive Lossless floating-Point (ALP) encoding for FLOAT and DOUBLE.
+      Encodes floating-point values as integers using decimal multiplication,
+      then applies frame-of-reference and bit-packing. Values that cannot be
+      encoded losslessly are stored as exceptions.
+
+      See Encodings.md#alp for the full specification.
+   */
+  ALP = 10;
 }
 
 /**
