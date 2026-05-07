@@ -139,10 +139,12 @@ def test_parquet_metadata_api():
     assert col_meta.data_page_offset > 0
     assert col_meta.total_compressed_size > 0
     assert col_meta.total_uncompressed_size > 0
-    with pytest.raises(NotImplementedError):
-        col_meta.has_index_page
-    with pytest.raises(NotImplementedError):
-        col_meta.index_page_offset
+    assert col_meta.has_index_page is False
+    assert col_meta.index_page_offset is None
+    assert col_meta.has_bloom_filter is False
+    assert col_meta.bloom_filter_offset is None
+    assert col_meta.has_offset_index is False
+    assert col_meta.has_column_index is False
 
 
 def test_parquet_metadata_lifetime(tempdir):
@@ -814,3 +816,31 @@ def test_internal_class_instantiation():
 
     with pytest.raises(TypeError, match=msg("FileMetaData")):
         pq.FileMetaData()
+
+
+def test_column_metadata_with_bloom_filter(parquet_test_datadir):
+    metadata = pq.read_metadata(parquet_test_datadir /
+                                'data_index_bloom_encoding_with_length.parquet')
+    assert metadata.row_group(0).column(0).has_dictionary_page is True
+    assert metadata.row_group(0).column(0).dictionary_page_offset == 4
+    assert metadata.row_group(0).column(0).has_index_page is False
+    assert metadata.row_group(0).column(0).index_page_offset is None
+    assert metadata.row_group(0).column(0).has_bloom_filter is True
+    assert metadata.row_group(0).column(0).has_column_index is True
+    assert metadata.row_group(0).column(0).has_offset_index is True
+    assert metadata.row_group(0).column(0).bloom_filter_offset == 253
+    assert metadata.row_group(0).column(0).bloom_filter_length == 2064
+
+
+def test_column_metadata_with_index_page(parquet_test_datadir):
+    metadata = pq.read_metadata(parquet_test_datadir /
+                                'nan_in_stats.parquet')
+    assert metadata.row_group(0).column(0).has_dictionary_page is True
+    assert metadata.row_group(0).column(0).dictionary_page_offset == 4
+    assert metadata.row_group(0).column(0).has_index_page is True
+    assert metadata.row_group(0).column(0).index_page_offset == 0
+    assert metadata.row_group(0).column(0).has_bloom_filter is False
+    assert metadata.row_group(0).column(0).has_column_index is False
+    assert metadata.row_group(0).column(0).has_offset_index is False
+    assert metadata.row_group(0).column(0).bloom_filter_offset is None
+    assert metadata.row_group(0).column(0).bloom_filter_length is None
