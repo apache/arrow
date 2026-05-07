@@ -249,7 +249,7 @@ int64_t LinuxGetCacheSize(int level) {
 template <std::size_t N>
 void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
   static_assert(N >= 3);
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < static_cast<int>(N); ++i) {
     const int64_t cache_size = LinuxGetCacheSize(i);
     if (cache_size > 0) {
       (*cache_sizes)[i] = cache_size;
