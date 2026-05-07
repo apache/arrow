@@ -30,6 +30,11 @@ if [ ! -s /usr/ssl/certs/ca-bundle.crt ]; then
   update-ca-trust
 fi
 
+# MSYSTEM must be set so makepkg-mingw can find the toolchain (strip etc.).
+# The CI shell runs bash directly without --login, so MSYSTEM is unset.
+# Use UCRT64 to match the arch we're building.
+export MSYSTEM=${MSYSTEM:-UCRT64}
+
 pacman --noconfirm -Syy
 
 RWINLIB_LIB_DIR="lib"
