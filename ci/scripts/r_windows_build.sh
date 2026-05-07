@@ -35,16 +35,10 @@ fi
 export MSYSTEM=${MSYSTEM:-UCRT64}
 export PATH="/${MSYSTEM,,}/bin:$PATH"
 
-# Debug strip location
-echo "=== strip debug ==="
-ls -la /${MSYSTEM,,}/bin/strip* 2>/dev/null || echo "no strip in /${MSYSTEM,,}/bin/"
-which strip 2>/dev/null || echo "strip not on PATH"
-type -a strip 2>/dev/null || echo "no strip found at all"
-grep -n "strip" /etc/makepkg.conf 2>/dev/null || echo "no makepkg.conf"
-grep -n "strip" /etc/makepkg_mingw.conf 2>/dev/null || echo "no makepkg_mingw.conf"
-echo "=== end strip debug ==="
-
 pacman --noconfirm -Syy
+
+# RTools42's ucrt64 toolchain doesn't include strip; install it for makepkg-mingw.
+pacman --noconfirm -S mingw-w64-ucrt-x86_64-binutils
 
 RWINLIB_LIB_DIR="lib"
 : ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
