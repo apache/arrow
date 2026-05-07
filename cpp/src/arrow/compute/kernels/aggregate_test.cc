@@ -941,6 +941,16 @@ TYPED_TEST(TestCountKernel, SimpleCount) {
   EXPECT_THAT(Count(*MakeScalar(ty, 1), all), ResultWith(Datum(int64_t(1))));
 }
 
+TEST(TestCountKernel, RunEndEncodedNulls) {
+  auto input = ArrayFromJSON(int32(), "[1, 1, null, null, null, 2, 2, 2, null, 3]");
+  ASSERT_OK_AND_ASSIGN(auto encoded, RunEndEncode(input));
+
+  auto array = encoded.make_array();
+  ValidateCount(*array, {6, 4});
+  // Logical slice: [null, null, 2, 2, 2, null].
+  ValidateCount(*array->Slice(3, 6), {3, 3});
+}
+
 template <typename ArrowType>
 class TestRandomNumericCountKernel : public ::testing::Test {};
 
