@@ -35,6 +35,9 @@ fi
 export MSYSTEM=${MSYSTEM:-UCRT64}
 export PATH="/${MSYSTEM,,}/bin:$PATH"
 
+# RTools42's frozen MSYS2 keyring is too old for current mirror signatures.
+pacman-key --init
+pacman-key --populate msys2
 pacman --noconfirm -Syy
 
 # RTools42's ucrt64 toolchain doesn't include strip; install it for makepkg-mingw.
