@@ -64,8 +64,8 @@ cd build
 # This may vary by system/CI provider
 MSYS_LIB_DIR="/c/rtools${RTOOLS_VERSION}"
 
-# Untar the builds we made
-ls *.xz | xargs -n 1 tar -xJf
+# Untar the builds we made (RTools42+ uses zstd compression instead of xz)
+ls *.zst *.xz 2>/dev/null | xargs -n 1 tar -xf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
 # (if we're building twice to combine old and new toolchains, this may already exist)
