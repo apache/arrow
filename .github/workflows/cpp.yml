@@ -367,7 +367,14 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Pin MSYS2 packages
-        if: false
+        # Temporary workaround for #49930: gcc 16 surfaces a cluster of 5
+        # MINGW64 test failures. Pinning gcc-libs to 15.2 (and C++ packages
+        # rebuilt against gcc-libs 16.1, for ABI compatibility) avoids all
+        # of them. #49272/#49462 cover one (arrow-json-test); the other 4
+        # (async-utility-test, threading-utility-test, dataset-writer-test
+        # `bad_weak_ptr`, dataset-file-test) need separate fixes — see #49930.
+        # Remove once all 5 pass on current upstream MSYS2 without these pins
+        if: matrix.msystem_upper == 'MINGW64'
         shell: msys2 {0}
         run: |
           set -ex
