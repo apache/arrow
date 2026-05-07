@@ -18,7 +18,6 @@
 #include "arrow/util/alp/alp_codec.h"
 
 #include <cmath>
-#include <optional>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -192,8 +191,9 @@ auto AlpCodec<T>::CreateSamplingPreset(const T* decomp, size_t decomp_size)
 }
 
 template <typename T>
-void AlpCodec<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* comp,
-                                     size_t* comp_size, const AlpSamplerResult& preset) {
+void AlpCodec<T>::EncodeWithPreset(const T* decomp, size_t decomp_size,
+                                     const AlpSamplerResult& preset, char* comp,
+                                     size_t* comp_size) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const int64_t element_count = static_cast<int64_t>(decomp_size / sizeof(T));
 
@@ -219,10 +219,10 @@ void AlpCodec<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* co
 
 template <typename T>
 void AlpCodec<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
-                           size_t* comp_size, std::optional<AlpMode> enforce_mode) {
+                           size_t* comp_size) {
   // Sample the data and encode with the preset
   auto sampling_result = CreateSamplingPreset(decomp, decomp_size);
-  EncodeWithPreset(decomp, decomp_size, comp, comp_size, sampling_result);
+  EncodeWithPreset(decomp, decomp_size, sampling_result, comp, comp_size);
 }
 
 template <typename T>
