@@ -1206,11 +1206,11 @@ cdef class ConvertOptions(_Weakrefable):
         return (f"""
     check_utf8={self.check_utf8},
     column_types={self.column_types},
+    default_column_type={self.default_column_type!r},
     null_values={self.null_values},
     true_values={self.true_values},
     false_values={self.false_values},
     decimal_point={self.decimal_point!r},
-    default_column_type={self.default_column_type},
     strings_can_be_null={self.strings_can_be_null},
     quoted_strings_can_be_null={self.quoted_strings_can_be_null},
     include_columns={self.include_columns},
