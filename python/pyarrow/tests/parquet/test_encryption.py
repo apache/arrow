@@ -861,7 +861,7 @@ class TestDirectKeyEncryption:
             footer_key=DIRECT_KEY_128)
         pq.write_table(data_table, path, encryption_properties=enc_props)
 
-        with pytest.raises(IOError):
+        with pytest.raises(IOError, match="encrypted metadata"):
             pq.read_table(path)
 
     def test_allow_plaintext_files(self, tempdir, data_table):
@@ -926,7 +926,7 @@ class TestDirectKeyEncryption:
             pe.create_decryption_properties(footer_key=b"short")
 
     def test_invalid_algorithm_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid cipher name"):
             pe.create_encryption_properties(
                 footer_key=DIRECT_KEY_128,
                 encryption_algorithm="INVALID",
