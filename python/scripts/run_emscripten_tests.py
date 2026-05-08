@@ -202,7 +202,8 @@ class BrowserDriver:
     def __init__(self, hostname, port, driver):
         self.driver = driver
         self.driver.get(f"http://{hostname}:{port}/test.html")
-        self.driver.set_script_timeout(300)
+        # Chrome on CI takes longer than locally to compile.
+        self.driver.set_script_timeout(1200)
 
     def load_pyodide(self, dist_dir):
         pass
@@ -262,7 +263,7 @@ class ChromeDriver(BrowserDriver):
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         driver = webdriver.Chrome(options=options)
-        driver.command_executor._client_config.timeout = 300
+        driver.command_executor._client_config.timeout = 1200
         super().__init__(hostname, port, driver)
 
 
