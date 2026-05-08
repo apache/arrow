@@ -462,9 +462,7 @@ TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(2500, 2));
 }
 
-// Round trip a dictionary encoded boolean column. The dictionary holds two
-// booleans, the index stream picks each by position, and the result is read
-// back through both the bool buffer and the bit packed uint8_t buffer.
+// Decode a dictionary encoded boolean page and ensure decoding works.
 TEST(TestDictionaryEncoding, DictDecodesBoolean) {
   const uint8_t dict_bytes[] = {0x02};
   auto dict_plain_decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);

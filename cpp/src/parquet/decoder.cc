@@ -1043,7 +1043,10 @@ void DictDecoderImpl<BooleanType>::SetDict(TypedDecoder<BooleanType>* dictionary
       static_cast<int64_t>(dictionary_length_) * sizeof(bool), false));
   if (dictionary->Decode(dictionary_->mutable_data_as<bool>(), dictionary_length_) !=
       dictionary_length_) {
-    throw ParquetException("Could not decode boolean dictionary values");
+    throw ParquetException(
+        "Boolean dictionary decode produced fewer values than the dictionary header "
+        "declared (expected ",
+        dictionary_length_, ")");
   }
 }
 
