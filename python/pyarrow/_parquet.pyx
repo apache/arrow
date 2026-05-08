@@ -652,12 +652,18 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     @property
     def bloom_filter_offset(self):
         """Offset of bloom filter relative to beginning of the file (int or None)."""
-        return self.metadata.bloom_filter_offset()
+        cdef optional[int64_t] offset = self.metadata.bloom_filter_offset()
+        if offset.has_value():
+            return offset.value()
+        return Nosne
 
     @property
     def bloom_filter_length(self):
         """Length of bloom filter in bytes (int or None)."""
-        return self.metadata.bloom_filter_length()
+        cdef optional[int64_t] length = self.metadata.bloom_filter_length()
+        if length.has_value():
+            return length.value()
+        return None
 
     @property
     def has_offset_index(self):
