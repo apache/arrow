@@ -2059,9 +2059,7 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} protobuf::libprotobuf
-      PARENT_SCOPE)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -2069,10 +2067,8 @@ function(build_protobuf)
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
-    # cross-compiled (PyArrow on emscripten) need utf8_range bundled explicitly.
-    set(ARROW_BUNDLED_STATIC_LIBS
-        ${ARROW_BUNDLED_STATIC_LIBS} utf8_range
-        PARENT_SCOPE)
+    # cross-compiled (PyArrow on emscripten) needs utf8_range bundled explicitly.
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8_range)
 
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
@@ -2193,6 +2189,9 @@ function(build_protobuf)
          absl::utf8_for_code_point
          absl::vlog_config_internal)
   endif()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
