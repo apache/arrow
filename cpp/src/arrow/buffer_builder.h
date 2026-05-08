@@ -36,10 +36,6 @@
 
 namespace arrow {
 
-static inline bool BufferBuilderCapacityTooLarge(int64_t capacity) {
-  return ARROW_PREDICT_FALSE(capacity > std::numeric_limits<int64_t>::max() - 63);
-}
-
 // ----------------------------------------------------------------------
 // Buffer builder classes
 
@@ -79,12 +75,6 @@ class ARROW_EXPORT BufferBuilder {
   /// shrinking the builder.
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    if (ARROW_PREDICT_FALSE(new_capacity < 0)) {
-      return Status::Invalid("Resize: negative capacity");
-    }
-    if (ARROW_PREDICT_FALSE(BufferBuilderCapacityTooLarge(new_capacity))) {
-      return Status::CapacityError("Resize: capacity overflow");
-    }
     if (buffer_ == NULLPTR) {
       ARROW_ASSIGN_OR_RAISE(buffer_,
                             AllocateResizableBuffer(new_capacity, alignment_, pool_));
@@ -110,16 +100,10 @@ class ARROW_EXPORT BufferBuilder {
             internal::AddWithOverflow(size_, additional_bytes, &min_capacity))) {
       return Status::CapacityError("Reserve: capacity overflow");
     }
-    if (ARROW_PREDICT_FALSE(BufferBuilderCapacityTooLarge(min_capacity))) {
-      return Status::CapacityError("Reserve: capacity overflow");
-    }
     if (min_capacity <= capacity_) {
       return Status::OK();
     }
     int64_t requested_capacity = GrowByFactor(capacity_, min_capacity);
-    if (ARROW_PREDICT_FALSE(BufferBuilderCapacityTooLarge(requested_capacity))) {
-      return Status::CapacityError("Reserve: capacity overflow");
-    }
     return Resize(requested_capacity, false);
   }
 
@@ -342,9 +326,6 @@ class TypedBufferBuilder<
             new_capacity, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
       return Status::CapacityError("Resize: capacity overflow");
     }
-    if (ARROW_PREDICT_FALSE(BufferBuilderCapacityTooLarge(num_bytes))) {
-      return Status::CapacityError("Resize: capacity overflow");
-    }
     return bytes_builder_.Resize(num_bytes, shrink_to_fit);
   }
 
@@ -355,9 +336,6 @@ class TypedBufferBuilder<
     int64_t num_bytes;
     if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
             additional_elements, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
-      return Status::CapacityError("Reserve: size overflow");
-    }
-    if (ARROW_PREDICT_FALSE(BufferBuilderCapacityTooLarge(num_bytes))) {
       return Status::CapacityError("Reserve: size overflow");
     }
     return bytes_builder_.Reserve(num_bytes);
@@ -523,9 +501,6 @@ class TypedBufferBuilder<bool> {
     int64_t min_length;
     if (ARROW_PREDICT_FALSE(
             internal::AddWithOverflow(bit_length_, additional_elements, &min_length))) {
-      return Status::CapacityError("Reserve: capacity overflow");
-    }
-    if (ARROW_PREDICT_FALSE(BufferBuilderCapacityTooLarge(min_length))) {
       return Status::CapacityError("Reserve: capacity overflow");
     }
     return Resize(min_length, false);
