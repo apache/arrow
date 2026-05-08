@@ -23,25 +23,7 @@ set -ex
 # Make sure it is absolute and exported
 export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
-# The RTools42 release (r-hub/rtools42) ships with 0-byte ca-bundle.crt files
-# due to an MSYS2 build bug (msys2/msys2-installer#40). Regenerate them from
-# the trust anchors that are already installed.
-if [ ! -s /usr/ssl/certs/ca-bundle.crt ]; then
-  update-ca-trust
-fi
-
-# The CI shell runs bash directly without --login, so MSYSTEM is unset and
-# the ucrt64 toolchain isn't on PATH. Both are needed for makepkg-mingw.
-export MSYSTEM=${MSYSTEM:-UCRT64}
-export PATH="/${MSYSTEM,,}/bin:$PATH"
-
-# RTools42's frozen MSYS2 keyring is too old for current mirror signatures.
-pacman-key --init
-pacman-key --populate msys2
 pacman --noconfirm -Syy
-
-# RTools42's ucrt64 toolchain doesn't include strip; install it for makepkg-mingw.
-pacman --noconfirm -S mingw-w64-ucrt-x86_64-binutils
 
 RWINLIB_LIB_DIR="lib"
 : ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
@@ -64,8 +46,8 @@ cd build
 # This may vary by system/CI provider
 MSYS_LIB_DIR="/c/rtools${RTOOLS_VERSION}"
 
-# Untar the builds we made (RTools42+ uses zstd compression instead of xz)
-ls *.zst *.xz 2>/dev/null | xargs -n 1 tar -xf
+# Untar the builds we made
+ls *.xz | xargs -n 1 tar -xJf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
 # (if we're building twice to combine old and new toolchains, this may already exist)
