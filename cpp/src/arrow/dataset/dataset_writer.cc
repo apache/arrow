@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/dataset_writer.h"
 
+#include <cstdio>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -140,13 +141,26 @@ class DatasetWriterFileQueue
                                   std::shared_ptr<DatasetWriterState> writer_state)
       : options_(options), schema_(schema), writer_state_(std::move(writer_state)) {}
 
+  // TEMP DEBUG: log shared_from_this() callsite throwing bad_weak_ptr
+  std::shared_ptr<DatasetWriterFileQueue> SfwDbg(int line) {
+    try {
+      return shared_from_this();
+    } catch (const std::bad_weak_ptr&) {
+      std::fprintf(stderr,
+                   "GH-49958: bad_weak_ptr DatasetWriterFileQueue dataset_writer.cc:%d\n",
+                   line);
+      std::fflush(stderr);
+      throw;
+    }
+  }
+
   void Start(std::unique_ptr<util::ThrottledAsyncTaskScheduler> file_tasks,
              std::string filename) {
     file_tasks_ = std::move(file_tasks);
     // Because the scheduler runs one task at a time we know the writer will
     // be opened before any attempt to write
     file_tasks_->AddSimpleTask(
-        [self = shared_from_this(), filename = std::move(filename)] {
+        [self = SfwDbg(__LINE__), filename = std::move(filename)] {
           Executor* io_executor = self->options_.filesystem->io_context().executor();
           return DeferNotOk(io_executor->Submit([self, filename = std::move(filename)]() {
             ARROW_ASSIGN_OR_RAISE(self->writer_,
@@ -195,7 +209,7 @@ class DatasetWriterFileQueue
 
   void ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
     file_tasks_->AddSimpleTask(
-        [self = shared_from_this(), batch = std::move(batch)]() {
+        [self = SfwDbg(__LINE__), batch = std::move(batch)]() {
           return self->WriteNext(std::move(batch));
         },
         "DatasetWriter::WriteBatch"sv);
@@ -234,7 +248,7 @@ class DatasetWriterFileQueue
     // At this point all write tasks have been added.  Because the scheduler
     // is a 1-task FIFO we know this task will run at the very end and can
     // add it now.
-    file_tasks_->AddSimpleTask([self = shared_from_this()] { return self->DoFinish(); },
+    file_tasks_->AddSimpleTask([self = SfwDbg(__LINE__)] { return self->DoFinish(); },
                                "DatasetWriter::FinishFile"sv);
     file_tasks_.reset();
     return Status::OK();
@@ -244,7 +258,7 @@ class DatasetWriterFileQueue
   Future<> WriteNext(std::shared_ptr<RecordBatch> next) {
     // May want to prototype / measure someday pushing the async write down further
     return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
-        [self = shared_from_this(), batch = std::move(next)]() {
+        [self = SfwDbg(__LINE__), batch = std::move(next)]() {
           int64_t rows_to_release = batch->num_rows();
           Status status = self->writer_->Write(batch);
           self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
@@ -258,7 +272,7 @@ class DatasetWriterFileQueue
       RETURN_NOT_OK(options_.writer_pre_finish(writer_.get()));
     }
     return writer_->Finish().Then(
-        [self = shared_from_this(), writer_post_finish = options_.writer_post_finish]() {
+        [self = SfwDbg(__LINE__), writer_post_finish = options_.writer_post_finish]() {
           std::lock_guard<std::mutex> lg(self->writer_state_->visitors_mutex);
           return writer_post_finish(self->writer_.get());
         });
@@ -297,6 +311,20 @@ class DatasetWriterDirectoryQueue
   ~DatasetWriterDirectoryQueue() {
     if (latest_open_file_) {
       latest_open_file_->Abort();
+    }
+  }
+
+  // TEMP DEBUG: log shared_from_this() callsite throwing bad_weak_ptr
+  std::shared_ptr<DatasetWriterDirectoryQueue> SfwDbg(int line) {
+    try {
+      return shared_from_this();
+    } catch (const std::bad_weak_ptr&) {
+      std::fprintf(
+          stderr,
+          "GH-49958: bad_weak_ptr DatasetWriterDirectoryQueue dataset_writer.cc:%d\n",
+          line);
+      std::fflush(stderr);
+      throw;
     }
   }
 
@@ -361,7 +389,7 @@ class DatasetWriterDirectoryQueue
   Status OpenFileQueue(const std::string& filename) {
     latest_open_file_.reset(
         new DatasetWriterFileQueue(schema_, write_options_, writer_state_));
-    auto file_finish_task = [self = shared_from_this()] {
+    auto file_finish_task = [self = SfwDbg(__LINE__)] {
       self->writer_state_->open_files_throttle.Release(1);
       return Status::OK();
     };
