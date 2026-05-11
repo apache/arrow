@@ -2334,7 +2334,7 @@ cdef class Array(_PandasConvertible):
 
 
 def _array_binop_or_notimplemented(op_name, left, right):
-    # Same NotImplemented fallback as Scalar.__add__ et al — see GH-49826.
+    # Same NotImplemented fallback as Scalar.__add__ et al, see GH-49826.
     try:
         return _pc().call_function(op_name, [left, right])
     except TypeError:
