@@ -655,7 +655,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         cdef optional[int64_t] offset = self.metadata.bloom_filter_offset()
         if offset.has_value():
             return offset.value()
-        return Nosne
+        return None
 
     @property
     def bloom_filter_length(self):
