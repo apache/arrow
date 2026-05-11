@@ -1943,7 +1943,7 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   // Test add overflow for in_len
   if (ARROW_PREDICT_FALSE(
           arrow::internal::AddWithOverflow(2, double_len, &alloc_length))) {
-    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large.");
     *out_len = 0;
     return "";
   }
@@ -1951,7 +1951,7 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   // try to allocate double size output string (worst case)
   auto out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
   if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string.");
     *out_len = 0;
     return "";
   }
@@ -2544,7 +2544,7 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
   *out_len = 0;
 
   // Separator validity check
-  if (not separator_validity) {
+  if (!separator_validity) {
     *out_valid = false;
     return "";
   }
@@ -2557,7 +2557,8 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
 
   // Accumulate all word lengths safely
   for (const WordArg& w : words) {
-    if (not safe_accumulate_word(state, w.len, w.valid)) {
+    if (!safe_accumulate_word(state, w.len, w.valid)) {
+      gdv_fn_context_set_error_msg(context, "Invalid word length or validity.");
       *out_len = 0;
       *out_valid = false;
       return "";
@@ -2565,7 +2566,8 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
   }
 
   // Add separator lengths
-  if (not safe_add_separators(&state, separator_len)) {
+  if (!safe_add_separators(&state, separator_len)) {
+    gdv_fn_context_set_error_msg(context, "Invalid separator.");
     return handle_overflow_failure(out_valid, out_len);
   }
 
@@ -2782,6 +2784,11 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 FORCE_INLINE
 const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
                           int32_t* out_len) {
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
   if (ARROW_PREDICT_FALSE(text_len < 0)) {
     gdv_fn_context_set_error_msg(context, "Text length invalid(negative).");
     *out_len = 0;
@@ -2801,7 +2808,7 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
   // Check add overflow for text_len
   if (ARROW_PREDICT_FALSE(
           arrow::internal::AddWithOverflow(1, double_len, &alloc_length))) {
-    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large.");
     *out_len = 0;
     return "";
   }

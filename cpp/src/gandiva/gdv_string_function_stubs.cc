@@ -242,8 +242,7 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
   }
 
   int32_t alloc_length = 0;
-  if (ARROW_PREDICT_FALSE(
-          not is_datalen_valid(context, data_len, &alloc_length, out_len))) {
+  if (ARROW_PREDICT_FALSE(!is_datalen_valid(context, data_len, &alloc_length, out_len))) {
     return "";
   }
 
@@ -320,8 +319,7 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
   }
 
   int32_t alloc_length = 0;
-  if (ARROW_PREDICT_FALSE(
-          not is_datalen_valid(context, data_len, &alloc_length, out_len))) {
+  if (ARROW_PREDICT_FALSE(!is_datalen_valid(context, data_len, &alloc_length, out_len))) {
     return "";
   }
 
