@@ -1722,6 +1722,30 @@ def test_compare_string_scalar(typ):
     assert result.equals(con([False, True, True, None]))
 
 
+def test_equal_binary_view():
+    arr = pa.array([b"abc"], pa.binary_view())
+    result = pc.equal(arr, arr)
+    assert result.to_pylist() == [True]
+
+
+@pytest.mark.parametrize(("typ", "values"), [
+    (pa.binary_view(), [b"", b"abc", b"abcdefghijklmnop", None]),
+    (pa.string_view(), ["", "abc", "abcdefghijklmnop", None]),
+])
+def test_compare_view_types(typ, values):
+    arr = pa.array(values, type=typ)
+    other = pa.array(values, type=typ)
+    expected_equal = [None if value is None else True for value in values]
+    expected_not_equal = [None if value is None else False for value in values]
+
+    assert pc.equal(arr, other).to_pylist() == expected_equal
+    assert pc.not_equal(arr, other).to_pylist() == expected_not_equal
+    assert pc.less(arr, other).to_pylist() == expected_not_equal
+    assert pc.less_equal(arr, other).to_pylist() == expected_equal
+    assert pc.greater(arr, other).to_pylist() == expected_not_equal
+    assert pc.greater_equal(arr, other).to_pylist() == expected_equal
+
+
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_scalar(typ):
     if typ == "array":
