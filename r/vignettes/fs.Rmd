@@ -37,7 +37,7 @@ Sys.setenv("NOT_CRAN" = "true")
 install.packages("arrow", type = "source")
 ```
 
-On Linux, S3, GCS, and Azure support is not always enabled by default when installing from source, and there are additional system requirements involved. See the [installation article](./install.html) for details.
+On Linux, S3, GCS, and Azure support is not always enabled by default when installing from source, and there are additional system requirements involved. See the [installation article](./install.html) for details. Note that it is not currently possible to work with Azure on Windows.
 
 ## Connecting to cloud storage
 
