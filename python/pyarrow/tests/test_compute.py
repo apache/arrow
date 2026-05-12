@@ -1987,6 +1987,31 @@ def test_fill_null_array(arrow_type):
     assert result.equals(expected)
 
 
+def test_replace_with_mask_null_type():
+    # GH-47447: replace_with_mask crashed for null type arrays
+    a = pa.array([None], pa.null())
+    b = pa.array([None], pa.null())
+
+    result = pc.replace_with_mask(a, True, b)
+    assert result.type == pa.null()
+
+    result = pc.replace_with_mask(a, False, b)
+    assert result.type == pa.null()
+
+    mask = pa.array([True])
+    result = pc.replace_with_mask(a, mask, b)
+    assert result.type == pa.null()
+
+    mask = pa.array([False])
+    result = pc.replace_with_mask(a, mask, b)
+    assert result.type == pa.null()
+
+    import pandas as pd
+    s = pd.Series([None], dtype=pd.ArrowDtype(pa.null()))
+    result = s.combine_first(s)
+    assert result.dtype == pd.ArrowDtype(pa.null())
+
+
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_chunked_array(arrow_type):
     fill_value = pa.scalar(5, type=arrow_type)
