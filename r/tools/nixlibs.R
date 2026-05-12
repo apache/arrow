@@ -933,15 +933,17 @@ with_cloud_support <- function(env_var_list) {
   if (arrow_s3 || arrow_gcs || arrow_azure) {
     # User wants S3 or GCS or Azure support.
     # Make sure that we have curl, openssl, and libxml2 system libs
-    feats <- c(
-      if (arrow_s3) "S3",
-      if (arrow_gcs) "GCS",
-      if (arrow_azure) "AZURE"
-    )
-    start_msg <- paste(feats, collapse = "/")
-    off_flags <- paste("ARROW_", feats, "=OFF", sep = "", collapse = " and ")
-    print_warning <- function(msg) {
-      # Utility to assemble warning message in the console
+    # Utility to assemble warning message in the console
+    print_warning <- function(
+      msg,
+      feats = c(
+        if (arrow_s3) "S3",
+        if (arrow_gcs) "GCS",
+        if (arrow_azure) "AZURE"
+      ),
+      start_msg = paste(feats, collapse = "/")
+    ) {
+      off_flags <- paste("ARROW_", feats, "=OFF", sep = "", collapse = " and ")
       cat("**** ", start_msg, " support ", msg, "; building with ", off_flags, "\n")
     }
 
@@ -958,7 +960,7 @@ with_cloud_support <- function(env_var_list) {
       arrow_gcs <- FALSE
       arrow_azure <- FALSE
     } else if (!cmake_find_package("libxml2", NULL, env_var_list)) {
-      print_warning("requires libxml2-devel (rpm), or libxml2-dev (deb), libxml2 (brew)")
+      print_warning("requires libxml2-devel (rpm), or libxml2-dev (deb), libxml2 (brew)", "AZURE")
       arrow_azure <- FALSE
     }
   }
