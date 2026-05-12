@@ -27,15 +27,14 @@ class TestExtensionDataType < Test::Unit::TestCase
       super(storage_data_type: Arrow::FixedSizeBinaryDataType.new(16))
     end
 
-    # TODO
-    # def get_extension_name_impl
-    #   "uuid"
-    # end
+    private
+    def virtual_do_get_extension_name
+      "uuid"
+    end
 
-    # TODO
-    # def get_array_gtype_impl
-    #   UUIDArray.gtype
-    # end
+    def virtual_do_get_array_gtype
+      UUIDArray.gtype
+    end
   end
 
   include Helper::Buildable
@@ -51,7 +50,6 @@ class TestExtensionDataType < Test::Unit::TestCase
   end
 
   def test_to_s
-    omit("gobject-introspection gem doesn't support implementing methods for GLib object yet")
     data_type = UUIDDataType.new
     assert_equal("extension<uuid>", data_type.to_s)
   end
@@ -63,13 +61,11 @@ class TestExtensionDataType < Test::Unit::TestCase
   end
 
   def test_extension_name
-    omit("gobject-introspection gem doesn't support implementing methods for GLib object yet")
     data_type = UUIDDataType.new
     assert_equal("uuid", data_type.extension_name)
   end
 
   def test_wrap_array
-    omit("gobject-introspection gem doesn't support implementing methods for GLib object yet")
     data_type = UUIDDataType.new
     storage = build_fixed_size_binary_array(data_type.storage_data_type,
                                             ["a" * 16, nil, "c" * 16])
@@ -85,7 +81,6 @@ class TestExtensionDataType < Test::Unit::TestCase
   end
 
   def test_wrap_chunked_array
-    omit("gobject-introspection gem doesn't support implementing methods for GLib object yet")
     data_type = UUIDDataType.new
     storage1 = build_fixed_size_binary_array(data_type.storage_data_type,
                                              ["a" * 16, nil])
@@ -95,10 +90,10 @@ class TestExtensionDataType < Test::Unit::TestCase
     extension_chunked_array = data_type.wrap_chunked_array(chunked_array)
     assert_equal([
                    data_type,
-                   [UUIDArray] * chunked_array.size,
+                   [UUIDArray] * chunked_array.n_chunks,
                  ],
                  [
-                   extension_chunked_array.get_value_data_type,
+                   extension_chunked_array.value_data_type,
                    extension_chunked_array.chunks.collect(&:class),
                  ])
   end
