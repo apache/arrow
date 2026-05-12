@@ -208,6 +208,12 @@ class DatasetWriterFileQueue
   }
 
   void ScheduleBatch(std::shared_ptr<RecordBatch> batch) {
+    // TEMP DIAG (2): control block already gone (use-after-free) by here?
+    if (auto wp = weak_from_this(); wp.expired()) {
+      std::fprintf(stderr, "GH-49958: ScheduleBatch this=%p EXPIRED use_count=%d\n",
+                   static_cast<void*>(this), static_cast<int>(wp.use_count()));
+      std::fflush(stderr);
+    }
     file_tasks_->AddSimpleTask(
         [self = SfwDbg(__LINE__), batch = std::move(batch)]() {
           return self->WriteNext(std::move(batch));
@@ -387,8 +393,9 @@ class DatasetWriterDirectoryQueue
   }
 
   Status OpenFileQueue(const std::string& filename) {
-    latest_open_file_.reset(
-        new DatasetWriterFileQueue(schema_, write_options_, writer_state_));
+    // TEMP DIAG (1): make_shared instead of reset to wire _M_weak_this
+    latest_open_file_ =
+        std::make_shared<DatasetWriterFileQueue>(schema_, write_options_, writer_state_);
     auto file_finish_task = [self = SfwDbg(__LINE__)] {
       self->writer_state_->open_files_throttle.Release(1);
       return Status::OK();
