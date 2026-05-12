@@ -32,4 +32,9 @@ class TestUUIDDataType < Test::Unit::TestCase
   def test_to_s
     assert_equal("extension<arrow.uuid>", @data_type.to_s)
   end
+
+  def test_converted_from_cpp
+    schema = Arrow::Schema.new([Arrow::Field.new("uuid", @data_type)])
+    assert_equal(@data_type, schema.fields[0].data_type)
+  end
 end
