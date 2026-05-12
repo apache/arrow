@@ -2276,7 +2276,8 @@ TEST(TestRecordBatchStreamReader, OpenFileFormatSuggestsFileReader) {
 
   io::BufferReader reader(helper.buffer_);
   // Check we mention using the file_reader when we detect file format
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("file reader"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Try the IPC file reader"),
                                   RecordBatchStreamReader::Open(&reader));
 }
 
@@ -2291,7 +2292,7 @@ TEST(TestRecordBatchStreamReader, CorruptDataDoesNotSuggestFileReader) {
   io::BufferReader reader(buffer);
   // Validate that we don't suggest file reader when file is just corrupt
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::Not(::testing::HasSubstr("file reader")),
+      Invalid, ::testing::Not(::testing::HasSubstr("Try the IPC file reader")),
       RecordBatchStreamReader::Open(&reader));
 }
 
@@ -2307,7 +2308,7 @@ TEST(TestRecordBatchFileReader, OpenStreamFormatSuggestsStreamReader) {
   auto buf_reader = std::make_shared<io::BufferReader>(helper.buffer_);
   // Check we mention using the stream_reader when we detect stream format
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("stream reader"),
+      Invalid, ::testing::HasSubstr("use the IPC stream reader"),
       RecordBatchFileReader::Open(buf_reader.get(), helper.buffer_->size()));
 }
 

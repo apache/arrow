@@ -1891,7 +1891,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           if (std::string_view(reinterpret_cast<const char*>(magic_start), kMagicSize) !=
               kArrowMagicBytes) {
             return Status::Invalid(
-                "Not an Arrow file. If this is an Arrow IPC streaming format file, use "
+                "Not an Arrow file. If this is an Arrow IPC stream, use "
                 "the IPC stream reader instead.");
           }
 

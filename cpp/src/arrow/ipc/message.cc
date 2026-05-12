@@ -563,19 +563,26 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
   }
 
   auto metadata_length = decoder->next_required_size();
-  ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(metadata_length));
-  if (metadata->size() != metadata_length) {
-    // The first sizeof(int32_t) bytes of the Arrow file magic ("ARRO") may have been
-    // misread as metadata_length. Check if the remaining bytes complete the magic.
-    const auto remaining_magic = internal::kArrowMagicBytes.substr(sizeof(int32_t));
-    if (metadata->size() >= static_cast<int64_t>(remaining_magic.size()) &&
-        std::string_view(reinterpret_cast<const char*>(metadata->data()),
-                         remaining_magic.size()) == remaining_magic) {
-      return Status::Invalid("Expected to read ", metadata_length,
-                             " metadata bytes, but only read ", metadata->size(),
-                             ". This appears to be an Arrow IPC file. "
-                             "Try the IPC file reader instead of the IPC stream reader.");
+
+  // "ARRO" (first 4 bytes of kArrowMagicBytes) as little-endian int32.
+  constexpr int32_t kArrowMagicPrefix = 0x4F525241;
+
+  // Did we misinterpret the metadata as a length?
+  if (metadata_length == kArrowMagicPrefix) {
+    constexpr std::string_view kRemainingMagic =
+        internal::kArrowMagicBytes.substr(sizeof(int32_t));
+    ARROW_ASSIGN_OR_RAISE(auto peek, file->Read(kRemainingMagic.size()));
+    if (peek->size() >= static_cast<int64_t>(kRemainingMagic.size()) &&
+        std::string_view(reinterpret_cast<const char*>(peek->data()),
+                         kRemainingMagic.size()) == kRemainingMagic) {
+      return Status::Invalid(
+          "This appears to be an Arrow IPC file. "
+          "Try the IPC file reader instead of the IPC stream reader.");
     }
+  }
+  ARROW_ASSIGN_OR_RAISE(auto metadata, file->Read(metadata_length));
+
+  if (metadata->size() != metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
   }
