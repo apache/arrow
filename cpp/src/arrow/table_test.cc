@@ -596,8 +596,6 @@ TEST_F(TestTable, ToTensorEmptyTable) {
   EXPECT_EQ(strides, tensor_row->strides());
   EXPECT_EQ(shape, tensor_row->shape());
 
-  std::vector<std::shared_ptr<Array>> columns;
-  auto t2 = Table::Make(::arrow::schema({}), columns);
   auto table_no_columns =
       Table::Make(::arrow::schema({}), std::vector<std::shared_ptr<Array>>{});
 
