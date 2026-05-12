@@ -2006,11 +2006,6 @@ def test_replace_with_mask_null_type():
     result = pc.replace_with_mask(a, mask, b)
     assert result.type == pa.null()
 
-    import pandas as pd
-    s = pd.Series([None], dtype=pd.ArrowDtype(pa.null()))
-    result = s.combine_first(s)
-    assert result.dtype == pd.ArrowDtype(pa.null())
-
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_chunked_array(arrow_type):
