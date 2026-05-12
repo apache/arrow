@@ -139,7 +139,18 @@ class DatasetWriterFileQueue
   explicit DatasetWriterFileQueue(const std::shared_ptr<Schema>& schema,
                                   const FileSystemDatasetWriteOptions& options,
                                   std::shared_ptr<DatasetWriterState> writer_state)
-      : options_(options), schema_(schema), writer_state_(std::move(writer_state)) {}
+      : options_(options), schema_(schema), writer_state_(std::move(writer_state)) {
+    std::fprintf(stderr, "GH-49958: +DatasetWriterFileQueue this=%p\n",
+                 static_cast<void*>(this));
+    std::fflush(stderr);
+  }
+
+  // TEMP DIAG (3): did the object actually get destroyed under us?
+  ~DatasetWriterFileQueue() {
+    std::fprintf(stderr, "GH-49958: ~DatasetWriterFileQueue this=%p\n",
+                 static_cast<void*>(this));
+    std::fflush(stderr);
+  }
 
   // TEMP DEBUG: log shared_from_this() callsite throwing bad_weak_ptr
   std::shared_ptr<DatasetWriterFileQueue> SfwDbg(int line) {
