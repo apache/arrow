@@ -395,7 +395,7 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
 
   // Allocate memory
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
-                        AllocateBuffer(result_type->bit_width() *
+                        AllocateBuffer(result_type->byte_width() *
                                            container.num_columns() * container.num_rows(),
                                        pool));
   // Copy data
