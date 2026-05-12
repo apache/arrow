@@ -200,6 +200,15 @@ jobs:
             reprotest \
             ruby \
             ruby-dev
+      - name: Allow unprivileged user namespaces
+        if: env.TASK_NAMESPACE == 'apt'
+        # Reprotest's domain_host variation uses `unshare -r --uts`,
+        # which writes to /proc/self/uid_map. Ubuntu 24.04 restricts
+        # unprivileged user namespaces via AppArmor by default, so
+        # the call fails. Try to lift the restriction so reprotest
+        # can run the full set of variations.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Prepare apache-arrow-apt-source for arm64
         if: env.ARCHITECTURE == 'arm64'
         run: |
