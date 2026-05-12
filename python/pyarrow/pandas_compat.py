@@ -33,18 +33,18 @@ import warnings
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
 
 
-_logical_type_map = {}
-_numpy_logical_type_map = {}
-_pandas_logical_type_map = {}
+_logical_type_map: dict[int, str] = {}
+_numpy_logical_type_map: dict[int, str] = {}
+_pandas_logical_type_map: dict[int, str] = {}
 
 
 def get_logical_type_map():
-    global _logical_type_map
+    global _logical_type_map  # noqa: F824
 
     if not _logical_type_map:
         _logical_type_map.update({
@@ -90,9 +90,9 @@ def get_logical_type(arrow_type):
 
 
 def get_numpy_logical_type_map():
-    global _numpy_logical_type_map
+    global _numpy_logical_type_map  # noqa: F824
     if not _numpy_logical_type_map:
-        _numpy_logical_type_map.update({
+        _numpy_logical_type_map.update({  # type: ignore[reportCallIssue]
             np.bool_: 'bool',
             np.int8: 'int8',
             np.int16: 'int16',
@@ -704,7 +704,7 @@ def get_datetimetz_type(values, dtype, type_):
         # If no user type passed, construct a tz-aware timestamp type
         tz = dtype.tz
         unit = dtype.unit
-        type_ = pa.timestamp(unit, tz)
+        type_ = pa.timestamp(unit, tz)  # type: ignore[reportArgumentType]
     elif type_ is None:
         # Trust the NumPy dtype
         type_ = pa.from_numpy_dtype(values.dtype)
@@ -743,7 +743,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
     pandas Block
 
     """
-    import pandas.core.internals as _int
+    import pandas.core.internals as _int  # type: ignore[import-not-found]
 
     block_arr = item.get('block', None)
     placement = item['placement']
@@ -769,6 +769,8 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
         # create ExtensionBlock
         arr = item['py_array']
         assert len(placement) == 1
+        assert isinstance(columns, list)
+        assert isinstance(extension_columns, dict)
         name = columns[placement[0]]
         pandas_dtype = extension_columns[name]
         if not hasattr(pandas_dtype, '__from_arrow__'):
@@ -788,7 +790,7 @@ def make_datetimetz(unit, tz):
     if _pandas_api.is_v1():
         unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
     tz = pa.lib.string_to_tzinfo(tz)
-    return _pandas_api.datetimetz_type(unit, tz=tz)
+    return _pandas_api.datetimetz_type(unit, tz=tz)  # type: ignore[reportArgumentType]
 
 
 def table_to_dataframe(
@@ -822,7 +824,8 @@ def table_to_dataframe(
     result = pa.lib.table_to_blocks(options, table, categories,
                                     list(ext_columns_dtypes.keys()))
     if _pandas_api.is_ge_v3():
-        from pandas.api.internals import create_dataframe_from_blocks
+        from pandas.api.internals import (  # type: ignore[import-not-found]
+            create_dataframe_from_blocks)
 
         blocks = [
             _reconstruct_block(
@@ -834,7 +837,8 @@ def table_to_dataframe(
 
         return df
     else:
-        from pandas.core.internals import BlockManager
+        from pandas.core.internals import (  # type: ignore[reportMissingImports]
+            BlockManager)
         from pandas import DataFrame
 
         blocks = [
@@ -844,7 +848,8 @@ def table_to_dataframe(
         axes = [columns, index]
         mgr = BlockManager(blocks, axes)
         if _pandas_api.is_ge_v21():
-            df = DataFrame._from_mgr(mgr, mgr.axes)
+            df = DataFrame._from_mgr(  # type: ignore[reportAttributeAccessIssue]
+                mgr, mgr.axes)
         else:
             df = DataFrame(mgr)
 
@@ -1092,10 +1097,10 @@ def _is_generated_index_name(name):
 
 
 def get_pandas_logical_type_map():
-    global _pandas_logical_type_map
+    global _pandas_logical_type_map  # noqa: F824
 
     if not _pandas_logical_type_map:
-        _pandas_logical_type_map.update({
+        _pandas_logical_type_map.update({  # type: ignore[reportCallIssue]
             'date': 'datetime64[D]',
             'datetime': 'datetime64[ns]',
             'datetimetz': 'datetime64[ns]',
@@ -1162,12 +1167,14 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     labels = getattr(columns, 'codes', None) or [None]
 
     # Convert each level to the dtype provided in the metadata
-    levels_dtypes = [
-        (level, col_index.get('pandas_type', str(level.dtype)),
-         col_index.get('numpy_type', None))
+    levels_dtypes = [(level, col_index.get(
+        'pandas_type',
+        str(level.dtype)  # type: ignore[reportAttributeAccessIssue]
+    ),
+        col_index.get('numpy_type', None))
         for level, col_index in zip_longest(
             levels, column_indexes, fillvalue={}
-        )
+    )
     ]
 
     new_levels = []
@@ -1179,7 +1186,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # bytes into unicode strings when json.loads-ing them. We need to
         # convert them back to bytes to preserve metadata.
         if dtype == np.bytes_:
-            level = level.map(encoder)
+            level = level.map(encoder)  # type: ignore[reportAttributeAccessIssue]
         # ARROW-13756: if index is timezone aware DataTimeIndex
         elif pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
@@ -1193,7 +1200,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif (
-            level.dtype == "str" and numpy_dtype == "object"
+            level.dtype == "str"  # type: ignore[reportAttributeAccessIssue]
+            and numpy_dtype == "object"
             and ("mixed" in pandas_dtype or pandas_dtype in ["unicode", "string"])
         ):
             # the metadata indicate that the original dataframe used object dtype,
@@ -1206,11 +1214,12 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             #   for pandas >= 3 we want to use the default string dtype for .columns
             new_levels.append(level)
             continue
-        elif level.dtype != dtype:
-            level = level.astype(dtype)
+        elif level.dtype != dtype:  # type: ignore[reportAttributeAccessIssue]
+            level = level.astype(dtype)  # type: ignore[reportAttributeAccessIssue]
         # ARROW-9096: if original DataFrame was upcast we keep that
         if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
-            level = level.astype(numpy_dtype)
+            level = level.astype(  # type: ignore[reportAttributeAccessIssue]
+                numpy_dtype)
 
         new_levels.append(level)
 
