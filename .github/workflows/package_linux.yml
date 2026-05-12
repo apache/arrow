@@ -245,21 +245,27 @@ jobs:
           dev/release/utils-watch-gh-workflow.sh \
             ${GITHUB_REF_NAME} \
             release_candidate.yml
+      - name: Verify Reproducibility
+        if: env.TASK_NAMESPACE == 'apt'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rake -C dev/tasks/linux-packages docker:pull || :
+          # Validate reproducibility. Reprotest runs the build twice
+          # inside its own tempdir and doesn't copy artifacts back,
+          # so this is purely a verification step.
+          reprotest \
+            --vary=-fileordering \
+            --build-command \
+              "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+            "${PWD}" \
+            "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
       - name: Build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           rake -C dev/tasks/linux-packages docker:pull || :
-          if [ "${TASK_NAMESPACE}" = "apt" ]; then
-            reprotest \
-              --vary=-fileordering \
-              --build-command \
-                "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
-              "${PWD}" \
-              "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
-          else
-            rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
-          fi
+          rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
       - name: Docker Push
         continue-on-error: true
         if: >-
