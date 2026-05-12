@@ -43,7 +43,7 @@ if [ -n "${FAKETIME:-}" ]; then
   lib_dir="/usr/lib/$(dpkg-architecture -q DEB_BUILD_MULTIARCH)"
   libfaketime="${lib_dir}/faketime/libfaketime.so.1"
   if [ ! -f "${libfaketime}" ]; then
-    echo "You must install libfaktime: ${libfaketime} doesn't exist"
+    echo "You must install libfaketime: ${libfaketime} doesn't exist"
     exit 1
   fi
   export LD_PRELOAD="${libfaketime}"
