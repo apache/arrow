@@ -84,7 +84,12 @@ if which ccache > /dev/null 2>&1; then
     debuild_options+=(--prepend-path=/usr/lib/ccache)
   fi
 fi
-build_dir=$(mktemp --directory --tmpdir="${build_root_dir}" package.XXXXX)
+# Use a fixed build directory name instead of mktemp's random suffix.
+# c_glib's meson generates pkgconfig files that bake the absolute
+# build-tree path into Libs.private, so a random suffix breaks
+# reproducibility across reprotest runs.
+build_dir="${build_root_dir}/package"
+run mkdir -p "${build_dir}"
 run pushd "${build_dir}"
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
   ${PACKAGE}_${VERSION}.orig.tar.gz
