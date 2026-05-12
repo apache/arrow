@@ -3597,7 +3597,8 @@ function(build_google_cloud_cpp_storage)
     endif()
   endif()
 
-  if(PATCH)
+  # Reproducible builds are only a requirement for the Linux packaging jobs.
+  if(PATCH AND NOT WIN32)
     list(APPEND
          GOOGLE_CLOUD_CPP_PATCH_COMMAND
          ${PATCH}
