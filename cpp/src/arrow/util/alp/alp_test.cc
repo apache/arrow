@@ -818,7 +818,7 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
 // the buffer for exception_positions (uint16_t*) and exceptions (T*), which
 // could violate alignment requirements when bit_packed_size was odd.
 //
-// The fix copies these into aligned StaticVector storage.
+// The fix copies these into aligned std::vector storage.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
@@ -863,7 +863,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions);
 
   // Decompress using the view - this exercises PatchExceptions with the
-  // StaticVector members (previously spans that could be misaligned)
+  // std::vector members (previously spans that could be misaligned)
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
