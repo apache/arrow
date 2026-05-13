@@ -1535,11 +1535,20 @@ Schematically we have: ::
 Equivalence with the IPC Streaming Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While it is theoretically possible for the IPC File footer to list RecordBatch
-messages in a differing order from the embedded IPC Stream's sequential order
-(or even to repeat or omit some of the IPC Stream's RecordBatch messages),
-compliant writers SHOULD arrange the IPC File footer so that an IPC File can be
-read using an IPC Stream reader with equivalent results.
+Since the IPC file footer duplicates information already found in the embedded IPC
+stream, there is a theoretical possibility that said information diverges. However,
+we request that compliant IPC file writers follow these guidelines:
+
+1. The metadata version, schema and custom metadata serialized in the IPC file
+   footer (as part of the ``Footer`` Flatbuffers table) MUST be identical to the
+   metadata version, schema and custom metadata serialized at the beginning of
+   the embedded IPC stream (as part of the first ``Message`` Flatbuffers table).
+
+2. The dictionaries and record batches serialized in the IPC file footer
+   SHOULD be listed in the same order as they appear in the embedded IPC stream,
+   such that reading the Arrow data from the IPC file footer yields
+   the same contents as reading the Arrow data from the embedded IPC stream
+   (ignoring the IPC file footer).
 
 Deviations from the IPC Streaming Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
