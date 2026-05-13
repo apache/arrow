@@ -240,10 +240,6 @@ Status AlpCodec<T>::Decode(int32_t num_elements, const char* input, size_t input
                            " (would overflow uint16_t element count)");
   }
   const int32_t vector_size = header.GetVectorSize();
-  if (vector_size != AlpConstants::kAlpVectorSize) {
-    return Status::Invalid("Unsupported ALP vector_size: ", vector_size,
-                           " (only ", AlpConstants::kAlpVectorSize, " is supported)");
-  }
 
   const char* body = input + AlpHeader::kSize;
   const int64_t body_size = static_cast<int64_t>(input_size) - AlpHeader::kSize;
