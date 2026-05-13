@@ -25,7 +25,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/alp/alp_constants.h"
-#include "arrow/util/small_vector.h"
 #include "arrow/util/span.h"
 
 namespace arrow {
@@ -375,12 +374,11 @@ class AlpEncodedVector {
   /// Number of elements in this vector (not serialized; from page header)
   int32_t num_elements = 0;
   /// Successfully encoded and bitpacked data
-  arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
-      packed_values;
+  std::vector<uint8_t> packed_values;
   /// Float values that could not be converted successfully
-  arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
+  std::vector<T> exceptions;
   /// Positions of the exceptions in the decompressed vector
-  arrow::internal::StaticVector<int16_t, AlpConstants::kAlpVectorSize> exception_positions;
+  std::vector<int16_t> exception_positions;
 
   /// Total metadata size (AlpInfo + ForInfo)
   static constexpr int64_t kMetadataStoredSize =
@@ -451,7 +449,7 @@ class AlpEncodedVector {
 ///
 /// The packed values are accessed via a span (zero-copy) since they are
 /// byte arrays with no alignment requirements. Exception positions and
-/// values are copied into aligned StaticVectors because:
+/// values are copied into aligned std::vectors because:
 ///   1. The serialized data may not be properly aligned for uint16_t/T access
 ///   2. Exceptions are rare (typically < 5%), so copying is negligible
 ///   3. This avoids undefined behavior from misaligned memory access
@@ -470,9 +468,9 @@ struct AlpEncodedVectorView {
   /// View into bitpacked data (zero-copy, bytes have no alignment requirements)
   arrow::util::span<const uint8_t> packed_values;
   /// Exception positions (copied into aligned storage to avoid UB from misaligned access)
-  arrow::internal::StaticVector<int16_t, AlpConstants::kAlpVectorSize> exception_positions;
+  std::vector<int16_t> exception_positions;
   /// Exception values (copied into aligned storage to avoid UB from misaligned access)
-  arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
+  std::vector<T> exceptions;
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
@@ -768,11 +766,9 @@ class AlpCompression : private AlpConstants {
 
   /// \brief Helper struct to encapsulate the result from EncodeVector()
   struct EncodingResult {
-    arrow::internal::StaticVector<SignedExactType, AlpConstants::kAlpVectorSize>
-        encoded_integers;
-    arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
-    arrow::internal::StaticVector<int16_t, AlpConstants::kAlpVectorSize>
-        exception_positions;
+    std::vector<SignedExactType> encoded_integers;
+    std::vector<T> exceptions;
+    std::vector<int16_t> exception_positions;
     ExactType min_max_diff = 0;
     ExactType frame_of_reference = 0;
   };
@@ -803,8 +799,7 @@ class AlpCompression : private AlpConstants {
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
-    arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
-        packed_integers;
+    std::vector<uint8_t> packed_integers;
     uint8_t bit_width = 0;
     int32_t bit_packed_size = 0;
   };
@@ -829,7 +824,7 @@ class AlpCompression : private AlpConstants {
   /// \param[in] for_info FOR metadata with bit width and frame of reference
   /// \param[in] num_elements number of elements to unpack
   /// \return a vector of unpacked integers (still with frame of reference)
-  static arrow::internal::StaticVector<ExactType, kAlpVectorSize> BitUnpackIntegers(
+  static std::vector<ExactType> BitUnpackIntegers(
       arrow::util::span<const uint8_t> packed_integers,
       const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
 
