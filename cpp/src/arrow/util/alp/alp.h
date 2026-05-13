@@ -529,14 +529,8 @@ enum class AlpIntegerEncoding : uint8_t { kForBitPack = 0 };
 /// \param[in] encoding the integer encoding method
 /// \return size in bytes of the per-vector metadata for this encoding
 template <typename T>
-inline int64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding encoding) {
-  switch (encoding) {
-    case AlpIntegerEncoding::kForBitPack:
-      return AlpEncodedForVectorInfo<T>::kStoredSize;
-    default:
-      ARROW_CHECK(false) << "unknown_integer_encoding: " << static_cast<int>(encoding);
-      return 0;
-  }
+inline int64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding /*encoding*/) {
+  return AlpEncodedForVectorInfo<T>::kStoredSize;
 }
 
 // ----------------------------------------------------------------------
