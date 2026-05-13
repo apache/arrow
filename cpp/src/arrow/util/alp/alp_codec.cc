@@ -174,7 +174,9 @@ auto AlpCodec<T>::LoadHeader(const char* input, size_t input_size)
                            " < ", AlpHeader::kSize);
   }
   AlpHeader header{};
-  std::memcpy(&header.compression_mode, input, 3);
+  header.compression_mode = static_cast<uint8_t>(input[0]);
+  header.integer_encoding = static_cast<uint8_t>(input[1]);
+  header.log_vector_size = static_cast<uint8_t>(input[2]);
   std::memcpy(&header.num_elements, input + 3, sizeof(header.num_elements));
   return header;
 }
@@ -212,7 +214,9 @@ void AlpCodec<T>::EncodeWithPreset(const T* input, size_t input_size,
   header.log_vector_size = AlpHeader::Log2(AlpConstants::kAlpVectorSize);
   header.num_elements = static_cast<int32_t>(element_count);
 
-  std::memcpy(encoded_header, &header.compression_mode, 3);
+  encoded_header[0] = header.compression_mode;
+  encoded_header[1] = header.integer_encoding;
+  encoded_header[2] = header.log_vector_size;
   std::memcpy(encoded_header + 3, &header.num_elements, sizeof(header.num_elements));
   *output_size = AlpHeader::kSize + compression_progress.num_compressed_bytes_produced;
 }
