@@ -167,43 +167,43 @@ struct AlpCodec<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
 // AlpCodec implementation
 
 template <typename T>
-auto AlpCodec<T>::LoadHeader(const char* comp, size_t comp_size)
+auto AlpCodec<T>::LoadHeader(const char* input, size_t input_size)
     -> Result<AlpHeader> {
-  if (comp_size < AlpHeader::kSize) {
-    return Status::Invalid("ALP compressed buffer too small for header: ", comp_size,
+  if (input_size < AlpHeader::kSize) {
+    return Status::Invalid("ALP compressed buffer too small for header: ", input_size,
                            " < ", AlpHeader::kSize);
   }
   AlpHeader header{};
-  std::memcpy(&header.compression_mode, comp, 3);
-  std::memcpy(&header.num_elements, comp + 3, sizeof(header.num_elements));
+  std::memcpy(&header.compression_mode, input, 3);
+  std::memcpy(&header.num_elements, input + 3, sizeof(header.num_elements));
   return header;
 }
 
 template <typename T>
-auto AlpCodec<T>::CreateSamplingPreset(const T* decomp, size_t decomp_size)
+auto AlpCodec<T>::CreateSamplingPreset(const T* input, size_t input_size)
     -> AlpSamplerResult {
-  ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
-  const int64_t element_count = static_cast<int64_t>(decomp_size / sizeof(T));
+  ARROW_CHECK(input_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
+  const int64_t element_count = static_cast<int64_t>(input_size / sizeof(T));
 
   AlpSampler<T> sampler;
-  sampler.AddSample({decomp, static_cast<size_t>(element_count)});
+  sampler.AddSample({input, static_cast<size_t>(element_count)});
   return sampler.Finalize();
 }
 
 template <typename T>
-void AlpCodec<T>::EncodeWithPreset(const T* decomp, size_t decomp_size,
-                                     const AlpSamplerResult& preset, char* comp,
-                                     size_t* comp_size) {
-  ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
-  const int64_t element_count = static_cast<int64_t>(decomp_size / sizeof(T));
+void AlpCodec<T>::EncodeWithPreset(const T* input, size_t input_size,
+                                     const AlpSamplerResult& preset, char* output,
+                                     size_t* output_size) {
+  ARROW_CHECK(input_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
+  const int64_t element_count = static_cast<int64_t>(input_size / sizeof(T));
 
   // Make room to store header afterwards.
-  char* encoded_header = comp;
-  comp += AlpHeader::kSize;
-  const int64_t remaining_compressed_size = static_cast<int64_t>(*comp_size - AlpHeader::kSize);
+  char* encoded_header = output;
+  char* body = output + AlpHeader::kSize;
+  const int64_t remaining_output_size = static_cast<int64_t>(*output_size - AlpHeader::kSize);
 
   const CompressionProgress compression_progress =
-      EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
+      EncodeAlp(input, element_count, body, remaining_output_size,
                 preset.alp_parameters);
 
   AlpHeader header{};
@@ -214,22 +214,21 @@ void AlpCodec<T>::EncodeWithPreset(const T* decomp, size_t decomp_size,
 
   std::memcpy(encoded_header, &header.compression_mode, 3);
   std::memcpy(encoded_header + 3, &header.num_elements, sizeof(header.num_elements));
-  *comp_size = AlpHeader::kSize + compression_progress.num_compressed_bytes_produced;
+  *output_size = AlpHeader::kSize + compression_progress.num_compressed_bytes_produced;
 }
 
 template <typename T>
-void AlpCodec<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
-                           size_t* comp_size) {
-  // Sample the data and encode with the preset
-  auto sampling_result = CreateSamplingPreset(decomp, decomp_size);
-  EncodeWithPreset(decomp, decomp_size, sampling_result, comp, comp_size);
+void AlpCodec<T>::Encode(const T* input, size_t input_size, char* output,
+                           size_t* output_size) {
+  auto sampling_result = CreateSamplingPreset(input, input_size);
+  EncodeWithPreset(input, input_size, sampling_result, output, output_size);
 }
 
 template <typename T>
 template <typename TargetType>
-Status AlpCodec<T>::Decode(int32_t num_elements, const char* comp, size_t comp_size,
-                             TargetType* decomp) {
-  ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(comp, comp_size));
+Status AlpCodec<T>::Decode(int32_t num_elements, const char* input, size_t input_size,
+                             TargetType* output) {
+  ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(input, input_size));
   if (header.log_vector_size > AlpConstants::kMaxLogVectorSize) {
     return Status::Invalid("ALP log_vector_size too large: ",
                            static_cast<int>(header.log_vector_size),
@@ -242,8 +241,8 @@ Status AlpCodec<T>::Decode(int32_t num_elements, const char* comp, size_t comp_s
                            " (only ", AlpConstants::kAlpVectorSize, " is supported)");
   }
 
-  const char* compression_body = comp + AlpHeader::kSize;
-  const int64_t compression_body_size = static_cast<int64_t>(comp_size) - AlpHeader::kSize;
+  const char* body = input + AlpHeader::kSize;
+  const int64_t body_size = static_cast<int64_t>(input_size) - AlpHeader::kSize;
 
   if (header.GetCompressionMode() != AlpMode::kAlp) {
     return Status::Invalid("Unsupported ALP compression mode: ",
@@ -251,19 +250,19 @@ Status AlpCodec<T>::Decode(int32_t num_elements, const char* comp, size_t comp_s
   }
 
   ARROW_RETURN_NOT_OK(
-      DecodeAlp<TargetType>(num_elements, compression_body, compression_body_size,
+      DecodeAlp<TargetType>(num_elements, body, body_size,
                             header.GetIntegerEncoding(), vector_size,
-                            header.num_elements, decomp)
+                            header.num_elements, output)
           .status());
   return Status::OK();
 }
 
-template Status AlpCodec<float>::Decode(int32_t num_elements, const char* comp,
-                                          size_t comp_size, float* decomp);
-template Status AlpCodec<float>::Decode(int32_t num_elements, const char* comp,
-                                          size_t comp_size, double* decomp);
-template Status AlpCodec<double>::Decode(int32_t num_elements, const char* comp,
-                                           size_t comp_size, double* decomp);
+template Status AlpCodec<float>::Decode(int32_t num_elements, const char* input,
+                                          size_t input_size, float* output);
+template Status AlpCodec<float>::Decode(int32_t num_elements, const char* input,
+                                          size_t input_size, double* output);
+template Status AlpCodec<double>::Decode(int32_t num_elements, const char* input,
+                                           size_t input_size, double* output);
 
 template <typename T>
 int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t uncompressed_size) {
@@ -295,8 +294,8 @@ int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t uncompressed_size) {
 }
 
 template <typename T>
-auto AlpCodec<T>::EncodeAlp(const T* decomp, int64_t element_count, char* comp,
-                              int64_t comp_size, const AlpEncodingParameters& combinations)
+auto AlpCodec<T>::EncodeAlp(const T* input, int64_t element_count, char* output,
+                              int64_t output_size, const AlpEncodingParameters& combinations)
     -> CompressionProgress {
   // OFFSET-BASED LAYOUT
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
@@ -323,7 +322,7 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, int64_t element_count, char* comp,
     const int64_t elements_to_encode =
         std::min(vector_size, remaining_elements);
     encoded_vectors.push_back(AlpCompression<T>::CompressVector(
-        decomp + input_offset, static_cast<uint16_t>(elements_to_encode), combinations));
+        input + input_offset, static_cast<uint16_t>(elements_to_encode), combinations));
     input_offset += elements_to_encode;
   }
 
@@ -350,12 +349,12 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, int64_t element_count, char* comp,
   }
   const int64_t total_size = current_offset;
 
-  if (total_size > comp_size) {
+  if (total_size > output_size) {
     return CompressionProgress{0, 0};
   }
 
   // Phase 3: Write offsets section
-  char* offset_ptr = comp;
+  char* offset_ptr = output;
   for (const auto& offset : vector_offsets) {
     std::memcpy(offset_ptr, &offset, sizeof(AlpConstants::OffsetType));
     offset_ptr += sizeof(AlpConstants::OffsetType);
@@ -364,24 +363,15 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, int64_t element_count, char* comp,
   // Phase 4: Write interleaved vectors [AlpInfo | ForInfo | Data]
   for (size_t i = 0; i < encoded_vectors.size(); i++) {
     const auto& vec = encoded_vectors[i];
-    uint8_t* vector_start = reinterpret_cast<uint8_t*>(comp) + vector_offsets[i];
+    uint8_t* vector_start = reinterpret_cast<uint8_t*>(output) + vector_offsets[i];
 
     // Write AlpInfo
     vec.alp_info.Store({vector_start, AlpEncodedVectorInfo::kStoredSize});
     uint8_t* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
-    // Write ForInfo (or other integer encoding metadata)
-    switch (integer_encoding) {
-      case AlpIntegerEncoding::kForBitPack: {
-        vec.for_info.Store({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
-        ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
-      } break;
-
-      default:
-        ARROW_CHECK(false) << "unsupported_integer_encoding: "
-                           << static_cast<int>(integer_encoding);
-        break;
-    }
+    // Write ForInfo — only kForBitPack is supported; validated at the API boundary
+    vec.for_info.Store({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
+    ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
 
     // Write data (packed values + exception positions + exception values)
     const int64_t data_size = vec.GetDataStoredSize();
@@ -393,11 +383,11 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, int64_t element_count, char* comp,
 
 template <typename T>
 template <typename TargetType>
-auto AlpCodec<T>::DecodeAlp(int64_t decomp_element_count,
-                              const char* comp, int64_t comp_size,
+auto AlpCodec<T>::DecodeAlp(int64_t output_element_count,
+                              const char* input, int64_t input_size,
                               AlpIntegerEncoding integer_encoding,
                               int32_t vector_size, int32_t total_elements,
-                              TargetType* decomp)
+                              TargetType* output)
     -> Result<DecompressionProgress> {
   // OFFSET-BASED LAYOUT:
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
@@ -420,9 +410,9 @@ auto AlpCodec<T>::DecodeAlp(int64_t decomp_element_count,
 
   const int64_t offsets_section_size =
       static_cast<int64_t>(num_vectors) * sizeof(AlpConstants::OffsetType);
-  if (comp_size < offsets_section_size) {
+  if (input_size < offsets_section_size) {
     return Status::Invalid("ALP compressed buffer too small for offsets section: ",
-                           comp_size, " < ", offsets_section_size);
+                           input_size, " < ", offsets_section_size);
   }
 
   // Sanity check: each vector must have at least its metadata. Reject obviously
@@ -430,15 +420,15 @@ auto AlpCodec<T>::DecodeAlp(int64_t decomp_element_count,
   constexpr int64_t kMinBytesPerVector =
       AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
   if (offsets_section_size + static_cast<int64_t>(num_vectors) * kMinBytesPerVector >
-      comp_size) {
+      input_size) {
     return Status::Invalid(
         "ALP num_vectors inconsistent with buffer size: num_vectors=", num_vectors,
-        ", comp_size=", comp_size);
+        ", input_size=", input_size);
   }
 
   // Read all offsets
   std::vector<AlpConstants::OffsetType> vector_offsets(num_vectors);
-  std::memcpy(vector_offsets.data(), comp,
+  std::memcpy(vector_offsets.data(), input,
               num_vectors * sizeof(AlpConstants::OffsetType));
 
   // Decode each vector using its offset for O(1) random access
@@ -460,27 +450,27 @@ auto AlpCodec<T>::DecodeAlp(int64_t decomp_element_count,
                              ", vector_size=", vector_size, ")");
     }
 
-    if (output_offset + this_vector_elements > decomp_element_count) {
+    if (output_offset + this_vector_elements > output_element_count) {
       return Status::Invalid("ALP decode output buffer too small: offset=",
                              output_offset, " + elements=", this_vector_elements,
-                             " > capacity=", decomp_element_count);
+                             " > capacity=", output_element_count);
     }
 
     // Validate offset is within bounds and enough buffer remains for metadata
     const int64_t vector_offset = vector_offsets[vector_index];
     constexpr int64_t kMinVectorMetadataSize =
         AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
-    if (vector_offset + kMinVectorMetadataSize > comp_size) {
+    if (vector_offset + kMinVectorMetadataSize > input_size) {
       return Status::Invalid("ALP vector offset out of bounds or insufficient buffer "
                              "for metadata: offset=", vector_offset,
                              ", metadata_size=", kMinVectorMetadataSize,
-                             ", buffer_size=", comp_size);
+                             ", buffer_size=", input_size);
     }
 
     // Jump directly to this vector using its offset
     const uint8_t* vector_start =
-        reinterpret_cast<const uint8_t*>(comp) + vector_offset;
-    const int64_t remaining = comp_size - vector_offset;
+        reinterpret_cast<const uint8_t*>(input) + vector_offset;
+    const int64_t remaining = input_size - vector_offset;
 
     // Read AlpInfo (interleaved)
     const size_t remaining_bytes = static_cast<size_t>(remaining);
@@ -503,7 +493,7 @@ auto AlpCodec<T>::DecodeAlp(int64_t decomp_element_count,
 
     // Validate enough buffer remains for the data section
     const int64_t data_remaining =
-        comp_size - (ptr - reinterpret_cast<const uint8_t*>(comp));
+        input_size - (ptr - reinterpret_cast<const uint8_t*>(input));
     const int64_t data_size =
         for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
     if (data_size > data_remaining) {
@@ -520,11 +510,11 @@ auto AlpCodec<T>::DecodeAlp(int64_t decomp_element_count,
             alp_info, for_info, this_vector_elements));
 
     AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
-                                            decomp + output_offset);
+                                            output + output_offset);
 
     // Track bytes consumed for last vector
     if (vector_index == num_vectors - 1) {
-      bytes_consumed = (ptr - reinterpret_cast<const uint8_t*>(comp)) +
+      bytes_consumed = (ptr - reinterpret_cast<const uint8_t*>(input)) +
           for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
     }
 
