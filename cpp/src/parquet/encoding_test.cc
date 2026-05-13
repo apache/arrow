@@ -41,6 +41,8 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/span.h"
 #include "arrow/util/string.h"
+#include "arrow/util/alp/alp_codec.h"
+#include "arrow/util/alp/alp_constants.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -2909,6 +2911,89 @@ TEST(AlpEncodingAdHoc, BoundaryValues) {
 
   // Bit-exact comparison
   ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(double)));
+}
+
+// Encode with AlpCodec at non-default vector sizes (64, 512, 2048, 4096),
+// then decode through the parquet AlpDecoder to verify it correctly reads
+// log_vector_size from the ALP header and round-trips at any valid size.
+TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
+  const std::vector<int32_t> vector_sizes = {64, 512, 2048, 4096};
+
+  // Test double
+  {
+    auto descr = ExampleDescr<DoubleType>();
+    for (const int32_t vs : vector_sizes) {
+      for (const size_t n :
+           {static_cast<size_t>(vs / 2), static_cast<size_t>(vs),
+            static_cast<size_t>(vs * 3), static_cast<size_t>(vs * 2 + 17)}) {
+        SCOPED_TRACE("double vector_size=" + std::to_string(vs) +
+                     " n=" + std::to_string(n));
+
+        std::vector<double> input(n);
+        for (size_t i = 0; i < n; ++i) {
+          input[i] = static_cast<double>(i) * 0.123;
+        }
+
+        int64_t max_comp =
+            ::arrow::util::alp::AlpCodec<double>::GetMaxCompressedSize(
+                n * sizeof(double), vs);
+        std::vector<char> comp(max_comp);
+        size_t comp_size = comp.size();
+
+        ::arrow::util::alp::AlpCodec<double>::Encode(
+            input.data(), n * sizeof(double), comp.data(), &comp_size, vs);
+        ASSERT_GT(comp_size, 0u);
+
+        auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
+        decoder->SetData(static_cast<int>(n),
+                         reinterpret_cast<const uint8_t*>(comp.data()),
+                         static_cast<int>(comp_size));
+
+        std::vector<double> output(n);
+        int decoded = decoder->Decode(output.data(), static_cast<int>(n));
+        ASSERT_EQ(decoded, static_cast<int>(n));
+        ASSERT_EQ(0, std::memcmp(input.data(), output.data(), n * sizeof(double)));
+      }
+    }
+  }
+
+  // Test float
+  {
+    auto descr = ExampleDescr<FloatType>();
+    for (const int32_t vs : vector_sizes) {
+      for (const size_t n :
+           {static_cast<size_t>(vs / 2), static_cast<size_t>(vs),
+            static_cast<size_t>(vs * 3), static_cast<size_t>(vs * 2 + 17)}) {
+        SCOPED_TRACE("float vector_size=" + std::to_string(vs) +
+                     " n=" + std::to_string(n));
+
+        std::vector<float> input(n);
+        for (size_t i = 0; i < n; ++i) {
+          input[i] = static_cast<float>(i) * 0.123f;
+        }
+
+        int64_t max_comp =
+            ::arrow::util::alp::AlpCodec<float>::GetMaxCompressedSize(
+                n * sizeof(float), vs);
+        std::vector<char> comp(max_comp);
+        size_t comp_size = comp.size();
+
+        ::arrow::util::alp::AlpCodec<float>::Encode(
+            input.data(), n * sizeof(float), comp.data(), &comp_size, vs);
+        ASSERT_GT(comp_size, 0u);
+
+        auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP, descr.get());
+        decoder->SetData(static_cast<int>(n),
+                         reinterpret_cast<const uint8_t*>(comp.data()),
+                         static_cast<int>(comp_size));
+
+        std::vector<float> output(n);
+        int decoded = decoder->Decode(output.data(), static_cast<int>(n));
+        ASSERT_EQ(decoded, static_cast<int>(n));
+        ASSERT_EQ(0, std::memcmp(input.data(), output.data(), n * sizeof(float)));
+      }
+    }
+  }
 }
 
 }  // namespace parquet::test
