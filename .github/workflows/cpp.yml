@@ -182,6 +182,41 @@ jobs:
           cd cpp/examples/minimal_build
           docker compose run --rm minimal
 
+  bad-weak-ptr-repro:
+    name: bad_weak_ptr repro ${{ matrix.title }}
+    runs-on: ${{ matrix.runs-on }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - title: Ubuntu GCC
+            runs-on: ubuntu-24.04
+            cxx: g++
+          - title: Ubuntu Clang
+            runs-on: ubuntu-24.04
+            cxx: clang++
+          - title: macOS Clang
+            runs-on: macos-14
+            cxx: clang++
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Build and run repro
+        shell: bash
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 \
+            -O2 \
+            -g \
+            -pthread \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro
+          ./gh-49958-mingw-bad-weak-ptr-repro 10
+
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
     runs-on: macos-${{ matrix.macos-version }}
@@ -310,8 +345,10 @@ jobs:
         include:
           - msystem_lower: mingw64
             msystem_upper: MINGW64
+            cxx: g++
           - msystem_lower: clang64
             msystem_upper: CLANG64
+            cxx: clang++
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
@@ -366,11 +403,10 @@ jobs:
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
-      - name: Run MinGW bad_weak_ptr repro
-        if: ${{ matrix.msystem_lower == 'mingw64' }}
+      - name: Run bad_weak_ptr repro
         shell: msys2 {0}
         run: |
-          g++ \
+          ${{ matrix.cxx }} \
             -std=gnu++20 \
             -O2 \
             -g \

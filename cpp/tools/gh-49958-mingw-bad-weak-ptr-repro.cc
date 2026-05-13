@@ -16,17 +16,13 @@
 // under the License.
 
 // Minimal standalone repro for GH-49958 (MinGW gcc 16.1)
-//
-//   Stress weak_ptr -> shared_ptr promotion plus shared_from_this() on an object
-//   that stays alive for the whole run. Any std::bad_weak_ptr throw or impossible
-//   weak_ptr expiration while keep_alive is true indicates toolchain/runtime breakage.
+//   While one shared_ptr owner is known-alive, stress weak_ptr.lock() and
+//   shared_from_this() from many threads.
 //
 // Build (MSYS2 MINGW64):
 //   g++ -std=gnu++20 -O2 -g -pthread gh-49958-mingw-bad-weak-ptr-repro.cc -o repro
-//
-// Run:
+// Run (argument in seconds):
 //   ./repro 30
-//   (argument is runtime seconds; default 10)
 
 #include <algorithm>
 #include <atomic>
@@ -35,39 +31,17 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <deque>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <vector>
 
-namespace {
-
 struct State : public std::enable_shared_from_this<State> {
-  void Push(int value) {
-    // This should always succeed while the owning shared_ptr is alive.
+  void Check() {
+    // Must succeed whenever at least one owning shared_ptr exists.
     auto self = shared_from_this();
     (void)self;
-
-    std::lock_guard<std::mutex> guard(mu);
-    queue.push_back(value);
   }
-
-  bool Pop(int* out) {
-    std::lock_guard<std::mutex> guard(mu);
-    if (queue.empty()) {
-      return false;
-    }
-    *out = queue.front();
-    queue.pop_front();
-    return true;
-  }
-
-  std::mutex mu;
-  std::deque<int> queue;
 };
-
-}  // namespace
 
 int main(int argc, char** argv) {
   int run_seconds = 10;
@@ -75,94 +49,60 @@ int main(int argc, char** argv) {
     run_seconds = std::max(1, std::atoi(argv[1]));
   }
 
-  constexpr int kProducerThreads = 20;
-  constexpr int kLockOnlyThreads = 8;
+  constexpr int kThreads = 32;
 
-  auto state = std::make_shared<State>();
-  std::weak_ptr<State> weak = state;
+  auto owner = std::make_shared<State>();
+  std::weak_ptr<State> weak = owner;
 
   std::atomic<bool> stop{false};
-  std::atomic<bool> should_be_alive{true};
+  std::atomic<bool> owner_is_alive{true};
+
   std::atomic<bool> saw_bad_weak_ptr{false};
   std::atomic<bool> saw_impossible_expired{false};
 
-  std::atomic<uint64_t> pushes{0};
-  std::atomic<uint64_t> pops{0};
   std::atomic<uint64_t> lock_ok{0};
   std::atomic<uint64_t> lock_fail{0};
+  std::atomic<uint64_t> checks{0};
 
-  auto producer = [&] {
-    int value = 0;
+  auto worker = [&] {
     while (!stop.load(std::memory_order_relaxed)) {
       auto sp = weak.lock();
       if (!sp) {
         lock_fail.fetch_add(1, std::memory_order_relaxed);
-        if (should_be_alive.load(std::memory_order_relaxed)) {
+        if (owner_is_alive.load(std::memory_order_relaxed)) {
           saw_impossible_expired.store(true, std::memory_order_relaxed);
+          stop.store(true, std::memory_order_relaxed);
         }
         continue;
       }
       lock_ok.fetch_add(1, std::memory_order_relaxed);
 
       try {
-        sp->Push(value++);
-        pushes.fetch_add(1, std::memory_order_relaxed);
+        sp->Check();
+        checks.fetch_add(1, std::memory_order_relaxed);
       } catch (const std::bad_weak_ptr&) {
         saw_bad_weak_ptr.store(true, std::memory_order_relaxed);
         stop.store(true, std::memory_order_relaxed);
         return;
       }
 
-      // Extra allocator churn to make races/miscompiles show up faster.
-      std::vector<std::shared_ptr<int>> churn;
-      churn.reserve(32);
-      for (int i = 0; i < 32; ++i) {
-        churn.push_back(std::make_shared<int>(value + i));
-      }
-    }
-  };
-
-  auto lock_only = [&] {
-    while (!stop.load(std::memory_order_relaxed)) {
-      auto sp = weak.lock();
-      if (sp) {
-        lock_ok.fetch_add(1, std::memory_order_relaxed);
-      } else {
-        lock_fail.fetch_add(1, std::memory_order_relaxed);
-        if (should_be_alive.load(std::memory_order_relaxed)) {
-          saw_impossible_expired.store(true, std::memory_order_relaxed);
-        }
-      }
-    }
-  };
-
-  auto consumer = [&] {
-    int out = 0;
-    while (!stop.load(std::memory_order_relaxed)) {
-      if (state->Pop(&out)) {
-        (void)out;
-        pops.fetch_add(1, std::memory_order_relaxed);
-      } else {
-        std::this_thread::yield();
-      }
+      // Cheap shared_ptr churn to exercise refcount paths
+      std::shared_ptr<State> copies[8] = {sp, sp, sp, sp, sp, sp, sp, sp};
+      (void)copies;
     }
   };
 
   std::vector<std::thread> threads;
-  threads.reserve(kProducerThreads + kLockOnlyThreads + 1);
-  for (int i = 0; i < kProducerThreads; ++i) {
-    threads.emplace_back(producer);
+  threads.reserve(kThreads);
+  for (int i = 0; i < kThreads; ++i) {
+    threads.emplace_back(worker);
   }
-  for (int i = 0; i < kLockOnlyThreads; ++i) {
-    threads.emplace_back(lock_only);
-  }
-  threads.emplace_back(consumer);
 
   const auto deadline =
       std::chrono::steady_clock::now() + std::chrono::seconds(run_seconds);
   while (std::chrono::steady_clock::now() < deadline &&
          !stop.load(std::memory_order_relaxed)) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
   stop.store(true, std::memory_order_relaxed);
@@ -170,13 +110,13 @@ int main(int argc, char** argv) {
     t.join();
   }
 
-  should_be_alive.store(false, std::memory_order_relaxed);
-  state.reset();
+  owner_is_alive.store(false, std::memory_order_relaxed);
+  owner.reset();
 
   std::fprintf(stderr,
-               "done: pushes=%" PRIu64 " pops=%" PRIu64 " lock_ok=%" PRIu64
-               " lock_fail=%" PRIu64 " bad_weak_ptr=%d impossible_expired=%d\n",
-               pushes.load(), pops.load(), lock_ok.load(), lock_fail.load(),
+               "done: checks=%" PRIu64 " lock_ok=%" PRIu64 " lock_fail=%" PRIu64
+               " bad_weak_ptr=%d impossible_expired=%d\n",
+               checks.load(), lock_ok.load(), lock_fail.load(),
                saw_bad_weak_ptr.load() ? 1 : 0, saw_impossible_expired.load() ? 1 : 0);
 
   if (saw_bad_weak_ptr.load()) {
