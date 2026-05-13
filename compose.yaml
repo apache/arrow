@@ -951,8 +951,8 @@ services:
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
         pyodide_version: "0.26.0"
-        chrome_version: "134"
-        selenium_version: "4.15.2"
+        chrome_version: "148"
+        selenium_version: "4.41.0"
         required_python_min: "(3,12)"
         python: ${PYTHON}
     shm_size: *shm-size
@@ -2054,6 +2054,7 @@ services:
     environment:
       <<: [*common, *ccache]
       CMAKE_GENERATOR: Ninja
+      SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt  # required due to issue in RHEL-8 based images. See GH-49757
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
     command: >

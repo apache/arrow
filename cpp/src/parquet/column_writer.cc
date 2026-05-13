@@ -41,6 +41,7 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
@@ -2352,7 +2353,13 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
 
     auto MultiplyBy = [&](const int64_t factor) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = values[i] * factor;
+        if (array.IsValid(i) &&
+            ARROW_PREDICT_FALSE(::arrow::internal::MultiplyWithOverflowGeneric(
+                values[i], factor, &out[i]))) {
+          return Status::Invalid("Integer overflow when casting timestamp value ",
+                                 values[i], " from ", source_type.ToString(), " to ",
+                                 target_type->ToString());
+        }
       }
       return Status::OK();
     };

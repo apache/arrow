@@ -36,8 +36,9 @@ namespace {
 // is the same as the value at the previous sort index.
 constexpr uint64_t kDuplicateMask = 1ULL << 63;
 
-template <typename ValueSelector>
-void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_selector) {
+template <typename ValueSelector, typename IsNullSelector>
+void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_selector,
+                    IsNullSelector&& is_null_selector) {
   using T = decltype(value_selector(int64_t{}));
 
   // Process non-nulls
@@ -55,10 +56,14 @@ void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_sel
 
   // Process nulls
   if (sorted.nulls_end != sorted.nulls_begin) {
-    // TODO this should be able to distinguish between NaNs and real nulls (GH-45193)
     auto it = sorted.nulls_begin;
+    bool prev_is_null = is_null_selector(*it);
     while (++it < sorted.nulls_end) {
-      *it |= kDuplicateMask;
+      bool curr_is_null = is_null_selector(*it);
+      if (curr_is_null == prev_is_null) {
+        *it |= kDuplicateMask;
+      }
+      prev_is_null = curr_is_null;
     }
   }
 }
@@ -82,7 +87,12 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
     auto value_selector = [&array](int64_t index) {
       return GetView::LogicalValue(array.GetView(index));
     };
-    MarkDuplicates(sorted, value_selector);
+    if constexpr (has_null_like_values<ArrowType>()) {
+      auto is_null_selector = [&array](int64_t index) { return array.IsNull(index); };
+      MarkDuplicates(sorted, value_selector, is_null_selector);
+    } else {
+      MarkDuplicates(sorted, value_selector, [](int64_t) { return true; });
+    }
   }
   return sorted;
 }
@@ -105,7 +115,15 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
                                ChunkedArrayResolver(std::span(arrays))](int64_t index) {
       return resolver.Resolve(index).Value<ArrowType>();
     };
-    MarkDuplicates(sorted, value_selector);
+    if constexpr (has_null_like_values<ArrowType>()) {
+      auto is_null_selector =
+          [resolver = ChunkedArrayResolver(std::span(arrays))](int64_t index) {
+            return resolver.Resolve(index).IsNull();
+          };
+      MarkDuplicates(sorted, value_selector, is_null_selector);
+    } else {
+      MarkDuplicates(sorted, value_selector, [](int64_t) { return true; });
+    }
   }
   return sorted;
 }

@@ -57,7 +57,8 @@ jobs:
           sudo apt install -y -V \
             pre-commit \
             r-base \
-            ruby-dev
+            ruby-dev \
+            libuv1-dev
       - name: Cache pre-commit
         uses: actions/cache@v5
         with:

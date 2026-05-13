@@ -19,6 +19,11 @@ name: Report CI results
 
 on:
   workflow_call:
+    secrets:
+      ARROW_SMTP_PASSWORD:
+        required: true
+      ARROW_ZULIP_WEBHOOK:
+        required: true
 
 permissions:
   actions: read

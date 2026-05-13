@@ -254,14 +254,15 @@ tasks:
     artifacts:
       - r-libarrow-windows-x86_64-{no_rc_r_version}\.zip
       - r-libarrow-linux-x86_64-{no_rc_r_version}\.zip
+      - r-libarrow-linux-arm64-{no_rc_r_version}\.zip
       - r-libarrow-darwin-arm64-{no_rc_r_version}\.zip
       - r-libarrow-darwin-x86_64-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.5__arrow_{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.6__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.6__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__sonoma-arm64__contrib__4.6__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 {% for which in ["strong", "most"] %}
@@ -469,17 +470,6 @@ tasks:
       env:
         FEDORA: 42
       image: fedora-cpp
-
-{% for cpp_standard in [20] %}
-  test-ubuntu-22.04-cpp-{{ cpp_standard }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 22.04
-      flags: "-e CMAKE_CXX_STANDARD={{ cpp_standard }}"
-      image: ubuntu-cpp
-{% endfor %}
 
   test-ubuntu-22.04-cpp-no-threading:
     ci: github

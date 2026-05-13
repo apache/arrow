@@ -15,23 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/page_index.h"
+#include <limits>
+#include <numeric>
+
+#include "arrow/io/interfaces.h"
+#include "arrow/util/int_util_overflow.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/util/unreachable.h"
+
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
-
-#include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging_internal.h"
-#include "arrow/util/unreachable.h"
-
-#include <limits>
-#include <numeric>
 
 namespace parquet {
 
@@ -348,11 +349,8 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
 
   std::shared_ptr<Buffer> ReadIndexBuffer(int64_t offset, int64_t length,
                                           const char* offset_kind) {
-    PARQUET_ASSIGN_OR_THROW(auto buffer, input_->ReadAt(offset, length));
-    if (buffer->size() < length) {
-      throw ParquetException("Invalid or truncated ", offset_kind, ": attempted to read ",
-                             length, " bytes but got only ", buffer->size(), " bytes");
-    }
+    PARQUET_ASSIGN_OR_THROW(auto buffer,
+                            input_->ReadAt(offset, length, /*allow_short_read=*/false));
     return buffer;
   }
 

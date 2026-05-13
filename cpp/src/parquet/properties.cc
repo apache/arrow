@@ -40,14 +40,8 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
                                                               safe_stream, num_bytes));
     return stream;
   } else {
-    PARQUET_ASSIGN_OR_THROW(auto data, source->ReadAt(start, num_bytes));
-
-    if (data->size() != num_bytes) {
-      std::stringstream ss;
-      ss << "Tried reading " << num_bytes << " bytes starting at position " << start
-         << " from file but only got " << data->size();
-      throw ParquetException(ss.str());
-    }
+    PARQUET_ASSIGN_OR_THROW(auto data,
+                            source->ReadAt(start, num_bytes, /*allow_short_read=*/false));
     return std::make_shared<::arrow::io::BufferReader>(data);
   }
 }

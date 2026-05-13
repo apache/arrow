@@ -370,6 +370,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
+        optional[int64_t] bloom_filter_offset() const
+        optional[int64_t] bloom_filter_length() const
         unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
         optional[ParquetIndexLocation] GetColumnIndexLocation() const
         optional[ParquetIndexLocation] GetOffsetIndexLocation() const

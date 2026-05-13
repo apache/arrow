@@ -134,10 +134,23 @@ Result<int64_t> SlowRandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
   return stream_->ReadAt(position, nbytes, out);
 }
 
+Result<int64_t> SlowRandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
+                                             bool allow_short_read, void* out) {
+  latencies_->Sleep();
+  return stream_->ReadAt(position, nbytes, allow_short_read, out);
+}
+
 Result<std::shared_ptr<Buffer>> SlowRandomAccessFile::ReadAt(int64_t position,
                                                              int64_t nbytes) {
   latencies_->Sleep();
   return stream_->ReadAt(position, nbytes);
+}
+
+Result<std::shared_ptr<Buffer>> SlowRandomAccessFile::ReadAt(int64_t position,
+                                                             int64_t nbytes,
+                                                             bool allow_short_read) {
+  latencies_->Sleep();
+  return stream_->ReadAt(position, nbytes, allow_short_read);
 }
 
 Result<std::string_view> SlowRandomAccessFile::Peek(int64_t nbytes) {
