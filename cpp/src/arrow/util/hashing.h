@@ -536,11 +536,10 @@ class ScalarMemoTable : public MemoTable {
   // Merge entries from `other_table` into `this->hash_table_`.
   Status MergeTable(const ScalarMemoTable& other_table) {
     const HashTableType& other_hashtable = other_table.hash_table_;
-    RETURN_NOT_OK(other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
+    return other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
       int32_t unused;
       return this->GetOrInsert(other_entry->payload.value, &unused);
-    }));
-    return Status::OK();
+    });
   }
 };
 
@@ -867,6 +866,16 @@ class BinaryMemoTable : public MemoTable {
     }
   }
 
+  // Like VisitValues, but allows the visitor to fail. The visitor should have
+  // signature `Status(std::string_view)` or `Status(const std::string_view&)`.
+  template <typename VisitFunc>
+  Status VisitValuesStatus(int32_t start, VisitFunc&& visit) const {
+    for (int32_t i = start; i < size(); ++i) {
+      RETURN_NOT_OK(visit(binary_builder_.GetView(i)));
+    }
+    return Status::OK();
+  }
+
   // Visit the stored value at a specific index in insertion order.
   // The visitor function should have the signature `void(std::string_view)`
   // or `void(const std::string_view&)`.
@@ -899,15 +908,10 @@ class BinaryMemoTable : public MemoTable {
 
  public:
   Status MergeTable(const BinaryMemoTable& other_table) {
-    Status status = Status::OK();
-    other_table.VisitValues(0, [this, &status](std::string_view other_value) {
-      if (ARROW_PREDICT_FALSE(!status.ok())) {
-        return;
-      }
+    return other_table.VisitValuesStatus(0, [this](std::string_view other_value) {
       int32_t unused;
-      status = this->GetOrInsert(other_value, &unused);
+      return this->GetOrInsert(other_value, &unused);
     });
-    return status;
   }
 };
 
