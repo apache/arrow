@@ -876,17 +876,8 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
   const AlpExponentAndFactor exponent_and_factor =
       FindBestExponentAndFactor(input_span, preset.combinations);
   const EncodingResult encoding_result = EncodeVector(input_span, exponent_and_factor);
-  BitPackingResult bitpacking_result;
-  switch (preset.integer_encoding) {
-    case AlpIntegerEncoding::kForBitPack:
-      bitpacking_result =
-          BitPackIntegers(encoding_result.encoded_integers, encoding_result.min_max_diff);
-      break;
-    default:
-      ARROW_CHECK(false) << "invalid_integer_encoding: "
-                         << static_cast<int>(preset.integer_encoding);
-      break;
-  }
+  const BitPackingResult bitpacking_result =
+      BitPackIntegers(encoding_result.encoded_integers, encoding_result.min_max_diff);
 
   // Build the result with split metadata
   AlpEncodedVector<T> result;
@@ -980,20 +971,12 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
   const AlpEncodedForVectorInfo<T>& for_info = packed_vector.for_info;
   const int32_t num_elements = packed_vector.num_elements;
 
-  switch (integer_encoding) {
-    case AlpIntegerEncoding::kForBitPack: {
-      arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
-          BitUnpackIntegers(packed_vector.packed_values, for_info, num_elements);
-      DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
-                               alp_info, for_info, num_elements, output);
-      PatchExceptions<TargetType>(packed_vector.exceptions,
-                                  packed_vector.exception_positions, output);
-    } break;
-    default:
-      ARROW_CHECK(false) << "invalid_integer_encoding: "
-                         << static_cast<int>(integer_encoding);
-      break;
-  }
+  arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
+      BitUnpackIntegers(packed_vector.packed_values, for_info, num_elements);
+  DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
+                           alp_info, for_info, num_elements, output);
+  PatchExceptions<TargetType>(packed_vector.exceptions,
+                              packed_vector.exception_positions, output);
 }
 
 template <typename T>
@@ -1006,25 +989,15 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
   const AlpEncodedForVectorInfo<T>& for_info = encoded_view.for_info;
   const int32_t num_elements = encoded_view.num_elements;
 
-  switch (integer_encoding) {
-    case AlpIntegerEncoding::kForBitPack: {
-      // Use zero-copy for packed values, aligned copies for exceptions
-      arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
-          BitUnpackIntegers(encoded_view.packed_values, for_info, num_elements);
-      DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
-                               alp_info, for_info, num_elements, output);
-      // Create spans from the aligned StaticVectors for PatchExceptions
-      PatchExceptions<TargetType>(
-          {encoded_view.exceptions.data(), encoded_view.exceptions.size()},
-          {encoded_view.exception_positions.data(),
-           encoded_view.exception_positions.size()},
-          output);
-    } break;
-    default:
-      ARROW_CHECK(false) << "invalid_integer_encoding: "
-                         << static_cast<int>(integer_encoding);
-      break;
-  }
+  arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
+      BitUnpackIntegers(encoded_view.packed_values, for_info, num_elements);
+  DecodeVector<TargetType>({encoded_integers.data(), static_cast<size_t>(num_elements)},
+                           alp_info, for_info, num_elements, output);
+  PatchExceptions<TargetType>(
+      {encoded_view.exceptions.data(), encoded_view.exceptions.size()},
+      {encoded_view.exception_positions.data(),
+       encoded_view.exception_positions.size()},
+      output);
 }
 
 // ----------------------------------------------------------------------

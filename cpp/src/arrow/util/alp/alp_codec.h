@@ -54,63 +54,63 @@ class AlpCodec {
   /// reused for encoding. This is useful when you want to pre-compute the preset
   /// outside of the benchmark loop or encode multiple batches with the same preset.
   ///
-  /// \param[in] decomp pointer to the input data to sample
-  /// \param[in] decomp_size size of decomp in bytes.
+  /// \param[in] input pointer to the input data to sample
+  /// \param[in] input_size size of input in bytes.
   ///            This needs to be a multiple of sizeof(T).
   /// \return the sampling result containing the encoding preset
-  static AlpSamplerResult CreateSamplingPreset(const T* decomp, size_t decomp_size);
+  static AlpSamplerResult CreateSamplingPreset(const T* input, size_t input_size);
 
   /// \brief Encode floating point values using a pre-computed preset
   ///
   /// This encodes the data using a preset that was previously computed via
   /// CreateSamplingPreset(). This avoids the sampling overhead during encoding.
   ///
-  /// \param[in] decomp pointer to the input that is to be encoded
-  /// \param[in] decomp_size size of decomp in bytes.
+  /// \param[in] input pointer to the input that is to be encoded
+  /// \param[in] input_size size of input in bytes.
   ///            This needs to be a multiple of sizeof(T).
   /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
-  /// \param[out] comp pointer to the memory region we will encode into.
-  ///             Must be at least GetMaxCompressedSize(decomp_size) bytes.
-  /// \param[in,out] comp_size the actual size of the encoded data in bytes,
-  ///                expects the size of comp as input. If this is too small,
+  /// \param[out] output pointer to the memory region we will encode into.
+  ///             Must be at least GetMaxCompressedSize(input_size) bytes.
+  /// \param[in,out] output_size the actual size of the encoded data in bytes,
+  ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  static void EncodeWithPreset(const T* decomp, size_t decomp_size,
-                               const AlpSamplerResult& preset, char* comp,
-                               size_t* comp_size);
+  static void EncodeWithPreset(const T* input, size_t input_size,
+                               const AlpSamplerResult& preset, char* output,
+                               size_t* output_size);
 
   /// \brief Encode floating point values using ALP decimal compression
   ///
-  /// \param[in] decomp pointer to the input that is to be encoded
-  /// \param[in] decomp_size size of decomp in bytes.
+  /// \param[in] input pointer to the input that is to be encoded
+  /// \param[in] input_size size of input in bytes.
   ///            This needs to be a multiple of sizeof(T).
-  /// \param[out] comp pointer to the memory region we will encode into.
-  ///             Must be at least GetMaxCompressedSize(decomp_size) bytes.
-  /// \param[in,out] comp_size the actual size of the encoded data in bytes,
-  ///                expects the size of comp as input. If this is too small,
+  /// \param[out] output pointer to the memory region we will encode into.
+  ///             Must be at least GetMaxCompressedSize(input_size) bytes.
+  /// \param[in,out] output_size the actual size of the encoded data in bytes,
+  ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  static void Encode(const T* decomp, size_t decomp_size, char* comp,
-                     size_t* comp_size);
+  static void Encode(const T* input, size_t input_size, char* output,
+                     size_t* output_size);
 
   /// \brief Decode floating point values
   ///
   /// \param[in] num_elements number of elements to decode (from page header)
-  /// \param[in] comp pointer to the input that is to be decoded
-  /// \param[in] comp_size size of the input in bytes (from page header)
-  /// \param[out] decomp pointer to the memory region we will decode into.
+  /// \param[in] input pointer to the input that is to be decoded
+  /// \param[in] input_size size of the input in bytes (from page header)
+  /// \param[out] output pointer to the memory region we will decode into.
   ///             The caller is responsible for ensuring this is big enough
   ///             to hold num_elements values.
   /// \return Status::OK on success, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Status Decode(int32_t num_elements, const char* comp, size_t comp_size,
-                       TargetType* decomp);
+  static Status Decode(int32_t num_elements, const char* input, size_t input_size,
+                       TargetType* output);
 
   /// \brief Get the maximum compressed size of an uncompressed buffer
   ///
   /// \param[in] uncompressed_size the size of the uncompressed buffer in bytes
   /// \return the maximum size of the compressed buffer
-  static int64_t GetMaxCompressedSize(int64_t uncompressed_size);
+  static int64_t GetMaxCompressedSize(int64_t input_size);
 
  private:
   struct AlpHeader;
@@ -137,42 +137,42 @@ class AlpCodec {
 
   /// \brief Compress a buffer using the ALP variant
   ///
-  /// \param[in] decomp array of floating point numbers to compress
+  /// \param[in] input array of floating point numbers to compress
   /// \param[in] element_count the number of floating point numbers
-  /// \param[out] comp the buffer to be compressed into
-  /// \param[in] comp_size the size of the compression buffer
+  /// \param[out] output the buffer to be compressed into
+  /// \param[in] output_size the size of the compression buffer
   /// \param[in] combinations the encoding preset to use
   /// \return the compression progress
-  static CompressionProgress EncodeAlp(const T* decomp, int64_t element_count,
-                                       char* comp, int64_t comp_size,
+  static CompressionProgress EncodeAlp(const T* input, int64_t element_count,
+                                       char* output, int64_t output_size,
                                        const AlpEncodingParameters& combinations);
 
   /// \brief Decompress a buffer using the ALP variant
   ///
-  /// \param[in] decomp_element_count the number of floats to decompress
-  /// \param[in] comp the compressed buffer to be decompressed
-  /// \param[in] comp_size the size of the compressed data
+  /// \param[in] output_element_count the number of floats to decompress
+  /// \param[in] input the compressed buffer to be decompressed
+  /// \param[in] input_size the size of the compressed data
   /// \param[in] integer_encoding the bit packing layout used
   /// \param[in] vector_size the number of elements per vector (from header)
   /// \param[in] total_elements the total number of elements in the page (from header)
-  /// \param[out] decomp the buffer to be decompressed into
+  /// \param[out] output the buffer to be decompressed into
   /// \return the decompression progress, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Result<DecompressionProgress> DecodeAlp(int64_t decomp_element_count,
-                                                  const char* comp, int64_t comp_size,
+  static Result<DecompressionProgress> DecodeAlp(int64_t output_element_count,
+                                                  const char* input, int64_t input_size,
                                                   AlpIntegerEncoding integer_encoding,
                                                   int32_t vector_size,
                                                   int32_t total_elements,
-                                                  TargetType* decomp);
+                                                  TargetType* output);
 
   /// \brief Load the AlpHeader from compressed data
   ///
-  /// \param[in] comp the compressed buffer
-  /// \param[in] comp_size the size of the compressed data
+  /// \param[in] input the compressed buffer
+  /// \param[in] input_size the size of the compressed data
   /// \return the AlpHeader, or an error if the buffer is too small
-  static Result<AlpHeader> LoadHeader(const char* comp, size_t comp_size);
+  static Result<AlpHeader> LoadHeader(const char* input, size_t input_size);
 };
 
 }  // namespace alp
