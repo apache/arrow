@@ -76,7 +76,8 @@ class AlpCodec {
   ///                this is set to 0 and we bail out.
   static void EncodeWithPreset(const T* input, size_t input_size,
                                const AlpSamplerResult& preset, char* output,
-                               size_t* output_size);
+                               size_t* output_size,
+                               int32_t vector_size = AlpConstants::kAlpVectorSize);
 
   /// \brief Encode floating point values using ALP decimal compression
   ///
@@ -89,7 +90,8 @@ class AlpCodec {
   ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
   static void Encode(const T* input, size_t input_size, char* output,
-                     size_t* output_size);
+                     size_t* output_size,
+                     int32_t vector_size = AlpConstants::kAlpVectorSize);
 
   /// \brief Decode floating point values
   ///
@@ -110,7 +112,8 @@ class AlpCodec {
   ///
   /// \param[in] uncompressed_size the size of the uncompressed buffer in bytes
   /// \return the maximum size of the compressed buffer
-  static int64_t GetMaxCompressedSize(int64_t input_size);
+  static int64_t GetMaxCompressedSize(int64_t input_size,
+                                      int32_t vector_size = AlpConstants::kAlpVectorSize);
 
  private:
   struct AlpHeader;
@@ -145,7 +148,8 @@ class AlpCodec {
   /// \return the compression progress
   static CompressionProgress EncodeAlp(const T* input, int64_t element_count,
                                        char* output, int64_t output_size,
-                                       const AlpEncodingParameters& combinations);
+                                       const AlpEncodingParameters& combinations,
+                                       int32_t vector_size);
 
   /// \brief Decompress a buffer using the ALP variant
   ///
