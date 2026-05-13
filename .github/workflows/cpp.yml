@@ -366,6 +366,18 @@ jobs:
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
+      - name: Run MinGW bad_weak_ptr repro
+        if: ${{ matrix.msystem_lower == 'mingw64' }}
+        shell: msys2 {0}
+        run: |
+          g++ \
+            -std=gnu++20 \
+            -O2 \
+            -g \
+            -pthread \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro.exe
+          ./gh-49958-mingw-bad-weak-ptr-repro.exe 30
       - name: Cache ccache
         uses: actions/cache@v5
         with:
