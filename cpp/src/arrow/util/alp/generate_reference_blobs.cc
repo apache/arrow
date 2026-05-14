@@ -77,10 +77,10 @@ static void printDoubleArray(const std::string& name, const double* data, size_t
 
 template <typename T>
 static void generateBlob(const std::string& prefix, const T* input, size_t count) {
-  size_t decomp_size = count * sizeof(T);
-  size_t max_size = AlpCodec<T>::GetMaxCompressedSize(decomp_size);
+  int64_t decomp_size = static_cast<int64_t>(count * sizeof(T));
+  int64_t max_size = AlpCodec<T>::GetMaxCompressedSize(decomp_size);
   std::vector<char> compressed(max_size);
-  size_t comp_size = 0;
+  int64_t comp_size = max_size;
   AlpCodec<T>::Encode(input, decomp_size, compressed.data(), &comp_size);
   printHex(prefix + "_COMPRESSED", compressed.data(), comp_size);
 }
