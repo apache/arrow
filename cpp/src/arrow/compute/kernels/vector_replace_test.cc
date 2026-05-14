@@ -562,8 +562,8 @@ TEST_F(TestReplaceNull, ReplaceWithMask) {
 
       {this->array("[null, null]"), this->mask("[false, false]"), this->array("[]"),
        this->array("[null, null]")},
-      {this->array("[null, null]"), this->mask("[true, true]"), this->array("[null, null]"),
-       this->array("[null, null]")},
+      {this->array("[null, null]"), this->mask("[true, true]"),
+       this->array("[null, null]"), this->array("[null, null]")},
       {this->array("[null, null]"), this->mask("[null, null]"), this->array("[]"),
        this->array("[null, null]")},
   };
