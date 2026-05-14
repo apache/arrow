@@ -2477,7 +2477,7 @@ struct SafeLengthState {
 // Helper to safely add a word length
 static inline bool safe_accumulate_word(SafeLengthState& state, int32_t word_len,
                                         bool word_validity) {
-  if (not word_validity) return true;
+  if (!word_validity) return true;
 
   if (word_len < 0) {
     return false;
