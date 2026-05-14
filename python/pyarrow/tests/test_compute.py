@@ -1994,17 +1994,25 @@ def test_replace_with_mask_null_type():
 
     result = pc.replace_with_mask(a, True, b)
     assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
 
     result = pc.replace_with_mask(a, False, b)
     assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
 
     mask = pa.array([True])
     result = pc.replace_with_mask(a, mask, b)
     assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
 
     mask = pa.array([False])
     result = pc.replace_with_mask(a, mask, b)
     assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
