@@ -242,16 +242,6 @@ jobs:
           if [ -x ./gh-49958-mingw-bad-weak-ptr-repro-debug ]; then
             ./gh-49958-mingw-bad-weak-ptr-repro-debug 10
           fi
-      - name: Build and run repro (compiler disable optim. flags)
-        if: ${{ !cancelled() }}
-        shell: bash
-        run: |
-          ${{ matrix.cxx }} \
-            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
-            -fno-strict-aliasing -fwrapv -fno-aggressive-loop-optimizations \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro-noub
-          ./gh-49958-mingw-bad-weak-ptr-repro-noub 10
 
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
@@ -478,7 +468,7 @@ jobs:
             ./gh-49958-mingw-bad-weak-ptr-repro-debug.exe 30
           fi
       - name: Run bad_weak_ptr repro (compiler disable optim. flags)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.msystem_lower == 'mingw64' }}
         shell: msys2 {0}
         run: |
           ${{ matrix.cxx }} \
