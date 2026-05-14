@@ -443,7 +443,10 @@ jobs:
             -save-temps=cwd \
             cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
             -o gh-49958-mingw-bad-weak-ptr-repro.exe
-          ./gh-49958-mingw-bad-weak-ptr-repro.exe 30
+          ls -la ./gh-49958-mingw-bad-weak-ptr-repro.exe || echo "BINARY NOT FOUND"
+          ./gh-49958-mingw-bad-weak-ptr-repro.exe 30 || rc=$?
+          echo "===== program exit: ${rc:-0} ====="
+          exit "${rc:-0}"
       - name: Run bad_weak_ptr repro (_GLIBCXX_ASSERTIONS)
         if: ${{ !cancelled() }}
         shell: msys2 {0}
