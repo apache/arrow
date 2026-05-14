@@ -2318,7 +2318,7 @@ TEST(TestStringOps, TestConcatWs) {
   EXPECT_EQ(std::string(out, out_len), "hey");
   EXPECT_EQ(out_result, true);
 
-  // Max word1_len
+  // Max word1 len
   out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
                             std::numeric_limits<int32_t>::max(), true, word2, word2_len,
                             true, &out_result, &out_len);
