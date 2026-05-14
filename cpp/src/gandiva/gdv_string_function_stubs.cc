@@ -674,7 +674,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   }
 
   // If there are no multibytes in the input, work only with char
-  if (not has_multi_byte) {
+  if (!has_multi_byte) {
     // This variable is for receive the substitutions
     result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
 
