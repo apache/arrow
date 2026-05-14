@@ -208,14 +208,50 @@ jobs:
       - name: Build and run repro
         shell: bash
         run: |
+          ${{ matrix.cxx }} -v
           ${{ matrix.cxx }} \
             -std=gnu++20 \
             -O2 \
             -g \
+            -Wall \
+            -Wextra \
             -pthread \
             cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
             -o gh-49958-mingw-bad-weak-ptr-repro
           ./gh-49958-mingw-bad-weak-ptr-repro 10
+      - name: Build and run repro (_GLIBCXX_ASSERTIONS)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
+            -D_GLIBCXX_ASSERTIONS \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro-assert
+          ./gh-49958-mingw-bad-weak-ptr-repro-assert 10
+      - name: Build and run repro (_GLIBCXX_DEBUG)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
+            -D_GLIBCXX_DEBUG \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro-debug \
+            || echo "build with -D_GLIBCXX_DEBUG failed (this is data, not blocking)"
+          if [ -x ./gh-49958-mingw-bad-weak-ptr-repro-debug ]; then
+            ./gh-49958-mingw-bad-weak-ptr-repro-debug 10
+          fi
+      - name: Build and run repro (compiler disable optim. flags)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
+            -fno-strict-aliasing -fwrapv -fno-aggressive-loop-optimizations \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro-noub
+          ./gh-49958-mingw-bad-weak-ptr-repro-noub 10
 
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
@@ -406,14 +442,60 @@ jobs:
       - name: Run bad_weak_ptr repro
         shell: msys2 {0}
         run: |
+          ${{ matrix.cxx }} -v
           ${{ matrix.cxx }} \
             -std=gnu++20 \
             -O2 \
             -g \
+            -Wall \
+            -Wextra \
             -pthread \
+            -save-temps=cwd \
             cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
             -o gh-49958-mingw-bad-weak-ptr-repro.exe
           ./gh-49958-mingw-bad-weak-ptr-repro.exe 30
+      - name: Run bad_weak_ptr repro (_GLIBCXX_ASSERTIONS)
+        if: ${{ !cancelled() }}
+        shell: msys2 {0}
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
+            -D_GLIBCXX_ASSERTIONS \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro-assert.exe
+          ./gh-49958-mingw-bad-weak-ptr-repro-assert.exe 30
+      - name: Run bad_weak_ptr repro (_GLIBCXX_DEBUG)
+        if: ${{ !cancelled() }}
+        shell: msys2 {0}
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
+            -D_GLIBCXX_DEBUG \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro-debug.exe \
+            || echo "build with -D_GLIBCXX_DEBUG failed (this is data, not blocking)"
+          if [ -x ./gh-49958-mingw-bad-weak-ptr-repro-debug.exe ]; then
+            ./gh-49958-mingw-bad-weak-ptr-repro-debug.exe 30
+          fi
+      - name: Run bad_weak_ptr repro (compiler disable optim. flags)
+        if: ${{ !cancelled() }}
+        shell: msys2 {0}
+        run: |
+          ${{ matrix.cxx }} \
+            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
+            -fno-strict-aliasing -fwrapv -fno-aggressive-loop-optimizations \
+            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
+            -o gh-49958-mingw-bad-weak-ptr-repro-noub.exe
+          ./gh-49958-mingw-bad-weak-ptr-repro-noub.exe 30
+      - name: Upload preprocessed source for Bugzilla
+        if: ${{ !cancelled() && matrix.msystem_lower == 'mingw64' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gh-49958-mingw64-preprocessed
+          path: |
+            gh-49958-mingw-bad-weak-ptr-repro.ii
+            gh-49958-mingw-bad-weak-ptr-repro.s
+          if-no-files-found: warn
       - name: Cache ccache
         uses: actions/cache@v5
         with:
