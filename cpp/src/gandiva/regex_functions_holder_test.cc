@@ -678,3 +678,60 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
 }
 
 }  // namespace gandiva
+
+extern "C" const char* gdv_fn_regexp_extract_utf8_utf8(int64_t ptr, int64_t holder_ptr,
+                                                       const char* data, int32_t data_len,
+                                                       const char* pattern,
+                                                       int32_t pattern_len,
+                                                       int32_t* out_length);
+
+TEST(TestRegexpExtractStub, TestDefaultIndexStub) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_OK_AND_ASSIGN(auto holder, gandiva::ExtractHolder::Make(R"((\w+) (\w+))"));
+  auto holder_ptr = reinterpret_cast<int64_t>(holder.get());
+
+  std::string pattern = R"((\w+) (\w+))";
+  int32_t out_length = 0;
+
+  std::string input = "John Doe";
+  const char* ret = gdv_fn_regexp_extract_utf8_utf8(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "John");
+
+  input = "Ringo Beast";
+  ret = gdv_fn_regexp_extract_utf8_utf8(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "Ringo");
+
+  // no match returns empty string
+  input = "--- ---";
+  ret = gdv_fn_regexp_extract_utf8_utf8(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), &out_length);
+  EXPECT_EQ(out_length, 0);
+}
+
+extern "C" const char* gdv_fn_regexp_extract_utf8_utf8_int32(
+    int64_t ptr, int64_t holder_ptr, const char* data, int32_t data_len,
+    const char* pattern, int32_t pattern_len, int32_t extract_index, int32_t* out_length);
+
+TEST(TestRegexpExtractStub, TestIndexStub) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_OK_AND_ASSIGN(auto holder, gandiva::ExtractHolder::Make(R"((\w+) (\w+))"));
+  auto holder_ptr = reinterpret_cast<int64_t>(holder.get());
+
+  std::string pattern = R"((\w+) (\w+))";
+  int32_t out_length = 0;
+
+  std::string input = "John Doe";
+  const char* ret = gdv_fn_regexp_extract_utf8_utf8_int32(
+      ctx_ptr, holder_ptr, input.c_str(), static_cast<int32_t>(input.size()),
+      pattern.c_str(), static_cast<int32_t>(pattern.size()), 2, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "Doe");
+}
