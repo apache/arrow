@@ -604,24 +604,47 @@ TEST_F(TestExtractHolder, TestExtractInvalidPattern) {
   execution_context_.Reset();
 }
 
-TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
-  // Create function with incorrect number of params
+TEST_F(TestExtractHolder, TestDefaultIndexExtract) {
+  // 2-arg form defaults to index 1 (first capture group)
   auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
   auto pattern_node = std::make_shared<LiteralNode>(
       arrow::utf8(), LiteralHolder(R"((\w+) (\w+))"), false);
   auto function_node =
       FunctionNode("regexp_extract", {field, pattern_node}, arrow::utf8());
 
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(function_node));
+
+  std::string input_string = "John Doe";
+  int32_t out_length = 0;
+
+  auto& extract = *extract_holder;
+  const char* ret =
+      extract(&execution_context_, input_string.c_str(),
+              static_cast<int32_t>(input_string.length()), 1, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "John");
+
+  input_string = "Ringo Beast";
+  ret = extract(&execution_context_, input_string.c_str(),
+                static_cast<int32_t>(input_string.length()), 1, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "Ringo");
+}
+
+TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
+  // Create function with incorrect number of params (one arg)
+  auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+  NodeVector one_arg = {field};
+  auto function_node = FunctionNode("regexp_extract", one_arg, arrow::utf8());
+
   auto extract_holder = ExtractHolder::Make(function_node);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("'extract' function requires three parameters"),
+      Invalid, ::testing::HasSubstr("'extract' function requires two or three parameters"),
       extract_holder.status());
 
   execution_context_.Reset();
 
   // Create function with non-utf8 literal parameter as pattern
   field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
-  pattern_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
+  auto pattern_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
   auto index_node = std::make_shared<FieldNode>(arrow::field("idx", arrow::int32()));
   function_node =
       FunctionNode("regexp_extract", {field, pattern_node, index_node}, arrow::utf8());
