@@ -56,9 +56,9 @@ class AlpCodec {
   ///
   /// \param[in] input pointer to the input data to sample
   /// \param[in] input_size size of input in bytes.
-  ///            This needs to be a multiple of sizeof(T).
+  /// \pre input_size must be a multiple of sizeof(T)
   /// \return the sampling result containing the encoding preset
-  static AlpSamplerResult CreateSamplingPreset(const T* input, size_t input_size);
+  static AlpSamplerResult CreateSamplingPreset(const T* input, int64_t input_size);
 
   /// \brief Encode floating point values using a pre-computed preset
   ///
@@ -67,37 +67,45 @@ class AlpCodec {
   ///
   /// \param[in] input pointer to the input that is to be encoded
   /// \param[in] input_size size of input in bytes.
-  ///            This needs to be a multiple of sizeof(T).
   /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
+  /// \param[in] vector_size number of elements per vector (must be a power of 2,
+  ///            at most 2^kMaxLogVectorSize)
   /// \param[out] output pointer to the memory region we will encode into.
   ///             Must be at least GetMaxCompressedSize(input_size) bytes.
   /// \param[in,out] output_size the actual size of the encoded data in bytes,
   ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  static void EncodeWithPreset(const T* input, size_t input_size,
-                               const AlpSamplerResult& preset, char* output,
-                               size_t* output_size,
-                               int32_t vector_size = AlpConstants::kAlpVectorSize);
+  /// \pre input_size must be a multiple of sizeof(T)
+  static void EncodeWithPreset(const T* input, int64_t input_size,
+                               const AlpSamplerResult& preset,
+                               int32_t vector_size,
+                               char* output, int64_t* output_size);
 
   /// \brief Encode floating point values using ALP decimal compression
   ///
   /// \param[in] input pointer to the input that is to be encoded
   /// \param[in] input_size size of input in bytes.
-  ///            This needs to be a multiple of sizeof(T).
+  /// \param[in] vector_size number of elements per vector (must be a power of 2,
+  ///            at most 2^kMaxLogVectorSize)
   /// \param[out] output pointer to the memory region we will encode into.
   ///             Must be at least GetMaxCompressedSize(input_size) bytes.
   /// \param[in,out] output_size the actual size of the encoded data in bytes,
   ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  static void Encode(const T* input, size_t input_size, char* output,
-                     size_t* output_size,
-                     int32_t vector_size = AlpConstants::kAlpVectorSize);
+  /// \pre input_size must be a multiple of sizeof(T)
+  static void Encode(const T* input, int64_t input_size,
+                     int32_t vector_size,
+                     char* output, int64_t* output_size);
+
+  /// Convenience overload with default vector_size = kAlpVectorSize
+  static void Encode(const T* input, int64_t input_size,
+                     char* output, int64_t* output_size);
 
   /// \brief Decode floating point values
   ///
   /// \param[in] num_elements number of elements to decode (from page header)
-  /// \param[in] input pointer to the input that is to be decoded
-  /// \param[in] input_size size of the input in bytes (from page header)
+  /// \param[in] input pointer to the compressed data
+  /// \param[in] input_size size of the compressed data in bytes
   /// \param[out] output pointer to the memory region we will decode into.
   ///             The caller is responsible for ensuring this is big enough
   ///             to hold num_elements values.
@@ -105,12 +113,14 @@ class AlpCodec {
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Status Decode(int32_t num_elements, const char* input, size_t input_size,
+  static Status Decode(int32_t num_elements, const char* input, int64_t input_size,
                        TargetType* output);
 
   /// \brief Get the maximum compressed size of an uncompressed buffer
   ///
-  /// \param[in] uncompressed_size the size of the uncompressed buffer in bytes
+  /// \param[in] input_size the size of the uncompressed buffer in bytes
+  /// \param[in] vector_size number of elements per vector (must be a power of 2)
+  /// \pre input_size must be non-negative and a multiple of sizeof(T)
   /// \return the maximum size of the compressed buffer
   static int64_t GetMaxCompressedSize(int64_t input_size,
                                       int32_t vector_size = AlpConstants::kAlpVectorSize);
@@ -153,18 +163,18 @@ class AlpCodec {
 
   /// \brief Decompress a buffer using the ALP variant
   ///
-  /// \param[in] output_element_count the number of floats to decompress
-  /// \param[in] input the compressed buffer to be decompressed
-  /// \param[in] input_size the size of the compressed data
+  /// \param[in] num_elements the number of elements to decompress
+  /// \param[in] input the compressed buffer
+  /// \param[in] input_size the size of the compressed data in bytes
   /// \param[in] integer_encoding the bit packing layout used
   /// \param[in] vector_size the number of elements per vector (from header)
   /// \param[in] total_elements the total number of elements in the page (from header)
-  /// \param[out] output the buffer to be decompressed into
+  /// \param[out] output the buffer to decompress into
   /// \return the decompression progress, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Result<DecompressionProgress> DecodeAlp(int64_t output_element_count,
+  static Result<DecompressionProgress> DecodeAlp(int64_t num_elements,
                                                   const char* input, int64_t input_size,
                                                   AlpIntegerEncoding integer_encoding,
                                                   int32_t vector_size,
@@ -176,7 +186,7 @@ class AlpCodec {
   /// \param[in] input the compressed buffer
   /// \param[in] input_size the size of the compressed data
   /// \return the AlpHeader, or an error if the buffer is too small
-  static Result<AlpHeader> LoadHeader(const char* input, size_t input_size);
+  static Result<AlpHeader> LoadHeader(const char* input, int64_t input_size);
 };
 
 }  // namespace alp
