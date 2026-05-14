@@ -71,10 +71,10 @@ const char* gdv_fn_regexp_replace_utf8_utf8(
 }
 
 const char* gdv_fn_regexp_extract_utf8_utf8(int64_t ptr, int64_t holder_ptr,
-                                             const char* data, int32_t data_len,
-                                             const char* /*pattern*/,
-                                             int32_t /*pattern_len*/,
-                                             int32_t* out_length) {
+                                            const char* data, int32_t data_len,
+                                            const char* /*pattern*/,
+                                            int32_t /*pattern_len*/,
+                                            int32_t* out_length) {
   gandiva::ExecutionContext* context = reinterpret_cast<gandiva::ExecutionContext*>(ptr);
   gandiva::ExtractHolder* holder = reinterpret_cast<gandiva::ExtractHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, 1, out_length);

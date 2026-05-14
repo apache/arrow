@@ -618,9 +618,8 @@ TEST_F(TestExtractHolder, TestDefaultIndexExtract) {
   int32_t out_length = 0;
 
   auto& extract = *extract_holder;
-  const char* ret =
-      extract(&execution_context_, input_string.c_str(),
-              static_cast<int32_t>(input_string.length()), 1, &out_length);
+  const char* ret = extract(&execution_context_, input_string.c_str(),
+                            static_cast<int32_t>(input_string.length()), 1, &out_length);
   EXPECT_EQ(std::string(ret, out_length), "John");
 
   input_string = "Ringo Beast";
@@ -637,14 +636,16 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
 
   auto extract_holder = ExtractHolder::Make(function_node);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("'extract' function requires two or three parameters"),
+      Invalid,
+      ::testing::HasSubstr("'extract' function requires two or three parameters"),
       extract_holder.status());
 
   execution_context_.Reset();
 
   // Create function with non-utf8 literal parameter as pattern
   field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
-  auto pattern_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
+  auto pattern_node =
+      std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
   auto index_node = std::make_shared<FieldNode>(arrow::field("idx", arrow::int32()));
   function_node =
       FunctionNode("regexp_extract", {field, pattern_node, index_node}, arrow::utf8());
