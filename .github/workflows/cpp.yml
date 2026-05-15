@@ -182,67 +182,6 @@ jobs:
           cd cpp/examples/minimal_build
           docker compose run --rm minimal
 
-  bad-weak-ptr-repro:
-    name: bad_weak_ptr repro ${{ matrix.title }}
-    runs-on: ${{ matrix.runs-on }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - title: Ubuntu GCC
-            runs-on: ubuntu-24.04
-            cxx: g++
-          - title: Ubuntu Clang
-            runs-on: ubuntu-24.04
-            cxx: clang++
-          - title: macOS Clang
-            runs-on: macos-14
-            cxx: clang++
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-      - name: Build and run repro
-        shell: bash
-        run: |
-          ${{ matrix.cxx }} -v
-          ${{ matrix.cxx }} \
-            -std=gnu++20 \
-            -O2 \
-            -g \
-            -Wall \
-            -Wextra \
-            -pthread \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro
-          ./gh-49958-mingw-bad-weak-ptr-repro 10
-      - name: Build and run repro (_GLIBCXX_ASSERTIONS)
-        if: ${{ !cancelled() }}
-        shell: bash
-        run: |
-          ${{ matrix.cxx }} \
-            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
-            -D_GLIBCXX_ASSERTIONS \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro-assert
-          ./gh-49958-mingw-bad-weak-ptr-repro-assert 10
-      - name: Build and run repro (_GLIBCXX_DEBUG)
-        if: ${{ !cancelled() }}
-        shell: bash
-        run: |
-          ${{ matrix.cxx }} \
-            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
-            -D_GLIBCXX_DEBUG \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro-debug \
-            || echo "build with -D_GLIBCXX_DEBUG failed (this is data, not blocking)"
-          if [ -x ./gh-49958-mingw-bad-weak-ptr-repro-debug ]; then
-            ./gh-49958-mingw-bad-weak-ptr-repro-debug 10
-          fi
-
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
     runs-on: macos-${{ matrix.macos-version }}
@@ -371,10 +310,8 @@ jobs:
         include:
           - msystem_lower: mingw64
             msystem_upper: MINGW64
-            cxx: g++
           - msystem_lower: clang64
             msystem_upper: CLANG64
-            cxx: clang++
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
@@ -429,66 +366,55 @@ jobs:
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
-      - name: Run bad_weak_ptr repro
+      - name: Patch MSYS2 GCC atomic word builtins
+        # Diagnostic workaround for GCC Bug #125312 / GH-49958:
+        # GCC r16-427's configure test for _GLIBCXX_ATOMIC_WORD_BUILTINS uses a POSIX-style
+        # absolute path the Windows GCC being built can't open. libstdc++ falls back
+        # to non-lock-free atomic refcount ops
+        if: matrix.msystem_upper == 'MINGW64'
         shell: msys2 {0}
         run: |
-          ${{ matrix.cxx }} -v
-          ${{ matrix.cxx }} \
+          set -ex
+          g++ -v
+          pacman -Q "${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-gcc-libs"
+
+          config_header="$(
+            find "${MINGW_PREFIX}/include/c++" \
+              -path "*/${MINGW_CHOST}/bits/c++config.h" \
+              -print \
+              -quit
+          )"
+          test -n "${config_header}"
+
+          grep -n "GLIBCXX_ATOMIC_WORD_BUILTINS" "${config_header}" || true
+          cp "${config_header}" "${config_header}.before-gh-49958"
+
+          if grep -q "^#define _GLIBCXX_ATOMIC_WORD_BUILTINS 1" "${config_header}"; then
+            echo "_GLIBCXX_ATOMIC_WORD_BUILTINS already defined"
+          elif grep -q "^/\* #undef _GLIBCXX_ATOMIC_WORD_BUILTINS \*/" "${config_header}"; then
+            sed -i \
+              's|^/\* #undef _GLIBCXX_ATOMIC_WORD_BUILTINS \*/|#define _GLIBCXX_ATOMIC_WORD_BUILTINS 1|' \
+              "${config_header}"
+          else
+            printf "\n#define _GLIBCXX_ATOMIC_WORD_BUILTINS 1\n" >> "${config_header}"
+          fi
+
+          grep -n "GLIBCXX_ATOMIC_WORD_BUILTINS" "${config_header}"
+      - name: Run bad_weak_ptr repro
+        if: matrix.msystem_upper == 'MINGW64'
+        shell: msys2 {0}
+        run: |
+          set -ex
+          g++ \
             -std=gnu++20 \
             -O2 \
             -g \
             -Wall \
             -Wextra \
             -pthread \
-            -save-temps=cwd \
             cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
             -o gh-49958-mingw-bad-weak-ptr-repro.exe
-          ls -la ./gh-49958-mingw-bad-weak-ptr-repro.exe || echo "BINARY NOT FOUND"
-          ./gh-49958-mingw-bad-weak-ptr-repro.exe 30 || rc=$?
-          echo "===== program exit: ${rc:-0} ====="
-          exit "${rc:-0}"
-      - name: Run bad_weak_ptr repro (_GLIBCXX_ASSERTIONS)
-        if: ${{ !cancelled() }}
-        shell: msys2 {0}
-        run: |
-          ${{ matrix.cxx }} \
-            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
-            -D_GLIBCXX_ASSERTIONS \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro-assert.exe
-          ./gh-49958-mingw-bad-weak-ptr-repro-assert.exe 30
-      - name: Run bad_weak_ptr repro (_GLIBCXX_DEBUG)
-        if: ${{ !cancelled() }}
-        shell: msys2 {0}
-        run: |
-          ${{ matrix.cxx }} \
-            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
-            -D_GLIBCXX_DEBUG \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro-debug.exe \
-            || echo "build with -D_GLIBCXX_DEBUG failed (this is data, not blocking)"
-          if [ -x ./gh-49958-mingw-bad-weak-ptr-repro-debug.exe ]; then
-            ./gh-49958-mingw-bad-weak-ptr-repro-debug.exe 30
-          fi
-      - name: Run bad_weak_ptr repro (compiler disable optim. flags)
-        if: ${{ !cancelled() && matrix.msystem_lower == 'mingw64' }}
-        shell: msys2 {0}
-        run: |
-          ${{ matrix.cxx }} \
-            -std=gnu++20 -O2 -g -Wall -Wextra -pthread \
-            -fno-strict-aliasing -fwrapv -fno-aggressive-loop-optimizations \
-            cpp/tools/gh-49958-mingw-bad-weak-ptr-repro.cc \
-            -o gh-49958-mingw-bad-weak-ptr-repro-noub.exe
-          ./gh-49958-mingw-bad-weak-ptr-repro-noub.exe 30
-      - name: Upload preprocessed source for Bugzilla
-        if: ${{ !cancelled() && matrix.msystem_lower == 'mingw64' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: gh-49958-mingw64-preprocessed
-          path: |
-            gh-49958-mingw-bad-weak-ptr-repro.ii
-            gh-49958-mingw-bad-weak-ptr-repro.s
-          if-no-files-found: warn
+          ./gh-49958-mingw-bad-weak-ptr-repro.exe 30
       - name: Cache ccache
         uses: actions/cache@v5
         with:
