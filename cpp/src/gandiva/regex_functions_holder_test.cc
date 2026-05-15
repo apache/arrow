@@ -604,6 +604,58 @@ TEST_F(TestExtractHolder, TestExtractInvalidPattern) {
   execution_context_.Reset();
 }
 
+TEST_F(TestExtractHolder, TestEmptyInput) {
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"((\w+))"));
+  auto& extract = *extract_holder;
+  int32_t out_length = 0;
+
+  const char* ret = extract(&execution_context_, "", 0, 0, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "");
+  EXPECT_FALSE(execution_context_.has_error());
+}
+
+TEST_F(TestExtractHolder, TestOptionalGroup) {
+  // (a)?(b): group 1 is optional; when input is "b" it doesn't participate
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"((a)?(b))"));
+  auto& extract = *extract_holder;
+  int32_t out_length = 0;
+
+  std::string input = "b";
+  const char* ret = extract(&execution_context_, input.c_str(),
+                            static_cast<int32_t>(input.size()), 1, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "");
+  EXPECT_FALSE(execution_context_.has_error());
+
+  ret = extract(&execution_context_, input.c_str(), static_cast<int32_t>(input.size()), 2,
+                &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "b");
+
+  input = "ab";
+  ret = extract(&execution_context_, input.c_str(), static_cast<int32_t>(input.size()), 1,
+                &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "a");
+}
+
+TEST_F(TestExtractHolder, TestNoUserGroups) {
+  // Pattern with no user capturing groups — only the outer wrapper group exists.
+  // Index 0 returns the full match; index 1 is out of range.
+  EXPECT_OK_AND_ASSIGN(auto extract_holder, ExtractHolder::Make(R"(\d+)"));
+  auto& extract = *extract_holder;
+  int32_t out_length = 0;
+
+  std::string input = "abc123def";
+  const char* ret = extract(&execution_context_, input.c_str(),
+                            static_cast<int32_t>(input.size()), 0, &out_length);
+  EXPECT_EQ(std::string(ret, out_length), "123");
+  EXPECT_FALSE(execution_context_.has_error());
+
+  ret = extract(&execution_context_, input.c_str(), static_cast<int32_t>(input.size()), 1,
+                &out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_TRUE(execution_context_.has_error());
+  execution_context_.Reset();
+}
+
 TEST_F(TestExtractHolder, TestDefaultIndexExtract) {
   // 2-arg form defaults to index 1 (first capture group)
   auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
