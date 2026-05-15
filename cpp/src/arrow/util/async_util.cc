@@ -23,6 +23,7 @@
 #include "arrow/util/tracing_internal.h"
 
 #include <condition_variable>
+#include <exception>
 #include <list>
 #include <memory>
 #include <mutex>
