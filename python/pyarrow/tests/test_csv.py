@@ -2184,7 +2184,7 @@ def test_write_dataset_uses_csv_parse_delimiter(tmp_path):
 
     with open(tmp_path / "part-0.csv") as fh:
         content = fh.read()
-    assert content == "B>C\nB1>C1\nB2>C2\n"
+    assert content == '"B">"C"\n"B1">"C1"\n"B2">"C2"\n'
 
     # Roundtrip: reading back with the same delimiter recovers the table
     result = ds.dataset(tmp_path, format=csv_format).to_table()
