@@ -883,6 +883,7 @@ def create_encryption_properties(
     cdef:
         c_string c_footer_key_str
         CSecureString c_footer_key
+        CFileEncryptionPropertiesBuilder* builder
         shared_ptr[CFileEncryptionProperties] props
         ParquetCipher cipher
 
@@ -898,23 +899,25 @@ def create_encryption_properties(
     cipher = cipher_from_name(encryption_algorithm)
     c_footer_key_str = <c_string>footer_key
     c_footer_key = CSecureString(move(c_footer_key_str))
-    cdef CFileEncryptionPropertiesBuilder builder = \
-        CFileEncryptionPropertiesBuilder(c_footer_key)
+    builder = new CFileEncryptionPropertiesBuilder(c_footer_key)
+    try:
+        builder.algorithm(cipher)
 
-    builder.algorithm(cipher)
+        if aad_prefix is not None:
+            if not isinstance(aad_prefix, bytes):
+                raise TypeError(
+                    f"aad_prefix must be bytes, not "
+                    f"{type(aad_prefix).__name__}"
+                )
+            builder.aad_prefix(<c_string>aad_prefix)
+            if not store_aad_prefix:
+                builder.disable_aad_prefix_storage()
 
-    if aad_prefix is not None:
-        if not isinstance(aad_prefix, bytes):
-            raise TypeError(
-                f"aad_prefix must be bytes, not {type(aad_prefix).__name__}"
-            )
-        builder.aad_prefix(<c_string>aad_prefix)
-        if not store_aad_prefix:
-            builder.disable_aad_prefix_storage()
+        if plaintext_footer:
+            builder.set_plaintext_footer()
 
-    if plaintext_footer:
-        builder.set_plaintext_footer()
-
-    props = builder.build()
+        props = builder.build()
+    finally:
+        del builder
 
     return FileEncryptionProperties.wrap(props)
