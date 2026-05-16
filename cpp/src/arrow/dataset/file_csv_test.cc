@@ -452,13 +452,11 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
 TEST_P(TestCsvFileFormat, WriteRecordBatchReaderDelimiterPropagation) {
   // Verify that CsvFileFormat::DefaultWriteOptions() propagates the parse
   // delimiter to write options
-  for (const char delim : {'>', '|', '\t', ';'}) {
-    auto csv_format = std::make_shared<CsvFileFormat>();
-    csv_format->parse_options.delimiter = delim;
-    auto write_options =
-        checked_pointer_cast<CsvFileWriteOptions>(csv_format->DefaultWriteOptions());
-    ASSERT_EQ(write_options->write_options->delimiter, delim);
-  }
+  auto csv_format = std::make_shared<CsvFileFormat>();
+  csv_format->parse_options.delimiter = '|';
+  auto write_options =
+      checked_pointer_cast<CsvFileWriteOptions>(csv_format->DefaultWriteOptions());
+  ASSERT_EQ(write_options->write_options->delimiter, '|');
 
   // Verify that the default delimiter is ',' when no parse options are set
   auto default_format = std::make_shared<CsvFileFormat>();

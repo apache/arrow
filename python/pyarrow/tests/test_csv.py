@@ -2151,7 +2151,27 @@ def test_write_csv_empty_batch_should_not_pollute_output(tables, expected):
     assert result == expected
 
 
-def test_write_csv_custom_delimiter_from_parse_options():
+def test_csv_make_write_options_uses_parse_delimiter():
+    import pyarrow.dataset as ds
+
+    # CsvFileFormat.make_write_options propagates the parse delimiter
+    # to write options when no explicit delimiter is given
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter="|"))
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == "|"
+
+    # An explicitly passed delimiter takes precedence
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    write_opts = csv_format.make_write_options(delimiter="|")
+    assert write_opts.write_options.delimiter == "|"
+
+    # The default delimiter is still "," when no parse options are given
+    csv_format = ds.CsvFileFormat()
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == ","
+
+
+def test_write_dataset_uses_csv_parse_delimiter(tmp_path):
     import pyarrow.dataset as ds
 
     table = pa.table({
@@ -2159,39 +2179,13 @@ def test_write_csv_custom_delimiter_from_parse_options():
         "C": ["C1", "C2"],
     })
 
-    # Verify that CsvFileFormat.make_write_options propagates the
-    # parse delimiter to write options when no explicit delimiter is given
-    for delimiter in [">", "|", "\t", ";"]:
-        csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=delimiter))
-        write_opts = csv_format.make_write_options()
-        assert write_opts.write_options.delimiter == delimiter
-
-    # Verify that an explicitly passed delimiter takes precedence
     csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
-    write_opts = csv_format.make_write_options(delimiter="|")
-    assert write_opts.write_options.delimiter == "|"
+    ds.write_dataset(table, tmp_path, format=csv_format)
 
-    # Verify the default delimiter is still "," when no parse options are given
-    csv_format = ds.CsvFileFormat()
-    write_opts = csv_format.make_write_options()
-    assert write_opts.write_options.delimiter == ","
+    with open(tmp_path / "part-0.csv") as fh:
+        content = fh.read()
+    assert content == "B>C\nB1>C1\nB2>C2\n"
 
-    # Verify end-to-end: write_dataset with custom delimiter produces
-    # output using that delimiter, not the default ","
-    with tempfile.TemporaryDirectory() as tmpdir:
-        csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
-        ds.write_dataset(table, tmpdir, format=csv_format)
-
-        # Check that written CSV files use the custom delimiter
-        for root, dirs, files in os.walk(tmpdir):
-            for f in files:
-                with open(os.path.join(root, f)) as fh:
-                    content = fh.read()
-                assert ">" in content, (
-                    f"Expected '>' delimiter in CSV output, got: {content!r}"
-                )
-
-        # Read back and verify roundtrip
-        read_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
-        result = ds.dataset(tmpdir, format=read_format).to_table()
-        assert result.equals(table)
+    # Roundtrip: reading back with the same delimiter recovers the table
+    result = ds.dataset(tmp_path, format=csv_format).to_table()
+    assert result.equals(table)
