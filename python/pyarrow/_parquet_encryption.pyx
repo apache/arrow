@@ -906,8 +906,7 @@ def create_encryption_properties(
         if aad_prefix is not None:
             if not isinstance(aad_prefix, bytes):
                 raise TypeError(
-                    f"aad_prefix must be bytes, not "
-                    f"{type(aad_prefix).__name__}"
+                    f"aad_prefix must be bytes, not {type(aad_prefix).__name__}"
                 )
             builder.aad_prefix(<c_string>aad_prefix)
             if not store_aad_prefix:
