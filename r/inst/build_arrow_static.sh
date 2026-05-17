@@ -36,7 +36,7 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-if [ "$N_JOBS" = "" ]; then
+if ! [[ "${N_JOBS:-}" =~ ^[1-9][0-9]*$ ]]; then
   if [ "`uname -s`" = "Darwin" ]; then
     N_JOBS="$(sysctl -n hw.logicalcpu)"
   else
@@ -62,9 +62,39 @@ case "$CXX" in
     ;;
 esac
 
+# When building the R package for webR/rwasm, the R toolchain points CC/CXX to
+# emcc/em++, but CMake still needs to be invoked via emcmake so it configures
+# Arrow for Emscripten instead of treating the target as a generic wasm32 host.
+ARROW_WASM_BUILD="OFF"
+CMAKE_WRAPPER=""
+case "${CC} ${CXX}" in
+  *emcc*|*em++*)
+    ARROW_WASM_BUILD="ON"
+    CMAKE_WRAPPER="emcmake"
+    ARROW_DEPENDENCY_SOURCE="BUNDLED"
+    ARROW_DEPENDENCY_USE_SHARED="OFF"
+    ARROW_ENABLE_THREADING="OFF"
+    ARROW_GCS="OFF"
+    ARROW_JEMALLOC="OFF"
+    ARROW_MIMALLOC="OFF"
+    ARROW_RUNTIME_SIMD_LEVEL="NONE"
+    ARROW_S3="OFF"
+    ARROW_SIMD_LEVEL="NONE"
+    ARROW_WITH_BROTLI="OFF"
+    ARROW_WITH_BZ2="OFF"
+    ARROW_WITH_ZSTD="OFF"
+    N_JOBS=2
+    ;;
+esac
+
+if [ "${ARROW_WASM_BUILD}" = "ON" ] && ! command -v emcmake >/dev/null 2>&1; then
+  echo "emcmake is required for Emscripten/webR builds but was not found in PATH"
+  exit 1
+fi
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
-${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
+${CMAKE_WRAPPER} ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=OFF \
@@ -74,6 +104,9 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_CSV=ON \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+    -DARROW_DEPENDENCY_USE_SHARED=${ARROW_DEPENDENCY_USE_SHARED:-ON} \
+    -DARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} \
+    -DARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
     -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
     -DBoost_SOURCE=${Boost_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
@@ -84,6 +117,8 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_JSON=${ARROW_JSON:-ON} \
     -DARROW_PARQUET=${ARROW_PARQUET:-ON} \
     -DARROW_S3=${ARROW_S3:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
+    -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-$ARROW_DEFAULT_PARAM} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-ON} \
