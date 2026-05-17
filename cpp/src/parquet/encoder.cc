@@ -875,10 +875,12 @@ class ByteStreamSplitEncoderBase : public EncoderImpl,
       return buf;
     }
     auto output_buffer = AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
-    uint8_t* output_buffer_raw = output_buffer->mutable_data();
-    const uint8_t* raw_values = sink_.data();
-    ::arrow::util::internal::ByteStreamSplitEncode(
-        raw_values, /*width=*/byte_width_, num_values_in_buffer_, output_buffer_raw);
+    if (num_values_in_buffer_ > 0) {
+      uint8_t* output_buffer_raw = output_buffer->mutable_data();
+      const uint8_t* raw_values = sink_.data();
+      ::arrow::util::internal::ByteStreamSplitEncode(
+          raw_values, /*width=*/byte_width_, num_values_in_buffer_, output_buffer_raw);
+    }
     sink_.Reset();
     num_values_in_buffer_ = 0;
     return output_buffer;

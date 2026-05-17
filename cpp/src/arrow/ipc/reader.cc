@@ -210,7 +210,7 @@ class ArrayLoader {
                              " did not start on 8-byte aligned offset: ", offset);
     }
     if (file_) {
-      return file_->ReadAt(offset, length).Value(out);
+      return file_->ReadAt(offset, length, /*allow_short_read=*/false).Value(out);
     } else {
       if (!AddWithOverflow({read_end.value(), file_offset_}).has_value()) {
         return Status::Invalid("Buffer ", buffer_index_, " exceeds IPC file area");
@@ -1874,19 +1874,15 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       return Status::Invalid("File is too small: ", footer_offset_);
     }
 
-    int file_end_size = static_cast<int>(kMagicSize + sizeof(int32_t));
+    constexpr int64_t kTotalMagicSize = kMagicSize + sizeof(int32_t);
     auto self = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
-    auto read_magic = file_->ReadAsync(footer_offset_ - file_end_size, file_end_size);
+    auto read_magic = file_->ReadAsync(footer_offset_ - kTotalMagicSize, kTotalMagicSize,
+                                       /*allow_short_read=*/false);
     if (executor) read_magic = executor->Transfer(std::move(read_magic));
     return read_magic
         .Then([=](const std::shared_ptr<Buffer>& buffer)
                   -> Future<std::shared_ptr<Buffer>> {
-          const int64_t expected_footer_size = kMagicSize + sizeof(int32_t);
-          if (buffer->size() < expected_footer_size) {
-            return Status::Invalid("Unable to read ", expected_footer_size,
-                                   "from end of file");
-          }
-
+          DCHECK_EQ(buffer->size(), kTotalMagicSize);
           const auto magic_start = buffer->data() + sizeof(int32_t);
           if (std::string_view(reinterpret_cast<const char*>(magic_start), kMagicSize) !=
               kArrowMagicBytes) {
@@ -1903,7 +1899,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
           // Now read the footer
           auto read_footer = self->file_->ReadAsync(
-              self->footer_offset_ - footer_length - file_end_size, footer_length);
+              self->footer_offset_ - footer_length - kTotalMagicSize, footer_length,
+              /*allow_short_read=*/false);
           if (executor) read_footer = executor->Transfer(std::move(read_footer));
           return read_footer;
         })
@@ -2293,7 +2290,8 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
 
   auto* indices_buffer = sparse_index->indicesBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indices_data,
-                        file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
+                        file->ReadAt(indices_buffer->offset(), indices_buffer->length(),
+                                     /*allow_short_read=*/false));
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   auto* indices_strides = sparse_index->indicesStrides();
   std::vector<int64_t> strides(2);
@@ -2329,11 +2327,13 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indptr_data,
-                        file->ReadAt(indptr_buffer->offset(), indptr_buffer->length()));
+                        file->ReadAt(indptr_buffer->offset(), indptr_buffer->length(),
+                                     /*allow_short_read=*/false));
 
   auto* indices_buffer = sparse_index->indicesBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indices_data,
-                        file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
+                        file->ReadAt(indices_buffer->offset(), indices_buffer->length(),
+                                     /*allow_short_read=*/false));
 
   std::vector<int64_t> indices_shape({non_zero_length});
   const auto indices_minimum_bytes = indices_shape[0] * indices_type->byte_width();
@@ -2384,12 +2384,13 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
       sparse_index, &axis_order, &indices_size, &indptr_type, &indices_type));
   for (int i = 0; i < static_cast<int>(indptr_buffers->size()); ++i) {
     ARROW_ASSIGN_OR_RAISE(indptr_data[i], file->ReadAt(indptr_buffers->Get(i)->offset(),
-                                                       indptr_buffers->Get(i)->length()));
+                                                       indptr_buffers->Get(i)->length(),
+                                                       /*allow_short_read=*/false));
   }
   for (int i = 0; i < static_cast<int>(indices_buffers->size()); ++i) {
-    ARROW_ASSIGN_OR_RAISE(indices_data[i],
-                          file->ReadAt(indices_buffers->Get(i)->offset(),
-                                       indices_buffers->Get(i)->length()));
+    ARROW_ASSIGN_OR_RAISE(indices_data[i], file->ReadAt(indices_buffers->Get(i)->offset(),
+                                                        indices_buffers->Get(i)->length(),
+                                                        /*allow_short_read=*/false));
   }
 
   return SparseCSFIndex::Make(indptr_type, indices_type, indices_size, axis_order,
@@ -2619,7 +2620,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
                                          &non_zero_length, &sparse_tensor_format_id,
                                          &sparse_tensor, &buffer));
 
-  ARROW_ASSIGN_OR_RAISE(auto data, file->ReadAt(buffer->offset(), buffer->length()));
+  ARROW_ASSIGN_OR_RAISE(auto data, file->ReadAt(buffer->offset(), buffer->length(),
+                                                /*allow_short_read=*/false));
 
   std::shared_ptr<SparseIndex> sparse_index;
   switch (sparse_tensor_format_id) {
@@ -2913,8 +2915,12 @@ Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
 Result<int64_t> IoRecordedRandomAccessFile::GetSize() { return file_size_; }
 
 Result<int64_t> IoRecordedRandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
-                                                   void* out) {
+                                                   bool allow_short_read, void* out) {
   auto num_bytes_read = std::min(file_size_, position + nbytes) - position;
+  if (!allow_short_read && num_bytes_read != nbytes) {
+    return Status::IOError("File too short: expected to be able to read ", nbytes,
+                           " bytes, got ", num_bytes_read);
+  }
 
   if (!read_ranges_.empty() &&
       position == read_ranges_.back().offset + read_ranges_.back().length) {
@@ -2927,11 +2933,11 @@ Result<int64_t> IoRecordedRandomAccessFile::ReadAt(int64_t position, int64_t nby
   return num_bytes_read;
 }
 
-Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::ReadAt(int64_t position,
-                                                                   int64_t nbytes) {
-  std::shared_ptr<Buffer> out;
-  auto result = ReadAt(position, nbytes, &out);
-  return out;
+Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::ReadAt(
+    int64_t position, int64_t nbytes, bool allow_short_read) {
+  // We're not supposed to actually read anything, so pass a null output pointer.
+  RETURN_NOT_OK(ReadAt(position, nbytes, allow_short_read, /*out=*/nullptr));
+  return nullptr;
 }
 
 Status IoRecordedRandomAccessFile::Close() {
@@ -2958,6 +2964,7 @@ Result<int64_t> IoRecordedRandomAccessFile::Read(int64_t nbytes, void* out) {
 
 Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
+  // Cannot use buffer->size() since a null buffer is returned...
   auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
   position_ += num_bytes_read;
   return buffer;

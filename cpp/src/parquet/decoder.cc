@@ -2307,11 +2307,13 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
  protected:
   int DecodeRaw(uint8_t* out_buffer, int max_values) {
     const int values_to_decode = std::min(this->num_values_, max_values);
-    ::arrow::util::internal::ByteStreamSplitDecode(this->data_, this->type_length_,
-                                                   values_to_decode, stride_, out_buffer);
-    this->data_ += values_to_decode;
-    this->num_values_ -= values_to_decode;
-    this->len_ -= this->type_length_ * values_to_decode;
+    if (ARROW_PREDICT_TRUE(values_to_decode > 0)) {
+      ::arrow::util::internal::ByteStreamSplitDecode(
+          this->data_, this->type_length_, values_to_decode, stride_, out_buffer);
+      this->data_ += values_to_decode;
+      this->num_values_ -= values_to_decode;
+      this->len_ -= this->type_length_ * values_to_decode;
+    }
     return values_to_decode;
   }
 

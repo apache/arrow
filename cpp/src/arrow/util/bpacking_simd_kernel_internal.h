@@ -37,12 +37,13 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 
 namespace arrow::internal::bpacking {
 
 template <typename T, std::size_t N>
-constexpr std::array<T, N> BuildConstantArray(T val) {
+ARROW_FORCE_INLINE constexpr std::array<T, N> BuildConstantArray(T val) {
   std::array<T, N> out = {};
   for (auto& v : out) {
     v = val;
@@ -51,7 +52,7 @@ constexpr std::array<T, N> BuildConstantArray(T val) {
 }
 
 template <typename Arr>
-constexpr Arr BuildConstantArrayLike(typename Arr::value_type val) {
+ARROW_FORCE_INLINE constexpr Arr BuildConstantArrayLike(typename Arr::value_type val) {
   return BuildConstantArray<typename Arr::value_type, std::tuple_size_v<Arr>>(val);
 }
 
@@ -61,7 +62,7 @@ constexpr Arr BuildConstantArrayLike(typename Arr::value_type val) {
 
 /// Simple constexpr maximum element suited for non empty arrays.
 template <typename T, std::size_t N>
-constexpr T max_value(const std::array<T, N>& arr) {
+ARROW_FORCE_INLINE constexpr T max_value(const std::array<T, N>& arr) {
   static_assert(N > 0);
   T out = 0;
   for (const T& v : arr) {
@@ -73,7 +74,8 @@ constexpr T max_value(const std::array<T, N>& arr) {
 }
 
 template <std::array kArr, typename Arch, std::size_t... Is>
-constexpr auto array_to_batch_constant_impl(std::index_sequence<Is...>) {
+ARROW_FORCE_INLINE constexpr auto array_to_batch_constant_impl(
+    std::index_sequence<Is...>) {
   using Array = std::decay_t<decltype(kArr)>;
   using value_type = typename Array::value_type;
 
@@ -82,20 +84,20 @@ constexpr auto array_to_batch_constant_impl(std::index_sequence<Is...>) {
 
 /// Make a ``xsimd::batch_constant`` from a static constexpr array.
 template <std::array kArr, typename Arch>
-constexpr auto array_to_batch_constant() {
+ARROW_FORCE_INLINE constexpr auto array_to_batch_constant() {
   return array_to_batch_constant_impl<kArr, Arch>(
       std::make_index_sequence<kArr.size()>());
 }
 
 template <typename Uint, typename Arch>
-xsimd::batch<uint8_t, Arch> load_val_as(const uint8_t* in) {
+ARROW_FORCE_INLINE xsimd::batch<uint8_t, Arch> load_val_as(const uint8_t* in) {
   const Uint val = util::SafeLoadAs<Uint>(in);
   const auto batch = xsimd::batch<Uint, Arch>(val);
   return xsimd::bitwise_cast<uint8_t>(batch);
 }
 
 template <int kBytes, typename Arch>
-xsimd::batch<uint8_t, Arch> safe_load_bytes(const uint8_t* in) {
+ARROW_FORCE_INLINE xsimd::batch<uint8_t, Arch> safe_load_bytes(const uint8_t* in) {
   if constexpr (kBytes <= sizeof(uint64_t)) {
     return load_val_as<SizedUint<kBytes>, Arch>(in);
   }
@@ -104,7 +106,7 @@ xsimd::batch<uint8_t, Arch> safe_load_bytes(const uint8_t* in) {
 }
 
 template <typename Int, int kOffset, int kLength, typename Arr>
-constexpr auto select_stride_impl(Arr shifts) {
+ARROW_FORCE_INLINE constexpr auto select_stride_impl(Arr shifts) {
   std::array<Int, shifts.size() / kLength> out{};
   for (std::size_t i = 0; i < out.size(); ++i) {
     out[i] = shifts[kLength * i + kOffset];
@@ -131,7 +133,8 @@ constexpr auto select_stride_impl(Arr shifts) {
 /// while an offset of 1 would return the values:
 ///         |1|3|5|7|
 template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
-constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
+ARROW_FORCE_INLINE constexpr auto select_stride(
+    xsimd::batch_constant<Int, Arch, kShifts...>) {
   static_assert(kOffset < sizeof(ToInt) / sizeof(Int));
   constexpr auto kStridesArr =
       select_stride_impl<ToInt, kOffset, sizeof(ToInt) / sizeof(Int)>(
@@ -163,8 +166,8 @@ constexpr bool IsNeon = std::is_base_of_v<xsimd::neon, Arch>;
 /// TODO(xsimd) Tracking in https://github.com/xtensor-stack/xsimd/pull/1220
 /// When migrating, be sure to use batch_constant overload, and not the batch one.
 template <typename Arch, typename Int, Int... kShifts>
-auto left_shift(const xsimd::batch<Int, Arch>& batch,
-                xsimd::batch_constant<Int, Arch, kShifts...> shifts)
+ARROW_FORCE_INLINE auto left_shift(const xsimd::batch<Int, Arch>& batch,
+                                   xsimd::batch_constant<Int, Arch, kShifts...> shifts)
     -> xsimd::batch<Int, Arch> {
   constexpr bool kIsSse2 = IsSse2<Arch>;
   constexpr bool kIsAvx2 = IsAvx2<Arch>;
@@ -227,8 +230,9 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
 /// integers per second through vectorization, Software Practice & Experience 45 (1),
 /// 2015. http://arxiv.org/abs/1209.2137
 template <typename Arch, typename Int, Int... kShifts>
-auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
-                           xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
+ARROW_FORCE_INLINE auto right_shift_by_excess(
+    const xsimd::batch<Int, Arch>& batch,
+    xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
   constexpr bool kIsSse2 = IsSse2<Arch>;
   constexpr bool kIsAvx2 = IsAvx2<Arch>;
   static_assert(
@@ -297,8 +301,9 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
 ///
 /// @see KernelShape
 /// @see PackedMaxSpreadBytes
-constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size,
-                                        int packed_bit_size) {
+ARROW_FORCE_INLINE constexpr bool PackedIsOversizedForSimd(int simd_bit_size,
+                                                           int unpacked_bit_size,
+                                                           int packed_bit_size) {
   const int unpacked_per_simd = simd_bit_size / unpacked_bit_size;
 
   const auto packed_per_read_for_offset = [&](int bit_offset) -> int {
@@ -382,10 +387,18 @@ struct KernelShape {
 };
 
 /// Packing all useful and derived information about a kernel in a single type.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, typename Arch>
 struct KernelTraits {
+  using unpacked_type = UnpackedUint;
+  /// The integer type to work with, `unpacked_type` or an appropriate type for bool.
+  using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
+                                       SizedUint<sizeof(bool)>, unpacked_type>;
+  using arch_type = Arch;
+  using simd_batch = xsimd::batch<uint_type, arch_type>;
+  using simd_bytes = xsimd::batch<uint8_t, arch_type>;
+
   static constexpr KernelShape kShape = {
-      .simd_bit_size_ = kSimdBitSize,
+      .simd_bit_size_ = 8 * simd_bytes ::size,
       .unpacked_bit_size_ = 8 * sizeof(UnpackedUint),
       .packed_bit_size_ = kPackedBitSize,
   };
@@ -393,20 +406,12 @@ struct KernelTraits {
   static_assert(kShape.simd_bit_size() % kShape.unpacked_bit_size() == 0);
   static_assert(0 < kShape.packed_bit_size());
   static_assert(kShape.packed_bit_size() < kShape.simd_bit_size());
-
-  using unpacked_type = UnpackedUint;
-  /// The integer type to work with, `unpacked_type` or an appropriate type for bool.
-  using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
-                                       SizedUint<sizeof(bool)>, unpacked_type>;
-  using simd_batch = xsimd::make_sized_batch_t<uint_type, kShape.unpacked_per_simd()>;
-  using simd_bytes = xsimd::make_sized_batch_t<uint8_t, kShape.simd_byte_size()>;
-  using arch_type = typename simd_batch::arch_type;
 };
 
 /// Return similar kernel traits but with a different integer unpacking type.
 template <typename KerTraits, typename Uint>
 using KernelTraitsWithUnpackUint = KernelTraits<Uint, KerTraits::kShape.packed_bit_size(),
-                                                KerTraits::kShape.simd_bit_size()>;
+                                                typename KerTraits::arch_type>;
 
 /******************
  *  MediumKernel  *
@@ -506,7 +511,8 @@ constexpr MediumKernelPlanSize MediumKernelPlanSize::Build(
 /// function advise kernel plans to read only read 64 bits.
 /// This limits restrictions set by the plan on the input memory reads built to avoid
 /// reading overflow.
-constexpr int adjust_bytes_per_read(int bits_per_read, int simd_byte_size) {
+ARROW_FORCE_INLINE constexpr int adjust_bytes_per_read(int bits_per_read,
+                                                       int simd_byte_size) {
   if (bits_per_read <= static_cast<int>(8 * sizeof(uint32_t))) {
     return sizeof(uint32_t);
   } else if (bits_per_read <= static_cast<int>(8 * sizeof(uint64_t))) {
@@ -718,7 +724,8 @@ struct MediumKernel {
   static constexpr int kBytesRead = kPlan.total_bytes_read();
 
   template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
-  static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
+  ARROW_FORCE_INLINE static void unpack_one_shift_impl(const simd_batch& words,
+                                                       unpacked_type* out) {
     constexpr auto kRightShiftsArr =
         kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
     constexpr auto kRightShifts = array_to_batch_constant<kRightShiftsArr, arch_type>();
@@ -741,8 +748,9 @@ struct MediumKernel {
   }
 
   template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
-  static void unpack_one_swizzle_impl(const simd_bytes& bytes, unpacked_type* out,
-                                      std::integer_sequence<int, kShiftIds...>) {
+  ARROW_FORCE_INLINE static void unpack_one_swizzle_impl(
+      const simd_bytes& bytes, unpacked_type* out,
+      std::integer_sequence<int, kShiftIds...>) {
     constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
     constexpr auto kSwizzles = array_to_batch_constant<kSwizzlesArr, arch_type>();
 
@@ -752,8 +760,8 @@ struct MediumKernel {
   }
 
   template <int kReadIdx, int... kSwizzleIds>
-  static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out,
-                                   std::integer_sequence<int, kSwizzleIds...>) {
+  ARROW_FORCE_INLINE static void unpack_one_read_impl(
+      const uint8_t* in, unpacked_type* out, std::integer_sequence<int, kSwizzleIds...>) {
     using ShiftSeq = std::make_integer_sequence<int, kPlanSize.shifts_per_swizzle()>;
     const auto bytes =
         safe_load_bytes<kPlan.bytes_per_read(), arch_type>(in + kPlan.reads.at(kReadIdx));
@@ -761,13 +769,13 @@ struct MediumKernel {
   }
 
   template <int... kReadIds>
-  static void unpack_all_impl(const uint8_t* in, unpacked_type* out,
-                              std::integer_sequence<int, kReadIds...>) {
+  ARROW_FORCE_INLINE static void unpack_all_impl(
+      const uint8_t* in, unpacked_type* out, std::integer_sequence<int, kReadIds...>) {
     using SwizzleSeq = std::make_integer_sequence<int, kPlanSize.swizzles_per_read()>;
     (unpack_one_read_impl<kReadIds>(in, out, SwizzleSeq{}), ...);
   }
 
-  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
     using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
     unpack_all_impl(in, out, ReadSeq{});
     return in + (kPlan.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
@@ -1005,7 +1013,8 @@ struct LargeKernel {
   static constexpr int kBytesRead = kPlan.total_bytes_read();
 
   template <int kReadIdx>
-  static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out) {
+  ARROW_FORCE_INLINE static void unpack_one_read_impl(const uint8_t* in,
+                                                      unpacked_type* out) {
     constexpr auto kLowSwizzles =
         array_to_batch_constant<kPlan.low_swizzles.at(kReadIdx), arch_type>();
     constexpr auto kLowRShifts =
@@ -1040,12 +1049,12 @@ struct LargeKernel {
   }
 
   template <int... kReadIds>
-  static void unpack_all_impl(const uint8_t* in, unpacked_type* out,
-                              std::integer_sequence<int, kReadIds...>) {
+  ARROW_FORCE_INLINE static void unpack_all_impl(
+      const uint8_t* in, unpacked_type* out, std::integer_sequence<int, kReadIds...>) {
     (unpack_one_read_impl<kReadIds>(in, out), ...);
   }
 
-  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
     using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
     unpack_all_impl(in, out, ReadSeq{});
     return in + (kPlan.kPlanSize.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
@@ -1064,7 +1073,9 @@ struct NoOpKernel {
   static constexpr int kValuesUnpacked = 0;
   static constexpr int kBytesRead = 0;
 
-  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) { return in; }
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+    return in;
+  }
 };
 
 template <typename KernelTraits, typename WorkingKernel>
@@ -1073,7 +1084,7 @@ struct CastingKernel : WorkingKernel {
 
   static constexpr int kValuesUnpacked = WorkingKernel::kValuesUnpacked;
 
-  static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
     using working_type = typename WorkingKernel::unpacked_type;
 
     working_type buffer[kValuesUnpacked] = {};
@@ -1131,8 +1142,7 @@ template <typename Traits>
 using KernelDispatch = decltype(KernelDispatchImpl<Traits>());
 
 /// The public kernel exposed for any size.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>> {
-};
+template <typename UnpackedUint, int kPackedBitSize, typename Arch>
+struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, Arch>> {};
 
 }  // namespace arrow::internal::bpacking

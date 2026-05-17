@@ -366,6 +366,40 @@ jobs:
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
+      - name: Pin MSYS2 packages
+        # Temporary workaround for #49930: gcc 16 surfaces a cluster of 5
+        # MINGW64 test failures. Pinning gcc-libs to 15.2 (and C++ packages
+        # rebuilt against gcc-libs 16.1, for ABI compatibility) avoids all
+        # of them. #49272/#49462 cover one (arrow-json-test); the other 4
+        # (async-utility-test, threading-utility-test, dataset-writer-test
+        # `bad_weak_ptr`, dataset-file-test) need separate fixes — see #49930.
+        # Remove once all 5 pass on current upstream MSYS2 without these pins
+        if: matrix.msystem_upper == 'MINGW64'
+        shell: msys2 {0}
+        run: |
+          set -ex
+          base="https://repo.msys2.org/mingw/mingw64"
+          urls=(
+            "$base/mingw-w64-x86_64-gcc-libs-15.2.0-14-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-gcc-15.2.0-14-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-aws-crt-cpp-0.38.4-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-boost-libs-1.91.0-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-boost-1.91.0-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-ccache-4.13.2-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-clang-libs-22.1.4-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-clang-22.1.4-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-cmake-4.3.2-2-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-icu-78.3-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-llvm-libs-22.1.4-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-llvm-tools-22.1.4-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-llvm-22.1.4-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-tbb-2022.3.0-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-thrift-0.22.0-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-zstd-1.5.7-1-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-gflags-2.2.2-7-any.pkg.tar.zst"
+            "$base/mingw-w64-x86_64-aws-sdk-cpp-1.11.479-1-any.pkg.tar.zst"
+          )
+          pacman -U --noconfirm "${urls[@]}"
       - name: Cache ccache
         uses: actions/cache@v5
         with:
@@ -386,12 +420,13 @@ jobs:
           # https://github.com/apache/arrow/issues/48593
           ci/scripts/download_tz_database.sh
       - name: Download MinIO
+        # Match the version pinned in ci/scripts/install_minio.sh.
         shell: msys2 {0}
         run: |
           mkdir -p /usr/local/bin
           wget \
             --output-document /usr/local/bin/minio.exe \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2025-01-20T14-49-07Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
         uses: actions/setup-python@v6

@@ -317,47 +317,69 @@ Status BufferReader::WillNeed(const std::vector<ReadRange>& ranges) {
 Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const IOContext&,
                                                         int64_t position,
                                                         int64_t nbytes) {
-  return Future<std::shared_ptr<Buffer>>::MakeFinished(DoReadAt(position, nbytes));
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(
+      DoReadAt(position, nbytes, /*allow_short_read=*/true));
 }
 
-Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* buffer) {
+Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const IOContext&,
+                                                        int64_t position, int64_t nbytes,
+                                                        bool allow_short_read) {
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(
+      DoReadAt(position, nbytes, allow_short_read));
+}
+
+Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes,
+                                       bool allow_short_read, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
-  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRange(position, nbytes, size_));
+  ARROW_ASSIGN_OR_RAISE(auto real_nbytes,
+                        internal::ValidateReadRange(position, nbytes, size_));
   DCHECK_GE(nbytes, 0);
-  if (nbytes) {
-    memcpy(buffer, data_ + position, nbytes);
+  if (!allow_short_read && real_nbytes != nbytes) {
+    return Status::IOError("File too short: expected to be able to read ", nbytes,
+                           " bytes, got ", real_nbytes);
   }
-  return nbytes;
+  if (real_nbytes) {
+    memcpy(buffer, data_ + position, real_nbytes);
+  }
+  return real_nbytes;
 }
 
-Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t nbytes) {
+Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t nbytes,
+                                                       bool allow_short_read) {
   RETURN_NOT_OK(CheckClosed());
 
-  ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRange(position, nbytes, size_));
-  DCHECK_GE(nbytes, 0);
+  ARROW_ASSIGN_OR_RAISE(auto real_nbytes,
+                        internal::ValidateReadRange(position, nbytes, size_));
+  DCHECK_GE(real_nbytes, 0);
+  if (!allow_short_read && real_nbytes != nbytes) {
+    return Status::IOError("File too short: expected to be able to read ", nbytes,
+                           " bytes, got ", real_nbytes);
+  }
 
   // Arrange for data to be paged in
   // RETURN_NOT_OK(::arrow::internal::MemoryAdviseWillNeed(
   //     {{const_cast<uint8_t*>(data_ + position), static_cast<size_t>(nbytes)}}));
 
-  if (nbytes > 0 && buffer_ != nullptr) {
-    return SliceBuffer(buffer_, position, nbytes);
+  if (real_nbytes > 0 && buffer_ != nullptr) {
+    return SliceBuffer(buffer_, position, real_nbytes);
   } else {
-    return std::make_shared<Buffer>(data_ + position, nbytes);
+    return std::make_shared<Buffer>(data_ + position, real_nbytes);
   }
 }
 
 Result<int64_t> BufferReader::DoRead(int64_t nbytes, void* out) {
   RETURN_NOT_OK(CheckClosed());
-  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, DoReadAt(position_, nbytes, out));
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                        DoReadAt(position_, nbytes, /*allow_short_read=*/true, out));
   position_ += bytes_read;
   return bytes_read;
 }
 
 Result<std::shared_ptr<Buffer>> BufferReader::DoRead(int64_t nbytes) {
   RETURN_NOT_OK(CheckClosed());
-  ARROW_ASSIGN_OR_RAISE(auto buffer, DoReadAt(position_, nbytes));
+  ARROW_ASSIGN_OR_RAISE(auto buffer,
+                        DoReadAt(position_, nbytes, /*allow_short_read=*/true));
   position_ += buffer->size();
   return buffer;
 }

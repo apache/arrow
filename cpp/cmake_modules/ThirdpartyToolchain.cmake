@@ -622,10 +622,8 @@ endif()
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
-  string(REPLACE "." "_" ARROW_CARES_BUILD_VERSION_UNDERSCORES
-                 ${ARROW_CARES_BUILD_VERSION})
   set_urls(CARES_SOURCE_URL
-           "https://github.com/c-ares/c-ares/releases/download/cares-${ARROW_CARES_BUILD_VERSION_UNDERSCORES}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+           "https://github.com/c-ares/c-ares/releases/download/v${ARROW_CARES_BUILD_VERSION}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -1934,13 +1932,6 @@ function(build_protobuf)
   list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
   message(STATUS "Building Protocol Buffers from source using FetchContent")
 
-  # Protobuf requires Abseil. Build Abseil first with OVERRIDE_FIND_PACKAGE
-  # so that protobuf doesn't build its own copy and we can reuse it on google-cloud-cpp
-  # if it's also being built.
-  if(NOT TARGET absl::strings)
-    build_absl()
-  endif()
-
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
@@ -2066,9 +2057,7 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} protobuf::libprotobuf
-      PARENT_SCOPE)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -2076,12 +2065,21 @@ function(build_protobuf)
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
+    # cross-compiled (PyArrow on emscripten) needs utf8_range bundled explicitly.
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8_range)
+
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
+    if(ABSL_VENDORED)
+      # Force protobuf to reuse Arrow's already-extracted absl source
+      # so we don't re-download and we don't have issues with multiple abseil.
+      list(APPEND PROTOBUF_HOST_CMAKE_ARGS -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON
+           "-DFETCHCONTENT_SOURCE_DIR_ABSL=${absl_SOURCE_DIR}")
+    endif()
 
     # We reuse the FetchContent downloaded source but build it with host compiler
     externalproject_add(protobuf_ep_host
@@ -2096,9 +2094,136 @@ function(build_protobuf)
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
+    # For cross-compilation along with ExternalProject we need to
+    # manually include absl deps to the bundled static libs so that
+    # they are available for the generated code in protobuf v31.
+    list(APPEND
+         ARROW_BUNDLED_STATIC_LIBS
+         absl::bad_any_cast_impl
+         absl::bad_optional_access
+         absl::bad_variant_access
+         absl::base
+         absl::city
+         absl::civil_time
+         absl::cord
+         absl::cord_internal
+         absl::cordz_functions
+         absl::cordz_handle
+         absl::cordz_info
+         absl::cordz_sample_token
+         absl::crc32c
+         absl::crc_cord_state
+         absl::crc_cpu_detect
+         absl::crc_internal
+         absl::debugging_internal
+         absl::decode_rust_punycode
+         absl::demangle_internal
+         absl::demangle_rust
+         absl::die_if_null
+         absl::examine_stack
+         absl::exponential_biased
+         absl::failure_signal_handler
+         absl::flags_commandlineflag
+         absl::flags_commandlineflag_internal
+         absl::flags_config
+         absl::flags_internal
+         absl::flags_marshalling
+         absl::flags_parse
+         absl::flags_private_handle_accessor
+         absl::flags_program_name
+         absl::flags_reflection
+         absl::flags_usage
+         absl::flags_usage_internal
+         absl::graphcycles_internal
+         absl::hash
+         absl::hashtablez_sampler
+         absl::int128
+         absl::kernel_timeout_internal
+         absl::leak_check
+         absl::log_globals
+         absl::log_initialize
+         absl::log_internal_check_op
+         absl::log_internal_conditions
+         absl::log_internal_fnmatch
+         absl::log_internal_format
+         absl::log_internal_globals
+         absl::log_internal_log_sink_set
+         absl::log_internal_message
+         absl::log_internal_nullguard
+         absl::log_internal_proto
+         absl::log_severity
+         absl::log_sink
+         absl::low_level_hash
+         absl::malloc_internal
+         absl::periodic_sampler
+         absl::poison
+         absl::random_distributions
+         absl::random_internal_distribution_test_util
+         absl::random_internal_platform
+         absl::random_internal_pool_urbg
+         absl::random_internal_randen
+         absl::random_internal_randen_hwaes
+         absl::random_internal_randen_hwaes_impl
+         absl::random_internal_randen_slow
+         absl::random_internal_seed_material
+         absl::random_seed_gen_exception
+         absl::random_seed_sequences
+         absl::raw_hash_set
+         absl::raw_logging_internal
+         absl::scoped_set_env
+         absl::spinlock_wait
+         absl::stacktrace
+         absl::status
+         absl::statusor
+         absl::str_format_internal
+         absl::strerror
+         absl::strings
+         absl::strings_internal
+         absl::symbolize
+         absl::synchronization
+         absl::throw_delegate
+         absl::time
+         absl::time_zone
+         absl::utf8_for_code_point
+         absl::vlog_config_internal)
   endif()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
+
+# Abseil must be resolved before Protobuf because Protobuf 22+ requires
+# Abseil during its own configure. See GH-49764.
+if(ARROW_WITH_GOOGLE_CLOUD_CPP
+   OR ARROW_WITH_GRPC
+   OR ARROW_WITH_PROTOBUF)
+  # Abseil 20230125 released CRC32C which is necessary for GCS builds
+  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
+  # Google Cloud C++ SDK, gRPC and any dependency that pulls Protobuf
+  # requires Abseil.
+  if(ARROW_WITH_GOOGLE_CLOUD_CPP
+     OR ARROW_ORC
+     OR ARROW_SUBSTRAIT
+     OR ARROW_WITH_OPENTELEMETRY)
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
+  else()
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
+  endif()
+  resolve_dependency(absl
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_ABSL_PC_PACKAGE_NAME}
+                     HAVE_ALT
+                     TRUE
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_ABSL_REQUIRED_VERSION})
+endif()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
@@ -2431,6 +2556,7 @@ if(ARROW_MIMALLOC)
   set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
   if(MINGW)
     # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
+    # This is still required as of mimalloc 3.3.1, tested as part of GH-49772
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
@@ -3251,30 +3377,6 @@ function(build_grpc)
       PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
-
-if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
-  # Abseil 20230125 released CRC32C which is necessary for GCS builds
-  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
-  # Google Cloud C++ SDK and gRPC require Google Abseil
-  if(ARROW_WITH_GOOGLE_CLOUD_CPP)
-    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
-    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
-  else()
-    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
-    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
-  endif()
-  resolve_dependency(absl
-                     ARROW_CMAKE_PACKAGE_NAME
-                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
-                     ARROW_PC_PACKAGE_NAME
-                     ${ARROW_ABSL_PC_PACKAGE_NAME}
-                     HAVE_ALT
-                     TRUE
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_ABSL_REQUIRED_VERSION})
-endif()
 
 if(ARROW_WITH_GRPC)
   if(NOT ARROW_ENABLE_THREADING)
