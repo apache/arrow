@@ -36,7 +36,7 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-if ! [[ "${N_JOBS:-}" =~ ^[1-9][0-9]*$ ]]; then
+if [ "$N_JOBS" = "" ]; then
   if [ "`uname -s`" = "Darwin" ]; then
     N_JOBS="$(sysctl -n hw.logicalcpu)"
   else
@@ -62,9 +62,7 @@ case "$CXX" in
     ;;
 esac
 
-# When building the R package for webR/rwasm, the R toolchain points CC/CXX to
-# emcc/em++, but CMake still needs to be invoked via emcmake so it configures
-# Arrow for Emscripten instead of treating the target as a generic wasm32 host.
+# Detect and handle Emscripten build for R-Universe
 ARROW_WASM_BUILD="OFF"
 CMAKE_WRAPPER=""
 case "${CC} ${CXX}" in
