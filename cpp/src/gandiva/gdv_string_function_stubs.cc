@@ -70,6 +70,7 @@ const char* gdv_fn_regexp_replace_utf8_utf8(
                    out_length);
 }
 
+GANDIVA_EXPORT
 const char* gdv_fn_regexp_extract_utf8_utf8(int64_t ptr, int64_t holder_ptr,
                                             const char* data, int32_t data_len,
                                             const char* /*pattern*/,
@@ -80,6 +81,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8(int64_t ptr, int64_t holder_ptr,
   return (*holder)(context, data, data_len, 1, out_length);
 }
 
+GANDIVA_EXPORT
 const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_ptr,
                                                   const char* data, int32_t data_len,
                                                   const char* /*pattern*/,
