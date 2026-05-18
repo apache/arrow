@@ -20,9 +20,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/util/string.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
@@ -85,6 +88,11 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
   std::unordered_set<std::string> native_func_duplicates;
   std::unordered_set<std::string> func_sigs;
   std::unordered_set<std::string> func_sig_duplicates;
+  // (name, param-types) -> ret_type seen first; ignores return type to detect
+  // call-shape ambiguity, where the same user-facing call could resolve to two
+  // functions with different return types.
+  std::unordered_map<std::string, std::string> call_shapes;
+  std::unordered_set<std::string> call_shape_duplicates;
   for (const auto& native_func_it : *registry_) {
     auto& first_sig = native_func_it.signatures().front();
     auto pc_func_sig = FunctionSignature(native_func_it.pc_name(),
@@ -102,6 +110,25 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
         func_sigs.insert(sig_str);
       } else {
         func_sig_duplicates.insert(sig_str);
+      }
+
+      std::ostringstream key_stream;
+      key_stream << arrow::internal::AsciiToLower(sig.base_name()) << "(";
+      bool first = true;
+      for (const auto& p : sig.param_types()) {
+        if (!first) key_stream << ", ";
+        key_stream << p->ToString();
+        first = false;
+      }
+      key_stream << ")";
+      auto call_shape = key_stream.str();
+      auto ret_str = sig.ret_type()->ToString();
+      auto it = call_shapes.find(call_shape);
+      if (it == call_shapes.end()) {
+        call_shapes.emplace(call_shape, ret_str);
+      } else if (it->second != ret_str) {
+        call_shape_duplicates.insert(call_shape + " resolves to both " + it->second +
+                                     " and " + ret_str);
       }
     }
   }
@@ -121,5 +148,14 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
       << "The following signatures are defined more than once possibly pointing to "
          "different precompiled functions:\n"
       << stream.str();
+
+  std::ostringstream shape_stream;
+  std::copy(call_shape_duplicates.begin(), call_shape_duplicates.end(),
+            std::ostream_iterator<std::string>(shape_stream, "\n"));
+  EXPECT_TRUE(call_shape_duplicates.empty())
+      << "The following calls have the same name and parameter types but different "
+         "return types, so callers will get different results depending on the inferred "
+         "return type:\n"
+      << shape_stream.str();
 }
 }  // namespace gandiva

@@ -21,7 +21,7 @@
 
 namespace gandiva {
 
-#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                 \
+#define DATE_EXTRACTION_FNS(INNER, name)                                            \
   DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),    \
       DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}), \
       DATE_TYPES(INNER, name##Quarter, ({"quarter"})),                              \
@@ -31,6 +31,14 @@ namespace gandiva {
       DATE_TYPES(INNER, name##Hour, {"hour"}),                                      \
       DATE_TYPES(INNER, name##Minute, {"minute"}),                                  \
       DATE_TYPES(INNER, name##Second, {"second"})
+
+#define DATE_TRUNCATION_FNS(INNER, name)                                         \
+  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}), \
+      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {}),    \
+      DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {}),  \
+      DATE_TYPES(INNER, name##Week, {}), DATE_TYPES(INNER, name##Day, {}),       \
+      DATE_TYPES(INNER, name##Hour, {}), DATE_TYPES(INNER, name##Minute, {}),    \
+      DATE_TYPES(INNER, name##Second, {})
 
 #define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
@@ -51,8 +59,8 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
       UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, month_interval),
-      DATE_EXTRACTION_TRUNCATION_FNS(EXTRACT_SAFE_NULL_IF_NULL, extract),
-      DATE_EXTRACTION_TRUNCATION_FNS(TRUNCATE_SAFE_NULL_IF_NULL, date_trunc_),
+      DATE_EXTRACTION_FNS(EXTRACT_SAFE_NULL_IF_NULL, extract),
+      DATE_TRUNCATION_FNS(TRUNCATE_SAFE_NULL_IF_NULL, date_trunc_),
 
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDoy, {}),
       DATE_TYPES(EXTRACT_SAFE_NULL_IF_NULL, extractDow, {}),
