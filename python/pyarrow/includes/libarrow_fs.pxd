@@ -93,7 +93,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         "arrow::fs::FileSystemFromUriOrPath"(const c_string& uri,
                                              c_string* out_path)
 
-    c_bool CIsLikelyUri "arrow::fs::IsLikelyUri"(cpp_string_view path)
+    c_bool CIsLikelyUri "arrow::fs::IsLikelyUri"(const c_string& path)
 
     cdef cppclass CFileSystemGlobalOptions \
             "arrow::fs::FileSystemGlobalOptions":

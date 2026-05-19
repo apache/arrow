@@ -89,7 +89,7 @@ def _is_likely_uri(path):
     if not isinstance(path, str):
         raise TypeError("Path must be a string")
     c_path = tobytes(path)
-    return CIsLikelyUri(cpp_string_view(c_path))
+    return CIsLikelyUri(c_path)
 
 
 cdef class FileInfo(_Weakrefable):
