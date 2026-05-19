@@ -651,9 +651,9 @@ tasks:
       env:
         CMAKE_BUILD_TYPE: MinSizeRel
 
-  test-r-r-universe-wasm:
+  test-r-wasm:
     ci: github
-    template: r/github.linux.r-universe.wasm.yml
+    template: r/github.linux.r-wasm.yml
 
   test-r-devdocs:
     ci: github
