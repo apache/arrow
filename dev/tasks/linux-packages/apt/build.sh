@@ -84,10 +84,11 @@ if which ccache > /dev/null 2>&1; then
     debuild_options+=(--prepend-path=/usr/lib/ccache)
   fi
 fi
-# Use a fixed build directory name instead of mktemp's random suffix.
+# Temporarily use a fixed build directory name instead of mktemp's random suffix.
 # c_glib's meson generates pkgconfig files that bake the absolute
 # build-tree path into Libs.private, so a random suffix breaks
 # reproducibility across reprotest runs.
+# TODO: Move to a random subdirectory, see: GH-49987
 build_dir="${build_root_dir}/package"
 run mkdir -p "${build_dir}"
 run pushd "${build_dir}"

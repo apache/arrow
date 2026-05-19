@@ -85,21 +85,21 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
-    timeout-minutes: 120
+    timeout-minutes: 160
     strategy:
       fail-fast: false
       matrix:
         id:
-          # - almalinux-8-amd64
-          # - almalinux-8-arm64
-          # - almalinux-9-amd64
-          # - almalinux-9-arm64
-          # - almalinux-10-amd64
-          # - almalinux-10-arm64
-          # - amazon-linux-2023-amd64
-          # - amazon-linux-2023-arm64
-          # - centos-9-stream-amd64
-          # - centos-9-stream-arm64
+          - almalinux-8-amd64
+          - almalinux-8-arm64
+          - almalinux-9-amd64
+          - almalinux-9-arm64
+          - almalinux-10-amd64
+          - almalinux-10-arm64
+          - amazon-linux-2023-amd64
+          - amazon-linux-2023-arm64
+          - centos-9-stream-amd64
+          - centos-9-stream-arm64
           - debian-bookworm-amd64
           - debian-bookworm-arm64
           - debian-trixie-amd64
@@ -245,21 +245,6 @@ jobs:
           dev/release/utils-watch-gh-workflow.sh \
             ${GITHUB_REF_NAME} \
             release_candidate.yml
-      - name: Verify Reproducibility
-        if: env.TASK_NAMESPACE == 'apt'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          rake -C dev/tasks/linux-packages docker:pull || :
-          # Validate reproducibility. Reprotest runs the build twice
-          # inside its own tempdir and doesn't copy artifacts back,
-          # so this is purely a verification step.
-          reprotest \
-            --vary=-fileordering \
-            --build-command \
-              "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
-            "${PWD}" \
-            "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
       - name: Build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -349,6 +334,21 @@ jobs:
           pushd dev/tasks/linux-packages
           rake --trace ${TASK_NAMESPACE}:test
           popd
+      - name: Verify Reproducibility
+        if: env.TASK_NAMESPACE == 'apt'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rake -C dev/tasks/linux-packages docker:pull || :
+          # Validate reproducibility. Reprotest runs the build twice
+          # inside its own tempdir and doesn't copy artifacts back,
+          # so this is purely a verification step.
+          reprotest \
+            --vary=-fileordering \
+            --build-command \
+              "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+            "${PWD}" \
+            "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
 
   report-package-linux:
     if: github.event_name == 'schedule' && always()
