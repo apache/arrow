@@ -99,6 +99,33 @@ TEST_F(TestFunctionRegistry, TestAddCallShapeCollisionLogsAndKeepsBoth) {
   EXPECT_EQ(fn_int64->pc_name(), "foo_int32_to_int64");
 }
 
+TEST_F(TestFunctionRegistry, TestAddCallShapeCollisionAcrossDecimalPrecision) {
+  // FunctionSignature::operator== treats decimals as equal when byte_width matches,
+  // regardless of precision/scale. The alias-collision diagnostic must use the same
+  // identity rule, so two registrations differing only in decimal precision/scale
+  // should still be flagged.
+  auto registry = std::make_unique<FunctionRegistry>();
+  auto buffer = arrow::Buffer::FromString("");
+
+  NativeFunction precise("foo", {}, DataTypeVector{arrow::decimal128(10, 2)},
+                         arrow::int32(), kResultNullIfNull, "foo_decimal128_precise");
+  NativeFunction wide("foo", {}, DataTypeVector{arrow::decimal128(18, 4)},
+                      arrow::int64(), kResultNullIfNull, "foo_decimal128_wide");
+
+  ARROW_EXPECT_OK(registry->Register({precise}, buffer));
+
+  testing::internal::CaptureStderr();
+  ARROW_EXPECT_OK(registry->Register({wide}, buffer));
+  std::string log = testing::internal::GetCapturedStderr();
+
+  EXPECT_NE(log.find("Function alias collision"), std::string::npos)
+      << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_decimal128_precise"), std::string::npos)
+      << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_decimal128_wide"), std::string::npos)
+      << "stderr was: " << log;
+}
+
 TEST_F(TestFunctionRegistry, TestFound) {
   FunctionSignature add_i32_i32("add", {arrow::int32(), arrow::int32()}, arrow::int32());
 

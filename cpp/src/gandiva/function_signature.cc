@@ -121,7 +121,13 @@ std::string FunctionSignature::CallShape() const {
     if (i > 0) {
       s << ", ";
     }
-    s << param_types_[i]->ToString();
+    const auto& p = param_types_[i];
+    if (p->id() == arrow::Type::DECIMAL) {
+      // Precision/scale aren't part of signature identity (see operator==).
+      s << "decimal" << (p->byte_width() * 8);
+    } else {
+      s << p->ToString();
+    }
   }
   s << ")";
   return s.str();
