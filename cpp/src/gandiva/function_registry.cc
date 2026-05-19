@@ -17,16 +17,12 @@
 
 #include "gandiva/function_registry.h"
 
-#include <sstream>
-#include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <llvm/Support/MemoryBuffer.h>
 
 #include "arrow/util/logging.h"
-#include "arrow/util/string.h"
 #include "gandiva/function_registry_arithmetic.h"
 #include "gandiva/function_registry_datetime.h"
 #include "gandiva/function_registry_hash.h"
@@ -88,23 +84,6 @@ const NativeFunction* FunctionRegistry::LookupSignature(
   return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
-namespace {
-// Build a key from a signature's name + parameter types only (ignoring return type),
-// to detect functions that share the same call-site shape but differ in return type.
-std::string CallShapeKey(const FunctionSignature& sig) {
-  std::stringstream s;
-  s << arrow::internal::AsciiToLower(sig.base_name()) << "(";
-  bool first = true;
-  for (const auto& p : sig.param_types()) {
-    if (!first) s << ",";
-    s << static_cast<int>(p->id());
-    first = false;
-  }
-  s << ")";
-  return s.str();
-}
-}  // namespace
-
 Status FunctionRegistry::Add(NativeFunction func) {
   if (pc_registry_.size() == kMaxFunctionSignatures) {
     return Status::CapacityError("Exceeded max function signatures limit of ",
@@ -126,7 +105,7 @@ Status FunctionRegistry::Add(NativeFunction func) {
     // differs — these are technically distinct entries in the signature map, but
     // they create ambiguity at the SQL surface (e.g. `day(timestamp)` resolving
     // to either extractDay → int64 or truncateDay → timestamp).
-    auto shape_key = CallShapeKey(func_signature);
+    auto shape_key = func_signature.CallShape();
     auto shape_it = call_shape_map_.find(shape_key);
     if (shape_it != call_shape_map_.end()) {
       ARROW_LOG(ERROR) << "Function alias collision: " << func_signature.ToString()

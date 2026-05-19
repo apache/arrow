@@ -25,7 +25,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "arrow/util/string.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
@@ -112,16 +111,7 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
         func_sig_duplicates.insert(sig_str);
       }
 
-      std::ostringstream key_stream;
-      key_stream << arrow::internal::AsciiToLower(sig.base_name()) << "(";
-      bool first = true;
-      for (const auto& p : sig.param_types()) {
-        if (!first) key_stream << ", ";
-        key_stream << p->ToString();
-        first = false;
-      }
-      key_stream << ")";
-      auto call_shape = key_stream.str();
+      auto call_shape = sig.CallShape();
       auto ret_str = sig.ret_type()->ToString();
       auto it = call_shapes.find(call_shape);
       if (it == call_shapes.end()) {
