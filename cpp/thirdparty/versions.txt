@@ -92,11 +92,10 @@ ARROW_ORC_BUILD_VERSION=2.2.1
 ARROW_ORC_BUILD_SHA256_CHECKSUM=52fc762332442e8b05d7182f8c035f9e04d945b9a52be22ab69f28b3f37d4500
 ARROW_PROTOBUF_BUILD_VERSION=v31.1
 ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM=12bfd76d27b9ac3d65c00966901609e020481b9474ef75c7ff4601ac06fa0b82
-# Because of https://github.com/Tencent/rapidjson/pull/1323, we require
-# a pre-release version of RapidJSON to build with GCC 8 without
-# warnings.
-ARROW_RAPIDJSON_BUILD_VERSION=232389d4f1012dddec4ef84861face2d2ba85709
-ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM=b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
+# Because of https://github.com/Tencent/rapidjson/pull/1323 and https://github.com/Tencent/rapidjson/pull/1901,
+# we require a pre-release version of RapidJSON to build with GCC 8 without warnings, and to use CMake 4.0.
+ARROW_RAPIDJSON_BUILD_VERSION=24b5e7a8b27f42fa16b96fc70aade9106cf7102f
+ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM=2d2601a82d2d3b7e143a3c8d43ef616671391034bc46891a9816b79cf2d3e7a8
 # RE2 2023-03-01 is pinned to avoid Abseil dependency. Versions after 2023-06-01
 # require Abseil, which would add significant build time and complexity, particularly
 # for CRAN builds. This version includes musl libc support (GH-48010).
