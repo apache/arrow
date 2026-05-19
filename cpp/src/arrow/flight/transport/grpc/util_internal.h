@@ -17,10 +17,27 @@
 
 #pragma once
 
+#include <grpcpp/version_info.h>
+
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/util/macros.h"
+
+#if defined(GRPC_CPP_VERSION_MAJOR) && defined(GRPC_CPP_VERSION_MINOR) && \
+    defined(GRPC_CPP_VERSION_PATCH)
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch)                            \
+    ((GRPC_CPP_VERSION_MAJOR > (major) ||                                        \
+      (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) || \
+      ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
+        GRPC_CPP_VERSION_PATCH >= (patch)))))
+#else
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch) 0
+#endif
+
+#if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+#  include <absl/status/status.h>
+#endif
 
 namespace grpc {
 
@@ -33,12 +50,6 @@ namespace arrow {
 class Status;
 
 namespace flight {
-
-#define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
-  ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
-    (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
-    ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
-      GRPC_CPP_VERSION_PATCH >= (patch)))))
 
 #define GRPC_RETURN_NOT_OK(expr)                                 \
   do {                                                           \
