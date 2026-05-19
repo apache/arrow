@@ -18,11 +18,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/accessors/binary_array_accessor.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
-TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Basic) {
+TEST(BinaryArrayAccessor, TestCDataTypeBinaryBasic) {
   std::vector<std::string> values = {"foo", "barx", "baz123"};
   std::shared_ptr<Array> array;
   ArrayFromVector<BinaryType, std::string>(values, &array);
@@ -53,7 +54,7 @@ TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Basic) {
   }
 }
 
-TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Truncation) {
+TEST(BinaryArrayAccessor, TestCDataTypeBinaryTruncation) {
   std::vector<std::string> values = {"ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEF"};
   std::shared_ptr<Array> array;
   ArrayFromVector<BinaryType, std::string>(values, &array);

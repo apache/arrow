@@ -18,7 +18,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/address_info.h"
 #include <cstdint>
 
-namespace driver {
+namespace arrow::flight::sql::odbc {
 
 bool AddressInfo::GetAddressInfo(const std::string& host, char* host_name_info,
                                  int64_t max_host) {
@@ -47,4 +47,5 @@ AddressInfo::~AddressInfo() {
 }
 
 AddressInfo::AddressInfo() : addrinfo_result_(nullptr) {}
-}  // namespace driver
+
+}  // namespace arrow::flight::sql::odbc

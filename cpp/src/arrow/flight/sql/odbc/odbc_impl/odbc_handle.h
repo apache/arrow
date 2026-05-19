@@ -17,13 +17,14 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbc_impl/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbc_impl/platform.h>
+// platform.h includes windows.h, so it needs to be included first
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include <sql.h>
 #include <sqltypes.h>
 #include <functional>
 #include <mutex>
+#include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
 
 /**
  * @brief An abstraction over a generic ODBC handle.

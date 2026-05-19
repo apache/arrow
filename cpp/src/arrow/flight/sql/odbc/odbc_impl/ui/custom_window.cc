@@ -25,6 +25,7 @@
 #include <commctrl.h>
 
 #include <wtypes.h>
+#include <cassert>
 #include <sstream>
 
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"

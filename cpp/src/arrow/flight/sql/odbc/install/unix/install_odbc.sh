@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Used by macOS ODBC installer script `install_odbc_ini.sh` and macOS ODBC testing
+# Used by arrow/cpp/src/arrow/flight/sql/odbc/install/mac/postinstall
 
 set -euo pipefail
 
@@ -42,20 +42,20 @@ fi
 
 case "$(uname)" in
   Linux)
-    USER_ODBCINST_FILE="/etc/odbcinst.ini"
+    SYSTEM_ODBCINST_FILE="/etc/odbcinst.ini"
     ;;
   *)
     # macOS
-    USER_ODBCINST_FILE="$HOME/Library/ODBC/odbcinst.ini"
-    mkdir -p "$HOME"/Library/ODBC
+    SYSTEM_ODBCINST_FILE="/Library/ODBC/odbcinst.ini"
+    mkdir -p /Library/ODBC
     ;;
 esac
 
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
 
-touch "$USER_ODBCINST_FILE"
+touch "$SYSTEM_ODBCINST_FILE"
 
-if grep -q "^\[$DRIVER_NAME\]" "$USER_ODBCINST_FILE"; then
+if grep -q "^\[$DRIVER_NAME\]" "$SYSTEM_ODBCINST_FILE"; then
   echo "Driver [$DRIVER_NAME] already exists in odbcinst.ini"
 else
   echo "Adding [$DRIVER_NAME] to odbcinst.ini..."
@@ -63,17 +63,24 @@ else
 [$DRIVER_NAME]
 Description=An ODBC Driver for Apache Arrow Flight SQL
 Driver=$ODBC_64BIT
-" >>"$USER_ODBCINST_FILE"
+" >>"$SYSTEM_ODBCINST_FILE"
 fi
 
 # Check if [ODBC Drivers] section exists
-if grep -q '^\[ODBC Drivers\]' "$USER_ODBCINST_FILE"; then
+if grep -q '^\[ODBC Drivers\]' "$SYSTEM_ODBCINST_FILE"; then
   # Section exists: check if driver entry exists
-  if ! grep -q "^${DRIVER_NAME}=" "$USER_ODBCINST_FILE"; then
+  if ! grep -q "^${DRIVER_NAME}=" "$SYSTEM_ODBCINST_FILE"; then
     # Driver entry does not exist, add under [ODBC Drivers]
-    sed -i '' "/^\[ODBC Drivers\]/a\\
-${DRIVER_NAME}=Installed
-" "$USER_ODBCINST_FILE"
+
+    awk -v driver="$DRIVER_NAME" '
+      $0 ~ /^\[ODBC Drivers\]/ && !inserted {
+        print
+        print driver "=Installed"
+        inserted=1
+        next
+      }
+      { print }
+    ' "$SYSTEM_ODBCINST_FILE" > "${SYSTEM_ODBCINST_FILE}.tmp" && mv "${SYSTEM_ODBCINST_FILE}.tmp" "$SYSTEM_ODBCINST_FILE"
   fi
 else
   # Section doesn't exist, append both section and driver entry at end
@@ -81,5 +88,5 @@ else
     echo ""
     echo "[ODBC Drivers]"
     echo "${DRIVER_NAME}=Installed"
-  } >>"$USER_ODBCINST_FILE"
+  } >>"$SYSTEM_ODBCINST_FILE"
 fi

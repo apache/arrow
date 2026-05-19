@@ -274,6 +274,7 @@ else
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
     -Dnlohmann_json_SOURCE=${nlohmann_json_SOURCE:-} \
     -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
+    -DODBC_PACKAGE_FORMAT=${ODBC_PACKAGE_FORMAT:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
     -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \

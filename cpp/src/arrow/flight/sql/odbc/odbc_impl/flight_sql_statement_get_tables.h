@@ -61,5 +61,4 @@ std::shared_ptr<ResultSet> GetTablesForGenericUse(
     const std::string* catalog_name, const std::string* schema_name,
     const std::string* table_name, const std::vector<std::string>& table_types,
     Diagnostics& diagnostics, const MetadataSettings& metadata_settings);
-
 }  // namespace arrow::flight::sql::odbc

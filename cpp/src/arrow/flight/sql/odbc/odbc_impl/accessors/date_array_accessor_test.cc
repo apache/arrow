@@ -20,11 +20,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/accessors/boolean_array_accessor.h"
 #include "arrow/flight/sql/odbc/odbc_impl/calendar_utils.h"
 #include "arrow/testing/builder.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
-TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
+TEST(DateArrayAccessor, TestDate32ArrayCDataTypeDate) {
   std::vector<int32_t> values = {7589, 12320, 18980, 19095, -1, 0};
   std::vector<tagDATE_STRUCT> expected = {
       {1990, 10, 12}, {2003, 9, 25},  {2021, 12, 19},
@@ -57,7 +58,7 @@ TEST(DateArrayAccessor, Test_Date32Array_CDataType_DATE) {
   }
 }
 
-TEST(DateArrayAccessor, Test_Date64Array_CDataType_DATE) {
+TEST(DateArrayAccessor, TestDate64ArrayCDataTypeDate) {
   std::vector<int64_t> values = {
       86400000,  172800000, 259200000,       1649793238110,  0, 345600000, 432000000,
       518400000, -86400000, -17987443200000, -24268068949000};

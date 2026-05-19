@@ -44,9 +44,9 @@ std::string TestConnection(const config::Configuration& config) {
   // This should have been checked before enabling the Test button.
   assert(missing_properties.empty());
   std::string server_name =
-      boost::get<std::string>(flight_sql_conn->GetInfo(SQL_SERVER_NAME));
+      std::get<std::string>(flight_sql_conn->GetInfo(SQL_SERVER_NAME));
   std::string server_version =
-      boost::get<std::string>(flight_sql_conn->GetInfo(SQL_DBMS_VER));
+      std::get<std::string>(flight_sql_conn->GetInfo(SQL_DBMS_VER));
   return "Server Name: " + server_name + "\n" + "Server Version: " + server_version;
 }
 }  // namespace
@@ -565,7 +565,7 @@ bool DsnConfigurationWindow::OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) {
           open_file_name.lpstrFile = file_name;
           open_file_name.lpstrFile[0] = '\0';
           open_file_name.nMaxFile = FILENAME_MAX;
-          // TODO: What type should this be?
+          // GH-47851 TODO: Update `lpstrFilter` to correct value
           open_file_name.lpstrFilter = L"All\0*.*";
           open_file_name.nFilterIndex = 1;
           open_file_name.lpstrFileTitle = NULL;

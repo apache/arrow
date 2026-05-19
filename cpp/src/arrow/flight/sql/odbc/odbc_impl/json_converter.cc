@@ -221,7 +221,7 @@ class ScalarToJson : public ScalarVisitor {
   }
 
   Status Visit(const DurationScalar& scalar) override {
-    // TODO: Append TimeUnit on conversion
+    // GH-47857 TODO: Append TimeUnit on conversion
     return ConvertScalarToStringAndWrite(scalar, writer_);
   }
 

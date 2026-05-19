@@ -17,11 +17,12 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/accessors/boolean_array_accessor.h"
 #include "arrow/testing/builder.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
-TEST(BooleanArrayFlightSqlAccessor, Test_BooleanArray_CDataType_BIT) {
+TEST(BooleanArrayFlightSqlAccessor, TestBooleanArrayCDataTypeBit) {
   const std::vector<bool> values = {true, false, true};
   std::shared_ptr<Array> array;
   ArrayFromVector<BooleanType>(values, &array);

@@ -18,7 +18,8 @@
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_statement_get_tables.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 

@@ -20,11 +20,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/calendar_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/testing/builder.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
-TEST(TEST_TIME32, TIME_WITH_SECONDS) {
+TEST(TestTime32, TimeWithSeconds) {
   auto value_field = field("f0", time32(TimeUnit::SECOND));
 
   std::vector<int32_t> t32_values = {14896, 14897, 14892, 85400, 14893, 14895};
@@ -58,7 +59,7 @@ TEST(TEST_TIME32, TIME_WITH_SECONDS) {
   }
 }
 
-TEST(TEST_TIME32, TIME_WITH_MILLI) {
+TEST(TestTime32, TimeWithMilli) {
   auto value_field = field("f0", time32(TimeUnit::MILLI));
   std::vector<int32_t> t32_values = {14896000, 14897000, 14892000,
                                      85400000, 14893000, 14895000};
@@ -94,7 +95,7 @@ TEST(TEST_TIME32, TIME_WITH_MILLI) {
   }
 }
 
-TEST(TEST_TIME64, TIME_WITH_MICRO) {
+TEST(TestTime32, TimeWithMicro) {
   auto value_field = field("f0", time64(TimeUnit::MICRO));
 
   std::vector<int64_t> t64_values = {14896000, 14897000, 14892000,
@@ -131,7 +132,7 @@ TEST(TEST_TIME64, TIME_WITH_MICRO) {
   }
 }
 
-TEST(TEST_TIME64, TIME_WITH_NANO) {
+TEST(TestTime32, TimeWithNano) {
   auto value_field = field("f0", time64(TimeUnit::NANO));
   std::vector<int64_t> t64_values = {14896000000, 14897000000, 14892000000,
                                      85400000000, 14893000000, 14895000000};
