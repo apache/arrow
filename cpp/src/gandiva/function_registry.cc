@@ -108,10 +108,13 @@ Status FunctionRegistry::Add(NativeFunction func) {
     auto shape_key = func_signature.CallShape();
     auto shape_it = call_shape_map_.find(shape_key);
     if (shape_it != call_shape_map_.end()) {
+      auto pc_it = pc_registry_map_.find(shape_it->second);
+      std::string existing_pc_name =
+          pc_it != pc_registry_map_.end() ? pc_it->second->pc_name() : "<unknown>";
       ARROW_LOG(ERROR) << "Function alias collision: " << func_signature.ToString()
                        << " has the same name and parameter types as "
-                       << shape_it->second->ToString() << " (existing pc_name="
-                       << pc_registry_map_.at(shape_it->second)->pc_name()
+                       << shape_it->second->ToString()
+                       << " (existing pc_name=" << existing_pc_name
                        << ", new pc_name=" << last_func.pc_name()
                        << "); callers of this function will get different results "
                           "depending on the inferred return type.";
