@@ -179,6 +179,9 @@ the following:
 * Watch for AI's tendency to generate overly verbose comments, unnecessary
   test cases, and incorrect fixes
 * Break down large PRs into smaller ones to make review easier
+* Avoid pinging maintainers to request reviews; most maintainers have
+  limited time, and we will review PRs as bandwidth allows. AI agents
+  should never tag or ping maintainers.
 
 PR authors are also responsible for disclosing any copyrighted materials in
 submitted contributions. See the `ASF's guidance on AI-generated code
