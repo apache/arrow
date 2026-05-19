@@ -109,8 +109,8 @@ TEST_F(TestFunctionRegistry, TestAddCallShapeCollisionAcrossDecimalPrecision) {
 
   NativeFunction precise("foo", {}, DataTypeVector{arrow::decimal128(10, 2)},
                          arrow::int32(), kResultNullIfNull, "foo_decimal128_precise");
-  NativeFunction wide("foo", {}, DataTypeVector{arrow::decimal128(18, 4)},
-                      arrow::int64(), kResultNullIfNull, "foo_decimal128_wide");
+  NativeFunction wide("foo", {}, DataTypeVector{arrow::decimal128(18, 4)}, arrow::int64(),
+                      kResultNullIfNull, "foo_decimal128_wide");
 
   ARROW_EXPECT_OK(registry->Register({precise}, buffer));
 
@@ -122,8 +122,7 @@ TEST_F(TestFunctionRegistry, TestAddCallShapeCollisionAcrossDecimalPrecision) {
       << "stderr was: " << log;
   EXPECT_NE(log.find("foo_decimal128_precise"), std::string::npos)
       << "stderr was: " << log;
-  EXPECT_NE(log.find("foo_decimal128_wide"), std::string::npos)
-      << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_decimal128_wide"), std::string::npos) << "stderr was: " << log;
 }
 
 TEST_F(TestFunctionRegistry, TestFound) {
