@@ -189,6 +189,7 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
          "following precompiled functions:\n"
       << result;
 
+  stream.str("");
   stream.clear();
   std::copy(func_sig_duplicates.begin(), func_sig_duplicates.end(),
             std::ostream_iterator<std::string>(stream, "\n"));
