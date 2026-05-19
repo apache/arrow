@@ -212,15 +212,14 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
     # Install documentation files
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
-            DESTINATION "${ODBC_DOC_INSTALL_DIR}"
-            COMPONENT Docs)
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../NOTICE.txt"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
             DESTINATION "${ODBC_DOC_INSTALL_DIR}"
             COMPONENT Docs)
   endif()
 
   get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-  set(CPACK_COMPONENTS_ALL "ArrowFlightSQLODBC")
+  set(CPACK_COMPONENTS_ALL "ArrowFlightSQLODBC" "Docs")
 
   if(WIN32)
     # WiX msi installer on Windows
@@ -233,7 +232,6 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
     set(CPACK_WIX_PRODUCT_GUID "279D087B-93B5-4DC3-BA69-BCF485022A26")
   else()
     # macOS and Linux
-    list(APPEND CPACK_COMPONENTS_ALL Docs)
     if(APPLE)
       set(CPACK_GENERATOR "productbuild")
     endif()
@@ -246,11 +244,8 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
                       DISPLAY_NAME "ODBC library"
                       DESCRIPTION "Apache Arrow Flight SQL ODBC library bin, required to install"
                       REQUIRED)
-  if(UNIX)
-    # On macOS and Linux, provide connection string documentation since users need to manually enter DSN keys.
-    cpack_add_component(Docs
-                        DISPLAY_NAME "Documentation"
-                        DESCRIPTION "Documentation for Apache Arrow Flight SQL ODBC Driver"
-    )
-  endif()
+  cpack_add_component(Docs
+                      DISPLAY_NAME "Documentation"
+                      DESCRIPTION "Documentation for Apache Arrow Flight SQL ODBC Driver"
+                      REQUIRED)
 endif()
