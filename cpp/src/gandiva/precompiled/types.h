@@ -150,11 +150,11 @@ gdv_float64 nvl_float64_float64(gdv_float64 in, gdv_boolean is_valid_in,
 gdv_boolean nvl_boolean_boolean(gdv_boolean in, gdv_boolean is_valid_in,
                                 gdv_boolean replace, gdv_boolean is_valid_value);
 
-gdv_int64 date_add_int32_timestamp(gdv_int32, gdv_timestamp);
-gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
-gdv_int64 add_int32_timestamp(gdv_int32, gdv_timestamp);
-gdv_int64 date_add_int64_timestamp(gdv_int64, gdv_timestamp);
-gdv_timestamp add_date64_int64(gdv_date64, gdv_int64);
+gdv_timestamp date_add_int32_timestamp(gdv_int32, gdv_timestamp);
+gdv_timestamp add_int64_timestamp(gdv_int64, gdv_timestamp);
+gdv_timestamp add_int32_timestamp(gdv_int32, gdv_timestamp);
+gdv_timestamp date_add_int64_timestamp(gdv_int64, gdv_timestamp);
+gdv_date64 add_date64_int64(gdv_date64, gdv_int64);
 
 gdv_timestamp to_timestamp_int32(gdv_int32);
 gdv_timestamp to_timestamp_int64(gdv_int64);

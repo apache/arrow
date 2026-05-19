@@ -41,6 +41,64 @@ class TestFunctionRegistry : public ::testing::Test {
   }
 };
 
+TEST_F(TestFunctionRegistry, TestAddDuplicateSignatureKeepsFirstRegistration) {
+  auto registry = std::make_unique<FunctionRegistry>();
+  auto buffer = arrow::Buffer::FromString("");
+
+  NativeFunction first("foo", {}, DataTypeVector{arrow::int32()}, arrow::int32(),
+                       kResultNullIfNull, "foo_first");
+  NativeFunction second("foo", {}, DataTypeVector{arrow::int32()}, arrow::int32(),
+                        kResultNullIfNull, "foo_second");
+
+  ARROW_EXPECT_OK(registry->Register({first}, buffer));
+
+  testing::internal::CaptureStderr();
+  ARROW_EXPECT_OK(registry->Register({second}, buffer));
+  std::string log = testing::internal::GetCapturedStderr();
+
+  EXPECT_NE(log.find("Duplicate function signature registered"), std::string::npos)
+      << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_first"), std::string::npos) << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_second"), std::string::npos) << "stderr was: " << log;
+
+  // The first registration wins; lookup returns the original pc_name.
+  FunctionSignature sig("foo", {arrow::int32()}, arrow::int32());
+  const NativeFunction* fn = registry->LookupSignature(sig);
+  ASSERT_NE(fn, nullptr);
+  EXPECT_EQ(fn->pc_name(), "foo_first");
+}
+
+TEST_F(TestFunctionRegistry, TestAddCallShapeCollisionLogsAndKeepsBoth) {
+  auto registry = std::make_unique<FunctionRegistry>();
+  auto buffer = arrow::Buffer::FromString("");
+
+  NativeFunction returns_int32("foo", {}, DataTypeVector{arrow::int32()}, arrow::int32(),
+                               kResultNullIfNull, "foo_int32_to_int32");
+  NativeFunction returns_int64("foo", {}, DataTypeVector{arrow::int32()}, arrow::int64(),
+                               kResultNullIfNull, "foo_int32_to_int64");
+
+  ARROW_EXPECT_OK(registry->Register({returns_int32}, buffer));
+
+  testing::internal::CaptureStderr();
+  ARROW_EXPECT_OK(registry->Register({returns_int64}, buffer));
+  std::string log = testing::internal::GetCapturedStderr();
+
+  EXPECT_NE(log.find("Function alias collision"), std::string::npos)
+      << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_int32_to_int32"), std::string::npos) << "stderr was: " << log;
+  EXPECT_NE(log.find("foo_int32_to_int64"), std::string::npos) << "stderr was: " << log;
+
+  // Both signatures remain reachable because they differ in return type.
+  FunctionSignature as_int32("foo", {arrow::int32()}, arrow::int32());
+  FunctionSignature as_int64("foo", {arrow::int32()}, arrow::int64());
+  const NativeFunction* fn_int32 = registry->LookupSignature(as_int32);
+  const NativeFunction* fn_int64 = registry->LookupSignature(as_int64);
+  ASSERT_NE(fn_int32, nullptr);
+  ASSERT_NE(fn_int64, nullptr);
+  EXPECT_EQ(fn_int32->pc_name(), "foo_int32_to_int32");
+  EXPECT_EQ(fn_int64->pc_name(), "foo_int32_to_int64");
+}
+
 TEST_F(TestFunctionRegistry, TestFound) {
   FunctionSignature add_i32_i32("add", {arrow::int32(), arrow::int32()}, arrow::int32());
 
