@@ -150,6 +150,11 @@ s3_finalizer <- new.env(parent = emptyenv())
   # needs the C++ library loaded
   create_binding_cache()
 
+  if (identical(R.version$os, "emscripten")) {
+    # Disable multithreading on WASM/Emscripten (no pthread support)
+    options(arrow.use_threads = FALSE)
+  }
+
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
