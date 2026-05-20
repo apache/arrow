@@ -24,16 +24,11 @@
 #include "arrow/flight/visibility.h"
 #include "arrow/util/macros.h"
 
-#if defined(GRPC_CPP_VERSION_MAJOR) && defined(GRPC_CPP_VERSION_MINOR) && \
-    defined(GRPC_CPP_VERSION_PATCH)
-#  define GRPC_CPP_VERSION_CHECK(major, minor, patch)                            \
-    ((GRPC_CPP_VERSION_MAJOR > (major) ||                                        \
-      (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) || \
-      ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
-        GRPC_CPP_VERSION_PATCH >= (patch)))))
-#else
-#  define GRPC_CPP_VERSION_CHECK(major, minor, patch) 0
-#endif
+#define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
+  ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
+    (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
+    ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
+      GRPC_CPP_VERSION_PATCH >= (patch)))))
 
 #if GRPC_CPP_VERSION_CHECK(1, 80, 0)
 #  include <absl/status/status.h>
