@@ -17,7 +17,11 @@
 
 #pragma once
 
-#include <grpcpp/version_info.h>
+#if defined(__has_include)
+#  if __has_include(<grpcpp/version_info.h>)
+#    include <grpcpp/version_info.h>
+#  endif
+#endif
 
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
