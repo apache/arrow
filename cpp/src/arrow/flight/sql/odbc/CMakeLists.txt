@@ -230,11 +230,9 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
     # Upgrade GUID is required to be unchanged for ODBC installer to upgrade
     set(CPACK_WIX_UPGRADE_GUID "DBF27A18-F8BF-423F-9E3A-957414D52C4B")
     set(CPACK_WIX_PRODUCT_GUID "279D087B-93B5-4DC3-BA69-BCF485022A26")
-  else()
+  elseif(APPLE)
     # macOS and Linux
-    if(APPLE)
-      set(CPACK_GENERATOR "productbuild")
-    endif()
+    set(CPACK_GENERATOR "productbuild")
   endif()
   # GH-47877 TODO: create Linux Installer using cpack
 

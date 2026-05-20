@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Used by arrow/cpp/src/arrow/flight/sql/odbc/install/mac/postinstall
+# Used by cpp/src/arrow/flight/sql/odbc/install/mac/postinstall
 
 set -euo pipefail
 

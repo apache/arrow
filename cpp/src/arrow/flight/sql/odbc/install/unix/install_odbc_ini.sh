@@ -70,6 +70,9 @@ if grep -q '^\[ODBC Data Sources\]' "$SYSTEM_ODBC_FILE"; then
     ' "$SYSTEM_ODBC_FILE" > "$tmp_file"
 
     mv "$tmp_file" "$SYSTEM_ODBC_FILE"
+
+    # Restore expected permissions/ownership for system ODBC config
+    chmod 644 "$SYSTEM_ODBC_FILE"
   fi
 else
   # Section doesn't exist, append section and DSN entry at end
