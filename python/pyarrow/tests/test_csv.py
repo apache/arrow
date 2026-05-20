@@ -2239,23 +2239,3 @@ def test_csv_make_write_options_uses_parse_delimiter():
     csv_format = ds.CsvFileFormat()
     write_opts = csv_format.make_write_options()
     assert write_opts.write_options.delimiter == ","
-
-
-def test_write_dataset_uses_csv_parse_delimiter(tmp_path):
-    import pyarrow.dataset as ds
-
-    table = pa.table({
-        "B": ["B1", "B2"],
-        "C": ["C1", "C2"],
-    })
-
-    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
-    ds.write_dataset(table, tmp_path, format=csv_format)
-
-    with open(tmp_path / "part-0.csv") as fh:
-        content = fh.read()
-    assert content == '"B">"C"\n"B1">"C1"\n"B2">"C2"\n'
-
-    # Roundtrip: reading back with the same delimiter recovers the table
-    result = ds.dataset(tmp_path, format=csv_format).to_table()
-    assert result.equals(table)

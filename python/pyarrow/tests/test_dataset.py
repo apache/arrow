@@ -4983,6 +4983,24 @@ def test_write_dataset_csv(tempdir):
     assert result.equals(table)
 
 
+def test_write_dataset_uses_csv_parse_delimiter(tempdir):
+    table = pa.table({
+        "B": ["B1", "B2"],
+        "C": ["C1", "C2"],
+    })
+
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    ds.write_dataset(table, tempdir, format=csv_format)
+
+    with open(tempdir / "part-0.csv") as fh:
+        content = fh.read()
+    assert content == '"B">"C"\n"B1">"C1"\n"B2">"C2"\n'
+
+    # Roundtrip: reading back with the same delimiter recovers the table
+    result = ds.dataset(tempdir, format=csv_format).to_table()
+    assert result.equals(table)
+
+
 @pytest.mark.parquet
 def test_write_dataset_parquet_file_visitor(tempdir):
     table = pa.table([
