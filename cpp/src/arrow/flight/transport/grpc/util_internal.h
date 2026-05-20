@@ -17,18 +17,23 @@
 
 #pragma once
 
-#include <grpcpp/version_info.h>
+#include <grpcpp/grpcpp.h>
 
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/util/macros.h"
 
-#define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
-  ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
-    (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
-    ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
-      GRPC_CPP_VERSION_PATCH >= (patch)))))
+// gRPC 1.51.0 or later defines GRPC_CPP_VERSION_MAJOR and so on.
+#ifdef GRPC_CPP_VERSION_MAJOR
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
+    ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
+      (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
+      ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
+        GRPC_CPP_VERSION_PATCH >= (patch)))))
+#else
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch) 0
+#endif
 
 #if GRPC_CPP_VERSION_CHECK(1, 80, 0)
 #  include <absl/status/status.h>
