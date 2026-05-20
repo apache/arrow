@@ -151,8 +151,8 @@ s3_finalizer <- new.env(parent = emptyenv())
   create_binding_cache()
 
   if (identical(R.version$os, "emscripten")) {
-    # Disable multithreading on WASM/Emscripten (no pthread support)
-    # options(arrow.use_threads = FALSE)
+    # Disable multithreading on Wasm/Emscripten
+    options(arrow.use_threads = FALSE)
   }
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
