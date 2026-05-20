@@ -17,25 +17,23 @@
 
 #pragma once
 
+#include <grpcpp/grpcpp.h>
+
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/util/macros.h"
 
-// <grpcpp/version_info.h> was added in gRPC 1.80 and is the only place that
-// defines GRPC_CPP_VERSION_{MAJOR,MINOR,PATCH}. We can't guard it with
-// GRPC_CPP_VERSION_CHECK itself so we use __has_include.
-#if defined(__has_include)
-#  if __has_include(<grpcpp/version_info.h>)
-#    include <grpcpp/version_info.h>
-#  endif
+// gRPC 1.51.0 or later defines GRPC_CPP_VERSION_MAJOR and so on.
+#ifdef GRPC_CPP_VERSION_MAJOR
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
+    ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
+      (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
+      ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
+        GRPC_CPP_VERSION_PATCH >= (patch)))))
+#else
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch) 0
 #endif
-
-#define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
-  ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
-    (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
-    ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
-      GRPC_CPP_VERSION_PATCH >= (patch)))))
 
 #if GRPC_CPP_VERSION_CHECK(1, 80, 0)
 #  include <absl/status/status.h>
