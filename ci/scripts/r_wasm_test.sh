@@ -74,7 +74,7 @@ npm init -y > /dev/null 2>&1
 npm install --silent webr 2>/dev/null
 
 # Run our test script
-ARROW_WASM_REPO_DIR="${repo_dir}" node "${SCRIPT_DIR}/r_wasm_test.cjs"
+ARROW_WASM_REPO_DIR="${repo_dir}" NODE_PATH="${work_dir}/node_modules" node "${SCRIPT_DIR}/r_wasm_test.cjs"
 
 # Cleanup temp dirs
 rm -rf "${work_dir}" "${repo_dir}"
