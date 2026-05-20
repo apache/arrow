@@ -17,16 +17,19 @@
 
 #pragma once
 
+#include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
+#include "arrow/flight/types.h"
+#include "arrow/flight/visibility.h"
+#include "arrow/util/macros.h"
+
+// <grpcpp/version_info.h> was added in gRPC 1.80 and is the only place that
+// defines GRPC_CPP_VERSION_{MAJOR,MINOR,PATCH}. We can't guard it with
+// GRPC_CPP_VERSION_CHECK itself so we use __has_include.
 #if defined(__has_include)
 #  if __has_include(<grpcpp/version_info.h>)
 #    include <grpcpp/version_info.h>
 #  endif
 #endif
-
-#include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
-#include "arrow/flight/types.h"
-#include "arrow/flight/visibility.h"
-#include "arrow/util/macros.h"
 
 #define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
   ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
