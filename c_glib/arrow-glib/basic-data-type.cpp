@@ -131,6 +131,9 @@ G_BEGIN_DECLS
  * #GArrowExtensionDataType is a base class for user-defined extension
  * data types.
  *
+ * #GArrowUnknownExtensionDataType is a class for unknown extension
+ * data types.
+ *
  * #GArrowExtensionDataTypeRegistry is a class to manage extension
  * data types.
  *
@@ -2080,6 +2083,20 @@ namespace garrow {
 
 G_BEGIN_DECLS
 
+G_DEFINE_TYPE(GArrowUnknownExtensionDataType,
+              garrow_unknown_extension_data_type,
+              GARROW_TYPE_EXTENSION_DATA_TYPE)
+
+static void
+garrow_unknown_extension_data_type_init(GArrowUnknownExtensionDataType *object)
+{
+}
+
+static void
+garrow_unknown_extension_data_type_class_init(GArrowUnknownExtensionDataTypeClass *klass)
+{
+}
+
 typedef struct GArrowExtensionDataTypeRegistryPrivate_
 {
   std::shared_ptr<arrow::ExtensionTypeRegistry> registry;
@@ -2720,16 +2737,25 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     type = GARROW_TYPE_DURATION_DATA_TYPE;
     break;
   case arrow::Type::type::EXTENSION:
+    type = GARROW_TYPE_UNKNOWN_EXTENSION_DATA_TYPE;
     {
-      auto g_extension_data_type =
-        std::static_pointer_cast<garrow::GExtensionType>(*arrow_data_type);
-      if (g_extension_data_type) {
-        auto garrow_data_type = g_extension_data_type->garrow_data_type();
-        g_object_ref(garrow_data_type);
-        return GARROW_DATA_TYPE(garrow_data_type);
+      auto arrow_extension_data_type =
+        std::static_pointer_cast<arrow::ExtensionType>(*arrow_data_type);
+      auto name = arrow_extension_data_type->extension_name();
+      if (name == "arrow.fixed_shape_tensor") {
+        type = GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE;
+      } else if (name == "arrow.uuid") {
+        type = GARROW_TYPE_UUID_DATA_TYPE;
+      } else {
+        auto g_extension_data_type =
+          std::dynamic_pointer_cast<garrow::GExtensionType>(*arrow_data_type);
+        if (g_extension_data_type) {
+          auto garrow_data_type = g_extension_data_type->garrow_data_type();
+          g_object_ref(garrow_data_type);
+          return GARROW_DATA_TYPE(garrow_data_type);
+        }
       }
     }
-    type = GARROW_TYPE_EXTENSION_DATA_TYPE;
     break;
   case arrow::Type::type::FIXED_SIZE_LIST:
     type = GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE;

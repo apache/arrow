@@ -758,6 +758,19 @@ GArrowChunkedArray *
 garrow_extension_data_type_wrap_chunked_array(GArrowExtensionDataType *data_type,
                                               GArrowChunkedArray *storage);
 
+#define GARROW_TYPE_UNKNOWN_EXTENSION_DATA_TYPE                                          \
+  (garrow_unknown_extension_data_type_get_type())
+GARROW_AVAILABLE_IN_25_0
+G_DECLARE_DERIVABLE_TYPE(GArrowUnknownExtensionDataType,
+                         garrow_unknown_extension_data_type,
+                         GARROW,
+                         UNKNOWN_EXTENSION_DATA_TYPE,
+                         GArrowExtensionDataType)
+struct _GArrowUnknownExtensionDataTypeClass
+{
+  GArrowExtensionDataTypeClass parent_class;
+};
+
 #define GARROW_TYPE_EXTENSION_DATA_TYPE_REGISTRY                                         \
   (garrow_extension_data_type_registry_get_type())
 GARROW_AVAILABLE_IN_3_0

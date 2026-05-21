@@ -137,6 +137,7 @@ jobs:
             -e ARCHERY_INTEGRATION_WITH_JS=1 \
             -e ARCHERY_INTEGRATION_WITH_NANOARROW=1 \
             -e ARCHERY_INTEGRATION_WITH_RUST=1 \
+            -e RUST_BACKTRACE=1 \
             conda-integration
       - name: Docker Push
         if: >-

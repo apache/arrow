@@ -23,15 +23,22 @@ set -e
 
 chrome_version=$1
 
-if [ "$chrome_version" = "latest" ]; then
-  latest_release_path=LATEST_RELEASE_STABLE
-else
-  latest_release_path=LATEST_RELEASE_${chrome_version}
+# Look up the Chrome version from the apt repo's Packages file.
+CHROME_DEB_VERSION=$(wget --no-verbose -O - \
+  "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages.gz" \
+  | gunzip \
+  | awk '/^Package: google-chrome-stable$/{found=1} found && /^Version: /{print $2; exit}')
+CHROME_VERSION_FULL=${CHROME_DEB_VERSION%-*}
+
+# Validate there hasn't been major version bumps since the last time we updated this script.
+if [ "$chrome_version" != "latest" ] && [ "${CHROME_VERSION_FULL%%.*}" != "$chrome_version" ]; then
+  echo "Requested Chrome major ${chrome_version}, but apt repo currently publishes ${CHROME_VERSION_FULL}" >&2
+  exit 1
 fi
-CHROME_VERSION_FULL=$(wget -q --no-verbose -O - "https://googlechromelabs.github.io/chrome-for-testing/${latest_release_path}")
-CHROME_DOWNLOAD_URL="https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION_FULL}-1_amd64.deb"
+
+CHROME_DOWNLOAD_URL="https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_DEB_VERSION}_amd64.deb"
 CHROMEDRIVER_DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION_FULL}/linux64/chromedriver-linux64.zip"
-wget -q --no-verbose -O /tmp/google-chrome.deb "${CHROME_DOWNLOAD_URL}"
+wget --no-verbose -O /tmp/google-chrome.deb "${CHROME_DOWNLOAD_URL}"
 apt-get update
 apt install -qqy /tmp/google-chrome.deb
 rm -f /tmp/google-chrome.deb

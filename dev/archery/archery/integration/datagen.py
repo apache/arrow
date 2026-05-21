@@ -1936,17 +1936,13 @@ def get_generated_json_files(tempdir=None):
         generate_decimal32_case()
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('nanoarrow')
         .skip_tester('Ruby')
-        .skip_tester('Rust')
         .skip_tester('Go'),
 
         generate_decimal64_case()
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('nanoarrow')
         .skip_tester('Ruby')
-        .skip_tester('Rust')
         .skip_tester('Go'),
 
         generate_datetime_case(),
@@ -2003,25 +1999,24 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_binary_view_case()
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_list_view_case()
         .skip_tester('.NET')     # Doesn't support large list views
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_extension_case()
+        # Also contains a dictionary column
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
         .skip_tester('nanoarrow')
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET')
