@@ -149,17 +149,23 @@ class PackageTask
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
     pass_through_env_names = [
-      "CPU_LIST",
       "DEB_BUILD_OPTIONS",
-      "FAKETIME",
-      "HOME",
-      "LANG",
-      "LANGUAGE",
-      "LC_ALL",
-      "NO_FAKE_STAT",
       "RPM_BUILD_NCPUS",
-      "TZ",
     ]
+    # The following environment variables carry the build variations that
+    # reprotest injects to verify reproducibility.
+    if File.basename(Dir.pwd) == apt_dir
+      pass_through_env_names += [
+        "CPU_LIST",
+        "FAKETIME",
+        "HOME",
+        "LANG",
+        "LANGUAGE",
+        "LC_ALL",
+        "NO_FAKE_STAT",
+        "TZ",
+      ]
+    end
     pass_through_env_names.each do |name|
       value = ENV[name]
       next unless value
