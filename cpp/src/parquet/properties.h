@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -173,12 +174,13 @@ static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
 struct PARQUET_EXPORT BloomFilterOptions {
   /// Expected number of distinct values (NDV) in the bloom filter.
   ///
-  /// Bloom filters are most effective for high-cardinality columns. A good default
-  /// is to set ndv equal to the number of rows. Lower values reduce disk usage but
-  /// may not be worthwhile for very small NDVs.
+  /// Bloom filters are most effective for high-cardinality columns. If unset, the
+  /// writer resolves ndv to the max row group row count. Lower values reduce disk
+  /// usage but may not be worthwhile for very small NDVs.
   ///
-  /// Increasing ndv (without increasing fpp) increases disk and memory usage.
-  int32_t ndv = 1 << 20;
+  /// Increasing ndv (without increasing fpp) increases memory usage. Folding only
+  /// shrinks a filter before serialization; it will not grow an undersized filter.
+  std::optional<int64_t> ndv = std::nullopt;
 
   /// False-positive probability (FPP) of the bloom filter.
   ///
@@ -202,6 +204,23 @@ struct PARQUET_EXPORT BloomFilterOptions {
   /// | 10,000,000 | 0.05  | 13.4     | 16384 KiB |
   /// | 10,000,000 | 0.01  | 13.4     | 16384 KiB |
   double fpp = 0.05;
+
+  /// Whether to fold the bloom filter before writing it.
+  ///
+  /// If true, the writer may fold the filter before serialization to reduce disk
+  /// usage while preserving the target fpp estimate. Highly skewed block occupancy
+  /// can make this estimate optimistic; disable folding to preserve the initial
+  /// filter size.
+  ///
+  /// The writer resolves ndv and fold behavior as follows:
+  ///
+  /// | fold  | ndv       | Resolved ndv             | Write behavior |
+  /// |:------|:----------|:-------------------------|:---------------|
+  /// | true  | unset     | max row group row count  | try to fold    |
+  /// | true  | specified | specified ndv            | try to fold    |
+  /// | false | unset     | max row group row count  | do not fold    |
+  /// | false | specified | specified ndv            | do not fold    |
+  bool fold = true;
 };
 
 class PARQUET_EXPORT ColumnProperties {
@@ -251,10 +270,14 @@ class PARQUET_EXPORT ColumnProperties {
   }
 
   void set_bloom_filter_options(const BloomFilterOptions& bloom_filter_options) {
-    if (bloom_filter_options.fpp >= 1.0 || bloom_filter_options.fpp <= 0.0) {
+    if (!(bloom_filter_options.fpp > 0.0 && bloom_filter_options.fpp < 1.0)) {
       throw ParquetException(
           "Bloom filter false positive probability must be in (0.0, 1.0), got " +
           std::to_string(bloom_filter_options.fpp));
+    }
+    if (bloom_filter_options.ndv.has_value() && bloom_filter_options.ndv.value() < 0) {
+      throw ParquetException("Bloom filter number of distinct values must be >= 0, got " +
+                             std::to_string(bloom_filter_options.ndv.value()));
     }
     bloom_filter_options_ = bloom_filter_options;
   }
@@ -863,8 +886,16 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
-      for (const auto& item : bloom_filter_options_)
-        get(item.first).set_bloom_filter_options(item.second);
+      for (const auto& item : bloom_filter_options_) {
+        const auto& bloom_filter_options = item.second;
+        if (bloom_filter_options.ndv.has_value()) {
+          get(item.first).set_bloom_filter_options(bloom_filter_options);
+        } else {
+          auto resolved_options = bloom_filter_options;
+          resolved_options.ndv = max_row_group_length_;
+          get(item.first).set_bloom_filter_options(resolved_options);
+        }
+      }
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
