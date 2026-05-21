@@ -2463,10 +2463,10 @@ bool concat_ws_accumulate_word_length(gdv_int64 context, ConcatWsLengthState* st
   }
 
   gdv_int32 total_length = 0;
-  if (ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(
-          state->total_length, word_len, &total_length))) {
-    return concat_ws_length_error(context, "Would overflow maximum output size", out_valid,
-                                  out_len);
+  if (ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(state->total_length, word_len,
+                                                           &total_length))) {
+    return concat_ws_length_error(context, "Would overflow maximum output size",
+                                  out_valid, out_len);
   }
 
   state->total_length = total_length;
@@ -2892,8 +2892,7 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
 
   int32_t hex_len = 0;
   int32_t alloc_len = 0;
-  if (ARROW_PREDICT_FALSE(
-          arrow::internal::MultiplyWithOverflow(text_len, 2, &hex_len)) ||
+  if (ARROW_PREDICT_FALSE(arrow::internal::MultiplyWithOverflow(text_len, 2, &hex_len)) ||
       ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(hex_len, 1, &alloc_len))) {
     gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
     *out_len = 0;
