@@ -30,6 +30,7 @@
 #' @importFrom rlang is_bare_list call_name
 #' @importFrom tidyselect vars_pull eval_select eval_rename
 #' @importFrom glue glue
+#' @importFrom bit64 integer64
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
 "_PACKAGE"
