@@ -4983,6 +4983,29 @@ def test_write_dataset_csv(tempdir):
     assert result.equals(table)
 
 
+def test_csv_make_write_options_uses_parse_delimiter():
+    # CsvFileFormat.make_write_options propagates the parse delimiter
+    # to write options when no explicit delimiter is given
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter="|"))
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == "|"
+
+    # delimiter=None is treated as "unspecified" and the propagated
+    # value is preserved (matches WriteOptions(**kwargs) semantics)
+    write_opts = csv_format.make_write_options(delimiter=None)
+    assert write_opts.write_options.delimiter == "|"
+
+    # An explicitly passed delimiter takes precedence
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    write_opts = csv_format.make_write_options(delimiter="|")
+    assert write_opts.write_options.delimiter == "|"
+
+    # The default delimiter is still "," when no parse options are given
+    csv_format = ds.CsvFileFormat()
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == ","
+
+
 def test_write_dataset_uses_csv_parse_delimiter(tempdir):
     table = pa.table({
         "B": ["B1", "B2"],

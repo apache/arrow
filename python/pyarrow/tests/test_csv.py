@@ -2219,23 +2219,3 @@ def test_write_csv_empty_batch_should_not_pollute_output(tables, expected):
     result = buf.read()
 
     assert result == expected
-
-
-def test_csv_make_write_options_uses_parse_delimiter():
-    import pyarrow.dataset as ds
-
-    # CsvFileFormat.make_write_options propagates the parse delimiter
-    # to write options when no explicit delimiter is given
-    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter="|"))
-    write_opts = csv_format.make_write_options()
-    assert write_opts.write_options.delimiter == "|"
-
-    # An explicitly passed delimiter takes precedence
-    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
-    write_opts = csv_format.make_write_options(delimiter="|")
-    assert write_opts.write_options.delimiter == "|"
-
-    # The default delimiter is still "," when no parse options are given
-    csv_format = ds.CsvFileFormat()
-    write_opts = csv_format.make_write_options()
-    assert write_opts.write_options.delimiter == ","
