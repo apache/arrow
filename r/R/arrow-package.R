@@ -153,6 +153,8 @@ s3_finalizer <- new.env(parent = emptyenv())
   if (identical(R.version$os, "emscripten")) {
     # Disable multithreading on Wasm/Emscripten
     options(arrow.use_threads = FALSE)
+    # No system tzdata on Emscripten; use the tzdb R package
+    configure_tzdb()
   }
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
