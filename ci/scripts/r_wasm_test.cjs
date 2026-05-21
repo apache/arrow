@@ -15,15 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Smoke-test and run the testthat suite for the arrow R package under webR.
-//
-// This script is called by r_wasm_test.sh after it sets up the CRAN-like
-// repo and installs the webr npm package.
-//
-// Environment variables:
-//   ARROW_WASM_REPO_DIR  - path to the local CRAN-like repo containing
-//                          the arrow wasm binary package
-//   ARROW_R_TESTS_DIR   - path to the arrow R package tests/testthat directory
+// Smoke-test the arrow R package under webR, then run the testthat suite.
+// Called by r_wasm_test.sh. Requires env vars:
+//   ARROW_WASM_REPO_DIR - local CRAN-like repo with the arrow .tgz
+//   ARROW_R_TESTS_DIR   - path to tests/testthat in the source tree
 
 const { WebR } = require("webr");
 const http = require("http");
@@ -42,7 +37,6 @@ if (!testsDir) {
   process.exit(1);
 }
 
-// Recursively list all files under a directory
 function listFilesRecursive(dir) {
   const results = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -57,9 +51,7 @@ function listFilesRecursive(dir) {
 }
 
 async function main() {
-  // Serve the local repo over HTTP so webR (Emscripten) can access it.
-  // webR's R runs in an Emscripten sandbox and cannot access the host
-  // filesystem directly — it fetches packages over HTTP instead.
+  // Serve the repo over HTTP (webR can't access the host filesystem directly)
   const server = http.createServer((req, res) => {
     const filePath = path.join(repoDir, decodeURIComponent(req.url));
     fs.readFile(filePath, (err, data) => {
@@ -75,35 +67,28 @@ async function main() {
   server.listen(8080);
   console.log("✓ Repo server on :8080");
 
-  const webR = new WebR({
-    RArgs: ["--quiet"],
-    interactive: false,
-  });
-
+  const webR = new WebR({ RArgs: ["--quiet"], interactive: false });
   await webR.init();
   console.log("✓ webR initialized");
 
-  // Upload test files from the host into webR's virtual filesystem.
-  // rwasm builds don't include tests (no --install-tests flag), so we
-  // load them separately and use test_dir() instead of test_package().
+  // Upload test files to webR VFS (rwasm doesn't include tests in binaries)
   const vfsTestDir = "/tmp/arrow-tests";
   await webR.FS.mkdir(vfsTestDir);
   const testFiles = listFilesRecursive(testsDir);
-  for (const filePath of testFiles) {
-    const rel = path.relative(testsDir, filePath);
+  const createdDirs = new Set([vfsTestDir]);
+  for (const file of testFiles) {
+    const rel = path.relative(testsDir, file);
     const vfsPath = path.posix.join(vfsTestDir, rel.split(path.sep).join("/"));
-    // Ensure parent directories exist
     const vfsDir = path.posix.dirname(vfsPath);
-    if (vfsDir !== vfsTestDir) {
-      await webR.evalRVoid(`dir.create("${vfsDir}", recursive = TRUE, showWarnings = FALSE)`);
+    if (!createdDirs.has(vfsDir)) {
+      await webR.evalRVoid(`dir.create("${vfsDir}", recursive=TRUE, showWarnings=FALSE)`);
+      createdDirs.add(vfsDir);
     }
-    const contents = fs.readFileSync(filePath);
-    await webR.FS.writeFile(vfsPath, contents);
+    await webR.FS.writeFile(vfsPath, fs.readFileSync(file));
   }
-  console.log(`✓ Uploaded ${testFiles.length} test files to webR VFS`);
+  console.log(`✓ Uploaded ${testFiles.length} test files to VFS`);
 
-  // Install the arrow Wasm package, put localhost:8080 before repo.r-wasm.org
-  // (which is used for deps)
+  // Install arrow from local repo, deps from r-wasm.org
   await webR.installPackages(["arrow"], {
     repos: ["http://localhost:8080", "https://repo.r-wasm.org"],
     quiet: false,
@@ -111,81 +96,60 @@ async function main() {
   });
   console.log("✓ arrow installed");
 
-  // Install test deps from DESCRIPTION Suggests + packages used in helpers.
-  // All of these are available on repo.r-wasm.org for wasm.
-  await webR.installPackages(
-    [
-      "testthat",
-      "tibble",
-      "dplyr",
-      "withr",
-      "pillar",
-      "lubridate",
-      "purrr",
-      "stringr",
-      "stringi",
-      "bit64",
-      "hms",
-      "rlang",
-      "vctrs",
-      "tzdb",
-    ],
-    {
-      repos: ["https://repo.r-wasm.org"],
-      quiet: false,
-      mount: false,
-    },
-  );
+  // Install test deps parsed from DESCRIPTION
+  const depsList = await webR.evalRString(`
+    desc <- read.dcf(system.file("DESCRIPTION", package = "arrow"),
+                     fields = c("Imports", "Suggests"))
+    pkgs <- unlist(strsplit(paste(na.omit(desc[1,]), collapse = ","), ",\\\\s*"))
+    pkgs <- trimws(sub("\\\\s*\\\\(.*\\\\)", "", pkgs))
+    pkgs <- pkgs[pkgs != "" & pkgs != "R"]
+    pkgs <- pkgs[!pkgs %in% loadedNamespaces()]
+    paste(pkgs, collapse = "\\n")
+  `);
+  const testDeps = depsList.split("\n").filter(Boolean);
+  console.log(`Installing ${testDeps.length} dependencies from DESCRIPTION...`);
+  await webR.installPackages(testDeps, {
+    repos: ["https://repo.r-wasm.org"],
+    quiet: false,
+    mount: false,
+  });
   console.log("✓ test dependencies installed");
 
-  // Test the package loads and functions basically
+  // Smoke test: package loads, threading disabled, basic operations work
   const loadResult = await webR.evalRString(`
     library(arrow)
-    cat("arrow loaded\\n")
     cat("R.version$os =", R.version$os, "\\n")
-    use_threads <- getOption("arrow.use_threads")
-    cat("arrow.use_threads =", use_threads, "\\n")
-    stopifnot(identical(use_threads, FALSE))
+    stopifnot(identical(getOption("arrow.use_threads"), FALSE))
     tab <- arrow::as_arrow_table(data.frame(x = 1:10, y = letters[1:10]))
     stopifnot(nrow(tab) == 10L)
-    cat("Created Arrow table with", nrow(tab), "rows\\n")
+    cat("Created table with", nrow(tab), "rows\\n")
     "PASS"
   `);
-
   if (loadResult !== "PASS") {
-    console.error("Package load test FAILED");
-    await webR.close();
-    server.close();
-    process.exit(1);
+    throw new Error("Smoke test failed");
   }
-  console.log("✓ Package loads and works correctly");
+  console.log("✓ Smoke test passed");
 
-  // Run tests using test_dir() since the wasm binary doesn't include tests
-  console.log("Running testthat suite under webR...");
-
+  // Run testthat suite
+  console.log("Running testthat suite...");
   const testResult = await webR.evalRString(`
     library(testthat)
-    library(arrow)
-    results <- testthat::test_dir("${vfsTestDir}", reporter = "summary", stop_on_failure = FALSE, package = "arrow")
+    results <- testthat::test_dir(
+      "${vfsTestDir}",
+      reporter = "summary",
+      stop_on_failure = FALSE,
+      package = "arrow"
+    )
     df <- as.data.frame(results)
-    n_pass <- sum(df$passed)
-    n_skip <- sum(df$skipped)
-    n_fail <- sum(df$failed)
-    n_error <- sum(df$error)
     cat(sprintf("Results: %d passed, %d skipped, %d failed, %d errors\\n",
-                n_pass, n_skip, n_fail, n_error))
-    if (n_fail > 0 || n_error > 0) "FAIL" else "PASS"
+                sum(df$passed), sum(df$skipped), sum(df$failed), sum(df$error)))
+    if (sum(df$failed) > 0 || sum(df$error) > 0) "FAIL" else "PASS"
   `);
-
   if (testResult !== "PASS") {
-    console.error("testthat suite FAILED");
-    await webR.close();
-    server.close();
-    process.exit(1);
+    throw new Error("testthat suite failed");
   }
   console.log("✓ testthat suite passed");
 
-  console.log("✓ All tests passed!");
   await webR.close();
   server.close();
 }
