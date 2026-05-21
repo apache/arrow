@@ -21,8 +21,9 @@
 // repo and installs the webr npm package.
 //
 // Environment variables:
-//   ARROW_WASM_REPO_DIR - path to the local CRAN-like repo containing
-//                         the arrow wasm binary package
+//   ARROW_WASM_REPO_DIR  - path to the local CRAN-like repo containing
+//                          the arrow wasm binary package
+//   ARROW_R_TESTS_DIR   - path to the arrow R package tests/testthat directory
 
 const { WebR } = require("webr");
 const http = require("http");
@@ -33,6 +34,26 @@ const repoDir = process.env.ARROW_WASM_REPO_DIR;
 if (!repoDir) {
   console.error("ERROR: ARROW_WASM_REPO_DIR not set");
   process.exit(1);
+}
+
+const testsDir = process.env.ARROW_R_TESTS_DIR;
+if (!testsDir) {
+  console.error("ERROR: ARROW_R_TESTS_DIR not set");
+  process.exit(1);
+}
+
+// Recursively list all files under a directory
+function listFilesRecursive(dir) {
+  const results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...listFilesRecursive(full));
+    } else {
+      results.push(full);
+    }
+  }
+  return results;
 }
 
 async function main() {
@@ -62,6 +83,25 @@ async function main() {
   await webR.init();
   console.log("✓ webR initialized");
 
+  // Upload test files from the host into webR's virtual filesystem.
+  // rwasm builds don't include tests (no --install-tests flag), so we
+  // load them separately and use test_dir() instead of test_package().
+  const vfsTestDir = "/tmp/arrow-tests";
+  await webR.FS.mkdir(vfsTestDir);
+  const testFiles = listFilesRecursive(testsDir);
+  for (const filePath of testFiles) {
+    const rel = path.relative(testsDir, filePath);
+    const vfsPath = path.posix.join(vfsTestDir, rel.split(path.sep).join("/"));
+    // Ensure parent directories exist
+    const vfsDir = path.posix.dirname(vfsPath);
+    if (vfsDir !== vfsTestDir) {
+      await webR.evalRVoid(`dir.create("${vfsDir}", recursive = TRUE, showWarnings = FALSE)`);
+    }
+    const contents = fs.readFileSync(filePath);
+    await webR.FS.writeFile(vfsPath, contents);
+  }
+  console.log(`✓ Uploaded ${testFiles.length} test files to webR VFS`);
+
   // Install the arrow Wasm package, put localhost:8080 before repo.r-wasm.org
   // (which is used for deps)
   await webR.installPackages(["arrow"], {
@@ -71,10 +111,25 @@ async function main() {
   });
   console.log("✓ arrow installed");
 
-  // Install test deps. TOOD: This is flakey. We could parse the DESCRIPTION
-  // file to be more robust.
+  // Install test deps from DESCRIPTION Suggests + packages used in helpers.
+  // All of these are available on repo.r-wasm.org for wasm.
   await webR.installPackages(
-    ["testthat", "tibble", "dplyr", "withr", "pillar"],
+    [
+      "testthat",
+      "tibble",
+      "dplyr",
+      "withr",
+      "pillar",
+      "lubridate",
+      "purrr",
+      "stringr",
+      "stringi",
+      "bit64",
+      "hms",
+      "rlang",
+      "vctrs",
+      "tzdb",
+    ],
     {
       repos: ["https://repo.r-wasm.org"],
       quiet: false,
@@ -105,13 +160,13 @@ async function main() {
   }
   console.log("✓ Package loads and works correctly");
 
-  // Run tests
+  // Run tests using test_dir() since the wasm binary doesn't include tests
   console.log("Running testthat suite under webR...");
 
   const testResult = await webR.evalRString(`
     library(testthat)
     library(arrow)
-    results <- testthat::test_package("arrow", reporter = "summary", stop_on_failure = FALSE)
+    results <- testthat::test_dir("${vfsTestDir}", reporter = "summary", stop_on_failure = FALSE, package = "arrow")
     df <- as.data.frame(results)
     n_pass <- sum(df$passed)
     n_skip <- sum(df$skipped)
