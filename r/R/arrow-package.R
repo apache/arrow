@@ -190,19 +190,33 @@ configure_tzdb <- function() {
     tryCatch(
       {
         tzdb::tzdb_initialize()
-        set_timezone_database(tzdb::tzdb_path("text"))
+        tz_path <- tzdb::tzdb_path("text")
+        packageStartupMessage("[configure_tzdb] tzdb path: ", tz_path)
+        packageStartupMessage("[configure_tzdb] path exists: ", dir.exists(tz_path))
+        if (dir.exists(tz_path)) {
+          tz_files <- list.files(tz_path, recursive = TRUE)
+          packageStartupMessage(
+            "[configure_tzdb] tzdb contents (", length(tz_files), " files): ",
+            paste(head(tz_files, 10), collapse = ", "),
+            if (length(tz_files) > 10) "..."
+          )
+        }
+        set_timezone_database(tz_path)
+        packageStartupMessage("[configure_tzdb] successfully configured timezone database")
       },
       error = function(e) {
         packageStartupMessage(
-          "The tzdb package was available but failed to initialize: ",
-          e,
+          "[configure_tzdb] tzdb package available but failed to initialize: ",
+          conditionMessage(e)
+        )
+        packageStartupMessage(
           "Timezones will not be available to Arrow compute functions."
         )
       }
     )
   } else {
     packageStartupMessage(
-      "The tzdb package is not installed. ",
+      "[configure_tzdb] tzdb package is NOT installed. ",
       "Timezones will not be available to Arrow compute functions. ",
       "If you get errors when using Arrow on datetimes, try running ",
       "`install.packages('tzdb')` and trying again."
