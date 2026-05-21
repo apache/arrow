@@ -224,7 +224,7 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
@@ -266,7 +266,7 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
@@ -484,7 +484,7 @@ TYPED_TEST(ConnectionHandleTest, TestCloseConnectionWithOpenStatement) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
