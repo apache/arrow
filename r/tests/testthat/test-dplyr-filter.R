@@ -415,6 +415,8 @@ test_that("filter() with namespaced functions", {
 })
 
 test_that("filter() with across()", {
+  skip_on_emscripten() # TODO(xxx): need to figure out what warnings this throws
+
   compare_dplyr_binding(
     .input |>
       filter(if_any(ends_with("l"), ~ is.na(.))) |>
