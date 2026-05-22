@@ -2140,6 +2140,7 @@ class ListExtensionType(pa.ExtensionType):
 
 
 @pytest.mark.large_memory
+@pytest.mark.numpy
 def test_extension_type_list_overflow():
     """
     Test that extension types with list fields handle int32 offset overflow.
@@ -2171,6 +2172,7 @@ def test_extension_type_list_overflow():
         assert chunk_data.type == ListExtensionType()
 
 
+@pytest.mark.numpy
 def test_extension_type_no_overflow():
     """Test that extension types work normally when there's no overflow."""
     try:
