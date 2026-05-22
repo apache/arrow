@@ -60,7 +60,7 @@ set PYTHON=3.10
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
-call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA_ENV% ^
+call conda create --no-shortcuts -c conda-forge -q -y -p %_VERIFICATION_CONDA_ENV% ^
     --file=!ARROW_SOURCE!\ci\conda_env_cpp.txt ^
     --file=!ARROW_SOURCE!\ci\conda_env_python.txt ^
     git ^
