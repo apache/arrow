@@ -2120,3 +2120,78 @@ def test_json(storage_type, pickle_module):
                 pa.ArrowInvalid,
                 match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
             pa.json_(storage_type)
+
+
+class ListExtensionType(pa.ExtensionType):
+    """Extension type with a list field for testing int32 overflow."""
+
+    def __init__(self):
+        super().__init__(
+            pa.struct({"data": pa.list_(pa.uint8())}),
+            "test_list_ext",
+        )
+
+    def __arrow_ext_serialize__(self):
+        return b""
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return cls()
+
+
+@pytest.mark.large_memory
+def test_extension_type_list_overflow():
+    """
+    Test that extension types with list fields handle int32 offset overflow.
+    """
+    try:
+        pa.register_extension_type(ListExtensionType())
+    except pa.ArrowKeyError:
+        pass
+
+    schema = pa.schema({"col": ListExtensionType()})
+
+    # Create data that exceeds int32 max cumulative values
+    # 5 rows × 500M values = 2.5B > int32 max (2,147,483,647)
+    arr = np.zeros(500_000_000, dtype=np.uint8)
+    rows = [{"col": {"data": arr}} for _ in range(5)]
+
+    result = pa.Table.from_pylist(rows, schema=schema)
+
+    assert result.num_rows == 5
+    assert result.num_columns == 1
+    assert result.schema[0].type == ListExtensionType()
+
+    col = result.column(0)
+    assert isinstance(col, pa.ChunkedArray)
+    assert col.type == ListExtensionType()
+
+    for chunk_idx in range(col.num_chunks):
+        chunk_data = col.chunk(chunk_idx)
+        assert chunk_data.type == ListExtensionType()
+
+
+def test_extension_type_no_overflow():
+    """Test that extension types work normally when there's no overflow."""
+    try:
+        pa.register_extension_type(ListExtensionType())
+    except pa.ArrowKeyError:
+        # Already registered
+        pass
+
+    schema = pa.schema({"col": ListExtensionType()})
+
+    # Small data that won't overflow
+    arr = np.array([1, 2, 3], dtype=np.uint8)
+    rows = [{"col": {"data": arr}} for _ in range(3)]
+
+    result = pa.Table.from_pylist(rows, schema=schema)
+
+    assert result.num_rows == 3
+    assert result.num_columns == 1
+    assert result.schema[0].type == ListExtensionType()
+
+    # The column should be a ChunkedArray with a single chunk
+    col = result.column(0)
+    assert isinstance(col, pa.ChunkedArray)
+    assert col.type == ListExtensionType()
