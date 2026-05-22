@@ -64,6 +64,7 @@ call conda create --no-shortcuts -c conda-forge -q -y -p %_VERIFICATION_CONDA_EN
     --file=!ARROW_SOURCE!\ci\conda_env_cpp.txt ^
     --file=!ARROW_SOURCE!\ci\conda_env_python.txt ^
     git ^
+    pip ^
     python=%PYTHON% ^
     || exit /B 1
 
