@@ -2590,7 +2590,7 @@ TEST(TestStringOps, TestToHex) {
   out_str = to_hex_binary(ctx_ptr, binary_string, neg_in_len, &out_len);
   EXPECT_EQ(out_len, 0);
   EXPECT_STREQ(out_str, "");
-  EXPECT_EQ(ctx.get_error(), "Text length invalid(negative).");
+  EXPECT_EQ(ctx.get_error(), "Text length invalid (negative).");
   ctx.Reset();
 }
 

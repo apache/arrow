@@ -2475,17 +2475,19 @@ struct SafeLengthState {
 };
 
 // Helper to safely add a word length
-static inline bool safe_accumulate_word(SafeLengthState& state, int32_t word_len,
-                                        bool word_validity) {
+static inline bool safe_accumulate_word(int64_t context, SafeLengthState& state,
+                                        int32_t word_len, bool word_validity) {
   if (!word_validity) return true;
 
   if (word_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid word length.");
     return false;
   }
 
   int32_t temp = 0;
   if (ARROW_PREDICT_FALSE(
           arrow::internal::AddWithOverflow(state.total_len, word_len, &temp))) {
+    gdv_fn_context_set_error_msg(context, "Overflow in addition detected.");
     state.overflow = true;
     return false;
   }
@@ -2495,7 +2497,8 @@ static inline bool safe_accumulate_word(SafeLengthState& state, int32_t word_len
 }
 
 // Helper to safely add separators based on number of valid words
-static inline bool safe_add_separators(SafeLengthState* state, int32_t separator_len) {
+static inline bool safe_add_separators(int64_t context, SafeLengthState* state,
+                                       int32_t separator_len) {
   if (state->num_valid <= 1) return true;
 
   int32_t sep_total = 0;
@@ -2503,12 +2506,14 @@ static inline bool safe_add_separators(SafeLengthState* state, int32_t separator
 
   if (ARROW_PREDICT_FALSE(arrow::internal::MultiplyWithOverflow(
           separator_len, state->num_valid - 1, &sep_total))) {
+    gdv_fn_context_set_error_msg(context, "Overflow in multiplication detected.");
     state->overflow = true;
     return false;
   }
 
   if (ARROW_PREDICT_FALSE(
           arrow::internal::AddWithOverflow(state->total_len, sep_total, &temp))) {
+    gdv_fn_context_set_error_msg(context, "Overflow in addition detected.");
     state->overflow = true;
     return false;
   }
@@ -2549,6 +2554,7 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
     return "";
   }
   if (separator_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Separator length cannot be negative");
     *out_valid = false;
     return "";
   }
@@ -2557,8 +2563,7 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
 
   // Accumulate all word lengths safely
   for (const WordArg& w : words) {
-    if (!safe_accumulate_word(state, w.len, w.valid)) {
-      gdv_fn_context_set_error_msg(context, "Invalid word length or validity.");
+    if (!safe_accumulate_word(context, state, w.len, w.valid)) {
       *out_len = 0;
       *out_valid = false;
       return "";
@@ -2566,8 +2571,7 @@ static inline const char* concat_ws_impl(int64_t context, const char* separator,
   }
 
   // Add separator lengths
-  if (!safe_add_separators(&state, separator_len)) {
-    gdv_fn_context_set_error_msg(context, "Invalid separator.");
+  if (!safe_add_separators(context, &state, separator_len)) {
     return handle_overflow_failure(out_valid, out_len);
   }
 
@@ -2790,7 +2794,7 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
   }
 
   if (ARROW_PREDICT_FALSE(text_len < 0)) {
-    gdv_fn_context_set_error_msg(context, "Text length invalid(negative).");
+    gdv_fn_context_set_error_msg(context, "Text length invalid (negative).");
     *out_len = 0;
     return "";
   }

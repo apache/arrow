@@ -1193,8 +1193,9 @@ TEST(TestGdvFnStubs, TestTranslate) {
 
   int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 4 + 1;
   out_len = -1;
-  result =
-      translate_utf8_utf8_utf8(ctx_ptr, "ABCDE", bad_in_len, "B", 1, "C", 1, &out_len);
+  const unsigned char bad_in_array[] = {0x80, 0x12, 0x13, 0x14};
+  result = translate_utf8_utf8_utf8(ctx_ptr, reinterpret_cast<const char*>(bad_in_array),
+                                    bad_in_len, "B", 1, "C", 1, &out_len);
   EXPECT_EQ(out_len, 0);
   EXPECT_STREQ(result, "");
   EXPECT_THAT(ctx.get_error(),

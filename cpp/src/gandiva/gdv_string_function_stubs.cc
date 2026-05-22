@@ -397,10 +397,12 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
   }
 
   if (ARROW_PREDICT_FALSE(txt_len < 0)) {
+    gdv_fn_context_set_error_msg(context, "Input string length cannot be negative");
     *out_len = 0;
     return "";
   }
   if (ARROW_PREDICT_FALSE(pat_len < 0)) {
+    gdv_fn_context_set_error_msg(context, "Pattern string length cannot be negative");
     *out_len = 0;
     return "";
   }
@@ -519,8 +521,7 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   }
 
   int32_t alloc_length = 0;
-  if (ARROW_PREDICT_FALSE(
-          !is_datalen_valid(context, data_len, &alloc_length, out_len))) {
+  if (ARROW_PREDICT_FALSE(!is_datalen_valid(context, data_len, &alloc_length, out_len))) {
     return "";
   }
 
@@ -624,13 +625,6 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   }
 
   int32_t alloc_length = 0;
-  // Check overflow: 4 * in_len
-  if (ARROW_PREDICT_FALSE(
-          arrow::internal::MultiplyWithOverflow(4, in_len, &alloc_length))) {
-    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
-    *out_len = 0;
-    return "";
-  }
 
   // This variable is to control if there are multi-byte utf8 entries
   bool has_multi_byte = false;
@@ -740,6 +734,13 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
       }
     }
   } else {
+    // Check overflow: 4 * in_len
+    if (ARROW_PREDICT_FALSE(
+            arrow::internal::MultiplyWithOverflow(4, in_len, &alloc_length))) {
+      gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+      *out_len = 0;
+      return "";
+    }
     // If there are multibytes in the input, work with std::strings
     // This variable is for receive the substitutions, malloc is in_len * 4 to receive
     // possible inputs with 4 bytes
@@ -789,6 +790,10 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
         }
       } else {
         for (int32_t from_for = 0; from_for <= from_len; from_for += len_char_from) {
+          // Updating len to char in this position
+          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
+          // Making copy to std::string with length for this char position
+          std::string copy_from_compare(from + from_for, len_char_from);
           if (from_for == from_len) {
             // If it's not in the FROM list, just add it to the map and the result.
             std::string insert_copy_value(in + in_for, len_char_in);
@@ -800,11 +805,6 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
             result_len += static_cast<int>(subs_list[insert_copy_key].length());
             break;
           }
-
-          // Updating len to char in this position
-          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
-          // Making copy to std::string with length for this char position
-          std::string copy_from_compare(from + from_for, len_char_from);
 
           if (insert_copy_key != copy_from_compare) {
             // If this character does not exist in FROM list, don't need treatment
