@@ -31,6 +31,7 @@
 #include <thread>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
@@ -399,12 +400,18 @@ TEST_F(TestReadableFile, ReadAsync) {
   MakeTestFile();
   OpenFile();
 
-  auto fut1 = file_->ReadAsync({}, 1, 10);
-  auto fut2 = file_->ReadAsync({}, 0, 4);
+  auto fut1 = file_->ReadAsync(default_io_context(), 1, 10);
+  auto fut2 = file_->ReadAsync(default_io_context(), 0, 4);
+  auto fut3 = file_->ReadAsync(default_io_context(), 1, 10, /*allow_short_read=*/false);
+  auto fut4 = file_->ReadAsync(default_io_context(), 0, 4, /*allow_short_read=*/false);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
   ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("File too short"),
+                                  fut3.result());
+  ASSERT_OK_AND_ASSIGN(auto buf4, fut4.result());
   AssertBufferEqual(*buf1, "estdata");
   AssertBufferEqual(*buf2, "test");
+  AssertBufferEqual(*buf4, "test");
 }
 
 TEST_F(TestReadableFile, ReadManyAsync) {

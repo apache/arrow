@@ -87,7 +87,6 @@ jobs:
   check-labels:
     if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
-    secrets: inherit
     with:
       parent-workflow: cpp_extra
 
@@ -139,6 +138,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -221,6 +221,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Free up disk space
@@ -273,6 +274,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install dependencies
@@ -367,6 +369,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -410,7 +413,7 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
-    timeout-minutes: 75
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -425,12 +428,14 @@ jobs:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /tmp/local
       ARROW_MIMALLOC: OFF
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
@@ -499,6 +504,19 @@ jobs:
             --allow libresolv \
             --allow libz \
             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
+      - name: Generate macOS Installer
+        if: matrix.build-type == 'release'
+        shell: bash
+        run: |
+            cd $(pwd)/build/cpp
+            cpack
+      - name: Upload ODBC PKG to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
+          path: build/cpp/ArrowFlightSQLODBC-*.pkg
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
@@ -552,6 +570,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Download Timezone Database
@@ -579,6 +598,7 @@ jobs:
       - name: Checkout vcpkg
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           path: vcpkg
           repository: microsoft/vcpkg
@@ -706,6 +726,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 1
           path: arrow
           repository: apache/arrow
@@ -736,6 +757,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Download the artifacts
@@ -769,4 +791,6 @@ jobs:
       - odbc-msvc
       - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
-    secrets: inherit
+    secrets:
+      ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+      ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}

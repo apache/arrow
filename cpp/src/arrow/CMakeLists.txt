@@ -343,11 +343,35 @@ macro(append_runtime_avx512_src SRCS SRC)
   endif()
 endmacro()
 
+macro(append_runtime_sve128_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SVE128)
+    list(APPEND ${SRCS} ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE128_FLAGS}")
+  endif()
+endmacro()
+
+macro(append_runtime_sve256_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SVE256)
+    list(APPEND ${SRCS} ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE256_FLAGS}")
+  endif()
+endmacro()
+
+macro(append_runtime_sve512_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SVE512)
+    list(APPEND ${SRCS} ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE512_FLAGS}")
+  endif()
+endmacro()
+
 # Write out compile-time configuration constants
 string(REPLACE "${CMAKE_SOURCE_DIR}" "<CMAKE_SOURCE_DIR>" REDACTED_CXX_FLAGS
                ${CMAKE_CXX_FLAGS})
 string(REPLACE "${CMAKE_BINARY_DIR}" "<CMAKE_BINARY_DIR>" REDACTED_CXX_FLAGS
                ${REDACTED_CXX_FLAGS})
+cmake_path(GET PROJECT_SOURCE_DIR PARENT_PATH ARROW_PROJECT_SOURCE_DIR)
+string(REPLACE "${ARROW_PROJECT_SOURCE_DIR}" "<ARROW_PROJECT_SOURCE_DIR>"
+               REDACTED_CXX_FLAGS ${REDACTED_CXX_FLAGS})
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
@@ -498,7 +522,7 @@ set(ARROW_UTIL_SRCS
     util/bitmap_ops.cc
     util/bpacking.cc
     util/bpacking_scalar.cc
-    util/bpacking_simd_default.cc
+    util/bpacking_simd_128.cc
     util/byte_size.cc
     util/byte_stream_split_internal.cc
     util/cancel.cc
@@ -543,8 +567,11 @@ set(ARROW_UTIL_SRCS
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
-append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_avx2.cc)
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
+
+append_runtime_sve128_src(ARROW_UTIL_SRCS util/bpacking_simd_128_alt.cc)
+append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)

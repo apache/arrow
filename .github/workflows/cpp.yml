@@ -109,9 +109,14 @@ jobs:
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
+      - name: Show machine info
+        run: |
+          free -h
+          lscpu
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -165,6 +170,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Check CMake presets
@@ -220,15 +226,11 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
@@ -349,6 +351,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - uses: msys2/setup-msys2@v2
@@ -378,12 +381,13 @@ jobs:
           # https://github.com/apache/arrow/issues/48593
           ci/scripts/download_tz_database.sh
       - name: Download MinIO
+        # Match the version pinned in ci/scripts/install_minio.sh.
         shell: msys2 {0}
         run: |
           mkdir -p /usr/local/bin
           wget \
             --output-document /usr/local/bin/minio.exe \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2025-01-20T14-49-07Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
         uses: actions/setup-python@v6

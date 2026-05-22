@@ -269,7 +269,15 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to decode base64 string
-  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
+  auto result = arrow::util::base64_decode(std::string_view(in, in_len));
+  if (!result.ok()) {
+    gdv_fn_context_set_error_msg(context, result.status().message().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  std::string decoded_str = *result;
+
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(

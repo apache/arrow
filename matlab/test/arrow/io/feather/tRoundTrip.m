@@ -16,6 +16,15 @@
 % permissions and limitations under the License.
 classdef tRoundTrip < matlab.unittest.TestCase
 
+    methods(TestMethodSetup)
+
+        function suppressFeatherV1Warnings(testCase)
+            import matlab.unittest.fixtures.SuppressedWarningsFixture
+            testCase.applyFixture(SuppressedWarningsFixture("arrow:io:feather:v1:FeatherReadDeprecated"));
+        end
+
+    end
+
     methods(Test)
         function Basic(testCase)
             import matlab.unittest.fixtures.TemporaryFolderFixture
