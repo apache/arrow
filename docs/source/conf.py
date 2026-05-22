@@ -328,23 +328,15 @@ html_theme = 'pydata_sphinx_theme'
 # documentation.
 #
 
-# To enable the version switcher during a local build, set the
-# environment variable DOCS_DEV to "1".
-docs_dev = os.environ.get("DOCS_DEV", "0")
-print(f"DOCS_DEV : {docs_dev}")
-json_url = "/docs/_static/versions.json"
-
-if docs_dev == "1":
-    json_url = "https://arrow.apache.org/docs/_static/versions.json"
-    # json_url = "_static/versions.json"
-
 switcher_version = version
 if ".dev" in version:
     switcher_version = "dev/"
+    json_url = "https://arrow.apache.org/docs/_static/versions.json"
 else:
     # If we are not building dev version of the docs, we are building
     # docs for the stable version
     switcher_version = ""
+    json_url = "/docs/_static/versions.json"
 
 html_theme_options = {
     "show_toc_level": 2,
