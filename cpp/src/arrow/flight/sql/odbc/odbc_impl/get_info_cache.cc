@@ -395,25 +395,21 @@ bool GetInfoCache::LoadInfoFromServer() {
               // Unused by ODBC.
               break;
             case SqlInfoOptions::SQL_DDL_SCHEMA: {
-              // GH-49500 TODO: use scalar bool to determine `SQL_CREATE_SCHEMA` and
-              // `SQL_DROP_SCHEMA` values
-
-              // Note: this is a bitmask and we can't describe cascade or restrict
-              // flags.
-              info_[SQL_DROP_SCHEMA] = static_cast<uint32_t>(SQL_DS_DROP_SCHEMA);
-
-              // Note: this is a bitmask and we can't describe authorization or
-              // collation
-              info_[SQL_CREATE_SCHEMA] = static_cast<uint32_t>(SQL_CS_CREATE_SCHEMA);
+              bool supported =
+                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+              info_[SQL_DROP_SCHEMA] =
+                  static_cast<uint32_t>(supported ? SQL_DS_DROP_SCHEMA : 0);
+              info_[SQL_CREATE_SCHEMA] =
+                  static_cast<uint32_t>(supported ? SQL_CS_CREATE_SCHEMA : 0);
               break;
             }
             case SqlInfoOptions::SQL_DDL_TABLE: {
-              // GH-49500 TODO: use scalar bool to determine `SQL_CREATE_TABLE` and
-              // `SQL_DROP_TABLE` values
-
-              // This is a bitmask and we cannot describe all clauses.
-              info_[SQL_CREATE_TABLE] = static_cast<uint32_t>(SQL_CT_CREATE_TABLE);
-              info_[SQL_DROP_TABLE] = static_cast<uint32_t>(SQL_DT_DROP_TABLE);
+              bool supported =
+                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+              info_[SQL_CREATE_TABLE] =
+                  static_cast<uint32_t>(supported ? SQL_CT_CREATE_TABLE : 0);
+              info_[SQL_DROP_TABLE] =
+                  static_cast<uint32_t>(supported ? SQL_DT_DROP_TABLE : 0);
               break;
             }
             case SqlInfoOptions::SQL_ALL_TABLES_ARE_SELECTABLE: {
@@ -475,10 +471,15 @@ bool GetInfoCache::LoadInfoFromServer() {
               break;
             }
             case SqlInfoOptions::SQL_CATALOG_AT_START: {
-              info_[SQL_CATALOG_LOCATION] = static_cast<uint16_t>(
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
-                      ? SQL_CL_START
-                      : SQL_CL_END);
+              // Only use this as a fallback if ARROW_SQL_CATALOG_TERM has not already
+              // set SQL_CATALOG_LOCATION (to avoid conflicting writes depending on
+              // response key ordering).
+              SetDefaultIfMissing(
+                  info_, SQL_CATALOG_LOCATION,
+                  static_cast<uint16_t>(
+                      reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
+                          ? SQL_CL_START
+                          : SQL_CL_END));
               break;
             }
             case SqlInfoOptions::SQL_SELECT_FOR_UPDATE_SUPPORTED:
