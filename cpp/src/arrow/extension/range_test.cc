@@ -18,6 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/extension/range.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -129,6 +130,8 @@ TEST(RangeType, CreateFromArray) {
 // ---------------------------------------------------------------------------
 // Deserialize - valid cases
 
+namespace {
+
 void CheckDeserialize(const std::string& serialized,
                       const std::shared_ptr<DataType>& expected) {
   auto type = checked_pointer_cast<extension::RangeType>(expected);
@@ -136,6 +139,8 @@ void CheckDeserialize(const std::string& serialized,
                        type->Deserialize(type->storage_type(), serialized));
   ASSERT_EQ(*expected, *deserialized);
 }
+
+}  // namespace
 
 TEST(RangeType, Deserialize) {
   // Normal JSON
