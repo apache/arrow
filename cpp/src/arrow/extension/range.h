@@ -76,7 +76,7 @@ class ARROW_EXPORT RangeType : public ExtensionType {
   /// \param[in] value_type The orderable Arrow subtype T for lower and upper.
   /// \param[in] closed Which bound(s) are inclusive.
   static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> value_type,
-                                                RangeClosed closed = RangeClosed::Right);
+                                                RangeClosed closed = RangeClosed::Left);
 
   /// \brief Return the bound-inclusivity parameter.
   RangeClosed closed() const { return closed_; }
@@ -99,6 +99,6 @@ class ARROW_EXPORT RangeArray : public ExtensionArray {
 /// This is a convenience wrapper around RangeType::Make that aborts on error.
 /// For recoverable error handling prefer RangeType::Make.
 ARROW_EXPORT std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type,
-                                             RangeClosed closed = RangeClosed::Right);
+                                             RangeClosed closed = RangeClosed::Left);
 
 }  // namespace arrow::extension
