@@ -331,10 +331,12 @@ html_theme = 'pydata_sphinx_theme'
 switcher_version = version
 if ".dev" in version:
     switcher_version = "dev/"
+    json_url = "https://arrow.apache.org/docs/_static/versions.json"
 else:
     # If we are not building dev version of the docs, we are building
     # docs for the stable version
     switcher_version = ""
+    json_url = "/docs/_static/versions.json"
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -365,7 +367,7 @@ html_theme_options = {
     ],
     "show_version_warning_banner": True,
     "switcher": {
-        "json_url": "/docs/_static/versions.json",
+        "json_url": json_url,
         "version_match": switcher_version,
     },
 }
