@@ -92,6 +92,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     arrow::TimeUnit::type coerce_int96_timestamp_unit = arrow::TimeUnit::NANO;
     Type::type binary_type = Type::BINARY;
     Type::type list_type = Type::LIST;
+    uint32_t max_page_header_size = 0;
     /// @}
   } reader_options;
 

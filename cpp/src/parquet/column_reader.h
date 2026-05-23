@@ -50,9 +50,6 @@ namespace parquet {
 class Decryptor;
 class Page;
 
-// 16 MB is the default maximum page header size
-static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
-
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
 

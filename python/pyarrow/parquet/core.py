@@ -268,6 +268,9 @@ class ParquetFile:
         If True, read Parquet logical types as Arrow extension types where possible,
         (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
         the canonical `arrow.uuid` extension type).
+    max_page_header_size : int, default None
+        If not None, override the maximum size of a page header.
+        Deafults to 16MB, which should be sufficient for most Parquet files.
 
     Examples
     --------
@@ -317,7 +320,8 @@ class ParquetFile:
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=True):
+                 page_checksum_verification=False, arrow_extensions_enabled=True,
+                 max_page_header_size=None):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -339,6 +343,7 @@ class ParquetFile:
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
+            max_page_header_size=max_page_header_size,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
