@@ -149,33 +149,36 @@ Result<std::shared_ptr<DataType>> RangeType::Deserialize(
         "\"");
   }
 
-  // Parse "closed" parameter from JSON metadata.
-  // Empty metadata defaults to {"closed": "right"}.
-  RangeClosed closed = RangeClosed::Right;
-  if (!serialized_data.empty()) {
-    rapidjson::Document document;
-    const auto& parsed =
-        document.Parse(serialized_data.data(), serialized_data.length());
-    if (parsed.HasParseError()) {
-      return Status::Invalid("Invalid serialized JSON data for RangeType: ",
-                             rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
-                             serialized_data);
-    }
-    if (!document.IsObject()) {
-      return Status::Invalid(
-          "Invalid serialized JSON data for RangeType: not an object");
-    }
-    if (document.HasMember("closed")) {
-      const auto& closed_val = document["closed"];
-      if (!closed_val.IsString()) {
-        return Status::Invalid(
-            "Invalid serialized JSON data for RangeType: \"closed\" is not a string");
-      }
-      ARROW_ASSIGN_OR_RAISE(
-          closed, ClosedFromString(std::string_view(closed_val.GetString(),
-                                                    closed_val.GetStringLength())));
-    }
+  // Parse the required "closed" parameter from JSON metadata. The closedness
+  // is not defaulted on the wire: empty metadata or a missing key is invalid.
+  if (serialized_data.empty()) {
+    return Status::Invalid(
+        "RangeType metadata must be a JSON object with a required \"closed\" key, "
+        "got an empty string");
   }
+  rapidjson::Document document;
+  const auto& parsed = document.Parse(serialized_data.data(), serialized_data.length());
+  if (parsed.HasParseError()) {
+    return Status::Invalid("Invalid serialized JSON data for RangeType: ",
+                           rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
+                           serialized_data);
+  }
+  if (!document.IsObject()) {
+    return Status::Invalid("Invalid serialized JSON data for RangeType: not an object");
+  }
+  if (!document.HasMember("closed")) {
+    return Status::Invalid(
+        "RangeType metadata is missing the required \"closed\" key: ", serialized_data);
+  }
+  const auto& closed_val = document["closed"];
+  if (!closed_val.IsString()) {
+    return Status::Invalid(
+        "Invalid serialized JSON data for RangeType: \"closed\" is not a string");
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      RangeClosed closed,
+      ClosedFromString(
+          std::string_view(closed_val.GetString(), closed_val.GetStringLength())));
 
   return std::make_shared<RangeType>(std::move(storage_type), closed);
 }

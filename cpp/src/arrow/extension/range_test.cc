@@ -156,14 +156,14 @@ TEST(RangeType, Deserialize) {
   ASSERT_NO_FATAL_FAILURE(
       CheckDeserialize(R"({"closed": "right", "extra": 42})",
                        extension::range(int32(), extension::RangeClosed::Right)));
+}
 
-  // Empty metadata defaults to "right".
-  ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize("", extension::range(int32(), extension::RangeClosed::Right)));
-
-  // Empty JSON object (no "closed" key) also defaults to "right".
-  ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize("{}", extension::range(int32(), extension::RangeClosed::Right)));
+TEST(RangeType, DefaultClosedIsLeft) {
+  // The C++ convenience default is left-closed; the wire format still always
+  // carries an explicit "closed".
+  auto type = checked_pointer_cast<extension::RangeType>(extension::range(int32()));
+  ASSERT_EQ(extension::RangeClosed::Left, type->closed());
+  ASSERT_EQ(R"({"closed":"left"})", type->Serialize());
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +172,17 @@ TEST(RangeType, Deserialize) {
 TEST(RangeType, DeserializeInvalidMetadata) {
   auto type = RangeInt32Right();
 
-  // Empty string is valid (defaults to "right"); truly malformed JSON fails.
+  // "closed" is required on the wire: empty metadata is invalid.
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("empty string"),
+      type->Deserialize(type->storage_type(), ""));
+
+  // A JSON object without the "closed" key is invalid.
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("missing the required \"closed\" key"),
+      type->Deserialize(type->storage_type(), "{}"));
+
+  // Truly malformed JSON fails.
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Missing a name for object member"),
       type->Deserialize(type->storage_type(), "{"));
