@@ -35,7 +35,9 @@ from selenium import webdriver
 
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
     def log_request(self, code="-", size="-"):
-        # don't log successful requests
+        # don't log successful requests but log errors
+        if isinstance(code, int) and code >= 400:
+            sys.stderr.write(f"HTTP {code} for {self.path}\n")
         return
 
     def do_GET(self) -> bytes | None:
@@ -200,7 +202,8 @@ class BrowserDriver:
     def __init__(self, hostname, port, driver):
         self.driver = driver
         self.driver.get(f"http://{hostname}:{port}/test.html")
-        self.driver.set_script_timeout(100)
+        # Chrome on CI takes longer than locally to compile.
+        self.driver.set_script_timeout(1200)
 
     def load_pyodide(self, dist_dir):
         pass
@@ -259,7 +262,9 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        super().__init__(hostname, port, webdriver.Chrome(options=options))
+        driver = webdriver.Chrome(options=options)
+        driver.command_executor._client_config.timeout = 1200
+        super().__init__(hostname, port, driver)
 
 
 class FirefoxDriver(BrowserDriver):
@@ -336,7 +341,9 @@ with launch_server(dist_dir) as (hostname, port):
         """
 import pyarrow,pathlib
 pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
-pytest.main([pyarrow_dir, '-r', 's'])
+# Substrait expression serialization crashes pyodide with a
+# "Cannot convert a BigInt value to a number" error.
+pytest.main([pyarrow_dir, '-r', 's', '-m', 'not substrait'])
 """,
         wait_for_terminate=False,
     )

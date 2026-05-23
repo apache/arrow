@@ -1195,7 +1195,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Note that some APIs such as ReadTable may ignore this setting.
   int64_t batch_size() const { return batch_size_; }
 
-  /// Enable read coalescing (default false).
+  /// Enable read coalescing (default true).
   ///
   /// When enabled, the Arrow reader will pre-buffer necessary regions
   /// of the file in-memory. This is intended to improve performance on

@@ -290,6 +290,28 @@ TEST(ReaderTest, MultipleChunksParallel) {
   AssertTablesEqual(*serial, *threaded);
 }
 
+// Regression test for intermittent threading crashes on MinGW.
+// Run this test multiple times manually to stress-test:
+//   while build/debug/arrow-json-test
+//       --gtest_filter=ReaderTest.MultipleChunksParallelRegression; do :; done
+// See https://github.com/apache/arrow/issues/49272
+TEST(ReaderTest, MultipleChunksParallelRegression) {
+  int64_t count = 1 << 10;
+  ReadOptions read_options;
+  read_options.block_size = static_cast<int>(count / 2);
+  read_options.use_threads = true;
+  ParseOptions parse_options;
+
+  std::string json;
+  for (int64_t i = 0; i < count; ++i) {
+    json += "{\"a\":" + std::to_string(i) + "}\n";
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto table,
+                       ReadToTable(std::move(json), read_options, parse_options));
+  ASSERT_EQ(table->num_rows(), count);
+}
+
 TEST(ReaderTest, ListArrayWithFewValues) {
   // ARROW-7647
   ParseOptions parse_options;

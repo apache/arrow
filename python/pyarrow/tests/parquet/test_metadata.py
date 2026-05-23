@@ -796,6 +796,41 @@ def test_column_chunk_key_value_metadata(parquet_test_datadir):
     assert key_value_metadata2 is None
 
 
+def test_bloom_filter_offset_in_metadata():
+    # ColumnChunkMetaData.to_dict() when a bloom filter is written.
+    table = pa.table({"a": [f"id_{i}" for i in range(1000)],
+                      "b": list(range(1000))})
+
+    buf = pa.BufferOutputStream()
+    pq.write_table(
+        table,
+        buf,
+        bloom_filter_options={"a": {"ndv": 1000}}  # apply bloom filter on col a
+    )
+    metadata = pq.read_metadata(pa.BufferReader(buf.getvalue()))
+
+    col_a = metadata.row_group(0).column(0)  # bloom filter written
+    col_b = metadata.row_group(0).column(1)  # no bloom filter
+
+    assert col_a.bloom_filter_offset is not None
+    assert isinstance(col_a.bloom_filter_offset, int)
+    assert col_a.bloom_filter_length is not None
+    assert isinstance(col_a.bloom_filter_length, int)
+
+    assert col_b.bloom_filter_offset is None
+    assert col_b.bloom_filter_length is None
+
+    d = col_a.to_dict()
+    assert "bloom_filter_offset" in d
+    assert "bloom_filter_length" in d
+    assert d["bloom_filter_offset"] == col_a.bloom_filter_offset
+    assert d["bloom_filter_length"] == col_a.bloom_filter_length
+
+    d_no_bloom = col_b.to_dict()
+    assert d_no_bloom["bloom_filter_offset"] is None
+    assert d_no_bloom["bloom_filter_length"] is None
+
+
 def test_internal_class_instantiation():
     def msg(c):
         return f"Do not call {c}'s constructor directly"

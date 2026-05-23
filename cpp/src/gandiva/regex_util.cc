@@ -22,11 +22,11 @@ namespace gandiva {
 const std::set<char> RegexUtil::pcre_regex_specials_ = {
     '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\', '.'};
 
-Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char escape_char,
-                                       std::string& pcre_pattern) {
-  /// Characters that are considered special by pcre regex. These needs to be
+arrow::Result<std::string> RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern,
+                                                           char escape_char) {
+  /// Characters that are considered special by pcre regex. These need to be
   /// escaped with '\\'.
-  pcre_pattern.clear();
+  std::string pcre_pattern;
   for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
     auto cur = sql_pattern.at(idx);
 
@@ -57,7 +57,7 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
       pcre_pattern += cur;
     }
   }
-  return Status::OK();
+  return pcre_pattern;
 }
 
 }  // namespace gandiva

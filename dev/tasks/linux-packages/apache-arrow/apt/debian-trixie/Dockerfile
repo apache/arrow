@@ -39,6 +39,7 @@ RUN \
   apt install -y -V ${quiet} \
     base-files \
     build-essential \
+    ccache \
     clang \
     cmake \
     debhelper \
@@ -51,6 +52,7 @@ RUN \
     libbz2-dev \
     libc-ares-dev \
     libcurl4-openssl-dev \
+    libfaketime \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \

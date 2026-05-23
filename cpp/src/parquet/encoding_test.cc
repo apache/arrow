@@ -1705,7 +1705,7 @@ TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSpace) {
 
   for (auto null_prob : {0.001, 0.1, 0.5, 0.9, 0.999}) {
     // Test with both size and offset up to 3 Simd block
-    for (auto i = 1; i < kSimdSize * 3; i++) {
+    for (auto i = 0; i < kSimdSize * 3; i++) {
       ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, 0, null_prob));
       ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, i + 1, null_prob));
     }

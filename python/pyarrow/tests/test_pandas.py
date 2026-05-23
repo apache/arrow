@@ -21,6 +21,7 @@ import json
 import multiprocessing as mp
 import sys
 import warnings
+import zoneinfo
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
@@ -638,8 +639,8 @@ class TestConvertMetadata:
             table_subset = table.remove_column(1)
             result = table_subset.to_pandas()
             expected = df[['a']]
-            if isinstance(df.index, pd.DatetimeIndex):
-                df.index.freq = None
+            if isinstance(expected.index, pd.DatetimeIndex):
+                expected.index.freq = None
             tm.assert_frame_equal(result, expected)
 
             table_subset2 = table_subset.remove_column(1)
@@ -1168,10 +1169,23 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_pytz_tzinfo(self):
         pytz = pytest.importorskip("pytz")
 
-        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
-            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+        timezones_pytz = [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]
+        timezones_zoneinfo = [
+            zoneinfo.ZoneInfo('UTC'),
+            zoneinfo.ZoneInfo('US/Eastern'),
+            timezone(timedelta(minutes=1))
+        ]
+
+        for tz, tz_zoneinfo in zip(timezones_pytz, timezones_zoneinfo):
+            values = [tz.localize(datetime(2018, 1, 1, 12, 23, 45))]
             df = pd.DataFrame({'datetime': values})
-            _check_pandas_roundtrip(df)
+            if Version(pd.__version__) >= Version("3.0.0"):
+                df_expected = pd.DataFrame(
+                    {'datetime': [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_zoneinfo)]}
+                )
+            else:
+                df_expected = None
+            _check_pandas_roundtrip(df, expected=df_expected)
 
     @h.given(st.none() | past.timezones)
     @h.settings(deadline=None)
@@ -1183,7 +1197,6 @@ class TestConvertDateTimeLikeTypes:
         _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_python_datetime_with_timezone_tzinfo(self):
-        pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
@@ -1191,14 +1204,19 @@ class TestConvertDateTimeLikeTypes:
         df = pd.DataFrame({'datetime': values}, index=values)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-        # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
         tz_timezone = timezone(timedelta(hours=hours))
-        tz_pytz = pytz.FixedOffset(hours * 60)
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
-        values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
         df = pd.DataFrame({'datetime': values}, index=values)
-        df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        if Version(pd.__version__) < Version("3.0.0"):
+            # datetime.timezone is going to be pytz.FixedOffset
+            pytz = pytest.importorskip("pytz")
+            tz_pytz = pytz.FixedOffset(hours * 60)
+            values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
+            df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        else:
+            df_exp = None
+
         _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
 
     def test_python_datetime_subclass(self):
@@ -3046,6 +3064,15 @@ class TestConvertMisc:
         df = pd.DataFrame({'a': [None, None, None]})
         df['a'] = df['a'].astype('category')
         _check_pandas_roundtrip(df)
+
+    def test_categorical_with_timezone(self):
+        # GH-49875: timezone was dropped when converting tz-aware categorical
+        cats = pd.DatetimeIndex(["2024-01-01", "2024-01-02"]).tz_localize("US/Eastern")
+        cat = pd.Categorical(values=[cats[0], cats[1], cats[0]], categories=cats)
+
+        arr = pa.array(cat, from_pandas=True)
+
+        assert arr.type.value_type.tz == "US/Eastern"
 
     def test_empty_arrays(self):
         for dtype_str, pa_type in self.type_pairs:
