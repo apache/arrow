@@ -184,6 +184,43 @@ std::string FormatFloat16Value(::std::string_view val) {
 
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
                             const std::shared_ptr<const LogicalType>& logical_type) {
+  // Statistics blobs come from the file's Thrift-encoded metadata and may have
+  // arbitrary length under a malicious writer. Reject any value that is shorter
+  // than what the physical (and, for FLOAT16, logical) type requires so the
+  // memcpy/byte loads below cannot run past the buffer.
+  size_t required = 0;
+  switch (parquet_type) {
+    case Type::BOOLEAN:
+      required = sizeof(bool);
+      break;
+    case Type::INT32:
+    case Type::FLOAT:
+      required = 4;
+      break;
+    case Type::INT64:
+    case Type::DOUBLE:
+      required = 8;
+      break;
+    case Type::INT96:
+      required = 3 * sizeof(int32_t);
+      break;
+    case Type::BYTE_ARRAY:
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      if (logical_type != nullptr && logical_type->is_float16()) {
+        required = 2;
+      }
+      break;
+    case Type::UNDEFINED:
+    default:
+      break;
+  }
+  if (val.size() < required) {
+    std::stringstream ss;
+    ss << "Statistics value of " << val.size() << " bytes is too small for "
+       << TypeToString(parquet_type);
+    throw ParquetException(ss.str());
+  }
+
   std::stringstream result;
   const char* bytes = val.data();
   switch (parquet_type) {
