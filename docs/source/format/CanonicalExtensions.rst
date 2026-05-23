@@ -573,6 +573,102 @@ This extension type is intended to be compatible with ANSI SQL's ``TIMESTAMP WIT
 
    It is also *permissible* for the ``offset_minutes`` field to be dictionary-encoded or run-end-encoded.
 
+.. _range_extension:
+
+Range
+=====
+
+Range represents a bounded set (mathematical interval) defined by a lower and
+an upper bound over an orderable Arrow type T.  It is the Arrow equivalent of
+PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
+
+.. note::
+
+   **Disambiguation from Arrow's calendar** ``Interval`` **type.**
+   Arrow already has an ``Interval`` type (``INTERVAL_MONTHS``,
+   ``INTERVAL_DAY_TIME``, ``INTERVAL_MONTH_DAY_NANO``) that represents a
+   *duration* -- a signed difference between two points in time.  The
+   ``arrow.range`` extension type is an entirely different concept: it
+   represents a *bounded set* with explicit lower and upper endpoints,
+   analogous to a closed or open interval in mathematics.  The naming
+   follows database convention: SQL uses ``INTERVAL`` for durations and
+   ``RANGE`` (or ``PERIOD``) for bounded sets.
+
+* Extension name: ``arrow.range``.
+
+* The storage type of the extension is a ``Struct`` with exactly **two fields,
+  in order**:
+
+  * ``lower``: the lower bound, type **T**, **nullable**.
+    A null value means the range is unbounded below (negative infinity).
+  * ``upper``: the upper bound, type **T**, **nullable**.
+    A null value means the range is unbounded above (positive infinity).
+
+  **T** (the *subtype* or *value type*) may be any orderable Arrow type:
+  integer, floating-point, decimal, date, time, or timestamp types.  Both
+  fields share the same type T.  The subtype is read directly from the
+  storage struct and is **not** duplicated in the extension metadata.
+
+  The outer struct's validity bit marks a null/absent range (a missing range,
+  distinct from an empty range).
+
+.. note::
+
+   Both ``lower`` and ``upper`` struct fields **must** be nullable.  A null
+   bound represents an infinite endpoint and is **always treated as
+   exclusive**, regardless of the value of the ``closed`` parameter.  You
+   cannot include positive or negative infinity in a closed bound.
+
+* Extension type parameters:
+
+  * **closed** = which finite bound(s) are inclusive.  Allowed values
+    (following pandas interval vocabulary):
+
+    * ``"left"``    -- lower bound inclusive, upper bound exclusive: ``[lower, upper)``
+    * ``"right"``   -- lower bound exclusive, upper bound inclusive: ``(lower, upper]``
+    * ``"both"``    -- both bounds inclusive: ``[lower, upper]``
+    * ``"neither"`` -- both bounds exclusive: ``(lower, upper)``
+
+* Description of the serialization:
+
+  The extension metadata **must** be either an empty string or a valid JSON
+  object.  The JSON object may contain one key:
+
+  * ``"closed"`` (string, optional): one of ``"left"``, ``"right"``,
+    ``"both"``, or ``"neither"``.  When absent (including when the metadata is
+    an empty string), it defaults to ``"right"``.
+
+  Additional keys in the JSON object should be ignored to allow
+  forward-compatible extensions.
+
+  Examples:
+
+  - ``{"closed": "right"}``  -- half-open interval, right-closed (default)
+  - ``{"closed": "left"}``   -- half-open interval, left-closed
+  - ``{"closed": "both"}``   -- closed interval
+  - ``{"closed": "neither"}``-- open interval
+  - ``""``                   -- equivalent to ``{"closed": "right"}``
+
+* Semantics:
+
+  * A range value ``[lower, upper]`` with ``closed="both"`` contains every
+    value x such that ``lower <= x <= upper``.
+  * A range value ``[lower, upper]`` with ``closed="neither"`` is *empty*
+    when ``lower == upper`` (a degenerate open interval), and contains values
+    x such that ``lower < x < upper`` otherwise.
+  * Implementations should document behavior when ``lower > upper``; the
+    recommended interpretation is that such a range is *empty*.
+  * A null outer struct value represents a missing (absent) range, not an
+    empty range.
+  * A null ``lower`` field means the range has no lower bound (extends to
+    negative infinity); the lower bound is always exclusive in this case.
+  * A null ``upper`` field means the range has no upper bound (extends to
+    positive infinity); the upper bound is always exclusive in this case.
+  * A range where both ``lower`` and ``upper`` are null represents the
+    universal range ``(-inf, +inf)``.
+
+.. _range types: https://www.postgresql.org/docs/current/rangetypes.html
+
 Community Extension Types
 =========================
 
