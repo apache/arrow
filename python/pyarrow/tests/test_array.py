@@ -442,6 +442,16 @@ def test_array_from_dictionary_scalar():
     assert result.equals(expected)
 
 
+def test_repeat_offset_overflow():
+    # GH-36388: pa.repeat should raise an error when the total data size
+    # would overflow 32-bit offsets, instead of returning an invalid array.
+    with pytest.raises(pa.ArrowInvalid, match="overflow"):
+        pa.repeat("x", 2**31)
+
+    with pytest.raises(pa.ArrowInvalid, match="overflow"):
+        pa.repeat("xy", 2**30 + 1)
+
+
 def test_array_getitem():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()
