@@ -42,7 +42,7 @@ namespace {
 
 // A row template that's been bound to a schema
 struct BoundRowTemplate {
-  std::vector<std::string> feature_values;
+  std::vector<std::shared_ptr<Scalar>> feature_values;
   std::vector<std::optional<FieldPath>> measurement_paths;
 
   static Result<BoundRowTemplate> Make(const PivotLongerRowTemplate& unbound,
@@ -65,7 +65,7 @@ struct BoundRowTemplate {
   }
 
  private:
-  BoundRowTemplate(std::vector<std::string> feature_values,
+  BoundRowTemplate(std::vector<std::shared_ptr<Scalar>> feature_values,
                    std::vector<std::optional<FieldPath>> measurement_paths)
       : feature_values(std::move(feature_values)),
         measurement_paths(std::move(measurement_paths)) {}
@@ -89,6 +89,8 @@ class PivotLongerNode : public ExecNode, public TracedNode {
           "have names");
     }
 
+    std::vector<std::shared_ptr<DataType>> feature_types(
+        options.feature_field_names.size());
     for (const auto& row_template : options.row_templates) {
       if (row_template.feature_values.size() != options.feature_field_names.size()) {
         return Status::Invalid("There were names given for ",
@@ -103,11 +105,28 @@ class PivotLongerNode : public ExecNode, public TracedNode {
             " measurement columns but one of the row templates only had ",
             row_template.measurement_values.size(), " field references");
       }
+
+      for (std::size_t i = 0; i < row_template.feature_values.size(); i++) {
+        if (feature_types[i]) {
+          if (!feature_types[i]->Equals(row_template.feature_values[i]->type)) {
+            return Status::Invalid(
+                "Mixed feature types at column ", options.feature_field_names[i],
+                ".  Some row templates had the type ", feature_types[i]->ToString(),
+                " but later row templates had the type ",
+                row_template.feature_values[i]->type->ToString(),
+                ".  All row templates must have same type for each feature "
+                "column.");
+          }
+        } else {
+          feature_types[i] = row_template.feature_values[i]->type;
+        }
+      }
     }
 
     std::vector<std::shared_ptr<Field>> fields(input_schema->fields());
-    for (const auto& name : options.feature_field_names) {
-      fields.push_back(field(name, utf8()));
+    for (std::size_t i = 0; i < options.feature_field_names.size(); i++) {
+      fields.push_back(
+          field(options.feature_field_names[i], std::move(feature_types[i])));
     }
     std::vector<std::shared_ptr<DataType>> measurement_types(
         options.measurement_field_names.size());
