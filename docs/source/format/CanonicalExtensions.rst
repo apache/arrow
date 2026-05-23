@@ -631,23 +631,25 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 
 * Description of the serialization:
 
-  The extension metadata **must** be either an empty string or a valid JSON
-  object.  The JSON object may contain one key:
+  The extension metadata **must** be a valid JSON object containing the
+  **required** key:
 
-  * ``"closed"`` (string, optional): one of ``"left"``, ``"right"``,
-    ``"both"``, or ``"neither"``.  When absent (including when the metadata is
-    an empty string), it defaults to ``"right"``.
+  * ``"closed"`` (string, **required**): one of ``"left"``, ``"right"``,
+    ``"both"``, or ``"neither"``.
+
+  The closedness is **not** defaulted on the wire: an empty metadata string,
+  or a JSON object without a ``"closed"`` key, is invalid.  This keeps the
+  serialized form unambiguous for consumers.
 
   Additional keys in the JSON object should be ignored to allow
   forward-compatible extensions.
 
   Examples:
 
-  - ``{"closed": "right"}``  -- half-open interval, right-closed (default)
+  - ``{"closed": "right"}``  -- half-open interval, right-closed
   - ``{"closed": "left"}``   -- half-open interval, left-closed
   - ``{"closed": "both"}``   -- closed interval
   - ``{"closed": "neither"}``-- open interval
-  - ``""``                   -- equivalent to ``{"closed": "right"}``
 
 * Semantics:
 
