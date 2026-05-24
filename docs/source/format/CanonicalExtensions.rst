@@ -609,15 +609,14 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
   fields share the same type T.  The subtype is read directly from the
   storage struct and is **not** duplicated in the extension metadata.
 
-  The outer struct's validity bit marks a null/absent range (a missing range,
-  distinct from an empty range).
-
-.. note::
-
-   Both ``lower`` and ``upper`` struct fields **must** be nullable.  A null
-   bound represents an infinite endpoint and is **always treated as
-   exclusive**, regardless of the value of the ``closed`` parameter.  You
-   cannot include positive or negative infinity in a closed bound.
+  Both ``lower`` and ``upper`` fields **must** be nullable.  A null bound
+  represents an infinite endpoint and is **always treated as exclusive**,
+  regardless of the value of the ``closed`` parameter; positive and negative
+  infinity can never be included in a closed bound.  A null ``lower`` means
+  the range extends to negative infinity, a null ``upper`` means it extends to
+  positive infinity, and a range whose ``lower`` and ``upper`` are both null
+  is the universal range ``(-inf, +inf)``.  The outer struct's validity bit
+  marks a null/absent range (a missing range, distinct from an empty range).
 
 * Extension type parameters:
 
@@ -629,6 +628,12 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
     * ``"both"``    -- both bounds inclusive: ``[lower, upper]``
     * ``"neither"`` -- both bounds exclusive: ``(lower, upper)``
 
+  A range thus contains every value x permitted by its finite bounds and
+  ``closed`` setting: with ``closed="both"`` every x such that
+  ``lower <= x <= upper``, with ``closed="neither"`` every x such that
+  ``lower < x < upper``.  A range is *empty* when ``lower > upper``, or when
+  ``lower == upper`` and at least one bound is exclusive.
+
 * Description of the serialization:
 
   The extension metadata **must** be a valid JSON object containing the
@@ -639,10 +644,8 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 
   The closedness is **not** defaulted on the wire: an empty metadata string,
   or a JSON object without a ``"closed"`` key, is invalid.  This keeps the
-  serialized form unambiguous for consumers.
-
-  Additional keys in the JSON object should be ignored to allow
-  forward-compatible extensions.
+  serialized form unambiguous for consumers.  Additional keys in the JSON
+  object should be ignored to allow forward-compatible extensions.
 
   Examples:
 
@@ -650,24 +653,6 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
   - ``{"closed": "left"}``   -- half-open interval, left-closed
   - ``{"closed": "both"}``   -- closed interval
   - ``{"closed": "neither"}``-- open interval
-
-* Semantics:
-
-  * A range value ``[lower, upper]`` with ``closed="both"`` contains every
-    value x such that ``lower <= x <= upper``.
-  * A range value ``[lower, upper]`` with ``closed="neither"`` is *empty*
-    when ``lower == upper`` (a degenerate open interval), and contains values
-    x such that ``lower < x < upper`` otherwise.
-  * Implementations should document behavior when ``lower > upper``; the
-    recommended interpretation is that such a range is *empty*.
-  * A null outer struct value represents a missing (absent) range, not an
-    empty range.
-  * A null ``lower`` field means the range has no lower bound (extends to
-    negative infinity); the lower bound is always exclusive in this case.
-  * A null ``upper`` field means the range has no upper bound (extends to
-    positive infinity); the upper bound is always exclusive in this case.
-  * A range where both ``lower`` and ``upper`` are null represents the
-    universal range ``(-inf, +inf)``.
 
 .. _range types: https://www.postgresql.org/docs/current/rangetypes.html
 
