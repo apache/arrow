@@ -779,6 +779,60 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
   AddBinaryToFixedSizeBinaryCast<FixedSizeBinaryType>(func);
 }
 
+// ----------------------------------------------------------------------
+// Union to String
+
+template <typename O>
+struct UnionToStringCastFunctor {
+  using BuilderType = typename TypeTraits<O>::BuilderType;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& input = batch[0].array;
+    const auto& union_type = checked_cast<const UnionType&>(*input.type);
+    const auto type_ids = input.GetValues<int8_t>(1);
+    const auto& offsets = input.GetValues<int32_t>(2);
+
+    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(input.length));
+
+    for (int64_t i = 0; i < input.length; ++i) {
+      if (input.IsNull(i)) {
+        RETURN_NOT_OK(builder.AppendNull());
+        continue;
+      }
+
+      const int8_t type_id = type_ids[i];
+      const auto& field = union_type.field(union_type.child_ids()[type_id]);
+      const ArraySpan& child_span = input.child_data[union_type.child_ids()[type_id]];
+
+      std::shared_ptr<Scalar> child_scalar;
+      auto child_index = union_type.mode() == UnionMode::DENSE ? offsets[i] : i;
+      RETURN_NOT_OK(child_span.ToArray()->GetScalar(child_index).Value(&child_scalar));
+
+      std::string str = "union{" + field->name() + ": " + field->type()->ToString() +
+                        " = " + child_scalar->ToString() + "}";
+      RETURN_NOT_OK(builder.Append(str));
+    }
+
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(builder.Finish(&output_array));
+    out->value = output_array->data();
+    return Status::OK();
+  }
+};
+
+template <typename OutType>
+void AddUnionToStringCast(CastFunction* func) {
+  auto out_ty = TypeTraits<OutType>::type_singleton();
+
+  DCHECK_OK(func->AddKernel(Type::DENSE_UNION, {InputType(Type::DENSE_UNION)}, out_ty,
+                            UnionToStringCastFunctor<OutType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::SPARSE_UNION, {InputType(Type::SPARSE_UNION)}, out_ty,
+                            UnionToStringCastFunctor<OutType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+}
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
@@ -806,6 +860,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<StringType>(cast_string.get());
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
+  AddUnionToStringCast<StringType>(cast_string.get());
 
   auto cast_string_view =
       std::make_shared<CastFunction>("cast_string_view", Type::STRING_VIEW);
@@ -822,6 +877,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<LargeStringType>(cast_large_string.get());
   AddTemporalToStringCasts<LargeStringType>(cast_large_string.get());
   AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
+  AddUnionToStringCast<LargeStringType>(cast_large_string.get());
 
   // cast_fixed_size_binary
 
