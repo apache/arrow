@@ -599,24 +599,29 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 * The storage type of the extension is a ``Struct`` with exactly **two fields,
   in order**:
 
-  * ``lower``: the lower bound, type **T**, **nullable**.
-    A null value means the range is unbounded below (negative infinity).
-  * ``upper``: the upper bound, type **T**, **nullable**.
-    A null value means the range is unbounded above (positive infinity).
+  * ``lower``: the lower bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded below
+    (negative infinity).
+  * ``upper``: the upper bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded above
+    (positive infinity).
 
   **T** (the *subtype* or *value type*) may be any orderable Arrow type:
   integer, floating-point, decimal, date, time, or timestamp types.  Both
   fields share the same type T.  The subtype is read directly from the
   storage struct and is **not** duplicated in the extension metadata.
 
-  Both ``lower`` and ``upper`` fields **must** be nullable.  A null bound
-  represents an infinite endpoint and is **always treated as exclusive**,
-  regardless of the value of the ``closed`` parameter; positive and negative
-  infinity can never be included in a closed bound.  A null ``lower`` means
-  the range extends to negative infinity, a null ``upper`` means it extends to
-  positive infinity, and a range whose ``lower`` and ``upper`` are both null
-  is the universal range ``(-inf, +inf)``.  The outer struct's validity bit
-  marks a null/absent range (a missing range, distinct from an empty range).
+  Each of ``lower`` and ``upper`` **may** be nullable, independently of the
+  other.  Nullability is **only** needed to represent an unbounded side: a
+  nullable bound may hold null to mean an infinite endpoint, while a
+  non-nullable bound is always finite.  A null bound is **always treated as
+  exclusive**, regardless of the value of the ``closed`` parameter; positive and
+  negative infinity can never be included in a closed bound.  A null ``lower``
+  means the range extends to negative infinity, a null ``upper`` means it
+  extends to positive infinity, and a range whose ``lower`` and ``upper`` are
+  both null (and both nullable) is the universal range ``(-inf, +inf)``.  The
+  outer struct's validity bit marks a null/absent range (a missing range,
+  distinct from an empty range).
 
 * Extension type parameters:
 
