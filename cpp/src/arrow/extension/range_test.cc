@@ -69,14 +69,14 @@ TEST(RangeType, Basics) {
 
 TEST(RangeType, AllClosedValues) {
   using C = extension::RangeClosed;
-  auto left = checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), C::Left));
-  auto right = checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), C::Right));
-  auto both = checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), C::Both));
-  auto neither = checked_pointer_cast<extension::RangeType>(
-      extension::range(int32(), C::Neither));
+  auto left =
+      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Left));
+  auto right =
+      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Right));
+  auto both =
+      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Both));
+  auto neither =
+      checked_pointer_cast<extension::RangeType>(extension::range(int32(), C::Neither));
 
   ASSERT_EQ(R"({"closed":"left"})", left->Serialize());
   ASSERT_EQ(R"({"closed":"right"})", right->Serialize());
@@ -119,9 +119,9 @@ TEST(RangeType, CreateFromArray) {
   auto storage_type = type->storage_type();
   auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
   auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
-  ASSERT_OK_AND_ASSIGN(auto storage, StructArray::Make({lower, upper},
-                                                       {field("lower", int32(), true),
-                                                        field("upper", int32(), true)}));
+  ASSERT_OK_AND_ASSIGN(
+      auto storage, StructArray::Make({lower, upper}, {field("lower", int32(), true),
+                                                       field("upper", int32(), true)}));
   auto array = ExtensionType::WrapArray(type, storage);
   ASSERT_EQ(3, array->length());
   ASSERT_EQ(0, array->null_count());
@@ -147,12 +147,10 @@ TEST(RangeType, Deserialize) {
   ASSERT_NO_FATAL_FAILURE(
       CheckDeserialize(R"({"closed": "right"})",
                        extension::range(int32(), extension::RangeClosed::Right)));
-  ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize(R"({"closed": "left"})",
-                       extension::range(int32(), extension::RangeClosed::Left)));
-  ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize(R"({"closed": "both"})",
-                       extension::range(int32(), extension::RangeClosed::Both)));
+  ASSERT_NO_FATAL_FAILURE(CheckDeserialize(
+      R"({"closed": "left"})", extension::range(int32(), extension::RangeClosed::Left)));
+  ASSERT_NO_FATAL_FAILURE(CheckDeserialize(
+      R"({"closed": "both"})", extension::range(int32(), extension::RangeClosed::Both)));
   ASSERT_NO_FATAL_FAILURE(
       CheckDeserialize(R"({"closed": "neither"})",
                        extension::range(int32(), extension::RangeClosed::Neither)));
@@ -178,9 +176,8 @@ TEST(RangeType, DeserializeInvalidMetadata) {
   auto type = RangeInt32Right();
 
   // "closed" is required on the wire: empty metadata is invalid.
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("empty string"),
-      type->Deserialize(type->storage_type(), ""));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("empty string"),
+                                  type->Deserialize(type->storage_type(), ""));
 
   // A JSON object without the "closed" key is invalid.
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -188,9 +185,9 @@ TEST(RangeType, DeserializeInvalidMetadata) {
       type->Deserialize(type->storage_type(), "{}"));
 
   // Truly malformed JSON fails.
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Missing a name for object member"),
-      type->Deserialize(type->storage_type(), "{"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Missing a name for object member"),
+                                  type->Deserialize(type->storage_type(), "{"));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("not an object"),
                                   type->Deserialize(type->storage_type(), "[]"));
@@ -214,9 +211,8 @@ TEST(RangeType, DeserializeInvalidStorage) {
 
   // Wrong number of fields.
   auto one_field = struct_({field("lower", int32(), true)});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("exactly 2 fields"),
-      type->Deserialize(one_field, R"({"closed":"right"})"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("exactly 2 fields"),
+                                  type->Deserialize(one_field, R"({"closed":"right"})"));
 
   // Wrong field name for field 0.
   auto bad_lower_name =
@@ -250,19 +246,16 @@ TEST(RangeType, NonNullableBounds) {
   auto type = RangeInt32Right();
 
   // Both bounds non-nullable: accepted (a finite-only range).
-  auto both_non_nullable = struct_(
-      {field("lower", int32(), /*nullable=*/false),
-       field("upper", int32(), /*nullable=*/false)});
+  auto both_non_nullable = struct_({field("lower", int32(), /*nullable=*/false),
+                                    field("upper", int32(), /*nullable=*/false)});
   ASSERT_OK_AND_ASSIGN(auto from_non_nullable,
                        type->Deserialize(both_non_nullable, R"({"closed":"right"})"));
-  ASSERT_EQ(
-      *int32(),
-      *checked_pointer_cast<extension::RangeType>(from_non_nullable)->value_type());
+  ASSERT_EQ(*int32(),
+            *checked_pointer_cast<extension::RangeType>(from_non_nullable)->value_type());
 
   // Asymmetric: lower nullable (may be -inf), upper non-nullable (always finite).
-  auto asymmetric = struct_(
-      {field("lower", int32(), /*nullable=*/true),
-       field("upper", int32(), /*nullable=*/false)});
+  auto asymmetric = struct_({field("lower", int32(), /*nullable=*/true),
+                             field("upper", int32(), /*nullable=*/false)});
   ASSERT_OK_AND_ASSIGN(auto from_asymmetric,
                        type->Deserialize(asymmetric, R"({"closed":"left"})"));
   ASSERT_EQ(extension::RangeClosed::Left,
@@ -301,12 +294,11 @@ TEST(RangeType, BatchRoundTrip) {
   auto type = RangeInt32Right();
   auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
   auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
-  ASSERT_OK_AND_ASSIGN(auto storage, StructArray::Make({lower, upper},
-                                                       {field("lower", int32(), true),
-                                                        field("upper", int32(), true)}));
+  ASSERT_OK_AND_ASSIGN(
+      auto storage, StructArray::Make({lower, upper}, {field("lower", int32(), true),
+                                                       field("upper", int32(), true)}));
   auto array = ExtensionType::WrapArray(type, storage);
-  auto batch =
-      RecordBatch::Make(schema({field("rng", type)}), array->length(), {array});
+  auto batch = RecordBatch::Make(schema({field("rng", type)}), array->length(), {array});
 
   std::shared_ptr<RecordBatch> written;
   {

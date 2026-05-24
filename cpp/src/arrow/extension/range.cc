@@ -101,9 +101,8 @@ std::string RangeType::Serialize() const {
   rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
 
   auto closed_str = ClosedToString(closed_);
-  rapidjson::Value closed_value(closed_str.data(),
-                                static_cast<rapidjson::SizeType>(closed_str.size()),
-                                allocator);
+  rapidjson::Value closed_value(
+      closed_str.data(), static_cast<rapidjson::SizeType>(closed_str.size()), allocator);
   document.AddMember(rapidjson::Value("closed", allocator), closed_value, allocator);
 
   rapidjson::StringBuffer buffer;
@@ -121,9 +120,8 @@ Result<std::shared_ptr<DataType>> RangeType::Deserialize(
   }
   const auto& struct_type = internal::checked_cast<const StructType&>(*storage_type);
   if (struct_type.num_fields() != 2) {
-    return Status::Invalid(
-        "RangeType storage Struct must have exactly 2 fields, got ",
-        struct_type.num_fields());
+    return Status::Invalid("RangeType storage Struct must have exactly 2 fields, got ",
+                           struct_type.num_fields());
   }
   const auto& lower_field = struct_type.field(0);
   const auto& upper_field = struct_type.field(1);
@@ -163,18 +161,17 @@ Result<std::shared_ptr<DataType>> RangeType::Deserialize(
     return Status::Invalid("Invalid serialized JSON data for RangeType: not an object");
   }
   if (!document.HasMember("closed")) {
-    return Status::Invalid(
-        "RangeType metadata is missing the required \"closed\" key: ", serialized_data);
+    return Status::Invalid("RangeType metadata is missing the required \"closed\" key: ",
+                           serialized_data);
   }
   const auto& closed_val = document["closed"];
   if (!closed_val.IsString()) {
     return Status::Invalid(
         "Invalid serialized JSON data for RangeType: \"closed\" is not a string");
   }
-  ARROW_ASSIGN_OR_RAISE(
-      RangeClosed closed,
-      ClosedFromString(
-          std::string_view(closed_val.GetString(), closed_val.GetStringLength())));
+  ARROW_ASSIGN_OR_RAISE(RangeClosed closed,
+                        ClosedFromString(std::string_view(closed_val.GetString(),
+                                                          closed_val.GetStringLength())));
 
   return std::make_shared<RangeType>(std::move(storage_type), closed);
 }
@@ -186,8 +183,9 @@ std::shared_ptr<Array> RangeType::MakeArray(std::shared_ptr<ArrayData> data) con
   return std::make_shared<RangeArray>(data);
 }
 
-Result<std::shared_ptr<DataType>> RangeType::Make(
-    std::shared_ptr<DataType> value_type, RangeClosed closed, bool allow_unbounded) {
+Result<std::shared_ptr<DataType>> RangeType::Make(std::shared_ptr<DataType> value_type,
+                                                  RangeClosed closed,
+                                                  bool allow_unbounded) {
   auto storage = MakeStorageType(value_type, allow_unbounded);
   return std::make_shared<RangeType>(std::move(storage), closed);
 }
@@ -195,8 +193,8 @@ Result<std::shared_ptr<DataType>> RangeType::Make(
 // ---------------------------------------------------------------------------
 // Free factory function
 
-std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type,
-                                RangeClosed closed, bool allow_unbounded) {
+std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type, RangeClosed closed,
+                                bool allow_unbounded) {
   auto result = RangeType::Make(std::move(value_type), closed, allow_unbounded);
   ARROW_CHECK_OK(result.status());
   return std::move(result).ValueOrDie();
