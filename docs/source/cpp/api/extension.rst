@@ -42,6 +42,10 @@ Extension Type classes
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::extension::RangeType
+   :project: arrow_cpp
+   :members:
+
 Extension Array classes
 =======================
 
@@ -60,4 +64,14 @@ Extension Array classes
 .. doxygenclass:: arrow::extension::UuidArray
    :project: arrow_cpp
    :members:
+
+.. doxygenclass:: arrow::extension::RangeArray
+   :project: arrow_cpp
+   :members:
+
+Extension functions
+===================
+
+.. doxygenfunction:: arrow::extension::range
+   :project: arrow_cpp
 
