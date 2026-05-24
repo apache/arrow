@@ -78,6 +78,13 @@ int64_t DictionaryArray::GetValueIndex(int64_t i) const {
   }
 }
 
+ViewType DictionaryArray::GetView(int64_t i) const {
+  const auto index = GetValueIndex(i);
+  GetViewVisitor visitor(index, *this);
+  ARROW_CHECK_OK(dictionary()->type()->Accept(&visitor));
+  return visitor.view();
+}
+
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
   ARROW_CHECK_EQ(data->type->id(), Type::DICTIONARY);

@@ -48,6 +48,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visit_array_inline.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -198,6 +199,36 @@ struct GetViewType<Decimal256Type> {
   }
 
   static T LogicalValue(T value) { return value; }
+};
+
+template <>
+struct GetViewType<DictionaryType> {
+  using T = std::variant<std::string_view, int32_t>;
+  using PhysicalType = T;
+
+  using ViewType = T;
+
+  ViewType view;
+
+  Status Visit(const arrow::StringType& type) {
+    view = std::string_view();
+    return Status::OK();
+  }
+
+  Status Visit(const arrow::Int32Type& type) {
+    view = int32_t();
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("View not supported for type ", type.ToString());
+  }
+
+  static T LogicalValue(PhysicalType value) {
+    GetViewType<DictionaryType> getter;
+    getter.view = value;
+    return getter.view;
+  }
 };
 
 template <typename Type, typename Enable = void>
