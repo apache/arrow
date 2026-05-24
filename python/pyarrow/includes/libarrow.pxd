@@ -3085,6 +3085,27 @@ cdef extern from "arrow/extension/bool8.h" namespace "arrow::extension" nogil:
     cdef cppclass CBool8Array" arrow::extension::Bool8Array"(CExtensionArray):
         pass
 
+
+cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
+    cdef enum class CRangeClosed" arrow::extension::RangeClosed":
+        Left
+        Right
+        Both
+        Neither
+
+    cdef cppclass CRangeType" arrow::extension::RangeType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType] value_type,
+                                            CRangeClosed closed)
+
+        CRangeClosed closed()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CRangeArray" arrow::extension::RangeArray"(CExtensionArray):
+        pass
+
+
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
         CCompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"

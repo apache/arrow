@@ -2091,6 +2091,62 @@ cdef class Bool8Type(BaseExtensionType):
         return Bool8Scalar
 
 
+cdef class RangeType(BaseExtensionType):
+    """
+    Concrete class for range extension type.
+
+    Range represents a bounded set (a mathematical interval) over an orderable
+    Arrow value type. The underlying storage is a Struct with two nullable
+    fields "lower" and "upper" of the value type, where a null bound denotes an
+    unbounded (infinite) side. The "closed" parameter controls which finite
+    bounds are inclusive.
+
+    Examples
+    --------
+    Create an instance of range extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.range_(pa.int32(), "both")
+    RangeType(extension<arrow.range[value_type=int32, closed=both]>)
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.range_ext_type = <const CRangeType*> type.get()
+
+    @property
+    def value_type(self):
+        """
+        The Arrow value type of the "lower" and "upper" bounds.
+        """
+        return pyarrow_wrap_data_type(self.range_ext_type.value_type())
+
+    @property
+    def closed(self):
+        """
+        Which bound(s) are inclusive, as one of "left", "right", "both" or
+        "neither".
+        """
+        cdef CRangeClosed c_closed = self.range_ext_type.closed()
+        if c_closed == CRangeClosed.Left:
+            return "left"
+        elif c_closed == CRangeClosed.Right:
+            return "right"
+        elif c_closed == CRangeClosed.Both:
+            return "both"
+        else:
+            return "neither"
+
+    def __arrow_ext_class__(self):
+        return RangeArray
+
+    def __reduce__(self):
+        return range_, (self.value_type, self.closed)
+
+    def __arrow_ext_scalar_class__(self):
+        return RangeScalar
+
+
 cdef class OpaqueType(BaseExtensionType):
     """
     Concrete class for opaque extension type.
@@ -5703,6 +5759,73 @@ def bool8():
 
     out.init(c_type)
 
+    return out
+
+
+def range_(DataType value_type not None, str closed="left"):
+    """
+    Create instance of range extension type.
+
+    Parameters
+    ----------
+    value_type : DataType
+        The orderable Arrow type of the "lower" and "upper" interval bounds.
+    closed : str, default "left"
+        Which bound(s) are inclusive. One of "left", "right", "both" or
+        "neither".
+
+    Examples
+    --------
+    Create an instance of a range extension type:
+
+    >>> import pyarrow as pa
+    >>> type = pa.range_(pa.int32(), "both")
+    >>> type
+    RangeType(extension<arrow.range[value_type=int32, closed=both]>)
+
+    Inspect the data type:
+
+    >>> type.value_type
+    DataType(int32)
+    >>> type.closed
+    'both'
+    >>> type.storage_type
+    StructType(struct<lower: int32, upper: int32>)
+
+    Create a range array:
+
+    >>> storage = pa.array(
+    ...     [{"lower": 1, "upper": 5}, {"lower": None, "upper": 10}],
+    ...     type.storage_type,
+    ... )
+    >>> arr = pa.ExtensionArray.from_storage(type, storage)
+    >>> arr.type
+    RangeType(extension<arrow.range[value_type=int32, closed=both]>)
+
+    Returns
+    -------
+    type : RangeType
+    """
+
+    cdef CRangeClosed c_closed
+    if closed == "left":
+        c_closed = CRangeClosed.Left
+    elif closed == "right":
+        c_closed = CRangeClosed.Right
+    elif closed == "both":
+        c_closed = CRangeClosed.Both
+    elif closed == "neither":
+        c_closed = CRangeClosed.Neither
+    else:
+        raise ValueError(
+            f"Invalid value for range \"closed\" parameter: {closed!r}. "
+            "Expected one of: 'left', 'right', 'both', 'neither'.")
+
+    cdef:
+        shared_ptr[CDataType] c_type = GetResultValue(
+            CRangeType.Make(value_type.sp_type, c_closed))
+        RangeType out = RangeType.__new__(RangeType)
+    out.init(c_type)
     return out
 
 

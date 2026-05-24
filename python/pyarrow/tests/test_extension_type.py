@@ -1915,6 +1915,72 @@ def test_opaque_type(pickle_module, storage_type, storage):
     assert inner == storage
 
 
+@pytest.mark.parametrize("closed", ["left", "right", "both", "neither"])
+@pytest.mark.parametrize("value_type,bounds", [
+    (pa.int32(), [{"lower": 1, "upper": 5}, {"lower": None, "upper": 10}]),
+    (pa.int64(), [{"lower": None, "upper": None}, {"lower": 2, "upper": 8}]),
+    (pa.float64(), [{"lower": 0.0, "upper": 1.5}, None]),
+])
+def test_range_type(pickle_module, closed, value_type, bounds):
+    range_type = pa.range_(value_type, closed)
+    assert range_type.extension_name == "arrow.range"
+    assert range_type.value_type == value_type
+    assert range_type.closed == closed
+    assert range_type.storage_type == pa.struct([
+        pa.field("lower", value_type, nullable=True),
+        pa.field("upper", value_type, nullable=True),
+    ])
+    assert "arrow.range" in str(range_type)
+
+    # the closed parameter defaults to "left"
+    assert pa.range_(value_type).closed == "left"
+
+    assert range_type == range_type
+    assert range_type == pa.range_(value_type, closed)
+    assert range_type != value_type
+    # different closed parameter -> not equal
+    other_closed = "right" if closed != "right" else "left"
+    assert range_type != pa.range_(value_type, other_closed)
+    # different value type -> not equal
+    assert range_type != pa.range_(pa.decimal128(12, 3), closed)
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(range_type))
+    assert result == range_type
+    assert result.closed == closed
+    assert result.value_type == value_type
+
+    # IPC roundtrip
+    range_arr_class = range_type.__arrow_ext_class__()
+    storage = pa.array(bounds, range_type.storage_type)
+    arr = pa.ExtensionArray.from_storage(range_type, storage)
+    assert isinstance(arr, range_arr_class)
+
+    # extension is registered by default
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+    batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.range"
+    assert batch.column(0).type.closed == closed
+    assert isinstance(batch.column(0), range_arr_class)
+    assert batch.column(0) == arr
+
+    # cast storage -> extension type
+    result = storage.cast(range_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(range_type.storage_type)
+    assert inner == storage
+
+
+def test_range_type_invalid_closed():
+    with pytest.raises(ValueError, match="Invalid value for range"):
+        pa.range_(pa.int32(), "invalid")
+    with pytest.raises(ValueError, match="Invalid value for range"):
+        pa.range_(pa.int32(), "")
+
+
 def test_bool8_type(pickle_module):
     bool8_type = pa.bool8()
     storage_type = pa.int8()
