@@ -78,7 +78,7 @@ std::shared_ptr<DataType> RangeType::value_type() const {
 
 std::string RangeType::ToString(bool show_metadata) const {
   std::stringstream ss;
-  ss << "extension<" << extension_name()
+  ss << "extension<" << this->extension_name()
      << "[value_type=" << value_type()->ToString(show_metadata)
      << ", closed=" << ClosedToString(closed_) << "]>";
   return ss.str();

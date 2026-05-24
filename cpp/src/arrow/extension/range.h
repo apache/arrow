@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <string>
-
 #include "arrow/extension_type.h"
 #include "arrow/type.h"
 
