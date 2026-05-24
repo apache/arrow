@@ -60,10 +60,12 @@ Result<RangeClosed> ClosedFromString(std::string_view s) {
 }
 
 /// Build the storage Struct type for a given value subtype.
-std::shared_ptr<DataType> MakeStorageType(const std::shared_ptr<DataType>& value_type) {
-  // Both "lower" and "upper" are nullable (null = infinite bound).
-  return struct_({field("lower", value_type, /*nullable=*/true),
-                  field("upper", value_type, /*nullable=*/true)});
+std::shared_ptr<DataType> MakeStorageType(const std::shared_ptr<DataType>& value_type,
+                                          bool allow_unbounded) {
+  // Nullable bounds can represent an unbounded (infinite) endpoint; non-nullable
+  // bounds are always finite.
+  return struct_({field("lower", value_type, allow_unbounded),
+                  field("upper", value_type, allow_unbounded)});
 }
 
 }  // namespace
@@ -135,12 +137,6 @@ Result<std::shared_ptr<DataType>> RangeType::Deserialize(
         "RangeType storage Struct field 1 must be named \"upper\", got \"",
         upper_field->name(), "\"");
   }
-  if (!lower_field->nullable()) {
-    return Status::Invalid("RangeType storage Struct field \"lower\" must be nullable");
-  }
-  if (!upper_field->nullable()) {
-    return Status::Invalid("RangeType storage Struct field \"upper\" must be nullable");
-  }
   if (!lower_field->type()->Equals(*upper_field->type())) {
     return Status::Invalid(
         "RangeType storage Struct fields \"lower\" and \"upper\" must have the same "
@@ -191,8 +187,8 @@ std::shared_ptr<Array> RangeType::MakeArray(std::shared_ptr<ArrayData> data) con
 }
 
 Result<std::shared_ptr<DataType>> RangeType::Make(
-    std::shared_ptr<DataType> value_type, RangeClosed closed) {
-  auto storage = MakeStorageType(value_type);
+    std::shared_ptr<DataType> value_type, RangeClosed closed, bool allow_unbounded) {
+  auto storage = MakeStorageType(value_type, allow_unbounded);
   return std::make_shared<RangeType>(std::move(storage), closed);
 }
 
@@ -200,8 +196,8 @@ Result<std::shared_ptr<DataType>> RangeType::Make(
 // Free factory function
 
 std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type,
-                                RangeClosed closed) {
-  auto result = RangeType::Make(std::move(value_type), closed);
+                                RangeClosed closed, bool allow_unbounded) {
+  auto result = RangeType::Make(std::move(value_type), closed, allow_unbounded);
   ARROW_CHECK_OK(result.status());
   return std::move(result).ValueOrDie();
 }

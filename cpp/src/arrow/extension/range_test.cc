@@ -238,20 +238,43 @@ TEST(RangeType, DeserializeInvalidStorage) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("same type"),
       type->Deserialize(mismatched_types, R"({"closed":"right"})"));
+}
 
-  // Non-nullable lower field.
-  auto lower_not_nullable =
-      struct_({field("lower", int32(), /*nullable=*/false), field("upper", int32(), true)});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("\"lower\" must be nullable"),
-      type->Deserialize(lower_not_nullable, R"({"closed":"right"})"));
+// ---------------------------------------------------------------------------
+// Non-nullable / asymmetric bounds
+//
+// Bound nullability is only needed to represent an unbounded (infinite)
+// endpoint; non-nullable bounds describe a finite-only range and are accepted.
 
-  // Non-nullable upper field.
-  auto upper_not_nullable =
-      struct_({field("lower", int32(), true), field("upper", int32(), /*nullable=*/false)});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("\"upper\" must be nullable"),
-      type->Deserialize(upper_not_nullable, R"({"closed":"right"})"));
+TEST(RangeType, NonNullableBounds) {
+  auto type = RangeInt32Right();
+
+  // Both bounds non-nullable: accepted (a finite-only range).
+  auto both_non_nullable = struct_(
+      {field("lower", int32(), /*nullable=*/false),
+       field("upper", int32(), /*nullable=*/false)});
+  ASSERT_OK_AND_ASSIGN(auto from_non_nullable,
+                       type->Deserialize(both_non_nullable, R"({"closed":"right"})"));
+  ASSERT_EQ(
+      *int32(),
+      *checked_pointer_cast<extension::RangeType>(from_non_nullable)->value_type());
+
+  // Asymmetric: lower nullable (may be -inf), upper non-nullable (always finite).
+  auto asymmetric = struct_(
+      {field("lower", int32(), /*nullable=*/true),
+       field("upper", int32(), /*nullable=*/false)});
+  ASSERT_OK_AND_ASSIGN(auto from_asymmetric,
+                       type->Deserialize(asymmetric, R"({"closed":"left"})"));
+  ASSERT_EQ(extension::RangeClosed::Left,
+            checked_pointer_cast<extension::RangeType>(from_asymmetric)->closed());
+
+  // The factory can build non-nullable bounds via allow_unbounded=false.
+  auto finite = checked_pointer_cast<extension::RangeType>(
+      extension::range(int32(), extension::RangeClosed::Both, /*allow_unbounded=*/false));
+  const auto& finite_storage =
+      internal::checked_cast<const StructType&>(*finite->storage_type());
+  ASSERT_FALSE(finite_storage.field(0)->nullable());
+  ASSERT_FALSE(finite_storage.field(1)->nullable());
 }
 
 // ---------------------------------------------------------------------------
