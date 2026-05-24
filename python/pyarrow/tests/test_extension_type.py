@@ -1981,6 +1981,28 @@ def test_range_type_invalid_closed():
         pa.range_(pa.int32(), "")
 
 
+def test_range_type_allow_unbounded():
+    # Default: bounds are nullable (can represent an unbounded / infinite side).
+    nullable = pa.range_(pa.int32(), "both")
+    assert nullable.storage_type.field("lower").nullable
+    assert nullable.storage_type.field("upper").nullable
+
+    # allow_unbounded=False: a finite-only range with non-nullable bounds.
+    finite = pa.range_(pa.int32(), "both", allow_unbounded=False)
+    assert not finite.storage_type.field("lower").nullable
+    assert not finite.storage_type.field("upper").nullable
+    assert finite.value_type == pa.int32()
+    assert finite.closed == "both"
+
+    # Distinct types: storage nullability differs.
+    assert finite != nullable
+
+    # A non-nullable-bounds range round-trips through its storage.
+    storage = pa.array([{"lower": 1, "upper": 5}], finite.storage_type)
+    arr = pa.ExtensionArray.from_storage(finite, storage)
+    assert arr.type == finite
+
+
 def test_bool8_type(pickle_module):
     bool8_type = pa.bool8()
     storage_type = pa.int8()

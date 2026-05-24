@@ -2096,10 +2096,10 @@ cdef class RangeType(BaseExtensionType):
     Concrete class for range extension type.
 
     Range represents a bounded set (a mathematical interval) over an orderable
-    Arrow value type. The underlying storage is a Struct with two nullable
-    fields "lower" and "upper" of the value type, where a null bound denotes an
-    unbounded (infinite) side. The "closed" parameter controls which finite
-    bounds are inclusive.
+    Arrow value type. The underlying storage is a Struct with two fields
+    "lower" and "upper" of the value type, each optionally nullable; when a
+    bound field is nullable, a null value denotes an unbounded (infinite) side.
+    The "closed" parameter controls which finite bounds are inclusive.
 
     Examples
     --------
@@ -5762,7 +5762,7 @@ def bool8():
     return out
 
 
-def range_(DataType value_type not None, str closed="left"):
+def range_(DataType value_type not None, str closed="left", allow_unbounded=True):
     """
     Create instance of range extension type.
 
@@ -5773,6 +5773,11 @@ def range_(DataType value_type not None, str closed="left"):
     closed : str, default "left"
         Which bound(s) are inclusive. One of "left", "right", "both" or
         "neither".
+    allow_unbounded : bool, default True
+        Whether each side may be unbounded (infinite). When True the "lower" and
+        "upper" storage fields are nullable (a null bound is an infinite
+        endpoint); when False both bounds are non-nullable and the range is
+        always finite.
 
     Examples
     --------
@@ -5823,7 +5828,7 @@ def range_(DataType value_type not None, str closed="left"):
 
     cdef:
         shared_ptr[CDataType] c_type = GetResultValue(
-            CRangeType.Make(value_type.sp_type, c_closed))
+            CRangeType.Make(value_type.sp_type, c_closed, allow_unbounded))
         RangeType out = RangeType.__new__(RangeType)
     out.init(c_type)
     return out
