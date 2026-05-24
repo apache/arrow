@@ -95,25 +95,29 @@ class HashJoinBasicImpl : public HashJoinImpl {
   std::string ToString() const override { return "HashJoinBasicImpl"; }
 
  private:
-  void InitEncoder(int side, HashJoinProjection projection_handle, RowEncoder* encoder) {
+  Status InitEncoder(int side, HashJoinProjection projection_handle,
+                     RowEncoder* encoder) {
     std::vector<TypeHolder> data_types;
     int num_cols = schema_[side]->num_cols(projection_handle);
     data_types.resize(num_cols);
     for (int icol = 0; icol < num_cols; ++icol) {
       data_types[icol] = schema_[side]->data_type(projection_handle, icol);
     }
-    encoder->Init(data_types, ctx_->exec_context());
+    RETURN_NOT_OK(encoder->Init(data_types, ctx_->exec_context()));
     encoder->Clear();
+    return Status::OK();
   }
 
   Status InitLocalStateIfNeeded(size_t thread_index) {
     DCHECK_LT(thread_index, local_states_.size());
     ThreadLocalState& local_state = local_states_[thread_index];
     if (!local_state.is_initialized) {
-      InitEncoder(0, HashJoinProjection::KEY, &local_state.exec_batch_keys);
+      RETURN_NOT_OK(
+          InitEncoder(0, HashJoinProjection::KEY, &local_state.exec_batch_keys));
       bool has_payload = (schema_[0]->num_cols(HashJoinProjection::PAYLOAD) > 0);
       if (has_payload) {
-        InitEncoder(0, HashJoinProjection::PAYLOAD, &local_state.exec_batch_payloads);
+        RETURN_NOT_OK(InitEncoder(0, HashJoinProjection::PAYLOAD,
+                                  &local_state.exec_batch_payloads));
       }
       local_state.is_initialized = true;
     }
@@ -513,8 +517,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
     local_state.match_left.clear();
     local_state.match_right.clear();
 
-    bool use_key_batch_for_dicts = dict_probe_.BatchRemapNeeded(
-        thread_index, *schema_[0], *schema_[1], ctx_->exec_context());
+    ARROW_ASSIGN_OR_RAISE(
+        bool use_key_batch_for_dicts,
+        dict_probe_.BatchRemapNeeded(thread_index, *schema_[0], *schema_[1],
+                                     ctx_->exec_context()));
     RowEncoder* row_encoder_for_lookups = &local_state.exec_batch_keys;
     if (use_key_batch_for_dicts) {
       RETURN_NOT_OK(dict_probe_.EncodeBatch(
@@ -564,10 +570,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   Status BuildHashTable_exec_task(size_t thread_index, int64_t /*task_id*/) {
     AccumulationQueue batches = std::move(build_batches_);
-    dict_build_.InitEncoder(*schema_[1], &hash_table_keys_, ctx_->exec_context());
+    RETURN_NOT_OK(
+        dict_build_.InitEncoder(*schema_[1], &hash_table_keys_, ctx_->exec_context()));
     bool has_payload = (schema_[1]->num_cols(HashJoinProjection::PAYLOAD) > 0);
     if (has_payload) {
-      InitEncoder(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_);
+      RETURN_NOT_OK(InitEncoder(1, HashJoinProjection::PAYLOAD, &hash_table_payloads_));
     }
     hash_table_empty_ = batches.empty();
     RETURN_NOT_OK(dict_build_.Init(*schema_[1], hash_table_empty_ ? nullptr : &batches[0],
