@@ -39,9 +39,12 @@ enum class RangeClosed {
 /// \brief RangeType represents a bounded set (mathematical interval) over an
 /// orderable Arrow type T.
 ///
-/// Storage is a Struct with exactly two nullable fields:
-///   - "lower": T NULLABLE  (null = unbounded below, i.e. -infinity)
-///   - "upper": T NULLABLE  (null = unbounded above, i.e. +infinity)
+/// Storage is a Struct with exactly two fields "lower" and "upper" of the same
+/// orderable type T. Each field may independently be nullable or not: a nullable
+/// bound can hold null to represent an unbounded (infinite) endpoint on that
+/// side, while a non-nullable bound is always finite.
+///   - "lower": T  (null, when nullable = unbounded below, i.e. -infinity)
+///   - "upper": T  (null, when nullable = unbounded above, i.e. +infinity)
 ///
 /// The outer struct's validity bit marks a null/absent range.
 ///
@@ -70,11 +73,16 @@ class ARROW_EXPORT RangeType : public ExtensionType {
 
   /// \brief Factory function.
   ///
-  /// Constructs the required two-field struct storage type internally.
+  /// Constructs the two-field struct storage type internally.
   /// \param[in] value_type The orderable Arrow subtype T for lower and upper.
   /// \param[in] closed Which bound(s) are inclusive.
+  /// \param[in] allow_unbounded Whether each side may be unbounded (infinite).
+  ///   When true, the "lower" and "upper" fields are nullable and a null bound
+  ///   denotes an infinite endpoint; when false, both bounds are non-nullable
+  ///   and the range is always finite. Defaults to true.
   static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> value_type,
-                                                RangeClosed closed = RangeClosed::Left);
+                                                RangeClosed closed = RangeClosed::Left,
+                                                bool allow_unbounded = true);
 
   /// \brief Return the bound-inclusivity parameter.
   RangeClosed closed() const { return closed_; }
@@ -97,6 +105,7 @@ class ARROW_EXPORT RangeArray : public ExtensionArray {
 /// This is a convenience wrapper around RangeType::Make that aborts on error.
 /// For recoverable error handling prefer RangeType::Make.
 ARROW_EXPORT std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type,
-                                             RangeClosed closed = RangeClosed::Left);
+                                             RangeClosed closed = RangeClosed::Left,
+                                             bool allow_unbounded = true);
 
 }  // namespace arrow::extension
