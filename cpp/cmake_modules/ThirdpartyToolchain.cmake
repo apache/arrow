@@ -2782,34 +2782,33 @@ if(ARROW_BUILD_BENCHMARKS)
                      FALSE)
 endif()
 
-macro(build_rapidjson)
-  message(STATUS "Building RapidJSON from source")
-  set(RAPIDJSON_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DRAPIDJSON_BUILD_DOC=OFF
-      -DRAPIDJSON_BUILD_EXAMPLES=OFF
-      -DRAPIDJSON_BUILD_TESTS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+function(build_rapidjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "RapidJSON: ")
+  message(STATUS "Building from source")
 
-  externalproject_add(rapidjson_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${RAPIDJSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
-
-  set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
+  fetchcontent_declare(rapidjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${RAPIDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
+  set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+  set(RAPIDJSON_BUILD_DOC OFF)
+  set(RAPIDJSON_BUILD_EXAMPLES OFF)
+  set(RAPIDJSON_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(rapidjson)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${rapidjson_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   add_library(RapidJSON INTERFACE IMPORTED)
-  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
-  add_dependencies(RapidJSON rapidjson_ep)
+  target_include_directories(RapidJSON INTERFACE "${rapidjson_SOURCE_DIR}/include")
+  add_dependencies(RapidJSON rapidjson)
 
-  set(RAPIDJSON_VENDORED TRUE)
-endmacro()
+  set(RAPIDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
