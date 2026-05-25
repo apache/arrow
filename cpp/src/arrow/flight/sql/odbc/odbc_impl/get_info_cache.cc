@@ -25,6 +25,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_stream_chunk_buffer.h"
 #include "arrow/flight/sql/odbc/odbc_impl/scalar_function_reporter.h"
@@ -190,7 +191,7 @@ inline int64_t ScalarToInt64(UnionScalar* scalar) {
 }
 
 inline std::string ScalarToBoolString(UnionScalar* scalar) {
-  return reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value ? "Y" : "N";
+  return checked_cast<BooleanScalar*>(scalar->child_value().get())->value ? "Y" : "N";
 }
 
 inline void SetDefaultIfMissing(std::unordered_map<uint16_t, Connection::Info>& cache,
@@ -396,7 +397,7 @@ bool GetInfoCache::LoadInfoFromServer() {
               break;
             case SqlInfoOptions::SQL_DDL_SCHEMA: {
               bool supported =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               info_[SQL_DROP_SCHEMA] =
                   static_cast<uint32_t>(supported ? SQL_DS_DROP_SCHEMA : 0);
               info_[SQL_CREATE_SCHEMA] =
@@ -405,7 +406,7 @@ bool GetInfoCache::LoadInfoFromServer() {
             }
             case SqlInfoOptions::SQL_DDL_TABLE: {
               bool supported =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               info_[SQL_CREATE_TABLE] =
                   static_cast<uint32_t>(supported ? SQL_CT_CREATE_TABLE : 0);
               info_[SQL_DROP_TABLE] =
@@ -422,7 +423,7 @@ bool GetInfoCache::LoadInfoFromServer() {
             }
             case SqlInfoOptions::SQL_NULL_PLUS_NULL_IS_NULL: {
               info_[SQL_CONCAT_NULL_BEHAVIOR] = static_cast<uint16_t>(
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value
                       ? SQL_CB_NULL
                       : SQL_CB_NON_NULL);
               break;
@@ -432,7 +433,7 @@ bool GetInfoCache::LoadInfoFromServer() {
               // SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES since we need both
               // properties to determine the value for SQL_CORRELATION_NAME.
               supports_correlation_name =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               break;
             }
             case SqlInfoOptions::SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES: {
@@ -440,7 +441,7 @@ bool GetInfoCache::LoadInfoFromServer() {
               // SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES since we need both
               // properties to determine the value for SQL_CORRELATION_NAME.
               requires_different_correlation_name =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               break;
             }
             case SqlInfoOptions::SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY: {
@@ -450,7 +451,7 @@ bool GetInfoCache::LoadInfoFromServer() {
             case SqlInfoOptions::SQL_SUPPORTS_ORDER_BY_UNRELATED: {
               // Note: this is the negation of the Flight SQL property.
               info_[SQL_ORDER_BY_COLUMNS_IN_SELECT] =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value
                       ? "N"
                       : "Y";
               break;
@@ -461,7 +462,7 @@ bool GetInfoCache::LoadInfoFromServer() {
             }
             case SqlInfoOptions::SQL_SUPPORTS_NON_NULLABLE_COLUMNS: {
               info_[SQL_NON_NULLABLE_COLUMNS] = static_cast<uint16_t>(
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value
                       ? SQL_NNC_NON_NULL
                       : SQL_NNC_NULL);
               break;
@@ -477,7 +478,7 @@ bool GetInfoCache::LoadInfoFromServer() {
               SetDefaultIfMissing(
                   info_, SQL_CATALOG_LOCATION,
                   static_cast<uint16_t>(
-                      reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
+                      checked_cast<BooleanScalar*>(scalar->child_value().get())->value
                           ? SQL_CL_START
                           : SQL_CL_END));
               break;
@@ -495,22 +496,22 @@ bool GetInfoCache::LoadInfoFromServer() {
             }
             case SqlInfoOptions::SQL_TRANSACTIONS_SUPPORTED: {
               transactions_supported =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               break;
             }
             case SqlInfoOptions::SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT: {
               transaction_ddl_commit =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               break;
             }
             case SqlInfoOptions::SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED: {
               transaction_ddl_ignore =
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value;
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value;
               break;
             }
             case SqlInfoOptions::SQL_BATCH_UPDATES_SUPPORTED: {
               info_[SQL_BATCH_SUPPORT] = static_cast<uint32_t>(
-                  reinterpret_cast<BooleanScalar*>(scalar->child_value().get())->value
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value
                       ? SQL_BS_ROW_COUNT_EXPLICIT
                       : 0);
               break;
