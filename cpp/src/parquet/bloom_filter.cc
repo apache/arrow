@@ -59,7 +59,9 @@ struct FindHashBlockDynamicFunction {
   static constexpr auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&standard::FindHashBlockImpl)  //
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
         ARROW_DISPATCH_TARGET_AVX2(&FindHashBlockAvx2)            //
+#endif
     };
   }
 };
