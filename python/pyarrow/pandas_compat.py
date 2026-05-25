@@ -378,16 +378,10 @@ def _index_level_name(index, i, column_names):
     if index.name is not None and index.name not in column_names:
         return _column_name_to_strings(index.name)
     else:
-        id_name = f'__index_level_{i:d}__'
-        if id_name in column_names:
-            id_name_incremented = f'__index_level_{i+1:d}__'
-            if id_name_incremented in column_names:
-                raise KeyError(f"{id_name} and {id_name_incremented} "
-                               "appear in the columns name list")
-            else:
-                return f'__index_level_{i+1:d}__'
-        else:
-            return id_name
+        j = i
+        while f'__index_level_{j:d}__' in column_names:
+            j += 1
+        return f'__index_level_{j:d}__'
 
 
 def _get_columns_to_convert(df, schema, preserve_index, columns):
@@ -428,7 +422,9 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     index_descriptors = []
     index_column_names = []
     for i, index_level in enumerate(index_levels):
-        name = _index_level_name(index_level, i, column_names)
+        name = _index_level_name(
+            index_level, i, column_names + index_column_names
+        )
         if (isinstance(index_level, _pandas_api.pd.RangeIndex) and
                 preserve_index is None):
             descr = _get_range_index_descriptor(index_level)
