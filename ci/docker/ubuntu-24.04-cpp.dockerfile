@@ -71,6 +71,7 @@ RUN apt-get update -y -q && \
         cmake \
         curl \
         gdb \
+        libc6-dbg \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
