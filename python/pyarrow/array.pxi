@@ -2335,9 +2335,13 @@ cdef class Array(_PandasConvertible):
 
 def _array_binop_or_notimplemented(op_name, left, right):
     # Same NotImplemented fallback as Scalar.__add__ et al, see GH-49826.
+    # Only swallow TypeError for genuinely foreign types; propagate when
+    # the right operand is already Arrow-native so type errors are visible.
     try:
         return _pc().call_function(op_name, [left, right])
-    except TypeError:
+    except TypeError as e:
+        if isinstance(right, (Scalar, Array)):
+            raise
         return NotImplemented
 
 

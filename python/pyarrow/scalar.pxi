@@ -237,9 +237,16 @@ def _binop_or_notimplemented(op_name, left, right):
     # pyarrow.compute does not recognize so Python's reflected-operator
     # fallback (__radd__ etc.) kicks in on user-defined classes.
     # See GH-49826.
+    #
+    # Only swallow TypeError for genuinely foreign types (non-Arrow).  If
+    # the right operand is already an Arrow Scalar or Array, any TypeError
+    # from call_function (e.g. mismatched Arrow types) should propagate so
+    # the caller sees a meaningful error rather than a silent NotImplemented.
     try:
         return _pc().call_function(op_name, [left, right])
-    except TypeError:
+    except TypeError as e:
+        if isinstance(right, (Scalar, Array)):
+            raise
         return NotImplemented
 
 
