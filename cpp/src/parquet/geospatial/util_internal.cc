@@ -64,7 +64,7 @@ class WKBBuffer {
 
   template <typename Coord, typename Visit>
   void ReadCoords(uint32_t n_coords, bool swap, Visit&& visit) {
-    size_t total_bytes = n_coords * sizeof(Coord);
+    uint64_t total_bytes = static_cast<uint64_t>(n_coords) * sizeof(Coord);
     if (size_ < total_bytes) {
       throw ParquetException("Can't read coordinate sequence of ", total_bytes,
                              " bytes from WKBBuffer with ", size_, " remaining");
