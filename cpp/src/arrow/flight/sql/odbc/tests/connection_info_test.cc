@@ -745,14 +745,14 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TEST_F(ConnectionInfoMockTest, TestSQLGetInfoDropSchema) {
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DS_DROP_SCHEMA), value);
 }
 
-TEST_F(ConnectionInfoMockTest, TestSQLGetInfoDropTable) {
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTable) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_TABLE, &value);
 
