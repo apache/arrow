@@ -516,17 +516,9 @@ services:
       ARROW_PARQUET: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
-      # GH-49767: Ubuntu 24.04 apt mold predates the fix for rui314/mold#1247
-      # (fixed in mold 2.31.0). Remove this if apt ships mold >= 2.31.0.
-      # see https://github.com/rui314/mold/issues/1247
-      MOLD_URL: "https://archive.ubuntu.com/ubuntu/pool/universe/m/mold/mold_2.37.1+dfsg-1_amd64.deb"
     # Register ODBC before running tests
     command: >
       /bin/bash -c "
-        curl -fsSL $$MOLD_URL -o /tmp/mold.deb &&
-        sudo apt-get update &&
-        sudo apt-get install -y /tmp/mold.deb &&
-        ld.mold --version &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         sudo /arrow/cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /usr/local/lib/libarrow_flight_sql_odbc.so &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"

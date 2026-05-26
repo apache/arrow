@@ -176,6 +176,11 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # provided by the distribution:
 # - Abseil is old and we require a version that has CRC32C
 # - opentelemetry-cpp-dev is not packaged
+#
+# Ubuntu 24.04 apt mold is 2.30.0 which has a non-determinism bug in section placement:
+# https://github.com/rui314/mold/issues/1247 fixed in mold 2.31.0.
+# See https://github.com/apache/arrow/issues/49767
+# Re-enable ARROW_USE_MOLD if 2.31+ is released for apt Ubuntu 24.04.
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_AZURE=ON \
@@ -197,7 +202,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
-    ARROW_USE_MOLD=ON \
+    ARROW_USE_MOLD=OFF \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
