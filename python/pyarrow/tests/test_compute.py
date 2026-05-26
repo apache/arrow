@@ -1989,10 +1989,10 @@ def test_fill_null_array(arrow_type):
 
 def test_replace_with_mask_null_type():
     # GH-47447: replace_with_mask crashed for null type arrays
-    a = pa.array([None], pa.null())
-    b = pa.array([None], pa.null())
+    input = pa.array([None], pa.null())
+    replacements = pa.array([None], pa.null())
 
-    result = pc.replace_with_mask(a, True, b)
+    result = pc.replace_with_mask(input, True, replacements)
     assert result.type == pa.null()
     result.validate(full=True)
     assert result.to_pylist() == [None]
