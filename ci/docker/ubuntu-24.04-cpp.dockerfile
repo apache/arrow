@@ -108,6 +108,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         nlohmann-json3-dev \
         npm \
+        patch \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
@@ -120,7 +121,9 @@ RUN apt-get update -y -q && \
         rsync \
         tzdata \
         tzdata-legacy \
+        unixodbc-dev \
         uuid-runtime \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -171,8 +174,10 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 #
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
+# - Abseil is old and we require a version that has CRC32C
 # - opentelemetry-cpp-dev is not packaged
-ENV ARROW_ACERO=ON \
+ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \

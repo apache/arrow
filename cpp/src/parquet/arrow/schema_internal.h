@@ -21,21 +21,14 @@
 #include "arrow/type_fwd.h"
 #include "parquet/schema.h"
 
-namespace arrow {
-class DataType;
-}
-
 namespace parquet::arrow {
 
 using ::arrow::Result;
 
-Result<std::shared_ptr<::arrow::DataType>> FromByteArray(
-    const LogicalType& logical_type, bool use_known_arrow_extensions,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata = nullptr);
-Result<std::shared_ptr<::arrow::DataType>> FromFLBA(const LogicalType& logical_type,
-                                                    int32_t physical_length);
-Result<std::shared_ptr<::arrow::DataType>> FromInt32(const LogicalType& logical_type);
-Result<std::shared_ptr<::arrow::DataType>> FromInt64(const LogicalType& logical_type);
+Result<std::shared_ptr<::arrow::DataType>> FromInt32(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties);
+Result<std::shared_ptr<::arrow::DataType>> FromInt64(
+    const LogicalType& logical_type, const ArrowReaderProperties& reader_properties);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,

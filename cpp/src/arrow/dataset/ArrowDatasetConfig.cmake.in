@@ -30,7 +30,12 @@ set(ARROW_DATASET_REQUIRED_DEPENDENCIES "@ARROW_DATASET_REQUIRED_DEPENDENCIES@")
 
 include(CMakeFindDependencyMacro)
 foreach(dependency ${ARROW_DATASET_REQUIRED_DEPENDENCIES})
-  find_dependency(${dependency})
+  # Currently all dependencies in ARROW_DATASET_REQUIRED_DEPENDENCIES
+  # are created by Apache Arrow C++. So we can use CONFIG for all
+  # dependencies. If ARROW_DATASET_REQUIRED_DEPENDENCIES may have
+  # dependencies not created by Apache Arrow C++, we need to revisit
+  # this CONFIG.
+  find_dependency(${dependency} CONFIG)
 endforeach()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")

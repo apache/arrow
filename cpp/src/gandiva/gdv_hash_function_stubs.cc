@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//#pragma once
+// #pragma once
 
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
@@ -26,6 +26,8 @@
 #include "gandiva/precompiled/types.h"
 
 extern "C" {
+
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
 
 #define MD5_HASH_FUNCTION(TYPE)                                                    \
   GANDIVA_EXPORT                                                                   \
@@ -212,6 +214,8 @@ const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_l
   const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
   return gandiva::gdv_sha1_hash(context, decimal_128.ToBytes().data(), 16, out_length);
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {

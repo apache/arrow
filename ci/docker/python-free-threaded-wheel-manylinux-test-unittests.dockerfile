@@ -18,6 +18,8 @@
 ARG base
 FROM ${base}
 
+ARG python_version=3.13
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
@@ -27,25 +29,23 @@ RUN apt-get update -y -q && \
     apt install -y -q --no-install-recommends \
         build-essential \
         libffi-dev \
-        python3.13-dev \
-        python3.13-nogil \
-        python3.13-venv && \
+        python${python_version}-dev \
+        python${python_version}-nogil \
+        python${python_version}-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
 ENV ARROW_PYTHON_VENV /arrow-dev
-RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
+RUN python${python_version}t -m venv ${ARROW_PYTHON_VENV}
 
 ENV PYTHON_GIL 0
 ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"
 
 # pandas doesn't provide wheels for aarch64 yet, so we have to install nightly Cython
 # along with the rest of pandas' build dependencies and disable build isolation
-COPY python/requirements-wheel-test.txt /arrow/python/
 RUN python -m pip install \
     --pre \
     --prefer-binary \
     --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
     Cython numpy
 RUN python -m pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja
-RUN python -m pip install --no-build-isolation -r /arrow/python/requirements-wheel-test.txt

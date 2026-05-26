@@ -80,18 +80,23 @@ def test_env_var_io_thread_count():
     for v in ('-1', 'z'):
         out, err = run_with_env_var(v)
         assert out.strip() == '8'  # default value
-        assert ("ARROW_IO_THREADS does not contain a valid number of threads"
-                in err.strip())
+        assert "Invalid value for ARROW_IO_THREADS" in err.strip()
 
 
 def test_build_info():
-    assert isinstance(pa.cpp_build_info, pa.BuildInfo)
+    assert isinstance(pa.build_info.cpp_build_info, pa.CppBuildInfo)
     assert isinstance(pa.cpp_version_info, pa.VersionInfo)
     assert isinstance(pa.cpp_version, str)
     assert isinstance(pa.__version__, str)
-    assert pa.cpp_build_info.version_info == pa.cpp_version_info
+    assert pa.build_info.cpp_build_info.version == pa.cpp_version
+    assert pa.build_info.cpp_build_info.version_info == pa.cpp_version_info
+    assert pa.build_info.cpp_build_info is pa.cpp_build_info
 
-    assert pa.cpp_build_info.build_type in (
+    assert pa.build_info.cpp_build_info.build_type in (
+        'debug', 'release', 'minsizerel', 'relwithdebinfo')
+
+    assert isinstance(pa.build_info, pa.BuildInfo)
+    assert pa.build_info.build_type in (
         'debug', 'release', 'minsizerel', 'relwithdebinfo')
 
     # assert pa.version == pa.__version__  # XXX currently false
@@ -137,10 +142,11 @@ def test_import_at_shutdown():
                            "on non-Windows platforms")
 def test_set_timezone_db_path_non_windows():
     # set_timezone_db_path raises an error on non-Windows platforms
-    with pytest.raises(ArrowInvalid,
-                       match="Arrow was set to use OS timezone "
-                             "database at compile time"):
-        pa.set_timezone_db_path("path")
+    with pytest.warns(FutureWarning, match="deprecated"):
+        with pytest.raises(ArrowInvalid,
+                           match="Arrow was set to use OS timezone "
+                                 "database at compile time"):
+            pa.set_timezone_db_path("path")
 
 
 @pytest.mark.parametrize('klass', [
@@ -261,6 +267,6 @@ def test_set_timezone_db_path_non_windows():
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly
-    msg = "Do not call {cls}'s constructor directly, use .* instead."
-    with pytest.raises(TypeError, match=msg.format(cls=klass.__name__)):
+    msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
+    with pytest.raises(TypeError, match=msg):
         klass()

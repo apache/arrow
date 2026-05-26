@@ -35,9 +35,23 @@
 
 namespace arrow {
 
-using internal::StartsWith;
-
 namespace dataset {
+
+namespace {
+
+bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& prefixes) {
+  if (prefixes.empty()) {
+    return false;
+  }
+
+  auto parts = fs::internal::SplitAbstractPath(path);
+  return std::any_of(parts.cbegin(), parts.cend(), [&](std::string_view part) {
+    return std::any_of(prefixes.cbegin(), prefixes.cend(),
+                       [&](std::string_view prefix) { return part.starts_with(prefix); });
+  });
+}
+
+}  // namespace
 
 DatasetFactory::DatasetFactory() : root_partition_(compute::literal(true)) {}
 
@@ -155,18 +169,6 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   return std::shared_ptr<DatasetFactory>(
       new FileSystemDatasetFactory(std::move(filtered_files), std::move(filesystem),
                                    std::move(format), std::move(options)));
-}
-
-bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& prefixes) {
-  if (prefixes.empty()) {
-    return false;
-  }
-
-  auto parts = fs::internal::SplitAbstractPath(path);
-  return std::any_of(parts.cbegin(), parts.cend(), [&](std::string_view part) {
-    return std::any_of(prefixes.cbegin(), prefixes.cend(),
-                       [&](std::string_view prefix) { return StartsWith(part, prefix); });
-  });
 }
 
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(

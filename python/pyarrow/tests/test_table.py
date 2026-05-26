@@ -970,6 +970,22 @@ def test_table_to_struct_array_with_max_chunksize():
     ))
 
 
+def test_table_to_struct_array_for_empty_table():
+    table = pa.Table.from_arrays(
+        [
+            pa.array([], type=pa.int32()),
+            pa.array([], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = table.to_struct_array()
+    assert result.equals(
+        pa.chunked_array(
+            [],
+            type=pa.struct({"ints": pa.int32(), "floats": pa.float32()}),
+        ),
+    )
+
+
 def check_tensors(tensor, expected_tensor, type, size):
     assert tensor.equals(expected_tensor)
     assert tensor.size == size
@@ -1947,7 +1963,7 @@ def test_concat_tables_permissive():
 def test_concat_tables_invalid_option():
     t = pa.Table.from_arrays([list(range(10))], names=('a',))
 
-    with pytest.raises(ValueError, match="Invalid promote options: invalid"):
+    with pytest.raises(ValueError, match="Invalid promote_options: invalid"):
         pa.concat_tables([t, t], promote_options="invalid")
 
 

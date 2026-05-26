@@ -27,7 +27,7 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(ArrowFlight)
+find_dependency(ArrowFlight CONFIG)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightSqlTargets.cmake")
 

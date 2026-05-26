@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
 slice_head.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL) {
@@ -79,13 +78,7 @@ slice_max.arrow_dplyr_query <- function(.data, order_by, ..., n, prop, by = NULL
 slice_max.Dataset <- slice_max.ArrowTabular <- slice_max.RecordBatchReader <- slice_max.arrow_dplyr_query
 
 #' @importFrom stats runif
-slice_sample.arrow_dplyr_query <- function(.data,
-                                           ...,
-                                           n,
-                                           prop,
-                                           by = NULL,
-                                           weight_by = NULL,
-                                           replace = FALSE) {
+slice_sample.arrow_dplyr_query <- function(.data, ..., n, prop, by = NULL, weight_by = NULL, replace = FALSE) {
   check_not_grouped(.data, {{ by }})
   if (replace) {
     arrow_not_supported("Sampling with replacement")

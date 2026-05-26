@@ -28,6 +28,7 @@
 #include <functional>
 #include <set>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/builder_binary.h"
@@ -47,9 +48,10 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"  // for ARROW_CSV definition
+#include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
@@ -63,6 +65,7 @@
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
 
+#include "parquet/arrow/fuzz_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
@@ -70,8 +73,9 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
-#include "parquet/page_index.h"
+#include "parquet/properties.h"
 #include "parquet/test_util.h"
+#include "parquet/types.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -88,6 +92,7 @@ using arrow::DictionaryArray;
 using arrow::ListArray;
 using arrow::PrimitiveArray;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Scalar;
 using arrow::Status;
 using arrow::Table;
@@ -120,6 +125,19 @@ static constexpr int LARGE_SIZE = 10000;
 #endif
 
 static constexpr uint32_t kDefaultSeed = 0;
+
+struct ListCase {
+  ::arrow::Type::type type_id;
+  std::function<std::shared_ptr<::arrow::DataType>(std::shared_ptr<::arrow::Field>)>
+      type_factory;
+};
+
+static const std::vector<ListCase> kListCases = {
+    {::arrow::Type::LIST,
+     [](std::shared_ptr<::arrow::Field> field) { return ::arrow::list(field); }},
+    {::arrow::Type::LARGE_LIST,
+     [](std::shared_ptr<::arrow::Field> field) { return ::arrow::large_list(field); }},
+};
 
 std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
   switch (type.id()) {
@@ -255,7 +273,7 @@ struct test_traits {};
 template <>
 struct test_traits<::arrow::BooleanType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BOOLEAN;
-  static uint8_t const value;
+  static const uint8_t value;
 };
 
 const uint8_t test_traits<::arrow::BooleanType>::value(1);
@@ -263,7 +281,7 @@ const uint8_t test_traits<::arrow::BooleanType>::value(1);
 template <>
 struct test_traits<::arrow::UInt8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint8_t const value;
+  static const uint8_t value;
 };
 
 const uint8_t test_traits<::arrow::UInt8Type>::value(64);
@@ -271,7 +289,7 @@ const uint8_t test_traits<::arrow::UInt8Type>::value(64);
 template <>
 struct test_traits<::arrow::Int8Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int8_t const value;
+  static const int8_t value;
 };
 
 const int8_t test_traits<::arrow::Int8Type>::value(-64);
@@ -279,7 +297,7 @@ const int8_t test_traits<::arrow::Int8Type>::value(-64);
 template <>
 struct test_traits<::arrow::UInt16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint16_t const value;
+  static const uint16_t value;
 };
 
 const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
@@ -287,7 +305,7 @@ const uint16_t test_traits<::arrow::UInt16Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int16Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int16_t const value;
+  static const int16_t value;
 };
 
 const int16_t test_traits<::arrow::Int16Type>::value(-1024);
@@ -295,7 +313,7 @@ const int16_t test_traits<::arrow::Int16Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static uint32_t const value;
+  static const uint32_t value;
 };
 
 const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
@@ -303,7 +321,7 @@ const uint32_t test_traits<::arrow::UInt32Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int32_t const value;
+  static const int32_t value;
 };
 
 const int32_t test_traits<::arrow::Int32Type>::value(-1024);
@@ -311,7 +329,7 @@ const int32_t test_traits<::arrow::Int32Type>::value(-1024);
 template <>
 struct test_traits<::arrow::UInt64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static uint64_t const value;
+  static const uint64_t value;
 };
 
 const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
@@ -319,7 +337,7 @@ const uint64_t test_traits<::arrow::UInt64Type>::value(1024);
 template <>
 struct test_traits<::arrow::Int64Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static int64_t const value;
+  static const int64_t value;
 };
 
 const int64_t test_traits<::arrow::Int64Type>::value(-1024);
@@ -327,7 +345,7 @@ const int64_t test_traits<::arrow::Int64Type>::value(-1024);
 template <>
 struct test_traits<::arrow::TimestampType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT64;
-  static int64_t const value;
+  static const int64_t value;
 };
 
 const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
@@ -335,7 +353,7 @@ const int64_t test_traits<::arrow::TimestampType>::value(14695634030000);
 template <>
 struct test_traits<::arrow::Date32Type> {
   static constexpr ParquetType::type parquet_enum = ParquetType::INT32;
-  static int32_t const value;
+  static const int32_t value;
 };
 
 const int32_t test_traits<::arrow::Date32Type>::value(170000);
@@ -343,7 +361,7 @@ const int32_t test_traits<::arrow::Date32Type>::value(170000);
 template <>
 struct test_traits<::arrow::FloatType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FLOAT;
-  static float const value;
+  static const float value;
 };
 
 const float test_traits<::arrow::FloatType>::value(2.1f);
@@ -351,7 +369,7 @@ const float test_traits<::arrow::FloatType>::value(2.1f);
 template <>
 struct test_traits<::arrow::DoubleType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::DOUBLE;
-  static double const value;
+  static const double value;
 };
 
 const double test_traits<::arrow::DoubleType>::value(4.2);
@@ -359,19 +377,19 @@ const double test_traits<::arrow::DoubleType>::value(4.2);
 template <>
 struct test_traits<::arrow::StringType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 template <>
 struct test_traits<::arrow::BinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 template <>
 struct test_traits<::arrow::FixedSizeBinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FIXED_LEN_BYTE_ARRAY;
-  static std::string const value;
+  static const std::string value;
 };
 
 const std::string test_traits<::arrow::StringType>::value("Test");            // NOLINT
@@ -384,16 +402,23 @@ using ParquetDataType = PhysicalType<test_traits<T>::parquet_enum>;
 template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
+Result<std::shared_ptr<Buffer>> WriteTableToBuffer(
+    const std::shared_ptr<Table>& table, int64_t row_group_size,
+    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+        default_arrow_writer_properties()) {
+  auto sink = CreateOutputStream();
+  ARROW_RETURN_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                 row_group_size, properties, arrow_properties));
+  return sink->Finish();
+}
+
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_size,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::shared_ptr<Buffer>* out) {
-  auto sink = CreateOutputStream();
-
   auto write_props = WriterProperties::Builder().write_batch_size(100)->build();
-
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-                                row_group_size, write_props, arrow_properties));
-  ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
+  ASSERT_OK_AND_ASSIGN(
+      *out, WriteTableToBuffer(table, row_group_size, write_props, arrow_properties));
 }
 
 void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
@@ -414,7 +439,7 @@ void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.properties(arrow_reader_properties)->Build(&reader));
-  ASSERT_OK_NO_THROW(reader->ReadTable(out));
+  ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
 }
 
 void CheckConfiguredRoundtrip(
@@ -423,10 +448,13 @@ void CheckConfiguredRoundtrip(
     const std::shared_ptr<::parquet::WriterProperties>& writer_properties =
         ::parquet::default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties()) {
+        default_arrow_writer_properties(),
+    const ArrowReaderProperties& arrow_reader_properties =
+        default_arrow_reader_properties()) {
   std::shared_ptr<Table> actual_table;
   ASSERT_NO_FATAL_FAILURE(DoRoundtrip(input_table, input_table->num_rows(), &actual_table,
-                                      writer_properties, arrow_writer_properties));
+                                      writer_properties, arrow_writer_properties,
+                                      arrow_reader_properties));
   if (expected_table) {
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*actual_table->schema(),
                                                        *expected_table->schema(),
@@ -443,29 +471,10 @@ void CheckConfiguredRoundtrip(
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
-                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-                           default_arrow_writer_properties()) {
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
-
-  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
-                                             ::arrow::default_memory_pool()));
-
-  reader->set_use_threads(use_threads);
-  if (column_subset.size() > 0) {
-    ASSERT_OK_NO_THROW(reader->ReadTable(column_subset, out));
-  } else {
-    // Read everything
-    ASSERT_OK_NO_THROW(reader->ReadTable(out));
-  }
-}
-
-void DoRoundTripWithBatches(
-    const std::shared_ptr<Table>& table, bool use_threads, int64_t row_group_size,
-    const std::vector<int>& column_subset, std::shared_ptr<Table>* out,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties()) {
+                       const std::shared_ptr<ArrowWriterProperties>&
+                           arrow_writer_properties = default_arrow_writer_properties(),
+                       const ArrowReaderProperties& arrow_reader_properties =
+                           default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
       WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
@@ -473,7 +482,30 @@ void DoRoundTripWithBatches(
   std::unique_ptr<FileReader> reader;
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-  ArrowReaderProperties arrow_reader_properties;
+  ASSERT_OK(builder.properties(arrow_reader_properties)->Build(&reader));
+
+  reader->set_use_threads(use_threads);
+  if (column_subset.size() > 0) {
+    ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable(column_subset));
+  } else {
+    // Read everything
+    ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
+  }
+}
+
+void DoRoundTripWithBatches(
+    const std::shared_ptr<Table>& table, bool use_threads, int64_t row_group_size,
+    const std::vector<int>& column_subset, std::shared_ptr<Table>* out,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+        default_arrow_writer_properties(),
+    ArrowReaderProperties arrow_reader_properties = default_arrow_reader_properties()) {
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
   arrow_reader_properties.set_batch_size(row_group_size - 1);
   ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
                          ->properties(arrow_reader_properties)
@@ -494,23 +526,24 @@ void DoRoundTripWithBatches(
   ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
 }
 
-void CheckSimpleRoundtrip(
-    const std::shared_ptr<Table>& table, int64_t row_group_size,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties()) {
+void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
+                          const std::shared_ptr<ArrowWriterProperties>&
+                              arrow_writer_properties = default_arrow_writer_properties(),
+                          const ArrowReaderProperties& arrow_reader_properties =
+                              default_arrow_reader_properties()) {
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
-                                            row_group_size, {}, &result,
-                                            arrow_writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
+                        arrow_writer_properties, arrow_reader_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
 
   ::arrow::AssertTablesEqual(*table, *result, false);
 
-  ASSERT_NO_FATAL_FAILURE(DoRoundTripWithBatches(table, false /* use_threads */,
-                                                 row_group_size, {}, &result,
-                                                 arrow_writer_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      DoRoundTripWithBatches(table, false /* use_threads */, row_group_size, {}, &result,
+                             arrow_writer_properties, arrow_reader_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
@@ -621,15 +654,28 @@ class ParquetIOTestBase : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
+  Result<std::unique_ptr<FileReader>> ReaderFromBuffer(
+      const std::shared_ptr<Buffer>& buffer,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    FileReaderBuilder builder;
+    std::unique_ptr<FileReader> out;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    RETURN_NOT_OK(builder.memory_pool(::arrow::default_memory_pool())
+                      ->properties(properties)
+                      ->Build(&out));
+    return out;
+  }
+
+  Result<std::unique_ptr<FileReader>> ReaderFromSink(
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, sink_->Finish());
+    return ReaderFromBuffer(buffer, properties);
+  }
+
   void ReaderFromSink(
       std::unique_ptr<FileReader>* out,
       const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
-    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    FileReaderBuilder builder;
-    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-    ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
-                           ->properties(properties)
-                           ->Build(out));
+    ASSERT_OK_NO_THROW(ReaderFromSink(properties).Value(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -647,19 +693,23 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK((*out)->ValidateFull());
   }
 
-  void ReadAndCheckSingleColumnFile(const Array& values) {
+  void ReadAndCheckSingleColumnFile(std::unique_ptr<FileReader> file_reader,
+                                    const Array& values) {
     std::shared_ptr<Array> out;
-
-    std::unique_ptr<FileReader> reader;
-    ReaderFromSink(&reader);
-    ReadSingleColumnFile(std::move(reader), &out);
-
+    ReadSingleColumnFile(std::move(file_reader), &out);
     AssertArraysEqual(values, *out);
+  }
+
+  void ReadAndCheckSingleColumnFile(
+      const Array& values,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
+    ASSERT_OK_AND_ASSIGN(auto file_reader, ReaderFromSink(properties));
+    ReadAndCheckSingleColumnFile(std::move(file_reader), values);
   }
 
   void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_metadata,
                          std::shared_ptr<Table>* out) {
-    ASSERT_OK_NO_THROW(reader->ReadTable(out));
+    ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
     auto key_value_metadata =
         reader->parquet_reader()->metadata()->key_value_metadata().get();
     if (!expect_metadata) {
@@ -754,9 +804,10 @@ class ParquetIOTestBase : public ::testing::Test {
 
 class TestReadDecimals : public ParquetIOTestBase {
  public:
-  void CheckReadFromByteArrays(const std::shared_ptr<const LogicalType>& logical_type,
-                               const std::vector<std::vector<uint8_t>>& values,
-                               const Array& expected) {
+  void CheckReadFromByteArrays(
+      const std::shared_ptr<const LogicalType>& logical_type,
+      const std::vector<std::vector<uint8_t>>& values, const Array& expected,
+      ArrowReaderProperties properties = default_arrow_reader_properties()) {
     std::vector<ByteArray> byte_arrays(values.size());
     std::transform(values.begin(), values.end(), byte_arrays.begin(),
                    [](const std::vector<uint8_t>& bytes) {
@@ -776,13 +827,58 @@ class TestReadDecimals : public ParquetIOTestBase {
                              /*rep_levels=*/nullptr, byte_arrays.data());
     column_writer->Close();
     file_writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
 
-    ReadAndCheckSingleColumnFile(expected);
+    // The binary_type setting shouldn't affect the results
+    for (auto binary_type : {::arrow::Type::BINARY, ::arrow::Type::LARGE_BINARY,
+                             ::arrow::Type::BINARY_VIEW}) {
+      properties.set_binary_type(binary_type);
+      ASSERT_OK_AND_ASSIGN(auto reader, ReaderFromBuffer(buffer, properties));
+      ReadAndCheckSingleColumnFile(std::move(reader), expected);
+    }
   }
 };
 
 // The Decimal roundtrip tests always go through the FixedLenByteArray path,
 // check the ByteArray case manually.
+
+TEST_F(TestReadDecimals, Decimal32ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 254, 29, 192},
+  };
+
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_smallest_decimal_enabled(true);
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal32(6, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(6, 3), big_endian_decimals, *expected,
+                          properties);
+}
+
+TEST_F(TestReadDecimals, Decimal64ByteArray) {
+  const std::vector<std::vector<uint8_t>> big_endian_decimals = {
+      // 123456
+      {1, 226, 64},
+      // 987654
+      {15, 18, 6},
+      // -123456
+      {255, 255, 255, 255, 255, 254, 29, 192},
+  };
+
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_smallest_decimal_enabled(true);
+
+  auto expected =
+      ArrayFromJSON(::arrow::decimal64(16, 3), R"(["123.456", "987.654", "-123.456"])");
+  CheckReadFromByteArrays(LogicalType::Decimal(16, 3), big_endian_decimals, *expected,
+                          properties);
+}
 
 TEST_F(TestReadDecimals, Decimal128ByteArray) {
   const std::vector<std::vector<uint8_t>> big_endian_decimals = {
@@ -1390,50 +1486,56 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
-using TestLargeBinaryParquetIO = TestParquetIO<::arrow::LargeBinaryType>;
+class TestBinaryLikeParquetIO : public ParquetIOTestBase {
+ public:
+  void CheckRoundTrip(std::string_view json, ::arrow::Type::type binary_type,
+                      const std::shared_ptr<DataType>& specific_type,
+                      const std::shared_ptr<DataType>& fallback_type) {
+    const auto specific_array = ::arrow::ArrayFromJSON(specific_type, json);
+    const auto fallback_array = ::arrow::ArrayFromJSON(fallback_type, json);
 
-TEST_F(TestLargeBinaryParquetIO, Basics) {
-  const char* json = "[\"foo\", \"\", null, \"\xff\"]";
+    // When the original Arrow schema isn't stored, the array is decoded as
+    // the fallback type (since there is no specific Parquet logical
+    // type for it).
+    this->RoundTripSingleColumn(specific_array, /*expected=*/fallback_array,
+                                default_arrow_writer_properties());
 
-  const auto large_type = ::arrow::large_binary();
-  const auto narrow_type = ::arrow::binary();
-  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
-  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
+    // When the original Arrow schema isn't stored and a binary_type is set,
+    // the array is decoded as the specific type.
+    ArrowReaderProperties reader_properties;
+    reader_properties.set_binary_type(binary_type);
+    this->RoundTripSingleColumn(specific_array, /*expected=*/specific_array,
+                                default_arrow_writer_properties(), reader_properties);
+    this->RoundTripSingleColumn(fallback_array, /*expected=*/specific_array,
+                                default_arrow_writer_properties(), reader_properties);
 
-  // When the original Arrow schema isn't stored, a LargeBinary array
-  // is decoded as Binary (since there is no specific Parquet logical
-  // type for it).
-  this->RoundTripSingleColumn(large_array, narrow_array,
-                              default_arrow_writer_properties());
+    // When the original Arrow schema is stored, the array is decoded as the
+    // specific type.
+    const auto writer_properties =
+        ArrowWriterProperties::Builder().store_schema()->build();
+    this->RoundTripSingleColumn(specific_array, /*expected=*/specific_array,
+                                writer_properties);
+  }
+};
 
-  // When the original Arrow schema is stored, the LargeBinary array
-  // is read back as LargeBinary.
-  const auto arrow_properties =
-      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+TEST_F(TestBinaryLikeParquetIO, LargeBinary) {
+  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::LARGE_BINARY,
+                 ::arrow::large_binary(), ::arrow::binary());
 }
 
-using TestLargeStringParquetIO = TestParquetIO<::arrow::LargeStringType>;
+TEST_F(TestBinaryLikeParquetIO, BinaryView) {
+  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::BINARY_VIEW,
+                 ::arrow::binary_view(), ::arrow::binary());
+}
 
-TEST_F(TestLargeStringParquetIO, Basics) {
-  const char* json = R"(["foo", "", null, "bar"])";
+TEST_F(TestBinaryLikeParquetIO, LargeString) {
+  CheckRoundTrip(R"(["foo", "", null, "bar"])", ::arrow::Type::LARGE_BINARY,
+                 ::arrow::large_utf8(), ::arrow::utf8());
+}
 
-  const auto large_type = ::arrow::large_utf8();
-  const auto narrow_type = ::arrow::utf8();
-  const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
-  const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
-
-  // When the original Arrow schema isn't stored, a LargeBinary array
-  // is decoded as Binary (since there is no specific Parquet logical
-  // type for it).
-  this->RoundTripSingleColumn(large_array, narrow_array,
-                              default_arrow_writer_properties());
-
-  // When the original Arrow schema is stored, the LargeBinary array
-  // is read back as LargeBinary.
-  const auto arrow_properties =
-      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+TEST_F(TestBinaryLikeParquetIO, StringView) {
+  CheckRoundTrip(R"(["foo", "", null, "bar"])", ::arrow::Type::BINARY_VIEW,
+                 ::arrow::utf8_view(), ::arrow::utf8());
 }
 
 using TestJsonParquetIO = TestParquetIO<::arrow::extension::JsonExtensionType>;
@@ -2076,6 +2178,41 @@ TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*tx, *to));
 }
 
+TEST(TestArrowReadWrite, TimestampCoercionOverflow) {
+  using ::arrow::ArrayFromVector;
+  using ::arrow::field;
+  using ::arrow::schema;
+  auto t_s = ::arrow::timestamp(TimeUnit::SECOND);
+  std::vector<int64_t> overflow_values = {9223372036854776LL};
+  std::vector<bool> is_valid = {true};
+  std::shared_ptr<Array> a_s;
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, is_valid, overflow_values, &a_s);
+
+  auto s = schema({field("timestamp", t_s)});
+  auto table = Table::Make(s, {a_s});
+
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+    if (unit == TimeUnit::SECOND) {
+      ASSERT_RAISES(Invalid, WriteTable(*table, default_memory_pool(),
+                                        CreateOutputStream(), table->num_rows()));
+    } else {
+      auto coerce_props =
+          ArrowWriterProperties::Builder().coerce_timestamps(unit)->build();
+      ASSERT_RAISES(Invalid, WriteTable(*table, default_memory_pool(),
+                                        CreateOutputStream(), table->num_rows(),
+                                        default_writer_properties(), coerce_props));
+    }
+  }
+
+  std::vector<bool> null_valid = {false};
+  std::shared_ptr<Array> a_null;
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, null_valid, overflow_values,
+                                                   &a_null);
+  auto null_table = Table::Make(s, {a_null});
+  ASSERT_OK_NO_THROW(WriteTable(*null_table, default_memory_pool(), CreateOutputStream(),
+                                null_table->num_rows()));
+}
+
 TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
   using ::arrow::ArrayFromVector;
   using ::arrow::field;
@@ -2349,12 +2486,12 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
 
   ASSERT_EQ(2, reader->num_row_groups());
 
-  std::shared_ptr<Table> r1, r2, r3, r4;
+  std::shared_ptr<Table> r2;
   // Read everything
-  ASSERT_OK_NO_THROW(reader->ReadRowGroup(0, &r1));
+  ASSERT_OK_AND_ASSIGN(auto r1, reader->ReadRowGroup(0));
   ASSERT_OK_NO_THROW(reader->RowGroup(1)->ReadTable(&r2));
-  ASSERT_OK_NO_THROW(reader->ReadRowGroups({0, 1}, &r3));
-  ASSERT_OK_NO_THROW(reader->ReadRowGroups({1}, &r4));
+  ASSERT_OK_AND_ASSIGN(auto r3, reader->ReadRowGroups({0, 1}));
+  ASSERT_OK_AND_ASSIGN(auto r4, reader->ReadRowGroups({1}));
 
   std::shared_ptr<Table> concatenated;
 
@@ -2699,8 +2836,7 @@ TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
       {0, 4, 8, 10}, {0, 1, 2, 3}, {5, 17, 18, 19}};
 
   for (std::vector<int>& column_subset : column_subsets) {
-    std::shared_ptr<Table> result;
-    ASSERT_OK(reader->ReadTable(column_subset, &result));
+    ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable(column_subset));
 
     std::vector<std::shared_ptr<::arrow::ChunkedArray>> ex_columns;
     std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
@@ -2737,8 +2873,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
                                              ::arrow::default_memory_pool()));
 
   // Read everything
-  std::shared_ptr<Table> result;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 
   // Read 1 record at a time
@@ -2989,45 +3124,52 @@ TEST(ArrowReadWrite, NestedRequiredField) {
                        /*row_group_size=*/8);
 }
 
-TEST(ArrowReadWrite, Decimal256) {
-  using ::arrow::Decimal256;
+TEST(ArrowReadWrite, Decimal) {
   using ::arrow::field;
-
-  auto type = ::arrow::decimal256(8, 4);
 
   const char* json = R"(["1.0000", null, "-1.2345", "-1000.5678",
                          "-9999.9999", "9999.9999"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
+
+  for (auto type : {::arrow::decimal32(8, 4), ::arrow::decimal64(8, 4),
+                    ::arrow::decimal128(8, 4), ::arrow::decimal256(8, 4)}) {
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+    CheckSimpleRoundtrip(table, 2, props_store_schema);
+  }
 }
 
 TEST(ArrowReadWrite, DecimalStats) {
   using ::arrow::Decimal128;
   using ::arrow::field;
 
-  auto type = ::arrow::decimal128(/*precision=*/8, /*scale=*/0);
+  // Try various precisions to trigger encoding as different physical types:
+  // - precision 8 should use INT32
+  // - precision 18 should use INT64
+  // - precision 35 should use FIXED_LEN_BYTE_ARRAY
+  for (const int precision : {8, 18, 35}) {
+    auto type = ::arrow::decimal128(precision, /*scale=*/0);
 
-  const char* json = R"(["255", "128", null, "0", "1", "-127", "-128", "-129", "-255"])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    const char* json =
+        R"(["255", "128", null, "0", "1", "-127", "-128", "-129", "-255"])";
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
-                                             default_arrow_writer_properties(), &buffer));
+    auto props = WriterProperties::Builder().enable_store_decimal_as_integer()->build();
+    ASSERT_OK_AND_ASSIGN(auto buffer,
+                         WriteTableToBuffer(table, /*row_group_size=*/100, props));
+    ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                               ::arrow::default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
-                                             ::arrow::default_memory_pool()));
+    std::shared_ptr<Scalar> min, max;
+    ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
 
-  std::shared_ptr<Scalar> min, max;
-  ReadSingleColumnFileStatistics(std::move(reader), &min, &max);
-
-  std::shared_ptr<Scalar> expected_min, expected_max;
-  ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
-  ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
-  ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
-  ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
+    std::shared_ptr<Scalar> expected_min, expected_max;
+    ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
+    ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
+    ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
+    ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
+  }
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {
@@ -3164,8 +3306,22 @@ TEST(ArrowReadWrite, LargeList) {
       [7, 8, 9]])";
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
-  CheckSimpleRoundtrip(table, 2, props_store_schema);
+  {
+    // If the schema is stored, the large_list is restored regardless of
+    // the list_type setting
+    for (auto list_type : {::arrow::Type::LIST, ::arrow::Type::LARGE_LIST}) {
+      ArrowReaderProperties reader_props;
+      reader_props.set_list_type(list_type);
+      auto writer_props = ArrowWriterProperties::Builder().store_schema()->build();
+      CheckSimpleRoundtrip(table, 2, writer_props, reader_props);
+    }
+  }
+  {
+    // If the schema is not stored, large_list is read depending on the list_type setting
+    ArrowReaderProperties reader_props;
+    reader_props.set_list_type(::arrow::Type::LARGE_LIST);
+    CheckSimpleRoundtrip(table, 2, default_arrow_writer_properties(), reader_props);
+  }
 }
 
 TEST(ArrowReadWrite, FixedSizeList) {
@@ -3190,20 +3346,25 @@ TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::list;
   using ::arrow::struct_;
 
-  auto type =
-      list(field("item",
-                 struct_({field("a", ::arrow::int16(), /*nullable=*/false),
-                          field("b", list(::arrow::int64()), /*nullable=*/false)}),
-                 /*nullable=*/false));
+  for (const auto& list_case : kListCases) {
+    auto type = list_case.type_factory(
+        field("item",
+              struct_({field("a", ::arrow::int16(), /*nullable=*/false),
+                       field("b", list_case.type_factory(field("item", ::arrow::int64())),
+                             /*nullable=*/false)}),
+              /*nullable=*/false));
 
-  const char* json = R"([
-      [{"a": 123, "b": [1, 2, 3]}],
-      null,
-      [],
-      [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
-  CheckSimpleRoundtrip(table, 2);
+    const char* json = R"([
+        [{"a": 123, "b": [1, 2, 3]}],
+        null,
+        [],
+        [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
+    auto array = ::arrow::ArrayFromJSON(type, json);
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    ArrowReaderProperties reader_props;
+    reader_props.set_list_type(list_case.type_id);
+    CheckSimpleRoundtrip(table, 2, default_arrow_writer_properties(), reader_props);
+  }
 }
 
 TEST(ArrowReadWrite, StructOfLists) {
@@ -3451,8 +3612,7 @@ void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,
   ASSERT_OK(reader_builder.Build(&reader));
   ARROW_SCOPED_TRACE("Parquet schema: ",
                      reader->parquet_reader()->metadata()->schema()->ToString());
-  std::shared_ptr<Table> result;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
 
   if (inner_type->id() == ::arrow::Type::DATE64 ||
       inner_type->id() == ::arrow::Type::TIMESTAMP ||
@@ -3908,8 +4068,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 TEST_F(TestNestedSchemaRead, ReadIntoTableFull) {
   ASSERT_NO_FATAL_FAILURE(CreateSimpleNestedParquet(Repetition::OPTIONAL));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK_NO_THROW(reader_->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, reader_->ReadTable());
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 2);
@@ -3952,7 +4111,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   std::shared_ptr<Table> table;
 
   // columns: {group1.leaf1, leaf3}
-  ASSERT_OK_NO_THROW(reader_->ReadTable({0, 2}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({0, 2}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
@@ -3961,7 +4120,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, leaf3}
-  ASSERT_OK_NO_THROW(reader_->ReadRowGroup(0, {0, 2}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadRowGroup(0, {0, 2}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
@@ -3970,7 +4129,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, group1.leaf2}
-  ASSERT_OK_NO_THROW(reader_->ReadTable({0, 1}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({0, 1}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
@@ -3978,7 +4137,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {leaf3}
-  ASSERT_OK_NO_THROW(reader_->ReadTable({2}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({2}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
@@ -3986,7 +4145,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // Test with different ordering
-  ASSERT_OK_NO_THROW(reader_->ReadTable({2, 0}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({2, 0}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
@@ -4007,8 +4166,7 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
   int num_rows = SMALL_SIZE * (depth + 2);
   ASSERT_NO_FATAL_FAILURE(CreateMultiLevelNestedParquet(num_trees, depth, num_children,
                                                         num_rows, GetParam()));
-  std::shared_ptr<Table> table;
-  ASSERT_OK_NO_THROW(reader_->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, reader_->ReadTable());
   ASSERT_EQ(table->num_columns(), num_trees);
   ASSERT_EQ(table->num_rows(), num_rows);
 
@@ -4023,14 +4181,29 @@ INSTANTIATE_TEST_SUITE_P(Repetition_type, TestNestedSchemaRead,
                          ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
 
 TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
-  // June 20, 2017 16:32:56 and 123456789 nanoseconds
-  int64_t nanoseconds = INT64_C(1497976376123456789);
+  std::vector<std::pair<int64_t, Int96>> test_cases = {
+      // June 20, 2017 16:32:56 and 123456789 nanoseconds
+      {INT64_C(1497976376123456789),
+       {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}}},
+      // January 1, 1970 00:00:00 and 000000000 nanoseconds
+      {INT64_C(0), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440588)}}},
+      // December 31, 1969 23:59:59 and 999999000 nanoseconds
+      {INT64_C(-1000), {{UINT32_C(2437872664), UINT32_C(20116), UINT32_C(2440587)}}},
+      // December 31, 1969 00:00:00 and 000000000 nanoseconds
+      {INT64_C(-86400000000000), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440587)}}},
+      // January 1, 1970 00:00:00 and 000001000 nanoseconds
+      {INT64_C(1000), {{UINT32_C(1000), UINT32_C(0), UINT32_C(2440588)}}},
+      // January 2, 1970 00:00:00 and 000000000 nanoseconds
+      {INT64_C(86400000000000), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440589)}}},
+  };
 
-  Int96 calculated;
+  for (auto& [timestamp, impala_timestamp] : test_cases) {
+    ASSERT_EQ(timestamp, ::parquet::Int96GetNanoSeconds(impala_timestamp));
 
-  Int96 expected = {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}};
-  ::parquet::internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
-  ASSERT_EQ(expected, calculated);
+    Int96 calculated;
+    ::parquet::internal::NanosecondsToImpalaTimestamp(timestamp, &calculated);
+    ASSERT_EQ(impala_timestamp, calculated);
+  }
 }
 
 void TryReadDataFile(const std::string& path,
@@ -4038,12 +4211,13 @@ void TryReadDataFile(const std::string& path,
                      const std::string& expected_message = "") {
   auto pool = ::arrow::default_memory_pool();
 
-  std::unique_ptr<FileReader> arrow_reader;
-  Status s =
-      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &arrow_reader);
-  if (s.ok()) {
-    std::shared_ptr<::arrow::Table> table;
-    s = arrow_reader->ReadTable(&table);
+  Status s;
+  auto reader_result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
+  if (reader_result.ok()) {
+    auto table_result = (*reader_result)->ReadTable();
+    s = table_result.status();
+  } else {
+    s = reader_result.status();
   }
 
   ASSERT_EQ(s.code(), expected_code)
@@ -4115,14 +4289,15 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   array.reset();
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
-  std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
-  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader,
+                       FileReader::Make(default_memory_pool(), std::move(reader)));
+  ASSERT_OK_AND_ASSIGN(table, arrow_reader->ReadTable());
   ASSERT_OK(table->ValidateFull());
 
   // ARROW-9297: ensure RecordBatchReader also works
   reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
-  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
+  ASSERT_OK_AND_ASSIGN(arrow_reader,
+                       FileReader::Make(default_memory_pool(), std::move(reader)));
   ASSERT_OK_AND_ASSIGN(auto batch_reader, arrow_reader->GetRecordBatchReader());
   ASSERT_OK_AND_ASSIGN(auto batched_table,
                        ::arrow::Table::FromRecordBatchReader(batch_reader.get()));
@@ -4218,11 +4393,9 @@ TEST(TestArrowReaderAdHoc, LegacyTwoLevelList) {
     ASSERT_EQ(kExpectedLegacyList, nodeStr.str());
 
     // Verify Arrow schema and data
-    std::unique_ptr<FileReader> reader;
-    ASSERT_OK_NO_THROW(
-        FileReader::Make(default_memory_pool(), std::move(file_reader), &reader));
-    std::shared_ptr<Table> table;
-    ASSERT_OK(reader->ReadTable(&table));
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         FileReader::Make(default_memory_pool(), std::move(file_reader)));
+    ASSERT_OK_AND_ASSIGN(auto table, reader->ReadTable());
     ASSERT_OK(table->ValidateFull());
     AssertTablesEqual(*expected_table, *table);
   };
@@ -4283,11 +4456,9 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
 
   auto pool = ::arrow::default_memory_pool();
 
-  std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_OK_NO_THROW(
-      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &arrow_reader));
-  std::shared_ptr<::arrow::Table> table;
-  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader,
+                       FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
+  ASSERT_OK_AND_ASSIGN(auto table, arrow_reader->ReadTable());
 
   std::shared_ptr<::arrow::Schema> schema;
   ASSERT_OK_NO_THROW(arrow_reader->GetSchema(&schema));
@@ -4350,11 +4521,9 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
     path += "/" + tc.filename + ".parquet";
     ARROW_SCOPED_TRACE("path = ", path);
 
-    std::unique_ptr<FileReader> reader;
-    ASSERT_OK_NO_THROW(
-        FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &reader));
-    std::shared_ptr<::arrow::Table> table;
-    ASSERT_OK_NO_THROW(reader->ReadTable(&table));
+    ASSERT_OK_AND_ASSIGN(
+        auto reader, FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
+    ASSERT_OK_AND_ASSIGN(auto table, reader->ReadTable());
 
     std::shared_ptr<::arrow::Schema> schema;
     ASSERT_OK_NO_THROW(reader->GetSchema(&schema));
@@ -4395,9 +4564,8 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyRowGroups) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
-  ASSERT_OK(
-      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto file_reader, FileReader::Make(::arrow::default_memory_pool(),
+                                                          std::move(reader)));
   // This is the important part in this test.
   std::vector<int> row_group_indices = {};
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
@@ -4423,9 +4591,8 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
-  ASSERT_OK(
-      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto file_reader, FileReader::Make(::arrow::default_memory_pool(),
+                                                          std::move(reader)));
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader, file_reader->GetRecordBatchReader());
   std::shared_ptr<::arrow::RecordBatch> record_batch;
   ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
@@ -4447,9 +4614,8 @@ TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
-  ASSERT_OK(
-      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto file_reader, FileReader::Make(::arrow::default_memory_pool(),
+                                                          std::move(reader)));
   std::unique_ptr<arrow::ColumnReader> column_reader;
   ASSERT_OK(file_reader->GetColumn(0, &column_reader));
   std::shared_ptr<ChunkedArray> chunked_array;
@@ -4473,9 +4639,8 @@ TEST(TestArrowColumnReader, NextBatchEmptyInput) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
-  ASSERT_OK(
-      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  ASSERT_OK_AND_ASSIGN(auto file_reader, FileReader::Make(::arrow::default_memory_pool(),
+                                                          std::move(reader)));
   std::unique_ptr<arrow::ColumnReader> column_reader;
   ASSERT_OK(file_reader->GetColumn(0, &column_reader));
   std::shared_ptr<ChunkedArray> chunked_array;
@@ -4769,8 +4934,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   void CheckReadWholeFile(const Table& expected) {
     ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
 
-    std::shared_ptr<Table> actual;
-    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ASSERT_OK_AND_ASSIGN(auto actual, reader->ReadTable());
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 
@@ -4867,8 +5031,7 @@ TEST_P(TestArrowReadDictionary, IncrementalReads) {
 
   // Read in one shot
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<FileReader> reader, GetReader());
-  std::shared_ptr<Table> expected;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&expected));
+  ASSERT_OK_AND_ASSIGN(auto expected, reader->ReadTable());
 
   ASSERT_OK_AND_ASSIGN(reader, GetReader());
   std::unique_ptr<ColumnReader> col;
@@ -4997,10 +5160,10 @@ class TestArrowReadDeltaEncoding : public ::testing::Test {
                                 std::shared_ptr<Table>* out) {
     auto file = test::get_data_file(file_name);
     auto pool = ::arrow::default_memory_pool();
-    std::unique_ptr<FileReader> parquet_reader;
-    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
-                               &parquet_reader));
-    ASSERT_OK(parquet_reader->ReadTable(out));
+    ASSERT_OK_AND_ASSIGN(
+        auto parquet_reader,
+        FileReader::Make(pool, ParquetFileReader::OpenFile(file, false)));
+    ASSERT_OK_AND_ASSIGN(*out, parquet_reader->ReadTable());
     ASSERT_OK((*out)->ValidateFull());
   }
 
@@ -5057,9 +5220,9 @@ TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
   const int64_t batch_size = 100;
   ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_batch_size(batch_size);
-  std::unique_ptr<FileReader> parquet_reader;
-  ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
-                             &parquet_reader));
+  ASSERT_OK_AND_ASSIGN(
+      auto parquet_reader,
+      FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties));
   ASSERT_OK_AND_ASSIGN(auto rb_reader, parquet_reader->GetRecordBatchReader());
 
   auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
@@ -5202,8 +5365,7 @@ TEST_P(TestNestedSchemaFilteredReader, ReadWrite) {
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.properties(default_arrow_reader_properties())->Build(&reader));
-  std::shared_ptr<::arrow::Table> read_table;
-  ASSERT_OK_NO_THROW(reader->ReadTable(GetParam().indices_to_read, &read_table));
+  ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable(GetParam().indices_to_read));
 
   std::shared_ptr<::arrow::Array> expected =
       ArrayFromJSON(GetParam().expected_schema, GetParam().read_data);
@@ -5395,6 +5557,64 @@ TYPED_TEST(TestIntegerAnnotateDecimalTypeParquetIO, SingleNullableDecimalColumn)
 }
 
 template <typename TestType>
+class TestIntegerAnnotateSmallestDecimalTypeParquetIO
+    : public TestIntegerAnnotateDecimalTypeParquetIO<TestType> {
+ public:
+  void ReadAndCheckSingleDecimalColumnFile(const Array& values) {
+    ArrowReaderProperties properties = default_arrow_reader_properties();
+    properties.set_smallest_decimal_enabled(true);
+
+    std::shared_ptr<Array> out;
+    std::unique_ptr<FileReader> reader;
+    this->ReaderFromSink(&reader, properties);
+    this->ReadSingleColumnFile(std::move(reader), &out);
+
+    if (values.type()->id() == out->type()->id()) {
+      AssertArraysEqual(values, *out);
+    } else {
+      auto decimal_type = checked_pointer_cast<::arrow::DecimalType>(values.type());
+
+      ASSERT_OK_AND_ASSIGN(
+          const auto expected_values,
+          ::arrow::compute::Cast(values, ::arrow::decimal256(decimal_type->precision(),
+                                                             decimal_type->scale())));
+      ASSERT_OK_AND_ASSIGN(
+          const auto out_values,
+          ::arrow::compute::Cast(*out, ::arrow::decimal256(decimal_type->precision(),
+                                                           decimal_type->scale())));
+
+      ASSERT_EQ(expected_values->length(), out_values->length());
+      ASSERT_EQ(expected_values->null_count(), out_values->null_count());
+      ASSERT_TRUE(expected_values->Equals(*out_values));
+    }
+  }
+};
+
+using SmallestDecimalTestTypes = ::testing::Types<
+    Decimal32WithPrecisionAndScale<9>, Decimal64WithPrecisionAndScale<9>,
+    Decimal64WithPrecisionAndScale<18>, Decimal128WithPrecisionAndScale<9>,
+    Decimal128WithPrecisionAndScale<18>, Decimal256WithPrecisionAndScale<9>,
+    Decimal256WithPrecisionAndScale<18>>;
+
+TYPED_TEST_SUITE(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
+                 SmallestDecimalTestTypes);
+
+TYPED_TEST(TestIntegerAnnotateSmallestDecimalTypeParquetIO,
+           SingleNonNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+TYPED_TEST(TestIntegerAnnotateSmallestDecimalTypeParquetIO, SingleNullableDecimalColumn) {
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, SMALL_SIZE / 2, kDefaultSeed, &values));
+  ASSERT_NO_FATAL_FAILURE(this->WriteColumn(values));
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleDecimalColumnFile(*values));
+}
+
+template <typename TestType>
 class TestBufferedParquetIO : public TestParquetIO<TestType> {
  public:
   void WriteBufferedFile(const std::shared_ptr<Array>& values, int64_t batch_size,
@@ -5527,8 +5747,8 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   auto read_properties = default_arrow_reader_properties();
   read_properties.set_batch_size(record_batch->num_rows());
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_OK(FileReader::Make(pool, std::move(reader), read_properties, &arrow_reader));
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader,
+                       FileReader::Make(pool, std::move(reader), read_properties));
 
   // Verify the single record batch has been sliced into two row groups by
   // WriterProperties::max_row_group_length().
@@ -5621,37 +5841,60 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   // Read to verify the data.
-  std::shared_ptr<Table> result;
   ASSERT_OK_AND_ASSIGN(auto reader,
                        OpenFile(std::make_shared<BufferReader>(buffer), pool));
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 
 TEST(TestArrowReadWrite, FuzzReader) {
+  using ::parquet::fuzzing::internal::FuzzReader;
+
   constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
+
   auto check_bad_file = [&](const std::string& file_name) {
     SCOPED_TRACE(file_name);
     auto path = test::get_data_file(file_name, /*is_good=*/false);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
                                              path, ::arrow::io::FileMode::READ));
     PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
-    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    auto s = FuzzReader(buffer->data(), buffer->size());
     ASSERT_NOT_OK(s);
   };
+
+  auto check_good_file = [&](const std::string& file_name, bool expect_error = false) {
+    SCOPED_TRACE(file_name);
+    auto path = test::get_data_file(file_name, /*is_good=*/true);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = FuzzReader(buffer->data(), buffer->size());
+    if (expect_error) {
+      ASSERT_NOT_OK(s);
+    } else {
+      ASSERT_OK(s);
+    }
+  };
+
   check_bad_file("PARQUET-1481.parquet");
   check_bad_file("ARROW-GH-41317.parquet");
   check_bad_file("ARROW-GH-41321.parquet");
   check_bad_file("ARROW-RS-GH-6229-LEVELS.parquet");
   check_bad_file("ARROW-RS-GH-6229-DICTHEADER.parquet");
-  {
-    auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
-    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
-                                             path, ::arrow::io::FileMode::READ));
-    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
-    auto s = internal::FuzzReader(buffer->data(), buffer->size());
-    ASSERT_OK(s);
-  }
+
+  check_good_file("alltypes_plain.parquet");
+  check_good_file("data_index_bloom_encoding_stats.parquet");
+  check_good_file("data_index_bloom_encoding_with_length.parquet");
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+  // Encrypted files in the testing repo should be ok, except those
+  // that require external key material or an explicitly-supplied AAD.
+  check_good_file("uniform_encryption.parquet.encrypted");
+  check_good_file("encrypt_columns_and_footer_aad.parquet.encrypted");
+  check_good_file("encrypt_columns_and_footer.parquet.encrypted");
+  check_good_file("encrypt_columns_plaintext_footer.parquet.encrypted");
+#else
+  check_good_file("uniform_encryption.parquet.encrypted", /*expect_error=*/true);
+#endif
 }
 
 // Test writing table with a closed writer, should not segfault (GH-37969).
@@ -5681,384 +5924,33 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
 }
 
-namespace {
+TEST(TestArrowReadWrite, AllNulls) {
+  auto schema = ::arrow::schema({::arrow::field("all_nulls", ::arrow::int8())});
 
-struct ColumnIndexObject {
-  std::vector<bool> null_pages;
-  std::vector<std::string> min_values;
-  std::vector<std::string> max_values;
-  BoundaryOrder::type boundary_order = BoundaryOrder::Unordered;
-  std::vector<int64_t> null_counts;
+  constexpr int64_t length = 3;
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, ::arrow::AllocateEmptyBitmap(length));
+  auto array_data = ::arrow::ArrayData::Make(
+      ::arrow::int8(), length, {null_bitmap, /*values=*/nullptr}, /*null_count=*/length);
+  auto array = ::arrow::MakeArray(array_data);
+  auto record_batch = ::arrow::RecordBatch::Make(schema, length, {array});
 
-  ColumnIndexObject() = default;
+  auto sink = CreateOutputStream();
+  ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
+                                        *schema, ::arrow::default_memory_pool(), sink,
+                                        parquet::default_writer_properties(),
+                                        parquet::default_arrow_writer_properties()));
+  ASSERT_OK(writer->WriteRecordBatch(*record_batch));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
-  ColumnIndexObject(const std::vector<bool>& null_pages,
-                    const std::vector<std::string>& min_values,
-                    const std::vector<std::string>& max_values,
-                    BoundaryOrder::type boundary_order,
-                    const std::vector<int64_t>& null_counts)
-      : null_pages(null_pages),
-        min_values(min_values),
-        max_values(max_values),
-        boundary_order(boundary_order),
-        null_counts(null_counts) {}
-
-  explicit ColumnIndexObject(const ColumnIndex* column_index) {
-    if (column_index == nullptr) {
-      return;
-    }
-    null_pages = column_index->null_pages();
-    min_values = column_index->encoded_min_values();
-    max_values = column_index->encoded_max_values();
-    boundary_order = column_index->boundary_order();
-    if (column_index->has_null_counts()) {
-      null_counts = column_index->null_counts();
-    }
-  }
-
-  bool operator==(const ColumnIndexObject& b) const {
-    return null_pages == b.null_pages && min_values == b.min_values &&
-           max_values == b.max_values && boundary_order == b.boundary_order &&
-           null_counts == b.null_counts;
-  }
-};
-
-auto encode_int64 = [](int64_t value) {
-  return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
-};
-
-auto encode_double = [](double value) {
-  return std::string(reinterpret_cast<const char*>(&value), sizeof(double));
-};
-
-}  // namespace
-
-class ParquetPageIndexRoundTripTest : public ::testing::Test {
- public:
-  void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
-                 const std::shared_ptr<::arrow::Table>& table) {
-    // Get schema from table.
-    auto schema = table->schema();
-    std::shared_ptr<SchemaDescriptor> parquet_schema;
-    auto arrow_writer_properties = default_arrow_writer_properties();
-    ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
-                                       *arrow_writer_properties, &parquet_schema));
-    auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
-
-    // Write table to buffer.
-    auto sink = CreateOutputStream();
-    auto pool = ::arrow::default_memory_pool();
-    auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-    std::unique_ptr<FileWriter> arrow_writer;
-    ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                               &arrow_writer));
-    ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
-    ASSERT_OK_NO_THROW(arrow_writer->Close());
-    ASSERT_OK_AND_ASSIGN(buffer_, sink->Finish());
-  }
-
-  void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
-                       const std::set<int>& expect_columns_without_index = {}) {
-    auto read_properties = default_arrow_reader_properties();
-    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
-
-    auto metadata = reader->metadata();
-    ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
-
-    auto page_index_reader = reader->GetPageIndexReader();
-    ASSERT_NE(page_index_reader, nullptr);
-
-    int64_t offset_lower_bound = 0;
-    for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
-      auto row_group_index_reader = page_index_reader->RowGroup(rg);
-      ASSERT_NE(row_group_index_reader, nullptr);
-
-      auto row_group_reader = reader->RowGroup(rg);
-      ASSERT_NE(row_group_reader, nullptr);
-
-      for (int col = 0; col < metadata->num_columns(); ++col) {
-        auto column_index = row_group_index_reader->GetColumnIndex(col);
-        column_indexes_.emplace_back(column_index.get());
-
-        bool expect_no_page_index =
-            expect_columns_without_index.find(col) != expect_columns_without_index.cend();
-
-        auto offset_index = row_group_index_reader->GetOffsetIndex(col);
-        if (expect_no_page_index) {
-          ASSERT_EQ(offset_index, nullptr);
-        } else {
-          CheckOffsetIndex(offset_index.get(), expect_num_pages, &offset_lower_bound);
-        }
-
-        // Verify page stats are not written to page header if page index is enabled.
-        auto page_reader = row_group_reader->GetColumnPageReader(col);
-        ASSERT_NE(page_reader, nullptr);
-        std::shared_ptr<Page> page = nullptr;
-        while ((page = page_reader->NextPage()) != nullptr) {
-          if (page->type() == PageType::DATA_PAGE ||
-              page->type() == PageType::DATA_PAGE_V2) {
-            ASSERT_EQ(std::static_pointer_cast<DataPage>(page)->statistics().is_set(),
-                      expect_no_page_index);
-          }
-        }
-      }
-    }
-  }
-
- private:
-  void CheckOffsetIndex(const OffsetIndex* offset_index, int expect_num_pages,
-                        int64_t* offset_lower_bound_in_out) {
-    ASSERT_NE(offset_index, nullptr);
-    const auto& locations = offset_index->page_locations();
-    ASSERT_EQ(static_cast<size_t>(expect_num_pages), locations.size());
-    int64_t prev_first_row_index = -1;
-    for (const auto& location : locations) {
-      // Make sure first_row_index is in the ascending order within a row group.
-      ASSERT_GT(location.first_row_index, prev_first_row_index);
-      // Make sure page offset is in the ascending order across the file.
-      ASSERT_GE(location.offset, *offset_lower_bound_in_out);
-      // Make sure page size is positive.
-      ASSERT_GT(location.compressed_page_size, 0);
-      prev_first_row_index = location.first_row_index;
-      *offset_lower_bound_in_out = location.offset + location.compressed_page_size;
-    }
-  }
-
- protected:
-  std::shared_ptr<Buffer> buffer_;
-  std::vector<ColumnIndexObject> column_indexes_;
-};
-
-TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTrip) {
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_write_page_index()
-                               ->max_row_group_length(4)
-                               ->build();
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
-                                 ::arrow::field("c1", ::arrow::utf8()),
-                                 ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
-  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
-      [1,     "a",  [1]      ],
-      [2,     "b",  [1, 2]   ],
-      [3,     "c",  [null]   ],
-      [null,  "d",  []       ],
-      [5,     null, [3, 3, 3]],
-      [6,     "f",  null     ]
-    ])"}));
-
-  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
-
-  EXPECT_THAT(
-      column_indexes_,
-      ::testing::ElementsAre(
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(1)},
-                            /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{1}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"a"},
-                            /*max_values=*/{"d"}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(1)},
-                            /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{2}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(5)},
-                            /*max_values=*/{encode_int64(6)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"f"},
-                            /*max_values=*/{"f"}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{1}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(3)},
-                            /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{1}}));
-}
-
-TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithStatsDisabled) {
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_write_page_index()
-                               ->disable_statistics()
-                               ->build();
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
-                                 ::arrow::field("c1", ::arrow::utf8()),
-                                 ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
-  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
-      [1,     "a",  [1]      ],
-      [2,     "b",  [1, 2]   ],
-      [3,     "c",  [null]   ],
-      [null,  "d",  []       ],
-      [5,     null, [3, 3, 3]],
-      [6,     "f",  null     ]
-    ])"}));
-
-  ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1);
-  for (auto& column_index : column_indexes_) {
-    // Means page index is empty.
-    EXPECT_EQ(ColumnIndexObject{}, column_index);
-  }
-}
-
-TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithColumnStatsDisabled) {
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_write_page_index()
-                               ->disable_statistics("c0")
-                               ->max_row_group_length(4)
-                               ->build();
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
-                                 ::arrow::field("c1", ::arrow::utf8()),
-                                 ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
-  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
-      [1,     "a",  [1]      ],
-      [2,     "b",  [1, 2]   ],
-      [3,     "c",  [null]   ],
-      [null,  "d",  []       ],
-      [5,     null, [3, 3, 3]],
-      [6,     "f",  null     ]
-    ])"}));
-
-  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
-
-  ColumnIndexObject empty_column_index{};
-  EXPECT_THAT(
-      column_indexes_,
-      ::testing::ElementsAre(
-          empty_column_index,
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"a"},
-                            /*max_values=*/{"d"}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(1)},
-                            /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{2}},
-          empty_column_index,
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"f"},
-                            /*max_values=*/{"f"}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{1}},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(3)},
-                            /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{1}}));
-}
-
-TEST_F(ParquetPageIndexRoundTripTest, DropLargeStats) {
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_write_page_index()
-                               ->max_row_group_length(1) /* write single-row row group */
-                               ->max_statistics_size(20) /* drop stats larger than it */
-                               ->build();
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::utf8())});
-  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
-      ["short_string"],
-      ["very_large_string_to_drop_stats"]
-    ])"}));
-
-  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
-
-  EXPECT_THAT(
-      column_indexes_,
-      ::testing::ElementsAre(
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"short_string"},
-                            /*max_values=*/{"short_string"}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{}));
-}
-
-TEST_F(ParquetPageIndexRoundTripTest, MultiplePages) {
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_write_page_index()
-                               ->data_pagesize(1) /* write multiple pages */
-                               ->build();
-  auto schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
-  WriteFile(
-      writer_properties,
-      ::arrow::TableFromJSON(
-          schema, {R"([[1, "a"], [2, "b"]])", R"([[3, "c"], [4, "d"]])",
-                   R"([[null, null], [6, "f"]])", R"([[null, null], [null, null]])"}));
-
-  ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/4);
-
-  EXPECT_THAT(
-      column_indexes_,
-      ::testing::ElementsAre(
-          ColumnIndexObject{
-              /*null_pages=*/{false, false, false, true},
-              /*min_values=*/{encode_int64(1), encode_int64(3), encode_int64(6), ""},
-              /*max_values=*/{encode_int64(2), encode_int64(4), encode_int64(6), ""},
-              BoundaryOrder::Ascending,
-              /*null_counts=*/{0, 0, 1, 2}},
-          ColumnIndexObject{/*null_pages=*/{false, false, false, true},
-                            /*min_values=*/{"a", "c", "f", ""},
-                            /*max_values=*/{"b", "d", "f", ""}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0, 0, 1, 2}}));
-}
-
-TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_write_page_index()
-                               ->max_row_group_length(3) /* 3 rows per row group */
-                               ->build();
-
-  // Create table to write with NaNs.
-  auto vectors = std::vector<std::shared_ptr<Array>>(4);
-  // NaN will be ignored in min/max stats.
-  ::arrow::ArrayFromVector<::arrow::DoubleType>({1.0, NAN, 0.1}, &vectors[0]);
-  // Lower bound will use -0.0.
-  ::arrow::ArrayFromVector<::arrow::DoubleType>({+0.0, NAN, +0.0}, &vectors[1]);
-  // Upper bound will use -0.0.
-  ::arrow::ArrayFromVector<::arrow::DoubleType>({-0.0, NAN, -0.0}, &vectors[2]);
-  // Pages with all NaNs will not build column index.
-  ::arrow::ArrayFromVector<::arrow::DoubleType>({NAN, NAN, NAN}, &vectors[3]);
-  ASSERT_OK_AND_ASSIGN(auto chunked_array,
-                       arrow::ChunkedArray::Make(vectors, ::arrow::float64()));
-
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::float64())});
-  auto table = Table::Make(schema, {chunked_array});
-  WriteFile(writer_properties, table);
-
-  ReadPageIndexes(/*expect_num_row_groups=*/4, /*expect_num_pages=*/1);
-
-  EXPECT_THAT(
-      column_indexes_,
-      ::testing::ElementsAre(
-          ColumnIndexObject{/*null_pages=*/{false},
-                            /*min_values=*/{encode_double(0.1)},
-                            /*max_values=*/{encode_double(1.0)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{/*null_pages=*/{false},
-                            /*min_values=*/{encode_double(-0.0)},
-                            /*max_values=*/{encode_double(+0.0)},
-                            BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{/*null_pages=*/{false},
-                            /*min_values=*/{encode_double(-0.0)},
-                            /*max_values=*/{encode_double(+0.0)},
-                            BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{
-              /* Page with only NaN values does not have column index built */}));
-}
-
-TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
-  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
-                                 ::arrow::field("c1", ::arrow::int64()),
-                                 ::arrow::field("c2", ::arrow::int64())});
-  auto writer_properties =
-      WriterProperties::Builder()
-          .enable_write_page_index()       /* enable by default */
-          ->enable_write_page_index("c0")  /* enable c0 explicitly */
-          ->disable_write_page_index("c1") /* disable c1 explicitly */
-          ->build();
-  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([[0,  1,  2]])"}));
-
-  ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1,
-                  /*expect_columns_without_index=*/{1});
-
-  EXPECT_THAT(
-      column_indexes_,
-      ::testing::ElementsAre(
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(0)},
-                            /*max_values=*/{encode_int64(0)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}},
-          ColumnIndexObject{/* page index of c1 is disabled */},
-          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(2)},
-                            /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
-                            /*null_counts=*/{0}}));
+  std::shared_ptr<::arrow::Table> read_table;
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer),
+                                                ::arrow::default_memory_pool()));
+  ASSERT_OK(reader->ReadTable(&read_table));
+  auto expected_table = ::arrow::Table::Make(
+      schema, {::arrow::ArrayFromJSON(::arrow::int8(), R"([null, null, null])")});
+  ASSERT_TRUE(expected_table->Equals(*read_table));
 }
 
 }  // namespace arrow

@@ -31,6 +31,7 @@ module Arrow
       require_extension_library
       gc_guard
       self.class.start_callback_dispatch_thread
+      @base_module.compute_initialize
     end
 
     def require_libraries

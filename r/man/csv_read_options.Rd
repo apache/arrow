@@ -43,7 +43,7 @@ The order of application is as follows:
 CSV Reading Options
 }
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 writeLines("my file has a non-data header\nx\n1\n2", tf)

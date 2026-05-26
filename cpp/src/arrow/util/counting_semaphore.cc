@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/counting_semaphore.h"
+#include "arrow/util/counting_semaphore_internal.h"
 
 #include <chrono>
 #include <condition_variable>

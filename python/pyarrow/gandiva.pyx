@@ -75,14 +75,21 @@ from pyarrow.includes.libgandiva cimport (
     GetRegisteredFunctionSignatures)
 
 
+import warnings
+warnings.warn(
+    "pyarrow.gandiva is deprecated as of 24.0.0 and will be removed in a future version.",
+    FutureWarning,
+    stacklevel=2,
+)
+
+
 cdef class Node(_Weakrefable):
     cdef:
         shared_ptr[CNode] node
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use the "
-                        "TreeExprBuilder API directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use the "
+                        "TreeExprBuilder API directly")
 
     @staticmethod
     cdef create(shared_ptr[CNode] node):
@@ -95,7 +102,7 @@ cdef class Node(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def return_type(self):
         return pyarrow_wrap_data_type(self.node.get().return_type())
@@ -113,7 +120,7 @@ cdef class Expression(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def root(self):
         return Node.create(self.expression.get().root())
@@ -127,9 +134,8 @@ cdef class Condition(_Weakrefable):
         shared_ptr[CCondition] condition
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use the "
-                        "TreeExprBuilder API instead"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use the "
+                        "TreeExprBuilder API instead")
 
     @staticmethod
     cdef create(shared_ptr[CCondition] condition):
@@ -142,7 +148,7 @@ cdef class Condition(_Weakrefable):
 
     def __repr__(self):
         type_format = object.__repr__(self)
-        return '{0}\n{1}'.format(type_format, str(self))
+        return f"{type_format}\n{self}"
 
     def root(self):
         return Node.create(self.condition.get().root())
@@ -156,8 +162,8 @@ cdef class SelectionVector(_Weakrefable):
         shared_ptr[CSelectionVector] selection_vector
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly."
-                        .format(self.__class__.__name__))
+        raise TypeError(
+            f"Do not call {self.__class__.__name__}'s constructor directly.")
 
     @staticmethod
     cdef create(shared_ptr[CSelectionVector] selection_vector):
@@ -176,9 +182,8 @@ cdef class Projector(_Weakrefable):
         MemoryPool pool
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "make_projector instead"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        "make_projector instead")
 
     @staticmethod
     cdef create(shared_ptr[CProjector] projector, MemoryPool pool):
@@ -226,9 +231,8 @@ cdef class Filter(_Weakrefable):
         shared_ptr[CFilter] filter
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, use "
-                        "make_filter instead"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        "make_filter instead")
 
     @staticmethod
     cdef create(shared_ptr[CFilter] filter):
@@ -712,8 +716,8 @@ cdef class FunctionSignature(_Weakrefable):
         shared_ptr[CFunctionSignature] signature
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly."
-                        .format(self.__class__.__name__))
+        raise TypeError(
+            f"Do not call {self.__class__.__name__}'s constructor directly.")
 
     @staticmethod
     cdef create(shared_ptr[CFunctionSignature] signature):

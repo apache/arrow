@@ -15,17 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <span>
 #include <unordered_set>
 
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
 using internal::checked_cast;
-using util::span;
 
 namespace compute {
 namespace internal {
@@ -176,7 +177,8 @@ class ChunkedArraySorter : public TypeVisitor {
   template <typename ArrayType>
   void MergeNonNulls(CompressedChunkLocation* range_begin,
                      CompressedChunkLocation* range_middle,
-                     CompressedChunkLocation* range_end, span<const Array* const> arrays,
+                     CompressedChunkLocation* range_end,
+                     std::span<const Array* const> arrays,
                      CompressedChunkLocation* temp_indices) {
     using ArrowType = typename ArrayType::TypeClass;
 
@@ -201,7 +203,8 @@ class ChunkedArraySorter : public TypeVisitor {
   }
 
   template <typename ArrowType>
-  auto ChunkValue(span<const Array* const> arrays, CompressedChunkLocation loc) const {
+  auto ChunkValue(std::span<const Array* const> arrays,
+                  CompressedChunkLocation loc) const {
     return ResolvedChunk(arrays[loc.chunk_index()],
                          static_cast<int64_t>(loc.index_in_chunk()))
         .template Value<ArrowType>();

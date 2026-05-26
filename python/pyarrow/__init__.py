@@ -29,12 +29,10 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
-import gc as _gc
 import importlib as _importlib
 import os as _os
 import platform as _platform
 import sys as _sys
-import warnings as _warnings
 
 try:
     from ._generated_version import version as __version__
@@ -58,12 +56,11 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-import pyarrow.lib as _lib
-from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
-                         MonthDayNano, VersionInfo, cpp_build_info,
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
-                         io_thread_count, set_io_thread_count)
+                         io_thread_count, is_opentelemetry_enabled, set_io_thread_count)
 
 
 def show_versions():
@@ -74,16 +71,18 @@ def show_versions():
         print(f"{label: <26}: {value: <8}")
 
     print("pyarrow version info\n--------------------")
-    print_entry("Package kind", cpp_build_info.package_kind
-                if len(cpp_build_info.package_kind) > 0
+    print_entry("Package kind", build_info.cpp_build_info.package_kind
+                if len(build_info.cpp_build_info.package_kind) > 0
                 else "not indicated")
-    print_entry("Arrow C++ library version", cpp_build_info.version)
+    print_entry("Arrow C++ library version", build_info.cpp_build_info.version)
     print_entry("Arrow C++ compiler",
-                f"{cpp_build_info.compiler_id} {cpp_build_info.compiler_version}")
-    print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
-    print_entry("Arrow C++ git revision", cpp_build_info.git_id)
-    print_entry("Arrow C++ git description", cpp_build_info.git_description)
-    print_entry("Arrow C++ build type", cpp_build_info.build_type)
+                (f"{build_info.cpp_build_info.compiler_id} "
+                 f"{build_info.cpp_build_info.compiler_version}"))
+    print_entry("Arrow C++ compiler flags", build_info.cpp_build_info.compiler_flags)
+    print_entry("Arrow C++ git revision", build_info.cpp_build_info.git_id)
+    print_entry("Arrow C++ git description", build_info.cpp_build_info.git_description)
+    print_entry("Arrow C++ build type", build_info.cpp_build_info.build_type)
+    print_entry("PyArrow build type", build_info.build_type)
 
 
 def _module_is_available(module):
@@ -136,6 +135,7 @@ def show_info():
     for module in modules:
         status = "Enabled" if _module_is_available(module) else "-"
         print(f"  {module: <20}: {status: <8}")
+    print(f"  {'opentelemetry': <20}: {'Enabled' if is_opentelemetry_enabled() else '-': <8}")
 
     print("\nFilesystems:")
     filesystems = ["AzureFileSystem", "GcsFileSystem",
@@ -191,6 +191,7 @@ from pyarrow.lib import (null, bool_,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
+                         arange,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
                          BooleanArray,
@@ -304,7 +305,11 @@ def get_include():
     Return absolute path to directory containing Arrow C++ include
     headers. Similar to numpy.get_include
     """
-    return _os.path.join(_os.path.dirname(__file__), 'include')
+    # Use pyarrow.lib location instead of just __file__. That works
+    # for both editable and non-editable builds as it points
+    # to the actual location of the compiled C++ extension.
+    from pyarrow import lib as _lib
+    return _os.path.join(_os.path.dirname(_lib.__file__), 'include')
 
 
 def _get_pkg_config_executable():
@@ -387,7 +392,11 @@ def get_library_dirs():
     Return lists of directories likely to contain Arrow C++ libraries for
     linking C or Cython extensions using pyarrow
     """
-    package_cwd = _os.path.dirname(__file__)
+    # Use pyarrow.lib location instead of just __file__. That works
+    # for both editable and non-editable builds as it points
+    # to the actual location of the compiled C++ extension.
+    from pyarrow import lib as _lib
+    package_cwd = _os.path.dirname(_lib.__file__)
     library_dirs = [package_cwd]
 
     def append_library_dir(library_dir):
@@ -408,7 +417,7 @@ def get_library_dirs():
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {!r}".format(library_dir))
+                        f"value {library_dir!r}")
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':

@@ -15,10 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if needs_compute
+    arrow_c_bridge_deps = [arrow_compute_test_dep]
+else
+    arrow_c_bridge_deps = [arrow_test_dep]
+endif
+
 exc = executable(
     'arrow-c-bridge-test',
     sources: ['bridge_test.cc'],
-    dependencies: [arrow_test_dep],
+    dependencies: arrow_c_bridge_deps,
 )
 test('arrow-c-bridge-test', exc)
 

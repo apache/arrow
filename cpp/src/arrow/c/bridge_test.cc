@@ -18,6 +18,7 @@
 #include <cerrno>
 #include <deque>
 #include <functional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -31,7 +32,6 @@
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
 #include "arrow/c/util_internal.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
@@ -581,8 +581,10 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
-                                     expected_data.type->id() == Type::BINARY_VIEW;
+
+    bool has_variadic_buffer_sizes =
+        expected_data.type->storage_id() == Type::BINARY_VIEW ||
+        expected_data.type->storage_id() == Type::STRING_VIEW;
     ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
 
@@ -591,8 +593,8 @@ struct ArrayExportChecker {
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
     }
     if (has_variadic_buffer_sizes) {
-      auto variadic_buffers = util::span(expected_data.buffers).subspan(2);
-      auto variadic_buffer_sizes = util::span(
+      auto variadic_buffers = std::span(expected_data.buffers).subspan(2);
+      auto variadic_buffer_sizes = std::span(
           static_cast<const int64_t*>(c_export->buffers[c_export->n_buffers - 1]),
           variadic_buffers.size());
       for (auto [buf, size] : Zip(variadic_buffers, variadic_buffer_sizes)) {
@@ -958,6 +960,13 @@ TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
   TestPrimitive([&] {
     auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
     return arr->Slice(1, arr->length() - 2);
+  });
+}
+
+TEST_F(TestArrayExport, BinaryViewExtensionWithMultipleBuffers) {
+  TestPrimitive([&] {
+    auto storage = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return BinaryViewExtensionType::WrapArray(binary_view_extension_type(), storage);
   });
 }
 
@@ -2346,6 +2355,34 @@ TEST_F(TestSchemaImport, DictionaryError) {
   FillDictionary(LastChild());
   FillPrimitive("u");
   FillDictionary();
+  CheckImportError();
+}
+
+TEST_F(TestSchemaImport, DecimalError) {
+  // Decimal precision out of bounds
+  FillPrimitive("d:0,10");
+  CheckImportError();
+  FillPrimitive("d:39,10");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,32");
+  CheckImportError();
+  FillPrimitive("d:10,4,32");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,64");
+  CheckImportError();
+  FillPrimitive("d:19,4,64");
+  CheckImportError();
+
+  FillPrimitive("d:0,10,128");
+  CheckImportError();
+  FillPrimitive("d:39,10,128");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,256");
+  CheckImportError();
+  FillPrimitive("d:77,4,256");
   CheckImportError();
 }
 

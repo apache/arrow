@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("MessageReader can be created from raw vectors", {
   batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()

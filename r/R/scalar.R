@@ -68,7 +68,8 @@
 #'
 #' my_scalar$ToString()
 #' @export
-Scalar <- R6Class("Scalar",
+Scalar <- R6Class(
+  "Scalar",
   inherit = ArrowDatum,
   public = list(
     ToString = function() {
@@ -126,7 +127,8 @@ scalar <- Scalar$create
 #' @usage NULL
 #' @format NULL
 #' @export
-StructScalar <- R6Class("StructScalar",
+StructScalar <- R6Class(
+  "StructScalar",
   inherit = Scalar,
   public = list(
     field = function(i) StructScalar__field(self, i),

@@ -86,10 +86,10 @@ if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
-# Arrow requires C++17, so check for it
-if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
+# Arrow requires C++20, so check for it
+if [ ! "`${R_HOME}/bin/R CMD config CXX20`" ]; then
   echo "------------------------- NOTE ---------------------------"
-  echo "Cannot install arrow: a C++17 compiler is required."
+  echo "Cannot install arrow: a C++20 compiler is required."
   echo "See https://arrow.apache.org/docs/r/articles/install.html"
   echo "---------------------------------------------------------"
   exit 1
@@ -260,14 +260,6 @@ set_pkg_vars () {
   if [ "$ARROW_R_CXXFLAGS" ]; then
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
-
-  # We use expr because the product version returns more than just 10.13 and we want to
-  # match the substring. However, expr always outputs the number of matched characters
-  # to stdout, to avoid noise in the log we redirect the output to /dev/null
-  if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13' >/dev/null 2>&1; then
-    # avoid C++17 availability warnings on macOS < 11
-    PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
-  fi
 }
 
 # If we have pkg-config, it will tell us what libarrow needs
@@ -333,6 +325,13 @@ add_feature_flags () {
       # NOTE: parquet is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
+    if arrow_built_with ARROW_COMPUTE; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_COMPUTE"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-compute"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_compute $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_compute is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
     if arrow_built_with ARROW_DATASET; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
       PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
@@ -395,17 +394,17 @@ if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
     set_pkg_vars ${_LIBARROW_FOUND}
   fi
 else
-  # To make it easier to debug which code path was taken add a specific 
+  # To make it easier to debug which code path was taken add a specific
   # message to the log in addition to the 'NOTE'
   echo "*** Failed to find Arrow C++ libraries."
 fi
 
 # Test that we can compile something with those flags
-CXX17="`${R_HOME}/bin/R CMD config CXX17` -E"
-CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
-CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
+CXX20="`${R_HOME}/bin/R CMD config CXX20` -E"
+CXX20FLAGS=`"${R_HOME}"/bin/R CMD config CXX20FLAGS`
+CXX20STD=`"${R_HOME}"/bin/R CMD config CXX20STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
-TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
+TEST_CMD="${CXX20} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX20FLAGS} ${CXX20STD} -xc++ -"
 TEST_ERROR=$(echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} -o /dev/null 2>&1)
 
 if [ $? -eq 0 ]; then

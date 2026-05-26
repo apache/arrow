@@ -117,7 +117,12 @@ class ThreadedTaskGroup : public TaskGroup {
         }
         self->OneTaskDone();
       };
-      UpdateStatus(executor_->Spawn(std::move(callable)));
+      auto st = executor_->Spawn(std::move(callable));
+      bool spawn_successful = st.ok();
+      UpdateStatus(std::move(st));
+      if (!spawn_successful) {
+        OneTaskDone();
+      }
     }
   }
 

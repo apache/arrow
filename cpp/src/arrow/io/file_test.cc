@@ -31,6 +31,7 @@
 #include <thread>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
@@ -114,9 +115,27 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name));
   ASSERT_RAISES(Invalid, ReadableFile::Open(file_name));
 }
-
-// TODO add a test with a valid utf-8 filename
 #endif
+
+TEST_F(TestFileOutputStream, FileNameValidUtf8) {
+  // Test that file operations work with UTF-8 filenames (Korean + emoji).
+  // On Windows, PlatformFilename::FromString() converts UTF-8 strings to wide strings.
+  // On Unix, filenames are treated as opaque byte strings.
+  std::string utf8_file_name = "test_file_한국어_😀.txt";
+  std::string utf8_path = TempFile(utf8_file_name);
+
+  ASSERT_OK_AND_ASSIGN(auto file, FileOutputStream::Open(utf8_path));
+  const char* data = "test content";
+  ASSERT_OK(file->Write(data, strlen(data)));
+  ASSERT_OK(file->Close());
+
+  // Verify we can read it back
+  ASSERT_OK_AND_ASSIGN(auto readable_file, ReadableFile::Open(utf8_path));
+  ASSERT_OK_AND_ASSIGN(auto buffer, readable_file->ReadAt(0, strlen(data)));
+  ASSERT_EQ(std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size()),
+            std::string(data));
+  ASSERT_OK(readable_file->Close());
+}
 
 TEST_F(TestFileOutputStream, DestructorClosesFile) {
   int fd_file;
@@ -381,12 +400,18 @@ TEST_F(TestReadableFile, ReadAsync) {
   MakeTestFile();
   OpenFile();
 
-  auto fut1 = file_->ReadAsync({}, 1, 10);
-  auto fut2 = file_->ReadAsync({}, 0, 4);
+  auto fut1 = file_->ReadAsync(default_io_context(), 1, 10);
+  auto fut2 = file_->ReadAsync(default_io_context(), 0, 4);
+  auto fut3 = file_->ReadAsync(default_io_context(), 1, 10, /*allow_short_read=*/false);
+  auto fut4 = file_->ReadAsync(default_io_context(), 0, 4, /*allow_short_read=*/false);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
   ASSERT_OK_AND_ASSIGN(auto buf2, fut2.result());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("File too short"),
+                                  fut3.result());
+  ASSERT_OK_AND_ASSIGN(auto buf4, fut4.result());
   AssertBufferEqual(*buf1, "estdata");
   AssertBufferEqual(*buf2, "test");
+  AssertBufferEqual(*buf4, "test");
 }
 
 TEST_F(TestReadableFile, ReadManyAsync) {
@@ -434,7 +459,7 @@ TEST_F(TestReadableFile, NonexistentFile) {
   auto maybe_file = ReadableFile::Open(path);
   ASSERT_RAISES(IOError, maybe_file);
   std::string message = maybe_file.status().message();
-  ASSERT_NE(std::string::npos, message.find(path));
+  ASSERT_NE(std::string::npos, message.find(path)) << message;
 }
 
 class MyMemoryPool : public MemoryPool {

@@ -64,6 +64,7 @@ ARROW_TESTING_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_TESTING_EXPORT std::string random_string(int64_t n, uint32_t seed);
 ARROW_TESTING_EXPORT int32_t DecimalSize(int32_t precision);
 ARROW_TESTING_EXPORT void random_ascii(int64_t n, uint32_t seed, uint8_t* out);
+ARROW_TESTING_EXPORT void random_alnum(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_TESTING_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 
 ARROW_TESTING_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
@@ -111,11 +112,17 @@ UnionTypeFactories() {
 // Status
 ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 
+/// \deprecated Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 // Return the value of the ARROW_TIMEZONE_DATABASE environment variable
+ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_TESTING_EXPORT std::optional<std::string> GetTestTimezoneDatabaseRoot();
 
+/// \deprecated Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 // Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable
-// This is only relevant on Windows, since other OSs have compatible databases built-in
+// Only relevant for Windows builds with Clang/libc++ which use vendored date library
+ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_TESTING_EXPORT Status InitTestTimezoneDatabase();
 
 // Get a TCP port number to listen on.  This is a different number every time,

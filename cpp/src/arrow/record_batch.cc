@@ -18,10 +18,10 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -35,6 +35,7 @@
 #include "arrow/array/statistics.h"
 #include "arrow/array/validate.h"
 #include "arrow/c/abi.h"
+#include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -95,25 +96,21 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   const std::vector<std::shared_ptr<Array>>& columns() const override {
+    std::lock_guard lock(mutex_);
     for (int i = 0; i < num_columns(); ++i) {
-      // Force all columns to be boxed
-      column(i);
+      if (!boxed_columns_[i]) {
+        boxed_columns_[i] = MakeArray(columns_[i]);
+      }
     }
     return boxed_columns_;
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
-    if (!result) {
-      auto new_array = MakeArray(columns_[i]);
-      // Be careful not to overwrite existing entry if another thread has been calling
-      // `column(i)` at the same time, since the `boxed_columns_` contents are exposed
-      // by `columns()` (see GH-45371).
-      if (std::atomic_compare_exchange_strong(&boxed_columns_[i], &result, new_array)) {
-        return new_array;
-      }
+    std::lock_guard lock(mutex_);
+    if (!boxed_columns_[i]) {
+      boxed_columns_[i] = MakeArray(columns_[i]);
     }
-    return result;
+    return boxed_columns_[i];
   }
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
@@ -210,6 +207,7 @@ class SimpleRecordBatch : public RecordBatch {
   std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
+  mutable std::mutex mutex_;
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 
   // the type of device that the buffers for columns are allocated on.
@@ -256,27 +254,25 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     return Status::TypeError("Cannot construct record batch from array of type ",
                              *array->type());
   }
-  if (array->null_count() != 0 || array->offset() != 0) {
-    // If the struct array has a validity map or offset we need to push those into
-    // the child arrays via Flatten since the RecordBatch doesn't have validity/offset
-    const std::shared_ptr<StructArray>& struct_array =
-        internal::checked_pointer_cast<StructArray>(array);
-    ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
-                          struct_array->Flatten(memory_pool));
-    return Make(arrow::schema(array->type()->fields()), array->length(),
-                std::move(fields));
-  }
-  return Make(arrow::schema(array->type()->fields()), array->length(),
-              array->data()->child_data);
+  // Push the struct array's validity map and slicing (if any) into the child arrays
+  // by calling Flatten
+  const std::shared_ptr<StructArray>& struct_array =
+      internal::checked_pointer_cast<StructArray>(array);
+  ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
+                        struct_array->Flatten(memory_pool));
+  return Make(arrow::schema(array->type()->fields()), array->length(), std::move(fields));
 }
 
 namespace {
 
 Status ValidateColumnLength(const RecordBatch& batch, int i) {
-  const auto& array = *batch.column(i);
-  if (ARROW_PREDICT_FALSE(array.length() != batch.num_rows())) {
+  // This function is part of the validation code path and should
+  // be robust against invalid data, but `column()` would call MakeArray()
+  // that can abort on invalid data.
+  const auto& array = *batch.column_data(i);
+  if (ARROW_PREDICT_FALSE(array.length != batch.num_rows())) {
     return Status::Invalid("Number of rows in column ", i,
-                           " did not match batch: ", array.length(), " vs ",
+                           " did not match batch: ", array.length, " vs ",
                            batch.num_rows());
   }
   return Status::OK();
@@ -310,40 +306,66 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
+namespace {
+
+bool ContainFloatType(const std::shared_ptr<DataType>& type) {
+  if (is_floating(type->id())) {
+    return true;
+  }
+
+  for (const auto& field : type->fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ContainFloatType(const Schema& schema) {
+  for (auto& field : schema.fields()) {
+    if (ContainFloatType(field->type())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CanIgnoreNaNInEquality(const RecordBatch& batch, const EqualOptions& opts) {
+  if (opts.nans_equal()) {
+    return true;
+  } else if (!ContainFloatType(*batch.schema())) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+}  // namespace
+
 bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
                          const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
+  return Equals(other, opts.use_metadata(check_metadata));
+}
 
-  if (!schema_->Equals(*other.schema(), check_metadata)) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
-  }
-
-  for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->Equals(other.column(i), opts)) {
+bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& opts) const {
+  if (this == &other) {
+    if (CanIgnoreNaNInEquality(*this, opts)) {
+      return true;
+    }
+  } else {
+    if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+      return false;
+    } else if (opts.use_schema() &&
+               !schema_->Equals(*other.schema(), opts.use_metadata())) {
+      return false;
+    } else if (device_type() != other.device_type()) {
       return false;
     }
   }
 
-  return true;
-}
-
-bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
-  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
-    return false;
-  }
-
-  if (device_type() != other.device_type()) {
-    return false;
-  }
-
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->ApproxEquals(other.column(i), opts)) {
+    if (!column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }
@@ -436,11 +458,12 @@ namespace {
 Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     RETURN_NOT_OK(ValidateColumnLength(batch, i));
-    const auto& array = *batch.column(i);
+    // See ValidateColumnLength about avoiding a ArrayData -> Array conversion
+    const auto& array = *batch.column_data(i);
     const auto& schema_type = batch.schema()->field(i)->type();
-    if (!array.type()->Equals(schema_type)) {
+    if (!array.type->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
-                             " type not match schema: ", array.type()->ToString(), " vs ",
+                             " type not match schema: ", array.type->ToString(), " vs ",
                              schema_type->ToString());
     }
     const auto st = full_validation ? internal::ValidateArrayFull(array)
@@ -514,18 +537,61 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
     statistics.nth_column = nth_column;
     if (column_statistics->null_count.has_value()) {
       statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->null_count.value();
-      RETURN_NOT_OK(on_statistics(statistics));
+      if (std::holds_alternative<int64_t>(column_statistics->null_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->null_count.value());
+        RETURN_NOT_OK(on_statistics(statistics));
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->null_count.value());
+        RETURN_NOT_OK(on_statistics(statistics));
+      }
       statistics.start_new_column = false;
     }
 
     if (column_statistics->distinct_count.has_value()) {
       statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->distinct_count.value();
+      if (std::holds_alternative<int64_t>(column_statistics->distinct_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->distinct_count.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->distinct_count.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->max_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (std::holds_alternative<int64_t>(column_statistics->max_byte_width.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->max_byte_width.value());
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->max_byte_width.value());
+      }
+
+      RETURN_NOT_OK(on_statistics(statistics));
+      statistics.start_new_column = false;
+    }
+
+    if (column_statistics->average_byte_width.has_value()) {
+      statistics.nth_statistics++;
+      if (column_statistics->is_average_byte_width_exact) {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
+      }
+      statistics.type = float64();
+      statistics.value = column_statistics->average_byte_width.value();
       RETURN_NOT_OK(on_statistics(statistics));
       statistics.start_new_column = false;
     }
@@ -671,8 +737,10 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
     if (statistics.start_new_column) {
       RETURN_NOT_OK(builder.Append());
       if (statistics.nth_column.has_value()) {
+        // Add Columns
         RETURN_NOT_OK(columns_builder->Append(statistics.nth_column.value()));
       } else {
+        // Add RecordBatch
         RETURN_NOT_OK(columns_builder->AppendNull());
       }
       RETURN_NOT_OK(values_builder->Append());

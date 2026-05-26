@@ -37,7 +37,8 @@
 #' @rdname MemoryPool
 #' @name MemoryPool
 #' @keywords internal
-MemoryPool <- R6Class("MemoryPool",
+MemoryPool <- R6Class(
+  "MemoryPool",
   inherit = ArrowObject,
   public = list(
     # TODO: Allocate

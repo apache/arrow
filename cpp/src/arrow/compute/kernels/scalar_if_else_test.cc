@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 
 #include <gtest/gtest.h>
@@ -26,6 +27,7 @@
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -80,9 +82,9 @@ using IntegralArrowTypes = ::testing::Types<Int32Type>;
 #else
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
-                     Time32Type, Time64Type, TimestampType, MonthIntervalType,
-                     DurationType>;
+                     Int32Type, Int64Type, HalfFloatType, FloatType, DoubleType,
+                     Date32Type, Date64Type, Time32Type, Time64Type, TimestampType,
+                     MonthIntervalType, DurationType>;
 #endif
 
 TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);
@@ -608,6 +610,142 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  auto full_arr = ArrayFromJSON(type, R"(["not used", null, "x", "x"])");
+  auto sliced = full_arr->Slice(1);
+  auto expected = ArrayFromJSON(type, R"([null, "x", "x"])");
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), sliced}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
+}
+
+// array offset=0 but offsets[0] != 0
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryNonZeroFirst) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  using OffsetType = typename TypeTraits<TypeParam>::OffsetType::c_type;
+
+  std::vector<OffsetType> raw_offsets = {8, 8, 9, 10};
+  std::string raw_data(8, 'p');
+  raw_data += "ab";
+  auto offsets_buf = Buffer::Wrap(raw_offsets.data(), raw_offsets.size());
+  auto data_buf = Buffer::Wrap(raw_data.data(), raw_data.size());
+  auto array_data = ArrayData::Make(type, /*length=*/3, {nullptr, offsets_buf, data_buf},
+                                    /*null_count=*/1, /*offset=*/0);
+  std::vector<uint8_t> validity_bytes = {0, 1, 1};
+  ASSERT_OK_AND_ASSIGN(array_data->buffers[0],
+                       internal::BytesToBits(validity_bytes, default_memory_pool()));
+  auto arr = MakeArray(array_data);
+  ASSERT_OK(arr->ValidateFull());
+  auto expected = ArrayFromJSON(type, R"([null, "a", "b"])");
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), arr}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, arr, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
+}
+
+Result<std::shared_ptr<Array>> MakeBinaryArrayWithData(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data_buffer) {
+  // Make a (large-)binary array with a single item backed by the given data
+  const auto data_length = data_buffer->size();
+  if (type->id() == Type::STRING || type->id() == Type::BINARY) {
+    if (data_length > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("data_length exceeds int32 offset range");
+    }
+    auto offsets =
+        Buffer::FromVector(std::vector<int32_t>{0, static_cast<int32_t>(data_length)});
+    return MakeArray(
+        ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(data_buffer)}));
+  }
+  if (type->id() != Type::LARGE_STRING && type->id() != Type::LARGE_BINARY) {
+    return Status::TypeError("unsupported var-binary type for helper: ", *type);
+  }
+  auto offsets = Buffer::FromVector(std::vector<int64_t>{0, data_length});
+  return MakeArray(
+      ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(data_buffer)}));
+}
+
+void CheckIfElseCapacityBehavior(const Datum& cond, const Datum& left, const Datum& right,
+                                 bool expect_capacity_error) {
+  auto maybe_out = CallFunction("if_else", {cond, left, right});
+  if (expect_capacity_error) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        CapacityError,
+        ::testing::HasSubstr("Result may exceed offset capacity for this type"),
+        maybe_out);
+  } else {
+    ASSERT_OK(maybe_out);
+  }
+}
+
+TEST_F(TestIfElseKernel, LARGE_MEMORY_TEST(IfElseBinaryAAANear2GB)) {
+  // See GH-49310.
+  // `kPerSide` is below the capacity limit for a single binary array,
+  // but trying to allocate twice `kPerSide` would overflow the capacity limit.
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> large_buffer, AllocateBuffer(kPerSide));
+
+  ASSERT_OK_AND_ASSIGN(auto binary_left, MakeBinaryArrayWithData(binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto binary_right,
+                       MakeBinaryArrayWithData(binary(), large_buffer));
+  // The if_else heuristic for preallocation is too crude and fails with
+  // a capacity error as it would like to pre-allocate more than 2GiB
+  // of binary data.
+  CheckIfElseCapacityBehavior(cond, binary_left, binary_right,
+                              /*expect_capacity_error=*/true);
+  ASSERT_OK_AND_ASSIGN(auto large_binary_left,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto large_binary_right,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, large_binary_left, large_binary_right,
+                              /*expect_capacity_error=*/false);
+}
+
+TEST_F(TestIfElseKernel, LARGE_MEMORY_TEST(IfElseBinaryASANear2GB)) {
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> large_buffer, AllocateBuffer(kPerSide));
+  ASSERT_OK_AND_ASSIGN(auto binary_array,
+                       MakeBinaryArrayWithData(binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto binary_scalar, MakeScalar(binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, binary_scalar, binary_array,
+                              /*expect_capacity_error=*/true);
+  CheckIfElseCapacityBehavior(cond, binary_array, binary_scalar,
+                              /*expect_capacity_error=*/true);
+
+  ASSERT_OK_AND_ASSIGN(auto large_binary_array,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto large_binary_scalar,
+                       MakeScalar(large_binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, large_binary_scalar, large_binary_array,
+                              /*expect_capacity_error=*/false);
+  CheckIfElseCapacityBehavior(cond, large_binary_array, large_binary_scalar,
+                              /*expect_capacity_error=*/false);
+}
+
 TEST_F(TestIfElseKernel, IfElseFSBinary) {
   auto type = fixed_size_binary(4);
 
@@ -1093,6 +1231,16 @@ TYPED_TEST(TestIfElseDict, DifferentDictionaries) {
   CheckDictionary("if_else", {Datum(false), values1, scalar2});
   CheckDictionary("if_else", {Datum(false), scalar1, values2});
   CheckDictionary("if_else", {MakeNullScalar(boolean()), values1, values2});
+}
+
+// GH-47825: BitmapOp overrides partial leading byte for unaligned chunked execution.
+TEST(TestIfElse, ChunkedUnalignedBitmapOp) {
+  auto cond = ArrayFromJSON(boolean(), "[true, true]");
+  auto if_true = ChunkedArrayFromJSON(boolean(), {"[true]", "[true]"});
+  auto if_false = ArrayFromJSON(boolean(), "[true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("if_else", {cond, if_true, if_false}));
+  ASSERT_OK(result.chunked_array()->ValidateFull());
+  AssertDatumsEqual(ChunkedArrayFromJSON(boolean(), {"[true, true]"}), result);
 }
 
 Datum MakeStruct(const std::vector<Datum>& conds) {
@@ -1807,6 +1955,74 @@ TEST(TestCaseWhen, Decimal) {
   }
 }
 
+TEST(TestCaseWhen, DecimalPromotion) {
+  auto check_case_when_decimal_promotion =
+      [](std::shared_ptr<Scalar> body_true, std::shared_ptr<Scalar> body_false,
+         std::shared_ptr<Scalar> promoted_true, std::shared_ptr<Scalar> promoted_false) {
+        auto cond_true = ScalarFromJSON(boolean(), "true");
+        auto cond_false = ScalarFromJSON(boolean(), "false");
+        CheckScalar("case_when", {MakeStruct({cond_true}), body_true, body_false},
+                    promoted_true);
+        CheckScalar("case_when", {MakeStruct({cond_false}), body_true, body_false},
+                    promoted_false);
+      };
+
+  const std::vector<std::pair<int, int>> precisions = {{10, 20}, {15, 15}, {20, 10}};
+  const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
+  for (auto p : precisions) {
+    for (auto s : scales) {
+      auto p1 = p.first;
+      auto s1 = s.first;
+      auto p2 = p.second;
+      auto s2 = s.second;
+
+      auto max_scale = std::max({s1, s2});
+      auto scale_up_1 = max_scale - s1;
+      auto scale_up_2 = max_scale - s2;
+      auto max_precision = std::max({p1 + scale_up_1, p2 + scale_up_2});
+
+      // Operand string: 444.777...
+      std::string str_d1 =
+          R"(")" + std::string(p1 - s1, '4') + "." + std::string(s1, '7') + R"(")";
+      std::string str_d2 =
+          R"(")" + std::string(p2 - s2, '4') + "." + std::string(s2, '7') + R"(")";
+
+      // Promoted string: 444.777...000
+      std::string str_d1_promoted = R"(")" + std::string(p1 - s1, '4') + "." +
+                                    std::string(s1, '7') +
+                                    std::string(max_scale - s1, '0') + R"(")";
+      std::string str_d2_promoted = R"(")" + std::string(p2 - s2, '4') + "." +
+                                    std::string(s2, '7') +
+                                    std::string(max_scale - s2, '0') + R"(")";
+
+      auto d128_1 = decimal128(p1, s1);
+      auto d128_2 = decimal128(p2, s2);
+      auto d256_1 = decimal256(p1, s1);
+      auto d256_2 = decimal256(p2, s2);
+      auto d128_promoted = decimal128(max_precision, max_scale);
+      auto d256_promoted = decimal256(max_precision, max_scale);
+
+      auto scalar128_1 = ScalarFromJSON(d128_1, str_d1);
+      auto scalar128_2 = ScalarFromJSON(d128_2, str_d2);
+      auto scalar256_1 = ScalarFromJSON(d256_1, str_d1);
+      auto scalar256_2 = ScalarFromJSON(d256_2, str_d2);
+      auto scalar128_d1_promoted = ScalarFromJSON(d128_promoted, str_d1_promoted);
+      auto scalar128_d2_promoted = ScalarFromJSON(d128_promoted, str_d2_promoted);
+      auto scalar256_d1_promoted = ScalarFromJSON(d256_promoted, str_d1_promoted);
+      auto scalar256_d2_promoted = ScalarFromJSON(d256_promoted, str_d2_promoted);
+
+      check_case_when_decimal_promotion(scalar128_1, scalar128_2, scalar128_d1_promoted,
+                                        scalar128_d2_promoted);
+      check_case_when_decimal_promotion(scalar128_1, scalar256_2, scalar256_d1_promoted,
+                                        scalar256_d2_promoted);
+      check_case_when_decimal_promotion(scalar256_1, scalar128_2, scalar256_d1_promoted,
+                                        scalar256_d2_promoted);
+      check_case_when_decimal_promotion(scalar256_1, scalar256_2, scalar256_d1_promoted,
+                                        scalar256_d2_promoted);
+    }
+  }
+}
+
 TEST(TestCaseWhen, FixedSizeBinary) {
   auto type = fixed_size_binary(3);
   auto cond_true = ScalarFromJSON(boolean(), "true");
@@ -2509,6 +2725,28 @@ TEST(TestCaseWhen, UnionBoolStringRandom) {
   }
 }
 
+TEST(TestCaseWhen, DispatchExact) {
+  // Decimal types with same (p, s)
+  CheckDispatchExact("case_when", {struct_({field("", boolean())}), decimal128(20, 3),
+                                   decimal128(20, 3)});
+  CheckDispatchExact("case_when", {struct_({field("", boolean())}), decimal256(20, 3),
+                                   decimal256(20, 3)});
+
+  // Decimal types with different (p, s)
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal128(20, 3), decimal128(21, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal128(20, 1), decimal128(20, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal128(20, 3), decimal256(20, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal256(20, 3), decimal128(21, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal256(20, 3), decimal256(21, 3)});
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        decimal256(20, 1), decimal256(20, 3)});
+}
+
 TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},
                     {struct_({field("", boolean())}), int64(), int64()});
@@ -2559,6 +2797,32 @@ TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest(
       "case_when", {struct_({field("", boolean())}), dictionary(int64(), utf8()), utf8()},
       {struct_({field("", boolean())}), utf8(), utf8()});
+
+  // Decimal promotion
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 3), decimal128(21, 3)},
+      {struct_({field("", boolean())}), decimal128(21, 3), decimal128(21, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 1), decimal128(21, 3)},
+      {struct_({field("", boolean())}), decimal128(22, 3), decimal128(22, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 3), decimal128(21, 1)},
+      {struct_({field("", boolean())}), decimal128(23, 3), decimal128(23, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal128(20, 3), decimal256(21, 3)},
+      {struct_({field("", boolean())}), decimal256(21, 3), decimal256(21, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal256(20, 1), decimal128(21, 3)},
+      {struct_({field("", boolean())}), decimal256(22, 3), decimal256(22, 3)});
+  CheckDispatchBest(
+      "case_when",
+      {struct_({field("", boolean())}), decimal256(20, 3), decimal256(21, 1)},
+      {struct_({field("", boolean())}), decimal256(23, 3), decimal256(23, 3)});
 }
 
 template <typename Type>
@@ -3028,6 +3292,14 @@ TEST(TestCoalesce, Boolean) {
               ArrayFromJSON(type, "[true, true, false, true]"));
   CheckScalar("coalesce", {scalar1, values1},
               ArrayFromJSON(type, "[false, false, false, false]"));
+
+  // Regression test for GH-47234, which was failing due to a MSVC compiler bug
+  // (possibly https://developercommunity.visualstudio.com/t/10912292
+  // or https://developercommunity.visualstudio.com/t/10945478).
+  auto values_with_null = ArrayFromJSON(type, "[true, false, false, false, false, null]");
+  auto expected = ArrayFromJSON(type, "[true, false, false, false, false, true]");
+  auto scalar2 = ScalarFromJSON(type, "true");
+  CheckScalar("coalesce", {values_with_null, scalar2}, expected);
 }
 
 TEST(TestCoalesce, DayTimeInterval) {
@@ -3594,6 +3866,17 @@ TEST(TestChoose, FixedSizeBinary) {
   auto scalar_null = ScalarFromJSON(type, "null");
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
               *MakeArrayOfNull(type, 5));
+}
+
+// GH-47807: Null count in ArraySpan not updated correctly when executing chunked.
+TEST(TestChoose, WrongNullCountForChunked) {
+  auto indices = ArrayFromJSON(int64(), "[0, 1, 0, 1, 0, null]");
+  auto values1 = ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15]");
+  auto values2 = ChunkedArrayFromJSON(int64(), {"[100, 101]", "[102, 103, 104, 105]"});
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("choose", {indices, values1, values2}));
+  ASSERT_OK(result.chunked_array()->ValidateFull());
+  AssertDatumsEqual(ChunkedArrayFromJSON(int64(), {"[10, 101]", "[12, 103, 14, null]"}),
+                    result);
 }
 
 TEST(TestChooseKernel, DispatchBest) {

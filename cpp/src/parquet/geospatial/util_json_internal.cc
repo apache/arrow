@@ -61,7 +61,8 @@ namespace {
           return "";
         } else if (identifier["authority"] == "EPSG" && identifier["code"] == "4326") {
           return "";
-        } else if (identifier["authority"] == "EPSG" && identifier["code"] == 4326) {
+        } else if (identifier["authority"] == "EPSG" && identifier["code"].IsInt() &&
+                   identifier["code"].GetInt() == 4326) {
           return "";
         }
       }
@@ -103,10 +104,10 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs);
   // the format and pass on this information to GeoArrow.
   if (crs.empty()) {
     return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
-  } else if (::arrow::internal::StartsWith(crs, kSridPrefix)) {
+  } else if (crs.starts_with(kSridPrefix)) {
     return R"("crs": ")" + std::string(crs.substr(kSridPrefix.size())) +
            R"(", "crs_type": "srid")";
-  } else if (::arrow::internal::StartsWith(crs, kProjjsonPrefix)) {
+  } else if (crs.starts_with(kProjjsonPrefix)) {
     std::string_view metadata_field = crs.substr(kProjjsonPrefix.size());
     if (metadata && metadata->Contains(metadata_field)) {
       ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));
@@ -170,12 +171,13 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
     const LogicalType& logical_type,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata,
+    const std::shared_ptr<::arrow::DataType>& storage_type) {
   // Check if we have a registered GeoArrow type to read into
   std::shared_ptr<::arrow::ExtensionType> maybe_geoarrow_wkb =
       ::arrow::GetExtensionType("geoarrow.wkb");
   if (!maybe_geoarrow_wkb) {
-    return ::arrow::binary();
+    return storage_type;
   }
 
   if (logical_type.is_geometry()) {
@@ -185,7 +187,7 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
                           MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
 
     std::string serialized_data = std::string("{") + crs_metadata + "}";
-    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+    return maybe_geoarrow_wkb->Deserialize(storage_type, serialized_data);
   } else if (logical_type.is_geography()) {
     const auto& geospatial_type =
         ::arrow::internal::checked_cast<const GeographyLogicalType&>(logical_type);
@@ -195,7 +197,7 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
         R"("edges": ")" + std::string(geospatial_type.algorithm_name()) + R"(")";
     std::string serialized_data =
         std::string("{") + crs_metadata + ", " + edges_metadata + "}";
-    return maybe_geoarrow_wkb->Deserialize(::arrow::binary(), serialized_data);
+    return maybe_geoarrow_wkb->Deserialize(storage_type, serialized_data);
   } else {
     throw ParquetException("Can't export logical type ", logical_type.ToString(),
                            " as GeoArrow");

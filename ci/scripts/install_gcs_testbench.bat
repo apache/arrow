@@ -17,7 +17,7 @@
 
 @echo on
 
-set GCS_TESTBENCH_VERSION="v0.40.0"
+set GCS_TESTBENCH_VERSION="v0.55.0"
 
 set PIPX_FLAGS=--verbose
 if NOT "%PIPX_PYTHON%"=="" (

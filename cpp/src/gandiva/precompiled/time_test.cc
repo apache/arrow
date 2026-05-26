@@ -122,15 +122,26 @@ TEST(TestTime, TestCastTimestamp) {
             "Not a valid time for timestamp value 2000-01-01 00:00:100");
   context.Reset();
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid millis for timestamp value 2000-01-01 00:00:00.0001");
-  context.Reset();
+  // Test truncation of subseconds to 3 digits (milliseconds)
+  // "2000-01-01 00:00:00.0001" should truncate to "2000-01-01 00:00:00.000"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.000", 23));
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
-  context.Reset();
+  // "2000-01-01 00:00:00.1000" should truncate to "2000-01-01 00:00:00.100"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.100", 23));
+
+  // "2000-01-01 00:00:00.123456789" should truncate to "2000-01-01 00:00:00.123"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.123456789", 29),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.123", 23));
+
+  // "2000-01-01 00:00:00.1999" should truncate to "2000-01-01 00:00:00.199"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1999", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.199", 23));
+
+  // "2000-01-01 00:00:00.1994" should truncate to "2000-01-01 00:00:00.199"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1994", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.199", 23));
 }
 
 TEST(TestTime, TestCastTimeUtf8) {
@@ -166,13 +177,26 @@ TEST(TestTime, TestCastTimeUtf8) {
   EXPECT_EQ(context.get_error(), "Not a valid time value 00:00:100");
   context.Reset();
 
-  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.0001", 13), 0);
-  EXPECT_EQ(context.get_error(), "Invalid millis for time value 00:00:00.0001");
-  context.Reset();
+  // Test truncation of subseconds to 3 digits (milliseconds)
+  // "00:00:00.0001" should truncate to "00:00:00.000"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.0001", 13),
+            castTIME_utf8(context_ptr, "00:00:00.000", 12));
 
-  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1000", 13), 0);
-  EXPECT_EQ(context.get_error(), "Invalid millis for time value 00:00:00.1000");
-  context.Reset();
+  // "00:00:00.1000" should truncate to "00:00:00.100"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1000", 13),
+            castTIME_utf8(context_ptr, "00:00:00.100", 12));
+
+  // "9:45:30.123456789" should truncate to "9:45:30.123"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30.123456789", 17),
+            castTIME_utf8(context_ptr, "9:45:30.123", 11));
+
+  // "00:00:00.1999" should truncate to "00:00:00.199"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1999", 13),
+            castTIME_utf8(context_ptr, "00:00:00.199", 12));
+
+  // "00:00:00.1994" should truncate to "00:00:00.199"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1994", 13),
+            castTIME_utf8(context_ptr, "00:00:00.199", 12));
 }
 
 #ifndef _WIN32
@@ -363,6 +387,46 @@ TEST(TestTime, TimeStampTrunc) {
             StringToTimestamp("2000-02-28 00:00:00"));
   EXPECT_EQ(date_trunc_Week_timestamp(StringToTimestamp("2000-03-06 10:10:10")),
             StringToTimestamp("2000-03-06 00:00:00"));
+
+  // Test dates before epoch (1970-01-01)
+  EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 23:45:15"));
+  EXPECT_EQ(date_trunc_Minute_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 23:45:00"));
+  EXPECT_EQ(date_trunc_Hour_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 23:00:00"));
+  EXPECT_EQ(date_trunc_Day_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-31 00:00:00"));
+  EXPECT_EQ(date_trunc_Month_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-12-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Quarter_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-10-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Year_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1969-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Decade_date64(StringToTimestamp("1969-12-31 23:45:15")),
+            StringToTimestamp("1960-01-01 00:00:00"));
+
+  // Test date further in the past
+  EXPECT_EQ(date_trunc_Second_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 12:34:56"));
+  EXPECT_EQ(date_trunc_Minute_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 12:34:00"));
+  EXPECT_EQ(date_trunc_Hour_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 12:00:00"));
+  EXPECT_EQ(date_trunc_Day_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-15 00:00:00"));
+  EXPECT_EQ(date_trunc_Day_date64(StringToTimestamp("1940-02-29 12:00:00")),
+            StringToTimestamp("1940-02-29 00:00:00"));
+  EXPECT_EQ(date_trunc_Month_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-05-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Quarter_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-04-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Year_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1930-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Decade_date64(StringToTimestamp("1931-05-15 12:34:56")),
+            StringToTimestamp("1930-01-01 00:00:00"));
+  EXPECT_EQ(date_trunc_Century_date64(StringToTimestamp("1930-05-15 12:34:56")),
+            StringToTimestamp("1901-01-01 00:00:00"));
 }
 
 TEST(TestTime, TimeStampAdd) {
@@ -840,6 +904,24 @@ TEST(TestTime, castVarcharTimestamp) {
   ts = StringToTimestamp("2-5-1 00:00:04");
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
+
+  // StringToTimestamp doesn't parse milliseconds, so we add them manually
+  ts = StringToTimestamp("67-5-1 00:00:04") + 920;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0067-05-01 00:00:04.920");
+
+  ts = StringToTimestamp("107-10-17 12:20:03") + 900;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0107-10-17 12:20:03.900");
+
+  // Test pre-epoch timestamps with 4-digit years
+  ts = StringToTimestamp("1969-12-31 23:59:59") + 920;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1969-12-31 23:59:59.920");
+
+  ts = StringToTimestamp("1899-12-31 23:59:59") + 123;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1899-12-31 23:59:59.123");
 }
 
 TEST(TestTime, TestCastTimestampToDate) {

@@ -107,7 +107,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
                                         SelectionVector::MODE_NONE));
 
   ASSERT_OK(generator->engine_->FinalizeModule());
-  auto const& ir = generator->engine_->ir();
+  const auto& ir = generator->engine_->ir();
   EXPECT_THAT(ir, testing::HasSubstr("vector.body"));
 
   ASSERT_OK_AND_ASSIGN(auto fn_ptr, generator->engine_->CompiledFunction(fn_name));

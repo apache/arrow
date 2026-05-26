@@ -76,7 +76,8 @@
 #' # Or as a RecordBatchReader
 #' scanner$ToRecordBatchReader()
 #' @export
-Scanner <- R6Class("Scanner",
+Scanner <- R6Class(
+  "Scanner",
   inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
@@ -88,13 +89,15 @@ Scanner <- R6Class("Scanner",
     schema = function() dataset___Scanner__schema(self)
   )
 )
-Scanner$create <- function(dataset,
-                           projection = NULL,
-                           filter = TRUE,
-                           use_threads = option_use_threads(),
-                           batch_size = NULL,
-                           fragment_scan_options = NULL,
-                           ...) {
+Scanner$create <- function(
+  dataset,
+  projection = NULL,
+  filter = TRUE,
+  use_threads = option_use_threads(),
+  batch_size = NULL,
+  fragment_scan_options = NULL,
+  ...
+) {
   stop_if_no_datasets()
 
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -287,7 +290,8 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = TRUE, .data.frame =
 #' @format NULL
 #' @rdname Scanner
 #' @export
-ScannerBuilder <- R6Class("ScannerBuilder",
+ScannerBuilder <- R6Class(
+  "ScannerBuilder",
   inherit = ArrowObject,
   public = list(
     Project = function(cols) {

@@ -35,7 +35,10 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, float* out)
       ::arrow_vendored::fast_float::chars_format::general, decimal_point};
   const auto res =
       ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
-  return res.ec == std::errc() && res.ptr == s + length;
+  const bool is_valid_number =
+      res.ec == std::errc() || res.ec == std::errc::result_out_of_range;
+  const bool consumed_entire_string = res.ptr == s + length;
+  return is_valid_number && consumed_entire_string;
 }
 
 bool StringToFloat(const char* s, size_t length, char decimal_point, double* out) {
@@ -43,19 +46,25 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, double* out
       ::arrow_vendored::fast_float::chars_format::general, decimal_point};
   const auto res =
       ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
-  return res.ec == std::errc() && res.ptr == s + length;
+  const bool is_valid_number =
+      res.ec == std::errc() || res.ec == std::errc::result_out_of_range;
+  const bool consumed_entire_string = res.ptr == s + length;
+  return is_valid_number && consumed_entire_string;
 }
 
 // Half float
-bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* out) {
+bool StringToFloat(const char* s, size_t length, char decimal_point, Float16* out) {
   ::arrow_vendored::fast_float::parse_options options{
       ::arrow_vendored::fast_float::chars_format::general, decimal_point};
   float temp_out;
   const auto res =
       ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, temp_out, options);
-  const bool ok = res.ec == std::errc() && res.ptr == s + length;
+  const bool is_valid_number =
+      res.ec == std::errc() || res.ec == std::errc::result_out_of_range;
+  const bool consumed_entire_string = res.ptr == s + length;
+  const bool ok = is_valid_number && consumed_entire_string;
   if (ok) {
-    *out = Float16::FromFloat(temp_out).bits();
+    *out = Float16::FromFloat(temp_out);
   }
   return ok;
 }

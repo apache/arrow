@@ -92,6 +92,11 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Int64(int64_t size, int64_
   return ConstantArray<Int64Type>(size, value);
 }
 
+std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float16(int64_t size,
+                                                              uint16_t value) {
+  return ConstantArray<HalfFloatType>(size, value);
+}
+
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float32(int64_t size, float value) {
   return ConstantArray<FloatType>(size, value);
 }
@@ -148,6 +153,8 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Zeroes(
       EXPECT_OK_AND_ASSIGN(auto viewed, Int32(size)->View(type));
       return viewed;
     }
+    case Type::HALF_FLOAT:
+      return Float16(size);
     case Type::FLOAT:
       return Float32(size);
     case Type::DOUBLE:

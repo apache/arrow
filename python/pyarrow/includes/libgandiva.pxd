@@ -81,7 +81,7 @@ cdef inline CSelectionVector_Mode _ensure_selection_mode(str name) except *:
     elif uppercase == 'UINT64':
         return CSelectionVector_Mode_UINT64
     else:
-        raise ValueError('Invalid value for Selection Mode: {!r}'.format(name))
+        raise ValueError(f'Invalid value for Selection Mode: {name!r}')
 
 cdef inline str _selection_mode_name(CSelectionVector_Mode ctype):
     if ctype == CSelectionVector_Mode_NONE:

@@ -73,7 +73,7 @@ cdef class Device(_Weakrefable):
         return self.device.get().Equals(deref((<Device>other).device.get()))
 
     def __repr__(self):
-        return "<pyarrow.Device: {}>".format(frombytes(self.device.get().ToString()))
+        return f"<pyarrow.Device: {frombytes(self.device.get().ToString())}>"
 
     @property
     def type_name(self):
@@ -137,9 +137,8 @@ cdef class MemoryManager(_Weakrefable):
         return self.memory_manager
 
     def __repr__(self):
-        return "<pyarrow.MemoryManager device: {}>".format(
-            frombytes(self.memory_manager.get().device().get().ToString())
-        )
+        device_str = frombytes(self.memory_manager.get().device().get().ToString())
+        return f"<pyarrow.MemoryManager device: {device_str}>"
 
     @property
     def device(self):

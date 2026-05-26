@@ -31,6 +31,7 @@ require "gi"
 
 Gio = GI.load("Gio")
 Arrow = GI.load("Arrow")
+Arrow.compute_initialize
 module Arrow
   class Buffer
     alias_method :initialize_raw, :initialize

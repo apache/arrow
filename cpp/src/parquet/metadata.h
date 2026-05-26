@@ -21,14 +21,15 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
 #include "parquet/encryption/type_fwd.h"
+#include "parquet/index_location.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/type_fwd.h"
-
 namespace parquet {
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
@@ -72,7 +73,7 @@ class PARQUET_EXPORT ApplicationVersion {
   bool VersionEq(const ApplicationVersion& other_version) const;
 
   // Checks if the Version has the correct statistics for a given column
-  bool HasCorrectStatistics(Type::type primitive, EncodedStatistics& statistics,
+  bool HasCorrectStatistics(Type::type primitive, const EncodedStatistics& statistics,
                             SortOrder::type sort_order = SortOrder::SIGNED) const;
 };
 
@@ -99,14 +100,6 @@ struct PageEncodingStats {
   PageType::type page_type;
   Encoding::type encoding;
   int32_t count;
-};
-
-/// \brief Public struct for location to page index in ColumnChunkMetaData.
-struct IndexLocation {
-  /// File offset of the given index, in bytes
-  int64_t offset;
-  /// Length of the given index, in bytes
-  int32_t length;
 };
 
 /// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.
@@ -136,13 +129,13 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   const std::string& file_path() const;
 
   // column metadata
-  bool is_metadata_set() const;
   Type::type type() const;
   int64_t num_values() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   bool is_geo_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+  std::shared_ptr<EncodedStatistics> encoded_statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
   std::shared_ptr<geospatial::GeoStatistics> geo_statistics() const;
 
@@ -330,8 +323,8 @@ class PARQUET_EXPORT FileMetaData {
   EncryptionAlgorithm encryption_algorithm() const;
   const std::string& footer_signing_key_metadata() const;
 
-  /// \brief Verify signature of FileMetaData when file is encrypted but footer
-  /// is not encrypted (plaintext footer).
+  PARQUET_DEPRECATED(
+      "Deprecated in 24.0.0. If you need this functionality, please report an issue.")
   bool VerifySignature(const void* signature);
 
   void WriteTo(::arrow::io::OutputStream* dst,
@@ -390,6 +383,11 @@ class PARQUET_EXPORT FileMetaData {
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
   const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
+
+  // Verify the signature of a plaintext footer.
+  static bool VerifySignature(std::span<const uint8_t> serialized_metadata,
+                              std::span<const uint8_t> signature,
+                              InternalFileDecryptor* file_decryptor);
 
   // PIMPL Idiom
   FileMetaData();
@@ -504,21 +502,6 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
   std::unique_ptr<RowGroupMetaDataBuilderImpl> impl_;
 };
 
-/// \brief Public struct for location to all page indexes in a parquet file.
-struct PageIndexLocation {
-  /// Alias type of page index location of a row group. The index location
-  /// is located by column ordinal. If the column does not have the page index,
-  /// its value is set to std::nullopt.
-  using RowGroupIndexLocation = std::vector<std::optional<IndexLocation>>;
-  /// Alias type of page index location of a parquet file. The index location
-  /// is located by the row group ordinal.
-  using FileIndexLocation = std::map<size_t, RowGroupIndexLocation>;
-  /// Row group column index locations which uses row group ordinal as the key.
-  FileIndexLocation column_index_location;
-  /// Row group offset index locations which uses row group ordinal as the key.
-  FileIndexLocation offset_index_location;
-};
-
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
   // API convenience to get a MetaData builder
@@ -530,8 +513,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   // The prior RowGroupMetaDataBuilder (if any) is destroyed
   RowGroupMetaDataBuilder* AppendRowGroup();
 
-  // Update location to all page indexes in the parquet file
-  void SetPageIndexLocation(const PageIndexLocation& location);
+  // Set locations of all column chunks of a specific index kind.
+  void SetIndexLocations(IndexKind kind, const IndexLocations& locations);
 
   // Complete the Thrift structure
   std::unique_ptr<FileMetaData> Finish(

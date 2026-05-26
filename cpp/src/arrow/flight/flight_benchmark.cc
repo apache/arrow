@@ -31,8 +31,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/config.h"
-#include "arrow/util/stopwatch.h"
-#include "arrow/util/tdigest.h"
+#include "arrow/util/stopwatch_internal.h"
+#include "arrow/util/tdigest_internal.h"
 #include "arrow/util/thread_pool.h"
 
 #include "arrow/flight/api.h"

@@ -47,6 +47,7 @@ class Table;
 
 namespace ipc {
 class DictionaryMemo;
+struct ReadStats;
 }  // namespace ipc
 
 namespace util {
@@ -638,12 +639,21 @@ class ARROW_FLIGHT_EXPORT FlightInfo
                                         bool ordered = false,
                                         std::string app_metadata = "");
 
+  /// \brief Factory method to construct a FlightInfo.
+  static arrow::Result<FlightInfo> Make(const std::shared_ptr<Schema>& schema,
+                                        const FlightDescriptor& descriptor,
+                                        const std::vector<FlightEndpoint>& endpoints,
+                                        int64_t total_records, int64_t total_bytes,
+                                        bool ordered = false,
+                                        std::string app_metadata = "");
+
   /// \brief Deserialize the Arrow schema of the dataset. Populate any
   ///   dictionary encoded fields into a DictionaryMemo for
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \return Arrow result with the reconstructed Schema
+  /// \return Arrow result with the reconstructed Schema. Note that the schema
+  ///   may be nullptr, as the schema is optional.
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 
@@ -894,6 +904,9 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 
   /// \brief Check that the payload can be written to the wire.
   Status Validate() const;
+
+  /// \brief Serialize this payload to a vector of buffers.
+  arrow::Result<BufferVector> SerializeToBuffers() const;
 };
 
 // A wrapper around arrow.flight.protocol.PutResult is not defined
@@ -1170,6 +1183,9 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
 
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
+
+  /// \brief Return current read statistics
+  virtual arrow::ipc::ReadStats stats() const = 0;
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.

@@ -25,7 +25,6 @@
 #include <arrow/util/bitmap_writer.h>
 #include <arrow/util/int_util.h>
 
-#include <cpp11/altrep.hpp>
 #include <type_traits>
 
 #include "./extension.h"
@@ -1312,6 +1311,12 @@ std::shared_ptr<Converter> Converter::Make(
       } else {
         return std::make_shared<arrow::r::Converter_Int64>(chunked_array);
       }
+
+    case Type::DECIMAL32:
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal32Type>>(chunked_array);
+
+    case Type::DECIMAL64:
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal64Type>>(chunked_array);
 
     case Type::DECIMAL128:
       return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);

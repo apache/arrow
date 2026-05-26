@@ -41,7 +41,7 @@ static void BenchmarkListSlice(benchmark::State& state, const ListSliceOptions& 
   auto ctx = default_exec_context();
   std::vector<Datum> input_args = {std::move(array)};
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("list_slice", input_args, &opts, ctx).status());
+    ABORT_NOT_OK(CallFunction("list_slice", input_args, &opts, ctx));
   }
 }
 

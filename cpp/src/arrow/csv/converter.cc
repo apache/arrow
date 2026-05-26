@@ -36,7 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/trie.h"
+#include "arrow/util/trie_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 
@@ -106,30 +106,44 @@ Status PresizeBuilder(const BlockParser& parser, BuilderType* builder) {
 }
 
 /////////////////////////////////////////////////////////////////////////
+// Shared Tries cache to avoid rebuilding them for each decoder instance
+
+struct TrieCache {
+  Trie null_trie;
+  Trie true_trie;
+  Trie false_trie;
+
+  static Result<std::shared_ptr<TrieCache>> Make(const ConvertOptions& options) {
+    auto cache = std::make_shared<TrieCache>();
+    RETURN_NOT_OK(InitializeTrie(options.null_values, &cache->null_trie));
+    RETURN_NOT_OK(InitializeTrie(options.true_values, &cache->true_trie));
+    RETURN_NOT_OK(InitializeTrie(options.false_values, &cache->false_trie));
+    return cache;
+  }
+};
+
+/////////////////////////////////////////////////////////////////////////
 // Per-type value decoders
 
 struct ValueDecoder {
   explicit ValueDecoder(const std::shared_ptr<DataType>& type,
-                        const ConvertOptions& options)
-      : type_(type), options_(options) {}
+                        const ConvertOptions& options, const TrieCache* trie_cache)
+      : type_(type), options_(options), trie_cache_(trie_cache) {}
 
-  Status Initialize() {
-    // TODO no need to build a separate Trie for each instance
-    return InitializeTrie(options_.null_values, &null_trie_);
-  }
+  Status Initialize() { return Status::OK(); }
 
   bool IsNull(const uint8_t* data, uint32_t size, bool quoted) {
     if (quoted && !options_.quoted_strings_can_be_null) {
       return false;
     }
-    return null_trie_.Find(std::string_view(reinterpret_cast<const char*>(data), size)) >=
-           0;
+    return trie_cache_->null_trie.Find(
+               std::string_view(reinterpret_cast<const char*>(data), size)) >= 0;
   }
 
  protected:
-  Trie null_trie_;
   const std::shared_ptr<DataType> type_;
   const ConvertOptions& options_;
+  const TrieCache* trie_cache_;
 };
 
 //
@@ -140,8 +154,9 @@ struct FixedSizeBinaryValueDecoder : public ValueDecoder {
   using value_type = const uint8_t*;
 
   explicit FixedSizeBinaryValueDecoder(const std::shared_ptr<DataType>& type,
-                                       const ConvertOptions& options)
-      : ValueDecoder(type, options),
+                                       const ConvertOptions& options,
+                                       const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
         byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
@@ -207,8 +222,8 @@ struct NumericValueDecoder : public ValueDecoder {
   using value_type = typename T::c_type;
 
   NumericValueDecoder(const std::shared_ptr<DataType>& type,
-                      const ConvertOptions& options)
-      : ValueDecoder(type, options),
+                      const ConvertOptions& options, const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
         concrete_type_(checked_cast<const T&>(*type)),
         string_converter_(MakeStringConverter<T>(options)) {}
 
@@ -236,31 +251,20 @@ struct BooleanValueDecoder : public ValueDecoder {
 
   using ValueDecoder::ValueDecoder;
 
-  Status Initialize() {
-    // TODO no need to build separate Tries for each instance
-    RETURN_NOT_OK(InitializeTrie(options_.true_values, &true_trie_));
-    RETURN_NOT_OK(InitializeTrie(options_.false_values, &false_trie_));
-    return ValueDecoder::Initialize();
-  }
-
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
-    if (false_trie_.Find(std::string_view(reinterpret_cast<const char*>(data), size)) >=
-        0) {
+    if (trie_cache_->false_trie.Find(
+            std::string_view(reinterpret_cast<const char*>(data), size)) >= 0) {
       *out = false;
       return Status::OK();
     }
-    if (ARROW_PREDICT_TRUE(true_trie_.Find(std::string_view(
+    if (ARROW_PREDICT_TRUE(trie_cache_->true_trie.Find(std::string_view(
                                reinterpret_cast<const char*>(data), size)) >= 0)) {
       *out = true;
       return Status::OK();
     }
     return GenericConversionError(type_, data, size);
   }
-
- protected:
-  Trie true_trie_;
-  Trie false_trie_;
 };
 
 //
@@ -271,8 +275,8 @@ struct DecimalValueDecoder : public ValueDecoder {
   using value_type = Decimal128;
 
   explicit DecimalValueDecoder(const std::shared_ptr<DataType>& type,
-                               const ConvertOptions& options)
-      : ValueDecoder(type, options),
+                               const ConvertOptions& options, const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
         decimal_type_(internal::checked_cast<const DecimalType&>(*type_)),
         type_precision_(decimal_type_.precision()),
         type_scale_(decimal_type_.scale()) {}
@@ -310,8 +314,10 @@ struct CustomDecimalPointValueDecoder : public ValueDecoder {
   using value_type = typename WrappedDecoder::value_type;
 
   explicit CustomDecimalPointValueDecoder(const std::shared_ptr<DataType>& type,
-                                          const ConvertOptions& options)
-      : ValueDecoder(type, options), wrapped_decoder_(type, options) {}
+                                          const ConvertOptions& options,
+                                          const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
+        wrapped_decoder_(type, options, trie_cache) {}
 
   Status Initialize() {
     RETURN_NOT_OK(wrapped_decoder_.Initialize());
@@ -321,7 +327,7 @@ struct CustomDecimalPointValueDecoder : public ValueDecoder {
     mapping_[options_.decimal_point] = '.';
     mapping_['.'] = options_.decimal_point;  // error out on standard decimal point
     temp_.resize(30);
-    return Status::OK();
+    return ValueDecoder::Initialize();
   }
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
@@ -357,8 +363,9 @@ struct InlineISO8601ValueDecoder : public ValueDecoder {
   using value_type = int64_t;
 
   explicit InlineISO8601ValueDecoder(const std::shared_ptr<DataType>& type,
-                                     const ConvertOptions& options)
-      : ValueDecoder(type, options),
+                                     const ConvertOptions& options,
+                                     const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
         expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()) {
   }
@@ -396,8 +403,9 @@ struct SingleParserTimestampValueDecoder : public ValueDecoder {
   using value_type = int64_t;
 
   explicit SingleParserTimestampValueDecoder(const std::shared_ptr<DataType>& type,
-                                             const ConvertOptions& options)
-      : ValueDecoder(type, options),
+                                             const ConvertOptions& options,
+                                             const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
         expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()),
         parser_(*options_.timestamp_parsers[0]) {}
@@ -436,8 +444,9 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   using value_type = int64_t;
 
   explicit MultipleParsersTimestampValueDecoder(const std::shared_ptr<DataType>& type,
-                                                const ConvertOptions& options)
-      : ValueDecoder(type, options),
+                                                const ConvertOptions& options,
+                                                const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
         expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()),
         parsers_(GetParsers(options_)) {}
@@ -470,6 +479,33 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   std::vector<const TimestampParser*> parsers_;
 };
 
+//
+// Value decoder for durations
+//
+struct DurationValueDecoder : public ValueDecoder {
+  using value_type = int64_t;
+
+  explicit DurationValueDecoder(const std::shared_ptr<DataType>& type,
+                                const ConvertOptions& options,
+                                const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
+        concrete_type_(checked_cast<const DurationType&>(*type)),
+        string_converter_() {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    TrimWhiteSpace(&data, &size);
+    if (ARROW_PREDICT_FALSE(!string_converter_.Convert(
+            concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
+      return GenericConversionError(type_, data, size);
+    }
+    return Status::OK();
+  }
+
+ protected:
+  const DurationType& concrete_type_;
+  arrow::internal::StringConverter<DurationType> string_converter_;
+};
+
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter hierarchy
 
@@ -491,7 +527,8 @@ class NullConverter : public ConcreteConverter {
  public:
   NullConverter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
                 MemoryPool* pool)
-      : ConcreteConverter(type, options, pool), decoder_(type_, options_) {}
+      : ConcreteConverter(type, options, pool),
+        decoder_(type_, options_, static_cast<const TrieCache*>(trie_cache_.get())) {}
 
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
@@ -525,7 +562,8 @@ class PrimitiveConverter : public ConcreteConverter {
  public:
   PrimitiveConverter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
                      MemoryPool* pool)
-      : ConcreteConverter(type, options, pool), decoder_(type_, options_) {}
+      : ConcreteConverter(type, options, pool),
+        decoder_(type_, options_, static_cast<const TrieCache*>(trie_cache_.get())) {}
 
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
@@ -567,7 +605,8 @@ class TypedDictionaryConverter : public ConcreteDictionaryConverter {
   TypedDictionaryConverter(const std::shared_ptr<DataType>& value_type,
                            const ConvertOptions& options, MemoryPool* pool)
       : ConcreteDictionaryConverter(value_type, options, pool),
-        decoder_(value_type, options_) {}
+        decoder_(value_type, options_, static_cast<const TrieCache*>(trie_cache_.get())) {
+  }
 
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
@@ -658,7 +697,13 @@ std::shared_ptr<ConverterType> MakeRealConverter(const std::shared_ptr<DataType>
 
 Converter::Converter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
                      MemoryPool* pool)
-    : options_(options), pool_(pool), type_(type) {}
+    : options_(options), pool_(pool), type_(type) {
+  // Build shared Trie cache (errors handled in Initialize())
+  auto maybe_cache = TrieCache::Make(options);
+  if (maybe_cache.ok()) {
+    trie_cache_ = std::static_pointer_cast<void>(*std::move(maybe_cache));
+  }
+}
 
 DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_type,
                                          const ConvertOptions& options, MemoryPool* pool)
@@ -702,6 +747,7 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
     NUMERIC_CONVERTER_CASE(Type::TIME32, Time32Type)
     NUMERIC_CONVERTER_CASE(Type::TIME64, Time64Type)
+    NUMERIC_CONVERTER_CASE(Type::DURATION, DurationType)
     CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
     CONVERTER_CASE(Type::BINARY,
                    (PrimitiveConverter<BinaryType, BinaryValueDecoder<false>>))
@@ -785,6 +831,7 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     CONVERTER_CASE(Type::UINT64, UInt64Type, NumericValueDecoder<UInt64Type>)
     CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
     CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    CONVERTER_CASE(Type::DURATION, DurationType, DurationValueDecoder)
     REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryType,
                    FixedSizeBinaryValueDecoder)

@@ -43,6 +43,12 @@ Iterators
 .. doxygenclass:: arrow::VectorIterator
    :members:
 
+Comparison
+==========
+
+.. doxygenclass:: arrow::EqualOptions
+   :members:
+
 Compression
 ===========
 

@@ -24,6 +24,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging_internal.h"
@@ -36,9 +37,6 @@
 #endif
 
 namespace arrow {
-
-using internal::EndsWith;
-using internal::StartsWith;
 
 namespace compute {
 namespace internal {
@@ -803,7 +801,7 @@ using AsciiTitle = StringTransformExec<Type, AsciiTitleTransform>;
 const FunctionDoc ascii_upper_doc(
     "Transform ASCII input to uppercase",
     ("For each string in `strings`, return an uppercase version.\n\n"
-     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_upper\" instead."),
     {"strings"});
 
@@ -1290,7 +1288,7 @@ struct PlainStartsWithMatcher {
   }
 
   bool Match(std::string_view current) const {
-    return StartsWith(current, options_.pattern);
+    return current.starts_with(options_.pattern);
   }
 };
 
@@ -1308,7 +1306,7 @@ struct PlainEndsWithMatcher {
   }
 
   bool Match(std::string_view current) const {
-    return EndsWith(current, options_.pattern);
+    return current.ends_with(options_.pattern);
   }
 };
 

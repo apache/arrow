@@ -76,6 +76,10 @@ struct ARROW_EXPORT ConvertOptions {
   bool check_utf8 = true;
   /// Optional per-column types (disabling type inference on those columns)
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+  /// Default type to use for columns not in `column_types`
+  ///
+  /// If set, this disables type inference on all columns.
+  std::shared_ptr<DataType> default_column_type;
   /// Recognized spellings for null values
   std::vector<std::string> null_values;
   /// Recognized spellings for boolean true values
@@ -208,6 +212,12 @@ struct ARROW_EXPORT WriteOptions {
 
   /// \brief Quoting style
   QuotingStyle quoting_style = QuotingStyle::Needed;
+
+  /// \brief Quoting style of header
+  ///
+  /// Note that `QuotingStyle::Needed` and `QuotingStyle::AllValid` have the same
+  /// effect of quoting all column names.
+  QuotingStyle quoting_header = QuotingStyle::Needed;
 
   /// Create write options with default values
   static WriteOptions Defaults();

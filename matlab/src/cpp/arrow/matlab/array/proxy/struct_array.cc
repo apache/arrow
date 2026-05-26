@@ -16,11 +16,10 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/struct_array.h"
-#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/index/validate.h"
-
+#include "arrow/matlab/proxy/wrap.h"
 #include "arrow/util/utf8.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
@@ -114,21 +113,9 @@ void StructArray::getFieldByIndex(libmexclass::proxy::method::Context& context) 
   const int32_t index = matlab_index - 1;
 
   auto field_array = struct_array->field(index);
-
-  // Wrap the array within a proxy object if possible.
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto field_array_proxy, proxy::wrap(field_array),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(field_array),
                                       context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-  const auto field_array_proxy_id = ProxyManager::manageProxy(field_array_proxy);
-  const auto type_id = field_array->type_id();
-
-  // Return a struct with two fields: ProxyID and TypeID. The MATLAB
-  // layer will use these values to construct the appropriate MATLAB
-  // arrow.array.Array subclass.
-  mda::ArrayFactory factory;
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(field_array_proxy_id);
-  output[0]["TypeID"] = factory.createScalar(static_cast<int32_t>(type_id));
-  context.outputs[0] = output;
 }
 
 void StructArray::getFieldByName(libmexclass::proxy::method::Context& context) {
@@ -154,19 +141,9 @@ void StructArray::getFieldByName(libmexclass::proxy::method::Context& context) {
   }
 
   // Wrap the array within a proxy object if possible.
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto field_array_proxy, proxy::wrap(field_array),
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(field_array),
                                       context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-  const auto field_array_proxy_id = ProxyManager::manageProxy(field_array_proxy);
-  const auto type_id = field_array->type_id();
-
-  // Return a struct with two fields: ProxyID and TypeID. The MATLAB
-  // layer will use these values to construct the appropriate MATLAB
-  // arrow.array.Array subclass.
-  mda::ArrayFactory factory;
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(field_array_proxy_id);
-  output[0]["TypeID"] = factory.createScalar(static_cast<int32_t>(type_id));
-  context.outputs[0] = output;
 }
 
 void StructArray::getFieldNames(libmexclass::proxy::method::Context& context) {

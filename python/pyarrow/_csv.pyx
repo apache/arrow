@@ -332,6 +332,22 @@ cdef class ReadOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+    use_threads={self.use_threads},
+    block_size={self.block_size},
+    skip_rows={self.skip_rows},
+    skip_rows_after_names={self.skip_rows_after_names},
+    column_names={self.column_names},
+    autogenerate_column_names={self.autogenerate_column_names},
+    encoding={self.encoding!r}""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ReadOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"ReadOptions({self._repr_base()})")
+
 
 cdef class ParseOptions(_Weakrefable):
     """
@@ -585,6 +601,23 @@ cdef class ParseOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+    delimiter={self.delimiter!r},
+    quote_char={self.quote_char!r},
+    double_quote={self.double_quote},
+    escape_char={self.escape_char!r},
+    newlines_in_values={self.newlines_in_values},
+    ignore_empty_lines={self.ignore_empty_lines},
+    invalid_row_handler={getattr(self.invalid_row_handler, '__name__',
+                                 self.invalid_row_handler)}""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ParseOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"ParseOptions({self._repr_base()})")
+
 
 cdef class _ISO8601(_Weakrefable):
     """
@@ -613,6 +646,9 @@ cdef class ConvertOptions(_Weakrefable):
     column_types : pyarrow.Schema or dict, optional
         Explicitly map column names to column types. Passing this argument
         disables type inference on the defined columns.
+    default_column_type : pyarrow.DataType, optional
+        Explicitly map columns not specified in column_types to a default type.
+        Passing this argument disables type inference on all columns.
     null_values : list, optional
         A sequence of strings that denote nulls in the data
         (defaults are appropriate in most cases). Note that by default,
@@ -807,6 +843,40 @@ cdef class ConvertOptions(_Weakrefable):
     fast: bool
     ----
     fast: [[true,true,false,false,null]]
+
+    Set a default column type for all columns (disables type inference):
+
+    >>> convert_options = csv.ConvertOptions(default_column_type=pa.string())
+    >>> csv.read_csv(io.BytesIO(s.encode()), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: string
+    entry: string
+    fast: string
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [["2","4","5","100","6"]]
+    entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022","05/03/2022"]]
+    fast: [["Yes","Yes","No","No",""]]
+
+    Combine default_column_type with column_types (specific column types override default):
+
+    >>> convert_options = csv.ConvertOptions(
+    ...                   column_types={"n_legs": pa.int64(), "fast": pa.bool_()},
+    ...                   default_column_type=pa.string(),
+    ...                   true_values=["Yes"],
+    ...                   false_values=["No"])
+    >>> csv.read_csv(io.BytesIO(s.encode()), convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: int64
+    entry: string
+    fast: bool
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede",""]]
+    n_legs: [[2,4,5,100,6]]
+    entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022","05/03/2022"]]
+    fast: [[true,true,false,false,null]]
     """
 
     # Avoid mistakingly creating attributes
@@ -816,7 +886,7 @@ cdef class ConvertOptions(_Weakrefable):
         self.options.reset(
             new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
 
-    def __init__(self, *, check_utf8=None, column_types=None, null_values=None,
+    def __init__(self, *, check_utf8=None, column_types=None, default_column_type=None, null_values=None,
                  true_values=None, false_values=None, decimal_point=None,
                  strings_can_be_null=None, quoted_strings_can_be_null=None,
                  include_columns=None, include_missing_columns=None,
@@ -826,6 +896,8 @@ cdef class ConvertOptions(_Weakrefable):
             self.check_utf8 = check_utf8
         if column_types is not None:
             self.column_types = column_types
+        if default_column_type is not None:
+            self.default_column_type = default_column_type
         if null_values is not None:
             self.null_values = null_values
         if true_values is not None:
@@ -909,6 +981,27 @@ cdef class ConvertOptions(_Weakrefable):
             typ = pyarrow_unwrap_data_type(ensure_type(v))
             assert typ != NULL
             deref(self.options).column_types[tobytes(k)] = typ
+
+    @property
+    def default_column_type(self):
+        """
+        Explicitly map columns not specified in column_types to a default type.
+        """
+        if deref(self.options).default_column_type != NULL:
+            return pyarrow_wrap_data_type(deref(self.options).default_column_type)
+        else:
+            return None
+
+    @default_column_type.setter
+    def default_column_type(self, value):
+        cdef:
+            shared_ptr[CDataType] typ
+        if value is not None:
+            typ = pyarrow_unwrap_data_type(ensure_type(value))
+            assert typ != NULL
+            deref(self.options).default_column_type = typ
+        else:
+            deref(self.options).default_column_type.reset()
 
     @property
     def null_values(self):
@@ -1071,6 +1164,7 @@ cdef class ConvertOptions(_Weakrefable):
         return (
             self.check_utf8 == other.check_utf8 and
             self.column_types == other.column_types and
+            self.default_column_type == other.default_column_type and
             self.null_values == other.null_values and
             self.true_values == other.true_values and
             self.false_values == other.false_values and
@@ -1087,17 +1181,17 @@ cdef class ConvertOptions(_Weakrefable):
         )
 
     def __getstate__(self):
-        return (self.check_utf8, self.column_types, self.null_values,
-                self.true_values, self.false_values, self.decimal_point,
-                self.timestamp_parsers, self.strings_can_be_null,
-                self.quoted_strings_can_be_null, self.auto_dict_encode,
-                self.auto_dict_max_cardinality, self.include_columns,
-                self.include_missing_columns)
+        return (self.check_utf8, self.column_types, self.default_column_type,
+                self.null_values, self.true_values, self.false_values,
+                self.decimal_point, self.timestamp_parsers,
+                self.strings_can_be_null, self.quoted_strings_can_be_null,
+                self.auto_dict_encode, self.auto_dict_max_cardinality,
+                self.include_columns, self.include_missing_columns)
 
     def __setstate__(self, state):
-        (self.check_utf8, self.column_types, self.null_values,
-         self.true_values, self.false_values, self.decimal_point,
-         self.timestamp_parsers, self.strings_can_be_null,
+        (self.check_utf8, self.column_types, self.default_column_type,
+         self.null_values, self.true_values, self.false_values,
+         self.decimal_point, self.timestamp_parsers, self.strings_can_be_null,
          self.quoted_strings_can_be_null, self.auto_dict_encode,
          self.auto_dict_max_cardinality, self.include_columns,
          self.include_missing_columns) = state
@@ -1107,6 +1201,29 @@ cdef class ConvertOptions(_Weakrefable):
             return self.equals(other)
         except TypeError:
             return False
+
+    def _repr_base(self):
+        return (f"""
+    check_utf8={self.check_utf8},
+    column_types={self.column_types},
+    default_column_type={self.default_column_type!r},
+    null_values={self.null_values},
+    true_values={self.true_values},
+    false_values={self.false_values},
+    decimal_point={self.decimal_point!r},
+    strings_can_be_null={self.strings_can_be_null},
+    quoted_strings_can_be_null={self.quoted_strings_can_be_null},
+    include_columns={self.include_columns},
+    include_missing_columns={self.include_missing_columns},
+    auto_dict_encode={self.auto_dict_encode},
+    auto_dict_max_cardinality={self.auto_dict_max_cardinality},
+    timestamp_parsers={[str(i) for i in self.timestamp_parsers]}""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ConvertOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"ConvertOptions({self._repr_base()})")
 
 
 cdef _get_reader(input_file, ReadOptions read_options,
@@ -1150,9 +1267,8 @@ cdef class CSVStreamingReader(RecordBatchReader):
         Schema schema
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.csv.open_csv() instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.csv.open_csv() instead.")
 
     # Note about cancellation: we cannot create a SignalStopHandler
     # by default here, as several CSVStreamingReader instances may be
@@ -1365,13 +1481,16 @@ cdef class WriteOptions(_Weakrefable):
         - "none": do not enclose any values in quotes; values containing
           special characters (such as quotes, cell delimiters or line endings)
           will raise an error.
+    quoting_header : str, optional (default "needed")
+        Same as quoting_style, but for header column names. Accepts same values.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
     """
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None, quoting_style=None):
+                 delimiter=None, quoting_style=None, quoting_header=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1381,6 +1500,8 @@ cdef class WriteOptions(_Weakrefable):
             self.delimiter = delimiter
         if quoting_style is not None:
             self.quoting_style = quoting_style
+        if quoting_header is not None:
+            self.quoting_header = quoting_header
 
     @property
     def include_header(self):
@@ -1434,6 +1555,18 @@ cdef class WriteOptions(_Weakrefable):
     def quoting_style(self, value):
         deref(self.options).quoting_style = unwrap_quoting_style(value)
 
+    @property
+    def quoting_header(self):
+        """
+        Same as quoting_style, but for header column names.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
+        """
+        return wrap_quoting_style(deref(self.options).quoting_header)
+
+    @quoting_header.setter
+    def quoting_header(self, value):
+        deref(self.options).quoting_header = unwrap_quoting_style(value)
+
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):
         out = WriteOptions()
@@ -1442,6 +1575,19 @@ cdef class WriteOptions(_Weakrefable):
 
     def validate(self):
         check_status(self.options.get().Validate())
+
+    def _repr_base(self):
+        return (f"""
+    include_header={self.include_header},
+    batch_size={self.batch_size},
+    delimiter={self.delimiter!r},
+    quoting_style={self.quoting_style!r}""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.WriteOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"WriteOptions({self._repr_base()})")
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):

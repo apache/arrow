@@ -206,7 +206,7 @@ CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
 
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
-  ARROW_CHECK_OK(maybe_manager.status());
+  ARROW_CHECK_OK(maybe_manager);
   ARROW_CHECK_OK((*maybe_manager)->FreeHost(const_cast<uint8_t*>(data_), size_));
 }
 
@@ -260,28 +260,38 @@ Status CudaBufferReader::DoSeek(int64_t position) {
 }
 
 Result<int64_t> CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
-                                           void* buffer) {
+                                           bool allow_short_read, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
-  nbytes = std::min(nbytes, size_ - position);
-  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, address_ + position, nbytes));
-  return nbytes;
+  auto real_nbytes = std::min(nbytes, size_ - position);
+  if (!allow_short_read && real_nbytes != nbytes) {
+    return Status::IOError("Cuda buffer too short: expected to be able to read ", nbytes,
+                           " bytes, got ", real_nbytes);
+  }
+  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, address_ + position, real_nbytes));
+  return real_nbytes;
 }
 
 Result<int64_t> CudaBufferReader::DoRead(int64_t nbytes, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
-  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, DoReadAt(position_, nbytes, buffer));
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                        DoReadAt(position_, nbytes, /*allow_short_read=*/true, buffer));
   position_ += bytes_read;
   return bytes_read;
 }
 
 Result<std::shared_ptr<Buffer>> CudaBufferReader::DoReadAt(int64_t position,
-                                                           int64_t nbytes) {
+                                                           int64_t nbytes,
+                                                           bool allow_short_read) {
   RETURN_NOT_OK(CheckClosed());
 
-  int64_t size = std::min(nbytes, size_ - position);
-  return std::make_shared<CudaBuffer>(buffer_, position, size);
+  auto real_nbytes = std::min(nbytes, size_ - position);
+  if (!allow_short_read && real_nbytes != nbytes) {
+    return Status::IOError("Cuda buffer too short: expected to be able to read ", nbytes,
+                           " bytes, got ", real_nbytes);
+  }
+  return std::make_shared<CudaBuffer>(buffer_, position, real_nbytes);
 }
 
 Result<std::shared_ptr<Buffer>> CudaBufferReader::DoRead(int64_t nbytes) {
@@ -484,23 +494,6 @@ Result<uint8_t*> GetHostAddress(uintptr_t device_ptr) {
       "cuPointerGetAttribute",
       cuPointerGetAttribute(&ptr, CU_POINTER_ATTRIBUTE_HOST_POINTER, device_ptr));
   return static_cast<uint8_t*>(ptr);
-}
-
-Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
-                                                           int64_t device_id) {
-  switch (device_type) {
-    case ARROW_DEVICE_CPU:
-      return default_cpu_memory_manager();
-    case ARROW_DEVICE_CUDA:
-    case ARROW_DEVICE_CUDA_HOST:
-    case ARROW_DEVICE_CUDA_MANAGED: {
-      ARROW_ASSIGN_OR_RAISE(auto device,
-                            arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
-      return device->default_memory_manager();
-    }
-    default:
-      return Status::NotImplemented("memory manager not implemented for device");
-  }
 }
 
 namespace {

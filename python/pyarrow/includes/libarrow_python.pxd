@@ -55,7 +55,7 @@ cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConve
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
 
-    object PyHalf_FromHalf(npy_half value)
+    object PyFloat_FromHalf(uint16_t value)
 
     cdef cppclass PyConversionOptions:
         PyConversionOptions()
@@ -72,6 +72,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CResult[shared_ptr[CChunkedArray]] ConvertPySequence(
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
+
+    CResult[shared_ptr[CArray]] Arange(int64_t start, int64_t stop,
+                                       int64_t step, CMemoryPool* pool)
 
     CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
@@ -195,8 +198,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool self_destruct
         MapConversionType maps_as_pydicts
         c_bool decode_dictionaries
-        unordered_set[c_string] categorical_columns
-        unordered_set[c_string] extension_columns
+        shared_ptr[const unordered_set[c_string]] categorical_columns
+        shared_ptr[const unordered_set[c_string]] extension_columns
         c_bool to_numpy
 
 
@@ -210,7 +213,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     CTimePoint TimePoint_from_ns(int64_t val)
 
     CResult[c_string] TzinfoToString(PyObject* pytzinfo)
-    CResult[PyObject*] StringToTzinfo(c_string)
+    CResult[PyObject*] StringToTzinfo(c_string, c_bool)
 
 
 cdef extern from "arrow/python/numpy_init.h" namespace "arrow::py":
@@ -283,5 +286,12 @@ cdef extern from "arrow/python/benchmark.h" namespace "arrow::py::benchmark":
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
     void GdbTestSession "arrow::gdb::TestSession"()
 
-cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
+cdef extern from "arrow/python/config.h" namespace "arrow::py":
+    cdef cppclass CBuildInfo "arrow::py::BuildInfo":
+        c_string build_type
+
+    const CBuildInfo& GetBuildInfo "arrow::py::GetBuildInfo"()
+
+cdef extern from "arrow/python/config.h" namespace "arrow::py::internal":
+    c_bool IsOpenTelemetryEnabled()
     c_bool IsThreadingEnabled()

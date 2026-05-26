@@ -202,9 +202,9 @@ namespace {
 
   auto reader =
       ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
-  ARROW_RETURN_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                       reader_properties, &file_reader));
+  ARROW_ASSIGN_OR_RAISE(auto file_reader,
+                        FileReader::Make(::arrow::default_memory_pool(),
+                                         std::move(reader), reader_properties));
   std::shared_ptr<::arrow::ChunkedArray> chunked_array;
   ARROW_RETURN_NOT_OK(file_reader->ReadColumn(0, &chunked_array));
   return chunked_array->chunk(0);
@@ -236,7 +236,8 @@ void TestStatisticsReadArray(std::shared_ptr<::arrow::DataType> arrow_type) {
   auto statistics = typed_read_array->statistics();
   ASSERT_NE(nullptr, statistics);
   ASSERT_EQ(true, statistics->null_count.has_value());
-  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(true, std::holds_alternative<int64_t>(statistics->null_count.value()));
+  ASSERT_EQ(1, std::get<int64_t>(statistics->null_count.value()));
   ASSERT_EQ(false, statistics->distinct_count.has_value());
   ASSERT_EQ(true, statistics->min.has_value());
   ASSERT_EQ(true, std::holds_alternative<MinMaxType>(*statistics->min));
@@ -356,7 +357,8 @@ TEST(TestStatisticsRead, MultipleRowGroupsShouldLoadStatistics) {
   auto statistics = typed_read_array->statistics();
   ASSERT_NE(nullptr, statistics);
   ASSERT_EQ(true, statistics->null_count.has_value());
-  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(true, std::holds_alternative<int64_t>(statistics->null_count.value()));
+  ASSERT_EQ(1, std::get<int64_t>(statistics->null_count.value()));
   ASSERT_EQ(false, statistics->distinct_count.has_value());
   ASSERT_EQ(true, statistics->min.has_value());
   // This is not -1 because this array has only the first 2 elements.

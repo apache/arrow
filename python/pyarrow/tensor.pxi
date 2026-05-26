@@ -53,10 +53,10 @@ cdef class Tensor(_Weakrefable):
         return _struct.pack(f"{len(values)}n", *values)
 
     def __repr__(self):
-        return """<pyarrow.Tensor>
-type: {0.type}
-shape: {0.shape}
-strides: {0.strides}""".format(self)
+        return f"""<pyarrow.Tensor>
+type: {self.type}
+shape: {self.shape}
+strides: {self.strides}"""
 
     @staticmethod
     def from_numpy(obj, dim_names=None):
@@ -300,13 +300,67 @@ strides: {0.strides}""".format(self)
         buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
+    def __dlpack__(self, stream=None):
+        """
+        Export a Tensor as a DLPack capsule.
+
+        Parameters
+        ----------
+        stream : int, optional
+            A Python integer representing a pointer to a stream. Currently not supported.
+            Stream is provided by the consumer to the producer to instruct the producer
+            to ensure that operations can safely be performed on the array.
+
+        Returns
+        -------
+        capsule : PyCapsule
+            A DLPack capsule for the tensor, pointing to a DLManagedTensor.
+        """
+        if stream is None:
+            dlm_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+
+            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
+        else:
+            raise NotImplementedError(
+                "Only stream=None is supported."
+            )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this tensor resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        device = GetResultValue(ExportDevice(self.sp_tensor))
+        return device.device_type, device.device_id
+
 
 ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
 
 
 cdef class SparseCOOTensor(_Weakrefable):
     """
-    A sparse COO tensor.
+    A sparse COO (COOrdinate) tensor.
+
+    COO format stores a sparse tensor as a collection of (indices, values)
+    pairs. The indices specify the coordinates of non-zero elements, and
+    the values contain the actual data at those coordinates.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_tensor = np.array([[0, 1, 0], [2, 0, 3]], dtype=np.float32)
+    >>> sparse_coo = pa.SparseCOOTensor.from_dense_numpy(dense_tensor)
+    >>> sparse_coo
+    <pyarrow.SparseCOOTensor>
+    type: float
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -320,9 +374,9 @@ cdef class SparseCOOTensor(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCOOTensor>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCOOTensor>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -357,6 +411,18 @@ shape: {0.shape}""".format(self)
             Shape of the tensor.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        >>> coords = np.array([[0, 1], [1, 0], [1, 2]], dtype=np.int64)
+        >>> sparse_coo = pa.SparseCOOTensor.from_numpy(data, coords, shape=(2, 3))
+        >>> sparse_coo
+        <pyarrow.SparseCOOTensor>
+        type: float
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -382,19 +448,19 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_scipy(obj, dim_names=None):
         """
-        Convert scipy.sparse.coo_matrix to arrow::SparseCOOTensor
+        Convert scipy.sparse.coo_array or scipy.sparse.coo_matrix to arrow::SparseCOOTensor
 
         Parameters
         ----------
-        obj : scipy.sparse.csr_matrix
-            The scipy matrix that should be converted.
+        obj : scipy.sparse.coo_array or scipy.sparse.coo_matrix
+            The scipy array or matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
         import scipy.sparse
-        if not isinstance(obj, scipy.sparse.coo_matrix):
+        if not isinstance(obj, (scipy.sparse.coo_array, scipy.sparse.coo_matrix)):
             raise TypeError(
-                "Expected scipy.sparse.coo_matrix, got {}".format(type(obj)))
+                f"Expected scipy.sparse.coo_array or scipy.sparse.coo_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -409,10 +475,11 @@ shape: {0.shape}""".format(self)
         row = obj.row
         col = obj.col
 
-        # When SciPy's coo_matrix has canonical format, its indices matrix is
-        # sorted in column-major order.  As Arrow's SparseCOOIndex is sorted
-        # in row-major order if it is canonical, we must sort indices matrix
-        # into row-major order to keep its canonicalness, here.
+        # When SciPy's coo_array and coo_matrix have canonical format, their
+        # indices matrix is sorted in column-major order. As Arrow's
+        # SparseCOOIndex is sorted in row-major order if it is canonical,
+        # we must sort indices matrix into row-major order to keep it's
+        # canonicalness here.
         if obj.has_canonical_format:
             order = np.lexsort((col, row))  # sort in row-major order
             row = row[order]
@@ -440,7 +507,7 @@ shape: {0.shape}""".format(self)
         import sparse
         if not isinstance(obj, sparse.COO):
             raise TypeError(
-                "Expected sparse.COO, got {}".format(type(obj)))
+                f"Expected sparse.COO, got {type(obj)}")
 
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -493,9 +560,9 @@ shape: {0.shape}""".format(self)
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCOOTensor to scipy.sparse.coo_matrix.
+        Convert arrow::SparseCOOTensor to scipy.sparse.coo_array.
         """
-        from scipy.sparse import coo_matrix
+        from scipy.sparse import coo_array
         cdef PyObject* out_data
         cdef PyObject* out_coords
 
@@ -504,12 +571,12 @@ shape: {0.shape}""".format(self)
         data = PyObject_to_object(out_data)
         coords = PyObject_to_object(out_coords)
         row, col = coords[:, 0], coords[:, 1]
-        result = coo_matrix((data[:, 0], (row, col)), shape=self.shape)
+        result = coo_array((data[:, 0], (row, col)), shape=self.shape)
 
         # As the description in from_scipy above, we sorted indices matrix
-        # in row-major order if SciPy's coo_matrix has canonical format.
-        # So, we must call sum_duplicates() to make the result coo_matrix
-        # has canonical format.
+        # in row-major order if SciPy's coo_array has canonical format.
+        # So, we must call sum_duplicates() to make the resulting coo_array
+        # have canonical format.
         if self.has_canonical_format:
             result.sum_duplicates()
         return result
@@ -610,7 +677,23 @@ shape: {0.shape}""".format(self)
 
 cdef class SparseCSRMatrix(_Weakrefable):
     """
-    A sparse CSR matrix.
+    A sparse CSR (Compressed Sparse Row) matrix.
+
+    CSR format stores a sparse matrix by compressing the row information.
+    It uses three arrays: data (non-zero values), indices (column indices),
+    and indptr (row pointers that indicate where each row starts in the
+    data array).
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_matrix = np.array([[1, 0, 2], [0, 0, 3]], dtype=np.float64)
+    >>> sparse_csr = pa.SparseCSRMatrix.from_dense_numpy(dense_matrix)
+    >>> sparse_csr
+    <pyarrow.SparseCSRMatrix>
+    type: double
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -624,9 +707,9 @@ cdef class SparseCSRMatrix(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCSRMatrix>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCSRMatrix>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -664,6 +747,20 @@ shape: {0.shape}""".format(self)
             Shape of the matrix.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+        >>> indptr = np.array([0, 2, 3], dtype=np.int64)
+        >>> indices = np.array([0, 2, 1], dtype=np.int64)
+        >>> sparse_csr = pa.SparseCSRMatrix.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3))
+        >>> sparse_csr
+        <pyarrow.SparseCSRMatrix>
+        type: double
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -693,19 +790,19 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_scipy(obj, dim_names=None):
         """
-        Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix.
+        Convert scipy.sparse.csr_array or scipy.sparse.csr_matrix to arrow::SparseCSRMatrix.
 
         Parameters
         ----------
-        obj : scipy.sparse.csr_matrix
+        obj : scipy.sparse.csr_array or scipy.sparse.csr_matrix
             The scipy matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
         import scipy.sparse
-        if not isinstance(obj, scipy.sparse.csr_matrix):
+        if not isinstance(obj, (scipy.sparse.csr_array, scipy.sparse.csr_matrix)):
             raise TypeError(
-                "Expected scipy.sparse.csr_matrix, got {}".format(type(obj)))
+                f"Expected scipy.sparse.csr_array or scipy.sparse.csr_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -764,9 +861,9 @@ shape: {0.shape}""".format(self)
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_matrix.
+        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_array.
         """
-        from scipy.sparse import csr_matrix
+        from scipy.sparse import csr_array
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -778,7 +875,7 @@ shape: {0.shape}""".format(self)
         data = PyObject_to_object(out_data)
         indptr = PyObject_to_object(out_indptr)
         indices = PyObject_to_object(out_indices)
-        result = csr_matrix((data[:, 0], indices, indptr), shape=self.shape)
+        result = csr_array((data[:, 0], indices, indptr), shape=self.shape)
         return result
 
     def to_tensor(self):
@@ -851,7 +948,23 @@ shape: {0.shape}""".format(self)
 
 cdef class SparseCSCMatrix(_Weakrefable):
     """
-    A sparse CSC matrix.
+    A sparse CSC (Compressed Sparse Column) matrix.
+
+    CSC format stores a sparse matrix by compressing the column information.
+    It uses three arrays: data (non-zero values), indices (row indices),
+    and indptr (column pointers that indicate where each column starts
+    in the data array). CSC is the transpose of CSR format.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_matrix = np.array([[1, 0, 2], [0, 0, 3]], dtype=np.float64)
+    >>> sparse_csc = pa.SparseCSCMatrix.from_dense_numpy(dense_matrix)
+    >>> sparse_csc
+    <pyarrow.SparseCSCMatrix>
+    type: double
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -865,9 +978,9 @@ cdef class SparseCSCMatrix(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCSCMatrix>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCSCMatrix>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -905,6 +1018,20 @@ shape: {0.shape}""".format(self)
             Shape of the matrix.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 3.0, 2.0], dtype=np.float64)
+        >>> indptr = np.array([0, 1, 2, 3], dtype=np.int64)
+        >>> indices = np.array([0, 1, 0], dtype=np.int64)
+        >>> sparse_csc = pa.SparseCSCMatrix.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3))
+        >>> sparse_csc
+        <pyarrow.SparseCSCMatrix>
+        type: double
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -934,19 +1061,19 @@ shape: {0.shape}""".format(self)
     @staticmethod
     def from_scipy(obj, dim_names=None):
         """
-        Convert scipy.sparse.csc_matrix to arrow::SparseCSCMatrix
+        Convert scipy.sparse.csc_array or scipy.sparse.csc_matrix to arrow::SparseCSCMatrix
 
         Parameters
         ----------
-        obj : scipy.sparse.csc_matrix
+        obj : scipy.sparse.csc_array or scipy.sparse.csc_matrix
             The scipy matrix that should be converted.
         dim_names : list, optional
             Names of the dimensions.
         """
         import scipy.sparse
-        if not isinstance(obj, scipy.sparse.csc_matrix):
+        if not isinstance(obj, (scipy.sparse.csc_array, scipy.sparse.csc_matrix)):
             raise TypeError(
-                "Expected scipy.sparse.csc_matrix, got {}".format(type(obj)))
+                f"Expected scipy.sparse.csc_array or scipy.sparse.csc_matrix, got {type(obj)}")
 
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -1005,9 +1132,9 @@ shape: {0.shape}""".format(self)
 
     def to_scipy(self):
         """
-        Convert arrow::SparseCSCMatrix to scipy.sparse.csc_matrix
+        Convert arrow::SparseCSCMatrix to scipy.sparse.csc_array
         """
-        from scipy.sparse import csc_matrix
+        from scipy.sparse import csc_array
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -1019,7 +1146,7 @@ shape: {0.shape}""".format(self)
         data = PyObject_to_object(out_data)
         indptr = PyObject_to_object(out_indptr)
         indices = PyObject_to_object(out_indices)
-        result = csc_matrix((data[:, 0], indices, indptr), shape=self.shape)
+        result = csc_array((data[:, 0], indices, indptr), shape=self.shape)
         return result
 
     def to_tensor(self):
@@ -1102,6 +1229,20 @@ cdef class SparseCSFTensor(_Weakrefable):
     of prefix trees. Each path from a root to leaf forms one tensor
     non-zero index. CSF is implemented with two arrays of buffers and one
     arrays of integers.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> # Create a 3D sparse tensor
+    >>> dense_tensor = np.zeros((2, 3, 2), dtype=np.float32)
+    >>> dense_tensor[0, 1, 0] = 1.0
+    >>> dense_tensor[1, 2, 1] = 2.0
+    >>> sparse_csf = pa.SparseCSFTensor.from_dense_numpy(dense_tensor)
+    >>> sparse_csf
+    <pyarrow.SparseCSFTensor>
+    type: float
+    shape: (2, 3, 2)
     """
 
     def __init__(self):
@@ -1115,9 +1256,9 @@ cdef class SparseCSFTensor(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCSFTensor>
-type: {0.type}
-shape: {0.shape}""".format(self)
+        return f"""<pyarrow.SparseCSFTensor>
+type: {self.type}
+shape: {self.shape}"""
 
     @classmethod
     def from_dense_numpy(cls, obj, dim_names=None):
@@ -1164,6 +1305,27 @@ shape: {0.shape}""".format(self)
             produce the prefix tree.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0], dtype=np.float32)
+        >>> indptr = [
+        ...     np.array([0, 1, 2], dtype=np.int64),
+        ...     np.array([0, 1, 2], dtype=np.int64),
+        ... ]
+        >>> indices = [
+        ...     np.array([0, 1], dtype=np.int64),
+        ...     np.array([1, 2], dtype=np.int64),
+        ...     np.array([0, 1], dtype=np.int64),
+        ... ]
+        >>> sparse_csf = pa.SparseCSFTensor.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3, 2))
+        >>> sparse_csf
+        <pyarrow.SparseCSFTensor>
+        type: float
+        shape: (2, 3, 2)
         """
         cdef shared_ptr[CSparseCSFTensor] csparse_tensor
         cdef vector[int64_t] c_axis_order
@@ -1183,14 +1345,14 @@ shape: {0.shape}""".format(self)
         # Enforce preconditions for SparseCSFTensor indices
         if not (isinstance(indptr, (list, tuple)) and
                 isinstance(indices, (list, tuple))):
-            raise TypeError("Expected list or tuple, got {}, {}"
-                            .format(type(indptr), type(indices)))
+            raise TypeError(
+                f"Expected list or tuple, got {type(indptr)}, {type(indices)}")
         if len(indptr) != len(shape) - 1:
-            raise ValueError("Expected list of {ndim} np.arrays for "
-                             "SparseCSFTensor.indptr".format(ndim=len(shape)))
+            raise ValueError(f"Expected list of {len(shape)} np.arrays for "
+                             "SparseCSFTensor.indptr")
         if len(indices) != len(shape):
-            raise ValueError("Expected list of {ndim} np.arrays for "
-                             "SparseCSFTensor.indices".format(ndim=len(shape)))
+            raise ValueError(f"Expected list of {len(shape)} np.arrays for "
+                             "SparseCSFTensor.indices")
         if any([x.ndim != 1 for x in indptr]):
             raise ValueError("Expected a list of 1-dimensional arrays for "
                              "SparseCSFTensor.indptr")

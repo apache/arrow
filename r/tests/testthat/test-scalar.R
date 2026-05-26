@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 expect_scalar_roundtrip <- function(x, type) {
   s <- scalar(x)
   expect_r6_class(s, "Scalar")

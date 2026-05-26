@@ -91,8 +91,8 @@ def resolve_s3_region(bucket):
 
     Examples
     --------
-    >>> fs.resolve_s3_region('voltrondata-labs-datasets')
-    'us-east-2'
+    >>> fs.resolve_s3_region('arrow-datasets')
+    'us-east-1'
     """
     cdef:
         c_string c_bucket
@@ -263,6 +263,9 @@ cdef class S3FileSystem(FileSystem):
         If true, then virtual addressing is always enabled.
         If false, then virtual addressing is only enabled if `endpoint_override` is empty.
         This can be used for non-AWS backends that only support virtual hosted-style access.
+    tls_ca_file_path : str, default None
+        If set, this should be the path of a file containing TLS certificates
+        in PEM format which will be used for TLS verification.
 
     Examples
     --------
@@ -270,7 +273,7 @@ cdef class S3FileSystem(FileSystem):
     >>> s3 = fs.S3FileSystem(region='us-west-2')
     >>> s3.get_file_info(fs.FileSelector(
     ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
-    ... ))
+    ... )) # doctest: +SKIP
     [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
 
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
@@ -290,7 +293,7 @@ cdef class S3FileSystem(FileSystem):
                  check_directory_existence_before_creation=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
                      max_attempts=3),
-                 force_virtual_addressing=False):
+                 force_virtual_addressing=False, tls_ca_file_path=None):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -414,6 +417,8 @@ cdef class S3FileSystem(FileSystem):
                 retry_strategy.max_attempts)
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
+        if tls_ca_file_path is not None:
+            options.value().tls_ca_file_path = tobytes(tls_ca_file_path)
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
@@ -474,6 +479,7 @@ cdef class S3FileSystem(FileSystem):
                                'password': frombytes(
                                    opts.proxy_options.password)},
                 force_virtual_addressing=opts.force_virtual_addressing,
+                tls_ca_file_path=frombytes(opts.tls_ca_file_path),
             ),)
         )
 

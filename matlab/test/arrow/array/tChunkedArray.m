@@ -113,8 +113,9 @@ classdef tChunkedArray < matlab.unittest.TestCase
             %
             %  1. Their Type properties are equal
             %  2. Their NumElements properties are equal
-            %  3. The same elements are considered null
-            %  4. All corresponding valid elements have the same values
+            %  3. Their NumNulls properties are equal
+            %  4. The same elements are considered null
+            %  5. All corresponding valid elements have the same values
             %
             % NOTE: Having the same "chunking" is not a requirement for two
             % ChunkedArrays to be equal. ChunkedArrays are considered equal
@@ -201,6 +202,18 @@ classdef tChunkedArray < matlab.unittest.TestCase
             chunkedArray = ChunkedArray.fromArrays(arrays{:});
             
             fcn = @() setfield(chunkedArray, "NumElements", int64(100));
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
+        end
+
+        function NumNullsNoSetter(testCase)
+            % Verify an error is thrown when trying to set the value
+            % of the NumNulls property.
+            import arrow.array.ChunkedArray
+
+            arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
+            chunkedArray = ChunkedArray.fromArrays(arrays{:});
+            
+            fcn = @() setfield(chunkedArray, "NumNulls", int64(100));
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
@@ -476,10 +489,14 @@ classdef tChunkedArray < matlab.unittest.TestCase
             end
             testCase.assertTrue(numel(opts.Arrays) == opts.NumChunks); 
             allNumElements = cellfun(@(a) a.NumElements, opts.Arrays, UniformOutput=true);
+            allNumNulls = cellfun(@(a) a.NumNulls, opts.Arrays, UniformOutput=true);
+
             expectedNumElements = int64(sum(allNumElements));
+            expectedNumNulls = int64(sum(allNumNulls));
 
             testCase.verifyEqual(chunkedArray.NumChunks, opts.NumChunks);
             testCase.verifyEqual(chunkedArray.NumElements, expectedNumElements);
+            testCase.verifyEqual(chunkedArray.NumNulls, expectedNumNulls);
             testCase.verifyEqual(chunkedArray.Type, opts.Type);
 
             for ii = 1:opts.NumChunks

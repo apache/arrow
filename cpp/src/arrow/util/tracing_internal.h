@@ -23,6 +23,8 @@
 #include "arrow/util/config.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
+// Avoid for example defining max() macro
+#  include "arrow/util/windows_compatibility.h"
 #  ifdef _MSC_VER
 #    pragma warning(push)
 #    pragma warning(disable : 4522)
@@ -110,6 +112,7 @@ class SpanImpl : public ::arrow::util::tracing::SpanDetails {
  public:
   ~SpanImpl() override = default;
   bool valid() const { return ot_span != nullptr; }
+  void reset() { ot_span = nullptr; }
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span;
 };
 
@@ -122,13 +125,13 @@ struct Scope {
   opentelemetry::trace::Scope scope_impl;
 };
 
-opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+ARROW_EXPORT opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
     ::arrow::util::tracing::SpanDetails* span);
 
-const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
-    const ::arrow::util::tracing::SpanDetails* span);
+ARROW_EXPORT const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>&
+UnwrapSpan(const ::arrow::util::tracing::SpanDetails* span);
 
-opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
+ARROW_EXPORT opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
     ::arrow::util::tracing::SpanDetails* span,
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span);
 
@@ -149,14 +152,13 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
                 target_span.details.get(),                       \
                 ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__))))
 
-#  define START_SCOPED_SPAN_SV(target_span, name, ...)                             \
-    ::arrow::internal::tracing::Scope(                                             \
-        ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                   \
-            ::arrow::internal::tracing::RewrapSpan(                                \
-                target_span.details.get(),                                         \
-                ::arrow::internal::tracing::GetTracer()->StartSpan(                \
-                    ::opentelemetry::nostd::string_view(name.data(), name.size()), \
-                    ##__VA_ARGS__))))
+#  define START_SCOPED_SPAN_SV(target_span, name)                   \
+    ::arrow::internal::tracing::Scope(                              \
+        ::arrow::internal::tracing::GetTracer()->WithActiveSpan(    \
+            ::arrow::internal::tracing::RewrapSpan(                 \
+                target_span.details.get(),                          \
+                ::arrow::internal::tracing::GetTracer()->StartSpan( \
+                    ::opentelemetry::nostd::string_view(name.data(), name.size())))))
 
 #  define START_SCOPED_SPAN_WITH_PARENT_SV(target_span, parent_span, name, ...)    \
     ::arrow::internal::tracing::Scope(                                             \
@@ -226,7 +228,7 @@ struct Scope {
 
 #  define START_SPAN(target_span, ...)
 #  define START_SCOPED_SPAN(target_span, ...) ::arrow::internal::tracing::Scope()
-#  define START_SCOPED_SPAN_SV(target_span, name, ...) ::arrow::internal::tracing::Scope()
+#  define START_SCOPED_SPAN_SV(target_span, name) ::arrow::internal::tracing::Scope()
 #  define START_COMPUTE_SPAN(target_span, ...)
 #  define ACTIVATE_SPAN(target_span) ::arrow::internal::tracing::Scope()
 #  define MARK_SPAN(target_span, status)

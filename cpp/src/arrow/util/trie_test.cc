@@ -26,7 +26,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/trie.h"
+#include "arrow/util/trie_internal.h"
 
 namespace arrow {
 namespace internal {

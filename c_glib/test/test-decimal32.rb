@@ -106,7 +106,7 @@ class TestDecimal32 < Test::Unit::TestCase
     decimal1 = Arrow::Decimal32.new(23423445)
     decimal2 = Arrow::Decimal32.new(0)
     message =
-      "[decimal32][divide]: Invalid: Division by 0 in Decimal32"
+      "[decimal32][divide]: Invalid: Division by 0 in Decimal"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal1.divide(decimal2)
     end
@@ -214,7 +214,7 @@ class TestDecimal32 < Test::Unit::TestCase
     decimal = Arrow::Decimal32.new(10)
     message =
       "[decimal32][rescale]: Invalid: " +
-      "Rescaling Decimal32 value would cause data loss"
+      "Rescaling Decimal value would cause data loss"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal.rescale(1, -1)
     end

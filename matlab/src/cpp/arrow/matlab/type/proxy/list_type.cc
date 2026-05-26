@@ -17,7 +17,8 @@
 
 #include "arrow/matlab/type/proxy/list_type.h"
 #include "arrow/matlab/error/error.h"
-#include "arrow/matlab/type/proxy/wrap.h"
+#include "arrow/matlab/proxy/wrap.h"
+
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::type::proxy {
@@ -28,25 +29,12 @@ ListType::ListType(std::shared_ptr<arrow::ListType> list_type)
 }
 
 void ListType::getValueType(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
-  mda::ArrayFactory factory;
-
   const auto list_type = std::static_pointer_cast<arrow::ListType>(data_type);
   const auto value_type = list_type->value_type();
-  const auto value_type_id = static_cast<int32_t>(value_type->id());
 
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto value_type_proxy,
-                                      type::proxy::wrap(value_type), context,
-                                      error::LIST_TYPE_FAILED_TO_CREATE_VALUE_TYPE_PROXY);
-  const auto value_type_proxy_id =
-      libmexclass::proxy::ProxyManager::manageProxy(value_type_proxy);
-
-  mda::StructArray output =
-      factory.createStructArray({1, 1}, {"ValueTypeProxyID", "ValueTypeID"});
-  output[0]["ValueTypeProxyID"] = factory.createScalar(value_type_proxy_id);
-  output[0]["ValueTypeID"] = factory.createScalar(value_type_id);
-
-  context.outputs[0] = output;
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
+      context.outputs[0], arrow::matlab::proxy::wrap_and_manage(value_type), context,
+      error::LIST_TYPE_FAILED_TO_CREATE_VALUE_TYPE_PROXY);
 }
 
 libmexclass::proxy::MakeResult ListType::make(

@@ -62,6 +62,11 @@ install_headers(
     subdir: 'arrow/csv',
 )
 
+arrow_csv_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: arrow_dep,
+)
+meson.override_dependency('arrow-csv', arrow_csv_dep)
 
 pkg.generate(
     filebase: 'arrow-csv',

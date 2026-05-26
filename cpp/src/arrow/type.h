@@ -178,7 +178,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   virtual DataTypeLayout layout() const = 0;
 
   /// \brief Return the type category
-  Type::type id() const { return id_; }
+  constexpr Type::type id() const { return id_; }
 
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
@@ -292,6 +292,7 @@ std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
 /// - if a `PhysicalType` alias exists in the concrete type class, return
 ///   an instance of `PhysicalType`.
 /// - otherwise, return the input type itself.
+ARROW_EXPORT
 std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type);
 
 /// \brief Base class for all fixed-width data types
@@ -2366,19 +2367,19 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::vector<std::string> field_names() const;
 
   /// Returns null if name not found
-  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+  std::shared_ptr<Field> GetFieldByName(std::string_view name) const;
 
   /// \brief Return the indices of all fields having this name in sorted order
-  FieldVector GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(std::string_view name) const;
 
   /// Returns -1 if name not found
-  int GetFieldIndex(const std::string& name) const;
+  int GetFieldIndex(std::string_view name) const;
 
   /// Return the indices of all fields having this name
-  std::vector<int> GetAllFieldIndices(const std::string& name) const;
+  std::vector<int> GetAllFieldIndices(std::string_view name) const;
 
   /// Indicate if field named `name` can be found unambiguously in the schema.
-  Status CanReferenceFieldByName(const std::string& name) const;
+  Status CanReferenceFieldByName(std::string_view name) const;
 
   /// Indicate if fields named `names` can be found unambiguously in the schema.
   Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;
@@ -2574,8 +2575,15 @@ constexpr bool may_have_validity_bitmap(Type::type id) {
   }
 }
 
-ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
-constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
+constexpr bool has_variadic_buffers(Type::type id) {
+  switch (id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return true;
+    default:
+      return false;
+  }
+}
 
 ARROW_EXPORT
 std::string ToString(Type::type id);
@@ -2633,5 +2641,18 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 /// \brief Decimal type ids
 ARROW_EXPORT
 const std::vector<Type::type>& DecimalTypeIds();
+
+/// \brief Create a data type instance from a type ID for parameter-free types
+///
+/// This function creates a data type instance for types that don't require
+/// additional parameters (where TypeTraits<T>::is_parameter_free is true).
+/// For types that require parameters (like TimestampType or ListType),
+/// this function will return an error.
+///
+/// \param[in] id The type ID to create a type instance for
+/// \return The type instance for the given type ID,
+///         or a TypeError if the type requires parameters
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
 
 }  // namespace arrow

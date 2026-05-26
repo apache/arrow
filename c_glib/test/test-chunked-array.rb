@@ -144,4 +144,15 @@ class TestChunkedArray < Test::Unit::TestCase
     assert_equal(build_boolean_array([true, false, nil]),
                  chunked_array.combine)
   end
+
+  def test_export_import
+    chunks = [
+      build_boolean_array([true, false, true]),
+      build_boolean_array([false, nil]),
+    ]
+    original_chunked_array = Arrow::ChunkedArray.new(chunks)
+    c_abi_array_stream = original_chunked_array.export
+    assert_equal(original_chunked_array,
+                 Arrow::ChunkedArray.import(c_abi_array_stream))
+  end
 end

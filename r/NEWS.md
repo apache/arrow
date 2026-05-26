@@ -17,13 +17,126 @@
   under the License.
 -->
 
-# arrow 20.0.0.9000
+# arrow 24.0.0.9000
+
+# arrow 24.0.0
+
+# arrow 24.0.0
+
+## New features
+
+- `dplyr::when_any()` and `dplyr::when_all()` helper bindings (#49535).
+- `dplyr::filter_out()` binding (@larry77, #49256).
+- `dplyr::recode_values()`, `dplyr::replace_values()`, and `dplyr::replace_when()` bindings (#49536).
+- `write_dataset()` gains a `preserve_order` argument to preserve row ordering within partitions (@marberts, #49343).
 
 ## Minor improvements and fixes
 
-- Added bindings for atan, sinh, cosh, tanh, asinh, acosh, and tanh, and expm1 (#44953)
+- Zero-length `POSIXct` objects with integer storage (as created by `as.POSIXct(NULL)` in R 4.5.2+) are now correctly mapped to timestamp type instead of integer (#49619).
+- `all.equal()` S3 method is now correctly registered (@MichaelChirico, #49481).
+
+## Installation
+
+- arm64 (aarch64) Linux binaries are now available (#48574).
+
+# arrow 23.0.1.2
+
+## Minor improvements and fixes
+
+- Update use of internal function for non-API call CRAN requirements (#49530)
+
+# arrow 23.0.1.1
+
+## Minor improvements and fixes
+
+- Refine checks for ensuring building with macOS libtool instead of GNU libtool (#49370)
+
+# arrow 23.0.1
+
+## Minor improvements and fixes
+
+- Fix C++20 compatibility issue on macOS (#49221).
+- Turn off GCS support by default on macOS; see `vignette("install", package = "arrow")` for details on enabling it (#49068, #48995).
+
+# arrow 23.0.0
+
+## New features
+
+- `nchar()` now supports `keepNA = FALSE` (@HyukjinKwon, #48665).
+- `stringr::str_ilike()` binding for case-insensitive pattern matching (#48262).
+
+## Minor improvements and fixes
+
+- Fix slow performance reading files with large number of columns (#48104).
+- Fix segfault when calling `concat_tables()` on a `RecordBatch` (#47885).
+- Writing partitioned datasets on S3 no longer requires `ListBucket` permissions (@HaochengLIU, #47599).
+
+## Installation
+
+- As of version 23.0.0, `arrow` requires C++20 to build from source. This means that you may need a newer compiler than the default on some older systems. See `vignette("install", package = "arrow")` for guidance.
+
+# arrow 22.0.0.1
+
+## Minor improvements and fixes
+
+- Turn off GCS support by default; bundle if enabled (#48343)
+- Ensure `MAKEFLAGS` being passed during compilation (#48341)
+- Update bundled RE2 to enable Alpine Linux builds (#48011)
+
+# arrow 22.0.0
+
+## New features
+
+- `stringr::str_replace_na()` binding implemented (#47521).
+
+##  Minor improvements and fixes
+
+- Subsecond time variables no longer truncated in  `hms::hms()` bindings (#47278)
+
+# arrow 21.0.0.1
+
+##  Minor improvements and fixes
+
+- Patch bundled version of Thrift to prevent CRAN check failures (@kou, #47286)
+
+# arrow 21.0.0
+
+## New features
+
+- Support for Arrow's 32 and 64 bit Decimal types (#46720).
+- `hms::hms()` and `hms::as_hms()` bindings implemented to create and manipulate time of day variables (#46206).
+- `atan()`, `sinh()`, `cosh()`, `tanh()`, `asinh()`, `acosh()`, and `tanh()`, and `expm1()` bindings added (#44953).
+
+## Minor improvements and fixes
+
+- Expose an option `check_directory_existence_before_creation` in `S3FileSystem`
+  to reduce I/O calls on cloud storage (@HaochengLIU, #41998).
+- `case_when()` now correctly detects objects that are not in the global 
+  environment (@etiennebacher, #46667).
+- Negative fractional dates now correctly converted to integers by flooring values (#46873).
+- Backwards compatibility checks for legacy Arrow C++ versions have been removed 
+  from the R package (#46491). This shouldn't affect most users this package and would only impact you
+  if you were building the R package from source with different R package and Arrow C++ versions.
+- Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
+
+# arrow 20.0.0.2
+
+## Minor improvements and fixes
+
+- Updated internal C++ code to comply with CRAN's gcc-UBSAN checks
+  ([#46394](https://github.com/apache/arrow/issues/46394))
 
 # arrow 20.0.0
+
+## Minor improvements and fixes
+
+- Binary Arrays now inherit from `blob::blob` in addition to `arrow_binary` when
+  [converted to R
+  objects](https://arrow.apache.org/docs/r/articles/data_types.html#translations-from-arrow-to-r).
+  This change is the first step in eventually deprecating the `arrow_binary`
+  class in favor of the `blob` class in the
+  [`blob`](https://cran.r-project.org/package=blob) package (See
+  [GH-45709](https://github.com/apache/arrow/issues/45709)).
 
 # arrow 19.0.1.1
 

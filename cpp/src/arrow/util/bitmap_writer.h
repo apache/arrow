@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -112,7 +113,7 @@ class FirstTimeBitmapWriter {
 
     // Update state variables except for current_byte_ here.
     position_ += number_of_bits;
-    int64_t bit_offset = bit_util::CountTrailingZeros(static_cast<uint32_t>(bit_mask_));
+    int64_t bit_offset = std::countr_zero(static_cast<uint32_t>(bit_mask_));
     bit_mask_ = bit_util::kBitmask[(bit_offset + number_of_bits) % 8];
     byte_offset_ += (bit_offset + number_of_bits) / 8;
 

@@ -29,5 +29,5 @@ numpy=${1:-"latest"}
 if [ "${numpy}" = "latest" ]; then
   pip install numpy
 else
-  pip install numpy==${numpy}
+  pip install numpy=="${numpy}"
 fi

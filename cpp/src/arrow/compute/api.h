@@ -34,6 +34,7 @@
 #include "arrow/compute/cast.h"              // IWYU pragma: export
 #include "arrow/compute/function.h"          // IWYU pragma: export
 #include "arrow/compute/function_options.h"  // IWYU pragma: export
+#include "arrow/compute/initialize.h"        // IWYU pragma: export
 #include "arrow/compute/kernel.h"            // IWYU pragma: export
 #include "arrow/compute/registry.h"          // IWYU pragma: export
 #include "arrow/datum.h"                     // IWYU pragma: export

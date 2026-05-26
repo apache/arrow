@@ -17,9 +17,10 @@
 
 #include "arrow/filesystem/gcsfs.h"
 
-#include <google/cloud/storage/client.h>
 #include <algorithm>
 #include <chrono>
+
+#include <google/cloud/storage/client.h>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"
@@ -62,7 +63,7 @@ struct GcsPath {
       return Status::Invalid(
           "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
     }
-    auto const first_sep = s.find_first_of(internal::kSep);
+    const auto first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
@@ -353,12 +354,16 @@ class GcsFileSystem::Impl {
     // matches the prefix we assume it is a directory.
     std::string canonical = internal::EnsureTrailingSlash(path.object);
     auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
-    if (list_result.begin() != list_result.end()) {
-      // If there is at least one result it indicates this is a directory (at
-      // least one object exists that starts with "path/")
+
+    for (auto&& object_metadata : list_result) {
+      if (!object_metadata) {
+        continue;
+      }
+      // If there is at least one valid result, it indicates this is a
+      // directory (at least one object exists that starts with "path/")
       return FileInfo(path.full_path, FileType::Directory);
     }
-    // Return the original not-found info if there was no match.
+    // Return the original not-found info if there was no valid result.
     return info;
   }
 
@@ -380,7 +385,7 @@ class GcsFileSystem::Impl {
     auto include_trailing = select.recursive ? gcs::IncludeTrailingDelimiter(false)
                                              : gcs::IncludeTrailingDelimiter(true);
     FileInfoVector result;
-    for (auto const& o :
+    for (const auto& o :
          client_.ListObjects(p.bucket, prefix, delimiter, include_trailing)) {
       if (!o.ok()) {
         if (select.allow_not_found &&
@@ -437,7 +442,7 @@ class GcsFileSystem::Impl {
   }
 
   Status CreateDirMarkerRecursive(const std::string& bucket, const std::string& name) {
-    auto get_parent = [](std::string const& path) {
+    auto get_parent = [](const std::string& path) {
       return std::move(internal::GetAbstractPathParent(path).first);
     };
     // Find the list of missing parents. In the process we discover if any elements in
@@ -474,7 +479,7 @@ class GcsFileSystem::Impl {
 
     // Note that the list of parents are sorted from deepest to most shallow, this is
     // convenient because as soon as we find a directory we can stop the iteration.
-    for (auto const& d : missing_parents) {
+    for (const auto& d : missing_parents) {
       auto o = CreateDirMarker(bucket, d);
       if (o) {
         if (IsDirectory(*o)) continue;

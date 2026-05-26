@@ -20,21 +20,23 @@
 set -e
 set -o pipefail
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <version>"
     exit 1
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
 
 VERSION=$1
 REPOSITORY="apache/arrow"
 TAG="apache-arrow-${VERSION}"
 WORKFLOW="release.yml"
-SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Wait for the GitHub Workflow that creates the GitHub Release
 # to finish before updating the release notes.
-. $SOURCE_DIR/utils-watch-gh-workflow.sh ${TAG} ${WORKFLOW}
+"${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${TAG}" "${WORKFLOW}"
 
 # Update the Release Notes section
 RELEASE_NOTES_URL="https://arrow.apache.org/release/${VERSION}.html"

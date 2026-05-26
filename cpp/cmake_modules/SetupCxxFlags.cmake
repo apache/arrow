@@ -28,10 +28,10 @@ if(NOT DEFINED ARROW_CPU_FLAG)
     set(ARROW_CPU_FLAG "emscripten")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
     set(ARROW_CPU_FLAG "x86")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
-    set(ARROW_CPU_FLAG "aarch64")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm$|armv[4-7]")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm$|armv[4-7]|armv8l")
     set(ARROW_CPU_FLAG "aarch32")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64|armv")
+    set(ARROW_CPU_FLAG "aarch64")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "powerpc|ppc")
     set(ARROW_CPU_FLAG "ppc")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
@@ -49,27 +49,37 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "")
-    set(ARROW_AVX2_FLAG "/arch:AVX2")
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
+    # These definitions are needed for xsimd to consider the corresponding instruction
+    # sets available, but they are not set by MSVC (unlike other compilers).
+    # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
+    add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
+    set(ARROW_AVX2_FLAGS "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
-    set(ARROW_BMI2_FLAG "/arch:AVX2")
+    set(ARROW_BMI2_FLAGS "/arch:AVX2")
     set(ARROW_AVX512_FLAG "/arch:AVX512")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
-    set(ARROW_AVX2_FLAG "-march=haswell")
+    set(ARROW_AVX2_FLAGS "-march=haswell")
     set(ARROW_BMI2_FLAG "-mbmi2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
     set(ARROW_AVX512_FLAG "-march=skylake-avx512")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
-    set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
+    list(APPEND ARROW_AVX2_FLAGS "-mavx2")
     set(ARROW_AVX512_FLAG
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
-    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+    list(JOIN ARROW_AVX2_FLAGS " " ARROW_AVX2_FLAGS_COMMAND_LINE)
+    if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+      message(STATUS "Disable AVX2 support on gcc / MINGW for now")
+    else()
+      check_cxx_compiler_flag("${ARROW_AVX2_FLAGS_COMMAND_LINE}" CXX_SUPPORTS_AVX2)
+    endif()
     if(MINGW)
       # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
       message(STATUS "Disable AVX512 support on MINGW for now")
@@ -124,7 +134,31 @@ elseif(ARROW_CPU_FLAG STREQUAL "ppc")
 elseif(ARROW_CPU_FLAG STREQUAL "aarch64")
   # Arm64 compiler flags, gcc/clang only
   set(ARROW_ARMV8_MARCH "armv8-a")
-  check_cxx_compiler_flag("-march=${ARROW_ARMV8_MARCH}+sve" CXX_SUPPORTS_SVE)
+  set(ARROW_SVE_FLAGS "-march=${ARROW_ARMV8_MARCH}+sve")
+  set(ARROW_SVE128_FLAGS "${ARROW_SVE_FLAGS}" "-msve-vector-bits=128")
+  set(ARROW_SVE256_FLAGS "${ARROW_SVE_FLAGS}" "-msve-vector-bits=256")
+  set(ARROW_SVE512_FLAGS "${ARROW_SVE_FLAGS}" "-msve-vector-bits=512")
+  # We only have a way to do SVE dynamic dispatch on Linux (BSD may be possible
+  # but is currently not implemented).
+  # We still support explicitly setting runtime SIMD level to some SVE values
+  # on these platforms as this can be useful in development for building SVE
+  # code locally. The compiler supports it but the code won't run.
+  if((APPLE OR WIN32) AND ARROW_RUNTIME_SIMD_LEVEL STREQUAL "MAX")
+    set(ARROW_RUNTIME_SIMD_LEVEL "NONE")
+  endif()
+  check_cxx_compiler_flag("${ARROW_SVE_FLAGS}" CXX_SUPPORTS_SVE)
+  if(CXX_SUPPORTS_SVE AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SVE128|SVE256|SVE512|MAX)$")
+    set(ARROW_HAVE_RUNTIME_SVE128 ON)
+    add_definitions(-DARROW_HAVE_RUNTIME_SVE128)
+  endif()
+  if(CXX_SUPPORTS_SVE AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SVE256|SVE512|MAX)$")
+    set(ARROW_HAVE_RUNTIME_SVE256 ON)
+    add_definitions(-DARROW_HAVE_RUNTIME_SVE256)
+  endif()
+  if(CXX_SUPPORTS_SVE AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SVE512|MAX)$")
+    set(ARROW_HAVE_RUNTIME_SVE512 ON)
+    add_definitions(-DARROW_HAVE_RUNTIME_SVE512)
+  endif()
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "NEON")
   endif()
@@ -135,14 +169,14 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++17 get passed correctly
+# This ensures that a standard higher than the minimum can be passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 17)
-  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 17")
+  set(CMAKE_CXX_STANDARD 20)
+elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 20)
+  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 20")
 endif()
 
-# We require a C++17 compliant compiler
+# We require a C++20 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARROW-6848: Do not use GNU (or other CXX) extensions
@@ -152,10 +186,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-
 set(UNKNOWN_COMPILER_MESSAGE
     "Unknown compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+
+# Compiler flags used when building Arrow libraries (but not tests, utilities, etc.)
+set(ARROW_LIBRARIES_ONLY_CXX_FLAGS)
 
 # compiler flags that are common across debug/release builds
 if(WIN32)
@@ -265,7 +300,7 @@ endif()
 # `RELEASE`, then it will default to `PRODUCTION`. The goal of defaulting to
 # `CHECKIN` is to avoid friction with long response time from CI.
 if(NOT BUILD_WARNING_LEVEL)
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  if("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
     set(BUILD_WARNING_LEVEL PRODUCTION)
   else()
     set(BUILD_WARNING_LEVEL CHECKIN)
@@ -294,8 +329,9 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4365")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4267")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4838")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                        "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "IBMClang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
@@ -319,6 +355,9 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
+    # Flag non-static functions that don't have corresponding declaration in a .h file.
+    # Only for Arrow libraries, since this is not a problem in tests or utilities.
+    list(APPEND ARROW_LIBRARIES_ONLY_CXX_FLAGS "-Wmissing-declarations")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                    "IntelLLVM")
     if(WIN32)
@@ -485,7 +524,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     if(NOT CXX_SUPPORTS_AVX2)
       message(FATAL_ERROR "AVX2 required but compiler doesn't support it.")
     endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX2_FLAG}")
+    list(JOIN ARROW_AVX2_FLAGS " " ARROW_AVX2_FLAGS_COMMAND_LINE)
+    string(APPEND CXX_COMMON_FLAGS " ${ARROW_AVX2_FLAGS_COMMAND_LINE}")
     add_definitions(-DARROW_HAVE_AVX2 -DARROW_HAVE_BMI2 -DARROW_HAVE_SSE4_2)
   elseif(ARROW_SIMD_LEVEL STREQUAL "SSE4_2")
     if(NOT CXX_SUPPORTS_SSE4_2)
@@ -512,8 +552,7 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
       if(NOT CXX_SUPPORTS_SVE)
         message(FATAL_ERROR "SVE required but compiler doesn't support it.")
       endif()
-      # -march=armv8-a+sve
-      set(ARROW_ARMV8_MARCH "${ARROW_ARMV8_MARCH}+sve")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SVE_FLAGS}")
       string(REGEX MATCH "[0-9]+" SVE_VECTOR_BITS ${ARROW_SIMD_LEVEL})
       if(SVE_VECTOR_BITS)
         set(ARROW_HAVE_SVE${SVE_VECTOR_BITS} ON)
@@ -524,99 +563,11 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
         set(ARROW_HAVE_SVE_SIZELESS ON)
         add_definitions(-DARROW_HAVE_SVE_SIZELESS)
       endif()
+    else() # ARM v8 without SVE
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
     endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by Arm.")
-  endif()
-endif()
-
-# ----------------------------------------------------------------------
-# Setup Gold linker, if available. Code originally from Apache Kudu
-
-# Interrogates the linker version via the C++ compiler to determine whether
-# we're using the gold linker, and if so, extracts its version.
-#
-# If the gold linker is being used, sets GOLD_VERSION in the parent scope with
-# the extracted version.
-#
-# Any additional arguments are passed verbatim into the C++ compiler invocation.
-function(GET_GOLD_VERSION)
-  # The gold linker is only for ELF binaries, which macOS doesn't use.
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
-                  ERROR_QUIET
-                  OUTPUT_VARIABLE LINKER_OUTPUT)
-  # We're expecting LINKER_OUTPUT to look like one of these:
-  #   GNU gold (version 2.24) 1.11
-  #   GNU gold (GNU Binutils for Ubuntu 2.30) 1.15
-  if(LINKER_OUTPUT MATCHES "GNU gold")
-    string(REGEX MATCH "GNU gold \\([^\\)]*\\) (([0-9]+\\.?)+)" _ "${LINKER_OUTPUT}")
-    if(NOT CMAKE_MATCH_1)
-      message(SEND_ERROR "Could not extract GNU gold version. "
-                         "Linker version output: ${LINKER_OUTPUT}")
-    endif()
-    set(GOLD_VERSION
-        "${CMAKE_MATCH_1}"
-        PARENT_SCOPE)
-  endif()
-endfunction()
-
-# Is the compiler hard-wired to use the gold linker?
-if(NOT WIN32 AND NOT APPLE)
-  get_gold_version()
-  if(GOLD_VERSION)
-    set(MUST_USE_GOLD 1)
-  elseif(ARROW_USE_LD_GOLD)
-    # Can the compiler optionally enable the gold linker?
-    get_gold_version("-fuse-ld=gold")
-
-    # We can't use the gold linker if it's inside devtoolset because the compiler
-    # won't find it when invoked directly from make/ninja (which is typically
-    # done outside devtoolset).
-    execute_process(COMMAND which ld.gold
-                    OUTPUT_VARIABLE GOLD_LOCATION
-                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-    if("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
-      message(STATUS "Skipping optional gold linker (version ${GOLD_VERSION}) because "
-                     "it's in devtoolset")
-      set(GOLD_VERSION)
-    endif()
-  endif()
-
-  if(GOLD_VERSION)
-    # Older versions of the gold linker are vulnerable to a bug [1] which
-    # prevents weak symbols from being overridden properly. This leads to
-    # omitting of dependencies like tcmalloc (used in Kudu, where this
-    # workaround was written originally)
-    #
-    # How we handle this situation depends on other factors:
-    # - If gold is optional, we won't use it.
-    # - If gold is required, we'll either:
-    #   - Raise an error in RELEASE builds (we shouldn't release such a product), or
-    #   - Drop tcmalloc in all other builds.
-    #
-    # 1. https://sourceware.org/bugzilla/show_bug.cgi?id=16979.
-    if("${GOLD_VERSION}" VERSION_LESS "1.12")
-      set(ARROW_BUGGY_GOLD 1)
-    endif()
-    if(MUST_USE_GOLD)
-      message(STATUS "Using hard-wired gold linker (version ${GOLD_VERSION})")
-      if(ARROW_BUGGY_GOLD)
-        if("${ARROW_LINK}" STREQUAL "d" AND "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-          message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
-                             "in a RELEASE build")
-        endif()
-      endif()
-    elseif(NOT ARROW_BUGGY_GOLD)
-      # The Gold linker must be manually enabled.
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=gold")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=gold")
-      message(STATUS "Using optional gold linker (version ${GOLD_VERSION})")
-    else()
-      message(STATUS "Optional gold linker is buggy, using ld linker instead")
-    endif()
-  else()
-    message(STATUS "Using ld linker")
   endif()
 endif()
 
@@ -808,7 +759,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
   if(ARROW_TESTING)
     # flags for building test executables for use in node
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    if("${UPPERCASE_BUILD_TYPE}" STREQUAL "RELEASE")
       set(CMAKE_EXE_LINKER_FLAGS
           "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
       )

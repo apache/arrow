@@ -28,6 +28,7 @@
 #include "arrow/testing/uniform_real.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -198,8 +199,30 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
+  ///
+  /// \deprecated Deprecated in 22.0.0. Use the other Float16() method that accepts
+  /// nan_probability as a parameter
+  ARROW_DEPRECATED(
+      "Deprecated in 22.0.0. Use the other Float16() method that accepts nan_probability "
+      "as a parameter")
+  std::shared_ptr<Array> Float16(int64_t size, uint16_t min, uint16_t max,
                                  double null_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
+
+  /// \brief Generate a random HalfFloatArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min the lower bound of the uniform distribution
+  /// \param[in] max the upper bound of the uniform distribution
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] nan_probability the probability of a value being NaN
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Float16(int64_t size, util::Float16 min, util::Float16 max,
+                                 double null_probability = 0, double nan_probability = 0,
                                  int64_t alignment = kDefaultBufferAlignment,
                                  MemoryPool* memory_pool = default_memory_pool());
 
@@ -281,8 +304,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
         return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
                      null_probability, alignment, memory_pool);
       case Type::HALF_FLOAT:
-        return Float16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
-                       null_probability, alignment, memory_pool);
+        return Float16(size, util::Float16::FromBits(static_cast<uint16_t>(min)),
+                       util::Float16::FromBits(static_cast<uint16_t>(max)),
+                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
       case Type::FLOAT:
         return Float32(size, static_cast<float>(min), static_cast<float>(max),
                        null_probability, /*nan_probability=*/0, alignment, memory_pool);
@@ -704,6 +728,21 @@ void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds
 ARROW_TESTING_EXPORT
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
+
+/// \brief Generate a random UTF-8 encoded string
+///
+/// Generates a string with valid UTF-8 encoding from random Unicode scalar values.
+/// The generated string contains num_chars code points sampled uniformly
+/// across the Basic Multilingual Plane (BMP), Supplementary Multilingual Plane (SMP),
+/// Supplementary Ideographic Plane (SIP), and higher planes (up to U+10FFFF).
+/// Surrogate code points (U+D800-U+DFFF) are excluded as they are not valid
+/// Unicode scalar values.
+///
+/// \param[in] seed Random seed for reproducibility
+/// \param[in] num_chars Number of Unicode code points to generate
+/// \return a generated UTF-8 encoded string
+ARROW_TESTING_EXPORT
+std::string RandomUtf8String(random::SeedType seed, int num_chars);
 
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {

@@ -183,7 +183,7 @@ class CommitTitle:
         matches = _TITLE_REGEX.match(headline)
         if matches is None:
             warnings.warn(
-                "Unable to parse commit message `{}`".format(headline)
+                f"Unable to parse commit message `{headline}`"
             )
             return CommitTitle(headline)
 
@@ -203,10 +203,10 @@ class CommitTitle:
     def to_string(self, with_issue=True, with_components=True):
         out = ""
         if with_issue and self.issue:
-            out += "{}: ".format(self.issue)
+            out += f"{self.issue}: "
         if with_components and self.components:
             for component in self.components:
-                out += "[{}]".format(component)
+                out += f"[{component}]"
             out += " "
         out += self.summary
         return out
@@ -225,13 +225,12 @@ class Commit:
             return getattr(self._wrapped, attr)
 
     def __repr__(self):
-        template = '<Commit sha={!r} issue={!r} components={!r} summary={!r}>'
-        return template.format(self.hexsha, self.issue, self.components,
-                               self.summary)
+        return (f'<Commit sha={self.hexsha!r} issue={self.issue!r} '
+                f'components={self.components!r} summary={self.summary!r}>')
 
     @property
     def url(self):
-        return 'https://github.com/apache/arrow/commit/{}'.format(self.hexsha)
+        return f'https://github.com/apache/arrow/commit/{self.hexsha}'
 
     @property
     def title(self):

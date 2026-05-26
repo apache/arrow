@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "parquet/level_comparison_avx2_internal.h"
+
 #define PARQUET_IMPL_NAMESPACE avx2
 #include "parquet/level_comparison_inc.h"
 #undef PARQUET_IMPL_NAMESPACE

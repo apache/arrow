@@ -20,8 +20,29 @@
 #include <limits>
 #include <memory>
 
+// HACK: Workaround absl::Mutex ABI incompatibility by making sure the
+// non-debug version of Abseil is included
+// (https://github.com/conda-forge/abseil-cpp-feedstock/issues/104,
+//  https://github.com/abseil/abseil-cpp/issues/1624)
+
+#if __has_include(<absl/synchronization/mutex.h>)
+
+#  ifndef NDEBUG
+#    define ARROW_NO_NDEBUG
+#    define NDEBUG
+#  endif
+
+#  include <absl/synchronization/mutex.h>
+
+#  ifdef ARROW_NO_NDEBUG
+#    undef NDEBUG
+#  endif
+
+#endif
+
 #include "arrow/flight/platform.h"
 #include "arrow/flight/type_fwd.h"
+#include "arrow/flight/visibility.h"
 #include "arrow/util/config.h"
 
 // Silence protobuf warnings
@@ -63,8 +84,8 @@ namespace grpc {
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying
-::grpc::Status FlightDataDeserialize(::grpc::ByteBuffer* buffer,
-                                     arrow::flight::internal::FlightData* out);
+ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
+    ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight

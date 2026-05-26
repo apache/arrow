@@ -18,11 +18,9 @@
 #include "arrow/array.h"
 #include "arrow/c/bridge.h"
 
-#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/c/proxy/array_importer.h"
 #include "arrow/matlab/error/error.h"
-
-#include "libmexclass/proxy/ProxyManager.h"
+#include "arrow/matlab/proxy/wrap.h"
 
 namespace arrow::matlab::c::proxy {
 
@@ -35,7 +33,6 @@ libmexclass::proxy::MakeResult ArrayImporter::make(
 
 void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
   namespace mda = ::matlab::data;
-  using namespace libmexclass::proxy;
 
   mda::StructArray args = context.inputs[0];
   const mda::TypedArray<uint64_t> arrow_array_address_mda = args[0]["ArrowArrayAddress"];
@@ -52,18 +49,9 @@ void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
                                       arrow::ImportArray(arrow_array, arrow_schema),
                                       context, error::C_IMPORT_FAILED);
 
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
-                                      arrow::matlab::array::proxy::wrap(array), context,
-                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-
-  mda::ArrayFactory factory;
-  const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
-  const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
-  const auto array_type_id_mda =
-      factory.createScalar(static_cast<int32_t>(array->type_id()));
-
-  context.outputs[0] = array_proxy_id_mda;
-  context.outputs[1] = array_type_id_mda;
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(array),
+                                      context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
 }  // namespace arrow::matlab::c::proxy

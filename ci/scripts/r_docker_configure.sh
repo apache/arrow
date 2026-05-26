@@ -39,9 +39,11 @@ elif [ "`which yum`" ]; then
   PACKAGE_MANAGER=yum
 elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
+elif [ "`which apk`" ]; then
+  PACKAGE_MANAGER=apk
 else
   PACKAGE_MANAGER=apt-get
-  apt-get update
+  apt-get update --allow-releaseinfo-change # flag needed for when debian version changes
 fi
 
 # Enable ccache if requested based on http://dirk.eddelbuettel.com/blog/2017/11/27/
@@ -49,8 +51,12 @@ fi
 R_CUSTOM_CCACHE=`echo $R_CUSTOM_CCACHE | tr '[:upper:]' '[:lower:]'`
 if [ ${R_CUSTOM_CCACHE} = "true" ]; then
   # install ccache
-  $PACKAGE_MANAGER install -y epel-release || true
-  $PACKAGE_MANAGER install -y ccache
+  if [ "$PACKAGE_MANAGER" = "apk" ]; then
+    $PACKAGE_MANAGER add ccache
+  else
+    $PACKAGE_MANAGER install -y epel-release || true
+    $PACKAGE_MANAGER install -y ccache
+  fi
 
   mkdir -p ~/.R
   echo "VER=
@@ -73,7 +79,12 @@ fi
 
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
 # cmake is now a listed sys req.
-$PACKAGE_MANAGER install -y rsync cmake curl
+if [ "$PACKAGE_MANAGER" = "apk" ]; then
+  $PACKAGE_MANAGER add rsync cmake curl
+else
+  $PACKAGE_MANAGER install -y rsync cmake curl
+fi
+
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

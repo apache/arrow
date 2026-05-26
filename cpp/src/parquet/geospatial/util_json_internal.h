@@ -37,9 +37,10 @@ namespace parquet {
 ///
 /// The result of this function depends on whether or not "geoarrow.wkb" has been
 /// registered: if it has, the result will be the registered ExtensionType; if it has not,
-/// the result will be binary().
+/// the result will be the given storage_type.
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
     const LogicalType& logical_type,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata);
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata,
+    const std::shared_ptr<::arrow::DataType>& storage_type);
 
 }  // namespace parquet

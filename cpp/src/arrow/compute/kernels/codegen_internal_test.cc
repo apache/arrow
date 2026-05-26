@@ -51,6 +51,22 @@ TEST(TestDispatchBest, CastBinaryDecimalArgs) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented, ::testing::HasSubstr("Decimals with negative scales not supported"),
       CastBinaryDecimalArgs(DecimalPromotion::kAdd, &args));
+
+  // Non-castable -> unchanged
+  for (const auto promotion :
+       {DecimalPromotion::kAdd, DecimalPromotion::kMultiply, DecimalPromotion::kDivide}) {
+    for (const auto& args : std::vector<std::vector<TypeHolder>>{
+             {decimal128(3, 2), boolean()},
+             {boolean(), decimal128(3, 2)},
+             {decimal128(3, 2), utf8()},
+             {utf8(), decimal128(3, 2)},
+         }) {
+      auto args_copy = args;
+      ASSERT_OK(CastBinaryDecimalArgs(promotion, &args_copy));
+      AssertTypeEqual(*args_copy[0], *args[0]);
+      AssertTypeEqual(*args_copy[1], *args[1]);
+    }
+  }
 }
 
 TEST(TestDispatchBest, CastDecimalArgs) {
@@ -127,6 +143,32 @@ TEST(TestDispatchBest, CastDecimalArgs) {
   AssertTypeEqual(*args[0], *decimal256(3, 2));
   AssertTypeEqual(*args[1], *float64());
   AssertTypeEqual(*args[2], *utf8());
+}
+
+TEST(TestDecimalPromotion, WidenDecimalToMaxPrecision) {
+  std::shared_ptr<DataType> arg;
+  std::shared_ptr<DataType> expected;
+  std::shared_ptr<DataType> unwrapped;
+
+  arg = decimal32(3, 2);
+  expected = decimal32(9, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal64(3, 2);
+  expected = decimal64(18, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal128(3, 2);
+  expected = decimal128(38, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
+
+  arg = decimal256(3, 2);
+  expected = decimal256(76, 2);
+  ASSERT_OK_AND_ASSIGN(unwrapped, WidenDecimalToMaxPrecision(arg));
+  AssertTypeEqual(*unwrapped, *expected);
 }
 
 TEST(TestDispatchBest, CommonTemporal) {

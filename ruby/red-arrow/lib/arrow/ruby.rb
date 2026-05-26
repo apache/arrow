@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "extpp/setup"
 require "gio2"
 
 require_relative "loader"

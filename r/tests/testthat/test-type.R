@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("infer_type() gets the right type for arrow::Array", {
   a <- Array$create(1:10)
   expect_equal(infer_type(a), a$type)
@@ -51,6 +50,25 @@ test_that("infer_type() infers from R type", {
   expect_equal(
     infer_type(bit64::integer64()),
     int64()
+  )
+})
+
+test_that("infer_type() errors clearly for POSIXct with invalid tzone", {
+  x <- as.POSIXct("2019-02-14 13:55:05", tz = "UTC")
+  attr(x, "tzone") <- 123
+
+  expect_error(
+    infer_type(x),
+    "`tzone` attribute of a `POSIXct` vector must be a character vector"
+  )
+
+  # Also check zero-length POSIXct
+  x <- as.POSIXct(x = NULL)
+  attr(x, "tzone") <- 123
+
+  expect_error(
+    infer_type(x),
+    "`tzone` attribute of a `POSIXct` vector must be a character vector"
   )
 })
 
@@ -94,7 +112,7 @@ test_that("infer_type() can infer blob type", {
 
   expect_equal(infer_type(blob::blob()), binary())
 
-  big_ish_raw <- raw(2 ^ 20)
+  big_ish_raw <- raw(2^20)
   big_ish_blob <- blob::new_blob(rep(list(big_ish_raw), 2049))
   expect_equal(infer_type(big_ish_blob), large_binary())
 })
@@ -201,8 +219,16 @@ test_that("Type strings are correctly canonicalized", {
     sub("^([^([<]+).*$", "\\1", timestamp()$ToString())
   )
   expect_equal(
+    canonical_type_str("decimal32"),
+    sub("^([^([<]+).*$", "\\1", decimal32(3, 2)$ToString())
+  )
+  expect_equal(
+    canonical_type_str("decimal64"),
+    sub("^([^([<]+).*$", "\\1", decimal64(3, 2)$ToString())
+  )
+  expect_equal(
     canonical_type_str("decimal128"),
-    sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
+    sub("^([^([<]+).*$", "\\1", decimal(31, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("decimal128"),

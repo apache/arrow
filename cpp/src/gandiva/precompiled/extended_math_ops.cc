@@ -80,7 +80,7 @@ ENUMERIC_TYPES_UNARY(LOG10, float64)
 
 FORCE_INLINE
 void set_error_for_logbase(int64_t execution_context, double base) {
-  char const* prefix = "divide by zero error with log of base";
+  const char* prefix = "divide by zero error with log of base";
   int size = static_cast<int>(strlen(prefix)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s %f", prefix, base);
@@ -386,16 +386,22 @@ gdv_int64 get_power_of_10(gdv_int32 exp) {
 
 FORCE_INLINE
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
+  // For int64 (no fractional digits), positive scale is a no-op
+  if (out_scale >= 0) {
+    return in;
+  }
+  // GetScaleMultiplier only supports scales 0-38
+  if (out_scale < -38) {
+    return 0;
+  }
+
   bool overflow = false;
   arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
   arrow::BasicDecimal128 decimal_with_outscale =
       gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), 38,
                                     out_scale, out_scale, &overflow);
-  if (out_scale < 0) {
-    out_scale = 0;
-  }
   return gandiva::decimalops::ToInt64(
-      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
+      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, 0), &overflow);
 }
 
 FORCE_INLINE

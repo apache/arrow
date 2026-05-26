@@ -17,6 +17,7 @@
 
 import bz2
 from contextlib import contextmanager
+import errno
 from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import itertools
 import gc
@@ -822,7 +823,7 @@ def test_cache_options_pickling(pickle_module):
 ])
 def test_compress_decompress(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     INPUT_SIZE = 10000
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
@@ -863,7 +864,7 @@ def test_compress_decompress(compression):
 ])
 def test_compression_level(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     codec = Codec(compression)
     if codec.name == "snappy":
@@ -1278,6 +1279,30 @@ def test_os_file_writer(tmpdir):
         f4.write(b'bar')
     with pa.OSFile(path) as f5:
         assert f5.size() == 6  # foo + bar
+
+
+def test_os_file_raw_fd(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    binary_flag = getattr(os, "O_BINARY", 0)
+
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | binary_flag,
+                 0o666)
+    with pa.OSFile(fd, mode='wb') as f:
+        assert f.fileno() == fd
+        f.write(b'foo')
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(fd)
+    assert exc.value.errno == errno.EBADF
+
+    fd = os.open(path, os.O_RDONLY | binary_flag)
+    with pa.OSFile(fd, mode='rb') as f:
+        assert f.fileno() == fd
+        assert f.read() == b'foo'
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(fd)
+    assert exc.value.errno == errno.EBADF
 
 
 def test_native_file_write_reject_unicode():
@@ -1755,7 +1780,7 @@ def test_unknown_compression_raises():
 ])
 def test_compressed_roundtrip(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     data = b"some test data\n" * 10 + b"eof\n"
     raw = pa.BufferOutputStream()
@@ -1776,7 +1801,7 @@ def test_compressed_roundtrip(compression):
 )
 def test_compressed_recordbatch_stream(compression):
     if not Codec.is_available(compression):
-        pytest.skip("{} support is not built".format(compression))
+        pytest.skip(f"{compression} support is not built")
 
     # ARROW-4836: roundtrip a RecordBatch through a compressed stream
     table = pa.Table.from_arrays([pa.array([1, 2, 3, 4, 5])], ['a'])

@@ -42,15 +42,15 @@ attr(example_with_metadata, "top_level") <- list(
 )
 
 haven_data <- tibble::tibble(
-  num = structure(c(5.1, 4.9),
-    format.spss = "F8.2"
-  ),
-  cat_int = structure(c(3, 1),
+  num = structure(c(5.1, 4.9), format.spss = "F8.2"),
+  cat_int = structure(
+    c(3, 1),
     format.spss = "F8.0",
     labels = c(first = 1, second = 2, third = 3),
     class = c("haven_labelled", "vctrs_vctr", "double")
   ),
-  cat_chr = structure(c("B", "B"),
+  cat_chr = structure(
+    c("B", "B"),
     labels = c(Alpha = "A", Beta = "B"),
     class = c("haven_labelled", "vctrs_vctr", "character")
   )
@@ -149,8 +149,16 @@ attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size
 example_data_for_sorting <- tibble::tibble(
   int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
   dbl = c(
-    -Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin,
-    pi, .Machine$double.xmax, Inf, NaN, NA_real_
+    -Inf,
+    -.Machine$double.xmax,
+    -.Machine$double.xmin,
+    0,
+    .Machine$double.xmin,
+    pi,
+    .Machine$double.xmax,
+    Inf,
+    NaN,
+    NA_real_
   ),
   chr = c("", "", "\"", "&", "ABC", "NULL", "a", "abc", "zzz", NA_character_),
   lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA),

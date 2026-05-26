@@ -26,9 +26,8 @@
 
 #include "arrow/python/numpy_interop.h"
 
-#include <numpy/halffloat.h>
-
 #include "arrow/type_fwd.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -87,15 +86,18 @@ NPY_INT_DECL(ULONGLONG, UInt64, uint64_t);
 
 template <>
 struct npy_traits<NPY_FLOAT16> {
-  typedef npy_half value_type;
+  typedef uint16_t value_type;
   using TypeClass = HalfFloatType;
   using BuilderClass = HalfFloatBuilder;
 
-  static constexpr npy_half na_sentinel = NPY_HALF_NAN;
+  static constexpr uint16_t na_sentinel =
+      std::numeric_limits<arrow::util::Float16>::quiet_NaN().bits();
 
   static constexpr bool supports_nulls = true;
 
-  static inline bool isnull(npy_half v) { return v == NPY_HALF_NAN; }
+  static inline bool isnull(uint16_t v) {
+    return arrow::util::Float16::FromBits(v).is_nan();
+  }
 };
 
 template <>
@@ -201,7 +203,8 @@ template <>
 struct arrow_traits<Type::HALF_FLOAT> {
   static constexpr int npy_type = NPY_FLOAT16;
   static constexpr bool supports_nulls = true;
-  static constexpr uint16_t na_value = NPY_HALF_NAN;
+  static constexpr uint16_t na_value =
+      std::numeric_limits<arrow::util::Float16>::quiet_NaN().bits();
   typedef typename npy_traits<NPY_FLOAT16>::value_type T;
 };
 

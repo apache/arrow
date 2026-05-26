@@ -58,7 +58,7 @@ namespace io::internal {
 namespace {
 
 template <bool Required, typename T>
-Status SetSymbol(void* handle, char const* name, T** symbol) {
+Status SetSymbol(void* handle, const char* name, T** symbol) {
   if (*symbol != nullptr) return Status::OK();
 
   auto maybe_symbol = ::arrow::internal::GetSymbolAs<T>(handle, name);

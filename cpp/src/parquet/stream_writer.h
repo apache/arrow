@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -151,6 +152,12 @@ class PARQUET_EXPORT StreamWriter {
   StreamWriter& operator<<(const std::string& v);
   StreamWriter& operator<<(::std::string_view v);
 
+  /// \brief Helper class to write variable length raw data.
+  using RawDataView = std::span<const uint8_t>;
+
+  /// \brief Output operators for variable length raw data.
+  StreamWriter& operator<<(RawDataView v);
+
   /// \brief Output operator for optional fields.
   template <typename T>
   StreamWriter& operator<<(const optional<T>& v) {
@@ -190,7 +197,8 @@ class PARQUET_EXPORT StreamWriter {
     return *this;
   }
 
-  StreamWriter& WriteVariableLength(const char* data_ptr, std::size_t data_len);
+  StreamWriter& WriteVariableLength(const char* data_ptr, std::size_t data_len,
+                                    ConvertedType::type converted_type);
 
   StreamWriter& WriteFixedLength(const char* data_ptr, std::size_t data_len);
 

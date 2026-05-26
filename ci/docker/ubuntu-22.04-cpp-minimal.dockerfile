@@ -33,6 +33,7 @@ RUN apt-get update -y -q && \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
+        patch \
         python3-pip \
         python3-venv \
         tzdata \

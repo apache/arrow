@@ -40,6 +40,9 @@
 !ruby/red-arrow-cuda/Gemfile
 !ruby/red-arrow-cuda/lib/arrow-cuda/version.rb
 !ruby/red-arrow-cuda/red-arrow-cuda.gemspec
+!ruby/red-arrow-format/Gemfile
+!ruby/red-arrow-format/lib/arrow-format/version.rb
+!ruby/red-arrow-format/red-arrow-format.gemspec
 !ruby/red-gandiva/Gemfile
 !ruby/red-gandiva/lib/gandiva/version.rb
 !ruby/red-gandiva/red-gandiva.gemspec

@@ -236,7 +236,8 @@ Result<std::shared_ptr<Buffer>> PyBuffer::FromPyObject(PyObject* obj) {
 }
 
 PyBuffer::~PyBuffer() {
-  if (data_ != nullptr) {
+  // GH-38626: destructor may be called after the Python interpreter is finalized.
+  if (Py_IsInitialized() && data_ != nullptr) {
     PyAcquireGIL lock;
     PyBuffer_Release(&py_buf_);
   }

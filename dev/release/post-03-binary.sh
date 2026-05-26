@@ -27,20 +27,13 @@ if [ "$#" -ne 2 ]; then
   exit
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+. "${SOURCE_DIR}/utils-binary.sh"
+
 version=$1
 rc=$2
 
 cd "${SOURCE_DIR}"
-
-if [ ! -f .env ]; then
-  echo "You must create $(pwd)/.env"
-  echo "You can use $(pwd)/.env.example as template"
-  exit 1
-fi
-# shellcheck source=SCRIPTDIR/.env.example
-. .env
-
-. utils-binary.sh
 
 # By default deploy all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
@@ -50,7 +43,6 @@ fi
 : "${DEPLOY_AMAZON_LINUX:=${DEPLOY_DEFAULT}}"
 : "${DEPLOY_CENTOS:=${DEPLOY_DEFAULT}}"
 : "${DEPLOY_DEBIAN:=${DEPLOY_DEFAULT}}"
-: "${DEPLOY_R:=${DEPLOY_DEFAULT}}"
 : "${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}"
 
 rake_tasks=()
@@ -71,9 +63,6 @@ fi
 if [ "${DEPLOY_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:release)
   apt_targets+=(debian)
-fi
-if [ "${DEPLOY_R}" -gt 0 ]; then
-  rake_tasks+=(r:release)
 fi
 if [ "${DEPLOY_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:release)

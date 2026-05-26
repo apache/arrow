@@ -44,5 +44,8 @@ Tables
 .. doxygenfunction:: arrow::ConcatenateTables
    :project: arrow_cpp
 
-.. doxygenfunction:: arrow::PromoteTableToSchema
+.. doxygenfunction:: arrow::PromoteTableToSchema(const std::shared_ptr<Table> &table, const std::shared_ptr<Schema> &schema, MemoryPool *pool)
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::PromoteTableToSchema(const std::shared_ptr<Table> &table, const std::shared_ptr<Schema> &schema, const compute::CastOptions &options, MemoryPool *pool)
    :project: arrow_cpp

@@ -38,42 +38,42 @@ conf_data.set('UPPERCASE_BUILD_TYPE', get_option('buildtype').to_upper())
 conf_data.set('ARROW_PACKAGE_KIND', get_option('package_kind'))
 
 conf_data.set('ARROW_COMPUTE', needs_compute)
-conf_data.set('ARROW_CSV', false)
-conf_data.set('ARROW_CUDA', false)
-conf_data.set('ARROW_DATASET', false)
-conf_data.set('ARROW_FILESYSTEM', false)
-conf_data.set('ARROW_FLIGHT', false)
-conf_data.set('ARROW_FLIGHT_SQL', false)
+conf_data.set('ARROW_CSV', needs_csv)
+conf_data.set('ARROW_CUDA', needs_cuda)
+conf_data.set('ARROW_DATASET', needs_dataset)
+conf_data.set('ARROW_FILESYSTEM', needs_filesystem)
+conf_data.set('ARROW_FLIGHT', needs_flight)
+conf_data.set('ARROW_FLIGHT_SQL', needs_flight_sql)
 conf_data.set('ARROW_IPC', needs_ipc)
 conf_data.set('ARROW_JEMALLOC', false)
 conf_data.set('ARROW_JEMALLOC_VENDORED', false)
-conf_data.set('ARROW_JSON', false)
+conf_data.set('ARROW_JSON', needs_json)
 conf_data.set('ARROW_MIMALLOC', false)
-conf_data.set('ARROW_ORC', false)
-conf_data.set('ARROW_PARQUET', false)
-conf_data.set('ARROW_SUBSTRAIT', false)
-conf_data.set('ARROW_AZURE', false)
-conf_data.set('ARROW_ENABLE_THREADING', false)
-conf_data.set('ARROW_GCS', false)
-conf_data.set('ARROW_HDFS', false)
-conf_data.set('ARROW_S3', false)
+conf_data.set('ARROW_ORC', needs_orc)
+conf_data.set('ARROW_PARQUET', needs_parquet)
+conf_data.set('ARROW_SUBSTRAIT', needs_substrait)
+conf_data.set('ARROW_AZURE', needs_azure)
+conf_data.set('ARROW_ENABLE_THREADING', true)
+conf_data.set('ARROW_GCS', needs_gcs)
+conf_data.set('ARROW_HDFS', needs_hdfs)
+conf_data.set('ARROW_S3', needs_s3)
 conf_data.set('ARROW_USE_GLOG', false)
 
 has_int128 = cpp_compiler.has_define('__SIZEOF_INT128__')
 conf_data.set('ARROW_USE_NATIVE_INT128', has_int128)
 
-conf_data.set('ARROW_WITH_BROTLI', false)
-conf_data.set('ARROW_WITH_BZ2', false)
-conf_data.set('ARROW_WITH_LZ4', false)
+conf_data.set('ARROW_WITH_BROTLI', needs_brotli)
+conf_data.set('ARROW_WITH_BZ2', needs_bz2)
+conf_data.set('ARROW_WITH_LZ4', needs_lz4)
 conf_data.set('ARROW_WITH_MUSL', false)
-conf_data.set('ARROW_WITH_OPENTELEMETRY', false)
+conf_data.set('ARROW_WITH_OPENTELEMETRY', needs_opentelemetry)
 conf_data.set('ARROW_WITH_RE2', false)
-conf_data.set('ARROW_WITH_SNAPPY', false)
+conf_data.set('ARROW_WITH_SNAPPY', needs_snappy)
 conf_data.set('ARROW_WITH_UCX', false)
-conf_data.set('ARROW_WITH_UTF8PROC', false)
-conf_data.set('ARROW_WITH_ZLIB', false)
-conf_data.set('ARROW_WITH_ZSTD', false)
-conf_data.set('PARQUET_REQUIRE_ENCRYPTION', false)
+conf_data.set('ARROW_WITH_UTF8PROC', needs_utf8proc)
+conf_data.set('ARROW_WITH_ZLIB', needs_zlib)
+conf_data.set('ARROW_WITH_ZSTD', needs_zstd)
+conf_data.set('PARQUET_REQUIRE_ENCRYPTION', needs_parquet_encryption)
 
 configure_file(
     input: 'config.h.cmake',
@@ -117,14 +117,7 @@ install_headers(
         'bitmap_visit.h',
         'bitmap_writer.h',
         'bit_run_reader.h',
-        'bitset_stack.h',
         'bit_util.h',
-        'bpacking64_default.h',
-        'bpacking_avx2.h',
-        'bpacking_avx512.h',
-        'bpacking_default.h',
-        'bpacking.h',
-        'bpacking_neon.h',
         'byte_size.h',
         'cancel.h',
         'checked_cast.h',
@@ -132,15 +125,11 @@ install_headers(
         'compression.h',
         'concurrent_map.h',
         'converter.h',
-        'counting_semaphore.h',
         'cpu_info.h',
         'crc32.h',
         'debug.h',
         'decimal.h',
         'delimiting.h',
-        'dict_util.h',
-        'dispatch.h',
-        'double_conversion.h',
         'endian.h',
         'float16.h',
         'formatting.h',
@@ -158,14 +147,11 @@ install_headers(
         'logger.h',
         'logging.h',
         'macros.h',
-        'map.h',
         'math_constants.h',
-        'memory.h',
         'mutex.h',
         'parallel.h',
         'pcg_random.h',
         'prefetch.h',
-        'print.h',
         'queue.h',
         'range.h',
         'ree_util.h',
@@ -173,19 +159,13 @@ install_headers(
         'rows_to_batches.h',
         'simd.h',
         'small_vector.h',
-        'sort.h',
-        'spaced.h',
-        'span.h',
-        'stopwatch.h',
-        'string_builder.h',
+        'string_util.h',
         'string.h',
         'task_group.h',
-        'tdigest.h',
         'test_common.h',
         'thread_pool.h',
         'time.h',
         'tracing.h',
-        'trie.h',
         'type_fwd.h',
         'type_traits.h',
         'ubsan.h',
@@ -229,7 +209,6 @@ utility_test_srcs = [
     'reflection_test.cc',
     'rows_to_batches_test.cc',
     'small_vector_test.cc',
-    'span_test.cc',
     'stl_util_test.cc',
     'string_test.cc',
     'tdigest_test.cc',
@@ -246,17 +225,16 @@ if host_machine.system() == 'windows'
     # This manifest enables long file paths on Windows 10+
     # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
     if cpp_compiler.get_id() == 'msvc'
-        utility_test_sources += ['io_util_test.manifest']
+        utility_test_srcs += ['io_util_test.manifest']
     else
-        utility_test_sources += ['io_util_test.rc']
+        utility_test_srcs += ['io_util_test.rc']
     endif
 endif
 
 exc = executable(
     'arrow-utility-test',
     sources: utility_test_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gtest_dep, gmock_dep],
-    link_with: [arrow_test_lib],
+    dependencies: arrow_test_dep_no_main,
     implicit_include_directories: false,
 )
 test('arrow-utility-test', exc)
@@ -273,7 +251,10 @@ util_tests = {
         'sources': [
             'bit_block_counter_test.cc',
             'bit_util_test.cc',
+            'bitmap_test.cc',
+            'bpacking_test.cc',
             'rle_encoding_test.cc',
+            'test_common.cc',
         ],
     },
     'arrow-threading-utility-test': {
@@ -303,6 +284,7 @@ util_benchmarks = [
     'bit_block_counter',
     'bit_util',
     'bitmap_reader',
+    'bpacking',
     'cache',
     'compression',
     'decimal',

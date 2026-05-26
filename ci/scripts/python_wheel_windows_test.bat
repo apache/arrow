@@ -18,6 +18,7 @@
 @echo on
 
 set PYARROW_TEST_ACERO=ON
+set PYARROW_TEST_AZURE=ON
 set PYARROW_TEST_CYTHON=ON
 set PYARROW_TEST_DATASET=ON
 set PYARROW_TEST_FLIGHT=ON
@@ -43,6 +44,7 @@ py -0p
 
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._azurefs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._s3fs" || exit /B 1

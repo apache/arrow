@@ -23,6 +23,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
     properties(Dependent, SetAccess=private, GetAccess=public)
         NumElements
+        NumNulls
         Valid % Validity bitmap
         Type(1, 1) arrow.type.Type
     end
@@ -39,6 +40,10 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             numElements = obj.Proxy.getNumElements();
         end
 
+        function numNulls = get.NumNulls(obj)
+            numNulls = obj.Proxy.getNumNulls();
+        end
+
         function validElements = get.Valid(obj)
             validElements = obj.Proxy.getValid();
         end
@@ -52,6 +57,20 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             traits = arrow.type.traits.traits(arrow.type.ID(typeStruct.TypeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
             type = traits.TypeConstructor(proxy);
+        end
+
+        function validate(obj, opts)
+             arguments
+                obj
+                opts.Mode(1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
+             end
+
+             if opts.Mode == arrow.array.ValidationMode.None
+                 id = "arrow:array:InvalidValidationMode";
+                 msg = "Invalid Mode. Mode must be ""Minimal"" or ""Full"".";
+                 error(id, msg);
+             end
+             obj.Proxy.validate(struct(ValidationMode=uint8(opts.Mode)));
         end
     end
 

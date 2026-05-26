@@ -153,6 +153,16 @@ module RawRecordsDictionaryArrayTests
     assert_equal(records, actual_records(target))
   end
 
+  def test_large_binary
+    records = [
+      ["\x00".b],
+      [nil],
+      ["\xff".b],
+    ]
+    target = build(Arrow::LargeBinaryArray.new(records.collect(&:first)))
+    assert_equal(records, actual_records(target))
+  end
+
   def test_string
     records = [
       ["Ruby"],
@@ -160,6 +170,16 @@ module RawRecordsDictionaryArrayTests
       ["\u3042"], # U+3042 HIRAGANA LETTER A
     ]
     target = build(Arrow::StringArray.new(records.collect(&:first)))
+    assert_equal(records, actual_records(target))
+  end
+
+  def test_large_string
+    records = [
+      ["Ruby"],
+      [nil],
+      ["\u3042"], # U+3042 HIRAGANA LETTER A
+    ]
+    target = build(Arrow::LargeStringArray.new(records.collect(&:first)))
     assert_equal(records, actual_records(target))
   end
 
@@ -340,7 +360,14 @@ class EachRawRecordTableDictionaryArraysTest < Test::Unit::TestCase
   include RawRecordsDictionaryArrayTests
 
   def build(array)
-    build_record_batch(array).to_table
+    record_batch = build_record_batch(array)
+    # Multiple chunks
+    record_batches = [
+      record_batch.slice(0, 2),
+      record_batch.slice(2, 0), # Empty chunk
+      record_batch.slice(2, record_batch.length - 2),
+    ]
+    Arrow::Table.new(record_batch.schema, record_batches)
   end
 
   def actual_records(target)

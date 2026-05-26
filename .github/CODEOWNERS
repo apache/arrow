@@ -25,26 +25,6 @@
 # Arrow Format
 # /format/
 
-## Components
-/c_glib/ @kou
-# /cpp/
-/cpp/src/arrow/acero @westonpace
-/cpp/src/arrow/adapters/orc @wgtmac
-/cpp/src/arrow/engine @westonpace
-/cpp/src/arrow/flight/ @lidavidm
-/cpp/src/parquet @wgtmac
-/csharp/ @curthagenlocher
-/go/ @zeroshade
-/java/ @lidavidm
-/js/ @domoritz @trxcllnt
-/matlab/ @kevingurney @kou @sgilmore10
-/python/ @AlenkaF @raulcd @rok 
-/python/pyarrow/_flight.pyx @lidavidm
-/python/pyarrow/**/*gandiva* @wjones127
-/r/ @jonkeane @thisisnic
-/ruby/ @kou
-/swift/ @kou
-
 # Docs
 # /docs/
 # *.md
@@ -56,20 +36,43 @@
 /.github/ @assignUser @jonkeane @kou @raulcd
 .asf.yaml @assignUser @kou @raulcd
 .pre-commit-config.yaml @raulcd
-.travis.yml @assignUser @kou @raulcd
-appveyor.yml @assignUser @kou @raulcd
 # .git*
 
-# release scripts, archery etc.
+# Release scripts, archery etc.
 /ci/ @assignUser @jonkeane @kou @raulcd
 /dev/ @assignUser @jonkeane @kou @raulcd
 .dockerignore @raulcd
 .env @assignUser @jonkeane @kou @raulcd
-docker-compose.yml @assignUser @jonkeane @kou @raulcd
+compose.yaml @assignUser @jonkeane @kou @raulcd
 
-# R specific packaging tooling
+# Components
+
+## C GLib
+/c_glib/ @kou
+
+## C++
+/cpp/src/arrow/acero @westonpace
+/cpp/src/arrow/adapters/orc @wgtmac
+/cpp/src/arrow/engine @westonpace
+/cpp/src/arrow/flight/ @lidavidm
+/cpp/src/parquet @wgtmac
+
+## MATLAB
+/.github/workflows/matlab.yml @kevingurney @sgilmore10
+/matlab/ @kevingurney @kou @sgilmore10
+
+## Python
+/python/ @AlenkaF @raulcd @rok
+/python/pyarrow/_flight.pyx @lidavidm
+/python/pyarrow/**/*gandiva* @wjones127
+
+## R
+/r/ @jonkeane @thisisnic
 /r/configure* @assignUser
 /r/Makefile @assignUser
 /r/PACKAGING.md @assignUser
 /r/tools/ @assignUser
-.Rbuildignore @assignUser
+/r/.Rbuildignore @assignUser
+
+## Ruby
+/ruby/ @kou

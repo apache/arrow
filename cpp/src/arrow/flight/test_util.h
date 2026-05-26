@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -42,20 +41,8 @@ namespace flight {
 
 // ----------------------------------------------------------------------
 // Helpers to compare values for equality
-
-inline void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
-  ipc::DictionaryMemo expected_memo;
-  ipc::DictionaryMemo actual_memo;
-  ASSERT_OK_AND_ASSIGN(auto ex_schema, expected.GetSchema(&expected_memo));
-  ASSERT_OK_AND_ASSIGN(auto actual_schema, actual.GetSchema(&actual_memo));
-
-  AssertSchemaEqual(*ex_schema, *actual_schema);
-  ASSERT_EQ(expected.total_records(), actual.total_records());
-  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
-
-  ASSERT_EQ(expected.descriptor(), actual.descriptor());
-  ASSERT_THAT(actual.endpoints(), ::testing::ContainerEq(expected.endpoints()));
-}
+ARROW_FLIGHT_EXPORT
+void AssertEqual(const FlightInfo& expected, const FlightInfo& actual);
 
 // ----------------------------------------------------------------------
 // Fixture to use for running test servers
@@ -144,6 +131,9 @@ ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleIntSchema();
 
 ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleFloatSchema();
+
+ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleStringSchema();
 
 ARROW_FLIGHT_EXPORT
@@ -178,6 +168,12 @@ std::vector<ActionType> ExampleActionTypes();
 
 ARROW_FLIGHT_EXPORT
 FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes, bool ordered,
+                          std::string app_metadata);
+
+ARROW_FLIGHT_EXPORT
+FlightInfo MakeFlightInfo(const FlightDescriptor& descriptor,
                           const std::vector<FlightEndpoint>& endpoints,
                           int64_t total_records, int64_t total_bytes, bool ordered,
                           std::string app_metadata);

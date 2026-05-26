@@ -87,6 +87,7 @@ add_arrow_test(substrait_test
                substrait/test_util.cc
                EXTRA_LINK_LIBS
                ${ARROW_SUBSTRAIT_TEST_LINK_LIBS}
+               arrow_compute_testing
                PREFIX
                "arrow-substrait"
                LABELS

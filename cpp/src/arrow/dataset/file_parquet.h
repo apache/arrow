@@ -90,6 +90,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// @{
     std::unordered_set<std::string> dict_columns;
     arrow::TimeUnit::type coerce_int96_timestamp_unit = arrow::TimeUnit::NANO;
+    Type::type binary_type = Type::BINARY;
+    Type::type list_type = Type::LIST;
     /// @}
   } reader_options;
 
@@ -242,8 +244,7 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// ScanOptions.
   std::shared_ptr<parquet::ReaderProperties> reader_properties;
   /// Arrow reader properties. Not all properties are respected: batch_size comes from
-  /// ScanOptions. Additionally, dictionary columns come from
-  /// ParquetFileFormat::ReaderOptions::dict_columns.
+  /// ScanOptions. Additionally, other options come from ParquetFileFormat::ReaderOptions.
   std::shared_ptr<parquet::ArrowReaderProperties> arrow_reader_properties;
   /// A configuration structure that provides decryption properties for a dataset
   std::shared_ptr<ParquetDecryptionConfig> parquet_decryption_config = NULLPTR;

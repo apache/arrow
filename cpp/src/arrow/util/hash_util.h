@@ -54,7 +54,7 @@ inline void hash_combine_impl(uint32_t& h1, uint32_t k1) {
 }  // namespace detail
 
 template <class T>
-inline void hash_combine(std::size_t& seed, T const& v) {
+inline void hash_combine(std::size_t& seed, const T& v) {
   std::hash<T> hasher;
   return ::arrow::internal::detail::hash_combine_impl(seed, hasher(v));
 }

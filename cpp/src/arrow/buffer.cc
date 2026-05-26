@@ -203,10 +203,6 @@ Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, int64_t alig
   return std::shared_ptr<Buffer>(std::move(buf));
 }
 
-Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
-  return AllocateEmptyBitmap(length).Value(out);
-}
-
 Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
     const std::vector<std::shared_ptr<Buffer>>& buffers, MemoryPool* pool) {
   int64_t out_length = 0;

@@ -34,6 +34,14 @@ Base classes
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::FlatArray
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::PrimitiveArray
+   :project: arrow_cpp
+   :members:
+
 Factory functions
 =================
 
@@ -84,6 +92,11 @@ Extension arrays
 .. doxygenclass:: arrow::ExtensionArray
    :members:
 
+Run-end encoded
+---------------
+
+.. doxygenclass:: arrow::RunEndEncodedArray
+   :members:
 
 Chunked Arrays
 ==============
@@ -103,6 +116,17 @@ Chunked Arrays
    :project: arrow_cpp
    :members:
 
+Non-owning data class
+=====================
+
+.. warning::
+   As this class doesn't keep alive the objects and data it points to, their
+   lifetime must be ensured separately. We recommend using :class:`arrow::ArrayData`
+   instead.
+
+.. doxygenclass:: arrow::ArraySpan
+   :members:
+
 Utilities
 =========
 
@@ -110,3 +134,11 @@ Utilities
    :project: arrow_cpp
    :members:
    :undoc-members:
+
+.. _api-array-from-json-string:
+
+FromJSONString Helpers
+----------------------
+
+.. doxygengroup:: array-from-json-string
+   :members:

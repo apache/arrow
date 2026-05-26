@@ -110,7 +110,7 @@ class TestDecimal256 < Test::Unit::TestCase
     decimal1 = Arrow::Decimal256.new(23423445)
     decimal2 = Arrow::Decimal256.new(0)
     message =
-      "[decimal256][divide]: Invalid: Division by 0 in Decimal256"
+      "[decimal256][divide]: Invalid: Division by 0 in Decimal"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal1.divide(decimal2)
     end
@@ -223,7 +223,7 @@ class TestDecimal256 < Test::Unit::TestCase
     decimal = Arrow::Decimal256.new(10)
     message =
       "[decimal256][rescale]: Invalid: " +
-      "Rescaling Decimal256 value would cause data loss"
+      "Rescaling Decimal value would cause data loss"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal.rescale(1, -1)
     end

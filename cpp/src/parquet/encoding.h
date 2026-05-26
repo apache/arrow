@@ -126,11 +126,16 @@ struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
 
-  using ArrowType = ::arrow::BinaryType;
-  /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
-  /// overflow the capacity of a single arrow::BinaryArray
+  /// \brief Internal helper class for decoding BYTE_ARRAY data
+  ///
+  /// This class allows the caller to choose the concrete Arrow data type
+  /// by passing a corresponding `ArrayBuilder`.
+  /// Supported `ArrayBuilder` classes are `BinaryBuilder`, `LargeBinaryBuilder`
+  /// and `BinaryViewBuilder`.
+  /// If the builder is a `BinaryBuilder`, `chunks` can accumulate several
+  /// arrays as needed to work around the 32-bit offset limit.
   struct Accumulator {
-    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::unique_ptr<::arrow::ArrayBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
@@ -287,20 +292,32 @@ class TypedDecoder : virtual public Decoder {
 
   /// \brief Decode into an ArrayBuilder or other accumulator
   ///
+  /// \param[in] num_values number of values to decode, including null slots
+  /// \param[in] null_count number of null slots
+  /// \param[in] valid_bits validity bitmap
+  /// \param[in] valid_bits_offset bit offset to start into the validity bitmap
+  /// \param[in] out accumulator to decode into
+  ///
   /// This function assumes the definition levels were already decoded
   /// as a validity bitmap in the given `valid_bits`.  `null_count`
   /// is the number of 0s in `valid_bits`.
+  /// `valid_bits` must at least `valid_bits_offset + num_values` bits.
   /// As a space optimization, it is allowed for `valid_bits` to be null
   /// if `null_count` is zero.
+  /// This function throws a ParquetException if there are less than
+  /// `num_values - null_count` values left to decode.
   ///
-  /// \return number of values decoded
+  /// \return The number of non-null values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out) = 0;
 
   /// \brief Decode into an ArrayBuilder or other accumulator ignoring nulls
   ///
-  /// \return number of values decoded
+  /// \param[in] num_values number of values to decode
+  /// \param[in] out accumulator to decode into
+  ///
+  /// \return The number of values decoded
   int DecodeArrowNonNull(int num_values,
                          typename EncodingTraits<DType>::Accumulator* out) {
     return DecodeArrow(num_values, 0, /*valid_bits=*/NULLPTR, 0, out);
@@ -449,5 +466,11 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
   std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
+
+/// Return the list of supported encodings for the given physical type
+///
+/// Only non-dictionary encodings are returned.
+PARQUET_EXPORT
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type);
 
 }  // namespace parquet

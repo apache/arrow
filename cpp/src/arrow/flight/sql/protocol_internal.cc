@@ -20,9 +20,13 @@
 ARROW_SUPPRESS_DEPRECATION_WARNING
 #include "arrow/flight/sql/protocol_internal.h"
 
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
+
 // NOTE(lidavidm): Normally this is forbidden, but on Windows to get
 // the dllexport/dllimport macro in the right places, we need to
 // ensure our header gets included (and Protobuf will not insert the
 // include for you)
 #include "arrow/flight/sql/FlightSql.pb.cc"  // NOLINT
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 ARROW_UNSUPPRESS_DEPRECATION_WARNING

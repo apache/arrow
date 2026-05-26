@@ -1,8 +1,8 @@
 # transmute() defuses dots arguments (ARROW-13262)
 
     Code
-      tbl %>% Table$create() %>% transmute(a = stringr::str_c(padded_strings,
-        padded_strings), b = stringr::str_squish(a)) %>% collect()
+      collect(transmute(Table$create(tbl), a = stringr::str_c(padded_strings,
+        padded_strings), b = stringr::str_squish(a)))
     Condition
       Warning:
       In stringr::str_squish(a): 

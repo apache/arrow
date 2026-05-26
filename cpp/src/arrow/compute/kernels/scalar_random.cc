@@ -23,6 +23,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
 

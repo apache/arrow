@@ -17,3 +17,9 @@
 
 vptr:include/c++/8/bits/shared_ptr_base.h
 function:cleancall.c
+
+# This is false positive. See also:
+# * https://github.com/apache/arrow/issues/46863
+# * https://github.com/aws/aws-sdk-cpp/issues/3464
+# * https://github.com/llvm/llvm-project/issues/59060
+vptr:AWSClientAsyncCRTP.h

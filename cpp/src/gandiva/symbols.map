@@ -21,7 +21,7 @@
   local:
     # devtoolset / static-libstdc++ symbols
     __cxa_*;
-    __once_proxy;
+    __once_proxy*;
 
     extern "C++" {
       # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
@@ -32,4 +32,3 @@
       *std::__once_call*;
     };
 };
-

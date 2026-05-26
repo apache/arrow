@@ -47,7 +47,7 @@ pushd "${ARROW_SITE_DIR}"
 source "${SOURCE_DIR}/git-vars.sh"
 git fetch --all --prune --tags --force -j$(nproc)
 git checkout ${DEFAULT_BRANCH}
-git rebase apache/${DEFAULT_BRANCH}
+git rebase upstream/${DEFAULT_BRANCH}
 git branch -D ${branch_name} || :
 git checkout -b ${branch_name}
 popd
@@ -95,6 +95,7 @@ cat <<ANNOUNCE > "${announce_file}"
 ---
 layout: default
 title: Apache Arrow ${version} Release
+date: "${release_date_iso8601}"
 permalink: /release/${version}.html
 ---
 <!--

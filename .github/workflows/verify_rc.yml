@@ -38,11 +38,46 @@ permissions:
 env:
   TEST_DEFAULT: "0"
   VERBOSE: "1"
-  RC_TAG: "${{ inputs.rc_tag || github.event_name == 'pull_request' && 'apache-arrow-20.0.0-rc0' || github.ref_name }}"
 
 jobs:
+  target:
+    name: Target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      rc: ${{ steps.detect.outputs.rc }}
+    steps:
+      - name: Detect
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RC_TAG: ${{ inputs.rc_tag }}
+        run: |
+          case "${GITHUB_EVENT_NAME}" in
+            workflow_dispatch)
+              tag="${RC_TAG}"
+              ;;
+            pull_request)
+              tag="$(gh release list \
+                       --jq '.[] | select(.isPrerelease) | .tagName' \
+                       --json tagName,isPrerelease \
+                       --repo ${GITHUB_REPOSITORY} | \
+                       head -n1)"
+              ;;
+            *)
+              tag="${GITHUB_REF_NAME}"
+              ;;
+          esac
+          package_id=${tag%-rc*}
+          version=${package_id#apache-arrow-}
+          rc=${tag#*-rc}
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
+
   apt:
     name: APT
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -52,33 +87,64 @@ jobs:
           - ubuntu-latest
           - ubuntu-24.04-arm
     env:
+      RC: ${{ needs.target.outputs.rc }}
       TEST_APT: "1"
+      VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
       - name: Run
         run: |
-          package_id=${RC_TAG%-rc*}
-          version=${package_id#apache-arrow-}
-          rc=${RC_TAG#*-rc}
-          dev/release/verify-release-candidate.sh ${version} ${rc}
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
+      - name: Verify the previous version
+        # TODO: We may re-enable this in the future.
+        # There are some problems for now:
+        # * We need to specify the previous versions for all
+        #   dependencies explicitly. For example, "apt install
+        #   libarrow-glib-dev=20.0.0-1" doesn't work. We need "apt
+        #   install libarrow-glib-dev=20.0.0-1
+        #   libarrow-acero-dev=20.0.0-1 libparquet-dev=20.0.0-1
+        #   gir1.2-arrow-1.0=20.0.0-1 libparquet-dev=20.0.0-1
+        #   libarrow-dev=20.0.0-1"
+        continue-on-error: true
+        run: |
+          major_version=${VERSION%%.*}
+          previous_major_version=$((major_version - 1))
+          previous_version=${previous_major_version}.0.0
+          previous_tag=apache-arrow-${previous_version}
+          git checkout ${previous_tag}
+          # This is workaround. dev/release/verify-release-candidate.sh
+          # in < 21.0.0 doesn't accept 20.0.0 as the VERSION argument.
+          # We can remove this workaround after 21.0.0 release.
+          sed \
+            -i \
+            -e 's/^\(ensure_source_directory\)$/# \1/' \
+            -e 's/^\(test_source_distribution\)$/# \1/' \
+            dev/release/verify-release-candidate.sh
+          dev/release/verify-release-candidate.sh ${previous_version}
 
   binary:
     name: Binary
+    needs: target
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      RC: ${{ needs.target.outputs.rc }}
       TEST_BINARY: "1"
+      VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Run
         run: |
-          package_id=${RC_TAG%-rc*}
-          version=${package_id#apache-arrow-}
-          rc=${RC_TAG#*-rc}
-          dev/release/verify-release-candidate.sh ${version} ${rc}
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
 
   wheels-linux:
     name: Wheels Linux
+    needs: target
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -90,19 +156,20 @@ jobs:
           - ubuntu-22.04
           - ubuntu-24.04
     env:
+      RC: ${{ needs.target.outputs.rc }}
       TEST_WHEELS: "1"
+      VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Setup Archery
         run: python -m pip install -e dev/archery[docker]
       - name: Prepare
         run: |
-          package_id=${RC_TAG%-rc*}
-          echo "VERSION=${package_id#apache-arrow-}" >> ${GITHUB_ENV}
-          echo "RC=${RC_TAG#*-rc}" >> ${GITHUB_ENV}
           distro=${{ matrix.distro }}
           if [ "${distro}" = "conda" ]; then
             echo "SERVICE=${distro}-verify-rc" >> ${GITHUB_ENV}
@@ -127,45 +194,45 @@ jobs:
 
   wheels-macos:
     name: Wheels macOS
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         runs-on:
-          - macos-13
+          - macos-15-intel
           - macos-14
     env:
+      RC: ${{ needs.target.outputs.rc }}
       TEST_WHEELS: "1"
+      VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Run
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          package_id=${RC_TAG%-rc*}
-          version=${package_id#apache-arrow-}
-          rc=${RC_TAG#*-rc}
-          dev/release/verify-release-candidate.sh ${version} ${rc}
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
 
   wheels-windows:
     name: Wheels Windows
+    needs: target
     runs-on: windows-latest
     timeout-minutes: 45
     env:
       PYARROW_TEST_GDB: "OFF"
+      RC: ${{ needs.target.outputs.rc }}
       TEST_WHEELS: "1"
+      VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           submodules: recursive
-      - name: Prepare
-        shell: bash
-        run: |
-          package_id=${RC_TAG%-rc*}
-          echo "VERSION=${package_id#apache-arrow-}" >> ${GITHUB_ENV}
-          echo "RC=${RC_TAG#*-rc}" >> ${GITHUB_ENV}
-      - uses: conda-incubator/setup-miniconda@505e6394dae86d6a5c7fbb6e3fb8938e3e863830 # v3.1.1
+      - uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4.0.1
       - name: Install System Dependencies
         run: |
           choco install --no-progress --yes boost-msvc-14.1
@@ -182,6 +249,7 @@ jobs:
 
   yum:
     name: Yum
+    needs: target
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
@@ -191,12 +259,38 @@ jobs:
           - ubuntu-latest
           - ubuntu-24.04-arm
     env:
+      RC: ${{ needs.target.outputs.rc }}
       TEST_YUM: "1"
+      VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
       - name: Run
         run: |
-          package_id=${RC_TAG%-rc*}
-          version=${package_id#apache-arrow-}
-          rc=${RC_TAG#*-rc}
-          dev/release/verify-release-candidate.sh ${version} ${rc}
+          dev/release/verify-release-candidate.sh ${VERSION} ${RC}
+      - name: Verify the previous version
+        # TODO: We may re-enable this in the future.
+        # There are some problems for now:
+        # * x86_64: libLLVM.so.18.1 needed by gandiva2000-libs on AlmaLinux 9
+        # * arm64: libarrow.so.2000.0.0: refers the
+        #   "std::condition_variable::wait(std::unique_lock<std::mutex>&)@GLIBCXX_3.4.30"
+        #   (not "...@@GLIBCXX_3.4.30" nor "...@GLIBCXX_3.4.11") symbol on
+        #   AmazonLinux 2023.
+        continue-on-error: true
+        run: |
+          major_version=${VERSION%%.*}
+          previous_major_version=$((major_version - 1))
+          previous_version=${previous_major_version}.0.0
+          previous_tag=apache-arrow-${previous_version}
+          git checkout ${previous_tag}
+          # This is workaround. dev/release/verify-release-candidate.sh
+          # in < 21.0.0 doesn't accept 20.0.0 as the VERSION argument.
+          # We can remove this workaround after 21.0.0 release.
+          sed \
+            -i \
+            -e 's/^\(ensure_source_directory\)$/# \1/' \
+            -e 's/^\(test_source_distribution\)$/# \1/' \
+            dev/release/verify-release-candidate.sh
+          dev/release/verify-release-candidate.sh ${previous_version}

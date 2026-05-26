@@ -335,26 +335,12 @@ Check styling
 -------------
 
 At the end we also need to check the styling. In Arrow we use a
-utility called `Archery <https://arrow.apache.org/docs/developers/archery.html>`_
-to check if code is in line with PEP 8 style guide.
+utility called `pre-commit <https://pre-commit.com/>`_ to check if
+code is in line with PEP 8 style guide.
 
 .. code:: console
 
-   $ archery lint --python --fix
-   INFO:archery:Running Python formatter (autopep8)
-   INFO:archery:Running Python linter (flake8)
-   /Users/alenkafrim/repos/arrow/python/pyarrow/tests/test_compute.py:2288:80: E501 line too long (88 > 79 characters)
-
-With the ``--fix`` command Archery will attempt to fix style issues,
-but some issues like line length can't be fixed automatically.
-We should make the necessary corrections ourselves and run
-Archery again.
-
-.. code:: console
-
-   $ archery lint --python --fix
-   INFO:archery:Running Python formatter (autopep8)
-   INFO:archery:Running Python linter (flake8)
+   $ pre-commit run --show-diff-on-failure --color=always --all-files python
 
 Done. Now lets make the Pull Request!
 

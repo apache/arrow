@@ -848,7 +848,7 @@ This producer-provided structure has the following fields:
   If a non-zero value is returned from this, it should be followed only by the producer calling
   the ``on_error`` callback of the ``ArrowAsyncDeviceStreamHandler``. Because calling this method
   is likely to be separate from the current control flow, returning a non-zero value to signal
-  an error occuring allows the current thread to decide handle the case accordingly, while still
+  an error occurring allows the current thread to decide handle the case accordingly, while still
   allowing all error logging and handling to be centralized in the
   :c:member:`ArrowAsyncDeviceStreamHandler.on_error` callback.
 

@@ -27,6 +27,7 @@ API Reference
    api/thread
    api/datatype
    api/array
+   api/extension
    api/scalar
    api/builder
    api/table

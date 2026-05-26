@@ -410,14 +410,15 @@ Status Function::Validate() const {
 }
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                                 ArrayKernelExec exec, KernelInit init) {
+                                 ArrayKernelExec exec, KernelInit init,
+                                 std::shared_ptr<MatchConstraint> constraint) {
   RETURN_NOT_OK(CheckArity(in_types.size()));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
   }
-  auto sig =
-      KernelSignature::Make(std::move(in_types), std::move(out_type), arity_.is_varargs);
+  auto sig = KernelSignature::Make(std::move(in_types), std::move(out_type),
+                                   arity_.is_varargs, std::move(constraint));
   kernels_.emplace_back(std::move(sig), exec, init);
   return Status::OK();
 }

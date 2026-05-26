@@ -30,25 +30,34 @@ prefix=$2
 mkdir -p /tmp/ccache
 case $(uname) in
   MINGW64*)
-    url="https://github.com/ccache/ccache/releases/download/v${version}/ccache-${version}-windows-x86_64.zip"
+    declare -A archs
+    archs=([64-bit]="x86_64"
+           [ARM 64-bit Processor]="aarch64")
+    arch=$(powershell -Command "(Get-CimInstance Win32_OperatingSystem).OSArchitecture")
+    if [ -z "${archs[$arch]}" ]; then
+      echo "Unsupported architecture on Windows: ${arch}"
+      exit 0
+    fi
+    arch=${archs[$arch]}
+    url="https://github.com/ccache/ccache/releases/download/v${version}/ccache-${version}-windows-${arch}.zip"
     pushd /tmp/ccache
-    curl --fail --location --remote-name ${url}
-    unzip -j ccache-${version}-windows-x86_64.zip
+    curl --fail --location --remote-name "${url}"
+    unzip -j "ccache-${version}-windows-${arch}.zip"
     chmod +x ccache.exe
-    mv ccache.exe ${prefix}/bin/
+    mv ccache.exe "${prefix}/bin/"
     popd
     ;;
   *)
     url="https://github.com/ccache/ccache/archive/v${version}.tar.gz"
 
-    wget -q ${url} -O - | tar -xzf - --directory /tmp/ccache --strip-components=1
+    wget -q "${url}" -O - | tar -xzf - --directory /tmp/ccache --strip-components=1
 
     mkdir /tmp/ccache/build
     pushd /tmp/ccache/build
     cmake \
       -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=${prefix} \
+      -DCMAKE_INSTALL_PREFIX="${prefix}" \
       -DZSTD_FROM_INTERNET=ON \
       ..
     ninja install

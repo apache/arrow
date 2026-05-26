@@ -30,6 +30,22 @@ module Arrow
       @container.share_input(@data)
     end
 
+    def to_arrow
+      @data
+    end
+
+    def to_arrow_array
+      @data.to_arrow_array
+    end
+
+    def to_arrow_chunked_array
+      @data.to_arrow_chunked_array
+    end
+
+    def values
+      @data.values
+    end
+
     def name
       @field.name
     end

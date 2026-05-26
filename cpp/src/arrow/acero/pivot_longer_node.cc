@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/util.h"
 #include "arrow/status.h"

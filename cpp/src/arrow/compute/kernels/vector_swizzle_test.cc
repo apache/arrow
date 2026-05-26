@@ -162,7 +162,8 @@ TEST(InversePermutation, DefaultOptions) {
     ARROW_SCOPED_TRACE("Default options values");
     InversePermutationOptions options;
     ASSERT_EQ(options.max_index, -1);
-    ASSERT_EQ(options.output_type, nullptr);
+    ASSERT_EQ(options.output_type, std::nullopt);
+    ASSERT_FALSE(options.output_type.has_value());
   }
   {
     ARROW_SCOPED_TRACE("Default options semantics");

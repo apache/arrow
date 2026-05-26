@@ -210,7 +210,7 @@ for opening single files and functions for opening datasets.
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)

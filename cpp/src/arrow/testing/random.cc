@@ -43,6 +43,7 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
@@ -54,60 +55,90 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
+using util::Float16;
 
 namespace random {
 
 namespace {
 
 template <typename ValueType, typename DistributionType>
+struct GeneratorFactory {
+  GeneratorFactory(ValueType min, ValueType max) : min_(min), max_(max) {}
+
+  auto operator()(pcg32* rng) const {
+    return [dist = DistributionType(min_, max_), rng]() mutable {
+      return static_cast<ValueType>(dist(*rng));
+    };
+  }
+
+ private:
+  ValueType min_;
+  ValueType max_;
+};
+
+template <typename DistributionType>
+struct GeneratorFactory<Float16, DistributionType> {
+  GeneratorFactory(Float16 min, Float16 max) : min_(min.ToFloat()), max_(max.ToFloat()) {}
+
+  auto operator()(pcg32* rng) const {
+    return [dist = DistributionType(min_, max_), rng]() mutable {
+      return Float16(dist(*rng)).bits();
+    };
+  }
+
+ private:
+  float min_;
+  float max_;
+};
+
+template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
+  static constexpr bool kIsHalfFloat = std::is_same_v<ValueType, Float16>;
+  using PhysicalType = std::conditional_t<kIsHalfFloat, HalfFloatType::c_type, ValueType>;
+  using FactoryType = GeneratorFactory<ValueType, DistributionType>;
+
   GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability,
                   double nan_probability = 0.0)
-      : min_(min),
-        max_(max),
+      : generator_factory_(FactoryType(min, max)),
         seed_(seed),
         probability_(probability),
         nan_probability_(nan_probability) {}
 
   void GenerateData(uint8_t* buffer, size_t n) {
-    GenerateTypedData(reinterpret_cast<ValueType*>(buffer), n);
+    GenerateTypedData(reinterpret_cast<PhysicalType*>(buffer), n);
   }
 
   template <typename V>
-  typename std::enable_if<!std::is_floating_point<V>::value>::type GenerateTypedData(
-      V* data, size_t n) {
+  typename std::enable_if<!std::is_floating_point_v<V> && !kIsHalfFloat>::type
+  GenerateTypedData(V* data, size_t n) {
     GenerateTypedDataNoNan(data, n);
   }
 
   template <typename V>
-  typename std::enable_if<std::is_floating_point<V>::value>::type GenerateTypedData(
-      V* data, size_t n) {
+  typename std::enable_if<std::is_floating_point_v<V> || kIsHalfFloat>::type
+  GenerateTypedData(V* data, size_t n) {
     if (nan_probability_ == 0.0) {
       GenerateTypedDataNoNan(data, n);
       return;
     }
-    pcg32_fast rng(seed_++);
-    DistributionType dist(min_, max_);
+    pcg32 rng(seed_++);
+    auto gen = generator_factory_(&rng);
     ::arrow::random::bernoulli_distribution nan_dist(nan_probability_);
-    const ValueType nan_value = std::numeric_limits<ValueType>::quiet_NaN();
+    const PhysicalType nan_value = get_nan();
 
-    // A static cast is required due to the int16 -> int8 handling.
-    std::generate(data, data + n, [&] {
-      return nan_dist(rng) ? nan_value : static_cast<ValueType>(dist(rng));
-    });
+    std::generate(data, data + n, [&] { return nan_dist(rng) ? nan_value : gen(); });
   }
 
-  void GenerateTypedDataNoNan(ValueType* data, size_t n) {
-    pcg32_fast rng(seed_++);
-    DistributionType dist(min_, max_);
+  void GenerateTypedDataNoNan(PhysicalType* data, size_t n) {
+    pcg32 rng(seed_++);
+    auto gen = generator_factory_(&rng);
 
-    // A static cast is required due to the int16 -> int8 handling.
-    std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
+    std::generate(data, data + n, [&] { return gen(); });
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
     int64_t count = 0;
-    pcg32_fast rng(seed_++);
+    pcg32 rng(seed_++);
     ::arrow::random::bernoulli_distribution dist(1.0 - probability_);
 
     for (size_t i = 0; i < n; i++) {
@@ -121,12 +152,48 @@ struct GenerateOptions {
     if (null_count != nullptr) *null_count = count;
   }
 
-  ValueType min_;
-  ValueType max_;
+  static constexpr PhysicalType get_nan() {
+    if constexpr (kIsHalfFloat) {
+      return std::numeric_limits<ValueType>::quiet_NaN().bits();
+    } else {
+      return std::numeric_limits<ValueType>::quiet_NaN();
+    }
+  }
+
+  FactoryType generator_factory_;
   SeedType seed_;
   double probability_;
   double nan_probability_;
 };
+
+void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
+  int64_t* data = reinterpret_cast<int64_t*>(buffer);
+  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
+  std::for_each(data, data + n, [&](int64_t& v) { return v *= kFullDayMillis; });
+}
+
+template <typename ArrowType, typename OptionType>
+std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t size,
+                                                              OptionType options,
+                                                              int64_t alignment,
+                                                              MemoryPool* memory_pool) {
+  using CType = typename ArrowType::c_type;
+  auto type = TypeTraits<ArrowType>::type_singleton();
+  BufferVector buffers{2};
+
+  int64_t null_count = 0;
+  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
+  options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
+
+  buffers[1] = *AllocateBuffer(sizeof(CType) * size, alignment, memory_pool);
+  options.GenerateData(buffers[1]->mutable_data(), size);
+  if (std::is_same<ArrowType, Date64Type>::value) {
+    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
+  }
+
+  auto array_data = ArrayData::Make(type, size, buffers, null_count);
+  return std::make_shared<NumericArray<ArrowType>>(array_data);
+}
 
 }  // namespace
 
@@ -176,33 +243,6 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
   return std::make_shared<BooleanArray>(array_data);
 }
 
-void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
-  int64_t* data = reinterpret_cast<int64_t*>(buffer);
-  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
-  std::for_each(data, data + n, [&](int64_t& v) { return v *= kFullDayMillis; });
-}
-
-template <typename ArrowType, typename OptionType>
-static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(
-    int64_t size, OptionType options, int64_t alignment, MemoryPool* memory_pool) {
-  using CType = typename ArrowType::c_type;
-  auto type = TypeTraits<ArrowType>::type_singleton();
-  BufferVector buffers{2};
-
-  int64_t null_count = 0;
-  buffers[0] = *AllocateEmptyBitmap(size, alignment, memory_pool);
-  options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
-
-  buffers[1] = *AllocateBuffer(sizeof(CType) * size, alignment, memory_pool);
-  options.GenerateData(buffers[1]->mutable_data(), size);
-  if (std::is_same<ArrowType, Date64Type>::value) {
-    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
-  }
-
-  auto array_data = ArrayData::Make(type, size, buffers, null_count);
-  return std::make_shared<NumericArray<ArrowType>>(array_data);
-}
-
 #define PRIMITIVE_RAND_IMPL(Name, CType, ArrowType, Distribution)                \
   std::shared_ptr<Array> RandomArrayGenerator::Name(                             \
       int64_t size, CType min, CType max, double probability, int64_t alignment, \
@@ -226,8 +266,6 @@ PRIMITIVE_RAND_INTEGER_IMPL(UInt32, uint32_t, UInt32Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int32, int32_t, Int32Type)
 PRIMITIVE_RAND_INTEGER_IMPL(UInt64, uint64_t, UInt64Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
-// Generate 16bit values for half-float
-PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
 std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
                                                     int64_t max, double null_probability,
@@ -237,6 +275,25 @@ std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
   OptionType options(seed(), min, max, null_probability);
   return GenerateNumericArray<Date64Type, OptionType>(size, options, alignment,
                                                       memory_pool);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Float16(int64_t size, uint16_t min,
+                                                     uint16_t max,
+                                                     double null_probability,
+                                                     int64_t alignment,
+                                                     MemoryPool* memory_pool) {
+  return this->Float16(size, Float16::FromBits(min), Float16::FromBits(max),
+                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Float16(
+    int64_t size, util::Float16 min, util::Float16 max, double null_probability,
+    double nan_probability, int64_t alignment, MemoryPool* memory_pool) {
+  using OptionType =
+      GenerateOptions<util::Float16, ::arrow::random::uniform_real_distribution<float>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
+  return GenerateNumericArray<HalfFloatType, OptionType>(size, options, alignment,
+                                                         memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, float max,
@@ -692,7 +749,7 @@ void ShuffleListViewDataInPlace(SeedType seed, ArrayData* data) {
   auto* offsets = data->GetMutableValues<offset_type>(1);
   auto* sizes = data->GetMutableValues<offset_type>(2);
 
-  pcg32_fast rng(seed);
+  pcg32 rng(seed);
   using UniformDist = std::uniform_int_distribution<int64_t>;
   UniformDist dist;
   for (int64_t i = data->length - 1; i > 0; --i) {
@@ -831,7 +888,7 @@ Result<std::shared_ptr<Array>> RandomListView(RAG& self, const Array& values,
   auto sizes = buffers[1]->mutable_data_as<offset_type>();
 
   // Derive	sizes from offsets taking coverage into account
-  pcg32_fast rng(self.seed());
+  pcg32 rng(self.seed());
   using NormalDist = std::normal_distribution<double>;
   NormalDist size_dist;
   for (int64_t i = 0; i < length; ++i) {
@@ -920,7 +977,7 @@ std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& k
 std::shared_ptr<Array> RandomArrayGenerator::RunEndEncoded(
     std::shared_ptr<DataType> value_type, int64_t logical_size, double null_probability) {
   Int32Builder run_ends_builder;
-  pcg32_fast rng(seed());
+  pcg32 rng(seed());
 
   DCHECK_LE(logical_size, std::numeric_limits<int32_t>::max());
 
@@ -1087,9 +1144,22 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       GENERATE_INTEGRAL_CASE(Int32Type);
       GENERATE_INTEGRAL_CASE(UInt64Type);
       GENERATE_INTEGRAL_CASE(Int64Type);
-      GENERATE_INTEGRAL_CASE_VIEW(Int16Type, HalfFloatType);
       GENERATE_FLOATING_CASE(FloatType, Float32);
       GENERATE_FLOATING_CASE(DoubleType, Float64);
+
+    case Type::type::HALF_FLOAT: {
+      using ValueType = util::Float16;
+      const ValueType min_value = GetMetadata<ValueType>(
+          field.metadata().get(), "min", std::numeric_limits<ValueType>::min());
+      const ValueType max_value = GetMetadata<ValueType>(
+          field.metadata().get(), "max", std::numeric_limits<ValueType>::max());
+      const double nan_probability =
+          GetMetadata<double>(field.metadata().get(), "nan_probability", 0);
+      VALIDATE_MIN_MAX(min_value, max_value);
+      VALIDATE_RANGE(nan_probability, 0.0, 1.0);
+      return Float16(length, min_value, max_value, null_probability, nan_probability,
+                     alignment, memory_pool);
+    }
 
     case Type::type::STRING:
     case Type::type::BINARY: {
@@ -1377,7 +1447,7 @@ std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
 
 void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out) {
   const int random_seed = 0;
-  arrow::random::pcg32_fast gen(random_seed);
+  arrow::random::pcg32 gen(random_seed);
   std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::min(),
                                            std::numeric_limits<int32_t>::max());
   out->resize(N, {});
@@ -1392,7 +1462,7 @@ void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out) {
   const int random_seed = 0;
-  arrow::random::pcg32_fast gen(random_seed);
+  arrow::random::pcg32 gen(random_seed);
   std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::min(),
                                            std::numeric_limits<int64_t>::max());
   out->resize(N, {});
@@ -1403,6 +1473,83 @@ void rand_month_day_nanos(int64_t N,
     tmp.nanoseconds = d(gen);
     return tmp;
   });
+}
+
+std::string RandomUtf8String(random::SeedType seed, int num_chars) {
+  arrow::random::pcg32 gen(seed);
+  std::string s;
+  s.reserve(num_chars * 3);  // Reserve for average 3 bytes per codepoint
+
+  std::uniform_int_distribution<uint32_t> plane_dist(0, 3);
+  std::bernoulli_distribution bmp_range_dist(0.5);
+  std::uniform_int_distribution<uint32_t> bmp_lower_dist(0x0020, 0xD7FF);
+  std::uniform_int_distribution<uint32_t> bmp_upper_dist(0xE000, 0xFFFD);
+  std::uniform_int_distribution<uint32_t> smp_dist(0x10000, 0x1FFFF);
+  std::uniform_int_distribution<uint32_t> sip_dist(0x20000, 0x2FFFF);
+  std::uniform_int_distribution<uint32_t> high_plane_dist(0x30000, 0x10FFFF);
+
+  for (int i = 0; i < num_chars; ++i) {
+    uint32_t codepoint;
+    uint32_t plane = plane_dist(gen);
+
+    if (plane == 0) {
+      // Basic Multilingual Plane (BMP): U+0000 to U+FFFF
+      // Exclude surrogate code points (U+D800 to U+DFFF)
+      // https://www.unicode.org/versions/Unicode15.1.0/ch03.pdf (Section 3.8, D71)
+      // Exclude control chars below U+0020 for readability
+      // Generate from two ranges with equal probability (overrepresents the smaller
+      // upper range):
+      // - Lower: U+0020 to U+D7FF (55,776 values, 50% selection probability)
+      // - Upper: U+E000 to U+FFFD (8,190 values, 50% selection probability)
+      if (bmp_range_dist(gen)) {
+        // Lower range: U+0020 to U+D7FF (before surrogate range)
+        codepoint = bmp_lower_dist(gen);
+      } else {
+        // Upper range: U+E000 to U+FFFD (after surrogate range)
+        // Note: Stops at U+FFFD to exclude noncharacters U+FFFE and U+FFFF
+        // Other noncharacters (U+FDD0-U+FDEF, plane-ending pairs) are included
+        // as they are valid Unicode scalar values per the Unicode Standard
+        codepoint = bmp_upper_dist(gen);
+      }
+    } else if (plane == 1) {
+      // Supplementary Multilingual Plane (SMP): U+10000 to U+1FFFF
+      // https://www.unicode.org/roadmaps/smp/
+      codepoint = smp_dist(gen);
+    } else if (plane == 2) {
+      // Supplementary Ideographic Plane (SIP): U+20000 to U+2FFFF
+      // https://www.unicode.org/roadmaps/sip/
+      codepoint = sip_dist(gen);
+    } else {
+      // Planes 3–16: U+30000–U+10FFFF
+      // Includes TIP, SSP, PUA-A, PUA-B, and unassigned planes: U+30000 to U+10FFFF
+      // Max valid Unicode codepoint is U+10FFFF per the Standard
+      // https://www.unicode.org/versions/Unicode15.1.0/ch03.pdf (Section 3.4, D9)
+      codepoint = high_plane_dist(gen);
+    }
+
+    // Encode as UTF-8 per RFC 3629 (Section 3: UTF-8 definition)
+    // https://www.rfc-editor.org/rfc/rfc3629.html#section-3
+    if (codepoint <= 0x7F) {
+      // 1-byte sequence: 0xxxxxxx
+      s.push_back(static_cast<char>(codepoint));
+    } else if (codepoint <= 0x7FF) {
+      // 2-byte sequence: 110xxxxx 10xxxxxx
+      s.push_back(static_cast<char>(0xC0 | (codepoint >> 6)));
+      s.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    } else if (codepoint <= 0xFFFF) {
+      // 3-byte sequence: 1110xxxx 10xxxxxx 10xxxxxx
+      s.push_back(static_cast<char>(0xE0 | (codepoint >> 12)));
+      s.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+      s.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    } else {
+      // 4-byte sequence: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+      s.push_back(static_cast<char>(0xF0 | (codepoint >> 18)));
+      s.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
+      s.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+      s.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+    }
+  }
+  return s;
 }
 
 }  // namespace arrow

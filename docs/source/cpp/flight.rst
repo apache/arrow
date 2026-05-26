@@ -239,7 +239,17 @@ Memory management
 -----------------
 
 Flight tries to reuse allocations made by gRPC to avoid redundant
-data copies. However, this means that those allocations may not
+data copies. However, experience shows that such data is frequently
+misaligned. Some use cases might require data to have data type-specific
+alignment (for example, for the data buffer of an Int32 array to be aligned
+on a 4-byte boundary), which can be enforced
+by setting :member:`arrow::ipc::IpcReadOptions::ensure_alignment`
+to :member:`arrow::ipc::Alignment::kDataTypeSpecificAlignment`.
+This uses the :member:`arrow::ipc::IpcReadOptions::memory_pool`
+to allocate memory with aligned addresses, but only for mis-aligned data.
+However, this creates data copies of your data received via Flight.
+
+Unless gRPC data are copied as described above, allocations made by gRPC may not
 be tracked by the Arrow memory pool, and that memory usage behavior,
 such as whether free memory is returned to the system, is dependent
 on the allocator that gRPC uses (usually the system allocator).
@@ -361,5 +371,4 @@ Closing unresponsive connections
 .. _ARROW-15764: https://issues.apache.org/jira/browse/ARROW-15764
 .. _ARROW-16697: https://issues.apache.org/jira/browse/ARROW-16697
 .. _ARROW-6062: https://issues.apache.org/jira/browse/ARROW-6062
-
 .. _gRPC: https://grpc.io/

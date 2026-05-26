@@ -20,12 +20,16 @@ skip_if_not_available("json")
 test_that("Can read json file with scalars columns (ARROW-5503)", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf, useBytes = TRUE)
+  ',
+    tf,
+    useBytes = TRUE
+  )
 
   tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
   tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
@@ -47,12 +51,16 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
 test_that("read_json_arrow() converts to tibble", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf, useBytes = TRUE)
+  ',
+    tf,
+    useBytes = TRUE
+  )
 
   tab1 <- read_json_arrow(tf)
   tab2 <- read_json_arrow(mmap_open(tf))
@@ -72,12 +80,15 @@ test_that("read_json_arrow() converts to tibble", {
 
 test_that("read_json_arrow() supports col_select=", {
   tf <- tempfile()
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf)
+  ',
+    tf
+  )
 
   tab1 <- read_json_arrow(tf, col_select = c(hello, world))
   expect_named(tab1, c("hello", "world"))
@@ -88,12 +99,15 @@ test_that("read_json_arrow() supports col_select=", {
 
 test_that("read_json_arrow(schema=) with empty schema", {
   tf <- tempfile()
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": 2, "third_col": 99}
     { "hello": 3.25, "world": 5, "third_col": 98}
     { "hello": 3.125, "world": 8, "third_col": 97 }
     { "hello": 0.0, "world": 10, "third_col": 96}
-  ', tf)
+  ',
+    tf
+  )
 
   tab1 <- read_json_arrow(tf, schema = schema())
 
@@ -109,12 +123,15 @@ test_that("read_json_arrow(schema=) with empty schema", {
 
 test_that("read_json_arrow(schema=) with partial schema", {
   tf <- tempfile()
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": 2, "third_col": 99}
     { "hello": 3.25, "world": 5, "third_col": 98}
     { "hello": 3.125, "world": 8, "third_col": 97 }
     { "hello": 0.0, "world": 10, "third_col": 96}
-  ', tf)
+  ',
+    tf
+  )
 
   tab1 <- read_json_arrow(tf, schema = schema(third_col = float64(), world = float64()))
 
@@ -128,11 +145,14 @@ test_that("read_json_arrow(schema=) with partial schema", {
   )
 
   tf2 <- tempfile()
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": 2, "third_col": "99"}
     { "hello": 3.25, "world": 5, "third_col": "98"}
     { "hello": 3.125, "world": 8, "third_col": "97"}
-  ', tf2)
+  ',
+    tf2
+  )
 
   tab2 <- read_json_arrow(tf2, schema = schema(third_col = string(), world = float64()))
 
@@ -148,12 +168,15 @@ test_that("read_json_arrow(schema=) with partial schema", {
 
 test_that("read_json_arrow(schema=) with full schema", {
   tf <- tempfile()
-  writeLines('
+  writeLines(
+    '
     { "hello": 3.5, "world": 2, "third_col": 99}
     { "hello": 3.25, "world": 5, "third_col": 98}
     { "hello": 3.125, "world": 8, "third_col": 97}
     { "hello": 0.0, "world": 10, "third_col": 96}
-  ', tf)
+  ',
+    tf
+  )
 
   tab1 <- read_json_arrow(
     tf,
@@ -177,14 +200,17 @@ test_that("read_json_arrow(schema=) with full schema", {
 test_that("Can read json file with nested columns (ARROW-5503)", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  writeLines('
+  writeLines(
+    '
     { "arr": [1.0, 2.0, 3.0], "nuf": {} }
     { "arr": [2.0], "nuf": null }
     { "arr": [], "nuf": { "ps": 78.0, "hello": "hi" } }
     { "arr": null, "nuf": { "ps": 90.0, "hello": "bonjour" } }
     { "arr": [5.0], "nuf": { "hello": "ciao" } }
     { "arr": [5.0, 6.0], "nuf": { "ps": 19 } }
-  ', tf)
+  ',
+    tf
+  )
 
   tab1 <- read_json_arrow(tf, as_data_frame = FALSE)
   tab2 <- read_json_arrow(mmap_open(tf), as_data_frame = FALSE)
@@ -244,10 +270,13 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
 test_that("Can read json file with list<struct<T...>> nested columns (ARROW-7740)", {
   tf <- tempfile()
   on.exit(unlink(tf))
-  writeLines('
+  writeLines(
+    '
     {"a":[{"b":1.0},{"b":2.0}]}
     {"a":[{"b":1.0},{"b":2.0}]}
-  ', tf)
+  ',
+    tf
+  )
 
   one <- tibble::tibble(b = c(1, 2))
   expected <- tibble::tibble(a = c(list(one), list(one)))

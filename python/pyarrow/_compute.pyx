@@ -40,6 +40,10 @@ except ImportError:
 import warnings
 
 
+# Call to initialize the compute module (register kernels) on import
+check_status(InitializeCompute())
+
+
 __pas = None
 _substrait_msg = (
     "The pyarrow installation is not built with support for Substrait."
@@ -63,14 +67,10 @@ def _pas():
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
-    msg = '{} is an abstract class thus cannot be initialized.'.format(
-        klass.__name__
-    )
+    msg = f'{klass.__name__} is an abstract class thus cannot be initialized.'
     if subclasses_instead:
         subclasses = [cls.__name__ for cls in klass.__subclasses__]
-        msg += ' Use one of the subclasses instead: {}'.format(
-            ', '.join(subclasses)
-        )
+        msg += f' Use one of the subclasses instead: {", ".join(subclasses)}'
     raise TypeError(msg)
 
 
@@ -201,8 +201,7 @@ cdef class Kernel(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
 
 cdef class ScalarKernel(Kernel):
@@ -212,8 +211,7 @@ cdef class ScalarKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class VectorKernel(Kernel):
@@ -223,8 +221,7 @@ cdef class VectorKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("VectorKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"VectorKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class ScalarAggregateKernel(Kernel):
@@ -234,8 +231,7 @@ cdef class ScalarAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("ScalarAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"ScalarAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 cdef class HashAggregateKernel(Kernel):
@@ -245,8 +241,7 @@ cdef class HashAggregateKernel(Kernel):
         self.kernel = kernel
 
     def __repr__(self):
-        return ("HashAggregateKernel<{}>"
-                .format(frombytes(self.kernel.signature.get().ToString())))
+        return f"HashAggregateKernel<{frombytes(self.kernel.signature.get().ToString())}>"
 
 
 FunctionDoc = namedtuple(
@@ -298,17 +293,14 @@ cdef class Function(_Weakrefable):
     }
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
         self.sp_func = sp_func
         self.base_func = sp_func.get()
 
     def __repr__(self):
-        return ("arrow.compute.Function<name={}, kind={}, "
-                "arity={}, num_kernels={}>"
-                .format(self.name, self.kind, self.arity, self.num_kernels))
+        return f"arrow.compute.Function<name={self.name}, kind={self.kind}, arity={self.arity}, num_kernels={self.num_kernels}>"
 
     def __reduce__(self):
         # Reduction uses the global registry
@@ -1154,6 +1146,36 @@ class PadOptions(_PadOptions):
         self._set_options(width, padding, lean_left_on_odd_padding)
 
 
+cdef class _ZeroFillOptions(FunctionOptions):
+    def _set_options(self, width, padding):
+        self.wrapped.reset(new CZeroFillOptions(width, tobytes(padding)))
+
+
+class ZeroFillOptions(_ZeroFillOptions):
+    """
+    Options for utf8_zero_fill.
+
+    Parameters
+    ----------
+    width : int
+        Desired string length.
+    padding : str, default "0"
+        Padding character. Should be one Unicode codepoint.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["1", "-2", "+3"])
+    >>> opts = pc.ZeroFillOptions(width=4)
+    >>> pc.utf8_zero_fill(arr, options=opts).to_pylist()
+    ['0001', '-002', '+003']
+    """
+
+    def __init__(self, width, padding='0'):
+        self._set_options(width, padding)
+
+
 cdef class _TrimOptions(FunctionOptions):
     def _set_options(self, characters):
         self.wrapped.reset(new CTrimOptions(tobytes(characters)))
@@ -1420,6 +1442,60 @@ class RunEndEncodeOptions(_RunEndEncodeOptions):
 
     def __init__(self, run_end_type=lib.int32()):
         self._set_options(run_end_type)
+
+
+cdef class _InversePermutationOptions(FunctionOptions):
+    def _set_options(self, max_index=-1, output_type=None):
+        cdef optional[shared_ptr[CDataType]] c_output_type = nullopt
+        if output_type is not None:
+            c_output_type = pyarrow_unwrap_data_type(ensure_type(output_type))
+        self.wrapped.reset(
+            new CInversePermutationOptions(max_index, c_output_type))
+
+
+class InversePermutationOptions(_InversePermutationOptions):
+    """
+    Options for `inverse_permutation` function.
+
+    Parameters
+    ----------
+    max_index : int64, default -1
+        The max value in the input indices to allow.
+        The length of the function’s output will be this value plus 1.
+        If negative, this value will be set to the length of the input indices
+        minus 1 and the length of the function’s output will be the length
+        of the input indices.
+    output_type : DataType, default None
+        The data type for the output array of inverse permutation.
+        If None, the output will be of the same type as the input indices, otherwise
+        must be a signed integer type. An invalid error will be reported if this type
+        is not able to store the length of the input indices.
+    """
+
+    def __init__(self, max_index=-1, output_type=None):
+        self._set_options(max_index, output_type)
+
+
+cdef class _ScatterOptions(FunctionOptions):
+    def _set_options(self, max_index):
+        self.wrapped.reset(new CScatterOptions(max_index))
+
+
+class ScatterOptions(_ScatterOptions):
+    """
+    Options for `scatter` function.
+
+    Parameters
+    ----------
+    max_index : int64, default -1
+        The max value in the input indices to allow.
+        The length of the function’s output will be this value plus 1.
+        If negative, this value will be set to the length of the input indices minus 1
+        and the length of the function’s output will be the length of the input indices.
+    """
+
+    def __init__(self, max_index=-1):
+        self._set_options(max_index)
 
 
 cdef class _TakeOptions(FunctionOptions):
@@ -2568,9 +2644,7 @@ cdef class Expression(_Weakrefable):
         return frombytes(self.expr.ToString())
 
     def __repr__(self):
-        return "<pyarrow.compute.{0} {1}>".format(
-            self.__class__.__name__, str(self)
-        )
+        return f"<pyarrow.compute.{self.__class__.__name__} {self}>"
 
     @staticmethod
     def from_substrait(object message not None):
@@ -2874,8 +2948,7 @@ cdef class UdfContext:
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly"
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly")
 
     cdef void init(self, const CUdfContext &c_context):
         self.c_context = c_context
@@ -3010,7 +3083,7 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        *args. The last in_type will be the type of all varargs
+        ``*args``. The last in_type will be the type of all varargs
         arguments.
     function_name : str
         Name of the function. There should only be one function
@@ -3087,7 +3160,7 @@ def register_vector_function(func, function_name, function_doc, in_types, out_ty
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        *args. The last in_type will be the type of all varargs
+        ``*args``. The last in_type will be the type of all varargs
         arguments.
     function_name : str
         Name of the function. There should only be one function
@@ -3168,7 +3241,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
         in_types defined. It must return a Scalar matching the
         out_type.
         To define a varargs function, pass a callable that takes
-        *args. The in_type needs to match in type of inputs when
+        ``*args``. The in_type needs to match in type of inputs when
         the function gets called.
     function_name : str
         Name of the function. This name must be unique, i.e.,

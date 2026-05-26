@@ -40,6 +40,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
@@ -138,6 +139,21 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::
     if (std::isnan(u)) {
       // XXX should we do a bit-precise comparison?
       return std::isnan(v);
+    }
+    return u == v;
+  }
+};
+
+template <typename Scalar, uint64_t AlgNum>
+struct ScalarHelper<Scalar, AlgNum,
+                    enable_if_t<std::is_same_v<Scalar, ::arrow::util::Float16>>>
+    : public ScalarHelperBase<Scalar, AlgNum> {
+  // ScalarHelper specialization for Float16
+
+  static bool CompareScalars(Scalar u, Scalar v) {
+    if (u.is_nan()) {
+      // XXX should we do a bit-precise comparison?
+      return v.is_nan();
     }
     return u == v;
   }
@@ -270,15 +286,16 @@ class HashTable {
   uint64_t size() const { return size_; }
 
   // Visit all non-empty entries in the table
-  // The visit_func should have signature void(const Entry*)
+  // The visit_func should have signature Status(const Entry*)
   template <typename VisitFunc>
-  void VisitEntries(VisitFunc&& visit_func) const {
+  Status VisitEntries(VisitFunc&& visit_func) const {
     for (uint64_t i = 0; i < capacity_; i++) {
       const auto& entry = entries_[i];
       if (entry) {
-        visit_func(&entry);
+        RETURN_NOT_OK(visit_func(&entry));
       }
     }
+    return Status::OK();
   }
 
  protected:
@@ -406,7 +423,9 @@ class ScalarMemoTable : public MemoTable {
   explicit ScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
       : hash_table_(pool, static_cast<uint64_t>(entries)) {}
 
-  int32_t Get(const Scalar& value) const {
+  template <typename Value>
+  int32_t Get(Value&& v) const {
+    const Scalar value(std::forward<Value>(v));
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(payload->value, value);
     };
@@ -419,9 +438,10 @@ class ScalarMemoTable : public MemoTable {
     }
   }
 
-  template <typename Func1, typename Func2>
-  Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
+  template <typename Value, typename Func1, typename Func2>
+  Status GetOrInsert(Value&& v, Func1&& on_found, Func2&& on_not_found,
                      int32_t* out_memo_index) {
+    const Scalar value(std::forward<Value>(v));
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(value, payload->value);
     };
@@ -440,9 +460,9 @@ class ScalarMemoTable : public MemoTable {
     return Status::OK();
   }
 
-  Status GetOrInsert(const Scalar& value, int32_t* out_memo_index) {
-    return GetOrInsert(
-        value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+  template <typename Value>
+  Status GetOrInsert(Value&& value, int32_t* out_memo_index) {
+    return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   int32_t GetNull() const { return null_index_; }
@@ -470,23 +490,31 @@ class ScalarMemoTable : public MemoTable {
   }
 
   // Copy values starting from index `start` into `out_data`
-  void CopyValues(int32_t start, Scalar* out_data) const {
-    hash_table_.VisitEntries([=](const HashTableEntry* entry) {
+  template <typename Value>
+  void CopyValues(int32_t start, Value* out_data) const {
+    // So that both uint16_t and Float16 are allowed
+    static_assert(sizeof(Value) == sizeof(Scalar));
+    Scalar* out = reinterpret_cast<Scalar*>(out_data);
+    ARROW_DCHECK_OK(hash_table_.VisitEntries([=](const HashTableEntry* entry) {
       int32_t index = entry->payload.memo_index - start;
       if (index >= 0) {
-        out_data[index] = entry->payload.value;
+        out[index] = entry->payload.value;
       }
-    });
+      return Status::OK();
+    }));
     // Zero-initialize the null entry
     if (null_index_ != kKeyNotFound) {
       int32_t index = null_index_ - start;
       if (index >= 0) {
-        out_data[index] = Scalar{};
+        out[index] = Scalar{};
       }
     }
   }
 
-  void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }
+  template <typename Value>
+  void CopyValues(Value* out_data) const {
+    CopyValues(0, out_data);
+  }
 
  protected:
   struct Payload {
@@ -508,13 +536,10 @@ class ScalarMemoTable : public MemoTable {
   // Merge entries from `other_table` into `this->hash_table_`.
   Status MergeTable(const ScalarMemoTable& other_table) {
     const HashTableType& other_hashtable = other_table.hash_table_;
-
-    other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
+    return other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
       int32_t unused;
-      ARROW_DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
+      return this->GetOrInsert(other_entry->payload.value, &unused);
     });
-    // TODO: ARROW-17074 - implement proper error handling
-    return Status::OK();
   }
 };
 
@@ -572,8 +597,7 @@ class SmallScalarMemoTable : public MemoTable {
   }
 
   Status GetOrInsert(const Scalar value, int32_t* out_memo_index) {
-    return GetOrInsert(
-        value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   int32_t GetNull() const { return value_to_index_[cardinality]; }
@@ -695,8 +719,7 @@ class BinaryMemoTable : public MemoTable {
 
   Status GetOrInsert(const void* data, builder_offset_type length,
                      int32_t* out_memo_index) {
-    return GetOrInsert(
-        data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
+    return GetOrInsert(data, length, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
   Status GetOrInsert(std::string_view value, int32_t* out_memo_index) {
@@ -843,6 +866,16 @@ class BinaryMemoTable : public MemoTable {
     }
   }
 
+  // Like VisitValues, but allows the visitor to fail. The visitor should have
+  // signature `Status(std::string_view)` or `Status(const std::string_view&)`.
+  template <typename VisitFunc>
+  Status VisitValuesStatus(int32_t start, VisitFunc&& visit) const {
+    for (int32_t i = start; i < size(); ++i) {
+      RETURN_NOT_OK(visit(binary_builder_.GetView(i)));
+    }
+    return Status::OK();
+  }
+
   // Visit the stored value at a specific index in insertion order.
   // The visitor function should have the signature `void(std::string_view)`
   // or `void(const std::string_view&)`.
@@ -875,11 +908,10 @@ class BinaryMemoTable : public MemoTable {
 
  public:
   Status MergeTable(const BinaryMemoTable& other_table) {
-    other_table.VisitValues(0, [this](std::string_view other_value) {
+    return other_table.VisitValuesStatus(0, [this](std::string_view other_value) {
       int32_t unused;
-      ARROW_DCHECK_OK(this->GetOrInsert(other_value, &unused));
+      return this->GetOrInsert(other_value, &unused);
     });
-    return Status::OK();
   }
 };
 
@@ -901,6 +933,11 @@ template <typename T>
 struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
+};
+
+template <>
+struct HashTraits<HalfFloatType> {
+  using MemoTableType = ScalarMemoTable<::arrow::util::Float16>;
 };
 
 template <typename T>

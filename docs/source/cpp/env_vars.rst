@@ -87,6 +87,18 @@ that changing their value later will have an effect.
    ``libhdfs.dylib`` on macOS, ``libhdfs.so`` on other platforms).
    Alternatively, one can set :envvar:`HADOOP_HOME`.
 
+.. envvar:: ARROW_REGISTER_ATFORK
+
+   **Experimental**. An integer value to enable or disable the registration
+   of at-fork handlers. These are enabled by default or explicitly using the
+   value "1"; use "0" to disable.
+
+   If enabled, at-fork handlers make Arrow C++ compatible with the use of the
+   ``fork()`` system call, such as by Python's :py:mod:`multiprocessing`,
+   but at the expense of executing
+   `potentially unsafe code <https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_atfork.html>`__
+   in a forked child process if the parent process is multi-threaded.
+
 .. envvar:: ARROW_S3_LOG_LEVEL
 
    Controls the verbosity of logging produced by S3 calls. Defaults to ``FATAL``
@@ -145,7 +157,7 @@ that changing their value later will have an effect.
 
    By default, Arrow C++ detects the capabilities of the current CPU at runtime
    and chooses the best execution paths based on that information.  This
-   behavior can be overriden by setting this environment variable to a
+   behavior can be overridden by setting this environment variable to a
    well-defined value.  Supported values are:
 
    - ``NONE`` disables any runtime-selected SIMD optimization;

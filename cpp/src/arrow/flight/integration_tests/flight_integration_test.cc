@@ -53,6 +53,8 @@ TEST(FlightIntegration, AuthBasicProto) { ASSERT_OK(RunScenario("auth:basic_prot
 
 TEST(FlightIntegration, Middleware) { ASSERT_OK(RunScenario("middleware")); }
 
+TEST(FlightIntegration, Alignment) { ASSERT_OK(RunScenario("alignment")); }
+
 TEST(FlightIntegration, Ordered) { ASSERT_OK(RunScenario("ordered")); }
 
 TEST(FlightIntegration, ExpirationTimeDoGet) {

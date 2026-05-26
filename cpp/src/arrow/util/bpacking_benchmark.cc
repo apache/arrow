@@ -1,0 +1,227 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
+#include <benchmark/benchmark.h>
+
+#include "arrow/testing/util.h"
+#include "arrow/util/bpacking_internal.h"
+#include "arrow/util/bpacking_scalar_internal.h"
+#include "arrow/util/bpacking_simd_internal.h"
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_SVE128)
+#  include "arrow/util/cpu_info.h"
+#endif
+
+namespace arrow::internal {
+namespace {
+
+template <typename Int>
+using UnpackFunc = void (*)(const uint8_t*, Int*, const UnpackOptions&);
+
+/// Get the number of bytes associate with a packing.
+constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
+  const auto num_bits = num_values * bit_width;
+  if (num_bits % 8 != 0) {
+    throw std::invalid_argument("Must pack a multiple of 8 bits.");
+  }
+  return num_bits / 8;
+}
+
+/// Generate random bytes as packed integers.
+std::vector<uint8_t> GenerateRandomPackedValues(int32_t num_values, int32_t bit_width) {
+  constexpr uint32_t kSeed = 3214;
+  const auto num_bytes = GetNumBytes(num_values, bit_width);
+
+  std::vector<uint8_t> out(num_bytes);
+  random_bytes(num_bytes, kSeed, out.data());
+
+  return out;
+}
+
+const uint8_t* GetNextAlignedByte(const uint8_t* ptr, std::size_t alignment) {
+  auto addr = reinterpret_cast<std::uintptr_t>(ptr);
+
+  if (addr % alignment == 0) {
+    return ptr;
+  }
+
+  auto remainder = addr % alignment;
+  auto bytes_to_add = alignment - remainder;
+
+  return ptr + bytes_to_add;
+}
+
+template <typename Int>
+void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bool skip,
+               std::string skip_msg) {
+  if (skip) {
+    state.SkipWithMessage(skip_msg);
+  }
+
+  const auto bit_width = static_cast<int32_t>(state.range(0));
+  const auto num_values = static_cast<int32_t>(state.range(1));
+
+  // Assume std::vector allocation is likely be aligned for greater than a byte.
+  // So we allocate more values than necessary and skip to the next byte with the
+  // desired (non) alignment to test the proper condition.
+  constexpr int32_t kExtraValues = sizeof(Int) * 8;
+  const auto packed = GenerateRandomPackedValues(num_values + kExtraValues, bit_width);
+  const uint8_t* packed_ptr =
+      GetNextAlignedByte(packed.data(), sizeof(Int)) + (aligned ? 0 : 1);
+
+  auto unpacked = std::make_unique<Int[]>(num_values);
+
+  const ::arrow::internal::UnpackOptions opts{
+      .batch_size = num_values,
+      .bit_width = bit_width,
+      .bit_offset = 0,
+      .max_read_bytes = -1,
+  };
+
+  for (auto _ : state) {
+    unpack(packed_ptr, unpacked.get(), opts);
+    benchmark::ClobberMemory();
+  }
+  state.SetItemsProcessed(num_values * state.iterations());
+}
+
+// Currently, the minimum unpack SIMD kernel size is 32 and the RLE-bit-packing encoder
+// will not emit runs larger than 512 (though other implementation might), so we biased
+// the benchmarks towards a rather small scale.
+static const auto kNumValuesRange = benchmark::CreateRange(32, 512, 2);
+constexpr auto kBitWidths8 = std::initializer_list<int64_t>{1, 2, 8};
+constexpr auto kBitWidths16 = std::initializer_list<int64_t>{1, 2, 8, 13};
+constexpr auto kBitWidths32 = std::initializer_list<int64_t>{1, 2, 8, 20};
+constexpr auto kBitWidths64 = std::initializer_list<int64_t>{1, 2, 8, 20, 47};
+
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValuesBool = {
+    {0, 1},
+    kNumValuesRange,
+};
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues8 = {
+    kBitWidths8,
+    kNumValuesRange,
+};
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues16 = {
+    kBitWidths16,
+    kNumValuesRange,
+};
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues32 = {
+    kBitWidths32,
+    kNumValuesRange,
+};
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
+    kBitWidths64,
+    kNumValuesRange,
+};
+
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackBool(benchmark::State& state, bool aligned, UnpackFunc<bool> unpack,
+                   bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<bool>(state, aligned, unpack, skip, std::move(skip_msg));
+}
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint8(benchmark::State& state, bool aligned, UnpackFunc<uint8_t> unpack,
+                    bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint8_t>(state, aligned, unpack, skip, std::move(skip_msg));
+}
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint16(benchmark::State& state, bool aligned, UnpackFunc<uint16_t> unpack,
+                     bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint16_t>(state, aligned, unpack, skip, std::move(skip_msg));
+}
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint32(benchmark::State& state, bool aligned, UnpackFunc<uint32_t> unpack,
+                     bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint32_t>(state, aligned, unpack, skip, std::move(skip_msg));
+}
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t> unpack,
+                     bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
+}
+
+// Register BM_Unpack{Bool,Uint8,Uint16,Uint32,Uint64} benchmarks for a given
+// UNPACK_FUNC templated on each of those types, with explicit skip args.
+#define BENCHMARK_UNPACK_ALL_TYPES_SKIP(LABEL, ALIGNED, UNPACK_FUNC, SKIP, SKIP_MSG)   \
+  BENCHMARK_CAPTURE(BM_UnpackBool, LABEL, ALIGNED, &UNPACK_FUNC<bool>, SKIP, SKIP_MSG) \
+      ->ArgsProduct(kBitWidthsNumValuesBool);                                          \
+  BENCHMARK_CAPTURE(BM_UnpackUint8, LABEL, ALIGNED, &UNPACK_FUNC<uint8_t>, SKIP,       \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues8);                                             \
+  BENCHMARK_CAPTURE(BM_UnpackUint16, LABEL, ALIGNED, &UNPACK_FUNC<uint16_t>, SKIP,     \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues16);                                            \
+  BENCHMARK_CAPTURE(BM_UnpackUint32, LABEL, ALIGNED, &UNPACK_FUNC<uint32_t>, SKIP,     \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues32);                                            \
+  BENCHMARK_CAPTURE(BM_UnpackUint64, LABEL, ALIGNED, &UNPACK_FUNC<uint64_t>, SKIP,     \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues64)
+
+#define BENCHMARK_UNPACK_ALL_TYPES(LABEL, ALIGNED, UNPACK_FUNC) \
+  BENCHMARK_UNPACK_ALL_TYPES_SKIP(LABEL, ALIGNED, UNPACK_FUNC, false, "")
+
+#define BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(LABEL, ALIGNED, UNPACK_FUNC, CPU_FEATURE, \
+                                           SKIP_MSG)                                 \
+  BENCHMARK_UNPACK_ALL_TYPES_SKIP(                                                   \
+      LABEL, ALIGNED, UNPACK_FUNC,                                                   \
+      !CpuInfo::GetInstance()->IsSupported(CpuInfo::CPU_FEATURE), SKIP_MSG)
+
+BENCHMARK_UNPACK_ALL_TYPES(ScalarUnaligned, false, bpacking::unpack_scalar);
+
+#if defined(ARROW_HAVE_SSE4_2)
+BENCHMARK_UNPACK_ALL_TYPES(Sse42Unaligned, false, bpacking::unpack_sse4_2);
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Avx2Unaligned, false, bpacking::unpack_avx2, AVX2,
+                                   "Avx2 not available");
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Avx512Unaligned, false, bpacking::unpack_avx512,
+                                   AVX512, "Avx512 not available");
+#endif
+
+#if defined(ARROW_HAVE_NEON)
+BENCHMARK_UNPACK_ALL_TYPES(NeonUnaligned, false, bpacking::unpack_neon);
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE128)
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Sve128Unaligned, false, bpacking::unpack_sve128,
+                                   SVE128, "Sve128 not available");
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE256)
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Sve256Unaligned, false, bpacking::unpack_sve256,
+                                   SVE256, "Sve256 not available");
+#endif
+
+BENCHMARK_UNPACK_ALL_TYPES(DynamicAligned, true, unpack);
+BENCHMARK_UNPACK_ALL_TYPES(DynamicUnaligned, false, unpack);
+
+#undef BENCHMARK_UNPACK_ALL_TYPES_RUNTIME
+#undef BENCHMARK_UNPACK_ALL_TYPES
+#undef BENCHMARK_UNPACK_ALL_TYPES_SKIP
+
+}  // namespace
+}  // namespace arrow::internal

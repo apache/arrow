@@ -96,6 +96,12 @@ class ARROW_EXPORT S3RetryStrategy {
 
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
+  /// \brief Smart defaults for option values
+  ///
+  /// The possible values for this setting are explained in the AWS docs:
+  /// https://docs.aws.amazon.com/sdkref/latest/guide/feature-smart-config-defaults.html
+  std::string smart_defaults = "standard";
+
   /// \brief AWS region to connect to.
   ///
   /// If unset, the AWS SDK will choose a default value.  The exact algorithm

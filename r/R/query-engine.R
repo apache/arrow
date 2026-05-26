@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 # nolint start: cyclocomp_linter,
-ExecPlan <- R6Class("ExecPlan",
+ExecPlan <- R6Class(
+  "ExecPlan",
   inherit = ArrowObject,
   public = list(
     Scan = function(dataset) {
@@ -261,7 +262,8 @@ ExecPlan$create <- function(use_threads = option_use_threads()) {
   ExecPlan_create(use_threads)
 }
 
-ExecNode <- R6Class("ExecNode",
+ExecNode <- R6Class(
+  "ExecNode",
   inherit = ArrowObject,
   public = list(
     extras = list(
@@ -343,7 +345,8 @@ ExecNode <- R6Class("ExecNode",
   )
 )
 
-ExecPlanReader <- R6Class("ExecPlanReader",
+ExecPlanReader <- R6Class(
+  "ExecPlanReader",
   inherit = RecordBatchReader,
   public = list(
     batches = function() ExecPlanReader__batches(self),

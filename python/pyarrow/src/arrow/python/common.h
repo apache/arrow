@@ -158,8 +158,7 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
   auto maybe_status = std::forward<Function>(func)();
   // If the return Status is a "Python error", the current Python error status
   // describes the error and shouldn't be clobbered.
-  if (!IsPyError(::arrow::internal::GenericToStatus(maybe_status)) &&
-      exc_type != NULLPTR) {
+  if (!IsPyError(::arrow::ToStatus(maybe_status)) && exc_type != NULLPTR) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
   return maybe_status;
@@ -417,6 +416,20 @@ struct PyBytesView {
       return Status::TypeError("Expected bytes, got a '", Py_TYPE(obj)->tp_name,
                                "' object");
     }
+    return Status::OK();
+  }
+
+  // Parse bytes from a uuid.UUID object (stores reference to keep bytes alive)
+  Status ParseUuid(PyObject* obj) {
+    ref.reset(PyObject_GetAttrString(obj, "bytes"));
+    RETURN_IF_PYERROR();
+    if (!PyBytes_Check(ref.obj())) {
+      return Status::TypeError("Expected uuid.UUID.bytes to return bytes, got '",
+                               Py_TYPE(ref.obj())->tp_name, "' object");
+    }
+    bytes = PyBytes_AS_STRING(ref.obj());
+    size = PyBytes_GET_SIZE(ref.obj());
+    is_utf8 = false;
     return Status::OK();
   }
 

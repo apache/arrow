@@ -36,9 +36,14 @@ set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.c
 
 set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF})
 
-set(FLIGHT_SQL_PROTOC_COMMAND
-    ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
-    "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}")
+set(FLIGHT_SQL_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}")
+# Add protobuf include directory for well-known types (e.g., descriptor.proto)
+# This is needed when using vendored protobuf where protoc doesn't have built-in paths
+if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
+  list(APPEND FLIGHT_SQL_PROTOC_COMMAND "-I${Protobuf_INCLUDE_DIRS}")
+endif()
+list(APPEND FLIGHT_SQL_PROTOC_COMMAND
+     "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}")
 if(Protobuf_VERSION VERSION_LESS 3.15)
   list(APPEND FLIGHT_SQL_PROTOC_COMMAND "--experimental_allow_proto3_optional")
 endif()
@@ -48,7 +53,8 @@ add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
                    COMMAND ${FLIGHT_SQL_PROTOC_COMMAND}
                    DEPENDS ${PROTO_DEPENDS})
 
-set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
+arrow_set_generated_proto_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES})
+
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
 set(ARROW_FLIGHT_SQL_SRCS
@@ -89,7 +95,7 @@ endif()
 
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts)
-  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_FLAGS "/wd4267")
+  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_OPTIONS "/wd4267")
 endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)
@@ -117,8 +123,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc
                                  server_session_middleware_internals_test.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
+  set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES} Boost::headers)
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
+  set(ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS "")
 
   if(ARROW_COMPUTE
      AND ARROW_PARQUET
@@ -129,6 +136,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     else()
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
+    list(APPEND ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS arrow_compute_testing)
 
     if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
@@ -146,6 +154,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                  ${ARROW_FLIGHT_SQL_TEST_LIBS}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_FLIGHT_SQL_TEST_EXTRA_LINK_LIBS}
                  EXTRA_INCLUDES
                  "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS
@@ -154,12 +164,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   add_executable(flight-sql-test-server test_server_cli.cc
                                         ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
   target_link_libraries(flight-sql-test-server
-                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
-                                ${SQLite3_LIBRARIES})
+                        PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+                                ${ARROW_FLIGHT_SQL_TEST_LIBS} ${GFLAGS_LIBRARIES})
 
   add_executable(flight-sql-test-app test_app_cli.cc)
   target_link_libraries(flight-sql-test-app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                                                    ${GFLAGS_LIBRARIES})
+                                                    Boost::headers ${GFLAGS_LIBRARIES})
 
   if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
     foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
@@ -167,4 +177,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                                                        ARROW_FLIGHT_SQL_STATIC)
     endforeach()
   endif()
+endif()
+
+if(ARROW_FLIGHT_SQL_ODBC)
+  add_subdirectory(odbc)
 endif()

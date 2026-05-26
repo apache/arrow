@@ -16,9 +16,11 @@
 // under the License.
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging_internal.h"
 
@@ -250,12 +252,13 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
             MakeArrayFromScalar(*replacements.scalar, array.length, ctx->memory_pool()));
         out->value = std::move(replacement_array->data());
       } else {
-        // Set to be a slice of replacements
+        // Set to be a slice of replacements. We manually adjust offset/length instead of
+        // calling ArrayData::Slice() to avoid creating an extra copy.
         std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
         result->offset += replacements_offset;
         result->length = array.length;
-
-        // TODO(wesm): why is the replacements null count not sufficient?
+        // The null count from the original replacements array is not sufficient because
+        // it applies to the entire array, not this specific slice. Must mark as unknown.
         result->null_count = kUnknownNullCount;
         out->value = result;
       }
@@ -799,8 +802,6 @@ struct FillNullBackwardChunked {
   }
 };
 
-}  // namespace
-
 void AddKernel(Type::type type_id, std::shared_ptr<KernelSignature> signature,
                ArrayKernelExec exec, VectorKernel::ChunkedExec exec_chunked,
                FunctionRegistry* registry, VectorFunction* func) {
@@ -842,6 +843,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   }
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
+  add_primitive_kernel(float16());
   AddKernel(Type::FIXED_SIZE_BINARY,
             Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
@@ -866,6 +868,8 @@ void RegisterVectorFunction(FunctionRegistry* registry,
 
   // TODO(ARROW-9431): "replace_with_indices"
 }
+
+}  // namespace
 
 const FunctionDoc replace_with_mask_doc(
     "Replace items selected with a mask",

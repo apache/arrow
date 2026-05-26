@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -30,6 +28,7 @@ sources = files(
     'decimal.cpp',
     'decoder.cpp',
     'error.cpp',
+    'executor.cpp',
     'expression.cpp',
     'field.cpp',
     'interval.cpp',
@@ -87,6 +86,7 @@ c_headers = files(
     'decimal.h',
     'decoder.h',
     'error.h',
+    'executor.h',
     'expression.h',
     'field.h',
     'interval.h',
@@ -137,6 +137,7 @@ cpp_headers = files(
     'decimal.hpp',
     'decoder.hpp',
     'error.hpp',
+    'executor.hpp',
     'expression.hpp',
     'field.hpp',
     'interval.hpp',
@@ -223,7 +224,7 @@ gio = cxx.find_library('gio-2.0', dirs: [gobject_libdir], required: false)
 if not gio.found()
     gio = dependency('gio-2.0')
 endif
-dependencies = [arrow, arrow_acero, gobject, gio]
+dependencies = [arrow_acero, arrow_compute, arrow, gobject, gio]
 libarrow_glib = library(
     'arrow-glib',
     sources: sources + enums,
@@ -266,7 +267,7 @@ if have_gi
     arrow_glib_gir = gnome.generate_gir(
         libarrow_glib,
         export_packages: 'arrow-glib',
-        extra_args: ['--warn-all'],
+        extra_args: gir_scanner_extra_args,
         header: 'arrow-glib/arrow-glib.h',
         identifier_prefix: 'GArrow',
         includes: ['GObject-2.0', 'Gio-2.0'],
@@ -277,6 +278,11 @@ if have_gi
     )
 
     if generate_vapi
+        configure_file(
+            copy: true,
+            input: 'Arrow.metadata',
+            output: 'Arrow-@0@.metadata'.format(gi_api_version),
+        )
         arrow_glib_vapi = gnome.generate_vapi(
             'arrow-glib',
             install: true,

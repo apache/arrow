@@ -33,6 +33,7 @@
 #include <arrow-glib/decoder.h>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.h>
+#include <arrow-glib/executor.h>
 #include <arrow-glib/expression.h>
 #include <arrow-glib/field.h>
 #include <arrow-glib/interval.h>

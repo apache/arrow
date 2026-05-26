@@ -28,6 +28,7 @@
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -110,23 +111,23 @@ Status PairwiseExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
 
 const FunctionDoc pairwise_diff_doc(
     "Compute first order difference of an array",
-    ("Computes the first order difference of an array, It internally calls \n"
-     "the scalar function \"subtract\" to compute \n differences, so its \n"
-     "behavior and supported types are the same as \n"
-     "\"subtract\". The period can be specified in :struct:`PairwiseOptions`.\n"
+    ("Computes the first order difference of an array. It internally calls\n"
+     "the scalar function \"subtract\" to compute differences, so its\n"
+     "behavior and supported types are the same as\n"
+     "\"subtract\". The period can be specified in `PairwiseOptions`.\n"
      "\n"
-     "Results will wrap around on integer overflow. Use function \n"
+     "Results will wrap around on integer overflow. Use function\n"
      "\"pairwise_diff_checked\" if you want overflow to return an error."),
     {"input"}, "PairwiseOptions");
 
 const FunctionDoc pairwise_diff_checked_doc(
     "Compute first order difference of an array",
-    ("Computes the first order difference of an array, It internally calls \n"
-     "the scalar function \"subtract_checked\" (or the checked variant) to compute \n"
-     "differences, so its behavior and supported types are the same as \n"
-     "\"subtract_checked\". The period can be specified in :struct:`PairwiseOptions`.\n"
+    ("Computes the first order difference of an array. It internally calls\n"
+     "the scalar function \"subtract_checked\" (or the checked variant) to compute\n"
+     "differences, so its behavior and supported types are the same as\n"
+     "\"subtract_checked\". The period can be specified in `PairwiseOptions`.\n"
      "\n"
-     "This function returns an error on overflow. For a variant that doesn't \n"
+     "This function returns an error on overflow. For a variant that doesn't\n"
      "fail on overflow, use function \"pairwise_diff\"."),
     {"input"}, "PairwiseOptions");
 
@@ -147,7 +148,7 @@ void RegisterPairwiseDiffKernels(std::string_view func_name,
                                                doc, GetDefaultPairwiseOptions());
 
   auto base_func_result = registry->GetFunction(std::string(base_func_name));
-  DCHECK_OK(base_func_result.status());
+  DCHECK_OK(base_func_result);
   const auto& base_func = checked_cast<const ScalarFunction&>(**base_func_result);
   DCHECK_EQ(base_func.arity().num_args, 2);
 

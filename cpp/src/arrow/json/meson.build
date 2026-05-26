@@ -21,6 +21,7 @@ exc = executable(
         'chunked_builder_test.cc',
         'chunker_test.cc',
         'converter_test.cc',
+        'from_string_test.cc',
         'parser_test.cc',
         'reader_test.cc',
     ],
@@ -41,6 +42,7 @@ install_headers(
         'chunked_builder.h',
         'chunker.h',
         'converter.h',
+        'from_string.h',
         'object_parser.h',
         'object_writer.h',
         'options.h',
@@ -52,6 +54,12 @@ install_headers(
     ],
     subdir: 'arrow/json',
 )
+
+arrow_json_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: arrow_dep,
+)
+meson.override_dependency('arrow-json', arrow_json_dep)
 
 pkg.generate(
     filebase: 'arrow-json',

@@ -31,3 +31,6 @@ Layout/ArgumentAlignment:
 
 Layout/SpaceAfterComma:
   Enabled: true
+
+Layout/TrailingEmptyLines:
+  Enabled: true

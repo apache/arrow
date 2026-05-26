@@ -177,8 +177,10 @@ class ARROW_CUDA_EXPORT CudaBufferReader
 
   Result<int64_t> DoRead(int64_t nbytes, void* buffer);
   Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                           void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes,
+                                           bool allow_short_read);
 
   Result<int64_t> DoTell() const;
   Status DoSeek(int64_t position);
@@ -260,12 +262,6 @@ Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
 /// Low-level: get a CPU address through which the device data be accessed.
 ARROW_CUDA_EXPORT
 Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
-
-ARROW_DEPRECATED(
-    "Deprecated in 16.0.0. The CUDA device is registered by default, and you can use "
-    "arrow::DefaultDeviceMapper instead.")
-Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
-                                                           int64_t device_id);
 
 }  // namespace cuda
 }  // namespace arrow

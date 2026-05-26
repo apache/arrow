@@ -75,7 +75,7 @@
 #if defined(__GNUC__)  // GCC and compatible compilers (clang, Intel ICC)
 #  define ARROW_NORETURN __attribute__((noreturn))
 #  define ARROW_NOINLINE __attribute__((noinline))
-#  define ARROW_FORCE_INLINE __attribute__((always_inline))
+#  define ARROW_FORCE_INLINE __attribute__((always_inline)) inline
 #  define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
 #  define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #  define ARROW_RESTRICT __restrict
@@ -171,27 +171,30 @@
 
 // ----------------------------------------------------------------------
 
-// macros to disable padding
-// these macros are portable across different compilers and platforms
-//[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]
-#if !defined(MANUALLY_ALIGNED_STRUCT)
-#  if defined(_MSC_VER)
-#    define MANUALLY_ALIGNED_STRUCT(alignment) \
-      __pragma(pack(1));                       \
-      struct __declspec(align(alignment))
-#    define STRUCT_END(name, size) \
-      __pragma(pack());            \
-      static_assert(sizeof(name) == size, "compiler breaks packing rules")
-#  elif defined(__GNUC__) || defined(__clang__)
-#    define MANUALLY_ALIGNED_STRUCT(alignment) \
-      _Pragma("pack(1)") struct __attribute__((aligned(alignment)))
-#    define STRUCT_END(name, size)                          \
-      _Pragma("pack()") static_assert(sizeof(name) == size, \
-                                      "compiler breaks packing rules")
-#  else
-#    error Unknown compiler, please define structure alignment macros
-#  endif
-#endif  // !defined(MANUALLY_ALIGNED_STRUCT)
+// Macros to disable warnings about undeclared global functions
+#if defined(__GNUC__)
+#  define ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING \
+    _Pragma("GCC diagnostic push");                   \
+    _Pragma("GCC diagnostic ignored \"-Wmissing-declarations\"")
+#  define ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING _Pragma("GCC diagnostic pop")
+#else
+#  define ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
+#  define ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
+#endif
+
+// ----------------------------------------------------------------------
+// Macros to enforce struct member packing
+
+#if defined(__GNUC__)
+#  define ARROW_PACKED_START(KEYWORD, ...) KEYWORD [[gnu::packed]] __VA_ARGS__
+#  define ARROW_PACKED_END
+#elif defined(_MSC_VER)
+#  define ARROW_PACKED_START(KEYWORD, ...) _Pragma("pack(push, 1)") KEYWORD __VA_ARGS__
+#  define ARROW_PACKED_END _Pragma("pack(pop)")
+#else
+#  define ARROW_PACKED_START(KEYWORD, ...) KEYWORD __VA_ARGS__
+#  define ARROW_PACKED_END
+#endif
 
 // ----------------------------------------------------------------------
 // Convenience macro disabling a particular UBSan check in a function

@@ -70,9 +70,9 @@ docker ps
 sudo docker ps -a
 ```
 
-## Running existing workflows from docker-compose.yml
+## Running existing workflows from compose.yaml
 
-There are a number of workflows outlined in the file `docker-compose.yml` in the
+There are a number of workflows outlined in the file `compose.yaml` in the
 arrow repo root directory.  For example, you can use the workflow called `r` to
 test building and installing the R package.  This is advantageous as you can use
 existing utility scripts and install it onto a container which already has R on

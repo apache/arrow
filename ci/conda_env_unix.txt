@@ -20,4 +20,5 @@
 autoconf
 ccache
 orc
+patch
 pkg-config

@@ -20,7 +20,7 @@
 # fast_float
 
 The files in this directory are vendored from fast_float
-git tag `v3.10.1`.
+git tag `v8.1.0`.
 
 See https://github.com/fastfloat/fast_float
 
@@ -30,10 +30,10 @@ See https://github.com/fastfloat/fast_float
 
 ## How to update
 
-You must replace `VERSION` in the command lines with suitable version
-such as `3.10.1`.
+You must replace `VERSION` in the command line below with suitable version
+such as `v8.1.0`.
 
 ```bash
-cpp/src/arrow/vendoered/fast_float/update.sh VERSION
+cpp/src/arrow/vendored/fast_float/update.sh VERSION
 git commit add cpp/src/arrow/vendoered/fast_float/
 ```

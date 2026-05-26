@@ -20,6 +20,7 @@
 #include <memory.h>
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 
 #include "arrow/compute/light_array_internal.h"
@@ -357,7 +358,7 @@ void Hashing32::HashInt(bool combine_hashes, uint32_t num_keys, uint64_t key_len
 void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t num_keys,
                           uint64_t key_length, const uint8_t* keys, uint32_t* hashes,
                           uint32_t* temp_hashes_for_combine) {
-  if (ARROW_POPCOUNT64(key_length) == 1 && key_length <= sizeof(uint64_t)) {
+  if (std::popcount(key_length) == 1 && key_length <= sizeof(uint64_t)) {
     HashInt(combine_hashes, num_keys, key_length, keys, hashes);
     return;
   }
@@ -809,7 +810,7 @@ void Hashing64::HashInt(bool combine_hashes, uint32_t num_keys, uint64_t key_len
 
 void Hashing64::HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t key_length,
                           const uint8_t* keys, uint64_t* hashes) {
-  if (ARROW_POPCOUNT64(key_length) == 1 && key_length <= sizeof(uint64_t)) {
+  if (std::popcount(key_length) == 1 && key_length <= sizeof(uint64_t)) {
     HashInt(combine_hashes, num_keys, key_length, keys, hashes);
     return;
   }

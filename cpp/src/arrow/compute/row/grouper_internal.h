@@ -20,7 +20,7 @@
 namespace arrow {
 namespace compute {
 
-ARROW_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
+ARROW_COMPUTE_EXPORT Result<std::unique_ptr<RowSegmenter>> MakeAnyKeysSegmenter(
     const std::vector<TypeHolder>& key_types, ExecContext* ctx);
 
 }  // namespace compute

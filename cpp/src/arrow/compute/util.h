@@ -26,6 +26,7 @@
 
 #include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
+#include "arrow/compute/visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/simd.h"
@@ -66,49 +67,54 @@ class MiniBatch {
 
 namespace bit_util {
 
-ARROW_EXPORT void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
-                                  const int num_bits, const uint8_t* bits,
-                                  int* num_indexes, uint16_t* indexes,
-                                  int bit_offset = 0);
+ARROW_COMPUTE_EXPORT void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
+                                          const int num_bits, const uint8_t* bits,
+                                          int* num_indexes, uint16_t* indexes,
+                                          int bit_offset = 0);
 
-ARROW_EXPORT void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
-                                      const int num_bits, const uint8_t* bits,
-                                      const uint16_t* input_indexes, int* num_indexes,
-                                      uint16_t* indexes, int bit_offset = 0);
+ARROW_COMPUTE_EXPORT void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
+                                              const int num_bits, const uint8_t* bits,
+                                              const uint16_t* input_indexes,
+                                              int* num_indexes, uint16_t* indexes,
+                                              int bit_offset = 0);
 
 // Input and output indexes may be pointing to the same data (in-place filtering).
-ARROW_EXPORT void bits_split_indexes(int64_t hardware_flags, const int num_bits,
-                                     const uint8_t* bits, int* num_indexes_bit0,
-                                     uint16_t* indexes_bit0, uint16_t* indexes_bit1,
-                                     int bit_offset = 0);
+ARROW_COMPUTE_EXPORT void bits_split_indexes(int64_t hardware_flags, const int num_bits,
+                                             const uint8_t* bits, int* num_indexes_bit0,
+                                             uint16_t* indexes_bit0,
+                                             uint16_t* indexes_bit1, int bit_offset = 0);
 
 // Bit 1 is replaced with byte 0xFF.
-ARROW_EXPORT void bits_to_bytes(int64_t hardware_flags, const int num_bits,
-                                const uint8_t* bits, uint8_t* bytes, int bit_offset = 0);
+ARROW_COMPUTE_EXPORT void bits_to_bytes(int64_t hardware_flags, const int num_bits,
+                                        const uint8_t* bits, uint8_t* bytes,
+                                        int bit_offset = 0);
 
 // Return highest bit of each byte.
-ARROW_EXPORT void bytes_to_bits(int64_t hardware_flags, const int num_bits,
-                                const uint8_t* bytes, uint8_t* bits, int bit_offset = 0);
+ARROW_COMPUTE_EXPORT void bytes_to_bits(int64_t hardware_flags, const int num_bits,
+                                        const uint8_t* bytes, uint8_t* bits,
+                                        int bit_offset = 0);
 
-ARROW_EXPORT bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
-                                     uint32_t num_bytes);
+ARROW_COMPUTE_EXPORT bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
+                                             uint32_t num_bytes);
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
 // The functions below use BMI2 instructions, be careful before calling!
 
 namespace avx2 {
-ARROW_EXPORT void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
-                                           const uint8_t* bits,
-                                           const uint16_t* input_indexes,
-                                           int* num_indexes, uint16_t* indexes);
-ARROW_EXPORT void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
-                                       const uint8_t* bits, int* num_indexes,
-                                       uint16_t* indexes, uint16_t base_index = 0);
-ARROW_EXPORT void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits,
-                                     uint8_t* bytes);
-ARROW_EXPORT void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes,
-                                     uint8_t* bits);
-ARROW_EXPORT bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes);
+ARROW_COMPUTE_EXPORT void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
+                                                   const uint8_t* bits,
+                                                   const uint16_t* input_indexes,
+                                                   int* num_indexes, uint16_t* indexes);
+ARROW_COMPUTE_EXPORT void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
+                                               const uint8_t* bits, int* num_indexes,
+                                               uint16_t* indexes,
+                                               uint16_t base_index = 0);
+ARROW_COMPUTE_EXPORT void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits,
+                                             uint8_t* bytes);
+ARROW_COMPUTE_EXPORT void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes,
+                                             uint8_t* bits);
+ARROW_COMPUTE_EXPORT bool are_all_bytes_zero_avx2(const uint8_t* bytes,
+                                                  uint32_t num_bytes);
 }  // namespace avx2
 
 #endif
@@ -143,7 +149,7 @@ Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
     ARROW_ASSIGN_OR_RAISE(auto modified_argument,
                           ModifyExpression(call->arguments[i], pre, post_call));
 
-    if (Identical(modified_argument, call->arguments[i])) {
+    if (Expression::Identical(modified_argument, call->arguments[i])) {
       continue;
     }
 

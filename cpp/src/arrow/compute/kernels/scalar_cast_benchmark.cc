@@ -37,7 +37,7 @@ static void BenchmarkNumericCast(benchmark::State& state,
   random::RandomArrayGenerator rand(kSeed);
   auto array = rand.Numeric<InputType>(args.size, min, max, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(Cast(array, to_type, options).status());
+    ABORT_NOT_OK(Cast(array, to_type, options));
   }
 }
 
@@ -54,7 +54,7 @@ static void BenchmarkFloatingToIntegerCast(benchmark::State& state,
   std::shared_ptr<Array> values_as_float = *Cast(*array, from_type);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Cast(values_as_float, to_type, options).status());
+    ABORT_NOT_OK(Cast(values_as_float, to_type, options));
   }
 }
 

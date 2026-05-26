@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/task_util.h"
@@ -136,7 +137,7 @@ struct ExecPlanImpl : public ExecPlan {
             opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
                 ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
             std::for_each(std::begin(pairs), std::end(pairs),
-                          [span](std::pair<std::string, std::string> const& pair) {
+                          [span](const std::pair<std::string, std::string>& pair) {
                             span->SetAttribute(pair.first, pair.second);
                           });
           }
@@ -1100,23 +1101,6 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
   options.use_threads = use_threads;
   return DeclarationToReader(std::move(declaration), std::move(options));
 }
-
-namespace internal {
-
-void RegisterSourceNode(ExecFactoryRegistry*);
-void RegisterFetchNode(ExecFactoryRegistry*);
-void RegisterFilterNode(ExecFactoryRegistry*);
-void RegisterOrderByNode(ExecFactoryRegistry*);
-void RegisterPivotLongerNode(ExecFactoryRegistry*);
-void RegisterProjectNode(ExecFactoryRegistry*);
-void RegisterUnionNode(ExecFactoryRegistry*);
-void RegisterAggregateNode(ExecFactoryRegistry*);
-void RegisterSinkNode(ExecFactoryRegistry*);
-void RegisterHashJoinNode(ExecFactoryRegistry*);
-void RegisterAsofJoinNode(ExecFactoryRegistry*);
-void RegisterSortedMergeNode(ExecFactoryRegistry*);
-
-}  // namespace internal
 
 ExecFactoryRegistry* default_exec_factory_registry() {
   class DefaultRegistry : public ExecFactoryRegistry {

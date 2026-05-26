@@ -19,12 +19,14 @@ skip_if_not_available("s3")
 
 run_these <- tryCatch(
   expr = {
-    if (arrow_with_s3() &&
-      identical(tolower(Sys.getenv("ARROW_R_DEV")), "true") &&
-      !identical(Sys.getenv("AWS_ACCESS_KEY_ID"), "") &&
-      !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")) {
+    if (
+      arrow_with_s3() &&
+        identical(tolower(Sys.getenv("ARROW_R_DEV")), "true") &&
+        !identical(Sys.getenv("AWS_ACCESS_KEY_ID"), "") &&
+        !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")
+    ) {
       # See if we have access to the test bucket
-      bucket <- s3_bucket("ursa-labs-r-test")
+      bucket <- s3_bucket("arrow-r-ci-test")
       bucket$GetFileInfo("")
       TRUE
     } else {
@@ -34,7 +36,7 @@ run_these <- tryCatch(
   error = function(e) FALSE
 )
 
-bucket_uri <- function(..., bucket = "s3://ursa-labs-r-test/%s?region=us-west-2") {
+bucket_uri <- function(..., bucket = "s3://arrow-r-ci-test/%s?region=us-east-1") {
   segments <- paste(..., sep = "/")
   sprintf(bucket, segments)
 }

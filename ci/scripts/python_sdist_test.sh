@@ -25,8 +25,7 @@ export ARROW_SOURCE_DIR=${arrow_dir}
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
-export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
-export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
+export CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
 export PYARROW_WITH_ACERO=${ARROW_ACERO:-ON}
 export PYARROW_WITH_AZURE=${ARROW_AZURE:-OFF}
 export PYARROW_WITH_S3=${ARROW_S3:-OFF}
@@ -53,13 +52,18 @@ fi
 if [ -n "${PYARROW_VERSION:-}" ]; then
   sdist="${arrow_dir}/python/dist/pyarrow-${PYARROW_VERSION}.tar.gz"
 else
-  sdist=$(ls ${arrow_dir}/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
+  sdist=$(echo "${arrow_dir}"/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
 fi
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
+  #
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
-${PYTHON:-python} -m pip install ${sdist}
+${PYTHON:-python} -m pip install -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" "${sdist}"
 
+# shellcheck disable=SC2086
 pytest -r s ${PYTEST_ARGS:-} --pyargs pyarrow

@@ -30,40 +30,40 @@ to_join <- tibble::tibble(
 
 test_that("left_join with automatic grouping", {
   expect_identical(
-    as_record_batch(left) %>%
-      left_join(to_join) %>%
+    as_record_batch(left) |>
+      left_join(to_join) |>
       collect(),
-    left %>%
-      left_join(to_join, by = "some_grouping") %>%
+    left |>
+      left_join(to_join, by = "some_grouping") |>
       collect()
   )
 })
 
 test_that("left_join `by` args", {
   compare_dplyr_binding(
-    .input %>%
-      left_join(to_join, by = "some_grouping") %>%
+    .input |>
+      left_join(to_join, by = "some_grouping") |>
       collect(),
     left
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       left_join(
-        to_join %>%
+        to_join |>
           rename(the_grouping = some_grouping),
         by = c(some_grouping = "the_grouping")
-      ) %>%
+      ) |>
       collect(),
     left
   )
 
   compare_dplyr_binding(
-    .input %>%
-      rename(the_grouping = some_grouping) %>%
+    .input |>
+      rename(the_grouping = some_grouping) |>
       left_join(
         to_join,
         by = c(the_grouping = "some_grouping")
-      ) %>%
+      ) |>
       collect(),
     left
   )
@@ -74,29 +74,29 @@ test_that("left_join with join_by", {
   skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
 
   compare_dplyr_binding(
-    .input %>%
-      left_join(to_join, join_by(some_grouping)) %>%
+    .input |>
+      left_join(to_join, join_by(some_grouping)) |>
       collect(),
     left
   )
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       left_join(
-        to_join %>%
+        to_join |>
           rename(the_grouping = some_grouping),
         join_by(some_grouping == the_grouping)
-      ) %>%
+      ) |>
       collect(),
     left
   )
 
   compare_dplyr_binding(
-    .input %>%
-      rename(the_grouping = some_grouping) %>%
+    .input |>
+      rename(the_grouping = some_grouping) |>
       left_join(
         to_join,
         join_by(the_grouping == some_grouping)
-      ) %>%
+      ) |>
       collect(),
     left
   )
@@ -104,19 +104,19 @@ test_that("left_join with join_by", {
 
 test_that("join two tables", {
   expect_identical(
-    arrow_table(left) %>%
-      left_join(arrow_table(to_join), by = "some_grouping") %>%
+    arrow_table(left) |>
+      left_join(arrow_table(to_join), by = "some_grouping") |>
       collect(),
-    left %>%
-      left_join(to_join, by = "some_grouping") %>%
+    left |>
+      left_join(to_join, by = "some_grouping") |>
       collect()
   )
 })
 
 test_that("Error handling", {
   expect_error(
-    arrow_table(left) %>%
-      left_join(to_join, by = "not_a_col") %>%
+    arrow_table(left) |>
+      left_join(to_join, by = "not_a_col") |>
       collect(),
     "Join columns must be present in data"
   )
@@ -176,32 +176,119 @@ test_that("Error handling for unsupported expressions in join_by", {
   skip_if_not(packageVersion("dplyr") >= "1.0.99.9000")
 
   expect_error(
-    arrow_table(left) %>%
+    arrow_table(left) |>
       left_join(to_join, join_by(some_grouping >= some_grouping)),
     "not supported"
   )
 
   expect_error(
-    arrow_table(left) %>%
+    arrow_table(left) |>
       left_join(to_join, join_by(closest(some_grouping >= some_grouping))),
     "not supported"
   )
 })
 
-# TODO: test duplicate col names
-# TODO: casting: int and float columns?
+test_that("joins with duplicate column names", {
+  # When column names are duplicated (not in by), suffixes are added
+  left_dup <- tibble::tibble(
+    key = 1:5,
+    shared = 1:5,
+    shared_float = c(1.1, 2.2, 3.3, 4.4, 5.5),
+    left_unique = letters[1:5]
+  )
+  right_dup <- tibble::tibble(
+    key = 1:5,
+    shared = 6:10,
+    shared_float = c(6.1, 7.2, 8.3, 9.4, 10.5),
+    right_unique = LETTERS[1:5]
+  )
+
+  # Test with default suffixes (.x and .y)
+  compare_dplyr_binding(
+    .input |>
+      left_join(right_dup, by = "key") |>
+      collect(),
+    left_dup
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      inner_join(right_dup, by = "key") |>
+      collect(),
+    left_dup
+  )
+
+  # Test with custom suffixes
+  compare_dplyr_binding(
+    .input |>
+      left_join(right_dup, by = "key", suffix = c("_left", "_right")) |>
+      collect(),
+    left_dup
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      inner_join(right_dup, by = "key", suffix = c("_left", "_right")) |>
+      collect(),
+    left_dup
+  )
+
+  # Test that column names are correctly suffixed
+  # Verify exact column names match expected pattern using the same fixture
+  result <- arrow_table(left_dup) |>
+    inner_join(
+      arrow_table(right_dup),
+      by = "key",
+      suffix = c("_left", "_right")
+    ) |>
+    collect()
+  res_col_names <- names(result)
+  # Column order: join key first, then left table columns (with suffixes),
+  # then right table columns (with suffixes)
+  expected_col_names <- c(
+    "key",
+    "shared_left",
+    "shared_float_left",
+    "left_unique",
+    "shared_right",
+    "shared_float_right",
+    "right_unique"
+  )
+  expect_equal(expected_col_names, res_col_names)
+})
+
+test_that("joins with incompatible types for join keys", {
+  # Test that joining on columns with incompatible types (int vs float) fails
+  # Arrow requires join keys to have compatible types - type casting is not
+  # automatically performed for join keys
+  left_int <- Table$create(
+    x = c(1L, 2L),
+    shared = c(10L, 20L)
+  )
+  right_float <- Table$create(
+    x = c(1.0, 2.0),
+    shared = c(10.1, 20.2)
+  )
+
+  expect_error(
+    left_int |>
+      left_join(right_float, by = "x") |>
+      collect(),
+    "Incompatible data types for corresponding join field keys"
+  )
+})
 
 test_that("right_join", {
   compare_dplyr_binding(
-    .input %>%
-      right_join(to_join, by = "some_grouping", keep = TRUE) %>%
+    .input |>
+      right_join(to_join, by = "some_grouping", keep = TRUE) |>
       collect(),
     left
   )
 
   compare_dplyr_binding(
-    .input %>%
-      right_join(to_join, by = "some_grouping", keep = FALSE) %>%
+    .input |>
+      right_join(to_join, by = "some_grouping", keep = FALSE) |>
       collect(),
     left
   )
@@ -209,15 +296,15 @@ test_that("right_join", {
 
 test_that("inner_join", {
   compare_dplyr_binding(
-    .input %>%
-      inner_join(to_join, by = "some_grouping", keep = TRUE) %>%
+    .input |>
+      inner_join(to_join, by = "some_grouping", keep = TRUE) |>
       collect(),
     left
   )
 
   compare_dplyr_binding(
-    .input %>%
-      inner_join(to_join, by = "some_grouping", keep = FALSE) %>%
+    .input |>
+      inner_join(to_join, by = "some_grouping", keep = FALSE) |>
       collect(),
     left
   )
@@ -225,15 +312,15 @@ test_that("inner_join", {
 
 test_that("full_join", {
   compare_dplyr_binding(
-    .input %>%
-      full_join(to_join, by = "some_grouping", keep = TRUE) %>%
+    .input |>
+      full_join(to_join, by = "some_grouping", keep = TRUE) |>
       collect(),
     left
   )
 
   compare_dplyr_binding(
-    .input %>%
-      full_join(to_join, by = "some_grouping", keep = FALSE) %>%
+    .input |>
+      full_join(to_join, by = "some_grouping", keep = FALSE) |>
       collect(),
     left
   )
@@ -241,8 +328,8 @@ test_that("full_join", {
 
 test_that("semi_join", {
   compare_dplyr_binding(
-    .input %>%
-      semi_join(to_join, by = "some_grouping") %>%
+    .input |>
+      semi_join(to_join, by = "some_grouping") |>
       collect(),
     left
   )
@@ -250,11 +337,11 @@ test_that("semi_join", {
 
 test_that("anti_join", {
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       # Factor levels when there are no rows in the data don't match
       # TODO: use better anti_join test data
-      select(-fct) %>%
-      anti_join(to_join, by = "some_grouping") %>%
+      select(-fct) |>
+      anti_join(to_join, by = "some_grouping") |>
       collect(),
     left
   )
@@ -271,15 +358,15 @@ test_that("arrow dplyr query correctly mutates then joins", {
   )
 
   expect_equal(
-    left %>%
-      rename(dos = two) %>%
+    left |>
+      rename(dos = two) |>
       # Use the ASCII version so we don't need utf8proc for this test
-      mutate(one = arrow_ascii_upper(one)) %>%
+      mutate(one = arrow_ascii_upper(one)) |>
       left_join(
-        right %>%
+        right |>
           mutate(three = !three)
-      ) %>%
-      arrange(dos) %>%
+      ) |>
+      arrange(dos) |>
       collect(),
     tibble(
       one = c("A", "B"),
@@ -300,14 +387,14 @@ test_that("arrow dplyr query correctly filters then joins", {
   )
 
   expect_equal(
-    left %>%
-      rename(dos = two) %>%
-      filter(one %in% letters[1:2]) %>%
+    left |>
+      rename(dos = two) |>
+      filter(one %in% letters[1:2]) |>
       left_join(
-        right %>%
+        right |>
           filter(!is.na(three))
-      ) %>%
-      arrange(dos) %>%
+      ) |>
+      arrange(dos) |>
       collect(),
     tibble(
       one = c("a", "b"),
@@ -315,26 +402,6 @@ test_that("arrow dplyr query correctly filters then joins", {
       three = c(NA, FALSE)
     )
   )
-})
-
-test_that("suffix", {
-  left_suf <- Table$create(
-    key = c(1, 2),
-    left_unique = c(2.1, 3.1),
-    shared = c(10.1, 10.3)
-  )
-
-  right_suf <- Table$create(
-    key = c(1, 2, 3, 10, 20),
-    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
-    shared = c(20.1, 30, 40, 50, 60)
-  )
-
-  join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
-  output <- collect(join_op)
-  res_col_names <- names(output)
-  expected_col_names <- c("key", "left_unique", "shared_left", "right_unique", "shared_right")
-  expect_equal(expected_col_names, res_col_names)
 })
 
 test_that("suffix and implicit schema", {
@@ -369,9 +436,9 @@ test_that("summarize and join", {
     shared = c(20.1, 30, 40, 50, 60)
   )
 
-  joined <- left_suf %>%
-    group_by(key) %>%
-    summarize(left_unique = mean(left_unique), shared = mean(shared)) %>%
+  joined <- left_suf |>
+    group_by(key) |>
+    summarize(left_unique = mean(left_unique), shared = mean(shared)) |>
     inner_join(right_suf, by = "key", suffix = c("_left", "_right"))
 
   output <- collect(joined)
@@ -390,21 +457,21 @@ test_that("arrow dplyr query can join two datasets", {
 
   dir_out <- tempdir()
 
-  quakes %>%
-    select(stations, lat, long) %>%
-    group_by(stations) %>%
+  quakes |>
+    select(stations, lat, long) |>
+    group_by(stations) |>
     write_dataset(file.path(dir_out, "ds1"))
 
-  quakes %>%
-    select(stations, mag, depth) %>%
-    group_by(stations) %>%
+  quakes |>
+    select(stations, mag, depth) |>
+    group_by(stations) |>
     write_dataset(file.path(dir_out, "ds2"))
 
   withr::with_options(
     list(arrow.use_threads = FALSE),
     {
-      res <- open_dataset(file.path(dir_out, "ds1")) %>%
-        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") %>%
+      res <- open_dataset(file.path(dir_out, "ds1")) |>
+        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") |>
         collect() # We should not segfault here.
       expect_equal(nrow(res), 21872)
     }
@@ -426,17 +493,17 @@ test_that("full joins handle keep", {
   )
 
   compare_dplyr_binding(
-    .input %>%
-      full_join(full_data_df, by = c("y", "x"), keep = TRUE) %>%
-      arrange(index) %>%
+    .input |>
+      full_join(full_data_df, by = c("y", "x"), keep = TRUE) |>
+      arrange(index) |>
       collect(),
     small_dataset_df
   )
 
   compare_dplyr_binding(
-    .input %>%
-      full_join(full_data_df, by = c("y", "x"), keep = FALSE) %>%
-      arrange(index) %>%
+    .input |>
+      full_join(full_data_df, by = c("y", "x"), keep = FALSE) |>
+      arrange(index) |>
       collect(),
     small_dataset_df
   )
@@ -456,20 +523,20 @@ na_matches_never <- tibble::tibble(
 )
 test_that("na_matches argument to join: na (default)", {
   expect_equal(
-    arrow_table(left) %>%
-      left_join(right, by = "x", na_matches = "na") %>%
-      arrange(x) %>%
+    arrow_table(left) |>
+      left_join(right, by = "x", na_matches = "na") |>
+      arrange(x) |>
       collect(),
-    na_matches_na %>% arrange(x)
+    na_matches_na |> arrange(x)
   )
 })
 
 test_that("na_matches argument to join: never", {
   expect_equal(
-    arrow_table(left) %>%
-      left_join(right, by = "x", na_matches = "never") %>%
-      arrange(x) %>%
+    arrow_table(left) |>
+      left_join(right, by = "x", na_matches = "never") |>
+      arrange(x) |>
       collect(),
-    na_matches_never %>% arrange(x)
+    na_matches_never |> arrange(x)
   )
 })

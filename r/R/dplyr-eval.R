@@ -30,12 +30,14 @@ arrow_eval <- function(expr, mask) {
   #   regular dplyr may work
   # * validation_error: the expression is known to be not valid, so don't
   #   recommend retrying with regular dplyr
-  tryCatch(eval_tidy(expr, mask), error = function(e) {
+  tryCatch(eval_tidy(expr, mask, env = mask), error = function(e) {
     # Inspect why the expression failed, and add the expr as the `call`
     # for better error messages
     msg <- conditionMessage(e)
     arrow_debug <- getOption("arrow.debug", FALSE)
-    if (arrow_debug) print(msg)
+    if (arrow_debug) {
+      print(msg)
+    }
 
     # A few cases:
     # 1. Evaluation raised one of our error classes. Add the expr as the call
@@ -68,7 +70,6 @@ arrow_eval <- function(expr, mask) {
     if (grepl("NotImplemented", msg)) {
       arrow_not_supported(.actual_msg = msg, call = expr)
     }
-
 
     # 5. Otherwise, we're not sure why this errored: it's not an error we raised
     #    explicitly. We'll assume it's because the function it calls isn't
@@ -182,9 +183,7 @@ i18ize_error_messages <- function() {
 #' include `call` to provide the call or expression that caused the error, and
 #' `body` to provide additional context about the error.
 #' @keywords internal
-arrow_not_supported <- function(msg,
-                                .actual_msg = paste(msg, "not supported in Arrow"),
-                                ...) {
+arrow_not_supported <- function(msg, .actual_msg = paste(msg, "not supported in Arrow"), ...) {
   abort(.actual_msg, class = "arrow_not_supported", use_cli_format = TRUE, ...)
 }
 

@@ -29,7 +29,7 @@
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 
 namespace arrow {
 
@@ -55,31 +55,25 @@ static bool FromGrpcContext(const ::grpc::ClientContext& ctx,
   const std::multimap<::grpc::string_ref, ::grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
 
-  const auto code_val = trailers.find(kGrpcStatusCodeHeader);
-  if (code_val == trailers.end()) return false;
+  const auto [code_val_begin, code_val_end] = trailers.equal_range(kGrpcStatusCodeHeader);
+  if (code_val_begin == code_val_end) return false;
 
-  const auto message_val = trailers.find(kGrpcStatusMessageHeader);
-  const std::optional<std::string> message =
-      message_val == trailers.end()
-          ? std::nullopt
-          : std::optional<std::string>(
-                std::string(message_val->second.data(), message_val->second.size()));
+  std::optional<std::string> message;
+  if (const auto [it, end] = trailers.equal_range(kGrpcStatusMessageHeader); it != end) {
+    message = std::string(it->second.data(), it->second.size());
+  }
 
-  const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
-  const std::optional<std::string> detail_message =
-      detail_val == trailers.end()
-          ? std::nullopt
-          : std::optional<std::string>(
-                std::string(detail_val->second.data(), detail_val->second.size()));
+  std::optional<std::string> detail_message;
+  if (const auto [it, end] = trailers.equal_range(kGrpcStatusDetailHeader); it != end) {
+    detail_message = std::string(it->second.data(), it->second.size());
+  }
 
-  const auto grpc_detail_val = trailers.find(kBinaryErrorDetailsKey);
-  const std::optional<std::string> detail_bin =
-      grpc_detail_val == trailers.end()
-          ? std::nullopt
-          : std::optional<std::string>(std::string(grpc_detail_val->second.data(),
-                                                   grpc_detail_val->second.size()));
+  std::optional<std::string> detail_bin;
+  if (const auto [it, end] = trailers.equal_range(kBinaryErrorDetailsKey); it != end) {
+    detail_bin = std::string(it->second.data(), it->second.size());
+  }
 
-  std::string code_str(code_val->second.data(), code_val->second.size());
+  std::string code_str(code_val_begin->second.data(), code_val_begin->second.size());
   *status = internal::ReconstructStatus(code_str, current_status, std::move(message),
                                         std::move(detail_message), std::move(detail_bin),
                                         std::move(flight_status_detail));
@@ -134,9 +128,10 @@ static TransportStatus TransportStatusFromGrpc(const ::grpc::Status& grpc_status
       return TransportStatus{TransportStatusCode::kUnauthenticated,
                              grpc_status.error_message()};
     default:
-      return TransportStatus{TransportStatusCode::kUnknown,
-                             util::StringBuilder("(", grpc_status.error_code(), ")",
-                                                 grpc_status.error_message())};
+      return TransportStatus{
+          TransportStatusCode::kUnknown,
+          arrow::internal::JoinToString("(", grpc_status.error_code(), ")",
+                                        grpc_status.error_message())};
   }
 }
 
@@ -335,6 +330,49 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
 
   return status;
 }
+
+#if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+Status FromAbslStatus(const ::absl::Status& absl_status) {
+  switch (absl_status.code()) {
+    case ::absl::StatusCode::kOk:
+      return Status::OK();
+    case ::absl::StatusCode::kCancelled:
+      return Status::Cancelled(absl_status.ToString());
+    case ::absl::StatusCode::kUnknown:
+      return Status::UnknownError(absl_status.ToString());
+    case ::absl::StatusCode::kInvalidArgument:
+      return Status::Invalid(absl_status.ToString());
+    case ::absl::StatusCode::kDeadlineExceeded:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kNotFound:
+      return Status::KeyError(absl_status.ToString());
+    case ::absl::StatusCode::kAlreadyExists:
+      return Status::AlreadyExists(absl_status.ToString());
+    case ::absl::StatusCode::kPermissionDenied:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kResourceExhausted:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kFailedPrecondition:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kAborted:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kOutOfRange:
+      return Status::Invalid(absl_status.ToString());
+    case ::absl::StatusCode::kUnimplemented:
+      return Status::NotImplemented(absl_status.ToString());
+    case ::absl::StatusCode::kInternal:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kUnavailable:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kDataLoss:
+      return Status::IOError(absl_status.ToString());
+    case ::absl::StatusCode::kUnauthenticated:
+      return Status::IOError(absl_status.ToString());
+    default:
+      return Status::UnknownError(absl_status.ToString());
+  }
+}
+#endif
 
 }  // namespace grpc
 }  // namespace transport

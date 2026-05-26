@@ -16,7 +16,6 @@
 # under the License.
 import pytest
 from datetime import timedelta
-
 import pyarrow as pa
 try:
     import pyarrow.parquet as pq
@@ -25,8 +24,11 @@ except ImportError:
     pq = None
     pe = None
 else:
-    from pyarrow.tests.parquet.encryption import (
-        InMemoryKmsClient, verify_file_encrypted)
+    from pyarrow.tests.parquet.encryption import (InMemoryKmsClient,
+                                                  MockVersioningKmsClient,
+                                                  verify_file_encrypted,
+                                                  read_external_keys_to_dict,
+                                                  parse_wrapped_key)
 
 
 PARQUET_NAME = 'encrypted_table.in_mem.parquet'
@@ -34,6 +36,11 @@ FOOTER_KEY = b"0123456789112345"
 FOOTER_KEY_NAME = "footer_key"
 COL_KEY = b"1234567890123450"
 COL_KEY_NAME = "col_key"
+
+DIRECT_KEY_128 = b"0123456789abcdef"
+DIRECT_KEY_192 = b"0123456789abcdef01234567"
+DIRECT_KEY_256 = b"0123456789abcdef0123456789abcdef"
+DIRECT_AAD_PREFIX = b"test_aad_prefix"
 
 
 # Marks all of the tests in this module
@@ -63,6 +70,17 @@ def basic_encryption_config():
             COL_KEY_NAME: ["a", "b"],
         })
     return basic_encryption_config
+
+
+@pytest.fixture(scope='module')
+def external_encryption_config():
+    external_encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={
+            COL_KEY_NAME: ["a", "b"],
+        },
+        internal_key_material=False)
+    return external_encryption_config
 
 
 def setup_encryption_environment(custom_kms_conf):
@@ -118,6 +136,7 @@ def test_encrypted_parquet_write_read(tempdir, data_table):
         encryption_algorithm="AES_GCM_V1",
         cache_lifetime=timedelta(minutes=5.0),
         data_key_length_bits=256)
+    assert encryption_config.uniform_encryption is False
 
     kms_connection_config, crypto_factory = write_encrypted_file(
         path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, COL_KEY,
@@ -133,10 +152,41 @@ def test_encrypted_parquet_write_read(tempdir, data_table):
     assert data_table.equals(result_table)
 
 
+def test_uniform_encrypted_parquet_write_read(tempdir, data_table):
+    """Write an encrypted parquet, verify it's encrypted, and then read it."""
+    path = tempdir / PARQUET_NAME
+
+    # Encrypt the footer and all columns with the footer key,
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        uniform_encryption=True,
+        encryption_algorithm="AES_GCM_V1",
+        cache_lifetime=timedelta(minutes=5.0),
+        data_key_length_bits=256)
+    assert encryption_config.uniform_encryption is True
+
+    kms_connection_config, crypto_factory = write_encrypted_file(
+        path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, b"",
+        encryption_config)
+
+    verify_file_encrypted(path)
+
+    # Read with decryption properties
+    decryption_config = pe.DecryptionConfiguration(
+        cache_lifetime=timedelta(minutes=5.0))
+    result_table = read_encrypted_parquet(
+        path, decryption_config, kms_connection_config, crypto_factory)
+    assert data_table.equals(result_table)
+
+
 def write_encrypted_parquet(path, table, encryption_config,
                             kms_connection_config, crypto_factory):
-    file_encryption_properties = crypto_factory.file_encryption_properties(
-        kms_connection_config, encryption_config)
+    if encryption_config.internal_key_material:
+        file_encryption_properties = crypto_factory.file_encryption_properties(
+            kms_connection_config, encryption_config)
+    else:
+        file_encryption_properties = crypto_factory.file_encryption_properties(
+            kms_connection_config, encryption_config, path)
     assert file_encryption_properties is not None
     with pq.ParquetWriter(
             path, table.schema,
@@ -145,9 +195,15 @@ def write_encrypted_parquet(path, table, encryption_config,
 
 
 def read_encrypted_parquet(path, decryption_config,
-                           kms_connection_config, crypto_factory):
-    file_decryption_properties = crypto_factory.file_decryption_properties(
-        kms_connection_config, decryption_config)
+                           kms_connection_config, crypto_factory,
+                           internal_key_material=True):
+    if internal_key_material:
+        file_decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config)
+    else:
+        file_decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config, path)
+
     assert file_decryption_properties is not None
     meta = pq.read_metadata(
         path, decryption_properties=file_decryption_properties)
@@ -236,6 +292,26 @@ def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
     with pytest.raises(OSError,
                        match="Either column_keys or uniform_encryption "
                        "must be set"):
+        # Write with encryption properties
+        write_encrypted_file(path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME,
+                             FOOTER_KEY, b"", encryption_config)
+
+
+def test_encrypted_parquet_write_col_key_and_uniform_encryption(tempdir, data_table):
+    """Write an encrypted parquet, but give only footer key,
+    without column key."""
+    path = tempdir / 'encrypted_table_col_key_and_uniform_encryption.in_mem.parquet'
+
+    # Encrypt the footer with the footer key
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={
+            COL_KEY_NAME: ["a", "b"],
+        },
+        uniform_encryption=True)
+
+    with pytest.raises(OSError,
+                       match=r"Cannot set both column_keys and uniform_encryption"):
         # Write with encryption properties
         write_encrypted_file(path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME,
                              FOOTER_KEY, b"", encryption_config)
@@ -466,31 +542,112 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
     # assert table.num_rows == result_table.num_rows
 
 
-@pytest.mark.xfail(reason="External key material not supported yet")
-def test_encrypted_parquet_write_external(tempdir, data_table):
-    """Write an encrypted parquet, with external key
-    material.
-    Currently it's not implemented, so should throw
-    an exception"""
+def test_encrypted_parquet_write_read_external(tempdir, data_table,
+                                               external_encryption_config):
+    """Write an encrypted parquet file with external key material, verify
+    it's encrypted, then read both the table and external store.
+    """
     path = tempdir / PARQUET_NAME
 
-    # Encrypt the file with the footer key
+    kms_connection_config, crypto_factory = write_encrypted_file(
+        path, data_table, FOOTER_KEY_NAME, COL_KEY_NAME, FOOTER_KEY, COL_KEY,
+        external_encryption_config)
+
+    verify_file_encrypted(path)
+
+    decryption_config = pe.DecryptionConfiguration()
+    result_table = read_encrypted_parquet(
+        path, decryption_config, kms_connection_config, crypto_factory,
+        internal_key_material=False)
+    store = pa._parquet_encryption.FileSystemKeyMaterialStore.for_file(path)
+
+    assert len(key_ids := store.get_key_id_set()) == (
+        len(external_encryption_config.column_keys[COL_KEY_NAME]) + 1)
+    assert all([store.get_key_material(k) is not None for k in key_ids])
+    assert data_table.equals(result_table)
+
+
+@pytest.mark.parametrize(
+    ("double_wrap_initial", "double_wrap_rotated"), [
+        pytest.param(True, True, id="double wrapping"),
+        pytest.param(False, True, id="single to double wrapped"),
+        pytest.param(True, False, id="double to singe wrapped"),
+        pytest.param(False, False, id="single wrapping")])
+def test_external_key_material_rotation(
+        reusable_tempdir,
+        data_table,
+        double_wrap_initial,
+        double_wrap_rotated):
+    """Tests CryptoFactory.rotate_master_keys
+
+    Note: The CryptoFactory.rotate_master_keys() double_wrapping keword arg
+    may be either True (the default) or False regardless of whether
+    EncryptionConfig.double_wrapping was set to true (also the default) when
+    the external key material store was written. This means double wrapping may
+    be set one way initially and then applied or removed during rotation.
+    """
+    path = reusable_tempdir / PARQUET_NAME
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
-        column_keys={},
-        internal_key_material=False)
+        column_keys={COL_KEY_NAME: ["a", "b"]},
+        internal_key_material=False,
+        double_wrapping=double_wrap_initial)
 
-    kms_connection_config = pe.KmsConnectionConfig(
-        custom_kms_conf={FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8")}
-    )
+    # initial master key version - see MockVersioningKmsClient docstring
+    kms_connection_config = pe.KmsConnectionConfig(key_access_token="1")
 
     def kms_factory(kms_connection_configuration):
-        return InMemoryKmsClient(kms_connection_configuration)
-
+        return MockVersioningKmsClient(kms_connection_configuration)
     crypto_factory = pe.CryptoFactory(kms_factory)
-    # Write with encryption properties
-    write_encrypted_parquet(path, data_table, encryption_config,
-                            kms_connection_config, crypto_factory)
+    write_encrypted_parquet(
+        path,
+        data_table,
+        encryption_config,
+        kms_connection_config,
+        crypto_factory)
+    before_keys = read_external_keys_to_dict(path)
+
+    # "rotate" kms master key
+    kms_connection_config.refresh_key_access_token("2")
+
+    crypto_factory.rotate_master_keys(
+        kms_connection_config,
+        path,
+        double_wrapping=double_wrap_rotated)
+
+    after_keys = read_external_keys_to_dict(path)
+    verify_file_encrypted(path)
+    table_read_after_rotation = read_encrypted_parquet(
+        path,
+        pe.DecryptionConfiguration(),
+        kms_connection_config,
+        crypto_factory,
+        internal_key_material=False)
+    assert FOOTER_KEY_NAME in before_keys
+    assert COL_KEY_NAME in before_keys
+    assert FOOTER_KEY_NAME in after_keys
+    assert COL_KEY_NAME in after_keys
+
+    def check_rotated_external_keys(master_key_id: str) -> None:
+        before_key_mat = before_keys[master_key_id]
+        if double_wrap_initial:
+            before_key_wrapped = before_key_mat.wrapped_kek
+        else:
+            before_key_wrapped = before_key_mat.wrapped_dek
+        _, before_ver, _ = parse_wrapped_key(before_key_wrapped)
+
+        after_key_mat = after_keys[master_key_id]
+        if double_wrap_rotated:
+            after_key_wrapped = after_key_mat.wrapped_kek
+        else:
+            after_key_wrapped = after_key_mat.wrapped_dek
+        _, after_ver, _ = parse_wrapped_key(after_key_wrapped)
+
+        # CryptoFactory rewrapped keys if after version is later than before
+        assert before_ver < after_ver
+    check_rotated_external_keys(FOOTER_KEY_NAME)
+    check_rotated_external_keys(COL_KEY_NAME)
+    assert data_table.equals(table_read_after_rotation)
 
 
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
@@ -570,3 +727,224 @@ def test_encrypted_parquet_read_table(tempdir, data_table, basic_encryption_conf
     result_table = pq.read_table(
         tempdir, decryption_properties=file_decryption_properties)
     assert data_table.equals(result_table)
+
+
+class TestDirectKeyEncryption:
+    """Tests for create_encryption_properties / create_decryption_properties."""
+
+    @pytest.mark.parametrize("key", [
+        DIRECT_KEY_128, DIRECT_KEY_192, DIRECT_KEY_256,
+    ], ids=["aes128", "aes192", "aes256"])
+    def test_roundtrip_key_sizes(self, tempdir, data_table, key):
+        path = tempdir / f"direct_{len(key) * 8}.parquet"
+
+        enc_props = pe.create_encryption_properties(footer_key=key)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(footer_key=key)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_roundtrip_with_aad_prefix(self, tempdir, data_table):
+        path = tempdir / "direct_aad.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128,
+            aad_prefix=DIRECT_AAD_PREFIX,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128,
+            aad_prefix=DIRECT_AAD_PREFIX,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_roundtrip_aad_prefix_not_stored(self, tempdir, data_table):
+        """When store_aad_prefix=False, reader must supply aad_prefix."""
+        path = tempdir / "direct_aad_not_stored.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128,
+            aad_prefix=DIRECT_AAD_PREFIX,
+            store_aad_prefix=False,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        # Reading without aad_prefix should fail
+        dec_props_no_aad = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128,
+        )
+        with pytest.raises(IOError, match="AAD"):
+            pq.read_table(path, decryption_properties=dec_props_no_aad)
+
+        # Reading with correct aad_prefix should succeed
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128,
+            aad_prefix=DIRECT_AAD_PREFIX,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_wrong_aad_prefix_fails(self, tempdir, data_table):
+        path = tempdir / "direct_wrong_aad.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128,
+            aad_prefix=DIRECT_AAD_PREFIX,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128,
+            aad_prefix=b"wrong_prefix",
+        )
+        with pytest.raises(IOError, match="AAD"):
+            pq.read_table(path, decryption_properties=dec_props)
+
+    def test_encrypted_file_has_pare_magic(self, tempdir, data_table):
+        path = tempdir / "direct_magic.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        with open(path, "rb") as f:
+            magic = f.read(4)
+        assert magic == b"PARE"
+
+    def test_plaintext_footer(self, tempdir, data_table):
+        path = tempdir / "direct_plaintext_footer.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128,
+            plaintext_footer=True,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_aes_gcm_ctr_v1_algorithm(self, tempdir, data_table):
+        path = tempdir / "direct_ctr.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128,
+            encryption_algorithm="AES_GCM_CTR_V1",
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_wrong_key_fails(self, tempdir, data_table):
+        path = tempdir / "direct_wrong_key.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        wrong_key = b"fedcba9876543210"
+        dec_props = pe.create_decryption_properties(footer_key=wrong_key)
+        with pytest.raises(IOError, match="decrypt"):
+            pq.read_table(path, decryption_properties=dec_props)
+
+    def test_reading_without_decryption_fails(self, tempdir, data_table):
+        path = tempdir / "direct_no_decrypt.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        with pytest.raises(IOError, match="encrypted metadata"):
+            pq.read_table(path)
+
+    def test_allow_plaintext_files(self, tempdir, data_table):
+        """Plaintext file reads should work when allow_plaintext_files=True."""
+        path = tempdir / "plaintext.parquet"
+        pq.write_table(data_table, path)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128,
+            allow_plaintext_files=True,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_plaintext_file_rejected_by_default(self, tempdir, data_table):
+        """Default allow_plaintext_files=False should reject plaintext files."""
+        path = tempdir / "plaintext_rejected.parquet"
+        pq.write_table(data_table, path)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128)
+        with pytest.raises(IOError, match="plaintext"):
+            pq.read_table(path, decryption_properties=dec_props)
+
+    def test_check_footer_integrity_false(self, tempdir, data_table):
+        """check_footer_integrity=False should still allow decryption."""
+        path = tempdir / "direct_no_footer_check.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=DIRECT_KEY_128,
+            check_footer_integrity=False,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_plaintext_footer_has_par1_magic(self, tempdir, data_table):
+        """plaintext_footer=True should produce PAR1 magic, not PARE."""
+        path = tempdir / "direct_plaintext_magic.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=DIRECT_KEY_128,
+            plaintext_footer=True,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        with open(path, "rb") as f:
+            magic = f.read(4)
+        assert magic == b"PAR1"
+
+    def test_invalid_key_length_raises(self):
+        with pytest.raises(ValueError, match="16, 24, or 32 bytes"):
+            pe.create_encryption_properties(footer_key=b"short")
+
+        with pytest.raises(ValueError, match="16, 24, or 32 bytes"):
+            pe.create_encryption_properties(footer_key=b"")
+
+        with pytest.raises(ValueError, match="16, 24, or 32 bytes"):
+            pe.create_decryption_properties(footer_key=b"short")
+
+    def test_invalid_algorithm_raises(self):
+        with pytest.raises(ValueError, match="Invalid cipher name"):
+            pe.create_encryption_properties(
+                footer_key=DIRECT_KEY_128,
+                encryption_algorithm="INVALID",
+            )
+
+    def test_footer_key_rejects_non_bytes(self):
+        with pytest.raises(TypeError, match="footer_key must be bytes"):
+            pe.create_encryption_properties(footer_key="0123456789abcdef")
+
+        with pytest.raises(TypeError, match="footer_key must be bytes"):
+            pe.create_decryption_properties(footer_key="0123456789abcdef")
+
+        with pytest.raises(TypeError, match="footer_key must be bytes"):
+            pe.create_encryption_properties(footer_key=None)
+
+    def test_aad_prefix_rejects_str(self, tempdir, data_table):
+        with pytest.raises(TypeError, match="aad_prefix must be bytes"):
+            pe.create_encryption_properties(
+                footer_key=DIRECT_KEY_128,
+                aad_prefix="not_bytes",
+            )

@@ -26,3 +26,4 @@ leak:CRYPTO_zalloc
 # without LSAN_OPTIONS=fast_unwind_on_malloc=0:malloc_context_size=100
 leak:opentelemetry::v1::context::ThreadLocalContextStorage::GetStack
 leak:opentelemetry::v1::context::ThreadLocalContextStorage::Stack::Resize
+leak:std::make_shared<opentelemetry::v1::trace::NoopTracer>

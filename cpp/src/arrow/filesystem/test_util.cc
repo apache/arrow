@@ -97,6 +97,16 @@ void AssertRaisesWithErrno(int expected_errno, const Result<T>& result) {
   AssertRaisesWithErrno(expected_errno, result.status());
 }
 
+void GetSortedInfos(FileSystem* fs, FileSelector s, std::vector<FileInfo>& infos) {
+  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
+  // Clear mtime & size for easier testing.
+  for_each(infos.begin(), infos.end(), [](FileInfo& info) {
+    info.set_mtime(kNoTime);
+    info.set_size(kNoSize);
+  });
+  SortInfos(&infos);
+}
+
 };  // namespace
 
 void AssertFileContents(FileSystem* fs, const std::string& path,
@@ -860,16 +870,6 @@ void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
   s.allow_not_found = true;
   CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
   ASSERT_EQ(infos.size(), 0);
-}
-
-void GetSortedInfos(FileSystem* fs, FileSelector s, std::vector<FileInfo>& infos) {
-  ASSERT_OK_AND_ASSIGN(infos, fs->GetFileInfo(s));
-  // Clear mtime & size for easier testing.
-  for_each(infos.begin(), infos.end(), [](FileInfo& info) {
-    info.set_mtime(kNoTime);
-    info.set_size(kNoSize);
-  });
-  SortInfos(&infos);
 }
 
 void GenericFileSystemTest::TestGetFileInfoSelectorWithRecursion(FileSystem* fs) {

@@ -945,7 +945,8 @@ cdef class Dataset(_Weakrefable):
             of the join operation left side.
 
             An inexact match is used on the "on" key, i.e. a row is considered a
-            match if and only if left_on - tolerance <= right_on <= left_on.
+            match if and only if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``.
 
             The input table must be sorted by the "on" key. Must be a single
             field of a common type.
@@ -957,12 +958,15 @@ cdef class Dataset(_Weakrefable):
             only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
-            a match with the left row `right.on - left.on <= tolerance`. The
-            `tolerance` may be:
+            a match with a left row if ``right.on - left.on`` is in the range
+            ``[min(0, tolerance), max(0, tolerance)]``. ``tolerance`` may be:
 
-            - negative, in which case a past-as-of-join occurs;
-            - or positive, in which case a future-as-of-join occurs;
-            - or zero, in which case an exact-as-of-join occurs.
+            - negative, in which case a past-as-of-join occurs
+              (match iff ``tolerance <= right.on - left.on <= 0``);
+            - or positive, in which case a future-as-of-join occurs
+              (match iff ``0 <= right.on - left.on <= tolerance``);
+            - or zero, in which case an exact-as-of-join occurs
+              (match iff ``right.on == left.on``).
 
             The tolerance is interpreted in the same units as the "on" key.
         right_on : str or list[str], default None
@@ -1011,7 +1015,7 @@ cdef class InMemoryDataset(Dataset):
         if isinstance(source, (pa.RecordBatch, pa.Table)):
             source = [source]
 
-        if isinstance(source, (list, tuple)):
+        if isinstance(source, (list, tuple, pa.RecordBatchReader)):
             batches = []
             for item in source:
                 if isinstance(item, pa.RecordBatch):
@@ -1036,8 +1040,8 @@ cdef class InMemoryDataset(Dataset):
                 pyarrow_unwrap_table(table))
         else:
             raise TypeError(
-                'Expected a table, batch, or list of tables/batches '
-                'instead of the given type: ' +
+                'Expected a Table, RecordBatch, list of Table/RecordBatch, '
+                'or RecordBatchReader instead of the given type: ' +
                 type(source).__name__
             )
 
@@ -1128,7 +1132,7 @@ cdef class FileSystemDataset(Dataset):
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
-                "Expression, got {0})".format(type(root_partition))
+                f"Expression, got {type(root_partition)})"
             )
 
         for fragment in fragments:
@@ -1220,8 +1224,8 @@ cdef class FileSystemDataset(Dataset):
         ]:
             if not isinstance(arg, class_):
                 raise TypeError(
-                    "Argument '{0}' has incorrect type (expected {1}, "
-                    "got {2})".format(name, class_.__name__, type(arg))
+                    f"Argument '{name}' has incorrect type (expected {class_.__name__}, "
+                    f"got {type(arg)})"
                 )
 
         partitions = partitions or [_true] * len(paths)
@@ -1988,9 +1992,7 @@ cdef class FileFragment(Fragment):
         )
         if partition:
             partition = f" partition=[{partition}]"
-        return "<pyarrow.dataset.{0}{1} path={2}{3}>".format(
-            self.__class__.__name__, typ, self.path, partition
-        )
+        return f"<pyarrow.dataset.{self.__class__.__name__}{typ} path={self.path}{partition}>"
 
     def __reduce__(self):
         buffer = self.buffer
@@ -2010,13 +2012,18 @@ cdef class FileFragment(Fragment):
             c_string c_path
             NativeFile out = NativeFile()
 
+        # Handle each of the cases in _make_file_source
         if self.buffer is not None:
             return pa.BufferReader(self.buffer)
 
-        c_path = tobytes(self.file_fragment.source().path())
-        with nogil:
-            c_filesystem = self.file_fragment.source().filesystem()
-            opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+        if self.file_fragment.source().filesystem() != nullptr:
+            c_path = tobytes(self.file_fragment.source().path())
+            with nogil:
+                c_filesystem = self.file_fragment.source().filesystem()
+                opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+        else:
+            with nogil:
+                opened = GetResultValue(self.file_fragment.source().Open())
 
         out.set_random_access_file(opened)
         out.is_readable = True
@@ -3153,9 +3160,19 @@ cdef class DatasetFactory(_Weakrefable):
             schemas.append(pyarrow_wrap_schema(s))
         return schemas
 
-    def inspect(self):
+    def inspect(self, *, promote_options="default", fragments=None):
         """
-        Inspect all data fragments and return a common Schema.
+        Inspect data fragments and return a common Schema.
+
+        Parameters
+        ----------
+        promote_options : str, default "default"
+            Control how to unify types. Accepts strings "default" and "permissive".
+            Default: types must match exactly, except nulls can be merged with other types.
+            Permissive: types are promoted when possible.
+        fragments : int, default None
+            How many fragments should be inspected to infer the unified schema.
+            Use ``None`` to inspect all fragments.
 
         Returns
         -------
@@ -3164,6 +3181,17 @@ cdef class DatasetFactory(_Weakrefable):
         cdef:
             CInspectOptions options
             CResult[shared_ptr[CSchema]] result
+
+        options.field_merge_options = _parse_field_merge_options(promote_options)
+
+        if fragments is None:
+            options.fragments = -1  # InspectOptions::kInspectAllFragments
+        elif isinstance(fragments, int) and fragments >= 0:
+            options.fragments = fragments
+        else:
+            raise ValueError(
+                f"Fragment count must be a non-negative int or None; got {fragments!r}")
+
         with nogil:
             result = self.factory.Inspect(options)
         return pyarrow_wrap_schema(GetResultValue(result))
@@ -3213,7 +3241,7 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
     partitioning : Partitioning/PartitioningFactory, optional
        Apply the Partitioning to every discovered Fragment. See Partitioning or
        PartitioningFactory documentation.
-    exclude_invalid_files : bool, optional (default True)
+    exclude_invalid_files : bool, optional (default False)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
         fashion. Disabling this feature will skip the IO, but unsupported
@@ -3385,7 +3413,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     )
         else:
             raise TypeError('Must pass either paths or a FileSelector, but '
-                            'passed {}'.format(type(paths_or_selector)))
+                            f'passed {type(paths_or_selector)}')
 
         self.init(GetResultValue(result))
 
@@ -3528,7 +3556,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                 if not isinstance(expr, Expression):
                     raise TypeError(
                         "Expected an Expression for a 'column' dictionary "
-                        "value, got {} instead".format(type(expr))
+                        f"value, got {type(expr)} instead"
                     )
                 c_exprs.push_back((<Expression> expr).unwrap())
 
@@ -3540,7 +3568,7 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         else:
             raise ValueError(
                 "Expected a list or a dict for 'columns', "
-                "got {} instead.".format(type(columns))
+                f"got {type(columns)} instead."
             )
 
     check_status(builder.BatchSize(batch_size))
@@ -4092,6 +4120,7 @@ def _filesystemdataset_write(
     str basename_template not None,
     FileSystem filesystem not None,
     Partitioning partitioning not None,
+    bool preserve_order,
     FileWriteOptions file_options not None,
     int max_partitions,
     object file_visitor,
@@ -4114,6 +4143,7 @@ def _filesystemdataset_write(
     c_options.filesystem = filesystem.unwrap()
     c_options.base_dir = tobytes(_stringify_path(base_dir))
     c_options.partitioning = partitioning.unwrap()
+    c_options.preserve_order = preserve_order
     c_options.max_partitions = max_partitions
     c_options.max_open_files = max_open_files
     c_options.max_rows_per_file = max_rows_per_file

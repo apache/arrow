@@ -466,6 +466,63 @@ module RawRecordsListArrayTests
     assert_equal(records, actual_records(target))
   end
 
+  def test_large_list
+    records = [
+      [
+        [
+          [
+            true,
+            nil,
+          ],
+          nil,
+          [
+            nil,
+            false,
+          ],
+        ],
+      ],
+      [nil],
+    ]
+    target = build({
+                     type: :large_list,
+                     field: {
+                       name: :sub_element,
+                       type: :boolean,
+                     },
+                   },
+                   records)
+    assert_equal(records, actual_records(target))
+  end
+
+  def test_fixed_size_list
+    records = [
+      [
+        [
+          [
+            true,
+            nil,
+          ],
+          nil,
+          [
+            nil,
+            false,
+          ],
+        ],
+      ],
+      [nil],
+    ]
+    target = build({
+                     type: :fixed_size_list,
+                     field: {
+                       name: :sub_element,
+                       type: :boolean,
+                     },
+                     size: 2,
+                   },
+                   records)
+    assert_equal(records, actual_records(target))
+  end
+
   def test_struct
     records = [
       [
@@ -627,7 +684,14 @@ class EachRawRecordTableListArrayTest < Test::Unit::TestCase
   include RawRecordsListArrayTests
 
   def build(type, records)
-    Arrow::Table.new(build_schema(type), records)
+    record_batch = Arrow::RecordBatch.new(build_schema(type), records)
+    # Multiple chunks
+    record_batches = [
+      record_batch.slice(0, 2),
+      record_batch.slice(2, 0), # Empty chunk
+      record_batch.slice(2, record_batch.length - 2),
+    ]
+    Arrow::Table.new(record_batch.schema, record_batches)
   end
 
   def actual_records(target)

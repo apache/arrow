@@ -23,6 +23,7 @@
 
 #include "arrow/acero/accumulation_queue.h"
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/order_by_impl.h"
 #include "arrow/acero/query_context.h"
@@ -265,11 +266,6 @@ class SinkNode : public ExecNode,
         sink_options.backpressure.resume_if_below) {
       return Status::Invalid(
           "`backpressure::pause_if_above` must be >= `backpressure::resume_if_below");
-    }
-    if (sink_options.backpressure.resume_if_below < 0) {
-      return Status::Invalid(
-          "`backpressure::pause_if_above and backpressure::resume_if_below must be >= 0. "
-          " Set to 0 to disable backpressure.");
     }
     return Status::OK();
   }

@@ -48,7 +48,7 @@ class TestLikeHolder : public ::testing::Test {
 };
 
 TEST_F(TestLikeHolder, TestMatchAny) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab%", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("ab%", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("ab"));
@@ -60,7 +60,7 @@ TEST_F(TestLikeHolder, TestMatchAny) {
 }
 
 TEST_F(TestLikeHolder, TestMatchOne) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab_", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("ab_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc"));
@@ -72,7 +72,7 @@ TEST_F(TestLikeHolder, TestMatchOne) {
 }
 
 TEST_F(TestLikeHolder, TestPcreSpecial) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make(".*ab_", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make(".*ab_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like(".*abc"));  // . and * aren't special in sql regex
@@ -80,7 +80,7 @@ TEST_F(TestLikeHolder, TestPcreSpecial) {
 }
 
 TEST_F(TestLikeHolder, TestPcreSpecialWithNewLine) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("%Space1.%", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("%Space1.%", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(
@@ -88,21 +88,20 @@ TEST_F(TestLikeHolder, TestPcreSpecialWithNewLine) {
 }
 
 TEST_F(TestLikeHolder, TestRegexEscape) {
-  std::string res;
-  ARROW_EXPECT_OK(RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res));
-
+  ASSERT_OK_AND_ASSIGN(auto res,
+                       RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#'));
   EXPECT_EQ(res, "%hello_abc.def#");
 }
 
 TEST_F(TestLikeHolder, TestDot) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("abc.", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("abc.", regex_op));
 
   auto& like = *like_holder;
   EXPECT_FALSE(like("abcd"));
 }
 
 TEST_F(TestLikeHolder, TestMatchWithNewLine) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("%abc%", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("%abc%", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc\nd"));
@@ -191,7 +190,7 @@ TEST_F(TestLikeHolder, TestOptimise) {
 }
 
 TEST_F(TestLikeHolder, TestMatchOneEscape) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\_", "\\", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("ab\\_", "\\", regex_op));
 
   auto& like = *like_holder;
 
@@ -205,7 +204,7 @@ TEST_F(TestLikeHolder, TestMatchOneEscape) {
 }
 
 TEST_F(TestLikeHolder, TestMatchManyEscape) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\%", "\\", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("ab\\%", "\\", regex_op));
 
   auto& like = *like_holder;
 
@@ -219,7 +218,7 @@ TEST_F(TestLikeHolder, TestMatchManyEscape) {
 }
 
 TEST_F(TestLikeHolder, TestMatchEscape) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder,
+  EXPECT_OK_AND_ASSIGN(const auto like_holder,
                        LikeHolder::Make("ab\\\\", "\\", regex_op));
 
   auto& like = *like_holder;
@@ -230,7 +229,7 @@ TEST_F(TestLikeHolder, TestMatchEscape) {
 }
 
 TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\_", "", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("ab\\_", "", regex_op));
 
   auto& like = *like_holder;
 
@@ -259,7 +258,7 @@ class TestILikeHolder : public ::testing::Test {
 TEST_F(TestILikeHolder, TestMatchAny) {
   regex_op.set_case_sensitive(false);
 
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab%", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("ab%", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("ab"));
@@ -272,7 +271,7 @@ TEST_F(TestILikeHolder, TestMatchAny) {
 
 TEST_F(TestILikeHolder, TestMatchOne) {
   regex_op.set_case_sensitive(false);
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("Ab_", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("Ab_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like("abc"));
@@ -285,7 +284,7 @@ TEST_F(TestILikeHolder, TestMatchOne) {
 
 TEST_F(TestILikeHolder, TestPcreSpecial) {
   regex_op.set_case_sensitive(false);
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make(".*aB_", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make(".*aB_", regex_op));
 
   auto& like = *like_holder;
   EXPECT_TRUE(like(".*Abc"));  // . and * aren't special in sql regex
@@ -294,7 +293,7 @@ TEST_F(TestILikeHolder, TestPcreSpecial) {
 
 TEST_F(TestILikeHolder, TestDot) {
   regex_op.set_case_sensitive(false);
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("aBc.", regex_op));
+  EXPECT_OK_AND_ASSIGN(const auto like_holder, LikeHolder::Make("aBc.", regex_op));
 
   auto& like = *like_holder;
   EXPECT_FALSE(like("abcd"));
@@ -306,7 +305,7 @@ class TestReplaceHolder : public ::testing::Test {
 };
 
 TEST_F(TestReplaceHolder, TestMultipleReplace) {
-  EXPECT_OK_AND_ASSIGN(auto const replace_holder, ReplaceHolder::Make("ana"));
+  EXPECT_OK_AND_ASSIGN(const auto replace_holder, ReplaceHolder::Make("ana"));
 
   std::string input_string = "banana";
   std::string replace_string;
@@ -351,7 +350,7 @@ TEST_F(TestReplaceHolder, TestMultipleReplace) {
 }
 
 TEST_F(TestReplaceHolder, TestNoMatchPattern) {
-  EXPECT_OK_AND_ASSIGN(auto const replace_holder, ReplaceHolder::Make("ana"));
+  EXPECT_OK_AND_ASSIGN(const auto replace_holder, ReplaceHolder::Make("ana"));
 
   std::string input_string = "apple";
   std::string replace_string;
@@ -368,7 +367,7 @@ TEST_F(TestReplaceHolder, TestNoMatchPattern) {
 }
 
 TEST_F(TestReplaceHolder, TestReplaceSameSize) {
-  EXPECT_OK_AND_ASSIGN(auto const replace_holder, ReplaceHolder::Make("a"));
+  EXPECT_OK_AND_ASSIGN(const auto replace_holder, ReplaceHolder::Make("a"));
 
   std::string input_string = "ananindeua";
   std::string replace_string = "b";
@@ -571,7 +570,7 @@ TEST_F(TestExtractHolder, TestNoMatches) {
 
 TEST_F(TestExtractHolder, TestInvalidRange) {
   // Pattern to match of two group of letters
-  EXPECT_OK_AND_ASSIGN(auto const extract_holder, ExtractHolder::Make(R"((\w+) (\w+))"));
+  EXPECT_OK_AND_ASSIGN(const auto extract_holder, ExtractHolder::Make(R"((\w+) (\w+))"));
 
   std::string input_string = "John Doe";
   int32_t extract_index = -1;

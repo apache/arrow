@@ -20,6 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"

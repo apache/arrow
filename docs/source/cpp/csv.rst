@@ -30,6 +30,8 @@ to create Arrow Tables or a stream of Arrow RecordBatches.
 .. seealso::
    :ref:`CSV reader/writer API reference <cpp-api-csv>`.
 
+.. _cpp-csv-reading:
+
 Reading CSV files
 =================
 
@@ -265,6 +267,7 @@ can be chosen from the following list:
 * Binary and Large Binary
 * String and Large String (with optional UTF8 input validation)
 * Fixed-Size Binary
+* Duration (numeric strings matching the schema unit, e.g., "60000" for duration[ms])
 * Dictionary with index type Int32 and value type one of the following:
   Binary, String, LargeBinary, LargeString,  Int32, UInt32, Int64, UInt64,
   Float32, Float64, Decimal128

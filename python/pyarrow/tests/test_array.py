@@ -35,6 +35,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 from pyarrow.vendored.version import Version
+import pyarrow.compute as pc
 
 
 @pytest.mark.processes
@@ -75,17 +76,32 @@ def test_constructor_raises():
 
 
 def test_list_format():
-    arr = pa.array([[1], None, [2, 3, None]])
+    arr = pa.array([["foo"], None, ["bar", "a longer string", None]])
     result = arr.to_string()
     expected = """\
 [
   [
-    1
+    "foo"
   ],
   null,
   [
-    2,
-    3,
+    "bar",
+    "a longer string",
+    null
+  ]
+]"""
+    assert result == expected
+
+    result = arr.to_string(element_size_limit=10)
+    expected = """\
+[
+  [
+    "foo"
+  ],
+  null,
+  [
+    "bar",
+    "a longer (... 7 chars omitted)",
     null
   ]
 ]"""
@@ -246,7 +262,7 @@ def test_to_numpy_writable():
 @pytest.mark.parametrize('tz', [None, "UTC"])
 def test_to_numpy_datetime64(unit, tz):
     arr = pa.array([1, 2, 3], pa.timestamp(unit, tz=tz))
-    expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
+    expected = np.array([1, 2, 3], dtype=f"datetime64[{unit}]")
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
 
@@ -255,7 +271,7 @@ def test_to_numpy_datetime64(unit, tz):
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 def test_to_numpy_timedelta64(unit):
     arr = pa.array([1, 2, 3], pa.duration(unit))
-    expected = np.array([1, 2, 3], dtype="timedelta64[{}]".format(unit))
+    expected = np.array([1, 2, 3], dtype=f"timedelta64[{unit}]")
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
 
@@ -277,10 +293,12 @@ def test_to_pandas_zero_copy():
 
     for i in range(10):
         series = arr.to_pandas()
-        assert sys.getrefcount(series) == 2
+        # In Python 3.14 interpreter might avoid some
+        # reference count modifications
+        assert sys.getrefcount(series) in (1, 2)
         series = None  # noqa
 
-    assert sys.getrefcount(arr) == 2
+    assert sys.getrefcount(arr) in (1, 2)
 
     for i in range(10):
         arr = pa.array(range(10))
@@ -488,15 +506,14 @@ def test_array_slice():
                 assert res.to_numpy().tolist() == expected
 
 
-@pytest.mark.numpy
 def test_array_slice_negative_step():
     # ARROW-2714
-    np_arr = np.arange(20)
-    arr = pa.array(np_arr)
+    values = list(range(20))
+    arr = pa.array(values)
     chunked_arr = pa.chunked_array([arr])
 
     cases = [
-        slice(None, None, -1),
+        slice(None, None, -1),  # GH-46606
         slice(None, 6, -2),
         slice(10, 6, -2),
         slice(8, None, -2),
@@ -510,7 +527,7 @@ def test_array_slice_negative_step():
 
     for case in cases:
         result = arr[case]
-        expected = pa.array(np_arr[case])
+        expected = pa.array(values[case], type=arr.type)
         assert result.equals(expected)
 
         result = pa.record_batch([arr], names=['f0'])[case]
@@ -518,8 +535,34 @@ def test_array_slice_negative_step():
         assert result.equals(expected)
 
         result = chunked_arr[case]
-        expected = pa.chunked_array([np_arr[case]])
+        expected = pa.chunked_array([values[case]], type=arr.type)
         assert result.equals(expected)
+
+
+def test_arange():
+    cases = [
+        (5, 103),        # Default step
+        (-2, 128, 3),
+        (4, 103, 5),
+        (10, -7, -1),
+        (100, -20, -3),
+        (0, 0),         # Empty array
+        (2, 10, -1),    # Empty array
+        (10, 3, 1),     # Empty array
+    ]
+    for case in cases:
+        result = pa.arange(*case)
+        result.validate(full=True)
+        assert result.equals(pa.array(list(range(*case)), type=pa.int64()))
+
+    # Validate memory_pool keyword argument
+    result = pa.arange(-1, 101, memory_pool=pa.default_memory_pool())
+    result.validate(full=True)
+    assert result.equals(pa.array(list(range(-1, 101)), type=pa.int64()))
+
+    # Special case for invalid step (arange does not accept step of 0)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.arange(0, 10, 0)
 
 
 def test_array_diff():
@@ -528,6 +571,8 @@ def test_array_diff():
     arr2 = pa.array(['foo', 'bar', None], type=pa.utf8())
     arr3 = pa.array([1, 2, 3])
     arr4 = pa.array([[], [1], None], type=pa.list_(pa.int64()))
+    arr5 = pa.array([1.5, 3, 6], type=pa.float16())
+    arr6 = pa.array([1, 3], type=pa.float16())
 
     assert arr1.diff(arr1) == ''
     assert arr1.diff(arr2) == '''
@@ -539,6 +584,14 @@ def test_array_diff():
     assert arr1.diff(arr3).strip() == '# Array types differed: string vs int64'
     assert arr1.diff(arr4).strip() == ('# Array types differed: string vs '
                                        'list<item: int64>')
+    assert arr5.diff(arr5) == ''
+    assert arr5.diff(arr6) == '''
+@@ -0, +0 @@
+-1.5
++1
+@@ -2, +2 @@
+-6
+'''
 
 
 def test_array_iter():
@@ -1664,6 +1717,20 @@ def test_floating_point_truncate_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_half_float_array_from_python():
+    # GH-46611
+    vals = [-5, 0, 1.0, 2.0, 3, None, 12345.6789, 1.234567, float('inf')]
+    arr = pa.array(vals, type=pa.float16())
+    assert arr.type == pa.float16()
+    assert arr.to_pylist() == [-5, 0, 1.0, 2.0, 3, None, 12344.0,
+                               1.234375, float('inf')]
+    assert str(arr) == ("[\n  -5,\n  0,\n  1,\n  2,\n  3,\n  null,\n  12344,"
+                        "\n  1.234375,\n  inf\n]")
+    msg1 = "Could not convert 'a' with type str: tried to convert to float16"
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
+        arr = pa.array(['a', 3, None], type=pa.float16())
+
+
 def test_decimal_to_int_safe():
     safe_cases = [
         (
@@ -1756,7 +1823,7 @@ def test_decimal_to_int_non_integer():
 
     for case in non_integer_cases:
         # test safe casting raises
-        msg_regexp = 'Rescaling Decimal128 value would cause data loss'
+        msg_regexp = 'Rescaling Decimal value would cause data loss'
         with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
             _check_cast_case(case)
 
@@ -1775,7 +1842,7 @@ def test_decimal_to_decimal():
     )
     assert result.equals(expected)
 
-    msg_regexp = 'Rescaling Decimal128 value would cause data loss'
+    msg_regexp = 'Rescaling Decimal value would cause data loss'
     with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
         result = arr.cast(pa.decimal128(9, 1))
 
@@ -2150,6 +2217,58 @@ def test_date64_from_builtin_datetime():
     assert as_i8[0].as_py() == as_i8[1].as_py()
 
 
+def test_create_date32_and_date64_arrays_with_mask():
+    # Test Date32 array creation from Python list with mask
+    arr_date32 = pa.array([0, 0, 1, 2],
+                          mask=[False, False, True, False],
+                          type=pa.date32())
+    expected_date32 = pa.array([
+        datetime.date(1970, 1, 1),
+        datetime.date(1970, 1, 1),
+        None,
+        datetime.date(1970, 1, 3),
+    ], type=pa.date32())
+    assert arr_date32.equals(expected_date32)
+
+    # Test Date32 array creation from Python dates
+    arr_date32_dates = pa.array([
+        datetime.date(2023, 1, 1),
+        datetime.date(2023, 1, 2),
+        None,
+        datetime.date(2023, 1, 4),
+    ], type=pa.date32())
+    assert arr_date32_dates.null_count == 1
+    assert arr_date32_dates[2].as_py() is None
+
+    # Test Date64 array creation from Python list with mask
+    arr_date64 = pa.array([0, 86400000, 172800000, 259200000],
+                          mask=[False, False, True, False],
+                          type=pa.date64())
+    expected_date64 = pa.array([
+        datetime.date(1970, 1, 1),
+        datetime.date(1970, 1, 2),
+        None,
+        datetime.date(1970, 1, 4),
+    ], type=pa.date64())
+    assert arr_date64.equals(expected_date64)
+
+    # Test Date64 array creation from Python dates
+    arr_date64_dates = pa.array([
+        datetime.date(2023, 1, 1),
+        datetime.date(2023, 1, 2),
+        None,
+        datetime.date(2023, 1, 4),
+    ], type=pa.date64())
+    assert arr_date64_dates.null_count == 1
+    assert arr_date64_dates[2].as_py() is None
+
+    # Test Date32 with all nulls mask
+    arr_all_null = pa.array([0, 1, 2, 3],
+                            mask=[True, True, True, True],
+                            type=pa.date32())
+    assert arr_all_null.null_count == 4
+
+
 @pytest.mark.parametrize(('ty', 'values'), [
     ('bool', [True, False, True]),
     ('uint8', range(0, 255)),
@@ -2281,10 +2400,11 @@ def test_array_conversions_no_sentinel_values():
 
     assert arr2.type == 'int8'
 
-    arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype='float32'),
-                    type='float32')
-    assert arr3.type == 'float32'
-    assert arr3.null_count == 0
+    for ty in ['float16', 'float32', 'float64']:
+        arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype=ty),
+                        type=ty)
+        assert arr3.type == ty
+        assert arr3.null_count == 0
 
 
 def test_time32_time64_from_integer():
@@ -2422,7 +2542,31 @@ def test_array_from_different_numpy_datetime_units_raises():
     ms = np.array(data, dtype='datetime64[ms]')
     data = list(s[:2]) + list(ms[2:])
 
-    with pytest.raises(pa.ArrowNotImplementedError):
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Cannot mix NumPy datetime64 units s and ms"):
+        pa.array(data)
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('unit', [
+    'Y',  # year
+    'M',  # month
+    'W',  # week
+    'h',  # hour
+    'm',  # minute
+    'ps',  # picosecond
+    'fs',  # femtosecond
+    'as',  # attosecond
+])
+def test_array_from_unsupported_numpy_datetime_unit_names(unit):
+    s_data = [np.datetime64('2020-01-01', 's')]
+    unsupported_data = [np.datetime64('2020', unit)]
+
+    # Mix supported unit (s) with unsupported unit
+    data = s_data + unsupported_data
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match=f"Cannot mix NumPy datetime64 units s and {unit}"):
         pa.array(data)
 
 
@@ -2447,8 +2591,8 @@ def test_array_from_timestamp_with_generic_unit():
     x = np.datetime64('2017-01-01 01:01:01.111111111')
     y = np.datetime64('2018-11-22 12:24:48.111111111')
 
-    with pytest.raises(pa.ArrowNotImplementedError,
-                       match='Unbound or generic datetime64 time unit'):
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Cannot mix NumPy datetime64 units'):
         pa.array([n, x, y])
 
 
@@ -4255,3 +4399,72 @@ def test_non_cpu_array():
         arr.tolist()
     with pytest.raises(NotImplementedError):
         arr.validate(full=True)
+
+
+def test_arithmetic_dunders():
+    # GH-32007
+    arr1 = pa.array([-1.1, 2.2, -3.3])
+    arr2 = pa.array([2.2, 4.4, 5.5])
+
+    assert (arr1 + arr2).equals(pc.add_checked(arr1, arr2))
+    assert (arr2 / arr1).equals(pc.divide_checked(arr2, arr1))
+    assert (arr1 * arr2).equals(pc.multiply_checked(arr1, arr2))
+    assert (-arr1).equals(pc.negate_checked(arr1))
+    assert (arr1 ** 2).equals(pc.power_checked(arr1, 2))
+    assert (arr1 - arr2).equals(pc.subtract_checked(arr1, arr2))
+
+
+def test_bitwise_dunders():
+    # GH-32007
+    arr1 = pa.array([-1, 2, -3])
+    arr2 = pa.array([2, 4, 5])
+
+    assert (arr1 & arr2).equals(pc.bit_wise_and(arr1, arr2))
+    assert (arr1 | arr2).equals(pc.bit_wise_or(arr1, arr2))
+    assert (arr1 ^ arr2).equals(pc.bit_wise_xor(arr1, arr2))
+    assert (arr1 << arr2).equals(pc.shift_left_checked(arr1, arr2))
+    assert (arr1 >> arr2).equals(pc.shift_right_checked(arr1, arr2))
+
+
+def test_dunders_unmatching_types():
+    # GH-32007
+    error_match = r"Function '\w+' has no kernel matching input types"
+    string_arr = pa.array(["a", "b", "c"])
+    nested_arr = pa.array([{"x": 1, "y": True}, {"z": 3.4, "x": 4}])
+    double_arr = pa.array([1.0, 2.0, 3.0])
+
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_arr + nested_arr
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_arr - double_arr
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        double_arr * nested_arr
+
+
+def test_dunders_mixed_types():
+    # GH-32007
+    arr = pa.array([11.0, 17.0, 23.0])
+    val = pa.scalar(3)
+
+    assert (arr + val).equals(pc.add_checked(arr, val))
+    assert (arr - val).equals(pc.subtract_checked(arr, val))
+    assert (arr / val).equals(pc.divide_checked(arr, val))
+    assert (arr * val).equals(pc.multiply_checked(arr, val))
+    assert (arr ** val).equals(pc.power_checked(arr, val))
+
+
+def test_dunders_checked_overflow():
+    # GH-32007
+    arr = pa.array([127, -128], type=pa.int8())
+    error_match = "overflow"
+
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr + arr
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr * arr
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr - (-arr)
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr ** pa.scalar(2, type=pa.int8())
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr / (-arr)

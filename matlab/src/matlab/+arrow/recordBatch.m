@@ -16,11 +16,11 @@
 % permissions and limitations under the License.
 function rb = recordBatch(T)
     arguments
-        T table
+        T table = table.empty(0, 0)
     end
 
     arrowArrays = arrow.tabular.internal.decompose(T);
-    arrayProxyIDs = arrow.array.internal.getArrayProxyIDs(arrowArrays);
+    arrayProxyIDs = arrow.array.internal.getProxyIDs(arrowArrays);
 
     columnNames = string(T.Properties.VariableNames);
     args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);

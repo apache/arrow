@@ -1,0 +1,33 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+directory = protobuf-25.2
+source_url = https://github.com/protocolbuffers/protobuf/releases/download/v25.2/protobuf-25.2.tar.gz
+source_filename = protobuf-25.2.tar.gz
+source_hash = 8ff511a64fc46ee792d3fe49a5a1bcad6f7dc50dfbba5a28b0e5b979c17f9871
+patch_filename = protobuf_25.2-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/protobuf_25.2-2/get_patch
+patch_hash = a2f5968097eb036c228b72258435d09e93dca4093d09acb5078a376d8155df46
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/protobuf_25.2-2/protobuf-25.2.tar.gz
+wrapdb_version = 25.2-2
+
+[provide]
+protobuf = protobuf_dep
+protobuf-lite = protobuf_lite_dep
+protoc = protoc_dep
+program_names = protoc

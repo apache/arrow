@@ -110,17 +110,6 @@ macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
-  # Tests are crashed with mold + sanitizer checks.
-  if(ARROW_USE_ASAN
-     OR ARROW_USE_TSAN
-     OR ARROW_USE_UBSAN)
-    if(ARROW_USE_MOLD)
-      message(WARNING "ARROW_USE_MOLD is disabled when one of "
-                      "ARROW_USE_ASAN, ARROW_USE_TSAN or ARROW_USE_UBSAN is specified "
-                      "because it causes some problems.")
-      set(ARROW_USE_MOLD OFF)
-    endif()
-  endif()
 
   tsort_bool_option_dependencies()
   foreach(option_name ${ARROW_BOOL_OPTION_DEPENDENCIES_TSORTED})
@@ -166,8 +155,6 @@ if(ARROW_DEFINE_OPTIONS)
   define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
 takes precedence over ccache if a storage backend is configured" ON)
 
-  define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
-
   define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
@@ -193,6 +180,9 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "SSE4_2"
                        "AVX2"
                        "AVX512"
+                       "SVE128" # fixed size SVE
+                       "SVE256" # "
+                       "SVE512" # "
                        "MAX")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
@@ -209,7 +199,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
 
   #----------------------------------------------------------------------
-  set_option_category("Test and benchmark")
+  set_option_category("Tests and benchmarks")
 
   define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples" OFF)
 
@@ -255,22 +245,25 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "shared"
                        "static")
 
-  define_option(ARROW_FUZZING
-                "Build Arrow Fuzzing executables"
+  define_option(ARROW_BUILD_FUZZING_UTILITIES
+                "Build command line utilities for fuzzing"
                 OFF
                 DEPENDS
                 ARROW_TESTING
-                ARROW_WITH_BROTLI)
+                ARROW_WITH_BROTLI
+                ARROW_WITH_LZ4
+                ARROW_WITH_ZSTD)
+
+  define_option(ARROW_FUZZING
+                "Build Arrow fuzz targets"
+                OFF
+                DEPENDS
+                ARROW_BUILD_FUZZING_UTILITIES)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
   #----------------------------------------------------------------------
-  set_option_category("Lint")
-
-  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
-
-  define_option(ARROW_VERBOSE_LINT
-                "If off, 'quiet' flags will be passed to linting tools" OFF)
+  set_option_category("Coverage")
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
@@ -302,7 +295,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FILESYSTEM)
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow command line utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
 
@@ -334,6 +327,13 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_FLIGHT)
+
+  define_option(ARROW_FLIGHT_SQL_ODBC
+                "Build the Arrow Flight SQL ODBC extension"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL
+                ARROW_COMPUTE)
 
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
@@ -400,15 +400,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_S3)
-
-  define_option(ARROW_SKYHOOK
-                "Build the Skyhook libraries"
-                OFF
-                DEPENDS
-                ARROW_DATASET
-                ARROW_PARQUET
-                ARROW_WITH_LZ4
-                ARROW_WITH_SNAPPY)
 
   define_option(ARROW_SUBSTRAIT
                 "Build the Arrow Substrait Consumer Module"
@@ -589,10 +580,6 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   #----------------------------------------------------------------------
   set_option_category("Parquet")
-
-  define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet.;\
-Always OFF if building binaries" OFF)
 
   define_option(PARQUET_BUILD_EXECUTABLES
                 "Build the Parquet executable CLI tools. Requires static libraries to be built."

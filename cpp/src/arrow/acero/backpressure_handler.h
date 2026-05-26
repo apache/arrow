@@ -25,16 +25,15 @@ namespace arrow::acero {
 
 class BackpressureHandler {
  private:
-  BackpressureHandler(ExecNode* input, size_t low_threshold, size_t high_threshold,
+  BackpressureHandler(size_t low_threshold, size_t high_threshold,
                       std::unique_ptr<BackpressureControl> backpressure_control)
-      : input_(input),
-        low_threshold_(low_threshold),
+      : low_threshold_(low_threshold),
         high_threshold_(high_threshold),
         backpressure_control_(std::move(backpressure_control)) {}
 
  public:
   static Result<BackpressureHandler> Make(
-      ExecNode* input, size_t low_threshold, size_t high_threshold,
+      size_t low_threshold, size_t high_threshold,
       std::unique_ptr<BackpressureControl> backpressure_control) {
     if (low_threshold >= high_threshold) {
       return Status::Invalid("low threshold (", low_threshold,
@@ -43,7 +42,7 @@ class BackpressureHandler {
     if (backpressure_control == NULLPTR) {
       return Status::Invalid("null backpressure control parameter");
     }
-    BackpressureHandler backpressure_handler(input, low_threshold, high_threshold,
+    BackpressureHandler backpressure_handler(low_threshold, high_threshold,
                                              std::move(backpressure_control));
     return backpressure_handler;
   }
@@ -56,16 +55,7 @@ class BackpressureHandler {
     }
   }
 
-  Status ForceShutdown() {
-    // It may be unintuitive to call Resume() here, but this is to avoid a deadlock.
-    // Since acero's executor won't terminate if any one node is paused, we need to
-    // force resume the node before stopping production.
-    backpressure_control_->Resume();
-    return input_->StopProducing();
-  }
-
  private:
-  ExecNode* input_;
   size_t low_threshold_;
   size_t high_threshold_;
   std::unique_ptr<BackpressureControl> backpressure_control_;

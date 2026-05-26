@@ -50,7 +50,7 @@ unless PKGConfig.have_package("arrow-glib",
                               Arrow::Version::MAJOR,
                               Arrow::Version::MINOR,
                               Arrow::Version::MICRO)
-  verison = [
+  version = [
     Arrow::Version::MAJOR,
     Arrow::Version::MINOR,
     Arrow::Version::MICRO,

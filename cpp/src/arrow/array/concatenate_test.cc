@@ -430,14 +430,14 @@ TEST_F(ConcatenateTest, DictionaryTypeDifferentSizeIndex) {
   auto bigger_dict_type = dictionary(uint16(), utf8());
   auto dict_one = DictArrayFromJSON(dict_type, "[0]", "[\"A0\"]");
   auto dict_two = DictArrayFromJSON(bigger_dict_type, "[0]", "[\"B0\"]");
-  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}).status());
+  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}));
 }
 
 TEST_F(ConcatenateTest, DictionaryTypeCantUnifyNullInDictionary) {
   auto dict_type = dictionary(uint8(), utf8());
   auto dict_one = DictArrayFromJSON(dict_type, "[0, 1]", "[null, \"A\"]");
   auto dict_two = DictArrayFromJSON(dict_type, "[0, 1]", "[null, \"B\"]");
-  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}).status());
+  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}));
 }
 
 TEST_F(ConcatenateTest, DictionaryTypeEnlargedIndices) {
@@ -464,7 +464,7 @@ TEST_F(ConcatenateTest, DictionaryTypeEnlargedIndices) {
 
   auto dict_one = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_one);
   auto dict_two = std::make_shared<DictionaryArray>(dict_type, indices, dictionary_two);
-  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}).status());
+  ASSERT_RAISES(Invalid, Concatenate({dict_one, dict_two}));
 
   auto bigger_dict_type = dictionary(uint16(), uint16());
 
@@ -729,8 +729,7 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
       fake_long_list->data()->child_data[0] = fake_long->data();
 
       ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list, fake_long_list}, pool,
-                                                   &suggested_cast)
-                                 .status());
+                                                   &suggested_cast));
       ASSERT_TRUE(suggested_cast->Equals(*expected_suggestion));
     }
   }
@@ -740,8 +739,7 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
   fake_long_list->data()->GetMutableValues<int32_t>(1)[1] =
       std::numeric_limits<int32_t>::max();
   ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list, fake_long_list}, pool,
-                                               &suggested_cast)
-                             .status());
+                                               &suggested_cast));
   ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_ty)));
 
   auto list_view_ty = list_view(null());
@@ -757,8 +755,7 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
     mutable_sizes[0] = kInt32Max;
   }
   ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list_view, fake_long_list_view},
-                                               pool, &suggested_cast)
-                             .status());
+                                               pool, &suggested_cast));
   ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_view_ty)));
 }
 

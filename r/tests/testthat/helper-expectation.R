@@ -24,11 +24,6 @@ expect_equal_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), as.data.frame(y), ...)
 }
 
-expect_r6_class <- function(object, class) {
-  expect_s3_class(object, class)
-  expect_s3_class(object, "R6")
-}
-
 #' Mask `testthat::expect_equal()` in order to compare ArrowObjects using their
 #' `Equals` methods from the C++ library.
 expect_equal <- function(object, expected, ignore_attr = FALSE, ..., info = NULL, label = NULL) {
@@ -173,12 +168,7 @@ compare_dplyr_error <- function(expr, tbl, ...) {
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ignore_attr Ignore differences in specified attributes?
 #' @param ... additional arguments, passed to `expect_as_vector()`
-compare_expression <- function(expr,
-                               vec,
-                               skip_array = NULL,
-                               skip_chunked_array = NULL,
-                               ignore_attr = FALSE,
-                               ...) {
+compare_expression <- function(expr, vec, skip_array = NULL, skip_chunked_array = NULL, ignore_attr = FALSE, ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = vec)))
   skip_msg <- NULL
@@ -220,11 +210,7 @@ compare_expression <- function(expr,
 #' @param skip_array The skip message to show (if you should skip the Array test)
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ... additional arguments, passed to `expect_error()`
-compare_expression_error <- function(expr,
-                                     vec,
-                                     skip_array = NULL,
-                                     skip_chunked_array = NULL,
-                                     ...) {
+compare_expression_error <- function(expr, vec, skip_array = NULL, skip_chunked_array = NULL, ...) {
   expr <- rlang::enquo(expr)
 
   msg <- tryCatch(

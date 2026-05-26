@@ -80,9 +80,16 @@ test_that("parse_compact_col_spec() converts string specs to schema", {
   expect_equal(
     compact_schema,
     schema(
-      c = utf8(), i = int32(), d = float64(), l = bool(), D = date32(),
-      T = timestamp(unit = "ns"), t = time32(unit = "ms"), f = dictionary(),
-      `_` = null(), `-` = null()
+      c = utf8(),
+      i = int32(),
+      d = float64(),
+      l = bool(),
+      D = date32(),
+      T = timestamp(unit = "ns"),
+      t = time32(unit = "ms"),
+      f = dictionary(),
+      `_` = null(),
+      `-` = null()
     )
   )
 

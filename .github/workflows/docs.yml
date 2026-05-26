@@ -19,6 +19,16 @@ name: Docs
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
+  pull_request:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'cpp/apidoc/**'
+      - 'docs/**'
 
 permissions:
   contents: read
@@ -39,20 +49,21 @@ jobs:
       JDK: 17
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: debian-docs-${{ hashFiles('cpp/**') }}
           restore-keys: debian-docs-
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Setup Archery

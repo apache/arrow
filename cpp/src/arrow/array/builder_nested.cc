@@ -48,7 +48,7 @@ template class BaseListViewBuilder<LargeListViewType>;
 // MapBuilder
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
-                       std::shared_ptr<ArrayBuilder> const& item_builder,
+                       const std::shared_ptr<ArrayBuilder>& item_builder,
                        const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool), key_builder_(key_builder), item_builder_(item_builder) {
   auto map_type = internal::checked_cast<const MapType*>(type.get());

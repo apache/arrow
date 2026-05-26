@@ -15,18 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
-do_join <- function(x,
-                    y,
-                    by = NULL,
-                    copy = FALSE,
-                    suffix = c(".x", ".y"),
-                    ...,
-                    keep = FALSE,
-                    na_matches = c("na", "never"),
-                    join_type) {
+do_join <- function(
+  x,
+  y,
+  by = NULL,
+  copy = FALSE,
+  suffix = c(".x", ".y"),
+  ...,
+  keep = FALSE,
+  na_matches = c("na", "never"),
+  join_type
+) {
   # TODO: handle `copy` arg: ignore?
   x <- as_adq(x)
   y <- as_adq(y)
@@ -61,46 +62,22 @@ do_join <- function(x,
   collapse.arrow_dplyr_query(x)
 }
 
-left_join.arrow_dplyr_query <- function(x,
-                                        y,
-                                        by = NULL,
-                                        copy = FALSE,
-                                        suffix = c(".x", ".y"),
-                                        ...,
-                                        keep = FALSE) {
+left_join.arrow_dplyr_query <- function(x, y, by = NULL, copy = FALSE, suffix = c(".x", ".y"), ..., keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "LEFT_OUTER")
 }
 left_join.Dataset <- left_join.ArrowTabular <- left_join.RecordBatchReader <- left_join.arrow_dplyr_query
 
-right_join.arrow_dplyr_query <- function(x,
-                                         y,
-                                         by = NULL,
-                                         copy = FALSE,
-                                         suffix = c(".x", ".y"),
-                                         ...,
-                                         keep = FALSE) {
+right_join.arrow_dplyr_query <- function(x, y, by = NULL, copy = FALSE, suffix = c(".x", ".y"), ..., keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "RIGHT_OUTER")
 }
 right_join.Dataset <- right_join.ArrowTabular <- right_join.RecordBatchReader <- right_join.arrow_dplyr_query
 
-inner_join.arrow_dplyr_query <- function(x,
-                                         y,
-                                         by = NULL,
-                                         copy = FALSE,
-                                         suffix = c(".x", ".y"),
-                                         ...,
-                                         keep = FALSE) {
+inner_join.arrow_dplyr_query <- function(x, y, by = NULL, copy = FALSE, suffix = c(".x", ".y"), ..., keep = FALSE) {
   do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "INNER")
 }
 inner_join.Dataset <- inner_join.ArrowTabular <- inner_join.RecordBatchReader <- inner_join.arrow_dplyr_query
 
-full_join.arrow_dplyr_query <- function(x,
-                                        y,
-                                        by = NULL,
-                                        copy = FALSE,
-                                        suffix = c(".x", ".y"),
-                                        ...,
-                                        keep = FALSE) {
+full_join.arrow_dplyr_query <- function(x, y, by = NULL, copy = FALSE, suffix = c(".x", ".y"), ..., keep = FALSE) {
   query <- do_join(x, y, by, copy, suffix, ..., keep = keep, join_type = "FULL_OUTER")
 
   # If we are doing a full outer join and not keeping the join keys of
@@ -114,20 +91,12 @@ full_join.arrow_dplyr_query <- function(x,
 }
 full_join.Dataset <- full_join.ArrowTabular <- full_join.RecordBatchReader <- full_join.arrow_dplyr_query
 
-semi_join.arrow_dplyr_query <- function(x,
-                                        y,
-                                        by = NULL,
-                                        copy = FALSE,
-                                        ...) {
+semi_join.arrow_dplyr_query <- function(x, y, by = NULL, copy = FALSE, ...) {
   do_join(x, y, by, copy, suffix = c(".x", ".y"), ..., join_type = "LEFT_SEMI")
 }
 semi_join.Dataset <- semi_join.ArrowTabular <- semi_join.RecordBatchReader <- semi_join.arrow_dplyr_query
 
-anti_join.arrow_dplyr_query <- function(x,
-                                        y,
-                                        by = NULL,
-                                        copy = FALSE,
-                                        ...) {
+anti_join.arrow_dplyr_query <- function(x, y, by = NULL, copy = FALSE, ...) {
   do_join(x, y, by, copy, suffix = c(".x", ".y"), ..., join_type = "LEFT_ANTI")
 }
 anti_join.Dataset <- anti_join.ArrowTabular <- anti_join.RecordBatchReader <- anti_join.arrow_dplyr_query

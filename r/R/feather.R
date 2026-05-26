@@ -66,18 +66,24 @@
 #' write_feather(mtcars, tf2)
 #' write_ipc_file(mtcars, tf3)
 #' @include arrow-object.R
-write_feather <- function(x,
-                          sink,
-                          version = 2,
-                          chunk_size = 65536L,
-                          compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
-                          compression_level = NULL) {
+write_feather <- function(
+  x,
+  sink,
+  version = 2,
+  chunk_size = 65536L,
+  compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
+  compression_level = NULL
+) {
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
 
-  if (isTRUE(compression)) compression <- "default"
-  if (isFALSE(compression)) compression <- "uncompressed"
+  if (isTRUE(compression)) {
+    compression <- "default"
+  }
+  if (isFALSE(compression)) {
+    compression <- "uncompressed"
+  }
 
   # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
   compression <- match.arg(compression)
@@ -133,11 +139,13 @@ write_feather <- function(x,
 
 #' @rdname write_feather
 #' @export
-write_ipc_file <- function(x,
-                           sink,
-                           chunk_size = 65536L,
-                           compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
-                           compression_level = NULL) {
+write_ipc_file <- function(
+  x,
+  sink,
+  chunk_size = 65536L,
+  compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
+  compression_level = NULL
+) {
   mc <- match.call()
   mc$version <- 2
   mc[[1]] <- get("write_feather", envir = asNamespace("arrow"))
@@ -234,7 +242,8 @@ read_ipc_file <- read_feather
 #'
 #' @export
 #' @include arrow-object.R
-FeatherReader <- R6Class("FeatherReader",
+FeatherReader <- R6Class(
+  "FeatherReader",
   inherit = ArrowObject,
   public = list(
     Read = function(columns) {

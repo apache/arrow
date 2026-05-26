@@ -26,8 +26,6 @@
 
 #include "arrow/python/numpy_interop.h"
 
-#include <numpy/halffloat.h>
-
 #include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
@@ -43,11 +41,11 @@ class OwnedRef;
 // \return A shared pointer to DataType
 ARROW_PYTHON_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-// \brief Construct a np.float16 object from a npy_half value.
-ARROW_PYTHON_EXPORT PyObject* PyHalf_FromHalf(npy_half value);
+// \brief Construct a Python float object from a half-float uint16_t value.
+ARROW_PYTHON_EXPORT PyObject* PyFloat_FromHalf(uint16_t value);
 
-// \brief Convert a Python object to a npy_half value.
-ARROW_PYTHON_EXPORT Status PyFloat_AsHalf(PyObject* obj, npy_half* out);
+// \brief Convert a Python object to a half-float uint16_t value.
+ARROW_PYTHON_EXPORT Result<uint16_t> PyFloat_AsHalf(PyObject* obj);
 
 namespace internal {
 
@@ -93,6 +91,10 @@ PyObject* BorrowPandasDataOffsetType();
 // \brief Check whether obj is a floating-point NaN
 ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
+
+// \brief Check whether obj is a uuid.UUID instance
+ARROW_PYTHON_EXPORT
+bool IsPyUuid(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
   return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
@@ -153,9 +155,6 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
 // \brief Print Python object __repr__
 void DebugPrint(PyObject* obj);
-
-ARROW_PYTHON_EXPORT
-bool IsThreadingEnabled();
 
 }  // namespace internal
 }  // namespace py

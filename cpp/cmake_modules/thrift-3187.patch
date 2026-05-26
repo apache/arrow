@@ -1,0 +1,162 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+From ad893633097b05ecdba8aa0f27aaf173dc7839b2 Mon Sep 17 00:00:00 2001
+From: Sutou Kouhei <kou@clear-code.com>
+Date: Fri, 8 Aug 2025 16:19:10 +0900
+Subject: [PATCH] THRIFT-3268: Suppress gnu-zero-variadic-macro-arguments
+ warnings
+
+Client: cpp
+
+We can reproduce these warnings by:
+
+    CC=clang CXX=clang++ \
+      cmake \
+        -S . \
+        -B ../thrift.build \
+        -DWITH_{AS3,JAVA,JAVASCRIPT,NODEJS,PYTHON,C_GLIB}=OFF \
+        -DCMAKE_CXX_FLAGS="-Wgnu-zero-variadic-macro-arguments"
+    cmake --build ../thrift.build
+
+Sample warning:
+
+    lib/cpp/src/thrift/TLogging.h:119:13: warning: token pasting of ',' and __VA_ARGS__ is a GNU extension [-Wgnu-zero-variadic-macro-arguments]
+      119 |             ##__VA_ARGS__);                                                                        \
+          |             ^
+---
+ lib/cpp/src/thrift/TLogging.h  | 12 ++++++------
+ lib/cpp/test/TransportTest.cpp | 12 ++++++------
+ lib/cpp/test/ZlibTest.cpp      |  6 ++----
+ 3 files changed, 14 insertions(+), 16 deletions(-)
+
+diff --git a/lib/cpp/src/thrift/TLogging.h b/lib/cpp/src/thrift/TLogging.h
+index 07ff030f7da..64e9bf80bbb 100644
+--- a/lib/cpp/src/thrift/TLogging.h
++++ b/lib/cpp/src/thrift/TLogging.h
+@@ -55,7 +55,7 @@
+ #if T_GLOBAL_DEBUGGING_LEVEL > 0
+ #define T_DEBUG(format_string, ...)                                                                \
+   if (T_GLOBAL_DEBUGGING_LEVEL > 0) {                                                              \
+-    fprintf(stderr, "[%s,%d] " format_string " \n", __FILE__, __LINE__, ##__VA_ARGS__);            \
++    fprintf(stderr, "[%s,%d] " format_string " \n", __FILE__, __LINE__, __VA_ARGS__);              \
+   }
+ #else
+ #define T_DEBUG(format_string, ...)
+@@ -80,7 +80,7 @@
+               __FILE__,                                                                            \
+               __LINE__,                                                                            \
+               dbgtime,                                                                             \
+-              ##__VA_ARGS__);                                                                      \
++              __VA_ARGS__);                                                                        \
+     }                                                                                              \
+   }
+ #else
+@@ -96,7 +96,7 @@
+  */
+ #define T_DEBUG_L(level, format_string, ...)                                                       \
+   if ((level) > 0) {                                                                               \
+-    fprintf(stderr, "[%s,%d] " format_string " \n", __FILE__, __LINE__, ##__VA_ARGS__);            \
++    fprintf(stderr, "[%s,%d] " format_string " \n", __FILE__, __LINE__, __VA_ARGS__);              \
+   }
+
+ /**
+@@ -116,7 +116,7 @@
+             __FILE__,                                                                              \
+             __LINE__,                                                                              \
+             dbgtime,                                                                               \
+-            ##__VA_ARGS__);                                                                        \
++            __VA_ARGS__);                                                                          \
+   }
+
+ /**
+@@ -137,7 +137,7 @@
+             __FILE__,                                                                              \
+             __LINE__,                                                                              \
+             dbgtime,                                                                               \
+-            ##__VA_ARGS__);                                                                        \
++            __VA_ARGS__);                                                                          \
+     exit(1);                                                                                       \
+   }
+
+@@ -155,7 +155,7 @@
+       time(&now);                                                                                  \
+       THRIFT_CTIME_R(&now, dbgtime);                                                               \
+       dbgtime[24] = '\0';                                                                          \
+-      fprintf(stderr, "[%s] " format_string " \n", dbgtime, ##__VA_ARGS__);                        \
++      fprintf(stderr, "[%s] " format_string " \n", dbgtime, __VA_ARGS__);                          \
+     }                                                                                              \
+   }
+ #else
+diff --git a/lib/cpp/test/TransportTest.cpp b/lib/cpp/test/TransportTest.cpp
+index d6d38595a6b..8a05465773a 100644
+--- a/lib/cpp/test/TransportTest.cpp
++++ b/lib/cpp/test/TransportTest.cpp
+@@ -784,23 +784,23 @@ void test_borrow_none_available() {
+  **************************************************************************/
+
+ #define ADD_TEST_RW(CoupledTransports, totalSize, ...)                                             \
+-  addTestRW<CoupledTransports>(BOOST_STRINGIZE(CoupledTransports), totalSize, ##__VA_ARGS__);
++  addTestRW<CoupledTransports>(BOOST_STRINGIZE(CoupledTransports), totalSize, __VA_ARGS__);
+
+ #define TEST_RW(CoupledTransports, totalSize, ...)                                                 \
+   do {                                                                                             \
+     /* Add the test as specified, to test the non-virtual function calls */                        \
+-    ADD_TEST_RW(CoupledTransports, totalSize, ##__VA_ARGS__);                                      \
++    ADD_TEST_RW(CoupledTransports, totalSize, __VA_ARGS__);                                        \
+     /*                                                                                             \
+      * Also test using the transport as a TTransport*, to test                                     \
+      * the read_virt()/write_virt() calls                                                          \
+      */                                                                                            \
+-    ADD_TEST_RW(CoupledTTransports<CoupledTransports>, totalSize, ##__VA_ARGS__);                  \
++    ADD_TEST_RW(CoupledTTransports<CoupledTransports>, totalSize, __VA_ARGS__);                    \
+     /* Test wrapping the transport with TBufferedTransport */                                      \
+-    ADD_TEST_RW(CoupledBufferedTransportsT<CoupledTransports>, totalSize, ##__VA_ARGS__);          \
++    ADD_TEST_RW(CoupledBufferedTransportsT<CoupledTransports>, totalSize, __VA_ARGS__);            \
+     /* Test wrapping the transport with TFramedTransports */                                       \
+-    ADD_TEST_RW(CoupledFramedTransportsT<CoupledTransports>, totalSize, ##__VA_ARGS__);            \
++    ADD_TEST_RW(CoupledFramedTransportsT<CoupledTransports>, totalSize, __VA_ARGS__);              \
+     /* Test wrapping the transport with TZlibTransport */                                          \
+-    ADD_TEST_RW(CoupledZlibTransportsT<CoupledTransports>, totalSize, ##__VA_ARGS__);              \
++    ADD_TEST_RW(CoupledZlibTransportsT<CoupledTransports>, totalSize, __VA_ARGS__);                \
+   } while (0)
+
+ #define ADD_TEST_BLOCKING(CoupledTransports)                                                       \
+diff --git a/lib/cpp/test/ZlibTest.cpp b/lib/cpp/test/ZlibTest.cpp
+index 274a243913c..ea9c617f625 100644
+--- a/lib/cpp/test/ZlibTest.cpp
++++ b/lib/cpp/test/ZlibTest.cpp
+@@ -347,8 +347,7 @@ void test_get_underlying_transport() {
+   do {                                                                                             \
+     ::std::ostringstream name_ss;                                                                  \
+     name_ss << name << "-" << BOOST_STRINGIZE(_FUNC);                                              \
+-    ::std::function<void ()> test_func =                                        \
+-        ::std::bind(_FUNC, ##__VA_ARGS__);                                      \
++    ::std::function<void ()> test_func = ::std::bind(_FUNC, __VA_ARGS__);                          \
+     ::boost::unit_test::test_case* tc                                                              \
+         = ::boost::unit_test::make_test_case(test_func, name_ss.str(), __FILE__, __LINE__);        \
+     (suite)->add(tc);                                                                              \
+@@ -359,8 +358,7 @@ void test_get_underlying_transport() {
+     ::std::ostringstream name_ss;                                                                  \
+     name_ss << name << "-" << BOOST_STRINGIZE(_FUNC);                                              \
+     ::boost::unit_test::test_case* tc                                                              \
+-        = ::boost::unit_test::make_test_case(::std::bind(_FUNC,                 \
+-                                                                            ##__VA_ARGS__),        \
++        = ::boost::unit_test::make_test_case(::std::bind(_FUNC, __VA_ARGS__),                      \
+                                              name_ss.str());                                       \
+     (suite)->add(tc);                                                                              \
+   } while (0)

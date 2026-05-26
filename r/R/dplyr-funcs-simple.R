@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 .unary_function_map <- list(
   # NOTE: Each of the R functions mapped here takes exactly *one* argument, maps
   # *directly* to an Arrow C++ compute kernel, and does not require any
@@ -190,7 +189,7 @@ common_type <- function(exprs) {
 
 cast_or_parse <- function(x, type) {
   to_type_id <- type$id
-  if (to_type_id %in% c(Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
+  if (to_type_id %in% c(Type[["DECIMAL32"]], Type[["DECIMAL64"]], Type[["DECIMAL128"]], Type[["DECIMAL256"]])) {
     # TODO: determine the minimum size of decimal (or integer) required to
     # accommodate x
     # We would like to keep calculations on decimal if that's what the data has

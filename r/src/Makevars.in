@@ -25,10 +25,10 @@ PKG_CPPFLAGS=@cflags@
 # https://bugs.llvm.org/show_bug.cgi?id=39191
 # https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg534862.html
 # PKG_CXXFLAGS=$(CXX_VISIBILITY)
-CXX_STD=CXX17
+CXX_STD=CXX20
 PKG_LIBS=@libs@
 
 all: $(SHLIB) purify
 
 purify: $(SHLIB)
-	@rm -rf ../{libarrow,windows} || true
+	@rm -rf ../libarrow ../windows || true

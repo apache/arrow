@@ -17,5 +17,5 @@
   under the License.
 -->
 
-The files in this directory are vendored from xxHash git tag v0.8.2
+The files in this directory are vendored from xxHash git tag v0.8.3
 (https://github.com/Cyan4973/xxHash).

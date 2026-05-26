@@ -439,6 +439,17 @@ static void SetBitsTo(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
+static void CountSetBits(benchmark::State& state) {
+  int64_t nbytes = state.range(0);
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
+
+  for (auto _ : state) {
+    auto count = internal::CountSetBits(buffer->data(), /*bit_offset=*/0, nbytes * 8);
+    benchmark::DoNotOptimize(count);
+  }
+  state.SetBytesProcessed(state.iterations() * nbytes);
+}
+
 template <int64_t OffsetSrc, int64_t OffsetDest = 0>
 static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t buffer_size = state.range(0);
@@ -519,6 +530,7 @@ BENCHMARK(ReverseSetBitRunReader)->Apply(SetBitRunReaderPercentageArg);
 BENCHMARK(VisitBits)->Arg(kBufferSize);
 BENCHMARK(VisitBitsUnrolled)->Arg(kBufferSize);
 BENCHMARK(SetBitsTo)->Arg(2)->Arg(1 << 4)->Arg(1 << 10)->Arg(1 << 17);
+BENCHMARK(CountSetBits)->Arg(1 << 4)->Arg(1 << 10)->Arg(1 << 17);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void ReferenceNaiveBitmapWriter(benchmark::State& state) {

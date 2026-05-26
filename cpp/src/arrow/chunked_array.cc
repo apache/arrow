@@ -98,8 +98,34 @@ DeviceAllocationTypeSet ChunkedArray::device_types() const {
   }
   return set;
 }
+namespace {
+
+// Check whether the type or any of its children is a float type.
+bool ContainsFloatType(const DataType& type) {
+  if (is_floating(type.id())) {
+    return true;
+  } else {
+    // Check if any nested field contains a float type.
+    for (const auto& field : type.fields()) {
+      if (ContainsFloatType(*field->type())) {
+        return true;
+      }
+    }
+  }
+  // No float types are observed
+  return false;
+}
+
+}  //  namespace
 
 bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) const {
+  if (this == &other) {
+    if (opts.nans_equal()) {
+      return true;
+    } else if (!ContainsFloatType(*type_)) {
+      return true;
+    }
+  }
   if (length_ != other.length()) {
     return false;
   }
@@ -125,59 +151,17 @@ bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) c
       .ok();
 }
 
-namespace {
-
-bool mayHaveNaN(const arrow::DataType& type) {
-  if (type.num_fields() == 0) {
-    return is_floating(type.id());
-  } else {
-    for (const auto& field : type.fields()) {
-      if (mayHaveNaN(*field->type())) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-}  //  namespace
-
 bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other,
                           const EqualOptions& opts) const {
   if (!other) {
     return false;
-  }
-  if (this == other.get() && !mayHaveNaN(*type_)) {
-    return true;
   }
   return Equals(*other.get(), opts);
 }
 
 bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
                                 const EqualOptions& equal_options) const {
-  if (length_ != other.length()) {
-    return false;
-  }
-  if (null_count_ != other.null_count()) {
-    return false;
-  }
-  // We cannot toggle check_metadata here yet, so we don't check it
-  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
-    return false;
-  }
-
-  // Check contents of the underlying arrays. This checks for equality of
-  // the underlying data independently of the chunk size.
-  return internal::ApplyBinaryChunked(
-             *this, other,
-             [&](const Array& left_piece, const Array& right_piece,
-                 int64_t ARROW_ARG_UNUSED(position)) {
-               if (!left_piece.ApproxEquals(right_piece, equal_options)) {
-                 return Status::Invalid("Unequal piece");
-               }
-               return Status::OK();
-             })
-      .ok();
+  return Equals(other, equal_options.use_atol(true));
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {

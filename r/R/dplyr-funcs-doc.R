@@ -19,9 +19,9 @@
 
 #' Functions available in Arrow dplyr queries
 #'
-#' The `arrow` package contains methods for 37 `dplyr` table functions, many of
+#' The `arrow` package contains methods for 38 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 221 R functions to the corresponding
+#' The package also has mappings of 229 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -45,6 +45,7 @@
 #' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` returns a non-missing value if present, only returning missing values if all are missing.
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
+#' * [`filter_out()`][dplyr::filter_out()]
 #' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
@@ -83,7 +84,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 271 compute
+#' In addition to these functions, you can call any of Arrow's 281 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -96,7 +97,6 @@
 #'
 #' * [`add_filename()`][arrow::add_filename()]
 #' * [`cast()`][arrow::cast()]
-#' * [`one()`][arrow::one()]
 #'
 #' ## base
 #'
@@ -214,6 +214,16 @@
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
+#' * [`recode_values()`][dplyr::recode_values()]: `ptype` argument and `unmatched = "error"` not supported
+#' * [`replace_values()`][dplyr::replace_values()]
+#' * [`replace_when()`][dplyr::replace_when()]
+#' * [`when_all()`][dplyr::when_all()]
+#' * [`when_any()`][dplyr::when_any()]
+#'
+#' ## hms
+#'
+#' * [`as_hms()`][hms::as_hms()]: subsecond precision not supported for character input
+#' * [`hms()`][hms::hms()]: nanosecond times not supported
 #'
 #' ## lubridate
 #'
@@ -330,6 +340,7 @@
 #' * [`str_detect()`][stringr::str_detect()]
 #' * [`str_dup()`][stringr::str_dup()]
 #' * [`str_ends()`][stringr::str_ends()]
+#' * [`str_ilike()`][stringr::str_ilike()]
 #' * [`str_length()`][stringr::str_length()]
 #' * [`str_like()`][stringr::str_like()]
 #' * [`str_pad()`][stringr::str_pad()]
@@ -337,6 +348,7 @@
 #' * [`str_remove_all()`][stringr::str_remove_all()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
+#' * [`str_replace_na()`][stringr::str_replace_na()]
 #' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
 #' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1

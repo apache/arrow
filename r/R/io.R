@@ -21,7 +21,8 @@
 
 # OutputStream ------------------------------------------------------------
 
-Writable <- R6Class("Writable",
+Writable <- R6Class(
+  "Writable",
   inherit = ArrowObject,
   public = list(
     write = function(x) io___Writable__write(self, buffer(x))
@@ -56,7 +57,8 @@ Writable <- R6Class("Writable",
 #'
 #' @rdname OutputStream
 #' @name OutputStream
-OutputStream <- R6Class("OutputStream",
+OutputStream <- R6Class(
+  "OutputStream",
   inherit = Writable,
   public = list(
     close = function() io___OutputStream__Close(self),
@@ -77,7 +79,8 @@ FileOutputStream$create <- function(path) {
 #' @format NULL
 #' @rdname OutputStream
 #' @export
-BufferOutputStream <- R6Class("BufferOutputStream",
+BufferOutputStream <- R6Class(
+  "BufferOutputStream",
   inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
@@ -92,8 +95,8 @@ BufferOutputStream$create <- function(initial_capacity = 0L) {
 
 # InputStream -------------------------------------------------------------
 
-
-Readable <- R6Class("Readable",
+Readable <- R6Class(
+  "Readable",
   inherit = ArrowObject,
   public = list(
     Read = function(nbytes) io___Readable__Read(self, nbytes)
@@ -133,7 +136,8 @@ Readable <- R6Class("Readable",
 #'
 #' @rdname InputStream
 #' @name InputStream
-InputStream <- R6Class("InputStream",
+InputStream <- R6Class(
+  "InputStream",
   inherit = Readable,
   public = list(
     close = function() io___InputStream__Close(self)
@@ -144,7 +148,8 @@ InputStream <- R6Class("InputStream",
 #' @format NULL
 #' @rdname InputStream
 #' @export
-RandomAccessFile <- R6Class("RandomAccessFile",
+RandomAccessFile <- R6Class(
+  "RandomAccessFile",
   inherit = InputStream,
   public = list(
     GetSize = function() io___RandomAccessFile__GetSize(self),
@@ -174,7 +179,8 @@ RandomAccessFile <- R6Class("RandomAccessFile",
 #' @format NULL
 #' @rdname InputStream
 #' @export
-MemoryMappedFile <- R6Class("MemoryMappedFile",
+MemoryMappedFile <- R6Class(
+  "MemoryMappedFile",
   inherit = RandomAccessFile,
   public = list(
     Resize = function(size) io___MemoryMappedFile__Resize(self, size)
@@ -313,7 +319,8 @@ detect_compression <- function(path) {
   # Remove any trailing slashes, which SubTreeFileSystem may add
   path <- sub("/$", "", path)
 
-  switch(tools::file_ext(path),
+  switch(
+    tools::file_ext(path),
     bz2 = "bz2",
     gz = "gzip",
     lz4 = "lz4_frame",

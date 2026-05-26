@@ -65,9 +65,10 @@ class EachRawRecordTableMultipleColumnsTest < Test::Unit::TestCase
 
   def build(schema, records)
     record_batch = Arrow::RecordBatch.new(schema, records)
+    # Multiple chunks
     record_batches = [
       record_batch.slice(0, 2),
-      record_batch.slice(2, 0),
+      record_batch.slice(2, 0), # Empty chunk
       record_batch.slice(2, record_batch.length - 2),
     ]
 

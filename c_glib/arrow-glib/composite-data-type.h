@@ -26,13 +26,32 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_LIST_DATA_TYPE (garrow_list_data_type_get_type())
-GARROW_AVAILABLE_IN_ALL
-G_DECLARE_DERIVABLE_TYPE(
-  GArrowListDataType, garrow_list_data_type, GARROW, LIST_DATA_TYPE, GArrowDataType)
-struct _GArrowListDataTypeClass
+#define GARROW_TYPE_BASE_LIST_DATA_TYPE (garrow_base_list_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowBaseListDataType,
+                         garrow_base_list_data_type,
+                         GARROW,
+                         BASE_LIST_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowBaseListDataTypeClass
 {
   GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowField *
+garrow_base_list_data_type_get_field(GArrowBaseListDataType *base_list_data_type);
+
+#define GARROW_TYPE_LIST_DATA_TYPE (garrow_list_data_type_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(GArrowListDataType,
+                         garrow_list_data_type,
+                         GARROW,
+                         LIST_DATA_TYPE,
+                         GArrowBaseListDataType)
+struct _GArrowListDataTypeClass
+{
+  GArrowBaseListDataTypeClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_ALL
@@ -123,6 +142,9 @@ garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type);
 GARROW_AVAILABLE_IN_0_17
 GArrowDataType *
 garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type);
+GARROW_AVAILABLE_IN_24_0
+gboolean
+garrow_map_data_type_is_keys_sorted(GArrowMapDataType *map_data_type);
 
 #define GARROW_TYPE_UNION_DATA_TYPE (garrow_union_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL
@@ -241,4 +263,25 @@ GArrowDataType *
 garrow_run_end_encoded_data_type_get_value_data_type(
   GArrowRunEndEncodedDataType *data_type);
 
+#define GARROW_TYPE_FIXED_SIZE_LIST_DATA_TYPE                                            \
+  (garrow_fixed_size_list_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeListDataType,
+                         garrow_fixed_size_list_data_type,
+                         GARROW,
+                         FIXED_SIZE_LIST_DATA_TYPE,
+                         GArrowBaseListDataType)
+struct _GArrowFixedSizeListDataTypeClass
+{
+  GArrowBaseListDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_data_type(GArrowDataType *value_type,
+                                               gint32 list_size);
+
+GARROW_AVAILABLE_IN_21_0
+GArrowFixedSizeListDataType *
+garrow_fixed_size_list_data_type_new_field(GArrowField *field, gint32 list_size);
 G_END_DECLS

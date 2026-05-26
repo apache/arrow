@@ -1,0 +1,86 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+From a66baec5731b65a81189f48c242433d01580f344 Mon Sep 17 00:00:00 2001
+From: Dongjoon Hyun <dongjoon@apache.org>
+Date: Fri, 15 Aug 2025 12:31:09 -0700
+Subject: [PATCH] ORC-1973: [C++] Use `int64_t` instead of
+ `google::protobuf::int64`
+
+---
+ c++/src/io/InputStream.cc  | 4 ++--
+ c++/src/io/InputStream.hh  | 2 +-
+ c++/src/io/OutputStream.cc | 4 ++--
+ c++/src/io/OutputStream.hh | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/c++/src/io/InputStream.cc b/c++/src/io/InputStream.cc
+index 06ef40bd4c..5e1dc00ccd 100644
+--- a/c++/src/io/InputStream.cc
++++ b/c++/src/io/InputStream.cc
+@@ -112,8 +112,8 @@ namespace orc {
+     return false;
+   }
+ 
+-  google::protobuf::int64 SeekableArrayInputStream::ByteCount() const {
+-    return static_cast<google::protobuf::int64>(position_);
++  int64_t SeekableArrayInputStream::ByteCount() const {
++    return static_cast<int64_t>(position_);
+   }
+ 
+   void SeekableArrayInputStream::seek(PositionProvider& seekPosition) {
+diff --git a/c++/src/io/InputStream.hh b/c++/src/io/InputStream.hh
+index 07aa623b5f..8b251c9301 100644
+--- a/c++/src/io/InputStream.hh
++++ b/c++/src/io/InputStream.hh
+@@ -72,7 +72,7 @@ namespace orc {
+     virtual bool Next(const void** data, int* size) override;
+     virtual void BackUp(int count) override;
+     virtual bool Skip(int count) override;
+-    virtual google::protobuf::int64 ByteCount() const override;
++    virtual int64_t ByteCount() const override;
+     virtual void seek(PositionProvider& position) override;
+     virtual std::string getName() const override;
+   };
+diff --git a/c++/src/io/OutputStream.cc b/c++/src/io/OutputStream.cc
+index fbf1ca61dd..a55050d122 100644
+--- a/c++/src/io/OutputStream.cc
++++ b/c++/src/io/OutputStream.cc
+@@ -65,8 +65,8 @@ namespace orc {
+     // PASS
+   }
+ 
+-  google::protobuf::int64 BufferedOutputStream::ByteCount() const {
+-    return static_cast<google::protobuf::int64>(dataBuffer_->size());
++  int64_t BufferedOutputStream::ByteCount() const {
++    return static_cast<int64_t>(dataBuffer_->size());
+   }
+ 
+   bool BufferedOutputStream::WriteAliasedRaw(const void*, int) {
+diff --git a/c++/src/io/OutputStream.hh b/c++/src/io/OutputStream.hh
+index 6319de96d6..b029818125 100644
+--- a/c++/src/io/OutputStream.hh
++++ b/c++/src/io/OutputStream.hh
+@@ -61,7 +61,7 @@ namespace orc {
+ 
+     virtual bool Next(void** data, int* size) override;
+     virtual void BackUp(int count) override;
+-    virtual google::protobuf::int64 ByteCount() const override;
++    virtual int64_t ByteCount() const override;
+     virtual bool WriteAliasedRaw(const void* data, int size) override;
+     virtual bool AllowsAliasing() const override;
+ 

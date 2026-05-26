@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <bit>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -52,6 +53,8 @@ inline bool operator!=(const BitRun& lhs, const BitRun& rhs) {
 
 class BitRunReaderLinear {
  public:
+  BitRunReaderLinear() = default;
+
   BitRunReaderLinear(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : reader_(bitmap, start_offset, length) {}
 
@@ -74,6 +77,8 @@ class BitRunReaderLinear {
 /// in a bitmap.
 class ARROW_EXPORT BitRunReader {
  public:
+  BitRunReader() = default;
+
   /// \brief Constructs new BitRunReader.
   ///
   /// \param[in] bitmap source data
@@ -89,7 +94,7 @@ class ARROW_EXPORT BitRunReader {
       return {/*length=*/0, false};
     }
     // This implementation relies on a efficient implementations of
-    // CountTrailingZeros and assumes that runs are more often then
+    // std::countr_zero and assumes that runs are more often then
     // not.  The logic is to incrementally find the next bit change
     // from the current position.  This is done by zeroing all
     // bits in word_ up to position_ and using the TrailingZeroCount
@@ -100,12 +105,12 @@ class ARROW_EXPORT BitRunReader {
 
     int64_t start_position = position_;
     int64_t start_bit_offset = start_position & 63;
-    // Invert the word for proper use of CountTrailingZeros and
-    // clear bits so CountTrailingZeros can do it magic.
-    word_ = ~word_ & ~bit_util::LeastSignificantBitMask(start_bit_offset);
+    // Invert the word for proper use of std::countr_zero and
+    // clear bits so std::countr_zero can do it magic.
+    word_ = ~word_ & ~bit_util::LeastSignificantBitMask<uint64_t>(start_bit_offset);
 
     // Go  forward until the next change from unset to set.
-    int64_t new_bits = bit_util::CountTrailingZeros(word_) - start_bit_offset;
+    int64_t new_bits = std::countr_zero(word_) - start_bit_offset;
     position_ += new_bits;
 
     if (ARROW_PREDICT_FALSE(bit_util::IsMultipleOf64(position_)) &&
@@ -125,7 +130,7 @@ class ARROW_EXPORT BitRunReader {
       // Advance the position of the bitmap for loading.
       bitmap_ += sizeof(uint64_t);
       LoadNextWord();
-      new_bits = bit_util::CountTrailingZeros(word_);
+      new_bits = std::countr_zero(word_);
       // Continue calculating run length.
       position_ += new_bits;
     } while (ARROW_PREDICT_FALSE(bit_util::IsMultipleOf64(position_)) &&
@@ -151,9 +156,9 @@ class ARROW_EXPORT BitRunReader {
     }
 
     // Two cases:
-    //   1. For unset, CountTrailingZeros works naturally so we don't
+    //   1. For unset, std::countr_zero works naturally so we don't
     //   invert the word.
-    //   2. Otherwise invert so we can use CountTrailingZeros.
+    //   2. Otherwise invert so we can use std::countr_zero.
     if (current_run_bit_set_) {
       word_ = ~word_;
     }
@@ -307,12 +312,12 @@ class BaseSetBitRunReader {
       memcpy(reinterpret_cast<char*>(&word) + 8 - num_bytes, bitmap_, num_bytes);
       // XXX MostSignificantBitmask
       return (bit_util::ToLittleEndian(word) << bit_offset) &
-             ~bit_util::LeastSignificantBitMask(64 - num_bits);
+             ~bit_util::LeastSignificantBitMask<uint64_t>(64 - num_bits);
     } else {
       memcpy(&word, bitmap_, num_bytes);
       bitmap_ += num_bytes;
       return (bit_util::ToLittleEndian(word) >> bit_offset) &
-             bit_util::LeastSignificantBitMask(num_bits);
+             bit_util::LeastSignificantBitMask<uint64_t>(num_bits);
     }
   }
 
@@ -434,12 +439,12 @@ class BaseSetBitRunReader {
 
 template <>
 inline int BaseSetBitRunReader<false>::CountFirstZeros(uint64_t word) {
-  return bit_util::CountTrailingZeros(word);
+  return std::countr_zero(word);
 }
 
 template <>
 inline int BaseSetBitRunReader<true>::CountFirstZeros(uint64_t word) {
-  return bit_util::CountLeadingZeros(word);
+  return std::countl_zero(word);
 }
 
 template <>
@@ -456,6 +461,26 @@ using SetBitRunReader = BaseSetBitRunReader</*Reverse=*/false>;
 using ReverseSetBitRunReader = BaseSetBitRunReader</*Reverse=*/true>;
 
 // Functional-style bit run visitors.
+
+template <typename Visit>
+inline Status VisitBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
+                           Visit&& visit) {
+  if (bitmap == NULLPTR) {
+    // Assuming all set (as in a null bitmap)
+    return visit(static_cast<int64_t>(0), length, true);
+  }
+  BitRunReader reader(bitmap, offset, length);
+  int64_t position = 0;
+  while (true) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) {
+      break;
+    }
+    ARROW_RETURN_NOT_OK(visit(position, run.length, run.set));
+    position += run.length;
+  }
+  return Status::OK();
+}
 
 // XXX: Try to make this function small so the compiler can inline and optimize
 // the `visit` function, which is normally a hot loop with vectorizable code.

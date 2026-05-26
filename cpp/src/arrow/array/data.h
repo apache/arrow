@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -31,7 +32,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -217,6 +217,7 @@ struct ARROW_EXPORT ArrayData {
   /// queried instead.
   /// For dictionary arrays, this reflects the validity of the dictionary
   /// index, but the corresponding dictionary value might still be null.
+  /// For null arrays, this always returns false.
   bool IsValid(int64_t i) const {
     if (buffers[0] != NULLPTR) {
       return bit_util::GetBit(buffers[0]->data(), i + offset);
@@ -358,8 +359,16 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return the physical null count
   ///
-  /// The null count is lazily computed from the array's validity bitmap,
-  /// if not already cached.
+  /// This method returns the number of array elements for which `IsValid` would
+  /// return false.
+  ///
+  /// A cached value is returned if already available, otherwise it is first
+  /// computed and stored.
+  /// How it is is computed depends on the data type, see `IsValid` for details.
+  ///
+  /// Note that this method is typically much faster than calling `IsValid`
+  /// for all elements. Therefore, it helps avoid per-element validity bitmap
+  /// lookups in the common cases where the array contains zero or only nulls.
   int64_t GetNullCount() const;
 
   /// \brief Return true if the array may have nulls in its validity bitmap
@@ -472,6 +481,7 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<ArrayStatistics> statistics;
 };
 
+/// \class BufferSpan
 /// \brief A non-owning Buffer reference
 struct ARROW_EXPORT BufferSpan {
   // It is the user of this class's responsibility to ensure that
@@ -492,9 +502,15 @@ struct ARROW_EXPORT BufferSpan {
   }
 };
 
-/// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
-/// copyable and does not contain any shared_ptr objects. Do not use in public
-/// APIs aside from compute kernels for now
+/// \class ArraySpan
+/// \brief EXPERIMENTAL: A non-owning array data container
+///
+/// Unlike ArrayData, this class doesn't own its referenced data type nor data buffers.
+/// It is cheaply copyable and can therefore be suitable for use cases where
+/// shared_ptr overhead is not acceptable. However, care should be taken to
+/// keep alive the referenced objects and memory while the ArraySpan object is in use.
+/// For this reason, this should not be exposed in most public APIs (apart from
+/// compute kernel interfaces).
 struct ARROW_EXPORT ArraySpan {
   const DataType* type = NULLPTR;
   int64_t length = 0;
@@ -563,11 +579,11 @@ struct ARROW_EXPORT ArraySpan {
   /// this array type
   /// \return A span<const T> of the requested length
   template <typename T>
-  util::span<const T> GetSpan(int i, int64_t length) const {
+  std::span<const T> GetSpan(int i, int64_t length) const {
     const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);
-    return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
+    return std::span<const T>(buffers[i].data_as<T>() + this->offset, length);
   }
 
   /// \brief Access a buffer's data as a span
@@ -579,11 +595,11 @@ struct ARROW_EXPORT ArraySpan {
   /// this array type
   /// \return A span<T> of the requested length
   template <typename T>
-  util::span<T> GetSpan(int i, int64_t length) {
+  std::span<T> GetSpan(int i, int64_t length) {
     const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);
-    return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
+    return std::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
   }
 
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
@@ -627,7 +643,7 @@ struct ARROW_EXPORT ArraySpan {
     this->length = length;
     if (this->type->id() == Type::NA) {
       this->null_count = this->length;
-    } else if (this->MayHaveNulls()) {
+    } else if (buffers[0].data != NULLPTR) {
       this->null_count = kUnknownNullCount;
     } else {
       this->null_count = 0;
@@ -695,7 +711,7 @@ struct ARROW_EXPORT ArraySpan {
   /// sizeof(shared_ptr<Buffer>).
   ///
   /// \see HasVariadicBuffers
-  util::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
+  std::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
   bool HasVariadicBuffers() const;
 
  private:

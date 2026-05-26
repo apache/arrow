@@ -38,8 +38,6 @@
 
 namespace arrow {
 
-using arrow::internal::StartsWith;
-
 namespace acero {
 namespace internal {
 
@@ -100,7 +98,7 @@ void VerifyUniqueKey(std::unordered_set<int32_t>* seen, const Datum& d, int32_t 
 void VerifyStringAndNumber_Single(std::string_view row, std::string_view prefix,
                                   const int64_t i, const int32_t* nums,
                                   bool verify_padding) {
-  ASSERT_TRUE(StartsWith(row, prefix)) << row << ", prefix=" << prefix << ", i=" << i;
+  ASSERT_TRUE(row.starts_with(prefix)) << row << ", prefix=" << prefix << ", i=" << i;
   const char* num_str = row.data() + prefix.size();
   const char* num_str_end = row.data() + row.size();
   int64_t num = 0;

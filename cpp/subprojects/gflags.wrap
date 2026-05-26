@@ -20,7 +20,11 @@ source_url = https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz
 source_filename = gflags-2.2.2.tar.gz
 source_hash = 34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf
 directory = gflags-2.2.2
-method = cmake
+patch_filename = gflags_2.2.2-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/gflags_2.2.2-1/get_patch
+patch_hash = 7988220486c98f2749db713b204ee6c009be04b67932783ffad7acdf3e334f19
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/gflags_2.2.2-1/gflags-2.2.2.tar.gz
+wrapdb_version = 2.2.2-1
 
 [provide]
-gflags = gflags_static_dep
+gflags = gflags_dep

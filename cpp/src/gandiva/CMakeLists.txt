@@ -195,8 +195,8 @@ if(WIN32)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
   list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
 endif()
-list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
-list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK_MAIN})
+list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK_MAIN})
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
@@ -274,6 +274,7 @@ add_gandiva_test(internals-test
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc
+                 target_datalayout_test.cc
                  tests/test_util.cc
                  EXTRA_LINK_LIBS
                  re2::re2

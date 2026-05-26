@@ -23,6 +23,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
@@ -494,7 +495,6 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
       NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec,
                     ModeExecutorChunked<StructType, BooleanType>::Exec)));
   for (const auto& type : NumericTypes()) {
-    // TODO(wesm):
     DCHECK_OK(func->AddKernel(
         NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type),
                       GenerateNumeric<ModeExecutorChunked, StructType>(*type))));

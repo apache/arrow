@@ -28,6 +28,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
@@ -61,10 +62,12 @@ WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
                                 const std::string& eol = "\n", char delimiter = ',',
-                                int batch_size = 5) {
+                                int batch_size = 5,
+                                QuotingStyle quoting_header = QuotingStyle::Needed) {
   WriteOptions options;
   options.batch_size = batch_size;
   options.include_header = include_header;
+  options.quoting_header = quoting_header;
   options.null_string = null_string;
   options.eol = eol;
   options.quoting_style = quoting_style;
@@ -90,6 +93,17 @@ std::vector<WriterTestParams> GenerateTestCases() {
   // Dummy schema and data for testing invalid options.
   auto dummy_schema = schema({field("a", uint8())});
   std::string dummy_batch_data = R"([{"a": null}])";
+
+  auto header_without_structural_charaters =
+      schema({field("a ", uint64()), field("b", int32())});
+  std::string expected_header_without_structural_charaters =
+      std::string(R"(a ,b)") + "\n";
+  auto expected_status_no_quotes_with_structural_in_header = [](const char* header) {
+    return Status::Invalid(
+        "CSV header may not contain structural characters if quoting "
+        "style is \"None\". See RFC4180. Invalid value: ",
+        header);
+  };
 
   // Schema to test various types.
   auto abc_schema = schema({
@@ -279,7 +293,20 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::Needed, /*eol=*/";", /*delimiter=*/';'),
-       /*expected_output*/ "", expected_status_illegal_delimiter(';')}};
+       /*expected_output*/ "", expected_status_illegal_delimiter(';')},
+      {header_without_structural_charaters, "[]",
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n",
+                          /*delimiter=*/',', /*batch_size=*/5,
+                          /*quoting_header=*/QuotingStyle::None),
+       expected_header_without_structural_charaters},
+      {abc_schema, "[]",
+       DefaultTestOptions(/*include_header=*/true, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n",
+                          /*delimiter=*/',', /*batch_size=*/5,
+                          /*quoting_header=*/QuotingStyle::None),
+       "", expected_status_no_quotes_with_structural_in_header("b\"")},
+  };
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
@@ -378,6 +405,37 @@ INSTANTIATE_TEST_SUITE_P(
                          R"("tz","utc")"
                          "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n")));
 #endif
+
+TEST(TestWriteCSV, EmptyBatchShouldNotPolluteOutput) {
+  auto schema = arrow::schema({field("col1", utf8())});
+  auto empty_batch = RecordBatchFromJSON(schema, "[]");
+  auto batch_a = RecordBatchFromJSON(schema, R"([{"col1": "a"}])");
+  auto batch_b = RecordBatchFromJSON(schema, R"([{"col1": "b"}])");
+
+  struct TestParam {
+    std::shared_ptr<Table> table;
+    std::string expected_output;
+  };
+
+  std::vector<TestParam> test_params = {
+      // Empty batch in the beginning
+      {Table::FromRecordBatches(schema, {empty_batch, batch_a, batch_b}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+      // Empty batch in the middle
+      {Table::FromRecordBatches(schema, {batch_a, empty_batch, batch_b}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+      // Empty batch in the end
+      {Table::FromRecordBatches(schema, {batch_a, batch_b, empty_batch}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+  };
+
+  for (const auto& param : test_params) {
+    ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create());
+    ASSERT_OK(WriteCSV(*param.table, WriteOptions::Defaults(), out.get()));
+    ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
+    EXPECT_EQ(buffer->ToString(), param.expected_output);
+  }
+}
 
 }  // namespace csv
 }  // namespace arrow

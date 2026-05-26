@@ -49,6 +49,22 @@ enum class MapConversionType {
 };
 
 struct PandasOptions {
+  bool HasCategoricalColumns() const {
+    return categorical_columns && !categorical_columns->empty();
+  }
+
+  bool IsCategoricalColumn(const std::string& name) const {
+    return categorical_columns && categorical_columns->count(name);
+  }
+
+  bool HasExtensionColumns() const {
+    return extension_columns && !extension_columns->empty();
+  }
+
+  bool IsExtensionColumn(const std::string& name) const {
+    return extension_columns && extension_columns->count(name);
+  }
+
   /// arrow::MemoryPool to use for memory allocations
   MemoryPool* pool = default_memory_pool();
 
@@ -112,11 +128,14 @@ struct PandasOptions {
   bool decode_dictionaries = false;
 
   // Columns that should be casted to categorical
-  std::unordered_set<std::string> categorical_columns;
+  //
+  // This is wrapped in a shared_ptr because this struct is copied internally for
+  // each column or nested field (see GH-47861).
+  std::shared_ptr<const std::unordered_set<std::string>> categorical_columns;
 
   // Columns that should be passed through to be converted to
   // ExtensionArray/Block
-  std::unordered_set<std::string> extension_columns;
+  std::shared_ptr<const std::unordered_set<std::string>> extension_columns;
 
   // Used internally to decipher between to_numpy() and to_pandas() when
   // the expected output differs

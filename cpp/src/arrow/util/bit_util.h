@@ -17,20 +17,7 @@
 
 #pragma once
 
-#if defined(_MSC_VER)
-#  if defined(_M_AMD64) || defined(_M_X64)
-#    include <intrin.h>  // IWYU pragma: keep
-#  endif
-
-#  pragma intrinsic(_BitScanReverse)
-#  pragma intrinsic(_BitScanForward)
-#  define ARROW_POPCOUNT64 __popcnt64
-#  define ARROW_POPCOUNT32 __popcnt
-#else
-#  define ARROW_POPCOUNT64 __builtin_popcountll
-#  define ARROW_POPCOUNT32 __builtin_popcount
-#endif
-
+#include <bit>
 #include <cstdint>
 #include <type_traits>
 
@@ -49,26 +36,6 @@ typename std::make_unsigned<Integer>::type as_unsigned(Integer x) {
 
 namespace bit_util {
 
-// The number of set bits in a given unsigned byte value, pre-computed
-//
-// Generated with the following Python code
-// output = 'static constexpr uint8_t kBytePopcount[] = {{{0}}};'
-// popcounts = [str(bin(i).count('1')) for i in range(0, 256)]
-// print(output.format(', '.join(popcounts)))
-static constexpr uint8_t kBytePopcount[] = {
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3,
-    4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4,
-    4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4,
-    5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5,
-    4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2,
-    3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5,
-    5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4,
-    5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
-    4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
-
-static inline uint64_t PopCount(uint64_t bitmap) { return ARROW_POPCOUNT64(bitmap); }
-static inline uint32_t PopCount(uint32_t bitmap) { return ARROW_POPCOUNT32(bitmap); }
-
 //
 // Bit-related computations on integer values
 //
@@ -82,14 +49,6 @@ constexpr int64_t CeilDiv(int64_t value, int64_t divisor) {
 constexpr int64_t BytesForBits(int64_t bits) {
   // This formula avoids integer overflow on very large `bits`
   return (bits >> 3) + ((bits & 7) != 0);
-}
-
-constexpr bool IsPowerOf2(int64_t value) {
-  return value > 0 && (value & (value - 1)) == 0;
-}
-
-constexpr bool IsPowerOf2(uint64_t value) {
-  return value > 0 && (value & (value - 1)) == 0;
 }
 
 // Returns the smallest power of two that contains v.  If v is already a
@@ -113,9 +72,16 @@ constexpr bool IsMultipleOf64(int64_t n) { return (n & 63) == 0; }
 constexpr bool IsMultipleOf8(int64_t n) { return (n & 7) == 0; }
 
 // Returns a mask for the bit_index lower order bits.
-// Only valid for bit_index in the range [0, 64).
-constexpr uint64_t LeastSignificantBitMask(int64_t bit_index) {
-  return (static_cast<uint64_t>(1) << bit_index) - 1;
+// Valid in the range `[0, 8*sizof(Uint)]` if `kAllowUpperBound`
+// otherwise `[0, 8*sizof(Uint)[`
+template <typename Uint, bool kAllowUpperBound = false>
+constexpr auto LeastSignificantBitMask(Uint bit_index) {
+  if constexpr (kAllowUpperBound) {
+    if (bit_index == 8 * sizeof(Uint)) {
+      return ~Uint{0};
+    }
+  }
+  return (Uint{1} << bit_index) - Uint{1};
 }
 
 // Returns 'value' rounded up to the nearest multiple of 'factor'
@@ -133,13 +99,10 @@ constexpr int64_t RoundDown(int64_t value, int64_t factor) {
 // The result is undefined on overflow, i.e. if `value > 2**64 - factor`,
 // since we cannot return the correct result which would be 2**64.
 constexpr int64_t RoundUpToPowerOf2(int64_t value, int64_t factor) {
-  // DCHECK(value >= 0);
-  // DCHECK(IsPowerOf2(factor));
   return (value + (factor - 1)) & ~(factor - 1);
 }
 
 constexpr uint64_t RoundUpToPowerOf2(uint64_t value, uint64_t factor) {
-  // DCHECK(IsPowerOf2(factor));
   return (value + (factor - 1)) & ~(factor - 1);
 }
 
@@ -172,106 +135,18 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   return (v << n) >> n;
 }
 
-/// \brief Count the number of leading zeros in an unsigned integer.
-static inline int CountLeadingZeros(uint32_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 32;
-  return static_cast<int>(__builtin_clz(value));
-#elif defined(_MSC_VER)
-  unsigned long index;                                               // NOLINT
-  if (_BitScanReverse(&index, static_cast<unsigned long>(value))) {  // NOLINT
-    return 31 - static_cast<int>(index);
-  } else {
-    return 32;
-  }
-#else
-  int bitpos = 0;
-  while (value != 0) {
-    value >>= 1;
-    ++bitpos;
-  }
-  return 32 - bitpos;
-#endif
-}
-
-static inline int CountLeadingZeros(uint64_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 64;
-  return static_cast<int>(__builtin_clzll(value));
-#elif defined(_MSC_VER)
-  unsigned long index;                     // NOLINT
-  if (_BitScanReverse64(&index, value)) {  // NOLINT
-    return 63 - static_cast<int>(index);
-  } else {
-    return 64;
-  }
-#else
-  int bitpos = 0;
-  while (value != 0) {
-    value >>= 1;
-    ++bitpos;
-  }
-  return 64 - bitpos;
-#endif
-}
-
-static inline int CountTrailingZeros(uint32_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 32;
-  return static_cast<int>(__builtin_ctzl(value));
-#elif defined(_MSC_VER)
-  unsigned long index;  // NOLINT
-  if (_BitScanForward(&index, value)) {
-    return static_cast<int>(index);
-  } else {
-    return 32;
-  }
-#else
-  int bitpos = 0;
-  if (value) {
-    while (value & 1 == 0) {
-      value >>= 1;
-      ++bitpos;
-    }
-  } else {
-    bitpos = 32;
-  }
-  return bitpos;
-#endif
-}
-
-static inline int CountTrailingZeros(uint64_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 64;
-  return static_cast<int>(__builtin_ctzll(value));
-#elif defined(_MSC_VER)
-  unsigned long index;  // NOLINT
-  if (_BitScanForward64(&index, value)) {
-    return static_cast<int>(index);
-  } else {
-    return 64;
-  }
-#else
-  int bitpos = 0;
-  if (value) {
-    while (value & 1 == 0) {
-      value >>= 1;
-      ++bitpos;
-    }
-  } else {
-    bitpos = 64;
-  }
-  return bitpos;
-#endif
-}
-
-// Returns the minimum number of bits needed to represent an unsigned value
-static inline int NumRequiredBits(uint64_t x) { return 64 - CountLeadingZeros(x); }
-
 // Returns ceil(log2(x)).
 static inline int Log2(uint64_t x) {
   // DCHECK_GT(x, 0);
-  return NumRequiredBits(x - 1);
+
+// TODO: We can remove this condition once CRAN upgrades its macOS
+// SDK from 11.3.
+// __apple_build_version__ should be defined only on Apple clang
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+  return std::log2p1(x - 1);
+#else
+  return std::bit_width(x - 1);
+#endif
 }
 
 //
@@ -333,7 +208,7 @@ void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
 /// ex:
 /// ref: https://stackoverflow.com/a/59523400
 template <typename Word>
-constexpr Word PrecedingWordBitmask(unsigned int const i) {
+constexpr Word PrecedingWordBitmask(const unsigned int i) {
   return static_cast<Word>(static_cast<Word>(i < sizeof(Word) * 8)
                            << (i & (sizeof(Word) * 8 - 1))) -
          1;
@@ -365,5 +240,128 @@ void PackBits(const uint32_t* values, uint8_t* out) {
   }
 }
 
+constexpr int32_t MaxLEB128ByteLen(int32_t n_bits) {
+  return static_cast<int32_t>(CeilDiv(n_bits, 7));
+}
+
+template <typename Int>
+constexpr int32_t kMaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
+
+/// Write a integer as LEB128
+///
+/// Write the input value as LEB128 into the outptut buffer and return the number of bytes
+/// written.
+/// If the output buffer size is insufficient, return 0 but the output may have been
+/// written to.
+/// The input value can be a signed integer, but must be non negative.
+///
+/// \see https://en.wikipedia.org/wiki/LEB128
+/// \see MaxLEB128ByteLenFor
+template <typename Int>
+constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
+  constexpr Int kLow7Mask = Int(0x7F);
+  constexpr Int kHigh7Mask = ~kLow7Mask;
+  constexpr uint8_t kContinuationBit = 0x80;
+
+  // This encoding does not work for negative values
+  if constexpr (std::is_signed_v<Int>) {
+    if (ARROW_PREDICT_FALSE(value < 0)) {
+      return 0;
+    }
+  }
+
+  const auto out_first = out;
+
+  // Write as many bytes as we could be for the given input
+  while ((value & kHigh7Mask) != Int(0)) {
+    // We do not have enough room to write the LEB128
+    if (ARROW_PREDICT_FALSE(out - out_first >= max_out_size)) {
+      return 0;
+    }
+
+    // Write the encoded byte with continuation bit
+    *out = static_cast<uint8_t>(value & kLow7Mask) | kContinuationBit;
+    ++out;
+    // Shift remaining data
+    value >>= 7;
+  }
+
+  // We do not have enough room to write the LEB128
+  if (ARROW_PREDICT_FALSE(out - out_first >= max_out_size)) {
+    return 0;
+  }
+
+  // Write last non-continuing byte
+  *out = static_cast<uint8_t>(value & kLow7Mask);
+  ++out;
+
+  return static_cast<int32_t>(out - out_first);
+}
+
+/// Parse a leading LEB128
+///
+/// Take as input a data pointer and the maximum number of bytes that can be read from it
+/// (typically the array size).
+/// When a valid LEB128 is found at the start of the data, the function writes it to the
+/// out pointer and return the number of bytes read.
+/// Otherwise, the out pointer is unmodified and zero is returned.
+///
+/// \see https://en.wikipedia.org/wiki/LEB128
+/// \see MaxLEB128ByteLenFor
+template <typename Int>
+constexpr int32_t ParseLeadingLEB128(const uint8_t* data, int32_t max_data_size,
+                                     Int* out) {
+  constexpr auto kMaxBytes = kMaxLEB128ByteLenFor<Int>;
+  static_assert(kMaxBytes >= 1);
+  constexpr uint8_t kLow7Mask = 0x7F;
+  constexpr uint8_t kContinuationBit = 0x80;
+  constexpr int32_t kSignBitCount = std::is_signed_v<Int> ? 1 : 0;
+  // Number of bits allowed for encoding data on the last byte to avoid overflow
+  constexpr uint8_t kHighBitCount = (8 * sizeof(Int) - kSignBitCount) % 7;
+  // kHighBitCount least significant `0` bits and the rest with `1`
+  constexpr uint8_t kHighForbiddenMask = ~((1 << kHighBitCount) - 1);
+
+  // Iteratively building the value
+  std::make_unsigned_t<Int> value = 0;
+
+  // Read as many bytes as we could be for the given output.
+  for (int32_t i = 0; i < kMaxBytes - 1; i++) {
+    // We have not finished reading a valid LEB128, yet we run out of data
+    if (ARROW_PREDICT_FALSE(i >= max_data_size)) {
+      return 0;
+    }
+
+    // Read the byte and set its 7 LSB to in the final value
+    const uint8_t byte = data[i];
+    value |= static_cast<Int>(byte & kLow7Mask) << (7 * i);
+
+    // Check for lack of continuation flag in MSB
+    if ((byte & kContinuationBit) == 0) {
+      *out = value;
+      return i + 1;
+    }
+  }
+
+  // Process the last index avoiding overflowing
+  constexpr int32_t last = kMaxBytes - 1;
+
+  // We have not finished reading a valid LEB128, yet we run out of data
+  if (ARROW_PREDICT_FALSE(last >= max_data_size)) {
+    return 0;
+  }
+
+  const uint8_t byte = data[last];
+
+  // Need to check if there are bits that would overflow the output.
+  // Also checks that there is no continuation.
+  if (ARROW_PREDICT_FALSE((byte & kHighForbiddenMask) != 0)) {
+    return 0;
+  }
+
+  // No longer need to mask since we ensured
+  value |= static_cast<Int>(byte) << (7 * last);
+  *out = value;
+  return last + 1;
+}
 }  // namespace bit_util
 }  // namespace arrow

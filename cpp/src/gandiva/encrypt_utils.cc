@@ -109,16 +109,4 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
   return plaintext_len;
 }
 
-const EVP_CIPHER* get_cipher_algo(int32_t key_length) {
-  switch (key_length) {
-    case 16:
-      return EVP_aes_128_ecb();
-    case 24:
-      return EVP_aes_192_ecb();
-    case 32:
-      return EVP_aes_256_ecb();
-    default:
-      throw std::runtime_error("unsupported key length");
-  }
-}
 }  // namespace gandiva

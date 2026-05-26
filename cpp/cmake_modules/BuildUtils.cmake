@@ -91,28 +91,56 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
+    # Get the version string from a libtool binary.
+    function(get_libtool_version item result_var)
+      execute_process(COMMAND "${item}" -V
+                      OUTPUT_VARIABLE _version
+                      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+      set(${result_var}
+          "${_version}"
+          PARENT_SCOPE)
+    endfunction()
+
+    # Validator function to confirm that the libtool is Apple's libtool.
+    # The apple-distributed libtool is what we want for bundling, but there is
+    # a GNU libtool that has a name collision (and happens to be bundled with R, too).
+    # We are not compatible with GNU libtool, so we need to avoid it.
+    function(validate_apple_libtool result_var item)
+      get_libtool_version("${item}" libtool_version)
+      if(NOT "${libtool_version}" MATCHES ".*cctools.+([0-9.]+).*")
+        set(${result_var}
+            FALSE
+            PARENT_SCOPE)
+      endif()
+    endfunction()
+
     if(CMAKE_LIBTOOL)
       set(LIBTOOL_MACOS ${CMAKE_LIBTOOL})
+      # Validate that CMAKE_LIBTOOL is Apple's libtool
+      set(is_apple_libtool TRUE)
+      validate_apple_libtool(is_apple_libtool "${LIBTOOL_MACOS}")
+      if(NOT is_apple_libtool)
+        get_libtool_version("${LIBTOOL_MACOS}" _libtool_version_output)
+        message(FATAL_ERROR "CMAKE_LIBTOOL does not appear to be Apple's libtool: ${LIBTOOL_MACOS}\nlibtool -V output: ${_libtool_version_output}"
+        )
+      endif()
     else()
-      # The apple-distributed libtool is what we want for bundling, but there is
-      # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
-      # We are not compatible with GNU libtool, so we need to avoid it.
-
-      # check in the obvious places first to find Apple's libtool
+      # Check in the obvious places first to find Apple's libtool
       # HINTS is used before system paths and before PATHS, so we use that
       # even though hard coded paths should go in PATHS
-      # TODO: use a VALIDATOR when we require cmake >= 3.25
       find_program(LIBTOOL_MACOS libtool
-                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin)
-    endif()
-
-    # confirm that the libtool we found is Apple's libtool
-    execute_process(COMMAND ${LIBTOOL_MACOS} -V
-                    OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
-      message(FATAL_ERROR "libtool found appears not to be Apple's libtool: ${LIBTOOL_MACOS}"
-      )
+                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin VALIDATOR
+                         validate_apple_libtool)
+      if(NOT LIBTOOL_MACOS)
+        # Find any libtool (without validation) to show its version in the error
+        find_program(_any_libtool libtool)
+        if(_any_libtool)
+          get_libtool_version("${_any_libtool}" _libtool_version_output)
+        endif()
+        message(FATAL_ERROR "Could not find Apple's libtool. GNU libtool is not compatible."
+                            "\nFound libtool: ${_any_libtool}"
+                            "\nlibtool -V output: ${_libtool_version_output}")
+      endif()
     endif()
 
     set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
@@ -265,6 +293,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_objlib PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
     set(EXTRA_DEPS)
 
@@ -326,6 +355,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_shared PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_shared)
@@ -416,6 +446,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_DEFINITIONS)
       target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
     endif()
+    target_compile_options(${LIB_NAME}_static PRIVATE ${ARROW_LIBRARIES_ONLY_CXX_FLAGS})
 
     if(ARG_OUTPUTS)
       list(APPEND ${ARG_OUTPUTS} ${LIB_NAME}_static)
@@ -522,6 +553,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       STATIC_LINK_LIBS
       DEPENDENCIES
       SOURCES
+      EXTRA_SOURCES
       LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -541,10 +573,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  set(SOURCES "")
+
+  if(ARG_EXTRA_SOURCES)
+    list(APPEND SOURCES ${ARG_EXTRA_SOURCES})
+  endif()
+
   if(ARG_SOURCES)
-    set(SOURCES ${ARG_SOURCES})
+    list(APPEND SOURCES ${ARG_SOURCES})
   else()
-    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+    list(APPEND SOURCES "${REL_BENCHMARK_NAME}.cc")
   endif()
 
   # Make sure the executable name contains only hyphens, not underscores
@@ -552,7 +590,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
-    set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
+    set(BENCHMARK_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${BENCHMARK_NAME}")
     add_executable(${BENCHMARK_NAME} ${SOURCES})
 
     if(ARG_STATIC_LINK_LIBS)
@@ -581,7 +619,8 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
                           PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
                                      INSTALL_RPATH_USE_LINK_PATH TRUE
                                      INSTALL_RPATH
-                                     "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+                                     "$ENV{CONDA_PREFIX}/lib;${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+    )
   endif()
 
   # Add test as dependency of relevant label targets
@@ -682,7 +721,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   # Make sure the executable name contains only hyphens, not underscores
   string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
 
-  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
+  set(TEST_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})
 
   # With OSX and conda, we need to set the correct RPATH so that dependencies
@@ -695,7 +734,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                           PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
                                      INSTALL_RPATH_USE_LINK_PATH TRUE
                                      INSTALL_RPATH
-                                     "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
+                                     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY};$ENV{CONDA_PREFIX}/lib"
+    )
   endif()
 
   # Ensure using bundled GoogleTest when we use bundled GoogleTest.
@@ -826,7 +866,7 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
 
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
-    set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
+    set(EXAMPLE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${EXAMPLE_NAME}")
     add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})

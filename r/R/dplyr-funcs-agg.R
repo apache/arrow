@@ -150,13 +150,7 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding("arrow::one", function(...) {
-    set_agg(
-      fun = "one",
-      data = ensure_one_arg(list2(...), "one"),
-      options = list()
-    )
-  })
+  register_binding("arrow::one", one)
 }
 
 set_agg <- function(...) {
@@ -193,6 +187,30 @@ find_arrow_mask <- function() {
     }
     n <- n + 1
   }
+}
+#' Get one value from each group
+#'
+#' Returns one arbitrary value from the input for each group. The function is
+#' biased towards non-null values: if there is at least one non-null value for a
+#' certain group, that value is returned, and only if all the values are null
+#' for the group will the function return null.
+#'
+#' @param ... Unquoted column name to pull values from.
+#'
+#' @examples
+#' \dontrun{
+#' mtcars |>
+#'   arrow_table() |>
+#'   group_by(cyl) |>
+#'   summarize(x = one(disp))
+#' }
+#' @keywords internal
+one <- function(...) {
+  set_agg(
+    fun = "one",
+    data = ensure_one_arg(list2(...), "one"),
+    options = list()
+  )
 }
 
 ensure_one_arg <- function(args, fun) {

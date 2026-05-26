@@ -83,7 +83,7 @@ def _perform_join(join_type, left_operand, left_keys,
                   right_operand, right_keys,
                   left_suffix=None, right_suffix=None,
                   use_threads=True, coalesce_keys=False,
-                  output_type=Table):
+                  output_type=Table, filter_expression=None):
     """
     Perform join of two tables or datasets.
 
@@ -114,6 +114,8 @@ def _perform_join(join_type, left_operand, left_keys,
         in the join result.
     output_type: Table or InMemoryDataset
         The output type for the exec plan result.
+    filter_expression : pyarrow.compute.Expression
+        Residual filter which is applied to matching row.
 
     Returns
     -------
@@ -183,12 +185,14 @@ def _perform_join(join_type, left_operand, left_keys,
             join_type, left_keys, right_keys, left_columns, right_columns,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
+            filter_expression=filter_expression,
         )
     else:
         join_opts = HashJoinNodeOptions(
             join_type, left_keys, right_keys,
             output_suffix_for_left=left_suffix or "",
             output_suffix_for_right=right_suffix or "",
+            filter_expression=filter_expression,
         )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
@@ -307,8 +311,8 @@ def _perform_join_asof(left_operand, left_on, left_by,
     columns_collisions = set(left_operand.schema.names) & set(right_columns)
     if columns_collisions:
         raise ValueError(
-            "Columns {} present in both tables. AsofJoin does not support "
-            "column collisions.".format(columns_collisions),
+            f"Columns {columns_collisions} present in both tables. "
+            "AsofJoin does not support column collisions."
         )
 
     # Add the join node to the execplan

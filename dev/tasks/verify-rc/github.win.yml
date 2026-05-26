@@ -22,14 +22,14 @@
 jobs:
   verify:
     name: "Verify release candidate Windows source"
-    runs-on: windows-2019
+    runs-on: windows-2022
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
       {{ key }}: {{ value }}
     {% endfor %}
     {% endif %}
-    timeout-minutes: 60
+    timeout-minutes: {{ timeout|default(60) }}
 
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}

@@ -279,5 +279,27 @@ classdef tStringArray < matlab.unittest.TestCase
             % Test supplying more than two arrays to isequal
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
+
+        function TestNumNulls(testCase)
+            % Verify the NumNulls property returns correct value.
+            
+            % array1 has 0 null values.
+            data1 = ["A"; "B"; "C"; "D"; "E"; "F"];
+            array1 = testCase.ArrowArrayConstructorFcn(data1);
+            testCase.verifyEqual(array1.NumNulls, int64(0));
+
+            % array2 has 2 null values.
+            array2 = testCase.ArrowArrayConstructorFcn(data1, Valid=[1 2 3 4]);
+            testCase.verifyEqual(array2.NumNulls, int64(2));
+        end
+
+        function TestNumNullsNoSetter(testCase)
+            % Verify the NumNulls property is read-only.
+
+            data = ["A"; "B"; "C"; missing; "D"; "E"; "F"];
+            array = testCase.ArrowArrayConstructorFcn(data);
+            fcn = @() setfield(array, "NumNulls", 1);
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");            
+        end
     end
 end

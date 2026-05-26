@@ -106,7 +106,7 @@ test_that("write_parquet() accepts RecordBatch too", {
 
 test_that("write_parquet() handles grouped_df", {
   library(dplyr, warn.conflicts = FALSE)
-  df <- tibble::tibble(a = 1:4, b = 5) %>% group_by(b)
+  df <- tibble::tibble(a = 1:4, b = 5) |> group_by(b)
   # Since `df` is a "grouped_df", this test asserts that we get a grouped_df back
   expect_parquet_roundtrip(df, as_data_frame = TRUE)
 })
@@ -127,6 +127,16 @@ test_that("write_parquet() can truncate timestamps", {
   new <- read_parquet(tf, as_data_frame = FALSE)
   expect_type_equal(new$x1, timestamp("ms", "UTC"))
   expect_equal(as.data.frame(tab), as.data.frame(new))
+})
+
+test_that("write_parquet() works with zero-length POSIXct (GH-48832)", {
+  # In R 4.5.2+, zero-length POSIXct vectors are integer type, not double
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  expect_no_error(write_parquet(data.frame(x = as.POSIXct(x = NULL)), tf))
+  result <- read_parquet(tf)
+  expect_equal(nrow(result), 0)
 })
 
 test_that("make_valid_parquet_version()", {
@@ -222,7 +232,8 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 })
 
 test_that("Maps are preserved when writing/reading from Parquet", {
-  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
+  string_bool <- Array$create(
+    list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
     type = map_of(utf8(), boolean())
   )
   int_struct <- Array$create(
@@ -476,14 +487,13 @@ test_that("Can read Parquet files from a URL", {
   skip_if_offline()
   skip_on_cran()
   skip_if_not_available("snappy")
-  parquet_url <- "https://github.com/apache/arrow/blob/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet?raw=true" # nolint
+  parquet_url <- "https://github.com/apache/arrow/raw/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet" # nolint
   pu <- read_parquet(parquet_url)
   expect_true(tibble::is_tibble(pu))
   expect_identical(dim(pu), c(10L, 11L))
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {
-
   tf <- tempfile()
   on.exit(unlink(tf))
   table <- arrow_table(example_data)

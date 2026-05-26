@@ -21,7 +21,7 @@ project(ArrowTutorialExamples)
 
 find_package(ArrowDataset)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra")
 
 set(CMAKE_BUILD_TYPE Release)
@@ -37,7 +37,7 @@ target_link_libraries(file_access_example PRIVATE Arrow::arrow_shared
                                                   Parquet::parquet_shared)
 
 add_executable(compute_example compute_example.cc)
-target_link_libraries(compute_example PRIVATE Arrow::arrow_shared)
+target_link_libraries(compute_example PRIVATE ArrowCompute::arrow_compute_shared)
 
 add_executable(dataset_example dataset_example.cc)
 target_link_libraries(dataset_example PRIVATE ArrowDataset::arrow_dataset_shared)

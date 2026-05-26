@@ -158,6 +158,10 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(stats_float.max(), rg1_column2->statistics()->EncodeMax());
     ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
     ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
+    ASSERT_EQ(stats_float.min(), rg1_column2->encoded_statistics()->min());
+    ASSERT_EQ(stats_float.max(), rg1_column2->encoded_statistics()->max());
+    ASSERT_EQ(stats_int.min(), rg1_column1->encoded_statistics()->min());
+    ASSERT_EQ(stats_int.max(), rg1_column1->encoded_statistics()->max());
     ASSERT_EQ(0, rg1_column1->statistics()->null_count());
     ASSERT_EQ(0, rg1_column2->statistics()->null_count());
     ASSERT_EQ(nrows, rg1_column1->statistics()->distinct_count());
@@ -205,6 +209,10 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(stats_float.max(), rg2_column2->statistics()->EncodeMax());
     ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
     ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
+    ASSERT_EQ(stats_float.min(), rg2_column2->encoded_statistics()->min());
+    ASSERT_EQ(stats_float.max(), rg2_column2->encoded_statistics()->max());
+    ASSERT_EQ(stats_int.min(), rg1_column1->encoded_statistics()->min());
+    ASSERT_EQ(stats_int.max(), rg1_column1->encoded_statistics()->max());
     ASSERT_EQ(0, rg2_column1->statistics()->null_count());
     ASSERT_EQ(0, rg2_column2->statistics()->null_count());
     ASSERT_EQ(nrows, rg2_column1->statistics()->distinct_count());

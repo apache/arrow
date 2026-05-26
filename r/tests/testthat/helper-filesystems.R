@@ -88,8 +88,8 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     test_that(sprintf("open_dataset with an %s file (not directory) URI", name), {
       skip_if_not_available("parquet")
       expect_identical(
-        open_dataset(uri_formatter("test.parquet")) %>% collect() %>% arrange(int),
-        example_data %>% arrange(int)
+        open_dataset(uri_formatter("test.parquet")) |> collect() |> arrange(int),
+        example_data |> arrange(int)
       )
     })
 
@@ -98,10 +98,10 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
         open_dataset(
           c(uri_formatter("test.feather"), uri_formatter("test2.feather")),
           format = "feather"
-        ) %>%
-          arrange(int) %>%
+        ) |>
+          arrange(int) |>
           collect(),
-        rbind(example_data, example_data) %>% arrange(int)
+        rbind(example_data, example_data) |> arrange(int)
       )
     })
 
@@ -157,8 +157,8 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     test_that(sprintf("open_dataset with %s", name), {
       ds <- open_dataset(fs$path(path_formatter("hive_dir")))
       expect_identical(
-        ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
-        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
+        ds |> select(int, dbl, lgl) |> collect() |> arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
       )
     })
 
@@ -174,16 +174,16 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       expect_length(dir(td), 2)
       ds <- open_dataset(td)
       expect_identical(
-        ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
-        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
+        ds |> select(int, dbl, lgl) |> collect() |> arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
       )
 
       # Let's copy the other way and use a SubTreeFileSystem rather than URI
       copy_files(td, fs$path(path_formatter("hive_dir2")))
       ds2 <- open_dataset(fs$path(path_formatter("hive_dir2")))
       expect_identical(
-        ds2 %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
-        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) %>% arrange(int)
+        ds2 |> select(int, dbl, lgl) |> collect() |> arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
       )
     })
   } # if(arrow_with_dataset())

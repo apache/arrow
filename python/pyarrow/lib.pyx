@@ -85,6 +85,13 @@ def set_cpu_count(int count):
     check_status(SetCpuThreadPoolCapacity(count))
 
 
+def is_opentelemetry_enabled() -> bool:
+    """
+    Returns True if OpenTelemetry is enabled in libarrow.
+    """
+    return libarrow_python.IsOpenTelemetryEnabled()
+
+
 def is_threading_enabled() -> bool:
     """
     Returns True if threading is enabled in libarrow.
@@ -138,6 +145,8 @@ Type_SPARSE_UNION = _Type_SPARSE_UNION
 Type_DENSE_UNION = _Type_DENSE_UNION
 Type_DICTIONARY = _Type_DICTIONARY
 Type_RUN_END_ENCODED = _Type_RUN_END_ENCODED
+Type_INTERVAL_MONTHS = _Type_INTERVAL_MONTHS
+Type_INTERVAL_DAY_TIME = _Type_INTERVAL_DAY_TIME
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE

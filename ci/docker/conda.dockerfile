@@ -30,15 +30,17 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# install conda and mamba via miniforge
+# Install conda and mamba via miniforge.
+# Temporarily pin to an old version of miniforge due to a regression in the mamba solver.
+# See https://github.com/apache/arrow/issues/49998.
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh miniforge3 latest /opt/conda
+RUN /arrow/ci/scripts/install_conda.sh miniforge3 26.1.1-3 /opt/conda
 ENV PATH=/opt/conda/bin:$PATH
 
 # create a conda environment
 ADD ci/conda_env_unix.txt /arrow/ci/
 RUN mamba create -n arrow --file arrow/ci/conda_env_unix.txt git && \
-    mamba clean --all
+    mamba clean --all --yes
 
 # activate the created environment by default
 RUN echo "conda activate arrow" >> ~/.profile

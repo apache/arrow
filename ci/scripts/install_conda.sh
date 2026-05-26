@@ -30,16 +30,20 @@ installer=$1
 version=$2
 prefix=$3
 
-download_url=https://github.com/conda-forge/miniforge/releases/latest/download/${installer^}-${platform}-${arch}.sh
+if [ "$version" = "latest" ]; then
+  download_url=https://github.com/conda-forge/miniforge/releases/latest/download/${installer^}-${platform}-${arch}.sh
+else
+  download_url=https://github.com/conda-forge/miniforge/releases/download/${version}/${installer^}-${platform}-${arch}.sh
+fi
 
 echo "Downloading Miniconda installer from ${download_url} ..."
 
-wget -nv ${download_url} -O /tmp/installer.sh
-bash /tmp/installer.sh -b -p ${prefix}
+wget -nv "${download_url}" -O /tmp/installer.sh
+bash /tmp/installer.sh -b -p "${prefix}"
 rm /tmp/installer.sh
 
 # Like "conda init", but for POSIX sh rather than bash
-ln -s ${prefix}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+ln -s "${prefix}/etc/profile.d/conda.sh" /etc/profile.d/conda.sh
 
 export PATH=/opt/conda/bin:$PATH
 

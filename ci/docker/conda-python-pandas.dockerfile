@@ -17,7 +17,7 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.9
+ARG python=3.10
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG pandas=latest
@@ -29,7 +29,7 @@ COPY ci/conda_env_sphinx.txt /arrow/ci/
 RUN mamba install -q -y --file arrow/ci/conda_env_sphinx.txt && \
     # We can't install linuxdoc by mamba. We install linuxdoc by pip here.
     pip install linuxdoc && \
-    mamba clean --all
+    mamba clean --all --yes
 
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
 RUN mamba uninstall -q -y numpy && \

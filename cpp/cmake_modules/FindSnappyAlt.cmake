@@ -19,6 +19,18 @@ if(SnappyAlt_FOUND)
   return()
 endif()
 
+if(ARROW_SNAPPY_USE_SHARED)
+  if(TARGET Snappy::snappy)
+    set(Snappy_TARGET Snappy::snappy)
+    set(SnappyAlt_FOUND TRUE)
+    return()
+  elseif(TARGET Snappy::snappy-static)
+    set(Snappy_TARGET Snappy::snappy-static)
+    set(SnappyAlt_FOUND TRUE)
+    return()
+  endif()
+endif()
+
 set(find_package_args)
 if(SnappyAlt_FIND_VERSION)
   list(APPEND find_package_args ${SnappyAlt_FIND_VERSION})
@@ -40,9 +52,12 @@ if(Snappy_FOUND)
       set(SnappyAlt_FOUND TRUE)
       return()
     else()
-      # The Conan's Snappy package always uses Snappy::snappy and it's
-      # an INTERFACE_LIBRARY.
-      get_target_property(Snappy Snappy::snappy TYPE)
+      # The Snappy packages in Conan and vcpkg always use
+      # Snappy::snappy.
+      #
+      # The Snappy package in Conan use an INTERFACE_LIBRARY for
+      # Snappy::snappy.
+      get_target_property(Snappy_TYPE Snappy::snappy TYPE)
       if(Snappy_TYPE STREQUAL "STATIC_LIBRARY" OR Snappy_TYPE STREQUAL
                                                   "INTERFACE_LIBRARY")
         set(Snappy_TARGET Snappy::snappy)
