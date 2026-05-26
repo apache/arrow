@@ -204,12 +204,12 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
     case Type::INT96:
       required = 3 * sizeof(int32_t);
       break;
-    case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY:
       if (logical_type != nullptr && logical_type->is_float16()) {
         required = 2;
       }
       break;
+    case Type::BYTE_ARRAY:
     case Type::UNDEFINED:
     default:
       break;
