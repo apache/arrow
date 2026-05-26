@@ -71,7 +71,6 @@ RUN apt-get update -y -q && \
         cmake \
         curl \
         gdb \
-        libc6-dbg \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
@@ -79,6 +78,7 @@ RUN apt-get update -y -q && \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
