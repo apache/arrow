@@ -171,10 +171,21 @@ TEST(FileSystemFromUri, RuntimeRegisteredFactory) {
 }
 
 FileSystemRegistrar kSegfaultFileSystemModule[]{
-    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
-    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
-    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
-};
+    ARROW_REGISTER_FILESYSTEM(
+        "segfault",
+        std::function<Result<std::shared_ptr<FileSystem>>(
+            const Uri&, const io::IOContext&, std::string*)>(nullptr),
+        {}),
+    ARROW_REGISTER_FILESYSTEM(
+        "segfault",
+        std::function<Result<std::shared_ptr<FileSystem>>(
+            const Uri&, const io::IOContext&, std::string*)>(nullptr),
+        {}),
+    ARROW_REGISTER_FILESYSTEM(
+        "segfault",
+        std::function<Result<std::shared_ptr<FileSystem>>(
+            const Uri&, const io::IOContext&, std::string*)>(nullptr),
+        {})};
 TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
   // Since multiple registrars are defined in this translation unit which all
   // register factories for the 'segfault' scheme, using that scheme in FileSystemFromUri

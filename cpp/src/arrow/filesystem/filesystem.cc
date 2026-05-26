@@ -893,10 +893,10 @@ Status LoadFileSystemFactories(const char* libpath) {
 
 namespace {
 
-Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
-                                                          const std::string& uri_string,
-                                                          const io::IOContext& io_context,
-                                                          std::string* out_path) {
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(
+    const Uri& uri, const std::string& uri_string,
+    const std::vector<std::pair<std::string, std::any>>& options,
+    const io::IOContext& io_context, std::string* out_path) {
   const auto scheme = uri.scheme();
 
   {
@@ -904,7 +904,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
         auto* factory,
         FileSystemFactoryRegistry::GetInstance()->FactoryForScheme(scheme));
     if (factory != nullptr) {
-      return factory->function(uri, io_context, out_path);
+      return factory->function(uri, options, io_context, out_path);
     }
   }
 
@@ -962,14 +962,28 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {
-  return FileSystemFromUri(uri_string, io::default_io_context(), out_path);
+  return FileSystemFromUri(uri_string, /*options=*/{}, io::default_io_context(),
+                           out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(
+    const std::string& uri_string,
+    const std::vector<std::pair<std::string, std::any>>& options, std::string* out_path) {
+  return FileSystemFromUri(uri_string, options, io::default_io_context(), out_path);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       const io::IOContext& io_context,
                                                       std::string* out_path) {
+  return FileSystemFromUri(uri_string, /*options=*/{}, io_context, out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(
+    const std::string& uri_string,
+    const std::vector<std::pair<std::string, std::any>>& options,
+    const io::IOContext& io_context, std::string* out_path) {
   ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUri(uri_string));
-  return FileSystemFromUriReal(fsuri, uri_string, io_context, out_path);
+  return FileSystemFromUriReal(fsuri, uri_string, options, io_context, out_path);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,
