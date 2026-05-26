@@ -1997,19 +1997,19 @@ def test_replace_with_mask_null_type():
     result.validate(full=True)
     assert result.to_pylist() == [None]
 
-    result = pc.replace_with_mask(a, False, b)
+    result = pc.replace_with_mask(input, False, replacements)
     assert result.type == pa.null()
     result.validate(full=True)
     assert result.to_pylist() == [None]
 
     mask = pa.array([True])
-    result = pc.replace_with_mask(a, mask, b)
+    result = pc.replace_with_mask(input, mask, replacements)
     assert result.type == pa.null()
     result.validate(full=True)
     assert result.to_pylist() == [None]
 
     mask = pa.array([False])
-    result = pc.replace_with_mask(a, mask, b)
+    result = pc.replace_with_mask(input, mask, replacements)
     assert result.type == pa.null()
     result.validate(full=True)
     assert result.to_pylist() == [None]
