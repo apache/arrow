@@ -77,6 +77,9 @@
 #define ARROW_CONVERT_VARCHAR 19
 
 namespace arrow::flight::sql::odbc {
+
+using arrow::internal::checked_cast;
+
 namespace {
 // Return the corresponding field in SQLGetInfo's SQL_CONVERT_* field
 // types for the given Arrow SqlConvert enum value.
