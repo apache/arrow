@@ -62,6 +62,7 @@ class BenchmarkRunner:
         self.benchmark_filter = benchmark_filter
         self.repetitions = repetitions
         self.repetition_min_time = repetition_min_time
+        self.results_dir = None
 
     @property
     def suites(self):
@@ -123,11 +124,13 @@ class StaticBenchmarkRunner(BenchmarkRunner):
 class CppBenchmarkRunner(BenchmarkRunner):
     """ Run suites from a CMakeBuild. """
 
-    def __init__(self, build, benchmark_extras, run_id=None, **kwargs):
+    def __init__(self, build, benchmark_extras, run_id=None,
+                 results_dir=None, **kwargs):
         """ Initialize a CppBenchmarkRunner. """
         self.build = build
         self.benchmark_extras = benchmark_extras
         self.run_id = run_id
+        self.results_dir = results_dir
         super().__init__(**kwargs)
 
     @staticmethod
@@ -248,7 +251,10 @@ class CppBenchmarkRunner(BenchmarkRunner):
             run_id = f"{random.randrange(16**8):08x}"
             build_dir = os.path.join(run_root, run_id)
             build = cmake_def.build(build_dir)
-            return CppBenchmarkRunner(build, run_id=run_id, **kwargs)
+            results_dir = os.path.join(root_rev, "bench", "run", run_id)
+            os.makedirs(results_dir, exist_ok=True)
+            return CppBenchmarkRunner(build, run_id=run_id,
+                                      results_dir=results_dir, **kwargs)
 
 
 class JavaBenchmarkRunner(BenchmarkRunner):

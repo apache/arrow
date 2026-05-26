@@ -471,6 +471,11 @@ def benchmark_run(ctx, rev_or_path, src, preserve, preserve_dir, output,
         # when asked to JSON-serialize the results, so produce a JSON
         # output even when none is requested.
         json_out = json.dumps(runner_base, cls=JsonEncoder)
+        if runner_base.results_dir is not None:
+            results_path = os.path.join(runner_base.results_dir,
+                                        "benchmark.json")
+            with open(results_path, "w") as f:
+                f.write(json_out)
         if output is not None:
             output.write(json_out)
 
