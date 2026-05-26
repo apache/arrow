@@ -119,11 +119,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore Docker Volumes
+        uses: actions/cache/restore@v5
         with:
           path: .docker
-          key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          key: ${{ matrix.image }}-${{ github.run_id }}
           restore-keys: ${{ matrix.image }}-
       - name: Setup Python on hosted runner
         if: |
@@ -149,6 +149,12 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
+      - name: Save Docker Volumes
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        with:
+          path: .docker
+          key: ${{ matrix.image }}-${{ github.run_id }}
       - name: Docker Push
         if: >-
           success() &&
@@ -254,11 +260,11 @@ jobs:
         id: ccache-info
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: actions/cache/restore@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
+          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ github.run_id }}
           restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         run: |
@@ -283,6 +289,12 @@ jobs:
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ github.run_id }}
 
   windows:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -361,11 +373,11 @@ jobs:
       - name: Setup MSYS2
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: actions/cache/restore@v5
         with:
           path: ccache
-          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}
+          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ github.run_id }}
           restore-keys: cpp-ccache-${{ matrix.msystem_lower}}-
       - name: Build
         shell: msys2 {0}
@@ -405,3 +417,9 @@ jobs:
         shell: msys2 {0}
         run: |
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
+      - name: Save ccache
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v5
+        with:
+          path: ccache
+          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ github.run_id }}
