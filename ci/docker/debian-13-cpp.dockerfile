@@ -56,6 +56,7 @@ RUN apt-get update -y -q && \
         libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \

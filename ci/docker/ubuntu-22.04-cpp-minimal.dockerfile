@@ -31,6 +31,7 @@ RUN apt-get update -y -q && \
         curl \
         gdb \
         git \
+        libc6-dbg \
         libssl-dev \
         libcurl4-openssl-dev \
         patch \
