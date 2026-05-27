@@ -127,11 +127,11 @@ class CppBenchmarkRunner(BenchmarkRunner):
     def __init__(self, build, benchmark_extras, run_id=None,
                  results_dir=None, **kwargs):
         """ Initialize a CppBenchmarkRunner. """
+        super().__init__(**kwargs)
         self.build = build
         self.benchmark_extras = benchmark_extras
         self.run_id = run_id
         self.results_dir = results_dir
-        super().__init__(**kwargs)
 
     @staticmethod
     def default_configuration(**kwargs):
