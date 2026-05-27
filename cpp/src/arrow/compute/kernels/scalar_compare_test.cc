@@ -1207,8 +1207,8 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
       {"less_equal", "[true, true, true, true, true, false, null]"}};
 
   for (const auto& ty : cases) {
-    auto lhs = ArrayFromJSON(
-        ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
+    auto lhs =
+        ArrayFromJSON(ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
                 "samepref_size", null])");
     auto rhs = ArrayFromJSON(
         ty, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
@@ -1228,14 +1228,12 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
 
 TEST(TestBinaryViewCompareKernel, SlicedArrays) {
   for (const auto& ty : {binary_view(), utf8_view()}) {
-    auto lhs =
-        ArrayFromJSON(ty, R"(["skip", "abc", "abcdefghijklm", null,
+    auto lhs = ArrayFromJSON(ty, R"(["skip", "abc", "abcdefghijklm", null,
                               "samepref_size", "tail"])")
-            ->Slice(1, 4);
-    auto rhs =
-        ArrayFromJSON(ty, R"(["skip", "abc", "abcdefghijklz", "ignored",
+                   ->Slice(1, 4);
+    auto rhs = ArrayFromJSON(ty, R"(["skip", "abc", "abcdefghijklz", "ignored",
                               "samepref", "tail"])")
-            ->Slice(1, 4);
+                   ->Slice(1, 4);
 
     CheckScalarBinary("equal", lhs, rhs,
                       ArrayFromJSON(boolean(), R"([true, false, null, false])"));
