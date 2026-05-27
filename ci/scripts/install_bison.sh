@@ -33,7 +33,7 @@ url="https://ftp.gnu.org/gnu/bison/bison-${version}.tar.gz"
 wget -q "${url}" -O - | tar -xzf - --directory /tmp/bison --strip-components=1
 
 pushd /tmp/bison
-./configure --prefix=${prefix}
+./configure --prefix="${prefix}"
 make -j$(nproc)
 make install
 popd
