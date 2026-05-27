@@ -36,6 +36,7 @@ github:
     - EnricoMi
     - hiroyuki-sato
     - HyukjinKwon
+    - tadeja
 
   copilot_code_review:
     enabled: true
