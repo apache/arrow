@@ -122,6 +122,7 @@ jobs:
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        continue-on-error: true
         uses: actions/cache/save@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}

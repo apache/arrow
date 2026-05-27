@@ -151,6 +151,7 @@ jobs:
           archery docker run ${{ matrix.image }}
       - name: Save Docker Volumes
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        continue-on-error: true
         uses: actions/cache/save@v5
         with:
           path: .docker
@@ -284,6 +285,7 @@ jobs:
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        continue-on-error: true
         uses: actions/cache/save@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
@@ -386,6 +388,7 @@ jobs:
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        continue-on-error: true
         uses: actions/cache/save@v5
         with:
           path: ccache
