@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
@@ -29,6 +30,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/validate.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -47,6 +49,29 @@
 namespace arrow {
 
 using internal::checked_cast;
+
+class BinaryExtensionType : public ExtensionType {
+ public:
+  BinaryExtensionType() : ExtensionType(binary()) {}
+
+  std::string extension_name() const override { return "test.binary"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == this->extension_name();
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<ExtensionArray>(std::move(data));
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
+    return Status::NotImplemented("BinaryExtensionType::Deserialize");
+  }
+
+  std::string Serialize() const override { return ""; }
+};
 
 // ----------------------------------------------------------------------
 // String / Binary tests
@@ -801,6 +826,26 @@ TYPED_TEST(TestStringBuilder, TestCapacityReserve) { this->TestCapacityReserve()
 TYPED_TEST(TestStringBuilder, TestZeroLength) { this->TestZeroLength(); }
 
 TYPED_TEST(TestStringBuilder, TestOverflowCheck) { this->TestOverflowCheck(); }
+
+TEST(BinaryBuilder, PreservesDataType) {
+  auto type = std::make_shared<BinaryExtensionType>();
+  BinaryBuilder builder(type, default_memory_pool());
+
+  AssertTypeEqual(*type, *builder.type());
+  ASSERT_OK(builder.Append("abc"));
+  ASSERT_OK(builder.AppendNull());
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  AssertTypeEqual(*type, *array->type());
+  ASSERT_EQ(Type::EXTENSION, array->type_id());
+
+  auto extension_array = std::static_pointer_cast<ExtensionArray>(array);
+  auto storage = std::static_pointer_cast<BinaryArray>(extension_array->storage());
+  AssertTypeEqual(*binary(), *storage->type());
+  ASSERT_EQ("abc", storage->GetString(0));
+  ASSERT_TRUE(storage->IsNull(1));
+}
 
 // ----------------------------------------------------------------------
 // ChunkedBinaryBuilder tests

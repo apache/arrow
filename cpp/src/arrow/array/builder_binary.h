@@ -60,11 +60,15 @@ class BaseBinaryBuilder
   explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool(),
                              int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
+        type_(std::make_shared<TypeClass>()),
         offsets_builder_(pool, alignment),
         value_data_builder_(pool, alignment) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : BaseBinaryBuilder(pool) {}
+      : ArrayBuilder(pool),
+        type_(type),
+        offsets_builder_(pool),
+        value_data_builder_(pool) {}
 
   Status Append(const uint8_t* value, offset_type length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -356,6 +360,8 @@ class BaseBinaryBuilder
   /// \return capacity of values buffer
   int64_t value_data_capacity() const { return value_data_builder_.capacity(); }
 
+  std::shared_ptr<DataType> type() const override { return type_; }
+
   /// \return data pointer of the value date builder
   const offset_type* offsets_data() const { return offsets_builder_.data(); }
 
@@ -390,6 +396,7 @@ class BaseBinaryBuilder
   }
 
  protected:
+  std::shared_ptr<DataType> type_;
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
@@ -415,8 +422,6 @@ class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
   /// \endcond
 
   Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return binary(); }
 };
 
 /// \class StringBuilder
@@ -445,8 +450,6 @@ class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType
   /// \endcond
 
   Status Finish(std::shared_ptr<LargeBinaryArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return large_binary(); }
 };
 
 /// \class LargeStringBuilder
