@@ -150,7 +150,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
       - name: Save Docker Volumes
-        if: github.ref == 'refs/heads/main'
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v5
         with:
           path: .docker
@@ -282,6 +282,12 @@ jobs:
             export BUILD_WARNING_LEVEL=PRODUCTION
           fi
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ github.run_id }}
       - name: Test
         shell: bash
         run: |
@@ -289,12 +295,6 @@ jobs:
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
-      - name: Save ccache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ github.run_id }}
 
   windows:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -384,6 +384,12 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Save ccache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ccache
+          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ github.run_id }}
       - name: Download Timezone Database
         if: matrix.msystem_upper == 'CLANG64'
         shell: bash
@@ -417,9 +423,3 @@ jobs:
         shell: msys2 {0}
         run: |
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
-      - name: Save ccache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v5
-        with:
-          path: ccache
-          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ github.run_id }}

@@ -120,6 +120,12 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %VCVARS_ARCH%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Save ccache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-windows-${{ inputs.arch }}-${{ github.run_id }}
       - name: Test
         shell: cmd
         env:
@@ -130,9 +136,3 @@ jobs:
           # For ORC
           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
-      - name: Save ccache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ inputs.arch }}-${{ github.run_id }}

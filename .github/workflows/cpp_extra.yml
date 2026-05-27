@@ -170,7 +170,7 @@ jobs:
           fi
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Save Docker Volumes
-        if: github.ref == 'refs/heads/main'
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v5
         with:
           path: .docker
@@ -255,7 +255,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run cpp-jni
       - name: Save Docker Volumes
-        if: github.ref == 'refs/heads/main'
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v5
         with:
           path: .docker
@@ -360,7 +360,7 @@ jobs:
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
       - name: Save ccache
-        if: github.ref == 'refs/heads/main'
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v5
         with:
           path: ccache
@@ -412,7 +412,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ubuntu-cpp-odbc
       - name: Save Docker Volumes
-        if: github.ref == 'refs/heads/main'
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v5
         with:
           path: .docker
@@ -510,6 +510,12 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-${{ github.run_id }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -554,12 +560,6 @@ jobs:
           sudo mkdir -p /Library/ODBC
           sudo chown -R $USER /Library/ODBC
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
-      - name: Save ccache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-${{ github.run_id }}
 
   odbc-msvc:
     needs: check-labels
@@ -660,6 +660,12 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Save ccache
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-odbc-ccache-windows-x64-${{ github.run_id }}
       - name: Register Flight SQL ODBC Driver
         shell: cmd
         run: |
@@ -727,12 +733,6 @@ jobs:
 
           Write-Error "ODBC DLL not found"
           exit 1
-      - name: Save ccache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v5
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64-${{ github.run_id }}
 
   odbc-nightly:
     needs: odbc-msvc
