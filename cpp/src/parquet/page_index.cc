@@ -335,9 +335,11 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
 
     /// Page index location must be within the range of the read range.
-    if (index_location.offset < index_read_range->offset ||
-        index_location.offset + index_location.length >
-            index_read_range->offset + index_read_range->length) {
+    int64_t index_end = 0;
+    if (::arrow::internal::AddWithOverflow(index_location.offset, index_location.length,
+                                           &index_end) ||
+        index_location.offset < index_read_range->offset ||
+        index_end > index_read_range->offset + index_read_range->length) {
       throw ParquetException("Page index location [offset:", index_location.offset,
                              ",length:", index_location.length,
                              "] is out of range from previous WillNeed request [offset:",
