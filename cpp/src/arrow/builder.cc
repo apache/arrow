@@ -171,21 +171,18 @@ struct DictionaryBuilderCase {
     using ExactBuilderType =
         internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>;
     if (dictionary != nullptr) {
-      auto builder = new AdaptiveBuilderType(dictionary, pool);
-      builder->set_ordered(ordered);
-      out->reset(builder);
+      out->reset(
+          new AdaptiveBuilderType(dictionary, pool, kDefaultBufferAlignment, ordered));
     } else if (exact_index_type) {
       if (!is_integer(index_type->id())) {
         return Status::TypeError("MakeBuilder: invalid index type ", *index_type);
       }
-      auto builder = new ExactBuilderType(index_type, value_type, pool);
-      builder->set_ordered(ordered);
-      out->reset(builder);
+      out->reset(new ExactBuilderType(index_type, value_type, pool,
+                                      kDefaultBufferAlignment, ordered));
     } else {
       auto start_int_size = index_type->byte_width();
-      auto builder = new AdaptiveBuilderType(start_int_size, value_type, pool);
-      builder->set_ordered(ordered);
-      out->reset(builder);
+      out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool,
+                                         kDefaultBufferAlignment, ordered));
     }
     return Status::OK();
   }
