@@ -3901,6 +3901,7 @@ def test_singleton_blocks_zero_copy():
 
 
 def _check_to_pandas_memory_unchanged(obj, **kwargs):
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = obj.to_pandas(**kwargs)  # noqa
 
