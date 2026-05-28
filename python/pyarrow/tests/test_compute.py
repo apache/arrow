@@ -1269,6 +1269,34 @@ def test_extract_regex_span():
     assert struct.tolist() == expected
 
 
+def test_replace_with_mask_null_type():
+    # GH-47447: replace_with_mask crashed for null type arrays
+    input = pa.array([None], pa.null())
+    replacements = pa.array([None], pa.null())
+
+    result = pc.replace_with_mask(input, True, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    result = pc.replace_with_mask(input, False, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([True])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([False])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
