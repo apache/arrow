@@ -10,7 +10,7 @@ vctrs_extension_array(x, ptype = vctrs::vec_ptype(x), storage_type = NULL)
 vctrs_extension_type(x, storage_type = infer_type(vctrs::vec_data(x)))
 }
 \arguments{
-\item{x}{A vctr (i.e., \code{\link[vctrs:vec_assert]{vctrs::vec_is()}} returns \code{TRUE}).}
+\item{x}{A vctr (i.e., \code{\link[vctrs:vec_is]{vctrs::vec_is()}} returns \code{TRUE}).}
 
 \item{ptype}{A \code{\link[vctrs:vec_ptype]{vctrs::vec_ptype()}}, which is usually a zero-length
 version of the object with the appropriate attributes set. This value
@@ -33,7 +33,7 @@ Most common R vector types are converted automatically to a suitable
 Arrow \link[=data-type]{data type} without the need for an extension type. For
 vector types whose conversion is not suitably handled by default, you can
 create a \code{\link[=vctrs_extension_array]{vctrs_extension_array()}}, which passes \code{\link[vctrs:vec_data]{vctrs::vec_data()}} to
-\code{Array$create()} and calls \code{\link[vctrs:vec_proxy]{vctrs::vec_restore()}} when the \link{Array} is
+\code{Array$create()} and calls \code{\link[vctrs:vec_restore]{vctrs::vec_restore()}} when the \link{Array} is
 converted back into an R vector.
 }
 \examples{
