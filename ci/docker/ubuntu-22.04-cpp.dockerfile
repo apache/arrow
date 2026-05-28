@@ -77,6 +77,7 @@ RUN apt-get update -y -q && \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \

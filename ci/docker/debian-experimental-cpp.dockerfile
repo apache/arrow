@@ -49,6 +49,7 @@ RUN if [ -n "${gcc}" ]; then \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
