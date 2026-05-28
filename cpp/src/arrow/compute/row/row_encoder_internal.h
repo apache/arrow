@@ -27,6 +27,11 @@ namespace arrow {
 
 using internal::checked_cast;
 
+// Forward declaration
+class Array;
+Result<std::shared_ptr<Array>> Concatenate(const std::vector<std::shared_ptr<Array>>& arrays,
+                                            MemoryPool* pool);
+
 namespace compute {
 namespace internal {
 
@@ -270,6 +275,247 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
   }
 };
 
+template <typename ListType>
+struct ListKeyEncoder : KeyEncoder {
+  static_assert(is_list_like_type<ListType>(), "ListKeyEncoder only supports ListType");
+  using Offset = typename ListType::offset_type;
+
+  ListKeyEncoder(std::shared_ptr<DataType> self_type,
+                 std::shared_ptr<DataType> element_type,
+                 std::shared_ptr<KeyEncoder> element_encoder)
+      : self_type_(std::move(self_type)),
+        element_type_(std::move(element_type)),
+        element_encoder_(std::move(element_encoder)) {}
+
+  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {
+    if (data.is_array()) {
+      ARROW_DCHECK_EQ(data.array.length, batch_length);
+      const uint8_t* validity = data.array.buffers[0].data;
+      const auto* offsets = data.array.GetValues<Offset>(1);
+      // AddLength for each list
+      std::vector<int32_t> child_lengths;
+      int32_t index{0};
+      ArraySpan tmp_child_data(data.array.child_data[0]);
+      VisitBitBlocksVoid(
+          validity, data.array.offset, data.array.length,
+          [&](int64_t i) {
+            Offset list_length = offsets[i + 1] - offsets[i];
+            if (list_length == 0) {
+              lengths[index] += kExtraByteForNull + sizeof(Offset);
+              ++index;
+              return;
+            }
+            child_lengths.resize(list_length, 0);
+            tmp_child_data.SetSlice(offsets[i], list_length);
+            this->element_encoder_->AddLength(ExecValue{tmp_child_data}, list_length,
+                                              child_lengths.data());
+            lengths[index] += kExtraByteForNull + sizeof(Offset);
+            for (int32_t j = 0; j < list_length; j++) {
+              lengths[index] += child_lengths[j];
+            }
+            ++index;
+          },
+          [&]() {
+            lengths[index] = kExtraByteForNull + sizeof(Offset);
+            ++index;
+          });
+    } else {
+      const auto& list_scalar = data.scalar_as<BaseListScalar>();
+      int32_t accum_length = 0;
+      // Counting the size of the encoded list if the list is valid
+      if (list_scalar.is_valid && list_scalar.value->length() > 0) {
+        auto element_count = static_cast<int32_t>(list_scalar.value->length());
+        // Counting the size of the encoded list
+        std::vector<int32_t> child_lengths(element_count, 0);
+        this->element_encoder_->AddLength(ExecValue{*list_scalar.value->data()},
+                                          element_count, child_lengths.data());
+        for (int32_t i = 0; i < element_count; i++) {
+          accum_length += child_lengths[i];
+        }
+      }
+      for (int64_t i = 0; i < batch_length; i++) {
+        lengths[i] += kExtraByteForNull + sizeof(Offset) + accum_length;
+      }
+    }
+  }
+
+  void AddLengthNull(int32_t* length) override {
+    *length += kExtraByteForNull + sizeof(Offset);
+  }
+
+  Status Encode(const ExecValue& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override {
+    auto handle_null_value = [&encoded_bytes]() {
+      auto& encoded_ptr = *encoded_bytes++;
+      *encoded_ptr++ = kNullByte;
+      util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+      encoded_ptr += sizeof(Offset);
+    };
+    auto handle_valid_value = [&encoded_bytes,
+                               this](const ArraySpan& child_array) -> Status {
+      auto& encoded_ptr = *encoded_bytes++;
+      *encoded_ptr++ = kValidByte;
+      util::SafeStore(encoded_ptr, static_cast<Offset>(child_array.length));
+      encoded_ptr += sizeof(Offset);
+
+      // Encode all list elements sequentially into the current row's buffer.
+      // The element encoder expects an array of pointers (one per "row" to encode).
+      // For list elements, all elements are encoded into a single row's buffer
+      // sequentially, so we create a vector where element i's pointer is positioned
+      // after all previous elements.
+      if (child_array.length > 0) {
+        std::vector<uint8_t*> element_ptrs(child_array.length);
+        element_ptrs[0] = encoded_ptr;
+
+        // Position each element pointer to start where the previous element ended.
+        // We need to compute the offset for each element based on their encoded sizes.
+        // However, since we don't know the size ahead of time for variable-length types,
+        // we encode one-by-one and chain the pointers.
+        for (int64_t i = 0; i < child_array.length; ++i) {
+          if (i > 0) {
+            element_ptrs[i] = element_ptrs[i - 1];
+          }
+          ArraySpan element_span(child_array);
+          element_span.SetSlice(child_array.offset + i, 1);
+          RETURN_NOT_OK(this->element_encoder_->Encode(ExecValue{element_span}, 1,
+                                                       &element_ptrs[i]));
+        }
+        // Update encoded_ptr to point past all encoded elements
+        encoded_ptr = element_ptrs[child_array.length - 1];
+      }
+      return Status::OK();
+    };
+    if (data.is_array()) {
+      ARROW_DCHECK_EQ(data.array.length, batch_length);
+      const uint8_t* validity = data.array.buffers[0].data;
+      const auto* offsets = data.array.GetValues<Offset>(1);
+      ArraySpan tmp_child_data(data.array.child_data[0]);
+      RETURN_NOT_OK(VisitBitBlocks(
+          validity, data.array.offset, data.array.length,
+          [&](int64_t i) {
+            Offset list_length = offsets[i + 1] - offsets[i];
+            tmp_child_data.SetSlice(offsets[i], list_length);
+            return handle_valid_value(tmp_child_data);
+          },
+          [&]() {
+            handle_null_value();
+            return Status::OK();
+          }));
+    } else {
+      const auto& list_scalar = data.scalar_as<BaseListScalar>();
+      if (list_scalar.is_valid) {
+        // Optimization: Encode once, then memcpy for remaining rows
+        ArraySpan span(*list_scalar.value->data());
+        if (batch_length > 0) {
+          // Encode the first row directly
+          uint8_t* start_ptr = encoded_bytes[0];
+          *encoded_bytes[0]++ = kValidByte;
+          util::SafeStore(encoded_bytes[0], static_cast<Offset>(span.length));
+          encoded_bytes[0] += sizeof(Offset);
+
+          // Encode all list elements
+          if (span.length > 0) {
+            std::vector<uint8_t*> element_ptrs(span.length);
+            element_ptrs[0] = encoded_bytes[0];
+            for (int64_t i = 0; i < span.length; ++i) {
+              if (i > 0) {
+                element_ptrs[i] = element_ptrs[i - 1];
+              }
+              ArraySpan element_span(span);
+              element_span.SetSlice(span.offset + i, 1);
+              RETURN_NOT_OK(this->element_encoder_->Encode(ExecValue{element_span}, 1,
+                                                           &element_ptrs[i]));
+            }
+            encoded_bytes[0] = element_ptrs[span.length - 1];
+          }
+
+          size_t encoded_size = encoded_bytes[0] - start_ptr;
+
+          // Copy to remaining rows
+          for (int64_t i = 1; i < batch_length; i++) {
+            memcpy(encoded_bytes[i], start_ptr, encoded_size);
+            encoded_bytes[i] += encoded_size;
+          }
+        }
+      } else {
+        // Optimization: Encode null once, then memcpy for remaining rows
+        if (batch_length > 0) {
+          // Encode the first null row
+          uint8_t* start_ptr = encoded_bytes[0];
+          *encoded_bytes[0]++ = kNullByte;
+          util::SafeStore(encoded_bytes[0], static_cast<Offset>(0));
+          encoded_bytes[0] += sizeof(Offset);
+          size_t encoded_size = encoded_bytes[0] - start_ptr;
+
+          // Copy to remaining rows
+          for (int64_t i = 1; i < batch_length; i++) {
+            memcpy(encoded_bytes[i], start_ptr, encoded_size);
+            encoded_bytes[i] += encoded_size;
+          }
+        }
+      }
+    }
+    return Status::OK();
+  }
+
+  void EncodeNull(uint8_t** encoded_bytes) override {
+    auto& encoded_ptr = *encoded_bytes;
+    *encoded_ptr++ = kNullByte;
+    util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+    encoded_ptr += sizeof(Offset);
+  }
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override {
+    std::shared_ptr<Buffer> null_buf;
+    int32_t null_count;
+    ARROW_RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
+
+    // Build the offsets buffer of the ListArray
+    ARROW_ASSIGN_OR_RAISE(auto offset_buf,
+                          AllocateBuffer(sizeof(Offset) * (1 + length), pool));
+    auto raw_offsets = offset_buf->mutable_span_as<Offset>();
+    Offset element_sum = 0;
+    raw_offsets[0] = 0;
+    std::vector<std::shared_ptr<Array>> child_datas;
+    for (int32_t i = 0; i < length; ++i) {
+      Offset element_count = util::SafeLoadAs<Offset>(encoded_bytes[i]);
+      element_sum += element_count;
+      raw_offsets[i + 1] = element_sum;
+      encoded_bytes[i] += sizeof(Offset);
+      for (Offset j = 0; j < element_count; ++j) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto child_data,
+            element_encoder_->Decode(encoded_bytes + i, /*length=*/1, pool));
+        ArraySpan array_span(*child_data);
+        child_datas.push_back(array_span.ToArray());
+      }
+    }
+    std::shared_ptr<ArrayData> element_data;
+    if (!child_datas.empty()) {
+      ARROW_ASSIGN_OR_RAISE(auto element_array, ::arrow::Concatenate(child_datas, pool));
+      element_data = element_array->data();
+    } else {
+      // If there are no elements, we need to create an empty array
+      std::unique_ptr<ArrayBuilder> tmp;
+      RETURN_NOT_OK(MakeBuilder(pool, element_type_, &tmp));
+      std::shared_ptr<Array> array;
+      RETURN_NOT_OK(tmp->Finish(&array));
+      element_data = array->data();
+    }
+    return ArrayData::Make(self_type_, length,
+                           {std::move(null_buf), std::move(offset_buf)}, {element_data},
+                           null_count);
+  }
+
+  std::shared_ptr<DataType> self_type_;
+  std::shared_ptr<DataType> element_type_;
+  std::shared_ptr<KeyEncoder> element_encoder_;
+  // extension_type_ is used to store the extension type of the list element.
+  // It would be nullptr if the list element is not an extension type.
+  std::shared_ptr<ExtensionType> extension_type_;
+};
+
 /// RowEncoder encodes ExecSpan to a variable length byte sequence
 /// created by concatenating the encoded form of each column. The encoding
 /// for each column depends on its data type.
@@ -329,6 +575,19 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
 /// Null string Would be encoded as:
 /// 1 ( 1 byte for null) + 0 ( 4 bytes for length )
 ///
+/// The size of the "fixed-width" part is defined by the `offset_type`
+/// of the variable-width type. For example, it would be 4 bytes for
+/// String/Binary type and 8 bytes for LargeString/LargeBinary type.
+///
+/// ## List Type
+///
+/// List Type is encoded as:
+/// [null byte, list element count, [element 1, element 2, ...]]
+/// Element count uses `Offset` bytes.
+///
+/// Currently, we only support encoding of primitive types, dictionary types
+/// in the list, the nested list is not supported.
+///
 /// # Row Encoding
 ///
 /// The row format is the concatenation of the encodings of each column.
@@ -336,7 +595,7 @@ class ARROW_COMPUTE_EXPORT RowEncoder {
  public:
   static constexpr int kRowIdForNulls() { return -1; }
 
-  void Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx);
+  Status Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx);
   void Clear();
   Status EncodeAndAppend(const ExecSpan& batch);
   Result<ExecBatch> Decode(int64_t num_rows, const int32_t* row_ids);
