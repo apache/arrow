@@ -21,6 +21,7 @@
 #include <tuple>
 #include <utility>
 
+#include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -36,6 +37,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/config.h"
+
+#include "generated/feather_generated.h"
 
 namespace arrow {
 
@@ -382,6 +385,38 @@ TEST_P(TestFeatherRoundTrip, RoundTrip) {
 
 INSTANTIATE_TEST_SUITE_P(FeatherRoundTripTests, TestFeatherRoundTrip,
                          ::testing::ValuesIn(kBatchCases));
+
+TEST(TestFeatherV1, InconsistentColumnLength) {
+  // A V1 footer can declare a column length unrelated to the size of the data
+  // buffer that backs it. Here total_bytes is 8 but length is 2^20, so the
+  // computed null-bitmap/values slices fall outside the buffer. The reader must
+  // reject this rather than build out-of-bounds buffer views.
+  std::string data("FEA1", 4);  // leading magic so Reader::Open dispatches to V1
+  data.resize(8, '\0');
+
+  flatbuffers::FlatBufferBuilder fbb;
+  auto name = fbb.CreateString("c");
+  auto values =
+      fbs::CreatePrimitiveArray(fbb, fbs::Type::Type_INT32, fbs::Encoding::Encoding_PLAIN,
+                                /*offset=*/0, /*length=*/1 << 20, /*null_count=*/1,
+                                /*total_bytes=*/8);
+  auto column = fbs::CreateColumn(fbb, name, values);
+  auto columns = fbb.CreateVector(std::vector<flatbuffers::Offset<fbs::Column>>{column});
+  auto root = fbs::CreateCTable(fbb, /*description=*/0, /*num_rows=*/1 << 20, columns,
+                                kFeatherV1Version, /*metadata=*/0);
+  fbb.Finish(root);
+
+  std::string file = data;
+  file.append(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
+  uint32_t metadata_size = static_cast<uint32_t>(fbb.GetSize());
+  file.append(reinterpret_cast<const char*>(&metadata_size), sizeof(uint32_t));
+  file.append("FEA1", 4);
+
+  auto source = std::make_shared<io::BufferReader>(Buffer::FromString(std::move(file)));
+  ASSERT_OK_AND_ASSIGN(auto reader, Reader::Open(source));
+  std::shared_ptr<Table> table;
+  ASSERT_RAISES(IndexError, reader->Read(&table));
+}
 
 }  // namespace feather
 }  // namespace ipc
