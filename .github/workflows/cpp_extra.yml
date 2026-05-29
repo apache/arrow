@@ -635,50 +635,28 @@ jobs:
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
       # Debug https://github.com/apache/arrow/issues/49465:
-      # arrow-flight-test passes all 94 tests in ~4s, then
-      # intermittently hangs on exit and ctest kills it at the 300s timeout.
-      # Run it in a loop and minidump the hung process to inspect its threads.
-      - name: Capture Flight test exit-hang dump (diagnostic)
+      # arrow-flight-test passes all 94 tests in ~4s, then intermittently hangs
+      # on exit and ctest kills it at the 300s timeout. The hang only reproduces
+      # under the parallel ctest run (not standalone). So try a background
+      # watchdog to minidump the hung process during the Test step below.
+      - name: Start Flight hang watchdog (diagnostic)
         shell: pwsh
         continue-on-error: true
-        env:
-          ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
         run: |
-          $ErrorActionPreference = 'Continue'
-          $binDir = "${{ github.workspace }}\build\cpp\$env:ARROW_BUILD_TYPE"
-          $exe = Join-Path $binDir 'arrow-flight-test.exe'
           $dumpDir = "${{ github.workspace }}\flight-hang-dumps"
           New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
-
-          # install ProcDump (Sysinternals)
-          Invoke-WebRequest -Uri https://download.sysinternals.com/files/Procdump.zip `
-            -OutFile Procdump.zip
-          Expand-Archive -Path Procdump.zip -DestinationPath procdump -Force
-          $procdump = (Resolve-Path procdump\procdump64.exe).Path
-
-          # intermittent across runs, so retry several times to repro
-          for ($i = 1; $i -le 10; $i++) {
-            Write-Host "=== arrow-flight-test attempt $i/10 ==="
-            $proc = Start-Process -FilePath $exe -PassThru -NoNewWindow `
-              -WorkingDirectory $binDir `
-              -RedirectStandardOutput (Join-Path $dumpDir "run$i.out.txt") `
-              -RedirectStandardError  (Join-Path $dumpDir "run$i.err.txt")
-            # normal run is ~5s. If still alive at 60s means the exit hang
-            if ($proc.WaitForExit(60000)) { continue }
-            & $procdump -accepteula -ma $proc.Id (Join-Path $dumpDir "flight-hang.dmp")
-            try { Stop-Process -Id $proc.Id -Force } catch {}
-            break
-          }
-          # include PDBs so Arrow frames in the dump symbolize
-          Get-ChildItem -Path $binDir -Filter '*flight*.pdb' -ErrorAction SilentlyContinue |
+          Invoke-WebRequest -Uri https://download.sysinternals.com/files/Procdump.zip -OutFile Procdump.zip
+          Expand-Archive -Path Procdump.zip -DestinationPath "${{ github.workspace }}\procdump" -Force
+          $procdump = "${{ github.workspace }}\procdump\procdump64.exe"
+          # collect Arrow PDBs if present (release builds usually have none)
+          Get-ChildItem -Path "${{ github.workspace }}\build\cpp\$env:ARROW_BUILD_TYPE" -Filter '*.pdb' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match 'arrow|flight' } |
             Copy-Item -Destination $dumpDir -ErrorAction SilentlyContinue
-      - name: Upload Flight test exit-hang dump (diagnostic)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-hang-dumps
-          path: flight-hang-dumps
-          if-no-files-found: warn
+          # launch detached so it keeps polling while the Test step runs
+          $wd = Start-Process pwsh -WindowStyle Hidden -PassThru -ArgumentList `
+            '-NoProfile', '-File', "${{ github.workspace }}\ci\scripts\flight_hang_watchdog.ps1", `
+            $dumpDir, $procdump
+          Write-Host "watchdog started, PID $($wd.Id)"
       - name: Test
         shell: cmd
         run: |
@@ -688,6 +666,13 @@ jobs:
           # Convert VCPKG Windows path to MSYS path
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
+      - name: Upload Flight hang dump (diagnostic)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-hang-dumps
+          path: flight-hang-dumps
+          if-no-files-found: warn
       - name: Install WiX Toolset
         shell: pwsh
         run: |
