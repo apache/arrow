@@ -216,6 +216,7 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
     std::vector<int64_t> tmp_strides;
     RETURN_NOT_OK(ComputeRowMajorStrides(checked_cast<const FixedWidthType&>(*type),
                                          shape, &tmp_strides));
+    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, tmp_strides, type));
   }
   if (dim_names.size() > shape.size()) {
     return Status::Invalid("too many dim_names are supplied");
