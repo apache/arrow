@@ -441,7 +441,7 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
-          
+
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
@@ -547,7 +547,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
@@ -634,6 +634,51 @@ jobs:
         shell: cmd
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+      # Debug https://github.com/apache/arrow/issues/49465:
+      # arrow-flight-test passes all 94 tests in ~4s, then
+      # intermittently hangs on exit and ctest kills it at the 300s timeout.
+      # Run it in a loop and minidump the hung process to inspect its threads.
+      - name: Capture Flight test exit-hang dump (diagnostic)
+        shell: pwsh
+        continue-on-error: true
+        env:
+          ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $binDir = "${{ github.workspace }}\build\cpp\$env:ARROW_BUILD_TYPE"
+          $exe = Join-Path $binDir 'arrow-flight-test.exe'
+          $dumpDir = "${{ github.workspace }}\flight-hang-dumps"
+          New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
+
+          # install ProcDump (Sysinternals)
+          Invoke-WebRequest -Uri https://download.sysinternals.com/files/Procdump.zip `
+            -OutFile Procdump.zip
+          Expand-Archive -Path Procdump.zip -DestinationPath procdump -Force
+          $procdump = (Resolve-Path procdump\procdump64.exe).Path
+
+          # intermittent across runs, so retry several times to repro
+          for ($i = 1; $i -le 10; $i++) {
+            Write-Host "=== arrow-flight-test attempt $i/10 ==="
+            $proc = Start-Process -FilePath $exe -PassThru -NoNewWindow `
+              -WorkingDirectory $binDir `
+              -RedirectStandardOutput (Join-Path $dumpDir "run$i.out.txt") `
+              -RedirectStandardError  (Join-Path $dumpDir "run$i.err.txt")
+            # normal run is ~5s. If still alive at 60s means the exit hang
+            if ($proc.WaitForExit(60000)) { continue }
+            & $procdump -accepteula -ma $proc.Id (Join-Path $dumpDir "flight-hang.dmp")
+            try { Stop-Process -Id $proc.Id -Force } catch {}
+            break
+          }
+          # include PDBs so Arrow frames in the dump symbolize
+          Get-ChildItem -Path $binDir -Filter '*flight*.pdb' -ErrorAction SilentlyContinue |
+            Copy-Item -Destination $dumpDir -ErrorAction SilentlyContinue
+      - name: Upload Flight test exit-hang dump (diagnostic)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-hang-dumps
+          path: flight-hang-dumps
+          if-no-files-found: warn
       - name: Test
         shell: cmd
         run: |
@@ -721,7 +766,7 @@ jobs:
           dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
           mv "${msi_name}" "${dev_msi_name}"
           cd ..
-          
+
           tree odbc-installer
       - name: Checkout Arrow
         uses: actions/checkout@v6
