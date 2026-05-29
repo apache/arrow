@@ -9,7 +9,6 @@ Build-Depends:
   git,
   gobject-introspection,
   libboost-filesystem-dev,
-  libboost-system-dev,
   libbrotli-dev,
   libbz2-dev,
   libc-ares-dev,
