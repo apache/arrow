@@ -18,15 +18,16 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
+#include "parquet/bloom_filter.h"
 #include "parquet/platform.h"
 
 namespace parquet::internal {
 
-// PARQUET_EXPORT so the symbol is visible from parquet_shared on Windows MinGW
-// (default visibility is hidden) -- the cross-target diff test calls this
-// directly.
-PARQUET_EXPORT bool FindHashBlockAvx2(const uint32_t* block, const uint32_t* salt,
-                                      uint32_t key);
+PARQUET_EXPORT bool FindHashBlockAvx2(
+    std::span<const uint32_t, BlockSplitBloomFilter::kBitsSetPerBlock> block,
+    std::span<const uint32_t, BlockSplitBloomFilter::kBitsSetPerBlock> salt,
+    uint32_t key);
 
 }  // namespace parquet::internal

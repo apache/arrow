@@ -14,30 +14,26 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #pragma once
 
 #include <cstdint>
+#include <span>
 
-// Used to make sure ODR rule isn't violated.
-#ifndef PARQUET_IMPL_NAMESPACE
-#  error "PARQUET_IMPL_NAMESPACE must be defined"
-#endif
+#include "parquet/bloom_filter.h"
 
-namespace parquet::internal::PARQUET_IMPL_NAMESPACE {
+namespace parquet::internal {
 
-// Branchless OR-accumulator reduction: the short-circuit `return false` shape
-// blocks the compiler from collapsing the 8-lane probe into a single
-// horizontal block test. This shape autovectorizes to SSE/NEON at the
-// baseline; AVX2 has its own xsimd kernel (see bloom_filter_avx2.cc) because
-// gcc/MSVC don't lower this reduction to a single vptest.
-inline bool FindHashBlockImpl(const uint32_t* block, const uint32_t* salt, uint32_t key) {
-  constexpr int kBitsSetPerBlock = 8;
+inline bool FindHashBlockImpl(
+    std::span<const uint32_t, BlockSplitBloomFilter::kBitsSetPerBlock> block,
+    std::span<const uint32_t, BlockSplitBloomFilter::kBitsSetPerBlock> salt,
+    uint32_t key) {
   uint32_t miss = 0;
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
+  for (int i = 0; i < BlockSplitBloomFilter::kBitsSetPerBlock; ++i) {
     const uint32_t mask = static_cast<uint32_t>(1) << ((key * salt[i]) >> 27);
     miss |= (~block[i] & mask);
   }
   return miss == 0;
 }
 
-}  // namespace parquet::internal::PARQUET_IMPL_NAMESPACE
+}  // namespace parquet::internal

@@ -227,6 +227,10 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS
                                                                     "${BMI2_FLAGS}")
   endif()
+elseif(ARROW_SIMD_LEVEL MATCHES "^(AVX2|AVX512)$")
+  # AVX2 baseline without runtime dispatch: the dispatch table still references
+  # FindHashBlockAvx2, so the kernel must be built (no extra flags needed here).
+  list(APPEND PARQUET_SRCS bloom_filter_avx2.cc)
 endif()
 
 set(PARQUET_SHARED_LINK_LIBS)

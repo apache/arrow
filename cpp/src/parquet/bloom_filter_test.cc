@@ -21,6 +21,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,9 +42,7 @@
 
 // Both dispatch targets included directly so the test can exercise the
 // un-picked one too -- DynamicDispatch resolves once at static init.
-#define PARQUET_IMPL_NAMESPACE standard
-#include "parquet/bloom_filter_block_inc.h"
-#undef PARQUET_IMPL_NAMESPACE
+#include "parquet/bloom_filter_block_impl_internal.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "parquet/bloom_filter_avx2_internal.h"
@@ -450,26 +449,25 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 namespace {
 
-// 8-lane block matches BlockSplitBloomFilter's hard-coded shape; declared
-// locally so the test doesn't depend on the class's private constants.
-constexpr int kProbeBlockLanes = 8;
+// Aliased from the class constant for brevity in array bounds below.
+constexpr int kBitsSetPerBlock = BlockSplitBloomFilter::kBitsSetPerBlock;
 
 // Test-only SALT (matches the Parquet SBBF spec values used in
 // bloom_filter.h). Kernel-vs-kernel agreement holds for any SALT, so this
 // duplication is a contained test-side convenience, not a spec mirror.
-alignas(32) constexpr uint32_t kProbeTestSalt[kProbeBlockLanes] = {
+constexpr uint32_t kProbeTestSalt[kBitsSetPerBlock] = {
     0x47b6137bU, 0x44974d91U, 0x8824ad5bU, 0xa2b7289dU,
     0x705495c7U, 0x2df1424bU, 0x9efc4947U, 0x5c6bfb31U,
 };
 
 inline void InsertIntoBlock(uint32_t* block, uint32_t key) {
-  for (int i = 0; i < kProbeBlockLanes; ++i) {
+  for (int i = 0; i < kBitsSetPerBlock; ++i) {
     block[i] |= uint32_t{1} << ((key * kProbeTestSalt[i]) >> 27);
   }
 }
 
-void AssertKernelsAgree(const uint32_t* block, uint32_t key) {
-  const bool standard = internal::standard::FindHashBlockImpl(block, kProbeTestSalt, key);
+void AssertKernelsAgree(std::span<const uint32_t, kBitsSetPerBlock> block, uint32_t key) {
+  const bool standard = internal::FindHashBlockImpl(block, kProbeTestSalt, key);
   const bool avx2 = internal::FindHashBlockAvx2(block, kProbeTestSalt, key);
   ASSERT_EQ(standard, avx2) << "dispatch targets diverged for key=0x" << std::hex << key;
 }
@@ -492,7 +490,7 @@ TEST_F(BloomFilterProbeKernel, AgreeOnRandomBlocks) {
   std::mt19937_64 rng(0xC0FFEE);
   constexpr int kNumTrials = 20000;
   for (int trial = 0; trial < kNumTrials; ++trial) {
-    alignas(32) uint32_t block[kProbeBlockLanes];
+    uint32_t block[kBitsSetPerBlock];
     for (uint32_t& word : block) {
       word = static_cast<uint32_t>(rng());
     }
@@ -508,7 +506,7 @@ TEST_F(BloomFilterProbeKernel, AgreeOnPopulatedBlocks) {
   constexpr int kNumBlocks = 200;
   constexpr int kKeysPerBlock = 6;  // ~k inserts per 256-bit block, realistic FPP.
   for (int b = 0; b < kNumBlocks; ++b) {
-    alignas(32) uint32_t block[kProbeBlockLanes] = {0};
+    uint32_t block[kBitsSetPerBlock] = {0};
     std::vector<uint32_t> inserted;
     inserted.reserve(kKeysPerBlock);
     for (int k = 0; k < kKeysPerBlock; ++k) {

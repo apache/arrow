@@ -23,9 +23,11 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <span>
 
 #include "arrow/io/memory.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
@@ -38,38 +40,33 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/xxhasher.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
 #  include "parquet/bloom_filter_avx2_internal.h"
 #endif
 
-#define PARQUET_IMPL_NAMESPACE standard
-#include "parquet/bloom_filter_block_inc.h"
-#undef PARQUET_IMPL_NAMESPACE
+#include "parquet/bloom_filter_block_impl_internal.h"
 
-#include "arrow/util/dispatch_internal.h"
+namespace parquet {
 
-namespace parquet::internal {
+namespace internal {
 namespace {
 
 using ::arrow::internal::DynamicDispatch;
 
 struct FindHashBlockDynamicFunction {
-  using FunctionType = decltype(&standard::FindHashBlockImpl);
+  using FunctionType = decltype(&FindHashBlockImpl);
 
   static constexpr auto targets() {
     return std::array{
-        ARROW_DISPATCH_TARGET_NONE(&standard::FindHashBlockImpl)  //
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-        ARROW_DISPATCH_TARGET_AVX2(&FindHashBlockAvx2)            //
-#endif
+        ARROW_DISPATCH_TARGET_NONE(&FindHashBlockImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&FindHashBlockAvx2)  //
     };
   }
 };
 
 }  // namespace
-}  // namespace parquet::internal
+}  // namespace internal
 
-namespace parquet {
 namespace {
 
 constexpr int32_t kCiphertextLengthSize = 4;
@@ -463,17 +460,14 @@ void BlockSplitBloomFilter::Fold(uint32_t num_folds) {
 }
 
 bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
-  // Probe kernels in bloom_filter_block_inc.h and bloom_filter_avx2.cc both
-  // hard-code an 8-lane (256-bit) block.
-  static_assert(kBitsSetPerBlock == 8,
-                "SBBF probe kernels assume 8 bits set per 256-bit block");
   const uint32_t bucket_index = static_cast<uint32_t>(((hash >> 32) * NumBlocks()) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
   const uint32_t* block = bitset32 + kBitsSetPerBlock * bucket_index;
   static ::arrow::internal::DynamicDispatch<internal::FindHashBlockDynamicFunction>
       dispatch;
-  return dispatch(block, SALT, key);
+  return dispatch(std::span<const uint32_t, kBitsSetPerBlock>(block, kBitsSetPerBlock),
+                  std::span<const uint32_t, kBitsSetPerBlock>(SALT), key);
 }
 
 void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
