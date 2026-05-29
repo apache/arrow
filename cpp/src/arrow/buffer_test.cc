@@ -616,7 +616,7 @@ TEST(TestBuffer, GetReader) {
   auto buf = std::make_shared<Buffer>(data, data_str.size());
   ASSERT_OK_AND_ASSIGN(auto reader, Buffer::GetReader(buf));
   ASSERT_OK_AND_EQ(static_cast<int64_t>(data_str.size()), reader->GetSize());
-  ASSERT_OK_AND_ASSIGN(auto read_buf, reader->ReadAt(5, 4));
+  ASSERT_OK_AND_ASSIGN(auto read_buf, reader->ReadAt(5, 4,/*allow_short_read=*/true));
   AssertBufferEqual(*read_buf, "data");
 }
 

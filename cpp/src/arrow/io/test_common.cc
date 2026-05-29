@@ -133,7 +133,7 @@ class TrackedRandomAccessFileImpl : public TrackedRandomAccessFile {
   Result<int64_t> GetSize() override { return delegate_->GetSize(); }
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
     SaveReadRange(position, nbytes);
-    return delegate_->ReadAt(position, nbytes, out);
+    return delegate_->ReadAt(position, nbytes , /*allow_short_read=*/true ,out);
   }
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
     return ReadAt(position, nbytes, /*allow_short_read=*/true);

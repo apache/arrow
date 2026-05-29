@@ -400,8 +400,8 @@ TEST_F(TestReadableFile, ReadAsync) {
   MakeTestFile();
   OpenFile();
 
-  auto fut1 = file_->ReadAsync(default_io_context(), 1, 10);
-  auto fut2 = file_->ReadAsync(default_io_context(), 0, 4);
+  auto fut1 = file_->ReadAsync(default_io_context(), 1, 10, /*allow_short_read=*/true);
+  auto fut2 = file_->ReadAsync(default_io_context(), 0, 4, /*allow_short_read=*/true);
   auto fut3 = file_->ReadAsync(default_io_context(), 1, 10, /*allow_short_read=*/false);
   auto fut4 = file_->ReadAsync(default_io_context(), 0, 4, /*allow_short_read=*/false);
   ASSERT_OK_AND_ASSIGN(auto buf1, fut1.result());
