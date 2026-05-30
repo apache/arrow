@@ -554,10 +554,14 @@ jobs:
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
+      # GH-49465 diagnostic: match the overlay triplet's macro so grpcpp's Mutex ABI agrees
+      ARROW_CXXFLAGS: /DGPR_DISABLE_ABSEIL_SYNC
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       VCPKG_DEFAULT_TRIPLET: x64-windows
+      # GH-49465 diagnostic: shadow x64-windows triplet to rebuild gRPC without absl sync
+      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg/overlay-triplets-no-absl-sync
     steps:
       - name: Disable Crash Dialogs
         run: |
