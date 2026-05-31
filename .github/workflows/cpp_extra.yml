@@ -555,7 +555,7 @@ jobs:
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
       # GH-49465 diagnostic: match the overlay triplet's macro so grpcpp's Mutex ABI agrees
-      ARROW_CXXFLAGS: /DGPR_DISABLE_ABSEIL_SYNC
+      ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
