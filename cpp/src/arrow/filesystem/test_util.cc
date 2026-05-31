@@ -1157,11 +1157,11 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(buffer, file->Read(6));
   AssertBufferEqual(*buffer, "other ");
   // Should return the same slice independent of the current position
-  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(2, 3));
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(2, 3, /*allow_short_read=*/true));
   AssertBufferEqual(*buffer, "me ");
   ASSERT_OK_AND_EQ(15, file->GetSize());
   ASSERT_OK(file->Close());
-  ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
+  ASSERT_RAISES(Invalid, file->ReadAt(1, 1, /*allow_short_read=*/true));  // Stream is closed
 
   // Trailing slash rejected
   ASSERT_RAISES(IOError, fs->OpenInputFile("AB/abc/"));
@@ -1183,7 +1183,7 @@ void GenericFileSystemTest::TestOpenInputFileAsync(FileSystem* fs) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buffer;
   ASSERT_FINISHES_OK_AND_ASSIGN(file, fs->OpenInputFileAsync("AB/abc"));
-  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(5, 6));
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(5, 6, /*allow_short_read=*/true));
   AssertBufferEqual(*buffer, "other ");
   ASSERT_OK(file->Close());
 
