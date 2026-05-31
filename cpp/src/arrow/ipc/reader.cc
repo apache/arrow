@@ -2374,6 +2374,13 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
   const auto ndim = static_cast<int64_t>(shape.size());
   auto* indptr_buffers = sparse_index->indptrBuffers();
   auto* indices_buffers = sparse_index->indicesBuffers();
+  if (ndim < 1 || indptr_buffers == nullptr || indices_buffers == nullptr ||
+      static_cast<int64_t>(indptr_buffers->size()) != ndim - 1 ||
+      static_cast<int64_t>(indices_buffers->size()) != ndim) {
+    return Status::Invalid(
+        "Inconsistent CSF sparse index: buffer counts do not match the number of "
+        "dimensions");
+  }
   std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
   std::vector<std::shared_ptr<Buffer>> indices_data(ndim);
 
