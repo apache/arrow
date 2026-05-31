@@ -281,7 +281,7 @@ class FileSegmentReader
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
-                          file_->ReadAt(file_offset_ + position_, bytes_to_read,/*allow_short_read=*/true, out));
+                          file_->ReadAt(file_offset_ + position_, bytes_to_read, /*allow_short_read=*/true, out));
     position_ += bytes_read;
     return bytes_read;
   }
