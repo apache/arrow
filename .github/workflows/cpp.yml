@@ -63,6 +63,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -120,11 +121,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ${{ matrix.image }}-${{ github.run_id }}
-          restore-keys: ${{ matrix.image }}-
+          key: ${{ matrix.image }}
       - name: Setup Python on hosted runner
         if: |
           matrix.runs-on == 'ubuntu-latest'
@@ -152,10 +152,11 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ${{ matrix.image }}-${{ github.run_id }}
+          key: ${{ matrix.image }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -262,11 +263,10 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ github.run_id }}
-          restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
+          key: cpp-ccache-macos-${{ matrix.macos-version }}
       - name: Build
         run: |
           if [ "${{ matrix.macos-version }}" = "15-intel" ]; then
@@ -286,10 +286,10 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ github.run_id }}
+          key: cpp-ccache-macos-${{ matrix.macos-version }}
       - name: Test
         shell: bash
         run: |
@@ -376,11 +376,10 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Restore ccache
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ccache
-          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ github.run_id }}
-          restore-keys: cpp-ccache-${{ matrix.msystem_lower}}-
+          key: cpp-ccache-${{ matrix.msystem_lower}}
       - name: Build
         shell: msys2 {0}
         run: |
@@ -389,10 +388,10 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ccache
-          key: cpp-ccache-${{ matrix.msystem_lower}}-${{ github.run_id }}
+          key: cpp-ccache-${{ matrix.msystem_lower}}
       - name: Download Timezone Database
         if: matrix.msystem_upper == 'CLANG64'
         shell: bash

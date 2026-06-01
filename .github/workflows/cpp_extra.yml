@@ -142,11 +142,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: extra-${{ matrix.image }}-${{ github.run_id }}
-          restore-keys: extra-${{ matrix.image }}-
+          key: extra-${{ matrix.image }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -172,10 +171,11 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: extra-${{ matrix.image }}-${{ github.run_id }}
+          key: extra-${{ matrix.image }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -211,6 +211,8 @@ jobs:
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
+      actions: read
+      contents: read
       # This is for using GitHub Packages for vcpkg cache
       packages: write
     strategy:
@@ -235,11 +237,10 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: jni-${{ matrix.platform.runs-on }}-${{ github.run_id }}
-          restore-keys: jni-${{ matrix.platform.runs-on }}-
+          key: jni-${{ matrix.platform.runs-on }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -258,10 +259,11 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: jni-${{ matrix.platform.runs-on }}-${{ github.run_id }}
+          key: jni-${{ matrix.platform.runs-on }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -315,11 +317,10 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ccache
-          key: jni-macos-${{ github.run_id }}
-          restore-keys: jni-macos-
+          key: jni-macos
       - name: CMake
         run: |
           cmake \
@@ -364,10 +365,10 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ccache
-          key: jni-macos-${{ github.run_id }}
+          key: jni-macos
 
   odbc-linux:
     needs: check-labels
@@ -394,11 +395,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ubuntu-cpp-odbc-${{ github.run_id }}
-          restore-keys: ubuntu-cpp-odbc-
+          key: ubuntu-cpp-odbc
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
@@ -417,10 +417,11 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ubuntu-cpp-odbc-${{ github.run_id }}
+          key: ubuntu-cpp-odbc
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -493,11 +494,10 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-${{ github.run_id }}
-          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
       - name: Build
         run: |
           # Homebrew uses /usr/local as prefix. So packages
@@ -517,10 +517,10 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-${{ github.run_id }}
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -576,6 +576,8 @@ jobs:
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
+      actions: read
+      contents: read
       packages: write
     env:
       ARROW_BUILD_SHARED: ON
@@ -625,11 +627,10 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: actions/cache/restore@v5
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64-${{ github.run_id }}
-          restore-keys: cpp-odbc-ccache-windows-x64-
+          key: cpp-odbc-ccache-windows-x64
       - name: Checkout vcpkg
         uses: actions/checkout@v6
         with:
@@ -668,10 +669,10 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64-${{ github.run_id }}
+          key: cpp-odbc-ccache-windows-x64
       - name: Register Flight SQL ODBC Driver
         shell: cmd
         run: |
