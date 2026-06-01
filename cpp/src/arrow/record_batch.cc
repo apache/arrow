@@ -513,10 +513,11 @@ struct EnumeratedStatistics {
 using OnStatistics =
     std::function<Status(const EnumeratedStatistics& enumerated_statistics)>;
 
-Status EnumerateOneStatistics(
-    std::optional<int32_t> nth_column, const std::shared_ptr<DataType>& array_type,
-    const std::shared_ptr<ArrayStatistics>& column_statistics, int* nth_statistics,
-    OnStatistics on_statistics, std::optional<int64_t> exact_row_count = std::nullopt) {
+Status EnumerateOneStatistics(std::optional<int32_t> nth_column,
+                              const std::shared_ptr<DataType>& array_type,
+                              const std::shared_ptr<ArrayStatistics>& column_statistics,
+                              int* nth_statistics, OnStatistics on_statistics,
+                              std::optional<int64_t> exact_row_count = std::nullopt) {
   bool start_new_column = true;
   auto emit = [&](const char* key, const std::shared_ptr<DataType>& type,
                   ArrayStatistics::ValueType value) {
@@ -540,8 +541,8 @@ Status EnumerateOneStatistics(
   };
 
   if (exact_row_count.has_value()) {
-    RETURN_NOT_OK(emit(ARROW_STATISTICS_KEY_ROW_COUNT_EXACT, int64(),
-                       exact_row_count.value()));
+    RETURN_NOT_OK(
+        emit(ARROW_STATISTICS_KEY_ROW_COUNT_EXACT, int64(), exact_row_count.value()));
   }
   if (!column_statistics) {
     return Status::OK();
@@ -566,27 +567,24 @@ Status EnumerateOneStatistics(
   }
 
   if (column_statistics->average_byte_width.has_value()) {
-    RETURN_NOT_OK(emit(
-        column_statistics->is_average_byte_width_exact
-            ? ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT
-            : ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE,
-        float64(), column_statistics->average_byte_width.value()));
+    RETURN_NOT_OK(emit(column_statistics->is_average_byte_width_exact
+                           ? ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT
+                           : ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE,
+                       float64(), column_statistics->average_byte_width.value()));
   }
 
   if (column_statistics->min.has_value()) {
-    RETURN_NOT_OK(emit(column_statistics->is_min_exact
-                           ? ARROW_STATISTICS_KEY_MIN_VALUE_EXACT
-                           : ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
-                       column_statistics->MinArrowType(array_type),
-                       column_statistics->min.value()));
+    RETURN_NOT_OK(emit(
+        column_statistics->is_min_exact ? ARROW_STATISTICS_KEY_MIN_VALUE_EXACT
+                                        : ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
+        column_statistics->MinArrowType(array_type), column_statistics->min.value()));
   }
 
   if (column_statistics->max.has_value()) {
-    RETURN_NOT_OK(emit(column_statistics->is_max_exact
-                           ? ARROW_STATISTICS_KEY_MAX_VALUE_EXACT
-                           : ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
-                       column_statistics->MaxArrowType(array_type),
-                       column_statistics->max.value()));
+    RETURN_NOT_OK(emit(
+        column_statistics->is_max_exact ? ARROW_STATISTICS_KEY_MAX_VALUE_EXACT
+                                        : ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+        column_statistics->MaxArrowType(array_type), column_statistics->max.value()));
   }
 
   return Status::OK();
@@ -602,8 +600,8 @@ Status EnumerateArrayStatistics(const std::shared_ptr<ArrayData>& data,
       include_exact_row_count ? std::optional<int64_t>(data->length) : std::nullopt));
   for (const auto& child_data : data->child_data) {
     if (child_data) {
-      RETURN_NOT_OK(
-          EnumerateArrayStatistics(child_data, nth_column, nth_statistics, on_statistics));
+      RETURN_NOT_OK(EnumerateArrayStatistics(child_data, nth_column, nth_statistics,
+                                             on_statistics));
     }
   }
   return Status::OK();
