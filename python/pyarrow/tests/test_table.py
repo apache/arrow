@@ -1280,7 +1280,7 @@ def test_recordbatch_to_tensor_unsupported():
 @pytest.mark.parametrize('typ_str', [
     "uint8", "uint16", "uint32", "uint64",
     "int8", "int16", "int32", "int64",
-    "float32", "float64",
+    "float16", "float32", "float64",
 ])
 def test_table_to_tensor_uniform_type(typ_str):
     arr1 = [[1, 2, 3], [4, 5, 6, 7, 8, 9]]

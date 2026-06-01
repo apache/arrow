@@ -66,7 +66,9 @@ static void TableToTensorSimple(benchmark::State& state) {
 
   for (int64_t i = 0; i < num_cols; ++i) {
     fields.push_back(field("f" + std::to_string(i), ty));
-    ArrayVector arrays = {gen_.ArrayOf(ty, num_rows / 2), gen_.ArrayOf(ty, num_rows / 2)};
+    const int64_t chunk1_len = num_rows / 2;
+    const int64_t chunk2_len = num_rows - chunk1_len;
+    ArrayVector arrays = {gen_.ArrayOf(ty, chunk1_len), gen_.ArrayOf(ty, chunk2_len)};
     auto chunks = std::make_shared<ChunkedArray>(arrays, ty);
     columns.push_back(chunks);
   }
@@ -74,7 +76,8 @@ static void TableToTensorSimple(benchmark::State& state) {
   auto table = Table::Make(schema, columns);
 
   for (auto _ : state) {
-    ASSERT_OK_AND_ASSIGN(auto tensor, table->ToTensor(/*row_major=*/row_major));
+    ASSERT_OK_AND_ASSIGN(auto tensor,
+                         table->ToTensor(/*null_to_nan=*/false, /*row_major=*/row_major));
   }
   state.SetItemsProcessed(state.iterations() * num_rows * num_cols);
   state.SetBytesProcessed(state.iterations() * ty->byte_width() * num_rows * num_cols);
