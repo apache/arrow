@@ -1348,7 +1348,7 @@ table above): ::
     buffer 11: field 5 ('col2') data
 
 The ``Buffer`` Flatbuffers value describes the location and size of a buffer's
-data, relatively to the start of the RecordBatch message's body.
+data, relative to the start of the RecordBatch message's body.
 
 The ``size`` field of ``Buffer`` is not required to account for padding
 bytes. Since this metadata can be used to communicate in-memory pointer
