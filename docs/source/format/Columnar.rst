@@ -1507,7 +1507,7 @@ metadata length (``0x00000000``) or closing the stream interface.
 File extension and MIME type
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-IPC Streams are not always stored as files, but when they are, we recommend
+IPC Streams are not typically stored as files, but when they are, we recommend
 the ".arrows" file extension. The registered MIME type for IPC Streams is
 `vnd.apache.arrow.stream`_.
 
