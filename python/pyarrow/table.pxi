@@ -5147,10 +5147,10 @@ cdef class Table(_Tabular):
                [ 4., 40.],
                [nan, nan]])
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CTensor] c_tensor
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-
         with nogil:
             c_tensor = GetResultValue(self.table.ToTensor(null_to_nan, row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
