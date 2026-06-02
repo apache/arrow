@@ -401,15 +401,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
-        if isinstance(result, ChunkedArray):
-            # Handle ChunkedArray case (e.g., when data overflows int32)
-            chunks = []
-            for chunk in result.chunks:
-                ext_chunk = ExtensionArray.from_storage(extension_type, chunk)
-                chunks.append(ext_chunk)
-            result = chunked_array(chunks, type=extension_type)
-        else:
-            result = ExtensionArray.from_storage(extension_type, result)
+        result = extension_type.wrap_array(result)
     return result
 
 

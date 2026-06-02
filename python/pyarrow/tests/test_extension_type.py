@@ -2128,7 +2128,7 @@ class ListExtensionType(pa.ExtensionType):
     def __init__(self):
         super().__init__(
             pa.struct({"data": pa.list_(pa.uint8())}),
-            "test_list_ext",
+            "pyarrow.tests.ListExtensionType",
         )
 
     def __arrow_ext_serialize__(self):
