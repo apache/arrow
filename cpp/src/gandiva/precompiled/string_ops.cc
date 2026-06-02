@@ -1394,7 +1394,7 @@ FORCE_INLINE
 const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
   if (in < 0 || in > 0x10FFFF || (in >= 0xD800 && in <= 0xDFFF)) {
     gdv_fn_context_set_error_msg(
-        context, "Input is not a valid Unicode code point in the range 0 to 0x10FFFF");
+        context, "Input is not a valid Unicode code point.");
     *out_len = 0;
     return "";
   }
