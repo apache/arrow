@@ -195,8 +195,8 @@ ARROW_FORCE_INLINE auto right_shift_by_excess(
   }
 
   // Architectures for which there is no variable right shift but a left shift exists
-  // (eventually using the multiply trick).
-  // We use a variable left shift and fix right shift.
+  // (possibly using the multiply trick inside of xsimd).
+  // We use a variable left shift and fixed right shift.
   if constexpr (kIsSse2 && (IntSize != sizeof(uint64_t))) {
     constexpr Int kMaxRShift = max_value(std::array{kShifts...});
 
