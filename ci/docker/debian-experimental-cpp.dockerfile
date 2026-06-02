@@ -45,7 +45,6 @@ RUN if [ -n "${gcc}" ]; then \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \

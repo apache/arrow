@@ -25,7 +25,6 @@ RUN apt-get update -y -q && \
       cmake \
       libboost-filesystem-dev \
       libboost-regex-dev \
-      libboost-system-dev \
       libbrotli-dev \
       libbz2-dev \
       libgflags-dev \
