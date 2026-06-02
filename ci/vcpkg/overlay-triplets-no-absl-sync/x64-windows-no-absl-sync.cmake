@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# GH-49465 diagnostic: built-in x64-windows triplet plus GPR_DISABLE_ABSEIL_SYNC
-# to rebuild gRPC without absl::Mutex and test if the Windows exit hang goes away.
+# GH-49465 diagnostic: x64-windows settings plus GPR_DISABLE_ABSEIL_SYNC, so gRPC
+# is rebuilt without absl::Mutex to test if the Windows exit hang goes away.
 set(VCPKG_TARGET_ARCHITECTURE x64)
 set(VCPKG_CRT_LINKAGE dynamic)
 set(VCPKG_LIBRARY_LINKAGE dynamic)

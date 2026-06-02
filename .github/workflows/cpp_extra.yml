@@ -554,13 +554,17 @@ jobs:
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
+      # GH-49465 diagnostic: re-run the whole suite, failing if any run hangs -
+      # as the hang only reproduces under parallel load, not with the flight test alone.
+      ARROW_CTEST_REPEAT: until-fail:10
       # GH-49465 diagnostic: match the overlay triplet's macro so grpcpp's Mutex ABI agrees
       ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
-      VCPKG_DEFAULT_TRIPLET: x64-windows
-      # GH-49465 diagnostic: shadow x64-windows triplet to rebuild gRPC without absl sync
+      # GH-49465 diagnostic: custom triplet (x64-windows + GPR_DISABLE_ABSEIL_SYNC) so gRPC
+      # is rebuilt without absl sync. See ci/vcpkg/overlay-triplets-no-absl-sync
+      VCPKG_DEFAULT_TRIPLET: x64-windows-no-absl-sync
       VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg/overlay-triplets-no-absl-sync
     steps:
       - name: Disable Crash Dialogs
@@ -656,10 +660,11 @@ jobs:
           Get-ChildItem -Path "${{ github.workspace }}\build\cpp\$env:ARROW_BUILD_TYPE" -Filter '*.pdb' -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -match 'arrow|flight' } |
             Copy-Item -Destination $dumpDir -ErrorAction SilentlyContinue
-          # launch detached so it keeps polling while the Test step runs
+          # launch detached so it keeps polling while the Test step runs. Deadline is
+          # raised to 200 min because ARROW_CTEST_REPEAT re-runs the suite many times.
           $wd = Start-Process pwsh -WindowStyle Hidden -PassThru -ArgumentList `
             '-NoProfile', '-File', "${{ github.workspace }}\ci\scripts\flight_hang_watchdog.ps1", `
-            $dumpDir, $procdump
+            $dumpDir, $procdump, '90', '200'
           Write-Host "watchdog started, PID $($wd.Id)"
       - name: Test
         shell: cmd
