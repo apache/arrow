@@ -145,7 +145,7 @@ jobs:
         uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: extra-${{ matrix.image }}
+          key: cpp-extra-${{ matrix.image }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -174,7 +174,7 @@ jobs:
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: extra-${{ matrix.image }}
+          key: cpp-extra-${{ matrix.image }}
           include-hidden-files: true
       - name: Docker Push
         if: >-

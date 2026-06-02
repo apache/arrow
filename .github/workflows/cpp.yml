@@ -124,7 +124,7 @@ jobs:
         uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ${{ matrix.image }}
+          key: cpp-${{ matrix.image }}
       - name: Setup Python on hosted runner
         if: |
           matrix.runs-on == 'ubuntu-latest'
@@ -155,7 +155,7 @@ jobs:
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ${{ matrix.image }}
+          key: cpp-${{ matrix.image }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
