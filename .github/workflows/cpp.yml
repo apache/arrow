@@ -150,7 +150,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
       - name: Save Docker Volumes
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
@@ -284,7 +284,7 @@ jobs:
           fi
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Save ccache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
@@ -386,7 +386,7 @@ jobs:
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
       - name: Save ccache
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() }}
         continue-on-error: true
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
