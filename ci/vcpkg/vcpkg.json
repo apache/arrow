@@ -19,10 +19,7 @@
     "re2",
     "snappy",
     "utf8proc",
-    {
-      "name": "xsimd",
-      "version>=": "14.2.0"
-    },
+    "xsimd",
     "zlib",
     "zstd",
     {
