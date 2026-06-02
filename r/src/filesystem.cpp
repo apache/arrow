@@ -292,8 +292,17 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     bool check_directory_existence_before_creation = false, double connect_timeout = -1,
     double request_timeout = -1) {
   // We need to ensure that S3 is initialized before we start messing with the
-  // options
-  StopIfNotOk(fs::EnsureS3Initialized());
+  // options. We use InitializeS3() rather than EnsureS3Initialized() so we can
+  // enable the SIGPIPE handler - without it, stale connections in the SDK's
+  // connection pool can trigger SIGPIPE during Aws::ShutdownAPI(), which causes
+  // R's signal handler to longjmp out of the teardown and segfault (GH-50009).
+  fs::S3GlobalOptions options = fs::S3GlobalOptions::Defaults();
+  options.install_sigpipe_handler = true;
+  auto status = fs::InitializeS3(options);
+  // InitializeS3 returns Invalid if already initialized - that's fine
+  if (!status.ok() && !fs::IsS3Initialized()) {
+    StopIfNotOk(status);
+  }
   fs::S3Options s3_opts;
   // Handle auth (anonymous, keys, default)
   // (validation/internal coherence handled in R)
