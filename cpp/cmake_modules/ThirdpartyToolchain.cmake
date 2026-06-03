@@ -2858,7 +2858,7 @@ if(ARROW_USE_XSIMD)
                      IS_RUNTIME_DEPENDENCY
                      FALSE
                      REQUIRED_VERSION
-                     "14.0.0")
+                     "14.2.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     set(ARROW_XSIMD arrow::xsimd)
