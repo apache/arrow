@@ -66,22 +66,26 @@ typename PforWrapper<T>::PforHeader PforWrapper<T>::LoadHeader(
 // Encode
 
 template <typename T>
-void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
-                            int64_t* comp_size) {
+void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
+                            char* comp, int64_t* comp_size) {
   ARROW_DCHECK(num_values > 0);
   ARROW_DCHECK(comp != nullptr);
   ARROW_DCHECK(comp_size != nullptr);
+  ARROW_DCHECK((vector_size & (vector_size - 1)) == 0);
 
-  const int32_t vector_size = kVectorSize;
   const int32_t num_vectors =
       (num_values + vector_size - 1) / vector_size;
+
+  // Compute log2(vector_size)
+  uint8_t log_vector_size = 0;
+  for (int32_t v = vector_size; v > 1; v >>= 1) ++log_vector_size;
 
   auto* dest = reinterpret_cast<uint8_t*>(comp);
 
   // Step 1: Write header
   PforHeader header;
   header.packing_mode = PforConstants::kPackingModeForBitPack;
-  header.log_vector_size = PforConstants::kDefaultLogVectorSize;
+  header.log_vector_size = log_vector_size;
   header.value_byte_width = sizeof(T);
   header.num_elements = num_values;
   StoreHeader(arrow::util::span<uint8_t>(dest, PforConstants::kHeaderSize), header);
@@ -116,6 +120,12 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
   }
 
   *comp_size = static_cast<int64_t>(write_ptr - dest);
+}
+
+template <typename T>
+void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
+                            int64_t* comp_size) {
+  Encode(values, num_values, kVectorSize, comp, comp_size);
 }
 
 // ----------------------------------------------------------------------
@@ -181,8 +191,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
 // GetMaxCompressedSize
 
 template <typename T>
-int64_t PforWrapper<T>::GetMaxCompressedSize(int32_t num_values) {
-  const int32_t vector_size = kVectorSize;
+int64_t PforWrapper<T>::GetMaxCompressedSize(int32_t num_values, int32_t vector_size) {
   const int32_t num_vectors =
       (num_values + vector_size - 1) / vector_size;
 
