@@ -401,7 +401,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
-        result = ExtensionArray.from_storage(extension_type, result)
+        result = extension_type.wrap_array(result)
     return result
 
 
