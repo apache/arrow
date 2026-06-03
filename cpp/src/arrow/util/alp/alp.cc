@@ -498,9 +498,13 @@ class AlpInlines : private AlpConstants {
            (n == 0.0 && std::signbit(n));  // Verification for -0.0
   }
 
-  /// \brief Convert a float to an int without rounding
+  /// \brief Round a float to the nearest integer using the magic-number technique
   static inline auto FastRound(T n) -> SignedExactType {
-    n = n + Constants::kMagicNumber - Constants::kMagicNumber;
+    if (n >= 0) {
+      n = n + Constants::kMagicNumber - Constants::kMagicNumber;
+    } else {
+      n = n - Constants::kMagicNumber + Constants::kMagicNumber;
+    }
     return static_cast<SignedExactType>(n);
   }
 
