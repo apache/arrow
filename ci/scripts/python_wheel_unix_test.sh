@@ -100,10 +100,6 @@ if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
     --path "${source_dir}/python/repaired_wheels"
 fi
 
-is_free_threaded() {
-  python -c "import sysconfig; print('ON' if sysconfig.get_config_var('Py_GIL_DISABLED') else 'OFF')"
-}
-
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
   echo "Regular Python build detected"
