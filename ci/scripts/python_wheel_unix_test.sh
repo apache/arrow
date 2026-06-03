@@ -102,7 +102,6 @@ fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  echo "Regular Python build detected"
   python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
 
   # Execute unittest, test dependencies must be installed
