@@ -153,7 +153,8 @@ void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
   while (offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= buffer_size) {
     if (RelationCache == buffer_position->Relationship) {
       PCACHE_DESCRIPTOR cache = &buffer_position->Cache;
-      if (cache->Level >= 1 && cache->Level <= N) {
+      using level_t = decltype(cache->Level);
+      if (cache->Level >= 1 && cache->Level <= static_cast<level_t>(N)) {
         const int64_t current = (*cache_sizes)[cache->Level - 1];
         (*cache_sizes)[cache->Level - 1] = std::max<int64_t>(current, cache->Size);
       }
@@ -206,13 +207,14 @@ void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
 int64_t LinuxGetCacheSize(int level) {
   // get cache size by sysconf()
 #  ifdef _SC_LEVEL1_DCACHE_SIZE
-  const int kCacheSizeConf[] = {
+  constexpr auto kCacheSizeConf = std::array<int, 3>{
       _SC_LEVEL1_DCACHE_SIZE,
       _SC_LEVEL2_CACHE_SIZE,
       _SC_LEVEL3_CACHE_SIZE,
   };
 
   errno = 0;
+  DCHECK(0 <= level && static_cast<std::size_t>(level) < kCacheSizeConf.size());
   const int64_t cache_size = sysconf(kCacheSizeConf[level]);
   if (errno == 0 && cache_size > 0) {
     return cache_size;
@@ -220,12 +222,13 @@ int64_t LinuxGetCacheSize(int level) {
 #  endif
 
   // get cache size from sysfs if sysconf() fails or not supported
-  const char* kCacheSizeSysfs[] = {
+  constexpr auto kCacheSizeSysfs = std::array<const char*, 3>{
       "/sys/devices/system/cpu/cpu0/cache/index0/size",  // l1d (index1 is l1i)
       "/sys/devices/system/cpu/cpu0/cache/index2/size",  // l2
       "/sys/devices/system/cpu/cpu0/cache/index3/size",  // l3
   };
 
+  DCHECK(0 <= level && static_cast<std::size_t>(level) < kCacheSizeSysfs.size());
   std::ifstream cacheinfo(kCacheSizeSysfs[level], std::ios::in);
   if (!cacheinfo) {
     return 0;
@@ -248,7 +251,7 @@ int64_t LinuxGetCacheSize(int level) {
 
 template <std::size_t N>
 void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
-  static_assert(N >= 3);
+  static_assert(N <= 3);
   for (int i = 0; i < static_cast<int>(N); ++i) {
     const int64_t cache_size = LinuxGetCacheSize(i);
     if (cache_size > 0) {
