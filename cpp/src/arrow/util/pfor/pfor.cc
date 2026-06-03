@@ -34,13 +34,18 @@
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/span.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace util {
 namespace pfor {
+
+static_assert(ARROW_LITTLE_ENDIAN,
+              "PFOR serialization assumes little-endian byte order");
 
 // ----------------------------------------------------------------------
 // FindOptimalBitWidth: histogram-based cost model
@@ -182,12 +187,12 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
     int32_t full_batches = num_elements / kBatchSize;
     int32_t remainder = num_elements % kBatchSize;
 
-    UnsignedT* unsigned_values = reinterpret_cast<UnsignedT*>(values);
+    std::vector<UnsignedT> unsigned_values(num_elements);
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference);
 
     // Unpack full batches using SIMD
     for (int32_t batch = 0; batch < full_batches; ++batch) {
-      arrow::internal::unpack(read_ptr, unsigned_values + batch * kBatchSize,
+      arrow::internal::unpack(read_ptr, unsigned_values.data() + batch * kBatchSize,
                               kBatchSize, info.bit_width,
                               batch * kBatchSize * info.bit_width);
     }
@@ -208,9 +213,10 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
       }
     }
 
-    // Add FOR to all values
+    // Add FOR and convert to signed output via SafeCopy
     for (int32_t i = 0; i < num_elements; ++i) {
       unsigned_values[i] += unsigned_for;
+      values[i] = util::SafeCopy<T>(unsigned_values[i]);
     }
 
     int64_t packed_size =
