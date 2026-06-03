@@ -29,6 +29,8 @@
 #include <cstring>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/pfor/pfor_constants.h"
 #include "arrow/util/span.h"
 
@@ -58,7 +60,11 @@ struct PforVectorInfo {
   }
 
   /// \brief Load this info from a byte buffer (little-endian)
-  static PforVectorInfo Load(arrow::util::span<const uint8_t> src) {
+  static Result<PforVectorInfo> Load(arrow::util::span<const uint8_t> src) {
+    if (src.size() < static_cast<size_t>(kStoredSize)) {
+      return Status::Invalid("PFOR vector info buffer too small: ", src.size(),
+                             " < ", kStoredSize);
+    }
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
     std::memcpy(&info.frame_of_reference, ptr, sizeof(T));
@@ -126,9 +132,9 @@ class PforCompression {
   /// \param[out] values output buffer for decoded integers
   /// \param[in] data span over the compressed vector data
   /// \param[in] num_elements number of elements in this vector
-  /// \return number of bytes consumed from data
-  static int64_t DecodeVector(T* values, arrow::util::span<const uint8_t> data,
-                              int32_t num_elements);
+  /// \return number of bytes consumed from data, or error
+  static Result<int64_t> DecodeVector(T* values, arrow::util::span<const uint8_t> data,
+                                      int32_t num_elements);
 
   /// \brief Calculate the serialized size of an encoded vector
   static int64_t SerializedVectorSize(const PforEncodedVector<T>& vec,

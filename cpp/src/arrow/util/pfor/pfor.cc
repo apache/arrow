@@ -35,6 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/span.h"
 
 namespace arrow {
@@ -155,12 +156,19 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 // DecodeVector
 
 template <typename T>
-int64_t PforCompression<T>::DecodeVector(T* values,
-                                         arrow::util::span<const uint8_t> data,
-                                         int32_t num_elements) {
+Result<int64_t> PforCompression<T>::DecodeVector(T* values,
+                                                  arrow::util::span<const uint8_t> data,
+                                                  int32_t num_elements) {
   // Step 1: Read vector info
-  auto info = PforVectorInfo<T>::Load(data);
+  ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
+
+  if (info.bit_width > PforTypeTraits<T>::kMaxBitWidth) {
+    return Status::Invalid("PFOR bit_width out of range: ", info.bit_width);
+  }
+  if (info.num_exceptions < 0) {
+    return Status::Invalid("PFOR num_exceptions negative: ", info.num_exceptions);
+  }
 
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width == 0 && info.num_exceptions == 0) {
