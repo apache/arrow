@@ -106,13 +106,8 @@ is_free_threaded() {
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  if [ "$(is_free_threaded)" = "ON" ] && [[ "${PYTHON:-}" == *"3.13"* ]]; then
-    echo "Free-threaded Python 3.13 build detected"
-    python -m pip install -U -r "${source_dir}/python/requirements-wheel-test-3.13t.txt"
-  else
-    echo "Regular Python build detected"
-    python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
-  fi
+  echo "Regular Python build detected"
+  python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
