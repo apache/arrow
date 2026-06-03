@@ -90,6 +90,30 @@ struct PforEncodedVector {
 };
 
 // ----------------------------------------------------------------------
+// Zero-copy encoded vector view
+
+/// \brief A zero-copy view over a serialized PFOR vector
+///
+/// The packed_values span points directly into the compressed buffer.
+/// Exception positions and values are copied into aligned storage.
+template <typename T>
+struct PforEncodedVectorView {
+  PforVectorInfo<T> info;
+  int32_t num_elements = 0;
+  arrow::util::span<const uint8_t> packed_values;
+  std::vector<int16_t> exception_positions;
+  std::vector<T> exception_values;
+
+  /// \brief Create a zero-copy view from a serialized vector buffer
+  ///
+  /// \param[in] data span over the serialized vector data
+  /// \param[in] num_elements number of elements in this vector
+  /// \return the view, or an error if the buffer is too small
+  static Result<PforEncodedVectorView> LoadView(
+      arrow::util::span<const uint8_t> data, int32_t num_elements);
+};
+
+// ----------------------------------------------------------------------
 // Cost model result
 
 /// \brief Result of the optimal bit width search
