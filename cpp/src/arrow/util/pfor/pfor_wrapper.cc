@@ -31,6 +31,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 namespace util {
@@ -40,20 +41,24 @@ namespace pfor {
 // Header serialization
 
 template <typename T>
-void PforWrapper<T>::StoreHeader(uint8_t* dest, const PforHeader& header) {
-  dest[0] = header.packing_mode;
-  dest[1] = header.log_vector_size;
-  dest[2] = header.value_byte_width;
-  std::memcpy(dest + 3, &header.num_elements, sizeof(int32_t));
+void PforWrapper<T>::StoreHeader(arrow::util::span<uint8_t> dest,
+                                 const PforHeader& header) {
+  uint8_t* ptr = dest.data();
+  ptr[0] = header.packing_mode;
+  ptr[1] = header.log_vector_size;
+  ptr[2] = header.value_byte_width;
+  std::memcpy(ptr + 3, &header.num_elements, sizeof(int32_t));
 }
 
 template <typename T>
-typename PforWrapper<T>::PforHeader PforWrapper<T>::LoadHeader(const uint8_t* src) {
+typename PforWrapper<T>::PforHeader PforWrapper<T>::LoadHeader(
+    arrow::util::span<const uint8_t> src) {
   PforHeader header;
-  header.packing_mode = src[0];
-  header.log_vector_size = src[1];
-  header.value_byte_width = src[2];
-  std::memcpy(&header.num_elements, src + 3, sizeof(int32_t));
+  const uint8_t* ptr = src.data();
+  header.packing_mode = ptr[0];
+  header.log_vector_size = ptr[1];
+  header.value_byte_width = ptr[2];
+  std::memcpy(&header.num_elements, ptr + 3, sizeof(int32_t));
   return header;
 }
 
@@ -79,7 +84,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
   header.log_vector_size = PforConstants::kDefaultLogVectorSize;
   header.value_byte_width = sizeof(T);
   header.num_elements = num_values;
-  StoreHeader(dest, header);
+  StoreHeader(arrow::util::span<uint8_t>(dest, PforConstants::kHeaderSize), header);
   uint8_t* write_ptr = dest + PforConstants::kHeaderSize;
 
   // Step 2: Reserve space for offset array
@@ -105,7 +110,8 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
 
     // Serialize to output
     int64_t bytes_written = PforCompression<T>::SerializeVector(
-        encoded, elements_in_vector, write_ptr);
+        encoded, elements_in_vector,
+        arrow::util::span<uint8_t>(write_ptr, dest + *comp_size - write_ptr));
     write_ptr += bytes_written;
   }
 
@@ -124,7 +130,8 @@ void PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
   const auto* src = reinterpret_cast<const uint8_t*>(comp);
 
   // Step 1: Read header
-  PforHeader header = LoadHeader(src);
+  PforHeader header = LoadHeader(
+      arrow::util::span<const uint8_t>(src, PforConstants::kHeaderSize));
   ARROW_DCHECK(header.packing_mode == PforConstants::kPackingModeForBitPack);
   ARROW_DCHECK(header.value_byte_width == sizeof(T));
 
@@ -148,7 +155,9 @@ void PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
         std::min(vector_size, header.num_elements - start_idx);
 
     PforCompression<T>::DecodeVector(
-        values + start_idx, vector_data, elements_in_vector);
+        values + start_idx,
+        arrow::util::span<const uint8_t>(vector_data, src + comp_size - vector_data),
+        elements_in_vector);
   }
 }
 

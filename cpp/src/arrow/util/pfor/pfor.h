@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/util/pfor/pfor_constants.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 namespace util {
@@ -49,18 +50,20 @@ struct PforVectorInfo {
   int16_t num_exceptions = 0;
 
   /// \brief Store this info to a byte buffer (little-endian)
-  void Store(uint8_t* dest) const {
-    std::memcpy(dest, &frame_of_reference, sizeof(T));
-    dest[sizeof(T)] = bit_width;
-    std::memcpy(dest + sizeof(T) + 1, &num_exceptions, sizeof(int16_t));
+  void Store(arrow::util::span<uint8_t> dest) const {
+    uint8_t* ptr = dest.data();
+    std::memcpy(ptr, &frame_of_reference, sizeof(T));
+    ptr[sizeof(T)] = bit_width;
+    std::memcpy(ptr + sizeof(T) + 1, &num_exceptions, sizeof(int16_t));
   }
 
   /// \brief Load this info from a byte buffer (little-endian)
-  static PforVectorInfo Load(const uint8_t* src) {
+  static PforVectorInfo Load(arrow::util::span<const uint8_t> src) {
     PforVectorInfo info;
-    std::memcpy(&info.frame_of_reference, src, sizeof(T));
-    info.bit_width = src[sizeof(T)];
-    std::memcpy(&info.num_exceptions, src + sizeof(T) + 1, sizeof(int16_t));
+    const uint8_t* ptr = src.data();
+    std::memcpy(&info.frame_of_reference, ptr, sizeof(T));
+    info.bit_width = ptr[sizeof(T)];
+    std::memcpy(&info.num_exceptions, ptr + sizeof(T) + 1, sizeof(int16_t));
     return info;
   }
 
@@ -121,10 +124,11 @@ class PforCompression {
   /// \brief Decode a single vector from compressed data
   ///
   /// \param[out] values output buffer for decoded integers
-  /// \param[in] data pointer to the start of the vector data
+  /// \param[in] data span over the compressed vector data
   /// \param[in] num_elements number of elements in this vector
   /// \return number of bytes consumed from data
-  static int64_t DecodeVector(T* values, const uint8_t* data, int32_t num_elements);
+  static int64_t DecodeVector(T* values, arrow::util::span<const uint8_t> data,
+                              int32_t num_elements);
 
   /// \brief Calculate the serialized size of an encoded vector
   static int64_t SerializedVectorSize(const PforEncodedVector<T>& vec,
@@ -137,7 +141,8 @@ class PforCompression {
   /// \param[out] dest output buffer (must be large enough)
   /// \return number of bytes written
   static int64_t SerializeVector(const PforEncodedVector<T>& vec,
-                                 int32_t num_elements, uint8_t* dest);
+                                 int32_t num_elements,
+                                 arrow::util::span<uint8_t> dest);
 };
 
 }  // namespace pfor

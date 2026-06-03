@@ -26,6 +26,7 @@
 
 #include "arrow/util/pfor/pfor.h"
 #include "arrow/util/pfor/pfor_wrapper.h"
+#include "arrow/util/span.h"
 
 namespace arrow::util::pfor {
 
@@ -72,8 +73,8 @@ TEST(PforVectorInfoTest, Int32RoundTrip) {
   info.num_exceptions = 300;
 
   uint8_t buf[7];
-  info.Store(buf);
-  auto loaded = PforVectorInfo<int32_t>::Load(buf);
+  info.Store(arrow::util::span<uint8_t>(buf, 7));
+  auto loaded = PforVectorInfo<int32_t>::Load(arrow::util::span<const uint8_t>(buf, 7));
 
   EXPECT_EQ(loaded.frame_of_reference, -42);
   EXPECT_EQ(loaded.bit_width, 17);
@@ -87,8 +88,8 @@ TEST(PforVectorInfoTest, Int64RoundTrip) {
   info.num_exceptions = 30000;
 
   uint8_t buf[11];
-  info.Store(buf);
-  auto loaded = PforVectorInfo<int64_t>::Load(buf);
+  info.Store(arrow::util::span<uint8_t>(buf, 11));
+  auto loaded = PforVectorInfo<int64_t>::Load(arrow::util::span<const uint8_t>(buf, 11));
 
   EXPECT_EQ(loaded.frame_of_reference, -123456789012345LL);
   EXPECT_EQ(loaded.bit_width, 48);
