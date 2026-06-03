@@ -45,8 +45,8 @@ class PforWrapper {
   /// \param[in] num_values total number of values
   /// \param[out] comp pointer to output buffer (caller must ensure sufficient size)
   /// \param[in,out] comp_size input: available buffer size; output: bytes written
-  static void Encode(const T* values, uint32_t num_values, char* comp,
-                     size_t* comp_size);
+  static void Encode(const T* values, int32_t num_values, char* comp,
+                     int64_t* comp_size);
 
   /// \brief Decode a PFOR-compressed page
   ///
@@ -54,14 +54,14 @@ class PforWrapper {
   /// \param[in] num_values number of values to decode (from page context)
   /// \param[in] comp pointer to compressed data
   /// \param[in] comp_size size of compressed data
-  static void Decode(T* values, uint32_t num_values, const char* comp,
-                     size_t comp_size);
+  static void Decode(T* values, int32_t num_values, const char* comp,
+                     int64_t comp_size);
 
   /// \brief Get the maximum compressed size for a given number of values
   ///
   /// \param[in] num_values number of integer values
   /// \return maximum possible compressed page size in bytes
-  static size_t GetMaxCompressedSize(uint32_t num_values);
+  static int64_t GetMaxCompressedSize(int32_t num_values);
 
  private:
   /// \brief Page header structure (7 bytes)
@@ -69,10 +69,11 @@ class PforWrapper {
     uint8_t packing_mode;      // 0 = FOR + bit-packing
     uint8_t log_vector_size;   // log2(vector_size)
     uint8_t value_byte_width;  // sizeof(T): 4 or 8
-    uint32_t num_elements;     // total element count
+    int32_t num_elements;      // total element count
   };
 
-  static constexpr uint32_t kVectorSize = PforConstants::kPforVectorSize;
+  static constexpr int32_t kVectorSize =
+      static_cast<int32_t>(PforConstants::kPforVectorSize);
 
   static void StoreHeader(uint8_t* dest, const PforHeader& header);
   static PforHeader LoadHeader(const uint8_t* src);
