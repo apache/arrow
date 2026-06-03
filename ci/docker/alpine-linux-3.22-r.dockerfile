@@ -20,7 +20,7 @@
 # Replicates CRAN's Alpine environment as closely as possible
 
 ARG arch=amd64
-FROM ${arch}/alpine:3.22
+FROM --platform=linux/${arch} alpine:3.22
 
 # Install R and essential build tools
 # Note: bash is needed for Arrow CI scripts, even though CRAN's Alpine uses BusyBox

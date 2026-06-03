@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:22.04
+FROM --platform=linux/${arch} ubuntu:24.04
 
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \

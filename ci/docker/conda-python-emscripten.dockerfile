@@ -17,8 +17,9 @@
 
 ARG repo
 ARG arch
+ARG arch_short
 ARG python="3.12"
-FROM ${repo}:${arch}-conda-python-${python}
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
 ARG pyodide_version="0.26.0"
