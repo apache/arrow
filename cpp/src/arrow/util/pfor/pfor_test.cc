@@ -75,7 +75,8 @@ TEST(PforVectorInfoTest, Int32RoundTrip) {
 
   uint8_t buf[7];
   info.Store(arrow::util::span<uint8_t>(buf, 7));
-  auto loaded = PforVectorInfo<int32_t>::Load(arrow::util::span<const uint8_t>(buf, 7));
+  ASSERT_OK_AND_ASSIGN(auto loaded,
+                       PforVectorInfo<int32_t>::Load(arrow::util::span<const uint8_t>(buf, 7)));
 
   EXPECT_EQ(loaded.frame_of_reference, -42);
   EXPECT_EQ(loaded.bit_width, 17);
@@ -90,7 +91,8 @@ TEST(PforVectorInfoTest, Int64RoundTrip) {
 
   uint8_t buf[11];
   info.Store(arrow::util::span<uint8_t>(buf, 11));
-  auto loaded = PforVectorInfo<int64_t>::Load(arrow::util::span<const uint8_t>(buf, 11));
+  ASSERT_OK_AND_ASSIGN(auto loaded,
+                       PforVectorInfo<int64_t>::Load(arrow::util::span<const uint8_t>(buf, 11)));
 
   EXPECT_EQ(loaded.frame_of_reference, -123456789012345LL);
   EXPECT_EQ(loaded.bit_width, 48);
