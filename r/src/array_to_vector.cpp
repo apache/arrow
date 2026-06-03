@@ -25,7 +25,6 @@
 #include <arrow/util/bitmap_writer.h>
 #include <arrow/util/int_util.h>
 
-#include <cpp11/altrep.hpp>
 #include <type_traits>
 
 #include "./extension.h"

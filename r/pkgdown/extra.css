@@ -14,3 +14,8 @@
 #search-input::placeholder {
   color: #d9d9d9;
 }
+
+/* Add bottom padding to footer to prevent Kapa AI widget from overlaying content */
+footer {
+  padding-bottom: 80px;
+}

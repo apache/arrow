@@ -796,6 +796,41 @@ def test_column_chunk_key_value_metadata(parquet_test_datadir):
     assert key_value_metadata2 is None
 
 
+def test_bloom_filter_offset_in_metadata():
+    # ColumnChunkMetaData.to_dict() when a bloom filter is written.
+    table = pa.table({"a": [f"id_{i}" for i in range(1000)],
+                      "b": list(range(1000))})
+
+    buf = pa.BufferOutputStream()
+    pq.write_table(
+        table,
+        buf,
+        bloom_filter_options={"a": {"ndv": 1000}}  # apply bloom filter on col a
+    )
+    metadata = pq.read_metadata(pa.BufferReader(buf.getvalue()))
+
+    col_a = metadata.row_group(0).column(0)  # bloom filter written
+    col_b = metadata.row_group(0).column(1)  # no bloom filter
+
+    assert col_a.bloom_filter_offset is not None
+    assert isinstance(col_a.bloom_filter_offset, int)
+    assert col_a.bloom_filter_length is not None
+    assert isinstance(col_a.bloom_filter_length, int)
+
+    assert col_b.bloom_filter_offset is None
+    assert col_b.bloom_filter_length is None
+
+    d = col_a.to_dict()
+    assert "bloom_filter_offset" in d
+    assert "bloom_filter_length" in d
+    assert d["bloom_filter_offset"] == col_a.bloom_filter_offset
+    assert d["bloom_filter_length"] == col_a.bloom_filter_length
+
+    d_no_bloom = col_b.to_dict()
+    assert d_no_bloom["bloom_filter_offset"] is None
+    assert d_no_bloom["bloom_filter_length"] is None
+
+
 def test_internal_class_instantiation():
     def msg(c):
         return f"Do not call {c}'s constructor directly"
@@ -814,3 +849,25 @@ def test_internal_class_instantiation():
 
     with pytest.raises(TypeError, match=msg("FileMetaData")):
         pq.FileMetaData()
+
+
+def test_read_schema_uuid_extension_type(tmp_path):
+    # These are the raw 16-byte payloads for
+    # UUID("e460f970-8351-474e-ac7f-a4673e4ba8cb").bytes and
+    # UUID("1e741495-eed5-43ea-9bd7-73dc91424baf").bytes.
+    data = [
+        b'\xe4`\xf9p\x83QGN\xac\x7f\xa4g>K\xa8\xcb',
+        b'\x1et\x14\x95\xee\xd5C\xea\x9b\xd7s\xdc\x91BK\xaf',
+        None,
+    ]
+    table = pa.table([pa.array(data, type=pa.uuid())], names=["ext"])
+
+    file_path = tmp_path / "uuid.parquet"
+    file_path_str = str(file_path)
+    pq.write_table(table, file_path_str, store_schema=False)
+
+    schema_default = pq.read_schema(file_path_str)
+    assert schema_default.field("ext").type == pa.uuid()
+
+    schema_disabled = pq.read_schema(file_path_str, arrow_extensions_enabled=False)
+    assert schema_disabled.field("ext").type == pa.binary(16)

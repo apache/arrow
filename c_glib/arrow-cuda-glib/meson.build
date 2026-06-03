@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -77,7 +75,7 @@ endif
 if have_gi
     gir_dependencies = [declare_dependency(sources: arrow_glib_gir)]
     gir_extra_args = gir_scanner_extra_args + [
-        '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+        '--include-uninstalled=arrow-glib/Arrow-@0@.gir'.format(gi_api_version),
     ]
     arrow_cuda_glib_gir = gnome.generate_gir(
         libarrow_cuda_glib,
@@ -86,7 +84,7 @@ if have_gi
         extra_args: gir_extra_args,
         header: 'arrow-cuda-glib/arrow-cuda-glib.h',
         identifier_prefix: 'GArrowCUDA',
-        includes: ['Arrow-1.0'],
+        includes: ['Arrow-@0@'.format(gi_api_version)],
         kwargs: generate_gi_common_args,
         namespace: 'ArrowCUDA',
         sources: sources + c_headers,

@@ -17,6 +17,7 @@
 
 import pathlib
 import sys
+import types
 
 
 def _is_path_like(path):
@@ -47,8 +48,21 @@ def _stringify_path(path):
 
 
 def _import_pandas():
-    # ARROW-13425: avoid importing PyArrow from Pandas
-    sys.modules['pyarrow'] = None
+    # ARROW-13425: hide the in-tree PyArrow from pandas so it doesn't try
+    # to use a possibly-broken development build.
+    # ARROW-49905: The original workaround sets ``sys.modules['pyarrow'] = None``,
+    # but pandas >= 3.0 has a different import mechanism resulting in
+    # ``AttributeError: 'NoneType' object has no attribute 'Array'``
+    # on the first DataFrame construction (in ``pandas._libs.lib.is_pyarrow_array``).
+    # Instead, we install a minimal stub where ``isinstance(obj, pa.Array)``
+    # check returns False for every real object.
+    if "pyarrow" not in sys.modules:
+        stub = types.ModuleType("pyarrow")
+        stub.Array = type("Array", (), {})
+        stub.ChunkedArray = type("ChunkedArray", (), {})
+        # pandas.compat.pyarrow parses ``pa.__version__`` at import time.
+        stub.__version__ = "0.0.0"
+        sys.modules["pyarrow"] = stub
     import pandas as pd
     return pd
 

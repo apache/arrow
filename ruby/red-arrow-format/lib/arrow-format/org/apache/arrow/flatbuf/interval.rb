@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -13,6 +13,12 @@ module ArrowFormat
       module Arrow
         module Flatbuf
           class Interval < ::FlatBuffers::Table
+            FIELDS = {
+              unit: ::FlatBuffers::Field.new(:unit, 0, 4, :short, 0),
+            }
+
+            Data = define_data_class
+
             def unit
               field_offset = @view.unpack_virtual_offset(4)
               if field_offset.zero?

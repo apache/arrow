@@ -20,6 +20,11 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libparquet_encryption cimport *
+from pyarrow.includes.libparquet cimport (
+    CSecureString,
+    CFileDecryptionPropertiesBuilder,
+    CFileEncryptionPropertiesBuilder,
+)
 from pyarrow._parquet cimport (ParquetCipher,
                                CFileEncryptionProperties,
                                CFileDecryptionProperties,

@@ -645,7 +645,6 @@ def test_roundtrip_device_array_capsule(arr, schema_accessor, bad_type, good_typ
     assert schema_accessor(arr_out) == good_type
 
 
-# TODO: implement requested_schema for stream
 @pytest.mark.parametrize('constructor', [
     pa.RecordBatchReader.from_batches,
     # Use a lambda because we need to re-order the parameters

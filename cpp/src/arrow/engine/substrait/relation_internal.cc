@@ -65,7 +65,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::StartsWith;
 using internal::ToChars;
 using util::UriFromAbsolutePath;
 

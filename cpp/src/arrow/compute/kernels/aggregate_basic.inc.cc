@@ -694,8 +694,8 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
     this->max = std::fmax(this->max, value);
   }
 
-  T min = std::numeric_limits<T>::infinity();
-  T max = -std::numeric_limits<T>::infinity();
+  T min = std::numeric_limits<T>::quiet_NaN();
+  T max = std::numeric_limits<T>::quiet_NaN();
   bool has_nulls = false;
 };
 

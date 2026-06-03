@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -15,6 +15,10 @@ module ArrowFormat
           # sizes allowing for writes in any order and sharing of child values among
           # list values.
           class ListView < ::FlatBuffers::Table
+            FIELDS = {
+            }
+
+            Data = define_data_class
           end
         end
       end

@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -14,6 +14,10 @@ module ArrowFormat
           # Same as Binary, but with 64-bit offsets, allowing to represent
           # extremely large data values.
           class LargeBinary < ::FlatBuffers::Table
+            FIELDS = {
+            }
+
+            Data = define_data_class
           end
         end
       end

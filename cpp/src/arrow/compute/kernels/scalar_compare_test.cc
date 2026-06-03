@@ -681,6 +681,26 @@ TYPED_TEST(TestCompareDecimal, DifferentParameters) {
   }
 }
 
+TYPED_TEST(TestCompareDecimal, ErrorOnNonCastable) {
+  auto dec_ty = std::make_shared<TypeParam>(3, 2);
+  auto dec_arr = ArrayFromJSON(dec_ty, R"([])");
+
+  for (const auto& func :
+       {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
+    SCOPED_TRACE(func);
+    for (const auto& other_ty : {boolean(), fixed_size_binary(42), utf8()}) {
+      SCOPED_TRACE(other_ty->ToString());
+      auto other_arr = ArrayFromJSON(other_ty, R"([])");
+      EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                      ::testing::HasSubstr("has no kernel matching"),
+                                      CallFunction(func, {dec_arr, other_arr}));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                      ::testing::HasSubstr("has no kernel matching"),
+                                      CallFunction(func, {other_arr, dec_arr}));
+    }
+  }
+}
+
 // Helper to organize tests for fixed size binary comparisons
 struct CompareCase {
   std::shared_ptr<DataType> lhs_type;

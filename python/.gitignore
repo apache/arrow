@@ -4,7 +4,6 @@ CMakeCache.txt
 CTestTestfile.cmake
 Makefile
 cmake_install.cmake
-build/
 Testing/
 
 # Python stuff
@@ -24,9 +23,9 @@ cython_debug
 # Bundled headers
 pyarrow/include
 
-# setup.py working directory
+# build directory
 build
-# setup.py dist directory
+# dist directory
 dist
 # Coverage
 .coverage
@@ -37,11 +36,10 @@ htmlcov
 # Cache
 .cache
 
-# benchmark working dir
-.asv
 pyarrow/_table_api.h
 
 # manylinux temporary files
 manylinux1/arrow
 nm_arrow.log
 visible_symbols.log
+

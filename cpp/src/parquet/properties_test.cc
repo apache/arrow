@@ -81,9 +81,13 @@ TEST(TestWriterProperties, AdvancedHandling) {
 }
 
 TEST(TestWriterProperties, SetCodecOptions) {
+  constexpr int ZSTD_c_windowLog = 101;
+
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);
-  builder.compression("zstd", Compression::ZSTD);
+  auto zstd_codec_options = std::make_shared<::arrow::util::ZstdCodecOptions>();
+  zstd_codec_options->compression_context_params = {{ZSTD_c_windowLog, 23}};
+  builder.codec_options("zstd", zstd_codec_options);
   builder.compression("brotli", Compression::BROTLI);
   auto gzip_codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
   gzip_codec_options->compression_level = 5;
@@ -143,8 +147,7 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
     FAIL() << "No exception raised";
   } catch (const ParquetException& e) {
     std::string ex_what =
-        ("Tried reading 15 bytes starting at position 12"
-         " from file but only got 9");
+        "IOError: File too short: expected to be able to read 15 bytes, got 9";
     ASSERT_EQ(ex_what, e.what());
   }
 }

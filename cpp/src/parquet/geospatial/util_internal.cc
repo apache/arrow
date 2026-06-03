@@ -17,6 +17,7 @@
 
 #include "parquet/geospatial/util_internal.h"
 
+#include <span>
 #include <sstream>
 
 #include "arrow/util/endian.h"
@@ -147,11 +148,11 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
 }
 
 void WKBGeometryBounder::MergeGeometry(std::string_view bytes_wkb) {
-  MergeGeometry(::arrow::util::span(reinterpret_cast<const uint8_t*>(bytes_wkb.data()),
-                                    bytes_wkb.size()));
+  MergeGeometry(
+      std::span(reinterpret_cast<const uint8_t*>(bytes_wkb.data()), bytes_wkb.size()));
 }
 
-void WKBGeometryBounder::MergeGeometry(::arrow::util::span<const uint8_t> bytes_wkb) {
+void WKBGeometryBounder::MergeGeometry(std::span<const uint8_t> bytes_wkb) {
   WKBBuffer src{bytes_wkb.data(), static_cast<int64_t>(bytes_wkb.size())};
   MergeGeometryInternal(&src, /*record_wkb_type=*/true);
   if (src.size() != 0) {
@@ -160,7 +161,12 @@ void WKBGeometryBounder::MergeGeometry(::arrow::util::span<const uint8_t> bytes_
   }
 }
 
-void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type) {
+void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type,
+                                               int depth) {
+  if (depth > 128) {
+    throw ParquetException("WKB geometry has too many levels of nesting");
+  }
+
   uint8_t endian = src->ReadUInt8();
 #if ARROW_LITTLE_ENDIAN
   bool swap = endian != 0x01;
@@ -208,7 +214,7 @@ void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_t
     case GeometryType::kGeometryCollection: {
       uint32_t n_parts = src->ReadUInt32(swap);
       for (uint32_t i = 0; i < n_parts; i++) {
-        MergeGeometryInternal(src, /*record_wkb_type*/ false);
+        MergeGeometryInternal(src, /*record_wkb_type*/ false, depth + 1);
       }
       break;
     }

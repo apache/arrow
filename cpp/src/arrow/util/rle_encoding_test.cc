@@ -17,9 +17,11 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <random>
+#include <span>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -35,7 +37,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding_internal.h"
-#include "arrow/util/span.h"
 
 namespace arrow::util {
 
@@ -258,7 +259,8 @@ TEST(BitPacked, BitPackedRun) {
   // 16 values of 1 bit for a total of 16 bits
   const rle_size_t value_count_1 = 16;
   const rle_size_t value_bit_width_1 = 1;
-  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1);
+  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1,
+                                  /* .max_read_bytes= */ -1);
   EXPECT_EQ(run_1.values_count(), value_count_1);
   EXPECT_EQ(run_1.raw_data_size(value_bit_width_1), 2);  // 16 bits fit in 2 bytes
   EXPECT_EQ(run_1.raw_data_ptr(), value.data());
@@ -266,7 +268,8 @@ TEST(BitPacked, BitPackedRun) {
   // 8 values of 3 bits for a total of 24 bits
   const rle_size_t value_count_3 = 8;
   const rle_size_t value_bit_width_3 = 3;
-  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3);
+  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3,
+                                  /* .max_read_bytes= */ -1);
   EXPECT_EQ(run_3.values_count(), value_count_3);
   EXPECT_EQ(run_3.raw_data_size(value_bit_width_3), 3);  // 24 bits fit in 3 bytes
   EXPECT_EQ(run_3.raw_data_ptr(), value.data());
@@ -338,7 +341,8 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
-  const auto run = BitPackedRun(bytes.data(), value_count, bit_width);
+  const auto run =
+      BitPackedRun(bytes.data(), value_count, bit_width, /* .max_read_bytes= */ -1);
 
   auto decoder = BitPackedRunDecoder<T>(run, bit_width);
   std::vector<T> vals = {0, 0};
@@ -459,7 +463,7 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
   EXPECT_EQ(decoded, expected);
 }
 
-void TestRleBitPackedParserError(span<const uint8_t> bytes, rle_size_t bit_width) {
+void TestRleBitPackedParserError(std::span<const uint8_t> bytes, rle_size_t bit_width) {
   auto parser =
       RleBitPackedParser(bytes.data(), static_cast<rle_size_t>(bytes.size()), bit_width);
   EXPECT_FALSE(parser.exhausted());
@@ -479,7 +483,7 @@ void TestRleBitPackedParserError(span<const uint8_t> bytes, rle_size_t bit_width
 
 void TestRleBitPackedParserError(const std::vector<uint8_t>& bytes,
                                  rle_size_t bit_width) {
-  TestRleBitPackedParserError(span(bytes), bit_width);
+  TestRleBitPackedParserError(std::span(bytes), bit_width);
 }
 
 TEST(RleBitPacked, RleBitPackedParser) {
@@ -628,7 +632,7 @@ TEST(RleBitPacked, RleBitPackedParserErrors) {
   // (we pass a span<> on invalid memory, but only the reachable part should be read)
   std::vector<uint8_t> bytes = {0x81, 0x80, 0x80, 0x80, 0x02};
   TestRleBitPackedParserError(
-      /* bytes= */ span(bytes.data(), 1ULL << 30),
+      /* bytes= */ std::span(bytes.data(), 1ULL << 30),
       /* bit_width= */ 1);
 }
 
@@ -912,7 +916,14 @@ TEST(BitRle, Random) {
       }
       parity = !parity;
     }
-    if (!CheckRoundTrip(values, bit_util::NumRequiredBits(values.size()))) {
+    // TODO: We can remove this condition once CRAN upgrades its macOS
+    // SDK from 11.3.
+    // __apple_build_version__ should be defined only on Apple clang
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+    if (!CheckRoundTrip(values, std::log2p1(values.size()))) {
+#else
+    if (!CheckRoundTrip(values, std::bit_width(values.size()))) {
+#endif
       FAIL() << "failing seed: " << seed;
     }
   }

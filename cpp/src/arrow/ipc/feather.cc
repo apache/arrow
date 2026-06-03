@@ -57,6 +57,9 @@ using internal::checked_cast;
 class ExtensionType;
 
 namespace ipc {
+
+using internal::kArrowMagicBytes;
+
 namespace feather {
 
 namespace {
@@ -151,7 +154,8 @@ class ReaderV1 : public Reader {
     int footer_size = magic_size + static_cast<int>(sizeof(uint32_t));
 
     // Now get the footer and verify
-    ARROW_ASSIGN_OR_RAISE(auto buffer, source->ReadAt(size - footer_size, footer_size));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, source->ReadAt(size - footer_size, footer_size,
+                                                      /*allow_short_read=*/false));
 
     if (memcmp(buffer->data() + sizeof(uint32_t), kFeatherV1MagicBytes, magic_size)) {
       return Status::Invalid("Feather file footer incomplete");
@@ -161,9 +165,9 @@ class ReaderV1 : public Reader {
     if (size < magic_size + footer_size + metadata_length) {
       return Status::Invalid("File is smaller than indicated metadata size");
     }
-    ARROW_ASSIGN_OR_RAISE(
-        metadata_buffer_,
-        source->ReadAt(size - footer_size - metadata_length, metadata_length));
+    ARROW_ASSIGN_OR_RAISE(metadata_buffer_,
+                          source->ReadAt(size - footer_size - metadata_length,
+                                         metadata_length, /*allow_short_read=*/false));
 
     metadata_ = fbs::GetCTable(metadata_buffer_->data());
     return ReadSchema();
@@ -270,8 +274,9 @@ class ReaderV1 : public Reader {
 
     // Buffer data from the source (may or may not perform a copy depending on
     // input source)
-    ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          source_->ReadAt(meta->offset(), meta->total_bytes()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto buffer,
+        source_->ReadAt(meta->offset(), meta->total_bytes(), /*allow_short_read=*/false));
 
     int64_t offset = 0;
 
@@ -780,15 +785,16 @@ Result<std::shared_ptr<Reader>> Reader::Open(
   // Determine what kind of file we have. 6 is the max of len(FEA1) and
   // len(ARROW1)
   constexpr int magic_size = 6;
-  ARROW_ASSIGN_OR_RAISE(auto buffer, source->ReadAt(0, magic_size));
+  ARROW_ASSIGN_OR_RAISE(auto buffer,
+                        source->ReadAt(0, magic_size, /*allow_short_read=*/false));
 
   if (memcmp(buffer->data(), kFeatherV1MagicBytes, strlen(kFeatherV1MagicBytes)) == 0) {
     std::shared_ptr<ReaderV1> result = std::make_shared<ReaderV1>();
     // IPC Read options are ignored for ReaderV1
     RETURN_NOT_OK(result->Open(source));
     return result;
-  } else if (memcmp(buffer->data(), internal::kArrowMagicBytes,
-                    strlen(internal::kArrowMagicBytes)) == 0) {
+  } else if (std::string_view(buffer->data_as<char>(), kArrowMagicBytes.size()) ==
+             kArrowMagicBytes) {
     std::shared_ptr<ReaderV2> result = std::make_shared<ReaderV2>();
     RETURN_NOT_OK(result->Open(source, options));
     return result;

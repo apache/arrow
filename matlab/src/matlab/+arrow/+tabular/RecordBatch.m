@@ -65,13 +65,13 @@ classdef RecordBatch < arrow.tabular.Tabular
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.array.internal.getArrayProxyIDs
+            import arrow.array.internal.getProxyIDs
             
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);
             validateColumnNames(opts.ColumnNames, numColumns);
 
-            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            arrayProxyIDs = getProxyIDs(arrowArrays);
             args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
             proxyName = "arrow.tabular.proxy.RecordBatch";
             proxy = arrow.internal.proxy.create(proxyName, args);

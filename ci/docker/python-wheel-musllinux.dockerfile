@@ -92,6 +92,7 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
+        --x-feature=opentelemetry \
         --x-feature=orc \
         --x-feature=parquet \
         --x-feature=s3 && \

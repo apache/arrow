@@ -47,6 +47,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 1
           path: arrow
           repository: apache/arrow
@@ -55,6 +56,7 @@ jobs:
       - name: Checkout Crossbow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           path: crossbow
           repository: ursacomputing/crossbow
@@ -86,7 +88,7 @@ jobs:
             exit 1
           fi
       - name: Cache Repo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: repo
           key: r-nightly-${{ github.run_id }}
@@ -172,13 +174,9 @@ jobs:
           done
 
           # New packages: repo/libarrow/${TARGET}-arrow-${VERSION}.zip
-          prune repo/libarrow/r-libarrow-darwin-arm64-openssl-1.1-* || :
-          prune repo/libarrow/r-libarrow-darwin-arm64-openssl-3.0-* || :
-          prune repo/libarrow/r-libarrow-darwin-x86_64-openssl-1.1-* || :
-          prune repo/libarrow/r-libarrow-darwin-x86_64-openssl-3.0-* || :
-          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-1.0-* || :
-          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-1.1-* || :
-          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-3.0-* || :
+          prune repo/libarrow/r-libarrow-darwin-arm64-* || :
+          prune repo/libarrow/r-libarrow-darwin-x86_64-* || :
+          prune repo/libarrow/r-libarrow-linux-x86_64-* || :
           prune repo/libarrow/r-libarrow-windows-x86_64-* || :
       - name: Update Repository Index
         shell: Rscript {0}

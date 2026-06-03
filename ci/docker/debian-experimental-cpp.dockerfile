@@ -45,10 +45,10 @@ RUN if [ -n "${gcc}" ]; then \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -59,6 +59,7 @@ RUN if [ -n "${gcc}" ]; then \
         libldap-dev \
         liblz4-dev \
         libnghttp2-dev \
+        libopentelemetry-proto-dev \
         libprotobuf-dev \
         libprotoc-dev \
         libpsl-dev \
@@ -72,7 +73,6 @@ RUN if [ -n "${gcc}" ]; then \
         libthrift-dev \
         libutf8proc-dev \
         libxml2-dev \
-        libxsimd-dev \
         libzstd-dev \
         make \
         ninja-build \
@@ -88,6 +88,7 @@ RUN if [ -n "${gcc}" ]; then \
         rapidjson-dev \
         rsync \
         tzdata \
+        tzdata-legacy \
         zlib1g-dev && \
     apt-get install -y -q --no-install-recommends -t experimental \
         clang${llvm_package_suffix} \
@@ -141,4 +142,5 @@ ENV ARROW_ACERO=ON \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

@@ -29,9 +29,10 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/archery/archery/**'
       - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.rb'
-      - 'dev/release/verify-yum.rb'
+      - 'dev/release/verify-apt.sh'
+      - 'dev/release/verify-yum.sh'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     tags:
@@ -43,9 +44,10 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/archery/archery/**'
       - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.rb'
-      - 'dev/release/verify-yum.rb'
+      - 'dev/release/verify-apt.sh'
+      - 'dev/release/verify-yum.sh'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     types:
@@ -61,18 +63,21 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  # Upload to GitHub Release
-  contents: write
+  actions: read
+  contents: read
+  pull-requests: read
 
 jobs:
   check-labels:
     if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
-    secrets: inherit
     with:
       parent-workflow: package_linux
 
   package:
+    permissions:
+      # Upload to GitHub Release
+      contents: write
     name: ${{ matrix.id }}
     runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     needs: check-labels
@@ -80,7 +85,7 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
-    timeout-minutes: 75
+    timeout-minutes: 160
     strategy:
       fail-fast: false
       matrix:
@@ -95,7 +100,6 @@ jobs:
           - amazon-linux-2023-arm64
           - centos-9-stream-amd64
           - centos-9-stream-arm64
-          - centos-7-amd64
           - debian-bookworm-amd64
           - debian-bookworm-arm64
           - debian-trixie-amd64
@@ -106,12 +110,15 @@ jobs:
           - ubuntu-jammy-arm64
           - ubuntu-noble-amd64
           - ubuntu-noble-arm64
+          - ubuntu-resolute-amd64
+          - ubuntu-resolute-arm64
     env:
-      DOCKER_VOLUME_PREFIX: ".docker/"
+      BUILD_DIR: "${{ github.workspace }}/packages.build"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Free up disk space
@@ -179,19 +186,29 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Cache Docker Volumes
-        uses: actions/cache@v4
+      - name: Cache ccache
+        uses: actions/cache@v5
         with:
-          path: .docker
+          path: ${{ env.BUILD_DIR }}/ccache
           key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
           restore-keys: package-linux-${{ matrix.id }}-
-      - name: Set up Ruby
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y \
             rake \
+            reprotest \
             ruby \
             ruby-dev
+      - name: Allow unprivileged user namespaces
+        if: env.TASK_NAMESPACE == 'apt'
+        # Reprotest's domain_host variation uses `unshare -r --uts`,
+        # which writes to /proc/self/uid_map. Ubuntu 24.04 restricts
+        # unprivileged user namespaces via AppArmor by default, so
+        # the call fails. Try to lift the restriction so reprotest
+        # can run the full set of variations.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Prepare apache-arrow-apt-source for arm64
         if: env.ARCHITECTURE == 'arm64'
         run: |
@@ -215,7 +232,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -229,11 +246,11 @@ jobs:
             ${GITHUB_REF_NAME} \
             release_candidate.yml
       - name: Build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pushd dev/tasks/linux-packages
-          rake docker:pull || :
-          rake --trace ${TASK_NAMESPACE}:build BUILD_DIR=build
-          popd
+          rake -C dev/tasks/linux-packages docker:pull || :
+          rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -241,9 +258,7 @@ jobs:
           github.event_name == 'push' &&
           github.ref_name == 'main'
         run: |
-          pushd dev/tasks/linux-packages
-          rake docker:push
-          popd
+          rake -C dev/tasks/linux-packages docker:push
       - name: Build artifact tarball
         run: |
           mkdir -p "${DISTRIBUTION}"
@@ -274,7 +289,7 @@ jobs:
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
           dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
       - name: Upload the artifacts to the job
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.id }}
           path: ${{ matrix.id }}.tar.gz*
@@ -319,10 +334,27 @@ jobs:
           pushd dev/tasks/linux-packages
           rake --trace ${TASK_NAMESPACE}:test
           popd
+      - name: Verify Reproducibility
+        if: env.TASK_NAMESPACE == 'apt'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rake -C dev/tasks/linux-packages docker:pull || :
+          # Validate reproducibility. Reprotest runs the build twice
+          # inside its own tempdir and doesn't copy artifacts back,
+          # so this is purely a verification step.
+          reprotest \
+            --vary=-fileordering \
+            --build-command \
+              "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+            "${PWD}" \
+            "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
 
   report-package-linux:
     if: github.event_name == 'schedule' && always()
     needs:
       - package
     uses: ./.github/workflows/report_ci.yml
-    secrets: inherit
+    secrets:
+      ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+      ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}

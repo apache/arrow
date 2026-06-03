@@ -111,7 +111,7 @@ class SimpleExtensionType : public ExtensionType {
     void Fail() { params_ = std::nullopt; }
 
     void Init(std::string_view class_name, std::string_view repr, size_t num_properties) {
-      if (!::arrow::internal::StartsWith(repr, class_name)) return Fail();
+      if (!repr.starts_with(class_name)) return Fail();
 
       repr = repr.substr(class_name.size());
       if (repr.empty()) return Fail();

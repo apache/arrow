@@ -58,7 +58,7 @@ Gem::Specification.new do |spec|
     spec.requirements << "jar org.apache.arrow, arrow-vector, #{spec.version}"
     spec.requirements << "jar org.apache.arrow, arrow-memory-netty, #{spec.version}"
   else
-    spec.add_runtime_dependency("extpp", ">= 0.1.1")
+    spec.add_runtime_dependency("extpp", ">= 0.1.2")
     spec.add_runtime_dependency("gio2", ">= 4.2.3")
     spec.add_runtime_dependency("pkg-config")
 
@@ -97,6 +97,8 @@ Gem::Specification.new do |spec|
       ["debian", "libarrow-glib-dev"],
 
       ["fedora", "libarrow-glib-devel"],
+
+      ["homebrew", "apache-arrow-glib"],
 
       # Try without additional repository
       ["rhel", "arrow-glib-devel"],

@@ -53,19 +53,19 @@ class ARROW_EXPORT ColumnBuilder {
   /// Construct a strictly-typed ColumnBuilder.
   static Result<std::shared_ptr<ColumnBuilder>> Make(
       MemoryPool* pool, const std::shared_ptr<DataType>& type, int32_t col_index,
-      const ConvertOptions& options,
-      const std::shared_ptr<arrow::internal::TaskGroup>& task_group);
+      std::shared_ptr<ConvertOptions> options,
+      std::shared_ptr<arrow::internal::TaskGroup> task_group);
 
   /// Construct a type-inferring ColumnBuilder.
   static Result<std::shared_ptr<ColumnBuilder>> Make(
-      MemoryPool* pool, int32_t col_index, const ConvertOptions& options,
-      const std::shared_ptr<arrow::internal::TaskGroup>& task_group);
+      MemoryPool* pool, int32_t col_index, std::shared_ptr<ConvertOptions> options,
+      std::shared_ptr<arrow::internal::TaskGroup> task_group);
 
   /// Construct a ColumnBuilder for a column of nulls
   /// (i.e. not present in the CSV file).
   static Result<std::shared_ptr<ColumnBuilder>> MakeNull(
       MemoryPool* pool, const std::shared_ptr<DataType>& type,
-      const std::shared_ptr<arrow::internal::TaskGroup>& task_group);
+      std::shared_ptr<arrow::internal::TaskGroup> task_group);
 
  protected:
   explicit ColumnBuilder(std::shared_ptr<arrow::internal::TaskGroup> task_group)

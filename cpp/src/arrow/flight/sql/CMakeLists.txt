@@ -95,7 +95,7 @@ endif()
 
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts)
-  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_FLAGS "/wd4267")
+  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_OPTIONS "/wd4267")
 endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)

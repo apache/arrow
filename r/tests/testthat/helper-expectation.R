@@ -24,11 +24,6 @@ expect_equal_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), as.data.frame(y), ...)
 }
 
-expect_r6_class <- function(object, class) {
-  expect_s3_class(object, class)
-  expect_s3_class(object, "R6")
-}
-
 #' Mask `testthat::expect_equal()` in order to compare ArrowObjects using their
 #' `Equals` methods from the C++ library.
 expect_equal <- function(object, expected, ignore_attr = FALSE, ..., info = NULL, label = NULL) {

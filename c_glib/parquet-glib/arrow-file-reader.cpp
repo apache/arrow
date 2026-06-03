@@ -182,6 +182,24 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
 }
 
 /**
+ * gparquet_arrow_file_reader_close:
+ * @reader: A #GParquetArrowFileReader.
+ *
+ * Close the reader.
+ *
+ * Since: 23.0.0
+ */
+void
+gparquet_arrow_file_reader_close(GParquetArrowFileReader *reader)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+  auto parquet_reader = parquet_arrow_file_reader->parquet_reader();
+  if (parquet_reader) {
+    parquet_reader->Close();
+  }
+}
+
+/**
  * gparquet_arrow_file_reader_read_table:
  * @reader: A #GParquetArrowFileReader.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -194,10 +212,11 @@ GArrowTable *
 gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader, GError **error)
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = parquet_arrow_file_reader->ReadTable(&arrow_table);
-  if (garrow_error_check(error, status, "[parquet][arrow][file-reader][read-table]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto arrow_table_result = parquet_arrow_file_reader->ReadTable();
+  if (garrow::check(error,
+                    arrow_table_result,
+                    "[parquet][arrow][file-reader][read-table]")) {
+    return garrow_table_new_raw(&(*arrow_table_result));
   } else {
     return NULL;
   }
@@ -227,8 +246,7 @@ gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
 {
   const gchar *tag = "[parquet][arrow][file-reader][read-row-group]";
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::Table> arrow_table;
-  arrow::Status status;
+  arrow::Result<std::shared_ptr<arrow::Table>> arrow_table_result;
   if (column_indices) {
     const auto n_columns =
       parquet_arrow_file_reader->parquet_reader()->metadata()->num_columns();
@@ -249,14 +267,13 @@ gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
       }
       parquet_column_indices.push_back(column_index);
     }
-    status = parquet_arrow_file_reader->ReadRowGroup(row_group_index,
-                                                     parquet_column_indices,
-                                                     &arrow_table);
+    arrow_table_result =
+      parquet_arrow_file_reader->ReadRowGroup(row_group_index, parquet_column_indices);
   } else {
-    status = parquet_arrow_file_reader->ReadRowGroup(row_group_index, &arrow_table);
+    arrow_table_result = parquet_arrow_file_reader->ReadRowGroup(row_group_index);
   }
-  if (garrow_error_check(error, status, tag)) {
-    return garrow_table_new_raw(&arrow_table);
+  if (garrow::check(error, arrow_table_result, tag)) {
+    return garrow_table_new_raw(&(*arrow_table_result));
   } else {
     return NULL;
   }

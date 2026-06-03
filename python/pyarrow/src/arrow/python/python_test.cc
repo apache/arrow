@@ -32,6 +32,7 @@
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy_internal.h"
 #include "arrow/python/numpy_interop.h"
 #include "arrow/python/python_test.h"
 #include "arrow/python/python_to_arrow.h"
@@ -847,6 +848,21 @@ Status TestUpdateWithNaN() {
   return Status::OK();
 }
 
+Status TestGetNumPyTypeName() {
+  ASSERT_EQ(GetNumPyTypeName(NPY_BOOL), "bool");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT8), "int8");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT16), "int16");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT32), "int32");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT64), "int64");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT8), "uint8");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT16), "uint16");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT32), "uint32");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT64), "uint64");
+  ASSERT_EQ(GetNumPyTypeName(NPY_FLOAT32), "float32");
+  ASSERT_EQ(GetNumPyTypeName(NPY_FLOAT64), "float64");
+  return Status::OK();
+}
+
 }  // namespace
 
 std::vector<TestCase> GetCppTestCases() {
@@ -886,6 +902,7 @@ std::vector<TestCase> GetCppTestCases() {
        TestMixedPrecisionAndScaleSequenceConvert},
       {"test_simple_inference", TestSimpleInference},
       {"test_update_with_nan", TestUpdateWithNaN},
+      {"test_get_numpy_type_name", TestGetNumPyTypeName},
   };
 }
 

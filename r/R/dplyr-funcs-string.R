@@ -259,11 +259,31 @@ register_bindings_string_regex <- function() {
 
   register_binding(
     "stringr::str_like",
-    function(string, pattern, ignore_case = TRUE) {
+    function(string, pattern, ignore_case) {
+      # TODO: Remove ignore_case parameter after stringr removes it (stringr >= 2.0.0?)
+      if (!missing(ignore_case)) {
+        warning(
+          "The `ignore_case` argument of `str_like()` is deprecated as of stringr 1.6.0.\n",
+          "`str_like()` is always case sensitive.\n",
+          "Use `str_ilike()` for case insensitive string matching.",
+          call. = FALSE
+        )
+      }
       Expression$create(
         "match_like",
         string,
-        options = list(pattern = pattern, ignore_case = ignore_case)
+        options = list(pattern = pattern, ignore_case = FALSE)
+      )
+    }
+  )
+
+  register_binding(
+    "stringr::str_ilike",
+    function(string, pattern) {
+      Expression$create(
+        "match_like",
+        string,
+        options = list(pattern = pattern, ignore_case = TRUE)
       )
     }
   )
@@ -461,18 +481,25 @@ register_bindings_string_other <- function() {
       if (allowNA) {
         arrow_not_supported("allowNA = TRUE")
       }
-      if (is.na(keepNA)) {
+      keepNA_is_na <- is.na(keepNA)
+      if (keepNA_is_na) {
         keepNA <- !identical(type, "width")
       }
-      if (!keepNA) {
-        # TODO: I think there is a fill_null kernel we could use, set null to 2
+      if (keepNA && !keepNA_is_na) {
         arrow_not_supported("keepNA = TRUE")
       }
       if (identical(type, "bytes")) {
-        Expression$create("binary_length", x)
+        result <- Expression$create("binary_length", x)
       } else {
-        Expression$create("utf8_length", x)
+        result <- Expression$create("utf8_length", x)
       }
+
+      if (!keepNA) {
+        # When keepNA = FALSE, NA values should return 2 (length of "NA" as string)
+        result <- Expression$create("coalesce", result, Expression$scalar(2L))
+      }
+
+      result
     },
     notes = "`allowNA = TRUE` and `keepNA = TRUE` not supported"
   )

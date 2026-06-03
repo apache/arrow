@@ -296,8 +296,8 @@ test_that("case_when()", {
   )
   expect_arrow_eval_error(
     case_when(int > 5 ~ 1, .default = c(0, 1)),
-    "`.default` must have size 1, not size 2",
-    class = "validation_error"
+    "`.default` must be size 1; vectors of length > 1 not supported in Arrow",
+    class = "arrow_not_supported"
   )
 
   expect_arrow_eval_error(
@@ -515,5 +515,364 @@ test_that("external objects are found when they're not in the global environment
       mutate(x2 = if_else(x == pattern, "foo", NA_character_)) |>
       collect(),
     tibble(x = c("a", "b"), x2 = c("foo", NA))
+  )
+})
+
+test_that("when_any()", {
+  # combines with OR (3 inputs)
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_any(lgl, false, int > 5)) |>
+      collect(),
+    tbl
+  )
+
+  # na_rm=TRUE treats NA as FALSE
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_any(lgl, false, na_rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+
+  # works in filter()
+  compare_dplyr_binding(
+    .input |>
+      filter(when_any(int > 5, dbl > 3)) |>
+      collect(),
+    tbl
+  )
+
+  # single input
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_any(lgl)) |>
+      collect(),
+    tbl
+  )
+
+  # size not supported
+  expect_arrow_eval_error(
+    when_any(lgl, false, size = 10),
+    "`when_any\\(\\)` with `size` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+})
+
+test_that("when_all()", {
+  # combines with AND (3 inputs)
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_all(lgl, int > 0, dbl > 1)) |>
+      collect(),
+    tbl
+  )
+
+  # na_rm=TRUE treats NA as TRUE
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_all(lgl, false, na_rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+
+  # works in filter()
+  compare_dplyr_binding(
+    .input |>
+      filter(when_all(int > 5, dbl > 3)) |>
+      collect(),
+    tbl
+  )
+
+  # single input
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_all(lgl)) |>
+      collect(),
+    tbl
+  )
+
+  # size not supported
+  expect_arrow_eval_error(
+    when_all(lgl, false, size = 10),
+    "`when_all\\(\\)` with `size` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+})
+
+test_that("replace_when()", {
+  # replaces matching values, keeps original otherwise
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, int > 5 ~ 100L)) |>
+      collect(),
+    tbl
+  )
+
+  # multiple conditions
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, int > 7 ~ 100L, int < 3 ~ 0L)) |>
+      collect(),
+    tbl
+  )
+
+  # overlapping conditions - first match wins
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, int > 3 ~ 100L, int > 5 ~ 200L)) |>
+      collect(),
+    tbl
+  )
+
+  # no formulas returns x unchanged
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int)) |>
+      collect(),
+    tbl
+  )
+
+  # Conditions on LHS of formulas are compacted out
+  condition <- FALSE
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, if (condition) int > 5 ~ 100L, int < 3 ~ 0L)) |>
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    replace_when(int, TRUE),
+    "Each argument to replace_when\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_when(int, ~100L),
+    "Each argument to replace_when\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_when(int, 0L ~ 100L),
+    "Left side of each formula in replace_when\\(\\) must be a logical expression",
+    class = "validation_error"
+  )
+})
+
+test_that("replace_values()", {
+  # formula interface
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, "a" ~ "A", "b" ~ "B")) |>
+      collect(),
+    tbl
+  )
+
+  # from/to interface
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = c("a", "b"), to = c("A", "B"))) |>
+      collect(),
+    tbl
+  )
+
+  # from/to with list of vectors - multiple values map to single replacement
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = list(c("a", "b"), "c"), to = c("AB", "C"))) |>
+      collect(),
+    tbl
+  )
+
+  # unmatched values kept
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, "a" ~ "A")) |>
+      collect(),
+    tbl
+  )
+
+  # works with numeric values
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(int, 1L ~ 100L, 2L ~ 200L)) |>
+      collect(),
+    tbl
+  )
+
+  # explicit NA matching with formula
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, "a" ~ "A", NA ~ "missing")) |>
+      collect(),
+    tbl
+  )
+
+  # explicit NA matching with from/to
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = c("a", NA), to = c("A", "missing"))) |>
+      collect(),
+    tbl
+  )
+
+  # multiple values on LHS matches any
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, c("a", "b") ~ "AB")) |>
+      collect(),
+    tbl
+  )
+
+  # multiple values on LHS including NA matches any including NA
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, c(NA, "a") ~ "matched")) |>
+      collect(),
+    tbl
+  )
+
+  # from/to with list containing NA matches NA too
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = list(c(NA, "a"), "b"), to = c("matched", "B"))) |>
+      collect(),
+    tbl
+  )
+
+  # no replacements returns x unchanged
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr)) |>
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    replace_values(chr, "A"),
+    "Each argument to replace_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_values(chr, ~"A"),
+    "Each argument to replace_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_values(chr, "a" ~ "A", from = "b"),
+    "Can't use both `...` and `from`/`to` in replace_values\\(\\)",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_values(chr, from = "a"),
+    "`to` must be provided when using `from`",
+    class = "validation_error"
+  )
+})
+
+test_that("recode_values()", {
+  # formula interface with default NA
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, "a" ~ "A", "b" ~ "B")) |>
+      collect(),
+    tbl
+  )
+
+  # from/to interface
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, from = c("a", "b"), to = c("A", "B"))) |>
+      collect(),
+    tbl
+  )
+
+  # from/to with list of vectors - multiple values map to single replacement
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, from = list(c("a", "b"), "c"), to = c("AB", "C"))) |>
+      collect(),
+    tbl
+  )
+
+  # custom default
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, "a" ~ "A", default = "other")) |>
+      collect(),
+    tbl
+  )
+
+  # works with numeric values
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(int, 1L ~ 100L, 2L ~ 200L)) |>
+      collect(),
+    tbl
+  )
+
+  # NA input with default - NA also becomes default
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, "a" ~ "A", "b" ~ "B", default = "other")) |>
+      collect(),
+    tbl
+  )
+
+  # multiple values on LHS matches any
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, c("a", "b") ~ "AB", default = "other")) |>
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    recode_values(chr),
+    "`\\.\\.\\.` can't be empty",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "A"),
+    "Each argument to recode_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, ~"A"),
+    "Each argument to recode_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", from = "b"),
+    "Can't use both `...` and `from`/`to` in recode_values\\(\\)",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, from = "a"),
+    "`to` must be provided when using `from`",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", ptype = character()),
+    "`recode_values\\(\\)` with `ptype` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", unmatched = "error"),
+    "`recode_values\\(\\)` with `unmatched` other than \"default\" not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", unmatched = "wat"),
+    "`recode_values\\(\\)` with `unmatched` other than \"default\" not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", default = c("x", "y")),
+    "`default` must be size 1; vectors of length > 1 not supported in Arrow",
+    class = "arrow_not_supported"
   )
 })

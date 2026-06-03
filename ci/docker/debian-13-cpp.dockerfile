@@ -42,6 +42,7 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        cargo \
         ccache \
         clang-${llvm} \
         cmake \
@@ -52,37 +53,29 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
-        libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
         libgoogle-glog-dev \
         libgrpc++-dev \
-        libidn2-dev \
-        libkrb5-dev \
-        libldap-dev \
         liblz4-dev \
-        libnghttp2-dev \
+        libopentelemetry-proto-dev \
         libprotobuf-dev \
         libprotoc-dev \
-        libpsl-dev \
         libre2-dev \
-        librtmp-dev \
         libsnappy-dev \
         libsqlite3-dev \
-        libssh-dev \
-        libssh2-1-dev \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
         libxml2-dev \
-        libxsimd-dev \
         libzstd-dev \
         llvm-${llvm}-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
         npm \
@@ -95,7 +88,9 @@ RUN apt-get update -y -q && \
         python3-venv \
         rapidjson-dev \
         rsync \
+        rustc \
         tzdata \
+        tzdata-legacy \
         zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -130,6 +125,7 @@ ENV ARROW_ACERO=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
@@ -142,4 +138,5 @@ ENV ARROW_ACERO=ON \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

@@ -103,15 +103,15 @@ TEST(TestStringOps, TestChrBigInt) {
   out = chr_int64(ctx_ptr, -66, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\xBE");
 
-  //€
+  // €
   out = chr_int32(ctx_ptr, 128, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\x80");
 
-  //œ
+  // œ
   out = chr_int64(ctx_ptr, 156, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\x9C");
 
-  //ÿ
+  // ÿ
   out = chr_int32(ctx_ptr, 255, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\xFF");
 
@@ -387,6 +387,13 @@ TEST(TestStringOps, TestRepeat) {
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
   ctx.Reset();
+
+  out_str = repeat_utf8_int32(ctx_ptr, "aa", 2,
+                              std::numeric_limits<int32_t>::max() / 2 + 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {
@@ -408,6 +415,10 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
 
   out_str = castVARCHAR_bool_int64(ctx_ptr, false, 5, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "false");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_bool_int64(ctx_ptr, true, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
 
   castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
@@ -1311,6 +1322,99 @@ TEST(TestStringOps, TestLpadString) {
 
   out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "x", 1, 65536, "😀", 4, &out_len);
+  EXPECT_EQ(out_len, 65535 * 4 + 1);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[out_len - 1], 'x');
+  EXPECT_EQ(std::string_view(out_str, 4), "😀");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "A", 1, 65536, "哈", 3, &out_len);
+  EXPECT_EQ(out_len, 65535 * 3 + 1);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[out_len - 1], 'A');
+  EXPECT_EQ(std::string_view(out_str, 3), "哈");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, ".", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), ".X");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 65536, "@", 1, &out_len);
+  EXPECT_EQ(out_len, 65536);
+  for (int i = 0; i < 100; i++) {
+    EXPECT_EQ(out_str[i], '@') << "Mismatch at position " << i;
+  }
+  EXPECT_EQ(out_str[out_len - 1], 'Z');
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "END", 3, 11, "ab", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ababababEND");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "END", 3, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcaEND");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 5, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 9);
+  EXPECT_EQ(std::string(out_str, out_len), "αβαβX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 4, "中文", 6, &out_len);
+  EXPECT_EQ(out_len, 10);
+  EXPECT_EQ(std::string(out_str, out_len), "中文中Y");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 4, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 7, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 13, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcabcabcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcabcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "E", 1, 129, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 129);
+  EXPECT_EQ(out_str[0], 'a');
+  EXPECT_EQ(out_str[1], 'b');
+  EXPECT_EQ(out_str[126], 'a');
+  EXPECT_EQ(out_str[127], 'b');
+  EXPECT_EQ(out_str[128], 'E');
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "E", 1, 127, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 127);
+  EXPECT_EQ(out_str[0], 'a');
+  EXPECT_EQ(out_str[125], 'b');
+  EXPECT_EQ(out_str[126], 'E');
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, "abc", 3, &out_len);
+  EXPECT_EQ(out_len, 2);
+  EXPECT_EQ(std::string(out_str, out_len), "aX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 3, "abcde", 5, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "abY");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 2, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "αZ");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "A", 1, 2, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 4);
+  EXPECT_EQ(std::string(out_str, out_len), "中A");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "B", 1, 3, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "中文B");
+
+  std::string large_text(5000, 'X');
+  std::string large_fill;
+  for (int i = 0; i < 50; ++i) {
+    large_fill += "α";
+  }
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, large_text.c_str(), 5000, 5001,
+                                 large_fill.c_str(), 100, &out_len);
+  EXPECT_EQ(out_len, 5002);
+  EXPECT_EQ(std::string(out_str, 2), "α");
+  EXPECT_EQ(std::string(out_str + 2, 5000), large_text);
 }
 
 TEST(TestStringOps, TestRpadString) {
@@ -1389,6 +1493,99 @@ TEST(TestStringOps, TestRpadString) {
 
   out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "x", 1, 65536, "😀", 4, &out_len);
+  EXPECT_EQ(out_len, 1 + 65535 * 4);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[0], 'x');
+  EXPECT_EQ(std::string_view(out_str + out_len - 4, 4), "😀");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "A", 1, 65536, "哈", 3, &out_len);
+  EXPECT_EQ(out_len, 1 + 65535 * 3);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[0], 'A');
+  EXPECT_EQ(std::string_view(out_str + out_len - 3, 3), "哈");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, ".", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "X.");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 65536, "@", 1, &out_len);
+  EXPECT_EQ(out_len, 65536);
+  EXPECT_EQ(out_str[0], 'Z');
+  for (int i = 1; i < 100; i++) {
+    EXPECT_EQ(out_str[i], '@') << "Mismatch at position " << i;
+  }
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "BEG", 3, 11, "ab", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "BEGabababab");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "BEG", 3, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "BEGabcabca");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 5, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 9);
+  EXPECT_EQ(std::string(out_str, out_len), "Xαβαβ");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 4, "中文", 6, &out_len);
+  EXPECT_EQ(out_len, 10);
+  EXPECT_EQ(std::string(out_str, out_len), "Y中文中");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 4, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 7, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabcabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 13, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabcabcabcabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabcabcabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "S", 1, 129, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 129);
+  EXPECT_EQ(out_str[0], 'S');
+  EXPECT_EQ(out_str[1], 'a');
+  EXPECT_EQ(out_str[2], 'b');
+  EXPECT_EQ(out_str[127], 'a');
+  EXPECT_EQ(out_str[128], 'b');
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "S", 1, 127, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 127);
+  EXPECT_EQ(out_str[0], 'S');
+  EXPECT_EQ(out_str[125], 'a');
+  EXPECT_EQ(out_str[126], 'b');
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, "abc", 3, &out_len);
+  EXPECT_EQ(out_len, 2);
+  EXPECT_EQ(std::string(out_str, out_len), "Xa");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 3, "abcde", 5, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "Yab");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 2, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "Zα");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "A", 1, 2, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 4);
+  EXPECT_EQ(std::string(out_str, out_len), "A中");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "B", 1, 3, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "B中文");
+
+  std::string large_text(5000, 'X');
+  std::string large_fill;
+  for (int i = 0; i < 50; ++i) {
+    large_fill += "α";
+  }
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, large_text.c_str(), 5000, 5001,
+                                 large_fill.c_str(), 100, &out_len);
+  EXPECT_EQ(out_len, 5002);
+  EXPECT_EQ(std::string(out_str, 5000), large_text);
+  EXPECT_EQ(std::string(out_str + 5000, 2), "α");
 }
 
 TEST(TestStringOps, TestRtrim) {
@@ -1883,10 +2080,6 @@ TEST(TestStringOps, TestBinaryString) {
   std::string output = std::string(out_str, out_len);
   EXPECT_EQ(output, "TestString");
 
-  out_str = binary_string(ctx_ptr, "", 0, &out_len);
-  output = std::string(out_str, out_len);
-  EXPECT_EQ(output, "");
-
   out_str = binary_string(ctx_ptr, "T", 1, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "T");
@@ -1910,6 +2103,22 @@ TEST(TestStringOps, TestBinaryString) {
   out_str = binary_string(ctx_ptr, "\\x4f\\x4D", 8, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "OM");
+}
+
+TEST(TestStringOps, TestBinaryStringNull) {
+  // This test is only valid if it is the first to trigger a memory allocation in the
+  // context.
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  std::string output;
+
+  out_str = binary_string(ctx_ptr, "", 0, &out_len);
+  ASSERT_FALSE(ctx.has_error());
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestSplitPart) {

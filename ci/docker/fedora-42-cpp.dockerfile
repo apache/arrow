@@ -51,6 +51,7 @@ RUN dnf update -y && \
         llvm-devel \
         lz4-devel \
         make \
+        mold \
         ninja-build \
         openssl-devel \
         patch \
@@ -65,7 +66,6 @@ RUN dnf update -y && \
         utf8proc-devel \
         wget \
         which \
-        xsimd-devel \
         zlib-devel
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
@@ -94,6 +94,7 @@ ENV ARROW_ACERO=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
@@ -109,4 +110,5 @@ ENV ARROW_ACERO=ON \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    PYARROW_TEST_GANDIVA=OFF
+    PYARROW_TEST_GANDIVA=OFF \
+    xsimd_SOURCE=BUNDLED

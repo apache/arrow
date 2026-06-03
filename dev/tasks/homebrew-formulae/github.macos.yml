@@ -28,6 +28,9 @@ jobs:
 
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
+        env:
+          # Workaround for bottle download failures on GitHub Actions runners
+          HOMEBREW_NO_INSTALL_FROM_API: 1
         run: |
           brew install -v --HEAD apache-arrow
           brew test apache-arrow

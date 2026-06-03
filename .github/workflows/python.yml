@@ -30,6 +30,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
 
 concurrency:
@@ -60,6 +62,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         name:
           - conda-python-docs
@@ -69,10 +72,10 @@ jobs:
           - conda-python-3.12-no-numpy
         include:
           - name: conda-python-docs
-            cache: conda-python-3.10
+            cache: conda-python-3.11
             image: conda-python-docs
-            title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
-            python: "3.10"
+            title: AMD64 Conda Python 3.11 Sphinx & Numpydoc
+            python: "3.11"
           - name: conda-python-3.11-nopandas
             cache: conda-python-3.11
             image: conda-python
@@ -105,10 +108,11 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
@@ -145,12 +149,15 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         include:
           - architecture: AMD64
             macos-version: "15-intel"
+            large-memory-tests: "OFF"
           - architecture: ARM64
             macos-version: "14"
+            large-memory-tests: "ON"
     env:
       ARROW_HOME: /tmp/local
       ARROW_AZURE: ON
@@ -173,13 +180,15 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
-      PYARROW_TEST_LARGE_MEMORY: ON
+      PYARROW_TEST_LARGE_MEMORY: ${{ matrix.large-memory-tests }}
+      PYTEST_ARGS: "-n auto --durations=40"
       # Current oldest supported version according to https://endoflife.date/macos
       MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
@@ -189,13 +198,10 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
+          # Workaround for https://github.com/grpc/grpc/issues/41755
+          # Remove once the runner ships a newer Homebrew.
+          brew update
           brew bundle --file=cpp/Brewfile
-
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
@@ -211,7 +217,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
@@ -259,6 +265,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
@@ -280,7 +287,7 @@ jobs:
           echo "CCACHE_DIR=$(ccache --get-config cache_dir)" >> $GITHUB_ENV
           echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
@@ -290,8 +297,10 @@ jobs:
           CACHE_VERSION: "2025-09-16.1"
       - name: Build Arrow C++ and PyArrow
         shell: cmd
+        env:
+          USR_WINDOWS_DIR: ${{ steps.path-info.outputs.usr-windows-dir }}
         run: |
-          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
+          call "ci\scripts\python_build.bat" %cd% "%USR_WINDOWS_DIR%"
       - name: Test PyArrow
         shell: cmd
         run: |

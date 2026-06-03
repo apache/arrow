@@ -17,7 +17,71 @@
   under the License.
 -->
 
-# arrow 22.0.0.9000
+# arrow 24.0.0.9000
+
+# arrow 24.0.0
+
+# arrow 24.0.0
+
+## New features
+
+- `dplyr::when_any()` and `dplyr::when_all()` helper bindings (#49535).
+- `dplyr::filter_out()` binding (@larry77, #49256).
+- `dplyr::recode_values()`, `dplyr::replace_values()`, and `dplyr::replace_when()` bindings (#49536).
+- `write_dataset()` gains a `preserve_order` argument to preserve row ordering within partitions (@marberts, #49343).
+
+## Minor improvements and fixes
+
+- Zero-length `POSIXct` objects with integer storage (as created by `as.POSIXct(NULL)` in R 4.5.2+) are now correctly mapped to timestamp type instead of integer (#49619).
+- `all.equal()` S3 method is now correctly registered (@MichaelChirico, #49481).
+
+## Installation
+
+- arm64 (aarch64) Linux binaries are now available (#48574).
+
+# arrow 23.0.1.2
+
+## Minor improvements and fixes
+
+- Update use of internal function for non-API call CRAN requirements (#49530)
+
+# arrow 23.0.1.1
+
+## Minor improvements and fixes
+
+- Refine checks for ensuring building with macOS libtool instead of GNU libtool (#49370)
+
+# arrow 23.0.1
+
+## Minor improvements and fixes
+
+- Fix C++20 compatibility issue on macOS (#49221).
+- Turn off GCS support by default on macOS; see `vignette("install", package = "arrow")` for details on enabling it (#49068, #48995).
+
+# arrow 23.0.0
+
+## New features
+
+- `nchar()` now supports `keepNA = FALSE` (@HyukjinKwon, #48665).
+- `stringr::str_ilike()` binding for case-insensitive pattern matching (#48262).
+
+## Minor improvements and fixes
+
+- Fix slow performance reading files with large number of columns (#48104).
+- Fix segfault when calling `concat_tables()` on a `RecordBatch` (#47885).
+- Writing partitioned datasets on S3 no longer requires `ListBucket` permissions (@HaochengLIU, #47599).
+
+## Installation
+
+- As of version 23.0.0, `arrow` requires C++20 to build from source. This means that you may need a newer compiler than the default on some older systems. See `vignette("install", package = "arrow")` for guidance.
+
+# arrow 22.0.0.1
+
+## Minor improvements and fixes
+
+- Turn off GCS support by default; bundle if enabled (#48343)
+- Ensure `MAKEFLAGS` being passed during compilation (#48341)
+- Update bundled RE2 to enable Alpine Linux builds (#48011)
 
 # arrow 22.0.0
 

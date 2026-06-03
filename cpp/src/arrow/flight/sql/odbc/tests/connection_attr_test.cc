@@ -87,15 +87,18 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrEnlistInDtcUnsupported)
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrOdbcCursorsDMOnly) {
-  this->AllocEnvConnHandles();
+  SQLHENV test_env = SQL_NULL_HENV;
+  SQLHDBC test_conn = SQL_NULL_HDBC;
+  this->AllocEnvConnHandles(test_env, test_conn);
 
   // Verify DM-only attribute is settable via Driver Manager
   ASSERT_EQ(SQL_SUCCESS,
-            SQLSetConnectAttr(this->conn, SQL_ATTR_ODBC_CURSORS,
+            SQLSetConnectAttr(test_conn, SQL_ATTR_ODBC_CURSORS,
                               reinterpret_cast<SQLPOINTER>(SQL_CUR_USE_DRIVER), 0));
 
   std::string connect_str = this->GetConnectionString();
-  this->ConnectWithString(connect_str);
+  this->ConnectWithString(connect_str, test_conn);
+  this->Disconnect(test_env, test_conn);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrQuietModeReadOnly) {
@@ -104,12 +107,15 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrQuietModeReadOnly) {
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY092);
 }
 
+// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACE
+#ifndef __APPLE__
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTraceDMOnly) {
   // Verify DM-only attribute is settable via Driver Manager
   ASSERT_EQ(SQL_SUCCESS,
             SQLSetConnectAttr(this->conn, SQL_ATTR_TRACE,
                               reinterpret_cast<SQLPOINTER>(SQL_OPT_TRACE_OFF), 0));
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTracefileDMOnly) {
   // Verify DM-only attribute is handled by Driver Manager
@@ -120,14 +126,22 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTracefileDMOnly) {
   std::vector<SQLWCHAR> trace_file0(trace_file.begin(), trace_file.end());
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(this->conn, SQL_ATTR_TRACEFILE, &trace_file0[0],
                                          static_cast<SQLINTEGER>(trace_file0.size())));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHYC00);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY000);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTranslateLabDMOnly) {
   // Verify DM-only attribute is handled by Driver Manager
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(this->conn, SQL_ATTR_TRANSLATE_LIB, 0, 0));
   // Checks for invalid argument return error
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHYC00);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY024);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTranslateOptionUnsupported) {
@@ -146,26 +160,32 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTxnIsolationUnsupported
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrDbcInfoTokenSetOnly) {
   // Verify that set-only attribute cannot be read
   SQLPOINTER ptr = NULL;
-  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(this->conn, SQL_ATTR_DBC_INFO_TOKEN, ptr, 0, 0));
+  ASSERT_EQ(SQL_ERROR,
+            SQLGetConnectAttr(this->conn, SQL_ATTR_DBC_INFO_TOKEN, ptr, 0, nullptr));
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY092);
 }
 #endif
 
+// iODBC does not treat SQL_ATTR_ODBC_CURSORS as DM-only
+#ifndef __APPLE__
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrOdbcCursorsDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLULEN cursor_attr;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ODBC_CURSORS, &cursor_attr, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_ODBC_CURSORS,
+                                           &cursor_attr, 0, nullptr));
   EXPECT_EQ(SQL_CUR_USE_DRIVER, cursor_attr);
 }
 
+// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACE
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLUINTEGER trace;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_TRACE, &trace, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetConnectAttr(this->conn, SQL_ATTR_TRACE, &trace, 0, nullptr));
   EXPECT_EQ(SQL_OPT_TRACE_OFF, trace);
 }
 
+// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACEFILE
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLWCHAR out_str[kOdbcBufferSize];
@@ -174,11 +194,12 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
                                            kOdbcBufferSize, &out_str_len));
   // Length is returned in bytes for SQLGetConnectAttr,
   // we want the number of characters
-  out_str_len /= arrow::flight::sql::odbc::GetSqlWCharSize();
+  out_str_len /= GetSqlWCharSize();
   std::string out_connection_string =
       ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
   EXPECT_FALSE(out_connection_string.empty());
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTranslateLibUnsupported) {
   SQLWCHAR out_str[kOdbcBufferSize];
@@ -190,15 +211,15 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTranslateLibUnsupported
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTranslateOptionUnsupported) {
   SQLINTEGER option;
-  ASSERT_EQ(SQL_ERROR,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_TRANSLATE_OPTION, &option, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(this->conn, SQL_ATTR_TRANSLATE_OPTION, &option,
+                                         0, nullptr));
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHYC00);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTxnIsolationUnsupported) {
   SQLINTEGER isolation;
-  ASSERT_EQ(SQL_ERROR,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, &isolation, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, &isolation,
+                                         0, nullptr));
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHYC00);
 }
 
@@ -219,7 +240,7 @@ TYPED_TEST(ConnectionAttributeTest,
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncDbcEventDefault) {
   SQLPOINTER ptr = NULL;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_DBC_EVENT, ptr, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_DBC_EVENT, ptr, 0, nullptr));
   EXPECT_EQ(reinterpret_cast<SQLPOINTER>(NULL), ptr);
 }
 #endif
@@ -228,7 +249,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncDbcEventDefault) {
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncDbcPcallbackDefault) {
   SQLPOINTER ptr = NULL;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_DBC_PCALLBACK, ptr, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_DBC_PCALLBACK, ptr, 0, nullptr));
   EXPECT_EQ(reinterpret_cast<SQLPOINTER>(NULL), ptr);
 }
 #endif
@@ -237,7 +258,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncDbcPcallbackDefaul
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncDbcPcontextDefault) {
   SQLPOINTER ptr = NULL;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_DBC_PCONTEXT, ptr, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_DBC_PCONTEXT, ptr, 0, nullptr));
   EXPECT_EQ(reinterpret_cast<SQLPOINTER>(NULL), ptr);
 }
 #endif
@@ -245,33 +266,35 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncDbcPcontextDefault
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAsyncEnableDefault) {
   SQLULEN enable;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_ENABLE, &enable, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ASYNC_ENABLE, &enable, 0, nullptr));
   EXPECT_EQ(SQL_ASYNC_ENABLE_OFF, enable);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAutoIpdDefault) {
   SQLUINTEGER ipd;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_AUTO_IPD, &ipd, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetConnectAttr(this->conn, SQL_ATTR_AUTO_IPD, &ipd, 0, nullptr));
   EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_FALSE), ipd);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrAutocommitDefault) {
   SQLUINTEGER auto_commit;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_AUTOCOMMIT, &auto_commit, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_AUTOCOMMIT, &auto_commit, 0, nullptr));
   EXPECT_EQ(SQL_AUTOCOMMIT_ON, auto_commit);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrEnlistInDtcDefault) {
   SQLPOINTER ptr = NULL;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ENLIST_IN_DTC, ptr, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ENLIST_IN_DTC, ptr, 0, nullptr));
   EXPECT_EQ(reinterpret_cast<SQLPOINTER>(NULL), ptr);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrQuietModeDefault) {
   HWND ptr = NULL;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_QUIET_MODE, ptr, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetConnectAttr(this->conn, SQL_ATTR_QUIET_MODE, ptr, 0, nullptr));
   EXPECT_EQ(reinterpret_cast<SQLPOINTER>(NULL), ptr);
 }
 
@@ -281,7 +304,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrAccessModeValid) {
   // Check default value first
   SQLUINTEGER mode = -1;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ACCESS_MODE, &mode, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ACCESS_MODE, &mode, 0, nullptr));
   EXPECT_EQ(SQL_MODE_READ_WRITE, mode);
 
   ASSERT_EQ(SQL_SUCCESS,
@@ -290,7 +313,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrAccessModeValid) {
 
   mode = -1;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_ACCESS_MODE, &mode, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_ACCESS_MODE, &mode, 0, nullptr));
   EXPECT_EQ(SQL_MODE_READ_WRITE, mode);
 
   // Attempt to set to SQL_MODE_READ_ONLY, driver should return warning and not error
@@ -305,16 +328,16 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrAccessModeValid) {
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrConnectionTimeoutValid) {
   // Check default value first
   SQLUINTEGER timeout = -1;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_CONNECTION_TIMEOUT, &timeout, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_CONNECTION_TIMEOUT,
+                                           &timeout, 0, nullptr));
   EXPECT_EQ(0, timeout);
 
   ASSERT_EQ(SQL_SUCCESS, SQLSetConnectAttr(this->conn, SQL_ATTR_CONNECTION_TIMEOUT,
                                            reinterpret_cast<SQLPOINTER>(42), 0));
 
   timeout = -1;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_CONNECTION_TIMEOUT, &timeout, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetConnectAttr(this->conn, SQL_ATTR_CONNECTION_TIMEOUT,
+                                           &timeout, 0, nullptr));
   EXPECT_EQ(42, timeout);
 }
 
@@ -322,7 +345,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrLoginTimeoutValid) {
   // Check default value first
   SQLUINTEGER timeout = -1;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_LOGIN_TIMEOUT, &timeout, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_LOGIN_TIMEOUT, &timeout, 0, nullptr));
   EXPECT_EQ(0, timeout);
 
   ASSERT_EQ(SQL_SUCCESS, SQLSetConnectAttr(this->conn, SQL_ATTR_LOGIN_TIMEOUT,
@@ -330,7 +353,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrLoginTimeoutValid) {
 
   timeout = -1;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_LOGIN_TIMEOUT, &timeout, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_LOGIN_TIMEOUT, &timeout, 0, nullptr));
   EXPECT_EQ(42, timeout);
 }
 
@@ -340,7 +363,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrPacketSizeValid) {
   // Check default value first
   SQLUINTEGER size = -1;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_PACKET_SIZE, &size, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_PACKET_SIZE, &size, 0, nullptr));
   EXPECT_EQ(0, size);
 
   ASSERT_EQ(SQL_SUCCESS, SQLSetConnectAttr(this->conn, SQL_ATTR_PACKET_SIZE,
@@ -348,7 +371,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrPacketSizeValid) {
 
   size = -1;
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_PACKET_SIZE, &size, 0, 0));
+            SQLGetConnectAttr(this->conn, SQL_ATTR_PACKET_SIZE, &size, 0, nullptr));
   EXPECT_EQ(0, size);
 
   // Attempt to set to non-zero value, driver should return warning and not error

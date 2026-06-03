@@ -18,6 +18,8 @@
 #pragma once
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "arrow/util/compression.h"  // IWYU pragma: export
 
@@ -74,7 +76,9 @@ std::unique_ptr<Codec> MakeLz4HadoopRawCodec();
 constexpr int kZSTDDefaultCompressionLevel = 1;
 
 std::unique_ptr<Codec> MakeZSTDCodec(
-    int compression_level = kZSTDDefaultCompressionLevel);
+    int compression_level = kZSTDDefaultCompressionLevel,
+    std::vector<std::pair<int, int>> compression_context_params = {},
+    std::vector<std::pair<int, int>> decompression_context_params = {});
 
 }  // namespace internal
 }  // namespace util

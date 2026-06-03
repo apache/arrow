@@ -1678,6 +1678,9 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CResult[shared_ptr[COutputStream]] Open(const c_string& path)
 
         @staticmethod
+        CResult[shared_ptr[COutputStream]] Open(int fd)
+
+        @staticmethod
         CResult[shared_ptr[COutputStream]] OpenWithAppend" Open"(
             const c_string& path, c_bool append)
 
@@ -1686,6 +1689,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass ReadableFile(CRandomAccessFile):
         @staticmethod
         CResult[shared_ptr[ReadableFile]] Open(const c_string& path)
+
+        @staticmethod
+        CResult[shared_ptr[ReadableFile]] Open(int fd)
+
+        @staticmethod
+        CResult[shared_ptr[ReadableFile]] Open(int fd, CMemoryPool* memory_pool)
 
         @staticmethod
         CResult[shared_ptr[ReadableFile]] Open(const c_string& path,
@@ -2104,6 +2113,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
         c_bool check_utf8
         unordered_map[c_string, shared_ptr[CDataType]] column_types
+        shared_ptr[CDataType] default_column_type
         vector[c_string] null_values
         vector[c_string] true_values
         vector[c_string] false_values
@@ -2587,6 +2597,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::TakeOptions"(CFunctionOptions):
         CTakeOptions(c_bool boundscheck)
         c_bool boundscheck
+
+    cdef cppclass CInversePermutationOptions \
+            "arrow::compute::InversePermutationOptions"(CFunctionOptions):
+        CInversePermutationOptions(int64_t max_index, optional[shared_ptr[CDataType]] output_type)
+        int64_t max_index
+        optional[shared_ptr[CDataType]] output_type
+
+    cdef cppclass CScatterOptions \
+            "arrow::compute::ScatterOptions"(CFunctionOptions):
+        CScatterOptions(int64_t max_index)
+        int64_t max_index
 
     cdef cppclass CStrptimeOptions \
             "arrow::compute::StrptimeOptions"(CFunctionOptions):

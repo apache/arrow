@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //SparseTensor.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -15,6 +15,16 @@ module ArrowFormat
         module Flatbuf
           # Compressed Sparse Fiber (CSF) sparse tensor index.
           class SparseTensorIndexCSF < ::FlatBuffers::Table
+            FIELDS = {
+              indptr_type: ::FlatBuffers::Field.new(:indptr_type, 0, 4, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Int", 0),
+              indptr_buffers: ::FlatBuffers::Field.new(:indptr_buffers, 1, 6, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer"], 0),
+              indices_type: ::FlatBuffers::Field.new(:indices_type, 2, 8, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Int", 0),
+              indices_buffers: ::FlatBuffers::Field.new(:indices_buffers, 3, 10, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer"], 0),
+              axis_order: ::FlatBuffers::Field.new(:axis_order, 4, 12, [:int], 0),
+            }
+
+            Data = define_data_class
+
             # axisOrder stores the sequence in which dimensions were traversed to
             # produce the prefix tree.
             # For example, the axisOrder for the above X is:
@@ -33,7 +43,7 @@ module ArrowFormat
 
             # indicesBuffers stores values of nodes.
             # Each tensor dimension corresponds to a buffer in indicesBuffers.
-            # For example, the indicesBuffers for the above X is:
+            # For example, the indicesBuffers for the above X are:
             # ```text
             #   indicesBuffer(X) = [
             #                        [0, 1],
@@ -66,7 +76,7 @@ module ArrowFormat
             # and `indptrBuffers[dim][i + 1]` signify a range of nodes in
             # `indicesBuffers[dim + 1]` who are children of `indicesBuffers[dim][i]` node.
             #
-            # For example, the indptrBuffers for the above X is:
+            # For example, the indptrBuffers for the above X are:
             # ```text
             #   indptrBuffer(X) = [
             #                       [0, 2, 3],
@@ -90,7 +100,7 @@ module ArrowFormat
             # CSF index recursively compresses each dimension of a tensor into a set
             # of prefix trees. Each path from a root to leaf forms one tensor
             # non-zero index. CSF is implemented with two arrays of buffers and one
-            # arrays of integers.
+            # array of integers.
             #
             # For example, let X be a 2x3x4x5 tensor and let it have the following
             # 8 non-zero values:

@@ -40,7 +40,7 @@ jobs:
       - name: 'Download PR review payload'
         id: 'download'
         if: github.event_name == 'workflow_run'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const run_id = "${{ github.event.workflow_run.id }}";
@@ -90,16 +90,18 @@ jobs:
       - name: Handle PR workflow event
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_REVIEW_PATH: ${{ steps.extract.outputs.pr_review_path }}
+          COMMITTERS_PATH: ${{ steps.committers.outputs.committers_path }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
             # workflow_run is executed on PR review. Update to original event.
             archery trigger-bot \
               --event-name "pull_request_review" \
-              --event-payload "${{ steps.extract.outputs.pr_review_path }}" \
-              --committers-file "${{ steps.committers.outputs.committers_path }}"
+              --event-payload "${PR_REVIEW_PATH}" \
+              --committers-file "${COMMITTERS_PATH}"
           else
             archery trigger-bot \
-              --event-name "${{ github.event_name }}" \
-              --event-payload "${{ github.event_path }}" \
-              --committers-file "${{ steps.committers.outputs.committers_path }}"
+              --event-name "${GITHUB_EVENT_NAME}" \
+              --event-payload "${GITHUB_EVENT_PATH}" \
+              --committers-file "${COMMITTERS_PATH}"
           fi

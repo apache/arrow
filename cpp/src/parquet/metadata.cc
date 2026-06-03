@@ -22,6 +22,7 @@
 #include <memory>
 #include <ostream>
 #include <random>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -809,12 +810,11 @@ class FileMetaData::FileMetaDataImpl {
     uint32_t serialized_len = metadata_len_;
     ThriftSerializer serializer;
     serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
-    ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
-                                                            serialized_len);
+    std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
 
     // encrypt with nonce
-    ::arrow::util::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
-                                             encryption::kNonceLength);
+    std::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
+                                   encryption::kNonceLength);
     auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
     const SecureString& key = file_decryptor_->GetFooterKey();
@@ -867,8 +867,7 @@ class FileMetaData::FileMetaDataImpl {
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
-      ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
-                                                              serialized_len);
+      std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
 
       // encrypt the footer key
       std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
@@ -1167,6 +1166,42 @@ std::string FileMetaData::SerializeUnencrypted(bool scrub, bool debug) const {
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
                            const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
+}
+
+bool FileMetaData::VerifySignature(std::span<const uint8_t> serialized_metadata,
+                                   std::span<const uint8_t> signature,
+                                   InternalFileDecryptor* file_decryptor) {
+  DCHECK_NE(file_decryptor, nullptr);
+
+  // In plaintext footer, the "signature" is the concatenation of the nonce used
+  // for GCM encryption, and the authentication tag obtained after GCM encryption.
+  if (signature.size() != encryption::kGcmTagLength + encryption::kNonceLength) {
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid footer encryption signature (expected ",
+        encryption::kGcmTagLength + encryption::kNonceLength, " bytes, got ",
+        signature.size(), ")");
+  }
+
+  // Encrypt plaintext serialized metadata so as to compute its signature
+  auto nonce = signature.subspan(0, encryption::kNonceLength);
+  auto tag = signature.subspan(encryption::kNonceLength);
+  const SecureString& key = file_decryptor->GetFooterKey();
+  const std::string& aad = encryption::CreateFooterAad(file_decryptor->file_aad());
+
+  auto aes_encryptor = encryption::AesEncryptor::Make(
+      file_decryptor->algorithm(), static_cast<int>(key.size()), /*metadata=*/true,
+      /*write_length=*/false);
+
+  std::shared_ptr<Buffer> encrypted_buffer =
+      AllocateBuffer(file_decryptor->pool(),
+                     aes_encryptor->CiphertextLength(serialized_metadata.size()));
+  int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+      serialized_metadata, key.as_span(), str2span(aad), nonce,
+      encrypted_buffer->mutable_span_as<uint8_t>());
+  DCHECK_EQ(encrypted_len, encrypted_buffer->size());
+  // Check computed signature against expected
+  return 0 == memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
+                     tag.data(), encryption::kGcmTagLength);
 }
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
@@ -1737,8 +1772,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
         serializer.SerializeToBuffer(&column_chunk_->meta_data, &serialized_len,
                                      &serialized_data);
-        ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
-                                                                serialized_len);
+        std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
 
         std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
         int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
@@ -2009,37 +2043,32 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return current_row_group_builder_.get();
   }
 
-  void SetPageIndexLocation(const PageIndexLocation& location) {
-    auto set_index_location =
-        [this](size_t row_group_ordinal,
-               const PageIndexLocation::FileIndexLocation& file_index_location,
-               bool column_index) {
-          auto& row_group_metadata = this->row_groups_.at(row_group_ordinal);
-          auto iter = file_index_location.find(row_group_ordinal);
-          if (iter != file_index_location.cend()) {
-            const auto& row_group_index_location = iter->second;
-            for (size_t i = 0; i < row_group_index_location.size(); ++i) {
-              if (i >= row_group_metadata.columns.size()) {
-                throw ParquetException("Cannot find metadata for column ordinal ", i);
-              }
-              auto& column_metadata = row_group_metadata.columns.at(i);
-              const auto& index_location = row_group_index_location.at(i);
-              if (index_location.has_value()) {
-                if (column_index) {
-                  column_metadata.__set_column_index_offset(index_location->offset);
-                  column_metadata.__set_column_index_length(index_location->length);
-                } else {
-                  column_metadata.__set_offset_index_offset(index_location->offset);
-                  column_metadata.__set_offset_index_length(index_location->length);
-                }
-              }
-            }
-          }
-        };
+  void SetIndexLocations(IndexKind kind, const IndexLocations& locations) {
+    for (const auto& [chunk_id, location] : locations) {
+      auto row_group_id = static_cast<size_t>(chunk_id.row_group_index);
+      if (row_group_id >= row_groups_.size()) {
+        throw ParquetException("Row group id out of range: ", row_group_id);
+      }
 
-    for (size_t i = 0; i < row_groups_.size(); ++i) {
-      set_index_location(i, location.column_index_location, true);
-      set_index_location(i, location.offset_index_location, false);
+      auto& row_group_metadata = row_groups_.at(row_group_id);
+      auto column_id = static_cast<size_t>(chunk_id.column_index);
+      if (column_id >= row_group_metadata.columns.size()) {
+        throw ParquetException("Column id out of range: ", column_id);
+      }
+
+      auto& column_metadata = row_group_metadata.columns.at(column_id);
+      if (kind == IndexKind::kColumnIndex) {
+        column_metadata.__set_column_index_offset(location.offset);
+        column_metadata.__set_column_index_length(location.length);
+      } else if (kind == IndexKind::kOffsetIndex) {
+        column_metadata.__set_offset_index_offset(location.offset);
+        column_metadata.__set_offset_index_length(location.length);
+      } else if (kind == IndexKind::kBloomFilter) {
+        column_metadata.meta_data.__set_bloom_filter_offset(location.offset);
+        column_metadata.meta_data.__set_bloom_filter_length(location.length);
+      } else {
+        throw ParquetException("Invalid index kind: ", static_cast<int>(kind));
+      }
     }
   }
 
@@ -2157,8 +2186,9 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
   return impl_->AppendRowGroup();
 }
 
-void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location) {
-  impl_->SetPageIndexLocation(location);
+void FileMetaDataBuilder::SetIndexLocations(IndexKind kind,
+                                            const IndexLocations& locations) {
+  impl_->SetIndexLocations(kind, locations);
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(

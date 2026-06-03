@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //SparseTensor.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -16,6 +16,16 @@ module ArrowFormat
         module Flatbuf
           # Compressed Sparse format, that is matrix-specific.
           class SparseMatrixIndexCSX < ::FlatBuffers::Table
+            FIELDS = {
+              compressed_axis: ::FlatBuffers::Field.new(:compressed_axis, 0, 4, :short, 0),
+              indptr_type: ::FlatBuffers::Field.new(:indptr_type, 1, 6, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Int", 0),
+              indptr_buffer: ::FlatBuffers::Field.new(:indptr_buffer, 2, 8, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer", 0),
+              indices_type: ::FlatBuffers::Field.new(:indices_type, 3, 10, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Int", 0),
+              indices_buffer: ::FlatBuffers::Field.new(:indices_buffer, 4, 12, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer", 0),
+            }
+
+            Data = define_data_class
+
             # Which axis, row or column, is compressed
             def compressed_axis
               field_offset = @view.unpack_virtual_offset(4)
@@ -31,7 +41,7 @@ module ArrowFormat
             # contains the column indices of the corresponding non-zero values.
             # The type of index value is long.
             #
-            # For example, the indices of the above X is:
+            # For example, the indices of the above X are:
             # ```text
             #   indices(X) = [1, 2, 2, 1, 3, 0, 2, 3, 1].
             # ```

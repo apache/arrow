@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/arrow/variant_internal.h"
-
 #include "arrow/array/validate.h"
+#include "arrow/extension/parquet_variant.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
@@ -29,16 +28,20 @@ using ::arrow::binary;
 using ::arrow::struct_;
 
 TEST(TestVariantExtensionType, StorageTypeValidation) {
-  auto variant1 = variant(struct_({field("metadata", binary(), /*nullable=*/false),
-                                   field("value", binary(), /*nullable=*/false)}));
-  auto variant2 = variant(struct_({field("metadata", binary(), /*nullable=*/false),
-                                   field("value", binary(), /*nullable=*/false)}));
+  auto variant1 = ::arrow::extension::variant(
+      struct_({field("metadata", binary(), /*nullable=*/false),
+               field("value", binary(), /*nullable=*/false)}));
+  auto variant2 = ::arrow::extension::variant(
+      struct_({field("metadata", binary(), /*nullable=*/false),
+               field("value", binary(), /*nullable=*/false)}));
 
   ASSERT_TRUE(variant1->Equals(variant2));
 
   // Metadata and value fields can be provided in either order
-  auto variantFieldsFlipped = std::dynamic_pointer_cast<VariantExtensionType>(
-      variant(struct_({field("value", binary(), /*nullable=*/false),
+  auto variantFieldsFlipped =
+      std::dynamic_pointer_cast<::arrow::extension::VariantExtensionType>(
+          ::arrow::extension::variant(
+              struct_({field("value", binary(), /*nullable=*/false),
                        field("metadata", binary(), /*nullable=*/false)})));
 
   ASSERT_EQ("metadata", variantFieldsFlipped->metadata()->name());
@@ -62,7 +65,7 @@ TEST(TestVariantExtensionType, StorageTypeValidation) {
         Invalid,
         "Invalid: Invalid storage type for VariantExtensionType: " +
             storage_type->ToString(),
-        VariantExtensionType::Make(storage_type));
+        ::arrow::extension::VariantExtensionType::Make(storage_type));
   }
 }
 

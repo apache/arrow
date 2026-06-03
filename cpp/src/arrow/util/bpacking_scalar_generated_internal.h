@@ -41,6 +41,7 @@ template<int kBitWidth>
 struct ScalarUnpackerForWidth<bool, kBitWidth> {
 
   static constexpr int kValuesUnpacked = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+  static constexpr int kBytesRead = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kBytesRead;
 
   static const uint8_t* unpack(const uint8_t* in, bool* out) {
     uint32_t buffer[kValuesUnpacked] = {};
@@ -56,6 +57,7 @@ template<int kBitWidth>
 struct ScalarUnpackerForWidth<uint8_t, kBitWidth> {
 
   static constexpr int kValuesUnpacked = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+  static constexpr int kBytesRead = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kBytesRead;
 
   static const uint8_t* unpack(const uint8_t* in, uint8_t* out) {
     uint32_t buffer[kValuesUnpacked] = {};
@@ -71,6 +73,7 @@ template<int kBitWidth>
 struct ScalarUnpackerForWidth<uint16_t, kBitWidth> {
 
   static constexpr int kValuesUnpacked = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+  static constexpr int kBytesRead = ScalarUnpackerForWidth<uint32_t, kBitWidth>::kBytesRead;
 
   static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
     uint32_t buffer[kValuesUnpacked] = {};
@@ -86,6 +89,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 1> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 4;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 1) - uint32_t{1});
@@ -132,6 +136,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 2> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 8;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 2) - uint32_t{1});
@@ -179,6 +184,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 3> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 12;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 3) - uint32_t{1});
@@ -227,6 +233,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 4> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 16;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 4) - uint32_t{1});
@@ -276,6 +283,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 5> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 20;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 5) - uint32_t{1});
@@ -326,6 +334,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 6> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 24;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 6) - uint32_t{1});
@@ -377,6 +386,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 7> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 28;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 7) - uint32_t{1});
@@ -429,6 +439,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 8> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 32;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 8) - uint32_t{1});
@@ -482,6 +493,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 9> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 36;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 9) - uint32_t{1});
@@ -536,6 +548,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 10> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 40;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 10) - uint32_t{1});
@@ -591,6 +604,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 11> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 44;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 11) - uint32_t{1});
@@ -647,6 +661,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 12> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 48;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 12) - uint32_t{1});
@@ -704,6 +719,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 13> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 52;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 13) - uint32_t{1});
@@ -762,6 +778,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 14> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 56;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 14) - uint32_t{1});
@@ -821,6 +838,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 15> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 60;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 15) - uint32_t{1});
@@ -881,6 +899,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 16> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 64;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 16) - uint32_t{1});
@@ -942,6 +961,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 17> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 68;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 17) - uint32_t{1});
@@ -1004,6 +1024,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 18> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 72;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 18) - uint32_t{1});
@@ -1067,6 +1088,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 19> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 76;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 19) - uint32_t{1});
@@ -1131,6 +1153,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 20> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 80;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 20) - uint32_t{1});
@@ -1196,6 +1219,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 21> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 84;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 21) - uint32_t{1});
@@ -1262,6 +1286,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 22> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 88;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 22) - uint32_t{1});
@@ -1329,6 +1354,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 23> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 92;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 23) - uint32_t{1});
@@ -1397,6 +1423,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 24> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 96;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 24) - uint32_t{1});
@@ -1466,6 +1493,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 25> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 100;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 25) - uint32_t{1});
@@ -1536,6 +1564,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 26> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 104;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 26) - uint32_t{1});
@@ -1607,6 +1636,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 27> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 108;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 27) - uint32_t{1});
@@ -1679,6 +1709,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 28> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 112;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 28) - uint32_t{1});
@@ -1752,6 +1783,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 29> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 116;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 29) - uint32_t{1});
@@ -1826,6 +1858,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 30> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 120;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 30) - uint32_t{1});
@@ -1901,6 +1934,7 @@ template<>
 struct ScalarUnpackerForWidth<uint32_t, 31> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 124;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t mask = ((uint32_t{1} << 31) - uint32_t{1});
@@ -1978,6 +2012,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 1> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 4;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 1) - uint64_t{1});
@@ -2024,6 +2059,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 2> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 8;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 2) - uint64_t{1});
@@ -2070,6 +2106,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 3> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 12;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 3) - uint64_t{1});
@@ -2117,6 +2154,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 4> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 16;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 4) - uint64_t{1});
@@ -2164,6 +2202,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 5> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 20;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 5) - uint64_t{1});
@@ -2212,6 +2251,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 6> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 24;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 6) - uint64_t{1});
@@ -2260,6 +2300,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 7> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 28;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 7) - uint64_t{1});
@@ -2309,6 +2350,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 8> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 32;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 8) - uint64_t{1});
@@ -2358,6 +2400,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 9> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 36;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 9) - uint64_t{1});
@@ -2408,6 +2451,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 10> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 40;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 10) - uint64_t{1});
@@ -2458,6 +2502,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 11> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 44;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 11) - uint64_t{1});
@@ -2509,6 +2554,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 12> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 48;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 12) - uint64_t{1});
@@ -2560,6 +2606,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 13> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 52;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 13) - uint64_t{1});
@@ -2612,6 +2659,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 14> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 56;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 14) - uint64_t{1});
@@ -2664,6 +2712,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 15> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 60;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 15) - uint64_t{1});
@@ -2717,6 +2766,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 16> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 64;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 16) - uint64_t{1});
@@ -2770,6 +2820,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 17> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 68;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 17) - uint64_t{1});
@@ -2824,6 +2875,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 18> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 72;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 18) - uint64_t{1});
@@ -2878,6 +2930,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 19> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 76;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 19) - uint64_t{1});
@@ -2933,6 +2986,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 20> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 80;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 20) - uint64_t{1});
@@ -2988,6 +3042,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 21> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 84;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 21) - uint64_t{1});
@@ -3044,6 +3099,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 22> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 88;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 22) - uint64_t{1});
@@ -3100,6 +3156,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 23> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 92;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 23) - uint64_t{1});
@@ -3157,6 +3214,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 24> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 96;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 24) - uint64_t{1});
@@ -3214,6 +3272,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 25> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 100;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 25) - uint64_t{1});
@@ -3272,6 +3331,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 26> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 104;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 26) - uint64_t{1});
@@ -3330,6 +3390,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 27> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 108;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 27) - uint64_t{1});
@@ -3389,6 +3450,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 28> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 112;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 28) - uint64_t{1});
@@ -3448,6 +3510,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 29> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 116;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 29) - uint64_t{1});
@@ -3508,6 +3571,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 30> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 120;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 30) - uint64_t{1});
@@ -3568,6 +3632,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 31> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 124;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 31) - uint64_t{1});
@@ -3629,6 +3694,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 32> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 128;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 32) - uint64_t{1});
@@ -3690,6 +3756,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 33> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 132;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 33) - uint64_t{1});
@@ -3752,6 +3819,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 34> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 136;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 34) - uint64_t{1});
@@ -3814,6 +3882,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 35> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 140;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 35) - uint64_t{1});
@@ -3877,6 +3946,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 36> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 144;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 36) - uint64_t{1});
@@ -3940,6 +4010,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 37> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 148;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 37) - uint64_t{1});
@@ -4004,6 +4075,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 38> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 152;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 38) - uint64_t{1});
@@ -4068,6 +4140,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 39> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 156;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 39) - uint64_t{1});
@@ -4133,6 +4206,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 40> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 160;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 40) - uint64_t{1});
@@ -4198,6 +4272,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 41> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 164;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 41) - uint64_t{1});
@@ -4264,6 +4339,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 42> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 168;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 42) - uint64_t{1});
@@ -4330,6 +4406,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 43> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 172;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 43) - uint64_t{1});
@@ -4397,6 +4474,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 44> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 176;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 44) - uint64_t{1});
@@ -4464,6 +4542,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 45> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 180;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 45) - uint64_t{1});
@@ -4532,6 +4611,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 46> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 184;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 46) - uint64_t{1});
@@ -4600,6 +4680,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 47> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 188;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 47) - uint64_t{1});
@@ -4669,6 +4750,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 48> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 192;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 48) - uint64_t{1});
@@ -4738,6 +4820,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 49> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 196;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 49) - uint64_t{1});
@@ -4808,6 +4891,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 50> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 200;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 50) - uint64_t{1});
@@ -4878,6 +4962,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 51> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 204;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 51) - uint64_t{1});
@@ -4949,6 +5034,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 52> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 208;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 52) - uint64_t{1});
@@ -5020,6 +5106,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 53> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 212;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 53) - uint64_t{1});
@@ -5092,6 +5179,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 54> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 216;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 54) - uint64_t{1});
@@ -5164,6 +5252,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 55> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 220;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 55) - uint64_t{1});
@@ -5237,6 +5326,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 56> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 224;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 56) - uint64_t{1});
@@ -5310,6 +5400,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 57> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 228;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 57) - uint64_t{1});
@@ -5384,6 +5475,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 58> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 232;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 58) - uint64_t{1});
@@ -5458,6 +5550,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 59> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 236;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 59) - uint64_t{1});
@@ -5533,6 +5626,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 60> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 240;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 60) - uint64_t{1});
@@ -5608,6 +5702,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 61> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 244;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 61) - uint64_t{1});
@@ -5684,6 +5779,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 62> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 248;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 62) - uint64_t{1});
@@ -5760,6 +5856,7 @@ template<>
 struct ScalarUnpackerForWidth<uint64_t, 63> {
 
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 252;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t mask = ((uint64_t{1} << 63) - uint64_t{1});

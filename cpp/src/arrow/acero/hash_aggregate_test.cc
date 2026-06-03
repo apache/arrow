@@ -2000,6 +2000,74 @@ TEST_P(GroupBy, MinMaxScalar) {
   }
 }
 
+TEST_P(GroupBy, MinMaxWithNaN) {
+  auto in_schema = schema({
+      field("argument1", float32()),
+      field("argument2", float64()),
+      field("key", int64()),
+  });
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table = TableFromJSON(in_schema, {R"([
+    [NaN,  NaN,  1],
+    [NaN,  NaN,  2],
+    [NaN,  NaN,  3]
+])",
+                                           R"([
+    [NaN,  NaN,  1],
+    [-Inf, -Inf, 2],
+    [Inf,  Inf,  3]
+])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 table->GetColumnByName("argument1"),
+                                 table->GetColumnByName("argument1"),
+                                 table->GetColumnByName("argument1"),
+                                 table->GetColumnByName("argument2"),
+                                 table->GetColumnByName("argument2"),
+                                 table->GetColumnByName("argument2"),
+                             },
+                             {table->GetColumnByName("key")},
+                             {
+                                 {"hash_min", nullptr},
+                                 {"hash_max", nullptr},
+                                 {"hash_min_max", nullptr},
+                                 {"hash_min", nullptr},
+                                 {"hash_max", nullptr},
+                                 {"hash_min_max", nullptr},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("key_0", int64()),
+                                        field("hash_min", float32()),
+                                        field("hash_max", float32()),
+                                        field("hash_min_max", struct_({
+                                                                  field("min", float32()),
+                                                                  field("max", float32()),
+                                                              })),
+                                        field("hash_min", float64()),
+                                        field("hash_max", float64()),
+                                        field("hash_min_max", struct_({
+                                                                  field("min", float64()),
+                                                                  field("max", float64()),
+                                                              })),
+                                    }),
+                                    R"([
+    [1, NaN,  NaN,  {"min": NaN,  "max": NaN},  NaN,  NaN,  {"min": NaN,  "max": NaN}],
+    [2, -Inf, -Inf, {"min": -Inf, "max": -Inf}, -Inf, -Inf, {"min": -Inf, "max": -Inf}],
+    [3, Inf,  Inf,  {"min": Inf,  "max": Inf},  Inf,  Inf,  {"min": Inf,  "max": Inf}]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
 TEST_P(GroupBy, AnyAndAll) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");

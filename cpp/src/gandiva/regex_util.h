@@ -27,15 +27,15 @@
 namespace gandiva {
 
 /// \brief Utility class for converting sql patterns to pcre patterns.
-class GANDIVA_EXPORT RegexUtil {
+class RegexUtil {
  public:
   // Convert an sql pattern to a pcre pattern
-  static Status SqlLikePatternToPcre(const std::string& like_pattern, char escape_char,
-                                     std::string& pcre_pattern);
+  static GANDIVA_EXPORT arrow::Result<std::string> SqlLikePatternToPcre(
+      const std::string& like_pattern, char escape_char);
 
-  static Status SqlLikePatternToPcre(const std::string& like_pattern,
-                                     std::string& pcre_pattern) {
-    return SqlLikePatternToPcre(like_pattern, 0 /*escape_char*/, pcre_pattern);
+  static arrow::Result<std::string> SqlLikePatternToPcre(
+      const std::string& like_pattern) {
+    return SqlLikePatternToPcre(like_pattern, '\0' /*escape_char*/);
   }
 
  private:

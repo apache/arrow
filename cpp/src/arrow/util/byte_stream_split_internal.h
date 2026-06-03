@@ -122,8 +122,8 @@ void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_value
 
 // Like xsimd::zip_lo, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Arch>& b)
-    -> xsimd::batch<int8_t, Arch> {
+auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a,
+              const xsimd::batch<int8_t, Arch>& b) -> xsimd::batch<int8_t, Arch> {
   using arrow::internal::SizedInt;
   using simd_batch = xsimd::batch<int8_t, Arch>;
   // For signed arithmetic
@@ -146,8 +146,8 @@ auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Ar
 
 // Like xsimd::zip_hi, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_hi_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Arch>& b)
-    -> xsimd::batch<int8_t, Arch> {
+auto zip_hi_n(const xsimd::batch<int8_t, Arch>& a,
+              const xsimd::batch<int8_t, Arch>& b) -> xsimd::batch<int8_t, Arch> {
   using simd_batch = xsimd::batch<int8_t, Arch>;
   using arrow::internal::SizedInt;
   // For signed arithmetic
@@ -421,14 +421,28 @@ void ByteStreamSplitEncodeScalar(const uint8_t* raw_values, int width,
   DoSplitStreams(raw_values, kNumStreams, num_values, dest_streams.data());
 }
 
+// If changing this value, please check that TestByteStreamSplitLargeWidth still
+// exercises the slow path.
+constexpr inline int kByteStreamSplitMaxTemporaryAlloc = 8192;
+
 inline void ByteStreamSplitEncodeScalarDynamic(const uint8_t* raw_values, int width,
                                                const int64_t num_values, uint8_t* out) {
-  ::arrow::internal::SmallVector<uint8_t*, 16> dest_streams;
-  dest_streams.resize(width);
-  for (int stream = 0; stream < width; ++stream) {
-    dest_streams[stream] = &out[stream * num_values];
+  if (ARROW_PREDICT_TRUE(width < kByteStreamSplitMaxTemporaryAlloc / 8)) {
+    ::arrow::internal::SmallVector<uint8_t*, 32> dest_streams;
+    dest_streams.resize(width);
+    for (int stream = 0; stream < width; ++stream) {
+      dest_streams[stream] = &out[stream * num_values];
+    }
+    DoSplitStreams(raw_values, width, num_values, dest_streams.data());
+  } else {
+    // Slow path to avoid an oversized `dest_streams` container above.
+    for (int stream = 0; stream < width; ++stream) {
+      uint8_t* dest_stream = &out[stream * num_values];
+      for (int64_t i = 0; i < num_values; ++i) {
+        dest_stream[i] = raw_values[stream + i * width];
+      }
+    }
   }
-  DoSplitStreams(raw_values, width, num_values, dest_streams.data());
 }
 
 template <int kNumStreams>
@@ -445,12 +459,22 @@ void ByteStreamSplitDecodeScalar(const uint8_t* data, int width, int64_t num_val
 inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
                                                int64_t num_values, int64_t stride,
                                                uint8_t* out) {
-  ::arrow::internal::SmallVector<const uint8_t*, 16> src_streams;
-  src_streams.resize(width);
-  for (int stream = 0; stream < width; ++stream) {
-    src_streams[stream] = &data[stream * stride];
+  if (ARROW_PREDICT_TRUE(width < kByteStreamSplitMaxTemporaryAlloc / 8)) {
+    ::arrow::internal::SmallVector<const uint8_t*, 32> src_streams;
+    src_streams.resize(width);
+    for (int stream = 0; stream < width; ++stream) {
+      src_streams[stream] = &data[stream * stride];
+    }
+    DoMergeStreams(src_streams.data(), width, num_values, out);
+  } else {
+    // Slow path to avoid an oversized `src_streams` container above.
+    for (int stream = 0; stream < width; ++stream) {
+      const uint8_t* src_stream = &data[stream * stride];
+      for (int64_t i = 0; i < num_values; ++i) {
+        out[stream + i * width] = src_stream[i];
+      }
+    }
   }
-  DoMergeStreams(src_streams.data(), width, num_values, out);
 }
 
 template <int kNumStreams>

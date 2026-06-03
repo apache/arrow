@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //SparseTensor.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -17,11 +17,11 @@ module ArrowFormat
           # EXPERIMENTAL: Data structures for sparse tensors
           # Coordinate (COO) format of sparse tensor index.
           #
-          # COO's index list are represented as a NxM matrix,
+          # COO's index list is represented as an NxM matrix,
           # where N is the number of non-zero values,
           # and M is the number of dimensions of a sparse tensor.
           #
-          # indicesBuffer stores the location and size of the data of this indices
+          # indicesBuffer stores the location and size of the data of these indices
           # matrix.  The value type and the stride of the indices matrix is
           # specified in indicesType and indicesStrides fields.
           #
@@ -42,10 +42,19 @@ module ArrowFormat
           #    [2, 2, 3, 1, 2, 0],
           #    [0, 1, 0, 0, 3, 4]]
           # ```
-          # When isCanonical is true, the indices is sorted in lexicographical order
+          # When isCanonical is true, the indices are sorted in lexicographical order
           # (row-major order), and it does not have duplicated entries.  Otherwise,
           # the indices may not be sorted, or may have duplicated entries.
           class SparseTensorIndexCOO < ::FlatBuffers::Table
+            FIELDS = {
+              indices_type: ::FlatBuffers::Field.new(:indices_type, 0, 4, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Int", 0),
+              indices_strides: ::FlatBuffers::Field.new(:indices_strides, 1, 6, [:long], 0),
+              indices_buffer: ::FlatBuffers::Field.new(:indices_buffer, 2, 8, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer", 0),
+              canonical?: ::FlatBuffers::Field.new(:canonical?, 3, 10, :bool, 0),
+            }
+
+            Data = define_data_class
+
             # The location and size of the indices matrix's data
             def indices_buffer
               field_offset = @view.unpack_virtual_offset(8)

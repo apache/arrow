@@ -2494,6 +2494,29 @@ TEST_F(TestBinaryArithmeticDecimal, Power) {
   }
 }
 
+TEST_F(TestBinaryArithmeticDecimal, ErrorOnNonCastable) {
+  for (const auto& name : {"add", "subtract", "multiply", "divide"}) {
+    for (const auto& suffix : {"", "_checked"}) {
+      auto func = std::string(name) + suffix;
+      SCOPED_TRACE(func);
+      for (const auto& dec_ty : PositiveScaleTypes()) {
+        SCOPED_TRACE(dec_ty->ToString());
+        auto dec_arr = ArrayFromJSON(dec_ty, R"([])");
+        for (const auto& other_ty : {boolean(), fixed_size_binary(42), utf8()}) {
+          SCOPED_TRACE(other_ty->ToString());
+          auto other_arr = ArrayFromJSON(other_ty, R"([])");
+          EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                          ::testing::HasSubstr("has no kernel matching"),
+                                          CallFunction(func, {dec_arr, other_arr}));
+          EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                          ::testing::HasSubstr("has no kernel matching"),
+                                          CallFunction(func, {other_arr, dec_arr}));
+        }
+      }
+    }
+  }
+}
+
 TYPED_TEST(TestBinaryArithmeticIntegral, ShiftLeft) {
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);

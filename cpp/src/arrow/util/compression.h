@@ -22,6 +22,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -140,6 +142,16 @@ class ARROW_EXPORT GZipCodecOptions : public CodecOptions {
 class ARROW_EXPORT BrotliCodecOptions : public CodecOptions {
  public:
   std::optional<int> window_bits;
+};
+
+// ----------------------------------------------------------------------
+// Zstd codec options implementation
+
+class ARROW_EXPORT ZstdCodecOptions : public CodecOptions {
+ public:
+  // Valid keys can be found at https://facebook.github.io/zstd/zstd_manual.html.
+  std::vector<std::pair<int, int>> compression_context_params;
+  std::vector<std::pair<int, int>> decompression_context_params;
 };
 
 /// \brief Compression codec

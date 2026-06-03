@@ -246,7 +246,8 @@ Build source and binaries and submit them
     archery crossbow status <crossbow-build-id>
 
     # Download the produced binaries
-    # This will download packages to a directory called packages/release-<version>-rc<rc-number>
+    # This will download packages generated from the archery tasks
+    # to a directory called packages/release-<version>-rc<rc-number>
     dev/release/04-binary-download.sh <version> <rc-number>
 
     # Sign and upload the binaries
@@ -263,11 +264,25 @@ Build source and binaries and submit them
     # NOTE: You need to have GitHub CLI installed to run this script.
     dev/release/06-matlab-upload.sh <version> <rc-number>
 
-    # Start verifications for binaries and wheels
-    dev/release/07-binary-verify.sh <version> <rc-number>
+    # Sign, build the installer for, and sign the installer for the FlightSQL
+    # ODBC Windows driver
+    #
+    # NOTE: This must be run by a PMC member
+    # Note: You need to have jsign installed and an available credential from
+    # ASF to sign artifacts. Not all PMC members will have access to code
+    # signing.
+    # Note: The script requires setup of ssl.com environment variables.
+    # Note: Invoking this script costs money.
+    dev/release/07-flightsqlodbc-upload.sh <version> <rc-number>
 
     # Move the Release Candidate GitHub Release from draft to published state
+    # This will update the artifacts download URL which will be available for the
+    # verification step.
     dev/release/08-publish-gh-release.sh <version> <rc-number>
+
+    # Start verifications for binaries and wheels
+    dev/release/09-binary-verify.sh <version> <rc-number>
+
 
 Verify the Release
 ------------------
@@ -276,7 +291,7 @@ Verify the Release
 
     # Once the automatic verification has passed start the vote thread
     # on dev@arrow.apache.org. To regenerate the email template use
-    SOURCE_DEFAULT=0 SOURCE_VOTE=1 dev/release/02-source.sh <version> <rc-number>
+    dev/release/10-vote-email.sh <version> <rc-number>
 
 See :ref:`release_verification` for details.
 

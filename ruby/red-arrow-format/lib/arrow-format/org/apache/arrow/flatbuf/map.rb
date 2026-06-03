@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -21,7 +21,7 @@ module ArrowFormat
           # may be set in the metadata for this field.
           #
           # In a field with Map type, the field has a child Struct field, which then
-          # has two children: key type and the second the value type. The names of the
+          # has two children: the key type and the value type. The names of the
           # child fields may be respectively "entries", "key", and "value", but this is
           # not enforced.
           #
@@ -37,6 +37,12 @@ module ArrowFormat
           # for Map can make Map an alias for List. The "layout" attribute for the Map
           # field must have the same contents as a List.
           class Map < ::FlatBuffers::Table
+            FIELDS = {
+              keys_sorted?: ::FlatBuffers::Field.new(:keys_sorted?, 0, 4, :bool, 0),
+            }
+
+            Data = define_data_class
+
             # Set to true if the keys within each value are sorted
             def keys_sorted?
               field_offset = @view.unpack_virtual_offset(4)

@@ -42,4 +42,9 @@ jobs:
           UBUNTU: 22.04
           PYARROW_VERSION: {{ arrow.no_rc_version }}
 
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sdist
+          path: arrow/python/dist/*.tar.gz
+
       {{ macros.github_upload_releases("arrow/python/dist/*.tar.gz")|indent }}

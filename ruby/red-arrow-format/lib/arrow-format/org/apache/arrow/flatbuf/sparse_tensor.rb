@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //SparseTensor.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -16,6 +16,18 @@ module ArrowFormat
       module Arrow
         module Flatbuf
           class SparseTensor < ::FlatBuffers::Table
+            FIELDS = {
+              type_type: ::FlatBuffers::Field.new(:type_type, 0, 4, :utype, 0),
+              type: ::FlatBuffers::Field.new(:type, 1, 6, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Type", 0),
+              shape: ::FlatBuffers::Field.new(:shape, 2, 8, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::TensorDim"], 0),
+              non_zero_length: ::FlatBuffers::Field.new(:non_zero_length, 3, 10, :long, 0),
+              sparse_index_type: ::FlatBuffers::Field.new(:sparse_index_type, 4, 12, :utype, 0),
+              sparse_index: ::FlatBuffers::Field.new(:sparse_index, 5, 14, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::SparseTensorIndex", 0),
+              data: ::FlatBuffers::Field.new(:data, 6, 16, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer", 0),
+            }
+
+            Data = define_data_class
+
             # The location and size of the tensor's data
             def data
               field_offset = @view.unpack_virtual_offset(16)

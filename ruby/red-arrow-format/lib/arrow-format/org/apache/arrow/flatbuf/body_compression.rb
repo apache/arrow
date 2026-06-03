@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -17,6 +17,13 @@ module ArrowFormat
           # bodies. Intended for use with RecordBatch but could be used for other
           # message types
           class BodyCompression < ::FlatBuffers::Table
+            FIELDS = {
+              codec: ::FlatBuffers::Field.new(:codec, 0, 4, :byte, 0),
+              method: ::FlatBuffers::Field.new(:method, 1, 6, :byte, 0),
+            }
+
+            Data = define_data_class
+
             # Compressor library.
             # For LZ4_FRAME, each compressed buffer must consist of a single frame.
             def codec

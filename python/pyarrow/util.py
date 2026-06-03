@@ -231,8 +231,9 @@ def _break_traceback_cycle_from_frame(frame):
 
 
 def _download_urllib(url, out_path):
-    from urllib.request import urlopen
-    with urlopen(url) as response:
+    from urllib.request import urlopen, Request
+    req = Request(url, headers={'User-Agent': 'pyarrow'})
+    with urlopen(req) as response:
         with open(out_path, 'wb') as f:
             f.write(response.read())
 
@@ -244,11 +245,25 @@ def _download_requests(url, out_path):
             f.write(response.content)
 
 
+# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+# https://github.com/apache/arrow/issues/48593
 def download_tzdata_on_windows():
     r"""
     Download and extract latest IANA timezone database into the
     location expected by Arrow which is %USERPROFILE%\Downloads\tzdata.
+
+    .. deprecated:: 24.0.0
+       This function is deprecated and will be removed in a future version.
+       PyArrow now uses the operating system's timezone database on Windows.
     """
+
+    warnings.warn(
+        "pyarrow.util.download_tzdata_on_windows is deprecated as of 24.0.0 "
+        "and will be removed in a future version. PyArrow now uses the "
+        "operating system's timezone database on most Windows builds.",
+        FutureWarning,
+        stacklevel=2
+    )
     if sys.platform != 'win32':
         raise TypeError(f"Timezone database is already provided by {sys.platform}")
 
@@ -264,11 +279,13 @@ def download_tzdata_on_windows():
     # Try to download the files with requests and then fall back to urllib. This
     # works around possible issues in certain older environment (GH-45295)
     try:
-        _download_requests(tzdata_url, tzdata_compressed_path)
-        _download_requests(windows_zones_url, windows_zones_path)
+        import requests  # noqa: F401
+        download_fn = _download_requests
     except ImportError:
-        _download_urllib(tzdata_url, tzdata_compressed_path)
-        _download_urllib(windows_zones_url, windows_zones_path)
+        download_fn = _download_urllib
+
+    download_fn(tzdata_url, tzdata_compressed_path)
+    download_fn(windows_zones_url, windows_zones_path)
 
     assert os.path.exists(tzdata_compressed_path)
     assert os.path.exists(windows_zones_path)

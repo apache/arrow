@@ -19,6 +19,15 @@ name: Report CI results
 
 on:
   workflow_call:
+    secrets:
+      ARROW_SMTP_PASSWORD:
+        required: true
+      ARROW_ZULIP_WEBHOOK:
+        required: true
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   report-ci:
@@ -32,6 +41,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Setup Python
         uses: actions/setup-python@v6

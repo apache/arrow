@@ -15,12 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
+// platform.h platform.h includes windows.h so it needs to be included first
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
+#include "arrow/type.h"
+
+// Include ODBC headers after arrow fwd type header to avoid conflicts
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
@@ -316,7 +321,8 @@ void ODBCStatement::ExecuteDirect(const std::string& query) {
   is_prepared_ = false;
 }
 
-bool ODBCStatement::Fetch(size_t rows) {
+bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
+                          SQLUSMALLINT* row_status_array) {
   if (has_reached_end_of_result_) {
     ird_->SetRowsProcessed(0);
     return false;
@@ -349,10 +355,23 @@ bool ODBCStatement::Fetch(size_t rows) {
     current_ard_->NotifyBindingsHavePropagated();
   }
 
-  size_t rows_fetched = current_result_->Move(rows, current_ard_->GetBindOffset(),
-                                              current_ard_->GetBoundStructOffset(),
-                                              ird_->GetArrayStatusPtr());
+  uint16_t* array_status_ptr;
+  if (row_status_array) {
+    // For SQLExtendedFetch only
+    array_status_ptr = row_status_array;
+  } else {
+    array_status_ptr = ird_->GetArrayStatusPtr();
+  }
+
+  size_t rows_fetched =
+      current_result_->Move(rows, current_ard_->GetBindOffset(),
+                            current_ard_->GetBoundStructOffset(), array_status_ptr);
   ird_->SetRowsProcessed(static_cast<SQLULEN>(rows_fetched));
+
+  if (row_count_ptr) {
+    // For SQLExtendedFetch only
+    *row_count_ptr = rows_fetched;
+  }
 
   row_number_ += rows_fetched;
   has_reached_end_of_result_ = rows_fetched != rows;
@@ -539,7 +558,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
   switch (statement_attribute) {
     case SQL_ATTR_APP_PARAM_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (current_apd_ != desc) {
+      if (desc && current_apd_ != desc) {
         if (current_apd_ != built_in_apd_.get()) {
           current_apd_->DetachFromStatement(this, true);
         }
@@ -552,7 +571,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
     }
     case SQL_ATTR_APP_ROW_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (current_ard_ != desc) {
+      if (desc && current_ard_ != desc) {
         if (current_ard_ != built_in_ard_.get()) {
           current_ard_->DetachFromStatement(this, false);
         }
@@ -722,19 +741,22 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                  SQLLEN* indicator_ptr) {
   if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
-  } else if (record_number > ird_->GetRecords().size()) {
+  } else if (static_cast<size_t>(record_number) > ird_->GetRecords().size()) {
     throw DriverException("Invalid column index: " + std::to_string(record_number),
                           "07009");
   }
 
   SQLSMALLINT evaluated_c_type = c_type;
 
-  // TODO: Get proper default precision and scale from abstraction.
-  int precision = 38;  // arrow::Decimal128Type::kMaxPrecision;
-  int scale = 0;
+  // Get precision and scale from IRD (implementation row descriptor) as defaults.
+  // These can be overridden by ARD (application row descriptor) if specified.
+  const DescriptorRecord& ird_record = ird_->GetRecords()[record_number - 1];
+  int precision = ird_record.precision > 0 ? ird_record.precision
+                                           : arrow::Decimal128Type::kMaxPrecision;
+  int scale = ird_record.scale;
 
   if (c_type == SQL_ARD_TYPE) {
-    if (record_number > current_ard_->GetRecords().size()) {
+    if (static_cast<size_t>(record_number) > current_ard_->GetRecords().size()) {
       throw DriverException("Invalid column index: " + std::to_string(record_number),
                             "07009");
     }
@@ -747,18 +769,36 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
   // Note: this is intentionally not an else if, since the type can be SQL_C_DEFAULT in
   // the ARD.
   if (evaluated_c_type == SQL_C_DEFAULT) {
-    if (record_number <= current_ard_->GetRecords().size()) {
+    if (static_cast<size_t>(record_number) <= current_ard_->GetRecords().size()) {
       const DescriptorRecord& ard_record = current_ard_->GetRecords()[record_number - 1];
       precision = ard_record.precision;
       scale = ard_record.scale;
     }
 
-    const DescriptorRecord& ird_record = ird_->GetRecords()[record_number - 1];
     evaluated_c_type = getc_typeForSQLType(ird_record);
   }
 
   return current_result_->GetData(record_number, evaluated_c_type, precision, scale,
                                   data_ptr, buffer_length, indicator_ptr);
+}
+
+SQLRETURN ODBCStatement::GetMoreResults() {
+  // Multiple result sets are not supported by Arrow protocol.
+  if (current_result_) {
+    return SQL_NO_DATA;
+  } else {
+    throw DriverException("Function sequence error", "HY010");
+  }
+}
+
+void ODBCStatement::GetColumnCount(SQLSMALLINT* column_count_ptr) {
+  if (!column_count_ptr) {
+    // column count pointer is not valid, do nothing as ODBC spec does not mention this as
+    // an error
+    return;
+  }
+  size_t column_count = ird_->GetRecords().size();
+  *column_count_ptr = static_cast<SQLSMALLINT>(column_count);
 }
 
 void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {

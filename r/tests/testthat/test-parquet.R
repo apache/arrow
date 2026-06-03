@@ -129,6 +129,16 @@ test_that("write_parquet() can truncate timestamps", {
   expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
+test_that("write_parquet() works with zero-length POSIXct (GH-48832)", {
+  # In R 4.5.2+, zero-length POSIXct vectors are integer type, not double
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  expect_no_error(write_parquet(data.frame(x = as.POSIXct(x = NULL)), tf))
+  result <- read_parquet(tf)
+  expect_equal(nrow(result), 0)
+})
+
 test_that("make_valid_parquet_version()", {
   expect_equal(
     make_valid_parquet_version("1.0"),
@@ -477,7 +487,7 @@ test_that("Can read Parquet files from a URL", {
   skip_if_offline()
   skip_on_cran()
   skip_if_not_available("snappy")
-  parquet_url <- "https://github.com/apache/arrow/blob/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet?raw=true" # nolint
+  parquet_url <- "https://github.com/apache/arrow/raw/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet" # nolint
   pu <- read_parquet(parquet_url)
   expect_true(tibble::is_tibble(pu))
   expect_identical(dim(pu), c(10L, 11L))

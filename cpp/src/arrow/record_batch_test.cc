@@ -318,7 +318,6 @@ TEST_F(TestRecordBatch, Validate) {
   auto a3 = gen.ArrayOf(int16(), 5);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
-
   ASSERT_OK(b1->ValidateFull());
 
   // Length mismatch
@@ -328,6 +327,21 @@ TEST_F(TestRecordBatch, Validate) {
   // Type mismatch
   auto b3 = RecordBatch::Make(schema, length, {a0, a1, a0});
   ASSERT_RAISES(Invalid, b3->ValidateFull());
+
+  // Invalid column data (nulls in map key array) that would abort on MakeArray
+  auto map_field = field("f", map(utf8(), int32()));
+  schema = ::arrow::schema({map_field});
+  auto map_key_data = ArrayFromJSON(utf8(), "[null]")->data();
+  auto map_item_data = ArrayFromJSON(int32(), "[null]")->data();
+  auto map_data = ArrayData::Make(map_field->type(), /*length=*/1, /*buffers=*/{nullptr},
+                                  /*child_data=*/{map_key_data, map_item_data});
+
+  auto b4 = RecordBatch::Make(schema, /*num_rows=*/map_data->length, {map_data});
+  ASSERT_RAISES(Invalid, b4->ValidateFull());
+
+  // Length mismatch with a column data that would also fail on MakeArray
+  auto b5 = RecordBatch::Make(schema, /*num_rows=*/1 + map_data->length, {map_data});
+  ASSERT_RAISES(Invalid, b5->Validate());
 }
 
 TEST_F(TestRecordBatch, Slice) {

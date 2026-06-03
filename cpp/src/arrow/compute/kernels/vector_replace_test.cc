@@ -199,6 +199,13 @@ class TestReplaceBoolean : public TestReplaceKernel<BooleanType> {
   }
 };
 
+class TestReplaceNull : public TestReplaceKernel<NullType> {
+ protected:
+  std::shared_ptr<DataType> type() override {
+    return TypeTraits<NullType>::type_singleton();
+  }
+};
+
 class TestReplaceFixedSizeBinary : public TestReplaceKernel<FixedSizeBinaryType> {
  protected:
   std::shared_ptr<DataType> type() override { return fixed_size_binary(3); }
@@ -530,6 +537,35 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
        this->scalar("true"), this->array("[false, null, true]")},
       {this->array("[null, null]"), this->mask("[true, true]"),
        this->array("[true, true]"), this->array("[true, true]")},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
+}
+
+TEST_F(TestReplaceNull, ReplaceWithMask) {
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
+
+      {this->array("[null]"), this->mask_scalar(false), this->array("[]"),
+       this->array("[null]")},
+
+      {this->array("[null]"), this->mask_scalar(true), this->array("[null]"),
+       this->array("[null]")},
+
+      {this->array("[null]"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
+
+      {this->array("[null, null]"), this->mask("[false, false]"), this->array("[]"),
+       this->array("[null, null]")},
+      {this->array("[null, null]"), this->mask("[true, true]"),
+       this->array("[null, null]"), this->array("[null, null]")},
+      {this->array("[null, null]"), this->mask("[null, null]"), this->array("[]"),
+       this->array("[null, null]")},
   };
 
   for (auto test_case : cases) {

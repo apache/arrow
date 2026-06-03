@@ -20,9 +20,11 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/hasher.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -92,12 +94,14 @@ class PARQUET_EXPORT BloomFilter {
   /// @param value the value to hash.
   /// @return hash result.
   virtual uint64_t Hash(const Int96* value) const = 0;
+  uint64_t Hash(const Int96& value) const { return Hash(&value); }
 
   /// Compute hash for ByteArray value by using its plain encoding result.
   ///
   /// @param value the value to hash.
   /// @return hash result.
   virtual uint64_t Hash(const ByteArray* value) const = 0;
+  uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
 
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
@@ -105,6 +109,13 @@ class PARQUET_EXPORT BloomFilter {
   /// @param len the value length.
   /// @return hash result.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
+  uint64_t Hash(const FLBA& value, uint32_t len) const { return Hash(&value, len); }
+
+  /// Compute hash for std::string_view value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  /// @return hash result.
+  virtual uint64_t Hash(std::string_view value) const = 0;
 
   /// Batch compute hashes for 32 bits values by using its plain encoding result.
   ///
@@ -277,6 +288,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   uint64_t Hash(const FLBA* value, uint32_t len) const override {
     return hasher_->Hash(value, len);
   }
+  uint64_t Hash(std::string_view value) const override { return hasher_->Hash(value); }
 
   void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const override {
     hasher_->Hashes(values, num_values, hashes);
@@ -317,6 +329,24 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   static BlockSplitBloomFilter Deserialize(
       const ReaderProperties& properties, ArrowInputStream* input_stream,
       std::optional<int64_t> bloom_filter_length = std::nullopt);
+
+  /// Deserialize an encrypted Bloom filter from an input stream.
+  ///
+  /// The same metadata decryptor is used for both the serialized header and bitset,
+  /// while switching module AADs between the two encrypted modules.
+  ///
+  /// @param properties The parquet reader properties.
+  /// @param input_stream The input stream from which to construct the bloom filter.
+  /// @param bloom_filter_length The length of the serialized bloom filter including
+  /// header.
+  /// @param decryptor Decryptor for encrypted Bloom filter modules.
+  /// @param row_group_ordinal Ordinal of the row group containing this Bloom filter.
+  /// @param column_ordinal Ordinal of the column containing this Bloom filter.
+  /// @return The BlockSplitBloomFilter.
+  static BlockSplitBloomFilter DeserializeEncrypted(
+      const ReaderProperties& properties, ArrowInputStream* input_stream,
+      std::optional<int64_t> bloom_filter_length, Decryptor* decryptor,
+      int16_t row_group_ordinal, int16_t column_ordinal);
 
  private:
   inline void InsertHashImpl(uint64_t hash);
