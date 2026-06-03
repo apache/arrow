@@ -30,7 +30,7 @@ namespace pfor {
 class PforConstants {
  public:
   /// Number of elements compressed together as a unit.
-  static constexpr uint32_t kPforVectorSize = 1024;
+  static constexpr int64_t kPforVectorSize = 1024;
 
   /// log2(kPforVectorSize)
   static constexpr uint8_t kDefaultLogVectorSize = 10;
@@ -45,13 +45,10 @@ class PforConstants {
   using OffsetType = uint32_t;
 
   /// Type used to store exception positions within a compressed vector.
-  using PositionType = uint16_t;
-
-  /// Maximum number of exceptions per vector (uint16 limit).
-  static constexpr uint16_t kMaxExceptions = 65535;
+  using PositionType = int16_t;
 
   /// Page header size in bytes.
-  static constexpr uint8_t kHeaderSize = 7;
+  static constexpr int64_t kHeaderSize = 7;
 
   /// Packing mode: FOR + bit-packing (currently the only mode).
   static constexpr uint8_t kPackingModeForBitPack = 0;
@@ -68,7 +65,7 @@ struct PforTypeTraits<int32_t> {
   static constexpr uint8_t kValueByteWidth = 4;
 
   /// PforVectorInfo size: 4B FOR + 1B bitWidth + 2B numExceptions = 7 bytes
-  static constexpr uint8_t kVectorInfoSize = 7;
+  static constexpr int64_t kVectorInfoSize = 7;
 
   static uint8_t BitsRequired(uint32_t value) {
     if (value == 0) return 0;
@@ -83,7 +80,7 @@ struct PforTypeTraits<int64_t> {
   static constexpr uint8_t kValueByteWidth = 8;
 
   /// PforVectorInfo size: 8B FOR + 1B bitWidth + 2B numExceptions = 11 bytes
-  static constexpr uint8_t kVectorInfoSize = 11;
+  static constexpr int64_t kVectorInfoSize = 11;
 
   static uint8_t BitsRequired(uint64_t value) {
     if (value == 0) return 0;
