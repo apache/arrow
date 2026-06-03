@@ -1134,9 +1134,9 @@ TEST(TestWriteReadORCBatch, TimestampOutOfRangeIsRejected) {
   struct_batch->numElements = 1;
 
   ASSIGN_OR_ABORT(auto builder, MakeBuilder(timestamp(TimeUnit::NANO)));
-  ASSERT_RAISES(Invalid,
-                adapters::orc::AppendBatch(orc_type->getSubtype(0), struct_batch->fields[0],
-                                           /*offset=*/0, /*length=*/1, builder.get()));
+  ASSERT_RAISES(Invalid, adapters::orc::AppendBatch(
+                             orc_type->getSubtype(0), struct_batch->fields[0],
+                             /*offset=*/0, /*length=*/1, builder.get()));
 }
 
 class TestORCWriterMultipleWrite : public ::testing::Test {
