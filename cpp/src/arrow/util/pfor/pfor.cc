@@ -192,6 +192,8 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
                             static_cast<int>(num_elements), info.bit_width);
 
     // Add FOR and convert to signed output via SafeCopy
+#pragma GCC unroll PforConstants::kLoopUnrolls
+#pragma GCC ivdep
     for (int32_t i = 0; i < num_elements; ++i) {
       unsigned_values[i] += unsigned_for;
       values[i] = util::SafeCopy<T>(unsigned_values[i]);
@@ -213,6 +215,8 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
     const uint8_t* values_ptr = read_ptr;
     read_ptr += info.num_exceptions * sizeof(T);
 
+#pragma GCC unroll PforConstants::kLoopUnrolls
+#pragma GCC ivdep
     for (int16_t i = 0; i < info.num_exceptions; ++i) {
       int16_t pos;
       std::memcpy(&pos, positions_ptr + i * sizeof(int16_t), sizeof(int16_t));

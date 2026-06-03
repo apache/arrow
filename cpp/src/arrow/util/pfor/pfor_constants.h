@@ -52,6 +52,9 @@ class PforConstants {
 
   /// Packing mode: FOR + bit-packing (currently the only mode).
   static constexpr uint8_t kPackingModeForBitPack = 0;
+
+  /// Loop unroll factor for compiler hints in decode loops.
+  static constexpr int64_t kLoopUnrolls = 4;
 };
 
 /// \brief Type traits for PFOR integer types
