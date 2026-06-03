@@ -183,35 +183,13 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
 
   // Step 3: Unpack bit-packed deltas and add FOR
   if (info.bit_width > 0) {
-    constexpr int kBatchSize = 32;
-    int32_t full_batches = num_elements / kBatchSize;
-    int32_t remainder = num_elements % kBatchSize;
-
     std::vector<UnsignedT> unsigned_values(num_elements);
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference);
 
-    // Unpack full batches using SIMD
-    for (int32_t batch = 0; batch < full_batches; ++batch) {
-      arrow::internal::unpack(read_ptr, unsigned_values.data() + batch * kBatchSize,
-                              kBatchSize, info.bit_width,
-                              batch * kBatchSize * info.bit_width);
-    }
-
-    // Unpack remainder using BitReader
-    if (remainder > 0) {
-      int64_t packed_size =
-          bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width);
-      bit_util::BitReader reader(read_ptr, static_cast<int>(packed_size));
-      for (int32_t i = 0; i < full_batches * kBatchSize; ++i) {
-        uint64_t val;
-        reader.GetValue(info.bit_width, &val);
-      }
-      for (int32_t i = full_batches * kBatchSize; i < num_elements; ++i) {
-        uint64_t val;
-        reader.GetValue(info.bit_width, &val);
-        unsigned_values[i] = static_cast<UnsignedT>(val);
-      }
-    }
+    // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
+    // then unpack_exact for the remainder.
+    arrow::internal::unpack(read_ptr, unsigned_values.data(),
+                            static_cast<int>(num_elements), info.bit_width);
 
     // Add FOR and convert to signed output via SafeCopy
     for (int32_t i = 0; i < num_elements; ++i) {
