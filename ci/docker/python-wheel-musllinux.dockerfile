@@ -41,6 +41,16 @@ RUN apk add --no-cache \
 # We will be able to use the main repo once we move to alpine 3.22 or later.
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mono
 
+# The GNU ld 2.44 shipped in the Alpine 3.22 base image miscompiles the
+# statically linked Protobuf descriptor tables on x86_64, which makes
+# "import pyarrow" abort at startup with:
+#   Invalid file descriptor data passed to EncodedDescriptorDatabase::Add()
+# Link with mold to work around it. mold is only installed (and therefore
+# only used) on x86_64; arm64 is unaffected and falls back to the default
+# linker when ARROW_USE_MOLD is set but mold isn't found.
+ENV ARROW_USE_MOLD=ON
+RUN if [ "${arch}" = "amd64" ]; then apk add --no-cache mold; fi
+
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On musllinux_1_2 a system python is installed (3.12) but pip is not
 # We therefore override the PATH with Python 3.10 in /opt/python
