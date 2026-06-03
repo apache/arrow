@@ -43,6 +43,11 @@ struct EndiannessTestParam {
   bool can_validate_full = true;
 };
 
+// To avoid Valgrind errors
+void PrintTo(const EndiannessTestParam& v, std::ostream* os) {
+  *os << v.integration_file_basename;
+}
+
 class TestEndianness : public ::testing::TestWithParam<EndiannessTestParam> {
  public:
   void SetUp() { param_ = GetParam(); }
