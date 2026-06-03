@@ -45,8 +45,14 @@ class PforWrapper {
   ///
   /// \param[in] values pointer to input integers
   /// \param[in] num_values total number of values
+  /// \param[in] vector_size number of elements per vector (must be a power of 2,
+  ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
   /// \param[out] comp pointer to output buffer (caller must ensure sufficient size)
   /// \param[in,out] comp_size input: available buffer size; output: bytes written
+  static void Encode(const T* values, int32_t num_values, int32_t vector_size,
+                     char* comp, int64_t* comp_size);
+
+  /// Convenience overload with default vector_size = kPforVectorSize
   static void Encode(const T* values, int32_t num_values, char* comp,
                      int64_t* comp_size);
 
@@ -63,8 +69,11 @@ class PforWrapper {
   /// \brief Get the maximum compressed size for a given number of values
   ///
   /// \param[in] num_values number of integer values
+  /// \param[in] vector_size number of elements per vector
   /// \return maximum possible compressed page size in bytes
-  static int64_t GetMaxCompressedSize(int32_t num_values);
+  static int64_t GetMaxCompressedSize(
+      int32_t num_values,
+      int32_t vector_size = static_cast<int32_t>(PforConstants::kPforVectorSize));
 
  private:
   /// \brief Page header structure (7 bytes)
