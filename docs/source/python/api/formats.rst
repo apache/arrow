@@ -119,6 +119,8 @@ Encrypted Parquet Files
    KmsConnectionConfig
    EncryptionConfiguration
    DecryptionConfiguration
+   create_encryption_properties
+   create_decryption_properties
 
 .. _api.orc:
 

@@ -179,6 +179,7 @@ the following:
 * Watch for AI's tendency to generate overly verbose comments, unnecessary
   test cases, and incorrect fixes
 * Break down large PRs into smaller ones to make review easier
+* AI agents should never tag or ping maintainers
 
 PR authors are also responsible for disclosing any copyrighted materials in
 submitted contributions. See the `ASF's guidance on AI-generated code
@@ -202,7 +203,7 @@ Endianness
 ++++++++++
 
 The Arrow format allows setting endianness.  Due to the popularity of
-little endian architectures most of implementation assume little endian by
+little endian architectures, most of the implementations assume little endian by
 default. There has been some  effort to support big endian platforms as well.
 Based on a `mailing-list discussion
 <https://mail-archives.apache.org/mod_mbox/arrow-dev/202009.mbox/%3cCAK7Z5T--HHhr9Dy43PYhD6m-XoU4qoGwQVLwZsG-kOxXjPTyZA@mail.gmail.com%3e>`__,

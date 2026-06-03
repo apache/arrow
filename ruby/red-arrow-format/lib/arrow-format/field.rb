@@ -47,14 +47,7 @@ module ArrowFormat
       elsif @type.respond_to?(:children)
         fb_field.children = @type.children.collect(&:to_flatbuffers)
       end
-      if @metadata
-        fb_field.custom_metadata = @metadata.collect do |key, value|
-          fb_key_value = FB::KeyValue::Data.new
-          fb_key_value.key = key
-          fb_key_value.value = value
-          fb_key_value
-        end
-      end
+      fb_field.custom_metadata = FB.build_custom_metadata(@metadata)
       fb_field
     end
   end

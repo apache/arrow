@@ -531,5 +531,92 @@ TEST(CountRowsAsync, Errors) {
                               internal::GetCpuThreadPool(), read_options, parse_options));
 }
 
+TEST(ReaderTests, DefaultColumnTypePartialDefault) {
+  auto table_buffer = std::make_shared<Buffer>(
+      "id,name,value,date\n"
+      "0000101,apple,0003.1400,2024-01-15\n"
+      "00102,banana,001.6180,2024-02-20\n"
+      "0003,cherry,02.71800,2024-03-25\n");
+
+  auto input = std::make_shared<io::BufferReader>(table_buffer);
+  auto read_options = ReadOptions::Defaults();
+  auto parse_options = ParseOptions::Defaults();
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.column_types["id"] = int64();
+  convert_options.default_column_type = utf8();
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+
+  auto expected_schema = schema({field("id", int64()), field("name", utf8()),
+                                 field("value", utf8()), field("date", utf8())});
+  AssertSchemaEqual(expected_schema, table->schema());
+
+  auto expected_table = TableFromJSON(
+      expected_schema,
+      {R"([{"id":101, "name":"apple",  "value":"0003.1400", "date":"2024-01-15"},
+            {"id":102, "name":"banana", "value":"001.6180", "date":"2024-02-20"},
+            {"id":3,   "name":"cherry", "value":"02.71800", "date":"2024-03-25"}])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
+TEST(ReaderTests, DefaultColumnTypeForcesTypedColumns) {
+  auto table_buffer = std::make_shared<Buffer>(
+      "id,amount,code\n"
+      "0000404,000045.6700,001\n"
+      "0000505,000000.10,010\n");
+
+  auto input = std::make_shared<io::BufferReader>(table_buffer);
+  auto read_options = ReadOptions::Defaults();
+  auto parse_options = ParseOptions::Defaults();
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.default_column_type = utf8();
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+
+  auto expected_schema =
+      schema({field("id", utf8()), field("amount", utf8()), field("code", utf8())});
+  AssertSchemaEqual(expected_schema, table->schema());
+
+  auto expected_table = TableFromJSON(
+      expected_schema, {R"([{"id":"0000404", "amount":"000045.6700", "code":"001"},
+            {"id":"0000505", "amount":"000000.10", "code":"010"}])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
+TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
+  // Input without header; autogenerate column names and default all to strings
+  auto table_buffer = std::make_shared<Buffer>("AB|000388907|000045.6700\n");
+
+  auto input = std::make_shared<io::BufferReader>(table_buffer);
+  auto read_options = ReadOptions::Defaults();
+  read_options.autogenerate_column_names = true;  // treat first row as data
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.delimiter = '|';
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.default_column_type = utf8();
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+
+  auto expected_schema =
+      schema({field("f0", utf8()), field("f1", utf8()), field("f2", utf8())});
+  AssertSchemaEqual(expected_schema, table->schema());
+
+  auto expected_table = TableFromJSON(expected_schema, {R"([{
+        "f0":"AB",
+        "f1":"000388907",
+        "f2":"000045.6700"
+      }])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
 }  // namespace csv
 }  // namespace arrow

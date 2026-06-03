@@ -51,6 +51,7 @@ RUN dnf update -y && \
         llvm-devel \
         lz4-devel \
         make \
+        mold \
         ninja-build \
         openssl-devel \
         patch \
@@ -93,6 +94,7 @@ ENV ARROW_ACERO=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \

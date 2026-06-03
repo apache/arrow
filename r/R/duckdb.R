@@ -183,9 +183,17 @@ to_arrow <- function(.data) {
     )
   }
 
+  groups <- dplyr::groups(.data)
+
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
   reader <- duckdb::duckdb_fetch_record_batch(res)
-  MakeSafeRecordBatchReader(reader)
+  out <- MakeSafeRecordBatchReader(reader)
+
+  if (length(groups)) {
+    out <- dplyr::group_by(out, !!!groups)
+  }
+
+  out
 }

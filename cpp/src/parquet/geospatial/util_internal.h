@@ -22,6 +22,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <span>
 #include <string>
 #include <unordered_set>
 
@@ -94,19 +95,19 @@ struct PARQUET_EXPORT BoundingBox {
   BoundingBox& operator=(const BoundingBox&) = default;
 
   /// \brief Update the X and Y bounds to ensure these bounds contain coord
-  void UpdateXY(::arrow::util::span<const double> coord) {
+  void UpdateXY(std::span<const double> coord) {
     DCHECK_EQ(coord.size(), 2);
     UpdateInternal(coord);
   }
 
   /// \brief Update the X, Y, and Z bounds to ensure these bounds contain coord
-  void UpdateXYZ(::arrow::util::span<const double> coord) {
+  void UpdateXYZ(std::span<const double> coord) {
     DCHECK_EQ(coord.size(), 3);
     UpdateInternal(coord);
   }
 
   /// \brief Update the X, Y, and M bounds to ensure these bounds contain coord
-  void UpdateXYM(::arrow::util::span<const double> coord) {
+  void UpdateXYM(std::span<const double> coord) {
     DCHECK_EQ(coord.size(), 3);
     min[0] = std::min(min[0], coord[0]);
     min[1] = std::min(min[1], coord[1]);
@@ -117,7 +118,7 @@ struct PARQUET_EXPORT BoundingBox {
   }
 
   /// \brief Update the X, Y, Z, and M bounds to ensure these bounds contain coord
-  void UpdateXYZM(::arrow::util::span<const double> coord) {
+  void UpdateXYZM(std::span<const double> coord) {
     DCHECK_EQ(coord.size(), 4);
     UpdateInternal(coord);
   }
@@ -190,13 +191,13 @@ class PARQUET_EXPORT WKBGeometryBounder {
   /// the geometry is added to the internal geometry type list.
   void MergeGeometry(std::string_view bytes_wkb);
 
-  void MergeGeometry(::arrow::util::span<const uint8_t> bytes_wkb);
+  void MergeGeometry(std::span<const uint8_t> bytes_wkb);
 
   /// \brief Accumulate the bounds of a previously-calculated BoundingBox
   void MergeBox(const BoundingBox& box) { box_.Merge(box); }
 
   /// \brief Accumulate a previously-calculated list of geometry types
-  void MergeGeometryTypes(::arrow::util::span<const int32_t> geospatial_types) {
+  void MergeGeometryTypes(std::span<const int32_t> geospatial_types) {
     geospatial_types_.insert(geospatial_types.begin(), geospatial_types.end());
   }
 

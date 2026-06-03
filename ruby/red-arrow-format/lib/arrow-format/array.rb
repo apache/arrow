@@ -140,8 +140,8 @@ module ArrowFormat
   end
 
   class NullArray < Array
-    def initialize(type, size)
-      super(type, size, nil)
+    def initialize(size)
+      super(NullType.singleton, size, nil)
     end
 
     def each_buffer
@@ -186,6 +186,10 @@ module ArrowFormat
   end
 
   class BooleanArray < PrimitiveArray
+    def initialize(size, validity_buffer, values_buffer)
+      super(BooleanType.singleton, size, validity_buffer, values_buffer)
+    end
+
     def to_a
       return [] if empty?
 
@@ -209,51 +213,120 @@ module ArrowFormat
   end
 
   class IntArray < PrimitiveArray
+    def initialize(size, validity_buffer, values_buffer)
+      super(self.class.type, size, validity_buffer, values_buffer)
+    end
   end
 
   class Int8Array < IntArray
+    class << self
+      def type
+        Int8Type.singleton
+      end
+    end
   end
 
   class UInt8Array < IntArray
+    class << self
+      def type
+        UInt8Type.singleton
+      end
+    end
   end
 
   class Int16Array < IntArray
+    class << self
+      def type
+        Int16Type.singleton
+      end
+    end
   end
 
   class UInt16Array < IntArray
+    class << self
+      def type
+        UInt16Type.singleton
+      end
+    end
   end
 
   class Int32Array < IntArray
+    class << self
+      def type
+        Int32Type.singleton
+      end
+    end
   end
 
   class UInt32Array < IntArray
+    class << self
+      def type
+        UInt32Type.singleton
+      end
+    end
   end
 
   class Int64Array < IntArray
+    class << self
+      def type
+        Int64Type.singleton
+      end
+    end
   end
 
   class UInt64Array < IntArray
+    class << self
+      def type
+        UInt64Type.singleton
+      end
+    end
   end
 
   class FloatingPointArray < PrimitiveArray
+    def initialize(size, validity_buffer, values_buffer)
+      super(self.class.type, size, validity_buffer, values_buffer)
+    end
   end
 
   class Float32Array < FloatingPointArray
+    class << self
+      def type
+        Float32Type.singleton
+      end
+    end
   end
 
   class Float64Array < FloatingPointArray
+    class << self
+      def type
+        Float64Type.singleton
+      end
+    end
   end
 
   class TemporalArray < PrimitiveArray
   end
 
   class DateArray < TemporalArray
+    def initialize(size, validity_buffer, values_buffer)
+      super(self.class.type, size, validity_buffer, values_buffer)
+    end
   end
 
   class Date32Array < DateArray
+    class << self
+      def type
+        Date32Type.singleton
+      end
+    end
   end
 
   class Date64Array < DateArray
+    class << self
+      def type
+        Date64Type.singleton
+      end
+    end
   end
 
   class TimeArray < TemporalArray
@@ -318,8 +391,8 @@ module ArrowFormat
   end
 
   class VariableSizeBinaryArray < Array
-    def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
-      super(type, size, validity_buffer)
+    def initialize(size, validity_buffer, offsets_buffer, values_buffer)
+      super(self.class.type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
       @values_buffer = values_buffer
     end
@@ -364,18 +437,38 @@ module ArrowFormat
   end
 
   class BinaryArray < VariableSizeBinaryArray
+    class << self
+      def type
+        BinaryType.singleton
+      end
+    end
   end
 
   class LargeBinaryArray < VariableSizeBinaryArray
+    class << self
+      def type
+        LargeBinaryType.singleton
+      end
+    end
   end
 
   class VariableSizeUTF8Array < VariableSizeBinaryArray
   end
 
   class UTF8Array < VariableSizeUTF8Array
+    class << self
+      def type
+        UTF8Type.singleton
+      end
+    end
   end
 
   class LargeUTF8Array < VariableSizeUTF8Array
+    class << self
+      def type
+        LargeUTF8Type.singleton
+      end
+    end
   end
 
   class FixedSizeBinaryArray < Array
@@ -738,7 +831,7 @@ module ArrowFormat
 
       values = []
       @dictionaries.each do |dictionary|
-        values.concat(dictionary.to_a)
+        values.concat(dictionary.array.to_a)
       end
       indices.collect do |index|
         if index.nil?

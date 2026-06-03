@@ -31,9 +31,10 @@
 #  include <windows.h>
 #endif
 
+#include <span>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/secure_string.h"
-#include "arrow/util/span.h"
 
 namespace arrow::util {
 
@@ -181,11 +182,11 @@ std::size_t SecureString::length() const { return secret_.length(); }
 
 std::size_t SecureString::capacity() const { return secret_.capacity(); }
 
-span<uint8_t> SecureString::as_span() {
+std::span<uint8_t> SecureString::as_span() {
   return {reinterpret_cast<uint8_t*>(secret_.data()), secret_.size()};
 }
 
-span<const uint8_t> SecureString::as_span() const {
+std::span<const uint8_t> SecureString::as_span() const {
   return {reinterpret_cast<const uint8_t*>(secret_.data()), secret_.size()};
 }
 

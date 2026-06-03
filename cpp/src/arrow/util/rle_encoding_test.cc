@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <random>
+#include <span>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -36,7 +37,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding_internal.h"
-#include "arrow/util/span.h"
 
 namespace arrow::util {
 
@@ -463,7 +463,7 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
   EXPECT_EQ(decoded, expected);
 }
 
-void TestRleBitPackedParserError(span<const uint8_t> bytes, rle_size_t bit_width) {
+void TestRleBitPackedParserError(std::span<const uint8_t> bytes, rle_size_t bit_width) {
   auto parser =
       RleBitPackedParser(bytes.data(), static_cast<rle_size_t>(bytes.size()), bit_width);
   EXPECT_FALSE(parser.exhausted());
@@ -483,7 +483,7 @@ void TestRleBitPackedParserError(span<const uint8_t> bytes, rle_size_t bit_width
 
 void TestRleBitPackedParserError(const std::vector<uint8_t>& bytes,
                                  rle_size_t bit_width) {
-  TestRleBitPackedParserError(span(bytes), bit_width);
+  TestRleBitPackedParserError(std::span(bytes), bit_width);
 }
 
 TEST(RleBitPacked, RleBitPackedParser) {
@@ -632,7 +632,7 @@ TEST(RleBitPacked, RleBitPackedParserErrors) {
   // (we pass a span<> on invalid memory, but only the reachable part should be read)
   std::vector<uint8_t> bytes = {0x81, 0x80, 0x80, 0x80, 0x02};
   TestRleBitPackedParserError(
-      /* bytes= */ span(bytes.data(), 1ULL << 30),
+      /* bytes= */ std::span(bytes.data(), 1ULL << 30),
       /* bit_width= */ 1);
 }
 

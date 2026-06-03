@@ -20,8 +20,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include <sql.h>
-#include <sqltypes.h>
-#include <sqlucode.h>
+#include <sqlext.h>
 
 //  \file odbc_api_internal.h
 //

@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/encryption/internal_file_encryptor.h"
+#include <span>
+
 #include "arrow/util/secure_string.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 
 using arrow::util::SecureString;
 
@@ -37,8 +39,8 @@ int32_t Encryptor::CiphertextLength(int64_t plaintext_len) const {
   return aes_encryptor_->CiphertextLength(plaintext_len);
 }
 
-int32_t Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
-                           ::arrow::util::span<uint8_t> ciphertext) {
+int32_t Encryptor::Encrypt(std::span<const uint8_t> plaintext,
+                           std::span<uint8_t> ciphertext) {
   return aes_encryptor_->Encrypt(plaintext, key_.as_span(), str2span(aad_), ciphertext);
 }
 

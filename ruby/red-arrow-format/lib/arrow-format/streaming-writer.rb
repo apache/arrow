@@ -35,7 +35,8 @@ module ArrowFormat
     end
 
     def start(schema)
-      write_message(build_metadata(schema.to_flatbuffers))
+      write_message(build_metadata(schema.to_flatbuffers,
+                                   custom_metadata: schema.message_metadata))
     end
 
     def write_record_batch(record_batch)
@@ -75,11 +76,12 @@ module ArrowFormat
       write_data(padding(padding_size)) if padding_size > 0
     end
 
-    def build_metadata(header, body_length=0)
+    def build_metadata(header, body_length=0, custom_metadata: nil)
       fb_message = FB::Message::Data.new
       fb_message.version = FB::MetadataVersion::V5
       fb_message.header = header
       fb_message.body_length = body_length
+      fb_message.custom_metadata = FB.build_custom_metadata(custom_metadata)
       metadata = FB::Message.serialize(fb_message)
       metadata_size = metadata.bytesize
       padding_size = compute_padding_size(metadata_size, ALIGNMENT_SIZE)
@@ -93,7 +95,8 @@ module ArrowFormat
       record_batch.all_buffers_enumerator.each do |buffer|
         body_length += aligned_buffer_size(buffer) if buffer
       end
-      metadata = build_metadata(fb_header, body_length)
+      metadata = build_metadata(fb_header, body_length,
+                                custom_metadata: record_batch.message_metadata)
       fb_block = FB::Block::Data.new
       fb_block.offset = @offset
       fb_block.meta_data_length =
@@ -113,21 +116,24 @@ module ArrowFormat
       value_type = dictionary_array.type.value_type
       base_offset = 0
       dictionary_array.dictionaries.each do |dictionary|
+        data = dictionary.array
         written_offset = @written_dictionary_offsets[id] || 0
         current_base_offset = base_offset
-        next_base_offset = base_offset + dictionary.size
+        next_base_offset = base_offset + data.size
         base_offset = next_base_offset
 
         next if next_base_offset <= written_offset
 
         is_delta = (not written_offset.zero?)
         if current_base_offset < written_offset
-          dictionary = dictionary.slice(written_offset - current_base_offset)
+          data = data.slice(written_offset - current_base_offset)
         end
 
         schema = Schema.new([Field.new("dummy", value_type)])
-        size = dictionary.size
-        record_batch = RecordBatch.new(schema, size, [dictionary])
+        size = data.size
+        record_batch =
+          RecordBatch.new(schema, size, [data],
+                          message_metadata: dictionary.message_metadata)
         fb_dictionary_batch = FB::DictionaryBatch::Data.new
         fb_dictionary_batch.id = id
         fb_dictionary_batch.data = record_batch.to_flatbuffers
@@ -135,7 +141,7 @@ module ArrowFormat
         write_record_batch_based_message(record_batch,
                                          fb_dictionary_batch,
                                          @fb_dictionary_blocks)
-        @written_dictionary_offsets[id] = written_offset + dictionary.size
+        @written_dictionary_offsets[id] = written_offset + data.size
       end
     end
 

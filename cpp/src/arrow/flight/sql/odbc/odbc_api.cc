@@ -37,6 +37,8 @@
 #endif  // defined(_WIN32)
 
 namespace arrow::flight::sql::odbc {
+void LoadPropertiesFromDSN(const std::string& dsn, Connection::ConnPropertyMap& props);
+
 SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) {
   ARROW_LOG(DEBUG) << "SQLAllocHandle called with type: " << type
                    << ", parent: " << parent

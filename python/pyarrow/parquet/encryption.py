@@ -20,4 +20,6 @@ from pyarrow._parquet_encryption import (CryptoFactory,   # noqa
                                          EncryptionConfiguration,
                                          DecryptionConfiguration,
                                          KmsConnectionConfig,
-                                         KmsClient)
+                                         KmsClient,
+                                         create_encryption_properties,
+                                         create_decryption_properties)

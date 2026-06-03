@@ -206,6 +206,37 @@ reached a terminal status, it is closed with one of two outcomes:
 * **closed as not planned** - indicates the issue is closed and should
   not receive any further updates, but *without* action being taken.
 
+.. _stale-issues:
+
+Stale issues and pull requests
+++++++++++++++++++++++++++++++
+
+To keep the issue tracker manageable, issues and pull requests that have had
+no activity for an extended period are automatically marked as stale by a
+daily GitHub Actions workflow.
+
+The policy varies by type:
+
+* **Pull requests**: After 365 days of inactivity, a ``Status: stale-warning``
+  label is added. If there is still no activity after 14 more days, the PR is
+  closed.
+* **Usage issues** (labeled ``Type: usage``): Same 365 + 14 day policy as
+  pull requests.
+* **Enhancement issues** (labeled ``Type: enhancement``): Same 365 + 14 day
+  policy, but issues labeled ``Status: needs champion`` are exempt from
+  closure. This label indicates that the enhancement is still desired but
+  needs someone to take ownership of it.
+
+To prevent an issue or PR from being closed, remove the
+``Status: stale-warning`` label or leave a comment explaining that it is
+still active.
+
+.. seealso::
+
+   If you are looking for issues to work on, issues labeled
+   ``Status: needs champion`` are confirmed-wanted enhancements that need
+   a contributor. See :ref:`finding-issues` for more.
+
 .. _issue-assignment:
 
 Issue assignment

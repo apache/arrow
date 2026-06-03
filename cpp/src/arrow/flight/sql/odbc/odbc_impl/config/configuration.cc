@@ -15,8 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
+// flight_sql_connection.h needs to be included first due to conflicts with windows.h
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
+
+#include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
+
+#include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
@@ -27,6 +31,8 @@
 #include <iterator>
 #include <sstream>
 
+using ODBC::SetAttributeSQLWCHAR;
+
 namespace arrow::flight::sql::odbc {
 namespace config {
 static const char DEFAULT_DSN[] = "Apache Arrow Flight SQL";
@@ -35,28 +41,30 @@ static const char DEFAULT_USE_CERT_STORE[] = TRUE_STR;
 static const char DEFAULT_DISABLE_CERT_VERIFICATION[] = FALSE_STR;
 
 namespace {
-std::string ReadDsnString(const std::string& dsn, std::string_view key,
+std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
                           const std::string& dflt = "") {
-  CONVERT_WIDE_STR(const std::wstring wdsn, dsn);
-  CONVERT_WIDE_STR(const std::wstring wkey, key);
-  CONVERT_WIDE_STR(const std::wstring wdflt, dflt);
+  CONVERT_SQLWCHAR_STR(wdsn, dsn);
+  CONVERT_SQLWCHAR_STR(wkey, key);
+  CONVERT_SQLWCHAR_STR(wdflt, dflt);
 
 #define BUFFER_SIZE (1024)
-  std::vector<wchar_t> buf(BUFFER_SIZE);
-  int ret =
-      SQLGetPrivateProfileString(wdsn.c_str(), wkey.c_str(), wdflt.c_str(), buf.data(),
-                                 static_cast<int>(buf.size()), L"ODBC.INI");
+  std::vector<SQLWCHAR> buf(BUFFER_SIZE);
+  int ret = SQLGetPrivateProfileString(
+      reinterpret_cast<LPCWSTR>(wdsn.c_str()), reinterpret_cast<LPCWSTR>(wkey.c_str()),
+      reinterpret_cast<LPCWSTR>(wdflt.c_str()), buf.data(), static_cast<int>(buf.size()),
+      ODBC_INI);
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
-    ret =
-        SQLGetPrivateProfileString(wdsn.c_str(), wkey.c_str(), wdflt.c_str(), buf.data(),
-                                   static_cast<int>(buf.size()), L"ODBC.INI");
+    ret = SQLGetPrivateProfileString(reinterpret_cast<LPCWSTR>(wdsn.c_str()),
+                                     reinterpret_cast<LPCWSTR>(wkey.c_str()),
+                                     reinterpret_cast<LPCWSTR>(wdflt.c_str()), buf.data(),
+                                     static_cast<int>(buf.size()), ODBC_INI);
   }
 
-  std::wstring wresult = std::wstring(buf.data(), ret);
-  CONVERT_UTF8_STR(const std::string result, wresult);
+  std::string result("");
+  SetAttributeSQLWCHAR(buf.data(), ret * GetSqlWCharSize(), result);
   return result;
 }
 
@@ -74,31 +82,35 @@ void RemoveAllKnownKeys(std::vector<std::string>& keys) {
 }
 
 std::vector<std::string> ReadAllKeys(const std::string& dsn) {
-  CONVERT_WIDE_STR(const std::wstring wdsn, dsn);
+  CONVERT_SQLWCHAR_STR(wdsn, dsn);
 
-  std::vector<wchar_t> buf(BUFFER_SIZE);
+  std::vector<SQLWCHAR> buf(BUFFER_SIZE);
 
-  int ret = SQLGetPrivateProfileString(wdsn.c_str(), NULL, L"", buf.data(),
-                                       static_cast<int>(buf.size()), L"ODBC.INI");
+  int ret = SQLGetPrivateProfileString(reinterpret_cast<LPCWSTR>(wdsn.c_str()), NULL,
+                                       reinterpret_cast<LPCWSTR>(L""), buf.data(),
+                                       static_cast<int>(buf.size()), ODBC_INI);
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
-    ret = SQLGetPrivateProfileString(wdsn.c_str(), NULL, L"", buf.data(),
-                                     static_cast<int>(buf.size()), L"ODBC.INI");
+    ret = SQLGetPrivateProfileString(reinterpret_cast<LPCWSTR>(wdsn.c_str()), NULL,
+                                     reinterpret_cast<LPCWSTR>(L""), buf.data(),
+                                     static_cast<int>(buf.size()), ODBC_INI);
   }
 
   // When you pass NULL to SQLGetPrivateProfileString it gives back a \0 delimited list of
   // all the keys. The below loop simply tokenizes all the keys and places them into a
   // vector.
   std::vector<std::string> keys;
-  wchar_t* begin = buf.data();
+  SQLWCHAR* begin = buf.data();
   while (begin && *begin != '\0') {
-    wchar_t* cur;
+    SQLWCHAR* cur;
     for (cur = begin; *cur != '\0'; ++cur) {
     }
 
-    CONVERT_UTF8_STR(const std::string key, std::wstring(begin, cur));
+    std::string key("");
+    SQLINTEGER key_len = static_cast<SQLINTEGER>(cur - begin);
+    SetAttributeSQLWCHAR(begin, key_len * GetSqlWCharSize(), key);
     keys.emplace_back(key);
     begin = ++cur;
   }
@@ -123,6 +135,10 @@ void Configuration::LoadDefaults() {
 }
 
 void Configuration::LoadDsn(const std::string& dsn) {
+  // Read keys before reading DSN to minimized unexpected behavior from ODBC driver
+  // managers.
+  auto customKeys = ReadAllKeys(dsn);
+
   Set(FlightSqlConnection::DSN, dsn);
   Set(FlightSqlConnection::HOST, ReadDsnString(dsn, FlightSqlConnection::HOST));
   Set(FlightSqlConnection::PORT, ReadDsnString(dsn, FlightSqlConnection::PORT));
@@ -131,6 +147,7 @@ void Configuration::LoadDsn(const std::string& dsn) {
   Set(FlightSqlConnection::PWD, ReadDsnString(dsn, FlightSqlConnection::PWD));
   Set(FlightSqlConnection::TRUSTED_CERTS,
       ReadDsnString(dsn, FlightSqlConnection::TRUSTED_CERTS));
+
 #ifdef __APPLE__
   // macOS iODBC treats non-empty defaults as the real values when reading from system
   // DSN, so we don't pass defaults on macOS.
@@ -151,9 +168,8 @@ void Configuration::LoadDsn(const std::string& dsn) {
   Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
       ReadDsnString(dsn, FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
                     DEFAULT_DISABLE_CERT_VERIFICATION));
-#endif
+#endif  // __APPLE__
 
-  auto customKeys = ReadAllKeys(dsn);
   RemoveAllKnownKeys(customKeys);
   for (auto key : customKeys) {
     std::string_view key_sv(key);

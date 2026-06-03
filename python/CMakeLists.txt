@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "24.0.0-SNAPSHOT")
+set(PYARROW_VERSION "25.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -292,6 +292,15 @@ message(STATUS "Found Cython version: ${CYTHON_VERSION}")
 # Arrow C++ and set default PyArrow build options
 include(GNUInstallDirs)
 find_package(Arrow REQUIRED)
+
+# When not bundling Arrow C++ libraries on macOS, add the Arrow library
+# directory to the RPATH so that the extensions can find libarrow at runtime.
+if(APPLE
+   AND NOT PYARROW_BUNDLE_ARROW_CPP
+   AND ARROW_SHARED_LIB)
+  get_filename_component(_arrow_lib_dir "${ARROW_SHARED_LIB}" DIRECTORY)
+  list(APPEND CMAKE_INSTALL_RPATH "${_arrow_lib_dir}")
+endif()
 
 macro(define_option name description arrow_option)
   set("PYARROW_${name}"
@@ -967,6 +976,9 @@ foreach(module ${CYTHON_EXTENSIONS})
       if(NOT PYARROW_BUNDLE_CYTHON_CPP)
         continue()
       endif()
+    endif()
+    if(output MATCHES "\\.h$")
+      continue()
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
   endforeach()

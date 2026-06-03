@@ -136,6 +136,7 @@ SqlDataType GetDataTypeFromArrowFieldV3(const std::shared_ptr<Field>& field,
     case Type::LARGE_LIST:
     case Type::MAX_ID:
     case Type::NA:
+    default:
       break;
   }
 
@@ -803,6 +804,8 @@ std::shared_ptr<DataType> GetDefaultDataTypeForTypeId(Type::type type_id) {
       return arrow::time64(TimeUnit::MICRO);
     case Type::TIMESTAMP:
       return arrow::timestamp(TimeUnit::SECOND);
+    default:
+      break;
   }
 
   throw DriverException(std::string("Invalid type id: ") + std::to_string(type_id));

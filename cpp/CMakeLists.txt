@@ -96,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "24.0.0-SNAPSHOT")
+set(ARROW_VERSION "25.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -174,7 +174,7 @@ set(ARROW_GDB_DIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/gdb")
 set(ARROW_FULL_GDB_DIR "${CMAKE_INSTALL_FULL_DATADIR}/${PROJECT_NAME}/gdb")
 set(ARROW_GDB_AUTO_LOAD_DIR "${CMAKE_INSTALL_DATADIR}/gdb/auto-load")
 set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake")
-set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
+set(ARROW_DOC_DIR "${CMAKE_INSTALL_DOCDIR}")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
@@ -209,17 +209,6 @@ if(WIN32 AND NOT MINGW)
   set(MSVC_TOOLCHAIN TRUE)
 else()
   set(MSVC_TOOLCHAIN FALSE)
-endif()
-
-find_package(ClangTools)
-find_package(InferTools)
-if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
-   OR CLANG_TIDY_FOUND
-   OR INFER_FOUND)
-  # Generate a Clang compile_commands.json "compilation database" file for use
-  # with various development tools, such as Vim's YouCompleteMe plugin.
-  # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
-  set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
 # Needed for Gandiva.
@@ -648,22 +637,6 @@ if(UNIX)
                     -b
                     VERBATIM)
 endif(UNIX)
-
-#
-# "make infer" target
-#
-
-if(${INFER_FOUND})
-  # runs infer capture
-  add_custom_target(infer ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
-                          ${CMAKE_BINARY_DIR}/compile_commands.json 1)
-  # runs infer analyze
-  add_custom_target(infer-analyze ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
-                                  ${CMAKE_BINARY_DIR}/compile_commands.json 2)
-  # runs infer report
-  add_custom_target(infer-report ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
-                                 ${CMAKE_BINARY_DIR}/compile_commands.json 3)
-endif()
 
 #
 # Link targets

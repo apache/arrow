@@ -26,6 +26,8 @@
 #include <optional>
 #include <string>
 
+#include "arrow/buffer.h"
+
 #include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"

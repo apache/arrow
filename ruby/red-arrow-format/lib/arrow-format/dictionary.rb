@@ -15,4 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/all/test_package/build/
+module ArrowFormat
+  class Dictionary
+    attr_reader :id
+    attr_reader :array
+    attr_reader :message_metadata
+    def initialize(id, array, message_metadata: nil)
+      @id = id
+      @array = array
+      @message_metadata = message_metadata
+    end
+  end
+end

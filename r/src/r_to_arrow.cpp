@@ -93,6 +93,8 @@ RVectorType GetVectorType(SEXP x) {
         return FACTOR;
       } else if (Rf_inherits(x, "Date")) {
         return DATE_INT;
+      } else if (Rf_inherits(x, "POSIXct")) {
+        return POSIXCT;
       }
       return INT32;
     case STRSXP:

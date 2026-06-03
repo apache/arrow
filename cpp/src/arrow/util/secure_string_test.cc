@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <span>
 #include <vector>
 
 #include "arrow/util/secure_string.h"
@@ -29,8 +30,14 @@ namespace arrow::util::test {
 #  define CAN_TEST_DEALLOCATED_AREAS 1
 #endif
 
+// Reading the unused tail past size() is undefined behavior, exclude MSVC
+// from the tail check.
 std::string_view StringArea(const std::string& string) {
+#if defined(_MSC_VER)
+  return {string.data(), string.size()};
+#else
   return {string.data(), string.capacity()};
+#endif
 }
 
 // same as GTest ASSERT_PRED_FORMAT2 macro, but without the outer GTEST_ASSERT_
@@ -475,16 +482,17 @@ TEST(TestSecureString, AsSpan) {
   auto mutable_span = secret.as_span();
 
   std::string expected = "hello world";
-  span expected_span = {reinterpret_cast<uint8_t*>(expected.data()), expected.size()};
-  ASSERT_EQ(const_span, expected_span);
-  ASSERT_EQ(mutable_span, expected_span);
+  std::span expected_span = {reinterpret_cast<uint8_t*>(expected.data()),
+                             expected.size()};
+  ASSERT_TRUE(std::ranges::equal(const_span, expected_span));
+  ASSERT_TRUE(std::ranges::equal(mutable_span, expected_span));
 
   // modify secret through mutual span
   // the const span shares the same secret, so it is changed as well
   mutable_span[0] = 'H';
   expected_span[0] = 'H';
-  ASSERT_EQ(const_span, expected_span);
-  ASSERT_EQ(mutable_span, expected_span);
+  ASSERT_TRUE(std::ranges::equal(const_span, expected_span));
+  ASSERT_TRUE(std::ranges::equal(mutable_span, expected_span));
 }
 
 TEST(TestSecureString, AsView) {

@@ -236,10 +236,13 @@ class ParquetFile:
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
-    pre_buffer : bool, default False
+    pre_buffer : bool, default True
         Coalesce and issue file reads in parallel to improve performance on
-        high-latency filesystems (e.g. S3). If True, Arrow will use a
-        background I/O thread pool.
+        high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
+        background I/O thread pool. If using a filesystem layer that itself
+        performs readahead (e.g. fsspec's S3FS), disable readahead for best
+        results. Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
     coerce_int96_timestamp_unit : str, default None
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
@@ -262,9 +265,9 @@ class ParquetFile:
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
     arrow_extensions_enabled : bool, default True
-        If True, read Parquet logical types as Arrow extension types where possible,
-        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-        the canonical `arrow.uuid` extension type).
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g., read JSON as the canonical `arrow.json` extension type
+        or UUID as the canonical `arrow.uuid` extension type).
 
     Examples
     --------
@@ -310,7 +313,7 @@ class ParquetFile:
 
     def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, binary_type=None, list_type=None,
-                 memory_map=False, buffer_size=0, pre_buffer=False,
+                 memory_map=False, buffer_size=0, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
@@ -956,6 +959,32 @@ write_time_adjusted_to_utc : bool, default False
     are expressed in reference to midnight in the UTC timezone.
     If False (the default), the TIME columns are assumed to be expressed
     in reference to midnight in an unknown, presumably local, timezone.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 """
 
 _parquet_writer_example_doc = """\
@@ -1420,6 +1449,8 @@ Examples
                     path_or_paths, filesystem, memory_map=memory_map
                 )
                 finfo = filesystem.get_file_info(path_or_paths)
+                if finfo.is_file:
+                    single_file = path_or_paths
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
             else:
@@ -1985,6 +2016,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=False,
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
+                bloom_filter_options=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2018,6 +2050,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=store_decimal_as_integer,
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
+                bloom_filter_options=bloom_filter_options,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -2339,7 +2372,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,
-                  filesystem=None):
+                  filesystem=None, arrow_extensions_enabled=True):
     """
     Read FileMetaData from footer of a single Parquet file.
 
@@ -2354,6 +2387,10 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    arrow_extensions_enabled : bool, default True
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g. UUID as the canonical `arrow.uuid` extension type).
+        If False, use the underlying storage types instead.
 
     Returns
     -------
@@ -2383,13 +2420,17 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
         file_ctx = where = filesystem.open_input_file(where)
 
     with file_ctx:
-        file = ParquetFile(where, memory_map=memory_map,
-                           decryption_properties=decryption_properties)
+        file = ParquetFile(
+            where,
+            memory_map=memory_map,
+            decryption_properties=decryption_properties,
+            arrow_extensions_enabled=arrow_extensions_enabled,
+        )
         return file.metadata
 
 
 def read_schema(where, memory_map=False, decryption_properties=None,
-                filesystem=None):
+                filesystem=None, arrow_extensions_enabled=True):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -2404,6 +2445,9 @@ def read_schema(where, memory_map=False, decryption_properties=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    arrow_extensions_enabled : bool, default True
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g., UUID as the canonical `arrow.uuid` extension type).
 
     Returns
     -------
@@ -2429,9 +2473,12 @@ def read_schema(where, memory_map=False, decryption_properties=None,
 
     with file_ctx:
         file = ParquetFile(
-            where, memory_map=memory_map,
-            decryption_properties=decryption_properties)
-        return file.schema.to_arrow_schema()
+            where,
+            memory_map=memory_map,
+            decryption_properties=decryption_properties,
+            arrow_extensions_enabled=arrow_extensions_enabled,
+        )
+        return file.schema_arrow
 
 
 __all__ = (

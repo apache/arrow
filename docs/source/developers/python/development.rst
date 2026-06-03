@@ -90,7 +90,7 @@ The test groups currently include:
 
 * ``dataset``: Apache Arrow Dataset tests
 * ``flight``: Flight RPC tests
-* ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
+* ``gandiva``: tests for Gandiva expression compiler (uses LLVM, deprecated since version 24.0.0)
 * ``hdfs``: tests that use libhdfs to access the Hadoop filesystem
 * ``hypothesis``: tests that use the ``hypothesis`` module for generating
   random test cases. Note that ``--hypothesis`` doesn't work due to a quirk

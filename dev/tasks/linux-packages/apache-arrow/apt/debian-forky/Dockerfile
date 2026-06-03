@@ -46,11 +46,11 @@ RUN \
     gi-docgen \
     git \
     libboost-filesystem-dev \
-    libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
     libc-ares-dev \
     libcurl4-openssl-dev \
+    libfaketime \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \

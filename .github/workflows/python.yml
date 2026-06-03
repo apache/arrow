@@ -30,6 +30,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
 
 concurrency:
@@ -106,6 +108,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -185,6 +188,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
@@ -194,11 +198,6 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
@@ -266,6 +265,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
@@ -297,8 +297,10 @@ jobs:
           CACHE_VERSION: "2025-09-16.1"
       - name: Build Arrow C++ and PyArrow
         shell: cmd
+        env:
+          USR_WINDOWS_DIR: ${{ steps.path-info.outputs.usr-windows-dir }}
         run: |
-          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
+          call "ci\scripts\python_build.bat" %cd% "%USR_WINDOWS_DIR%"
       - name: Test PyArrow
         shell: cmd
         run: |

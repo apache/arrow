@@ -192,6 +192,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     pa.int16() even if pa.int8() was passed to the function. Note that an
     explicit index type will not be demoted even if it is wider than required.
 
+    This class supports Python's standard operators
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
+    They can be used directly instead of calling underlying
+    `pyarrow.compute` functions explicitly.
+
     Examples
     --------
     >>> import pandas as pd
@@ -229,6 +235,25 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     >>> arr = pa.array(range(1024), type=pa.dictionary(pa.int8(), pa.int64()))
     >>> arr.type.index_type
     DataType(int16)
+
+    >>> arr1 = pa.array([1, 2, 3], type=pa.int8())
+    >>> arr2 = pa.array([4, 5, 6], type=pa.int8())
+    >>> arr1 + arr2
+    <pyarrow.lib.Int8Array object at ...>
+    [
+      5,
+      7,
+      9
+    ]
+
+    >>> val = pa.scalar(42)
+    >>> val - arr1
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      41,
+      40,
+      39
+    ]
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -331,8 +356,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values.codes, mask, index_type, memory_pool)
             try:
                 dictionary = array(
-                    values.categories.values, type=value_type,
-                    memory_pool=memory_pool)
+                    values.categories, type=value_type,
+                    from_pandas=True, memory_pool=memory_pool)
             except TypeError:
                 # TODO when removing the deprecation warning, this whole
                 # try/except can be removed (to bubble the TypeError of
@@ -346,7 +371,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                         "TypeError",
                         FutureWarning, stacklevel=2)
                     dictionary = array(
-                        values.categories.values, memory_pool=memory_pool)
+                        values.categories, from_pandas=True,
+                        memory_pool=memory_pool)
                 else:
                     raise
 
@@ -375,7 +401,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
-        result = ExtensionArray.from_storage(extension_type, result)
+        result = extension_type.wrap_array(result)
     return result
 
 
@@ -2259,6 +2285,54 @@ cdef class Array(_PandasConvertible):
             stat.init(sp_stat)
             return stat
 
+    def __abs__(self):
+        self._assert_cpu()
+        return _pc().call_function('abs_checked', [self])
+
+    def __add__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('add_checked', [self, other])
+
+    def __truediv__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('divide_checked', [self, other])
+
+    def __mul__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('multiply_checked', [self, other])
+
+    def __neg__(self):
+        self._assert_cpu()
+        return _pc().call_function('negate_checked', [self])
+
+    def __pow__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('power_checked', [self, other])
+
+    def __sub__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('subtract_checked', [self, other])
+
+    def __and__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('bit_wise_and', [self, other])
+
+    def __or__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('bit_wise_or', [self, other])
+
+    def __xor__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('bit_wise_xor', [self, other])
+
+    def __lshift__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('shift_left_checked', [self, other])
+
+    def __rshift__(self, object other):
+        self._assert_cpu()
+        return _pc().call_function('shift_right_checked', [self, other])
+
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
@@ -2276,6 +2350,13 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
             dtype = original_type.to_pandas_dtype()
         except NotImplementedError:
             pass
+    elif pandas_api.uses_string_dtype() and not options["strings_to_categorical"] and (
+        original_type.id == _Type_STRING or
+        original_type.id == _Type_LARGE_STRING or
+        original_type.id == _Type_STRING_VIEW
+    ):
+        # for pandas 3.0+, use pandas' new default string dtype
+        dtype = pandas_api.pd.StringDtype(na_value=np.nan)
 
     # Only call __from_arrow__ for Arrow extension types or when explicitly
     # overridden via types_mapper

@@ -41,7 +41,6 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -52,7 +51,6 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
-using arrow::util::span;
 
 namespace bit_util = arrow::bit_util;
 
@@ -1507,7 +1505,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 
   template <typename U>
-  void CheckDecode(span<const uint8_t> encoded_data, span<const U> expected_decoded_data,
+  void CheckDecode(std::span<const uint8_t> encoded_data,
+                   std::span<const U> expected_decoded_data,
                    const ColumnDescriptor* descr = nullptr) {
     static_assert(sizeof(U) == sizeof(c_type));
     static_assert(std::is_same_v<U, FLBA> == std::is_same_v<c_type, FLBA>);
@@ -1525,8 +1524,9 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     if constexpr (std::is_same_v<c_type, FLBA>) {
       auto type_length = descr->type_length();
       for (int i = 0; i < num_elements; ++i) {
-        ASSERT_EQ(span<const uint8_t>(expected_decoded_data[i].ptr, type_length),
-                  span<const uint8_t>(decoded_data[i].ptr, type_length));
+        ASSERT_TRUE(std::ranges::equal(
+            std::span<const uint8_t>(expected_decoded_data[i].ptr, type_length),
+            std::span<const uint8_t>(decoded_data[i].ptr, type_length)));
       }
     } else {
       for (int i = 0; i < num_elements; ++i) {
@@ -1537,7 +1537,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   }
 
   template <typename U>
-  void CheckEncode(span<const U> data, span<const uint8_t> expected_encoded_data,
+  void CheckEncode(std::span<const U> data,
+                   std::span<const uint8_t> expected_encoded_data,
                    const ColumnDescriptor* descr = nullptr) {
     static_assert(sizeof(U) == sizeof(c_type));
     static_assert(std::is_same_v<U, FLBA> == std::is_same_v<c_type, FLBA>);
@@ -1590,7 +1591,8 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
       const std::vector<FLBA> expected_output{
           FLBA{&raw_expected_output[0]}, FLBA{&raw_expected_output[3]},
           FLBA{&raw_expected_output[6]}, FLBA{&raw_expected_output[9]}};
-      CheckDecode(span{data}, span{expected_output}, FLBAColumnDescriptor(3).get());
+      CheckDecode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(3).get());
     }
     // - type_length = 1
     {
@@ -1599,7 +1601,8 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
       const std::vector<FLBA> expected_output{FLBA{&raw_expected_output[0]},
                                               FLBA{&raw_expected_output[1]},
                                               FLBA{&raw_expected_output[2]}};
-      CheckDecode(span{data}, span{expected_output}, FLBAColumnDescriptor(1).get());
+      CheckDecode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(1).get());
     }
   } else if constexpr (sizeof(c_type) == 4) {
     // INT32, FLOAT
@@ -1631,7 +1634,8 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
                                    FLBA{&raw_data[6]}, FLBA{&raw_data[9]}};
       const std::vector<uint8_t> expected_output{0x11, 0x44, 0x77, 0xAA, 0x22, 0x55,
                                                  0x88, 0xBB, 0x33, 0x66, 0x99, 0xCC};
-      CheckEncode(span{data}, span{expected_output}, FLBAColumnDescriptor(3).get());
+      CheckEncode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(3).get());
     }
     // - type_length = 1
     {
@@ -1639,7 +1643,8 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
       const std::vector<FLBA> data{FLBA{&raw_data[0]}, FLBA{&raw_data[1]},
                                    FLBA{&raw_data[2]}};
       const std::vector<uint8_t> expected_output{0x11, 0x22, 0x33};
-      CheckEncode(span{data}, span{expected_output}, FLBAColumnDescriptor(1).get());
+      CheckEncode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(1).get());
     }
   } else if constexpr (sizeof(c_type) == 4) {
     // INT32, FLOAT
@@ -1647,7 +1652,7 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
     const std::vector<uint32_t> data{0xaabbccddUL, 0x11223344UL};
     const std::vector<uint8_t> expected_output{0xdd, 0x44, 0xcc, 0x33,
                                                0xbb, 0x22, 0xaa, 0x11};
-    CheckEncode(span{data}, span{expected_output});
+    CheckEncode(std::span{data}, std::span{expected_output});
   } else {
     // INT64, DOUBLE
     // Values should be in native byte order before encoding
@@ -1657,7 +1662,7 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
         0x48, 0x08, 0xb8, 0x47, 0x07, 0xb7, 0x46, 0x06, 0xb6, 0x45, 0x05, 0xb5,
         0x44, 0x04, 0xb4, 0x43, 0x03, 0xb3, 0x42, 0x02, 0xb2, 0x41, 0x01, 0xb1,
     };
-    CheckEncode(span{data}, span{expected_output});
+    CheckEncode(std::span{data}, std::span{expected_output});
   }
 }
 
@@ -1703,7 +1708,7 @@ TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSpace) {
 
   for (auto null_prob : {0.001, 0.1, 0.5, 0.9, 0.999}) {
     // Test with both size and offset up to 3 Simd block
-    for (auto i = 1; i < kSimdSize * 3; i++) {
+    for (auto i = 0; i < kSimdSize * 3; i++) {
       ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, 0, null_prob));
       ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, i + 1, null_prob));
     }
@@ -2176,7 +2181,7 @@ std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
   return encoder->FlushValues();
 }
 
-std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) {
+std::shared_ptr<Buffer> DeltaEncode(std::span<const int32_t> lengths) {
   auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
   encoder->Put(lengths.data(), static_cast<int>(lengths.size()));
   return encoder->FlushValues();
@@ -2184,8 +2189,8 @@ std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) 
 
 std::shared_ptr<Buffer> DeltaEncode(std::shared_ptr<::arrow::Array>& lengths) {
   auto data = ::arrow::internal::checked_pointer_cast<const ::arrow::Int32Array>(lengths);
-  auto span = ::arrow::util::span<const int32_t>{data->raw_values(),
-                                                 static_cast<size_t>(lengths->length())};
+  auto span = std::span<const int32_t>{data->raw_values(),
+                                       static_cast<size_t>(lengths->length())};
   return DeltaEncode(span);
 }
 

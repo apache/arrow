@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -424,7 +425,7 @@ class ConcatenateImpl {
     out_->buffers.resize(2);
 
     for (const auto& in_data : in_) {
-      for (const auto& buf : util::span(in_data->buffers).subspan(2)) {
+      for (const auto& buf : std::span(in_data->buffers).subspan(2)) {
         out_->buffers.push_back(buf);
       }
     }

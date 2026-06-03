@@ -43,14 +43,7 @@ module ArrowFormat
       fb_footer.schema = @fb_schema
       fb_footer.dictionaries = @fb_dictionary_blocks
       fb_footer.record_batches = @fb_record_batch_blocks
-      if metadata
-        fb_footer.custom_metadata = metadata.collect do |key, value|
-          fb_key_value = FB::KeyValue::Data.new
-          fb_key_value.key = key
-          fb_key_value.value = value
-          fb_key_value
-        end
-      end
+      fb_footer.custom_metadata = FB.build_custom_metadata(metadata)
       FB::Footer.serialize(fb_footer)
     end
 

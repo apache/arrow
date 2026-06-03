@@ -19,8 +19,8 @@
 #include "arrow/flight/sql/odbc/odbc_impl/encoding.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
-#include <sql.h>
-#include <sqlext.h>
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_includes.h"
+
 #include <algorithm>
 #include <codecvt>
 #include <cstring>
@@ -28,7 +28,17 @@
 #include <memory>
 #include <string>
 
+// Include fwd.h headers after ODBC headers
+#include "arrow/flight/sql/odbc/odbc_impl/util.h"
+
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+
+#ifdef __linux__
+#  define ODBC_INI reinterpret_cast<LPCWSTR>(u"ODBC.INI")
+#else
+// Windows and macOS
+#  define ODBC_INI reinterpret_cast<LPCWSTR>(L"ODBC.INI")
+#endif
 
 namespace ODBC {
 using arrow::flight::sql::odbc::WcsToUtf8;
@@ -136,4 +146,27 @@ inline std::string SqlStringToString(const unsigned char* sql_str,
 
   return res;
 }
+
+inline std::vector<SQLWCHAR> ToSqlWCharVector(const std::wstring& ws) {
+  switch (arrow::flight::sql::odbc::GetSqlWCharSize()) {
+    case sizeof(wchar_t): {
+      return std::vector<SQLWCHAR>(ws.begin(), ws.end());
+    }
+#ifdef __linux__
+    case sizeof(char16_t): {
+      // Linux ODBC driver manager uses char16_t as SQLWCHAR
+      CONVERT_UTF8_STR(const std::string utf8s, ws);
+      CONVERT_UTF16_STR(const std::u16string utf16s, utf8s);
+      return std::vector<SQLWCHAR>(utf16s.begin(), utf16s.end());
+    }
+#endif  // __linux__
+    default: {
+      assert(false);
+      throw arrow::flight::sql::odbc::DriverException(
+          "Encoding is unsupported, SQLWCHAR size: " +
+          std::to_string(arrow::flight::sql::odbc::GetSqlWCharSize()));
+    }
+  }
+}
+
 }  // namespace ODBC

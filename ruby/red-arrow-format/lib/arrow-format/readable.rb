@@ -34,12 +34,14 @@ module ArrowFormat
       metadata
     end
 
-    def read_schema(fb_schema)
+    def read_schema(fb_schema, fb_message_custom_metadata=nil)
       fields = fb_schema.fields.collect do |fb_field|
         read_field(fb_field)
       end
+      message_metadata = read_custom_metadata(fb_message_custom_metadata)
       Schema.new(fields,
-                 metadata: read_custom_metadata(fb_schema.custom_metadata))
+                 metadata: read_custom_metadata(fb_schema.custom_metadata),
+                 message_metadata: message_metadata)
     end
 
     def read_field(fb_field,
@@ -226,14 +228,20 @@ module ArrowFormat
       end
     end
 
-    def read_record_batch(version, fb_record_batch, schema, body)
+    def read_record_batch(version,
+                          fb_record_batch,
+                          fb_message_custom_metadata,
+                          schema,
+                          body)
+      message_metadata = read_custom_metadata(fb_message_custom_metadata)
       n_rows = fb_record_batch.length
       nodes = fb_record_batch.nodes
       buffers = fb_record_batch.buffers
       columns = schema.fields.collect do |field|
         read_column(version, field, nodes, buffers, body)
       end
-      RecordBatch.new(schema, n_rows, columns)
+      RecordBatch.new(schema, n_rows, columns,
+                      message_metadata: message_metadata)
     end
 
     def read_column(version, field, nodes, buffers, body)

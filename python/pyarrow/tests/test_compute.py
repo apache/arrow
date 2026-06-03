@@ -1269,6 +1269,34 @@ def test_extract_regex_span():
     assert struct.tolist() == expected
 
 
+def test_replace_with_mask_null_type():
+    # GH-47447: replace_with_mask crashed for null type arrays
+    input = pa.array([None], pa.null())
+    replacements = pa.array([None], pa.null())
+
+    result = pc.replace_with_mask(input, True, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    result = pc.replace_with_mask(input, False, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([True])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([False])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
@@ -2847,6 +2875,18 @@ def test_count():
     with pytest.raises(ValueError,
                        match='"something else" is not a valid count mode'):
         pc.count(arr, 'something else')
+
+
+def test_count_run_end_encoded_nulls():
+    arr = pc.run_end_encode(
+        pa.array([1, 1, None, None, None, 2, 2, 2, None, 3]))
+
+    assert pc.count(arr, mode="only_valid").as_py() == 6
+    assert pc.count(arr, mode="only_null").as_py() == 4
+    assert pc.count(arr, mode="all").as_py() == 10
+    # Slice crosses run boundaries: logical [None, None, 2, 2, 2, None].
+    assert pc.count(arr.slice(3, 6), mode="only_valid").as_py() == 3
+    assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
 
 
 def test_index():
