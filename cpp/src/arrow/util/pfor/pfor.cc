@@ -35,6 +35,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 namespace util {
@@ -154,11 +155,12 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 // DecodeVector
 
 template <typename T>
-int64_t PforCompression<T>::DecodeVector(T* values, const uint8_t* data,
+int64_t PforCompression<T>::DecodeVector(T* values,
+                                         arrow::util::span<const uint8_t> data,
                                          int32_t num_elements) {
   // Step 1: Read vector info
   auto info = PforVectorInfo<T>::Load(data);
-  const uint8_t* read_ptr = data + PforVectorInfo<T>::kStoredSize;
+  const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
 
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width == 0 && info.num_exceptions == 0) {
@@ -230,7 +232,7 @@ int64_t PforCompression<T>::DecodeVector(T* values, const uint8_t* data,
     }
   }
 
-  return static_cast<int64_t>(read_ptr - data);
+  return static_cast<int64_t>(read_ptr - data.data());
 }
 
 // ----------------------------------------------------------------------
@@ -251,11 +253,11 @@ int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec
 template <typename T>
 int64_t PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
                                             int32_t num_elements,
-                                            uint8_t* dest) {
-  uint8_t* write_ptr = dest;
+                                            arrow::util::span<uint8_t> dest) {
+  uint8_t* write_ptr = dest.data();
 
   // Write vector info
-  vec.info.Store(write_ptr);
+  vec.info.Store(arrow::util::span<uint8_t>(write_ptr, PforVectorInfo<T>::kStoredSize));
   write_ptr += PforVectorInfo<T>::kStoredSize;
 
   // Write packed values
@@ -276,7 +278,7 @@ int64_t PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
     write_ptr += vec.info.num_exceptions * sizeof(T);
   }
 
-  return static_cast<int64_t>(write_ptr - dest);
+  return static_cast<int64_t>(write_ptr - dest.data());
 }
 
 // Explicit template instantiations
