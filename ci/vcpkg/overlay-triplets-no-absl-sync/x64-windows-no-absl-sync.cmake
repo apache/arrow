@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# GH-49465 diagnostic: x64-windows settings plus GPR_DISABLE_ABSEIL_SYNC, so gRPC
-# is rebuilt without absl::Mutex to test if the Windows exit hang goes away.
+# GH-49465: rebuild gRPC with native sync instead of absl::Mutex to avoid the
+# Windows exit hang. See the ODBC Windows job in cpp_extra.yml
 set(VCPKG_TARGET_ARCHITECTURE x64)
 set(VCPKG_CRT_LINKAGE dynamic)
 set(VCPKG_LIBRARY_LINKAGE dynamic)

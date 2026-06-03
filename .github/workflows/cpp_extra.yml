@@ -441,7 +441,7 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
-
+          
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
@@ -547,23 +547,24 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
-      # GH-49465 diagnostic: re-run the whole suite, failing if any run hangs -
-      # as the hang only reproduces under parallel load, not with the flight test alone.
-      ARROW_CTEST_REPEAT: until-fail:10
-      # GH-49465 diagnostic: match the overlay triplet's macro so grpcpp's Mutex ABI agrees
+      # GH-49465: work around the gRPC/Abseil exit hang on Windows
+      # https://github.com/grpc/grpc/issues/39321
+      # https://github.com/abseil/abseil-cpp/issues/1877
+      # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
+      # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
       ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
-      # GH-49465 diagnostic: custom triplet (x64-windows + GPR_DISABLE_ABSEIL_SYNC) so gRPC
-      # is rebuilt without absl sync. See ci/vcpkg/overlay-triplets-no-absl-sync
+      # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
+      # (native sync instead of absl::Mutex). See ci/vcpkg/overlay-triplets-no-absl-sync.
       VCPKG_DEFAULT_TRIPLET: x64-windows-no-absl-sync
       VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg/overlay-triplets-no-absl-sync
     steps:
@@ -642,30 +643,6 @@ jobs:
         shell: cmd
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
-      # Debug https://github.com/apache/arrow/issues/49465:
-      # arrow-flight-test passes all 94 tests in ~4s, then intermittently hangs
-      # on exit and ctest kills it at the 300s timeout. The hang only reproduces
-      # under the parallel ctest run (not standalone). So try a background
-      # watchdog to minidump the hung process during the Test step below.
-      - name: Start Flight hang watchdog (diagnostic)
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          $dumpDir = "${{ github.workspace }}\flight-hang-dumps"
-          New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null
-          Invoke-WebRequest -Uri https://download.sysinternals.com/files/Procdump.zip -OutFile Procdump.zip
-          Expand-Archive -Path Procdump.zip -DestinationPath "${{ github.workspace }}\procdump" -Force
-          $procdump = "${{ github.workspace }}\procdump\procdump64.exe"
-          # collect Arrow PDBs if present (release builds usually have none)
-          Get-ChildItem -Path "${{ github.workspace }}\build\cpp\$env:ARROW_BUILD_TYPE" -Filter '*.pdb' -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match 'arrow|flight' } |
-            Copy-Item -Destination $dumpDir -ErrorAction SilentlyContinue
-          # launch detached so it keeps polling while the Test step runs. Deadline is
-          # raised to 200 min because ARROW_CTEST_REPEAT re-runs the suite many times.
-          $wd = Start-Process pwsh -WindowStyle Hidden -PassThru -ArgumentList `
-            '-NoProfile', '-File', "${{ github.workspace }}\ci\scripts\flight_hang_watchdog.ps1", `
-            $dumpDir, $procdump, '90', '200'
-          Write-Host "watchdog started, PID $($wd.Id)"
       - name: Test
         shell: cmd
         run: |
@@ -675,13 +652,6 @@ jobs:
           # Convert VCPKG Windows path to MSYS path
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
-      - name: Upload Flight hang dump (diagnostic)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: flight-hang-dumps
-          path: flight-hang-dumps
-          if-no-files-found: warn
       - name: Install WiX Toolset
         shell: pwsh
         run: |
@@ -760,7 +730,7 @@ jobs:
           dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
           mv "${msi_name}" "${dev_msi_name}"
           cd ..
-
+          
           tree odbc-installer
       - name: Checkout Arrow
         uses: actions/checkout@v6
