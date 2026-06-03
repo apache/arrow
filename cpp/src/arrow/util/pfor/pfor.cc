@@ -234,6 +234,50 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
 // ----------------------------------------------------------------------
 // Serialization helpers
 
+// ----------------------------------------------------------------------
+// PforEncodedVectorView::LoadView
+
+template <typename T>
+Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
+    arrow::util::span<const uint8_t> data, int32_t num_elements) {
+  ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
+
+  PforEncodedVectorView<T> view;
+  view.info = info;
+  view.num_elements = num_elements;
+
+  const uint8_t* ptr = data.data() + PforVectorInfo<T>::kStoredSize;
+
+  // packed_values: zero-copy span into the buffer
+  int64_t packed_size = 0;
+  if (info.bit_width > 0) {
+    packed_size =
+        bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width);
+    view.packed_values = arrow::util::span<const uint8_t>(ptr, packed_size);
+    ptr += packed_size;
+  }
+
+  // Exception positions and values: copy into aligned storage
+  if (info.num_exceptions > 0) {
+    view.exception_positions.resize(info.num_exceptions);
+    std::memcpy(view.exception_positions.data(), ptr,
+                info.num_exceptions * sizeof(int16_t));
+    ptr += info.num_exceptions * sizeof(int16_t);
+
+    view.exception_values.resize(info.num_exceptions);
+    std::memcpy(view.exception_values.data(), ptr,
+                info.num_exceptions * sizeof(T));
+  }
+
+  return view;
+}
+
+template struct PforEncodedVectorView<int32_t>;
+template struct PforEncodedVectorView<int64_t>;
+
+// ----------------------------------------------------------------------
+// Serialization helpers
+
 template <typename T>
 int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec,
                                                   int32_t num_elements) {
