@@ -122,18 +122,32 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
 // Decode
 
 template <typename T>
-void PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
-                            int64_t comp_size) {
-  ARROW_DCHECK(num_values > 0);
-  ARROW_DCHECK(comp != nullptr);
+Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
+                              int64_t comp_size) {
+  if (num_values <= 0) {
+    return Status::Invalid("PFOR num_values must be positive: ", num_values);
+  }
+  if (comp == nullptr) {
+    return Status::Invalid("PFOR compressed data pointer is null");
+  }
+  if (comp_size < PforConstants::kHeaderSize) {
+    return Status::Invalid("PFOR compressed buffer too small for header: ", comp_size,
+                           " < ", PforConstants::kHeaderSize);
+  }
 
   const auto* src = reinterpret_cast<const uint8_t*>(comp);
 
   // Step 1: Read header
   PforHeader header = LoadHeader(
       arrow::util::span<const uint8_t>(src, PforConstants::kHeaderSize));
-  ARROW_DCHECK(header.packing_mode == PforConstants::kPackingModeForBitPack);
-  ARROW_DCHECK(header.value_byte_width == sizeof(T));
+
+  if (header.packing_mode != PforConstants::kPackingModeForBitPack) {
+    return Status::Invalid("PFOR unsupported packing mode: ", header.packing_mode);
+  }
+  if (header.value_byte_width != sizeof(T)) {
+    return Status::Invalid("PFOR value_byte_width mismatch: ", header.value_byte_width,
+                           " vs expected ", sizeof(T));
+  }
 
   const int32_t vector_size = 1 << header.log_vector_size;
   const int32_t num_vectors =
@@ -154,11 +168,13 @@ void PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
     int32_t elements_in_vector =
         std::min(vector_size, header.num_elements - start_idx);
 
-    PforCompression<T>::DecodeVector(
+    ARROW_RETURN_NOT_OK(PforCompression<T>::DecodeVector(
         values + start_idx,
         arrow::util::span<const uint8_t>(vector_data, src + comp_size - vector_data),
-        elements_in_vector);
+        elements_in_vector));
   }
+
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
