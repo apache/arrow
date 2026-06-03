@@ -83,7 +83,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4c375221b861dd3f7ea9b31704a3cf45d35073f1 # v3.1.2
+        uses: matlab-actions/run-tests@ae0e80cb44fdec28d35d0831d8acf38ee4fdf91a # v3.2.0
         with:
           select-by-folder: matlab/test
           strict: true
@@ -132,7 +132,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4c375221b861dd3f7ea9b31704a3cf45d35073f1 # v3.1.2
+        uses: matlab-actions/run-tests@ae0e80cb44fdec28d35d0831d8acf38ee4fdf91a # v3.2.0
         with:
           select-by-folder: matlab/test
           strict: true
@@ -177,7 +177,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4c375221b861dd3f7ea9b31704a3cf45d35073f1 # v3.1.2
+        uses: matlab-actions/run-tests@ae0e80cb44fdec28d35d0831d8acf38ee4fdf91a # v3.2.0
         with:
           select-by-folder: matlab/test
           strict: true
