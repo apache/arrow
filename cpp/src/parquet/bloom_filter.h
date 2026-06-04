@@ -357,7 +357,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
     ARROW_DCHECK_EQ(num_bytes_ % kBytesPerFilterBlock, 0);
     return num_bytes_ / kBytesPerFilterBlock;
   }
-  uint32_t NumFoldsForTargetFpp(double target_fpp) const;
+  uint32_t NumFoldsForTargetFpp(double target_fpp, double avg_fill) const;
   void Fold(uint32_t num_folds);
 
   // Bytes in a tiny Bloom filter block.

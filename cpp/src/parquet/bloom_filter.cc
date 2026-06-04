@@ -349,13 +349,23 @@ void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
 }
 
 void BlockSplitBloomFilter::FoldToTargetFpp(double target_fpp) {
-  const uint32_t num_folds = NumFoldsForTargetFpp(target_fpp);
+  const auto num_bits = static_cast<int64_t>(num_bytes_) * 8;
+  const auto total_set_bits =
+      ::arrow::internal::CountSetBits(data_->data(), /*bit_offset=*/0, num_bits);
+  if (total_set_bits == 0) {
+    num_bytes_ = kMinimumBloomFilterBytes;
+    return;
+  }
+
+  const double avg_fill = static_cast<double>(total_set_bits) / num_bits;
+  const uint32_t num_folds = NumFoldsForTargetFpp(target_fpp, avg_fill);
   if (num_folds > 0) {
     Fold(num_folds);
   }
 }
 
-uint32_t BlockSplitBloomFilter::NumFoldsForTargetFpp(double target_fpp) const {
+uint32_t BlockSplitBloomFilter::NumFoldsForTargetFpp(double target_fpp,
+                                                     double avg_fill) const {
   const uint32_t num_blocks = NumBlocks();
   if (num_blocks < 2) {
     return 0;
@@ -369,15 +379,7 @@ uint32_t BlockSplitBloomFilter::NumFoldsForTargetFpp(double target_fpp) const {
   //
   // See also: Sailhan and Stehr, "Folding and Unfolding Bloom Filters", 2012:
   // https://hal.science/hal-01126174v1
-  const auto num_bits = static_cast<int64_t>(num_bytes_) * 8;
-  const auto total_set_bits =
-      ::arrow::internal::CountSetBits(data_->data(), /*bit_offset=*/0, num_bits);
-  const double avg_fill = static_cast<double>(total_set_bits) / num_bits;
   const auto max_folds = static_cast<uint32_t>(std::countr_zero(num_blocks));
-
-  if (avg_fill == 0.0) {
-    return max_folds;
-  }
 
   uint32_t num_folds = 0;
   double unset_probability_after_folds = 1.0 - avg_fill;
