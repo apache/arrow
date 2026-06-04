@@ -1148,7 +1148,6 @@ cdef class Array(_PandasConvertible):
         >>> left = pa.array(["one", "two", "three"])
         >>> right = pa.array(["two", None, "two-and-a-half", "three"])
         >>> print(left.diff(right)) # doctest: +SKIP
-
         @@ -0, +0 @@
         -"one"
         @@ -2, +1 @@
