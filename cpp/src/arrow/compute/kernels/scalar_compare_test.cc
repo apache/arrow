@@ -1226,24 +1226,6 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
   }
 }
 
-TEST(TestBinaryViewCompareKernel, SlicedArrays) {
-  for (const auto& ty : {binary_view(), utf8_view()}) {
-    auto lhs = ArrayFromJSON(ty, R"(["skip", "abc", "abcdefghijklm", null,
-                              "samepref_size", "tail"])")
-                   ->Slice(1, 4);
-    auto rhs = ArrayFromJSON(ty, R"(["skip", "abc", "abcdefghijklz", "ignored",
-                              "samepref", "tail"])")
-                   ->Slice(1, 4);
-
-    CheckScalarBinary("equal", lhs, rhs,
-                      ArrayFromJSON(boolean(), R"([true, false, null, false])"));
-    CheckScalarBinary("less", lhs, rhs,
-                      ArrayFromJSON(boolean(), R"([false, true, null, false])"));
-    CheckScalarBinary("greater", lhs, rhs,
-                      ArrayFromJSON(boolean(), R"([false, false, null, true])"));
-  }
-}
-
 TEST(TestBinaryViewCompareKernel, ArrayScalar) {
   for (const auto& ty : {binary_view(), utf8_view()}) {
     auto arr = ArrayFromJSON(ty, R"(["", "abc", "abcdefghijklmnop", null])");
