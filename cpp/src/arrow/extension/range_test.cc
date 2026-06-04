@@ -317,4 +317,235 @@ TEST(RangeType, BatchRoundTrip) {
   ASSERT_BATCHES_EQUAL(*batch, *written);
 }
 
+// ===========================================================================
+// RangeIncType -- per-value bound inclusivity
+// ===========================================================================
+
+namespace {
+
+std::shared_ptr<DataType> IncStorage(const std::shared_ptr<DataType>& value_type,
+                                     bool nullable_bounds = true) {
+  return struct_({field("lower", value_type, nullable_bounds),
+                  field("upper", value_type, nullable_bounds),
+                  field("lower_inc", boolean(), /*nullable=*/false),
+                  field("upper_inc", boolean(), /*nullable=*/false)});
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// Basics
+
+TEST(RangeIncType, Basics) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+  ASSERT_EQ("arrow.range_inc", type->extension_name());
+  ASSERT_EQ(*int32(), *type->value_type());
+  ASSERT_EQ(*type, *type);
+  ASSERT_NE(*arrow::null(), *type);
+  // No type-level parameters: metadata is the empty JSON object.
+  ASSERT_EQ("{}", type->Serialize());
+  ASSERT_EQ("extension<arrow.range_inc[value_type=int32]>", type->ToString(false));
+  // Storage carries the two non-nullable boolean inclusivity fields.
+  const auto& storage = internal::checked_cast<const StructType&>(*type->storage_type());
+  ASSERT_EQ(4, storage.num_fields());
+  ASSERT_EQ("lower_inc", storage.field(2)->name());
+  ASSERT_EQ("upper_inc", storage.field(3)->name());
+  ASSERT_EQ(*boolean(), *storage.field(2)->type());
+  ASSERT_FALSE(storage.field(2)->nullable());
+  ASSERT_FALSE(storage.field(3)->nullable());
+}
+
+// ---------------------------------------------------------------------------
+// Equals
+
+TEST(RangeIncType, Equals) {
+  auto i32 = checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+  auto i32b =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+  auto i64 = checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int64()));
+  auto i32_finite = checked_pointer_cast<extension::RangeIncType>(
+      extension::range_inc(int32(), /*allow_unbounded=*/false));
+
+  // Same object / same parameters.
+  ASSERT_EQ(*i32, *i32);
+  ASSERT_EQ(*i32, *i32b);
+
+  // Different value type.
+  ASSERT_NE(*i32, *i64);
+
+  // Different bound nullability is part of storage, hence a different type.
+  ASSERT_NE(*i32, *i32_finite);
+
+  // Not equal to non-range types, including a plain arrow.range.
+  ASSERT_NE(*i32, *arrow::int32());
+  ASSERT_NE(*i32, *extension::range(int32()));
+}
+
+// ---------------------------------------------------------------------------
+// CreateFromArray
+
+TEST(RangeIncType, CreateFromArray) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+  auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
+  auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
+  auto lower_inc = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto upper_inc = ArrayFromJSON(boolean(), "[false, false, true]");
+  ASSERT_OK_AND_ASSIGN(auto storage,
+                       StructArray::Make({lower, upper, lower_inc, upper_inc},
+                                         type->storage_type()->fields()));
+  auto array = ExtensionType::WrapArray(type, storage);
+  ASSERT_EQ(3, array->length());
+  ASSERT_EQ(0, array->null_count());
+}
+
+// ---------------------------------------------------------------------------
+// Deserialize - valid cases (metadata carries no parameters)
+
+TEST(RangeIncType, DeserializeMetadata) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+
+  // Empty string, empty object, and extra keys are all accepted.
+  for (const auto& serialized :
+       {std::string(""), std::string("{}"), std::string(R"({"extra": 42})")}) {
+    ASSERT_OK_AND_ASSIGN(auto deserialized,
+                         type->Deserialize(type->storage_type(), serialized));
+    ASSERT_EQ(*type, *deserialized) << "Failed for metadata: " << serialized;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Deserialize - invalid cases
+
+TEST(RangeIncType, DeserializeInvalidMetadata) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Missing a name for object member"),
+                                  type->Deserialize(type->storage_type(), "{"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("not an object"),
+                                  type->Deserialize(type->storage_type(), "[]"));
+}
+
+TEST(RangeIncType, DeserializeInvalidStorage) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+
+  // Not a struct.
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("must be a Struct"),
+                                  type->Deserialize(int32(), "{}"));
+
+  // Wrong number of fields (a plain 2-field range struct).
+  auto two_fields =
+      struct_({field("lower", int32(), true), field("upper", int32(), true)});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("exactly 4 fields"),
+                                  type->Deserialize(two_fields, "{}"));
+
+  // Wrong inc field names.
+  auto bad_inc_name =
+      struct_({field("lower", int32(), true), field("upper", int32(), true),
+               field("lo_inc", boolean(), false), field("upper_inc", boolean(), false)});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("named \"lower_inc\""),
+                                  type->Deserialize(bad_inc_name, "{}"));
+
+  // Inc fields not boolean.
+  auto non_bool_inc =
+      struct_({field("lower", int32(), true), field("upper", int32(), true),
+               field("lower_inc", int8(), false), field("upper_inc", int8(), false)});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("must be boolean"),
+                                  type->Deserialize(non_bool_inc, "{}"));
+
+  // Inc fields nullable: rejected (would produce ambiguous data).
+  auto nullable_inc =
+      struct_({field("lower", int32(), true), field("upper", int32(), true),
+               field("lower_inc", boolean(), true), field("upper_inc", boolean(), true)});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("must be non-nullable"),
+                                  type->Deserialize(nullable_inc, "{}"));
+
+  // Bounds have different types.
+  auto mismatched = struct_({field("lower", int32(), true), field("upper", int64(), true),
+                             field("lower_inc", boolean(), false),
+                             field("upper_inc", boolean(), false)});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("same type"),
+                                  type->Deserialize(mismatched, "{}"));
+}
+
+// ---------------------------------------------------------------------------
+// Non-nullable bounds
+
+TEST(RangeIncType, NonNullableBounds) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+
+  // Both bounds non-nullable: accepted (a finite-only range).
+  ASSERT_OK_AND_ASSIGN(
+      auto from_non_nullable,
+      type->Deserialize(IncStorage(int32(), /*nullable_bounds=*/false), "{}"));
+  ASSERT_EQ(
+      *int32(),
+      *checked_pointer_cast<extension::RangeIncType>(from_non_nullable)->value_type());
+
+  // The factory can build non-nullable bounds via allow_unbounded=false.
+  auto finite = checked_pointer_cast<extension::RangeIncType>(
+      extension::range_inc(int32(), /*allow_unbounded=*/false));
+  const auto& finite_storage =
+      internal::checked_cast<const StructType&>(*finite->storage_type());
+  ASSERT_FALSE(finite_storage.field(0)->nullable());
+  ASSERT_FALSE(finite_storage.field(1)->nullable());
+  // The inc fields are non-nullable regardless of allow_unbounded.
+  ASSERT_FALSE(finite_storage.field(2)->nullable());
+  ASSERT_FALSE(finite_storage.field(3)->nullable());
+}
+
+// ---------------------------------------------------------------------------
+// Metadata round-trip
+
+TEST(RangeIncType, MetadataRoundTrip) {
+  for (const auto& type :
+       {extension::range_inc(int32()), extension::range_inc(int64()),
+        extension::range_inc(date32()), extension::range_inc(int32(), false)}) {
+    auto rt = checked_pointer_cast<extension::RangeIncType>(type);
+    std::string serialized = rt->Serialize();
+    ASSERT_OK_AND_ASSIGN(auto deserialized,
+                         rt->Deserialize(rt->storage_type(), serialized));
+    ASSERT_EQ(*type, *deserialized) << "Round-trip failed for: " << type->ToString();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// IPC (BatchRoundTrip) -- registration round-trip
+
+TEST(RangeIncType, BatchRoundTrip) {
+  auto type =
+      checked_pointer_cast<extension::RangeIncType>(extension::range_inc(int32()));
+  auto lower = ArrayFromJSON(int32(), "[1, null, 5]");
+  auto upper = ArrayFromJSON(int32(), "[10, 20, null]");
+  auto lower_inc = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto upper_inc = ArrayFromJSON(boolean(), "[false, false, true]");
+  ASSERT_OK_AND_ASSIGN(auto storage,
+                       StructArray::Make({lower, upper, lower_inc, upper_inc},
+                                         type->storage_type()->fields()));
+  auto array = ExtensionType::WrapArray(type, storage);
+  auto batch = RecordBatch::Make(schema({field("rng", type)}), array->length(), {array});
+
+  std::shared_ptr<RecordBatch> written;
+  {
+    ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
+    ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                          out_stream.get()));
+    ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
+
+    io::BufferReader reader(complete_ipc_stream);
+    std::shared_ptr<RecordBatchReader> batch_reader;
+    ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+    ASSERT_OK(batch_reader->ReadNext(&written));
+  }
+
+  ASSERT_EQ(*batch->schema(), *written->schema());
+  ASSERT_BATCHES_EQUAL(*batch, *written);
+}
+
 }  // namespace arrow

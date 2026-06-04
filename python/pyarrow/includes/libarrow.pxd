@@ -3106,6 +3106,17 @@ cdef extern from "arrow/extension/range.h" namespace "arrow::extension" nogil:
     cdef cppclass CRangeArray" arrow::extension::RangeArray"(CExtensionArray):
         pass
 
+    cdef cppclass CRangeIncType" arrow::extension::RangeIncType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(shared_ptr[CDataType] value_type,
+                                            c_bool allow_unbounded)
+
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CRangeIncArray" arrow::extension::RangeIncArray"(CExtensionArray):
+        pass
+
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":

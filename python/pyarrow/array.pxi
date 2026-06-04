@@ -4979,6 +4979,29 @@ cdef class RangeArray(ExtensionArray):
     """
 
 
+cdef class RangeIncArray(ExtensionArray):
+    """
+    Concrete class for range_inc extension arrays.
+
+    Examples
+    --------
+    Define the extension type for a range_inc array
+
+    >>> import pyarrow as pa
+    >>> range_inc_type = pa.range_inc(pa.float64())
+
+    Create an extension array
+
+    >>> storage = pa.array(
+    ...     [{"lower": 1.0, "upper": 5.0, "lower_inc": True, "upper_inc": False}],
+    ...     range_inc_type.storage_type,
+    ... )
+    >>> arr = pa.ExtensionArray.from_storage(range_inc_type, storage)
+    >>> isinstance(arr, pa.RangeIncArray)
+    True
+    """
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,

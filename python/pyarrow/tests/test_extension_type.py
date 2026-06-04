@@ -2003,6 +2003,98 @@ def test_range_type_allow_unbounded():
     assert arr.type == finite
 
 
+@pytest.mark.parametrize("value_type,rows", [
+    (pa.int32(), [
+        {"lower": 1, "upper": 5, "lower_inc": True, "upper_inc": False},
+        {"lower": None, "upper": 10, "lower_inc": False, "upper_inc": True},
+    ]),
+    (pa.float64(), [
+        {"lower": 0.0, "upper": 1.5, "lower_inc": True, "upper_inc": True},
+        None,
+    ]),
+])
+def test_range_inc_type(pickle_module, value_type, rows):
+    range_type = pa.range_inc(value_type)
+    assert range_type.extension_name == "arrow.range_inc"
+    assert range_type.value_type == value_type
+    # Storage carries the two bounds plus per-value, non-nullable inclusivity flags.
+    assert range_type.storage_type == pa.struct([
+        pa.field("lower", value_type, nullable=True),
+        pa.field("upper", value_type, nullable=True),
+        pa.field("lower_inc", pa.bool_(), nullable=False),
+        pa.field("upper_inc", pa.bool_(), nullable=False),
+    ])
+    assert "arrow.range_inc" in str(range_type)
+    # No type-level closed parameter.
+    assert not hasattr(range_type, "closed")
+
+    assert range_type == range_type
+    assert range_type == pa.range_inc(value_type)
+    assert range_type != value_type
+    # different value type -> not equal
+    assert range_type != pa.range_inc(pa.decimal128(12, 3))
+    # distinct from a plain arrow.range over the same value type
+    assert range_type != pa.range_(value_type)
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(range_type))
+    assert result == range_type
+    assert result.value_type == value_type
+
+    # IPC roundtrip
+    range_arr_class = range_type.__arrow_ext_class__()
+    storage = pa.array(rows, range_type.storage_type)
+    arr = pa.ExtensionArray.from_storage(range_type, storage)
+    assert isinstance(arr, range_arr_class)
+
+    # extension is registered by default
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+    batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.range_inc"
+    assert batch.column(0).type.value_type == value_type
+    assert isinstance(batch.column(0), range_arr_class)
+    assert batch.column(0) == arr
+
+    # cast storage -> extension type
+    result = storage.cast(range_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(range_type.storage_type)
+    assert inner == storage
+
+
+def test_range_inc_type_allow_unbounded():
+    # Default: bounds are nullable (can represent an unbounded / infinite side).
+    nullable = pa.range_inc(pa.int32())
+    assert nullable.storage_type.field("lower").nullable
+    assert nullable.storage_type.field("upper").nullable
+    # The inclusivity flags are always non-nullable.
+    assert not nullable.storage_type.field("lower_inc").nullable
+    assert not nullable.storage_type.field("upper_inc").nullable
+
+    # allow_unbounded=False: a finite-only range with non-nullable bounds.
+    finite = pa.range_inc(pa.int32(), allow_unbounded=False)
+    assert not finite.storage_type.field("lower").nullable
+    assert not finite.storage_type.field("upper").nullable
+    # The flags stay non-nullable regardless of allow_unbounded.
+    assert not finite.storage_type.field("lower_inc").nullable
+    assert not finite.storage_type.field("upper_inc").nullable
+    assert finite.value_type == pa.int32()
+
+    # Distinct types: storage nullability differs.
+    assert finite != nullable
+
+    # A non-nullable-bounds range_inc round-trips through its storage.
+    storage = pa.array(
+        [{"lower": 1, "upper": 5, "lower_inc": True, "upper_inc": False}],
+        finite.storage_type,
+    )
+    arr = pa.ExtensionArray.from_storage(finite, storage)
+    assert arr.type == finite
+
+
 def test_bool8_type(pickle_module):
     bool8_type = pa.bool8()
     storage_type = pa.int8()

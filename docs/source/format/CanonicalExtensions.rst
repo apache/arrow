@@ -661,6 +661,79 @@ PostgreSQL's `range types`_ and SQL:2011 ``PERIOD`` types.
 
 .. _range types: https://www.postgresql.org/docs/current/rangetypes.html
 
+.. _range_inc_extension:
+
+Range Inc
+=========
+
+Range Inc represents a bounded set (mathematical interval) over an orderable
+Arrow type T whose bound inclusivity is recorded **per value** rather than as a
+single type-level parameter.  It is the companion of the :ref:`Range
+<range_extension>` extension type for ranges that cannot be canonicalized to a
+uniform closedness.
+
+.. note::
+
+   **When to use** ``arrow.range`` **vs.** ``arrow.range_inc``.
+   Discrete ranges (e.g. PostgreSQL's ``int4range``, ``int8range``,
+   ``daterange``) canonicalize to a single closedness (left-closed), so they
+   are best represented by :ref:`arrow.range <range_extension>`, which stores
+   the closedness once in the type metadata.  Continuous ranges (e.g.
+   PostgreSQL's ``numrange``, ``tsrange``, ``tstzrange``) **cannot** be
+   canonicalized: two values may share the same endpoints yet differ in
+   whether those endpoints are included.  ``arrow.range_inc`` stores the
+   inclusivity of each bound alongside the bound itself, mirroring PostgreSQL's
+   internal range representation, and is the appropriate choice for that case.
+
+* Extension name: ``arrow.range_inc``.
+
+* The storage type of the extension is a ``Struct`` with exactly **four fields,
+  in order**:
+
+  * ``lower``: the lower bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded below
+    (negative infinity).
+  * ``upper``: the upper bound, type **T**, *optionally nullable*.
+    When the field is nullable, a null value means the range is unbounded above
+    (positive infinity).
+  * ``lower_inc``: a **non-nullable** ``boolean`` -- ``true`` when the lower
+    bound is inclusive for that value, ``false`` when it is exclusive.
+  * ``upper_inc``: a **non-nullable** ``boolean`` -- ``true`` when the upper
+    bound is inclusive for that value, ``false`` when it is exclusive.
+
+  **T** (the *subtype* or *value type*) may be any orderable Arrow type:
+  integer, floating-point, decimal, date, time, or timestamp types.  The
+  ``lower`` and ``upper`` fields share the same type T, read directly from the
+  storage struct; the subtype is **not** duplicated in the extension metadata.
+
+  Each of ``lower`` and ``upper`` **may** be nullable, independently of the
+  other, exactly as in :ref:`arrow.range <range_extension>`: nullability is
+  only needed to represent an unbounded side.  A null bound is **always treated
+  as exclusive**, regardless of its ``lower_inc`` / ``upper_inc`` flag; positive
+  and negative infinity can never be included.  The ``lower_inc`` and
+  ``upper_inc`` fields are **always non-nullable**.  The outer struct's validity
+  bit marks a null/absent range (a missing range, distinct from an empty range).
+
+* Extension type parameters:
+
+  This type has **no** type-level parameters.  Unlike :ref:`arrow.range
+  <range_extension>`, inclusivity is not fixed by the type; it is carried per
+  value in the ``lower_inc`` and ``upper_inc`` fields.
+
+  For a given value, the range contains every x permitted by its finite bounds
+  and per-value flags: with both flags ``true`` every x such that
+  ``lower <= x <= upper``, with both flags ``false`` every x such that
+  ``lower < x < upper``.  A value is *empty* when ``lower > upper``, or when
+  ``lower == upper`` and at least one of ``lower_inc`` / ``upper_inc`` is
+  ``false``.
+
+* Description of the serialization:
+
+  Because inclusivity is stored per value, the type carries no parameters and
+  the extension metadata is an **empty JSON object** ``{}``.  For
+  forward-compatibility, an empty metadata string is also accepted on read, and
+  any additional keys in the JSON object should be ignored.
+
 Community Extension Types
 =========================
 
