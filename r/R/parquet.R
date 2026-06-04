@@ -106,7 +106,9 @@ read_parquet <- function(
 #' @param compression compression algorithm. Default "snappy". See details.
 #' @param compression_level compression level. Meaning depends on compression
 #'    algorithm
-#' @param use_dictionary logical: use dictionary encoding? Default `TRUE`
+#' @param use_dictionary logical: use dictionary encoding? Default `TRUE`.
+#'    On columns with many unique values, dictionary encoding can increase
+#'    file size and reduce compression effectiveness.
 #' @param write_statistics logical: include statistics? Default `TRUE`
 #' @param data_page_size Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.

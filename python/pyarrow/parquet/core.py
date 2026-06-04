@@ -769,6 +769,8 @@ use_dictionary : bool or list, default True
     When encoding the column, if the dictionary size is too large, the
     column will fallback to ``PLAIN`` encoding. Specially, ``BOOLEAN`` type
     doesn't support dictionary encoding.
+    On columns with many unique values, dictionary encoding can increase
+    file size and reduce compression effectiveness.
 compression : str or dict, default 'snappy'
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'LZ4_RAW', 'ZSTD'}.
