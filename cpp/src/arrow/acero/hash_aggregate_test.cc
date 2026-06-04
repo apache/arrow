@@ -2169,6 +2169,15 @@ TEST_P(GroupBy, AnyAllSlicedNullableBoolean) {
 
   // GH-50043: hash_any/hash_all should respect the slice offset.
   // After Slice(1), any_arg=[false, null] and all_arg=[true, null].
+  auto expected = ArrayFromJSON(struct_({
+                                    field("key_0", int64()),
+                                    field("hash_any", boolean()),
+                                    field("hash_all", boolean()),
+                                }),
+                                R"([
+      [10, false, true]
+    ])");
+
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -2182,14 +2191,6 @@ TEST_P(GroupBy, AnyAllSlicedNullableBoolean) {
                                                   use_threads));
     ValidateOutput(actual);
 
-    auto expected = ArrayFromJSON(struct_({
-                                      field("key_0", int64()),
-                                      field("hash_any", boolean()),
-                                      field("hash_all", boolean()),
-                                  }),
-                                  R"([
-      [10, false, true]
-    ])");
     AssertDatumsEqual(expected, actual, /*verbose=*/true);
   }
 }
