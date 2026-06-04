@@ -41,9 +41,7 @@ type conversion is then inferred at compile time.
    }
 
 In reverse, you can use ``TupleRangeFromTable`` to fill an already
-pre-allocated range with the data from a ``Table`` instance. You need to
-provide ``CastOptions`` to control type conversions and an ``ExecContext``
-for the compute functions used during conversion.
+pre-allocated range with the data from a ``Table`` instance.
 
 .. code::
 
