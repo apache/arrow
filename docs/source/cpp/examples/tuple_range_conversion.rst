@@ -41,7 +41,9 @@ type conversion is then inferred at compile time.
    }
 
 In reverse, you can use ``TupleRangeFromTable`` to fill an already
-pre-allocated range with the data from a ``Table`` instance.
+pre-allocated range with the data from a ``Table`` instance. You need to
+provide ``CastOptions`` to control type conversions and an ``ExecContext``
+for the compute functions used during conversion.
 
 .. code::
 
@@ -50,11 +52,14 @@ pre-allocated range with the data from a ``Table`` instance.
     // is unnamed, matching is done on positions.
     std::shared_ptr<Table> table = ..
 
+    arrow::compute::ExecContext ctx;
+    arrow::compute::CastOptions cast_options;
+
     // The range needs to be pre-allocated to the respective amount of rows.
     // This allows us to pass in an arbitrary range object, not only
     // `std::vector`.
     std::vector<std::tuple<double, std::string>> rows(2);
-    if (!arrow::stl::TupleRangeFromTable(*table, &rows).ok()) {
+    if (!arrow::stl::TupleRangeFromTable(*table, cast_options, &ctx, &rows).ok()) {
       // Error handling code should go here.
     }
 
