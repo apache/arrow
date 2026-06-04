@@ -371,15 +371,15 @@ class BitPackedRunDecoder {
   /// left.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
                                     rle_size_t value_bit_width) {
-    const int bits_read = values_read_ * value_bit_width;
-    const int bytes_fully_read = bits_read / 8;
+    const int64_t bits_read = static_cast<int64_t>(values_read_) * value_bit_width;
+    const int64_t bytes_fully_read = bits_read / 8;
     const uint8_t* unread_data = data_ + bytes_fully_read;
 
     const ::arrow::internal::UnpackOptions opts{
         /* .batch_size= */ std::min(batch_size, remaining()),
         /* .bit_width= */ value_bit_width,
-        /* .bit_offset= */ bits_read % 8,
-        /* .max_read_bytes= */ max_read_bytes_ - bytes_fully_read,
+        /* .bit_offset= */ static_cast<int>(bits_read % 8),
+        /* .max_read_bytes= */ static_cast<int>(max_read_bytes_ - bytes_fully_read),
     };
 
     if constexpr (std::is_same_v<T, bool>) {
