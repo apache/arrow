@@ -2977,6 +2977,37 @@ def test_table_group_by():
 
 
 @pytest.mark.acero
+def test_group_by_sliced_any_all():
+    # GH-50043: hash_any/hash_all produce incorrect results on sliced boolean arrays
+    # Row 0 will be discarded by slice, should not affect aggregation
+    table = pa.table(
+        {
+            "g": [99, 10, 10],
+            "any_arg": [True, False, None],
+            "all_arg": [False, True, None],
+        }
+    )
+    sliced = table.slice(1)
+
+    # any(False, None) = False, all(True, None) = True
+    result = sliced.group_by("g", use_threads=False).aggregate(
+        [
+            ("any_arg", "any"),
+            ("all_arg", "all"),
+        ]
+    )
+
+    expected = pa.table(
+        {
+            "g": [10],
+            "any_arg_any": [False],
+            "all_arg_all": [True],
+        }
+    )
+    assert result.equals(expected)
+
+
+@pytest.mark.acero
 def test_table_group_by_first():
     # "first" is an ordered aggregation -> requires to specify use_threads=False
     table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a', 'b'] * 2})
