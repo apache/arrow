@@ -2989,14 +2989,6 @@ def test_group_by_sliced_any_all():
     )
     sliced = table.slice(1)
 
-    # any(False, None) = False, all(True, None) = True
-    result = sliced.group_by("g", use_threads=False).aggregate(
-        [
-            ("any_arg", "any"),
-            ("all_arg", "all"),
-        ]
-    )
-
     expected = pa.table(
         {
             "g": [10],
@@ -3004,7 +2996,16 @@ def test_group_by_sliced_any_all():
             "all_arg_all": [True],
         }
     )
-    assert result.equals(expected)
+
+    # any(False, None) = False, all(True, None) = True
+    for use_threads in [False, True]:
+        result = sliced.group_by("g", use_threads=use_threads).aggregate(
+            [
+                ("any_arg", "any"),
+                ("all_arg", "all"),
+            ]
+        )
+        assert result.equals(expected)
 
 
 @pytest.mark.acero

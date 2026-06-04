@@ -2172,22 +2172,22 @@ TEST_P(GroupBy, AnyAllSlicedNullableBoolean) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-    ASSERT_OK_AND_ASSIGN(Datum actual, GroupByTest({sliced->GetColumnByName("any_arg"),
-                                                    sliced->GetColumnByName("all_arg")},
-                                                   {sliced->GetColumnByName("key")},
-                                                   {
-                                                       {"hash_any", nullptr},
-                                                       {"hash_all", nullptr},
-                                                   },
-                                                   use_threads));
+    ASSERT_OK_AND_ASSIGN(auto actual, GroupByTest({sliced->GetColumnByName("any_arg"),
+                                                   sliced->GetColumnByName("all_arg")},
+                                                  {sliced->GetColumnByName("key")},
+                                                  {
+                                                      {"hash_any", nullptr},
+                                                      {"hash_all", nullptr},
+                                                  },
+                                                  use_threads));
     ValidateOutput(actual);
 
-    Datum expected = ArrayFromJSON(struct_({
-                                       field("key_0", int64()),
-                                       field("hash_any", boolean()),
-                                       field("hash_all", boolean()),
-                                   }),
-                                   R"([
+    auto expected = ArrayFromJSON(struct_({
+                                      field("key_0", int64()),
+                                      field("hash_any", boolean()),
+                                      field("hash_all", boolean()),
+                                  }),
+                                  R"([
       [10, false, true]
     ])");
     AssertDatumsEqual(expected, actual, /*verbose=*/true);
