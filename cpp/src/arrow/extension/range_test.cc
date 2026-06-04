@@ -132,8 +132,8 @@ TEST(RangeType, CreateFromArray) {
 
 namespace {
 
-void CheckDeserialize(const std::string& serialized,
-                      const std::shared_ptr<DataType>& expected) {
+void CheckRangeDeserialize(const std::string& serialized,
+                           const std::shared_ptr<DataType>& expected) {
   auto type = checked_pointer_cast<extension::RangeType>(expected);
   ASSERT_OK_AND_ASSIGN(auto deserialized,
                        type->Deserialize(type->storage_type(), serialized));
@@ -145,20 +145,20 @@ void CheckDeserialize(const std::string& serialized,
 TEST(RangeType, Deserialize) {
   // Normal JSON
   ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize(R"({"closed": "right"})",
-                       extension::range(int32(), extension::RangeClosed::Right)));
-  ASSERT_NO_FATAL_FAILURE(CheckDeserialize(
+      CheckRangeDeserialize(R"({"closed": "right"})",
+                            extension::range(int32(), extension::RangeClosed::Right)));
+  ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
       R"({"closed": "left"})", extension::range(int32(), extension::RangeClosed::Left)));
-  ASSERT_NO_FATAL_FAILURE(CheckDeserialize(
+  ASSERT_NO_FATAL_FAILURE(CheckRangeDeserialize(
       R"({"closed": "both"})", extension::range(int32(), extension::RangeClosed::Both)));
   ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize(R"({"closed": "neither"})",
-                       extension::range(int32(), extension::RangeClosed::Neither)));
+      CheckRangeDeserialize(R"({"closed": "neither"})",
+                            extension::range(int32(), extension::RangeClosed::Neither)));
 
   // Extra fields are tolerated (forward-compatibility).
   ASSERT_NO_FATAL_FAILURE(
-      CheckDeserialize(R"({"closed": "right", "extra": 42})",
-                       extension::range(int32(), extension::RangeClosed::Right)));
+      CheckRangeDeserialize(R"({"closed": "right", "extra": 42})",
+                            extension::range(int32(), extension::RangeClosed::Right)));
 }
 
 TEST(RangeType, DefaultClosedIsLeft) {
