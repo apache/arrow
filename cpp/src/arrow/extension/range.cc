@@ -200,4 +200,146 @@ std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_type, RangeClose
   return std::move(result).ValueOrDie();
 }
 
+// ---------------------------------------------------------------------------
+// RangeIncType
+
+namespace {
+
+/// Build the storage Struct type for a per-value-inclusivity range. In addition
+/// to the "lower"/"upper" bounds (nullable iff unbounded endpoints are allowed),
+/// it carries two non-nullable boolean fields recording each bound's inclusivity.
+std::shared_ptr<DataType> MakeIncStorageType(const std::shared_ptr<DataType>& value_type,
+                                             bool allow_unbounded) {
+  return struct_({field("lower", value_type, allow_unbounded),
+                  field("upper", value_type, allow_unbounded),
+                  field("lower_inc", boolean(), /*nullable=*/false),
+                  field("upper_inc", boolean(), /*nullable=*/false)});
+}
+
+}  // namespace
+
+std::shared_ptr<DataType> RangeIncType::value_type() const {
+  // storage_type() is a struct whose "lower"/"upper" fields share the same type.
+  return internal::checked_cast<const StructType&>(*storage_type()).field(0)->type();
+}
+
+std::string RangeIncType::ToString(bool show_metadata) const {
+  std::stringstream ss;
+  ss << "extension<" << this->extension_name()
+     << "[value_type=" << value_type()->ToString(show_metadata) << "]>";
+  return ss.str();
+}
+
+bool RangeIncType::ExtensionEquals(const ExtensionType& other) const {
+  if (extension_name() != other.extension_name()) {
+    return false;
+  }
+  // All parameters (value type, bound nullability, the boolean flag fields) are
+  // part of the storage type, so a storage comparison is sufficient.
+  return storage_type()->Equals(*other.storage_type());
+}
+
+std::string RangeIncType::Serialize() const {
+  // Inclusivity is stored per value, so there is no type-level parameter to
+  // serialize. Emit an empty JSON object for explicitness and forward-compat.
+  return "{}";
+}
+
+Result<std::shared_ptr<DataType>> RangeIncType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
+  // Validate storage type structure.
+  if (storage_type->id() != Type::STRUCT) {
+    return Status::Invalid("RangeIncType storage type must be a Struct, got ",
+                           storage_type->ToString());
+  }
+  const auto& struct_type = internal::checked_cast<const StructType&>(*storage_type);
+  if (struct_type.num_fields() != 4) {
+    return Status::Invalid("RangeIncType storage Struct must have exactly 4 fields, got ",
+                           struct_type.num_fields());
+  }
+  const auto& lower_field = struct_type.field(0);
+  const auto& upper_field = struct_type.field(1);
+  const auto& lower_inc_field = struct_type.field(2);
+  const auto& upper_inc_field = struct_type.field(3);
+  if (lower_field->name() != "lower") {
+    return Status::Invalid(
+        "RangeIncType storage Struct field 0 must be named \"lower\", got \"",
+        lower_field->name(), "\"");
+  }
+  if (upper_field->name() != "upper") {
+    return Status::Invalid(
+        "RangeIncType storage Struct field 1 must be named \"upper\", got \"",
+        upper_field->name(), "\"");
+  }
+  if (lower_inc_field->name() != "lower_inc") {
+    return Status::Invalid(
+        "RangeIncType storage Struct field 2 must be named \"lower_inc\", got \"",
+        lower_inc_field->name(), "\"");
+  }
+  if (upper_inc_field->name() != "upper_inc") {
+    return Status::Invalid(
+        "RangeIncType storage Struct field 3 must be named \"upper_inc\", got \"",
+        upper_inc_field->name(), "\"");
+  }
+  if (!lower_field->type()->Equals(*upper_field->type())) {
+    return Status::Invalid(
+        "RangeIncType storage Struct fields \"lower\" and \"upper\" must have the "
+        "same type, got \"",
+        lower_field->type()->ToString(), "\" and \"", upper_field->type()->ToString(),
+        "\"");
+  }
+  if (lower_inc_field->type()->id() != Type::BOOL ||
+      upper_inc_field->type()->id() != Type::BOOL) {
+    return Status::Invalid(
+        "RangeIncType storage Struct fields \"lower_inc\" and \"upper_inc\" must be "
+        "boolean, got \"",
+        lower_inc_field->type()->ToString(), "\" and \"",
+        upper_inc_field->type()->ToString(), "\"");
+  }
+  if (lower_inc_field->nullable() || upper_inc_field->nullable()) {
+    return Status::Invalid(
+        "RangeIncType storage Struct fields \"lower_inc\" and \"upper_inc\" must be "
+        "non-nullable");
+  }
+
+  // Unlike RangeType, the metadata carries no parameters: inclusivity lives in
+  // the storage fields. Accept an empty string or any JSON object (ignoring
+  // unknown keys for forward compatibility).
+  if (!serialized_data.empty()) {
+    rapidjson::Document document;
+    const auto& parsed = document.Parse(serialized_data.data(), serialized_data.length());
+    if (parsed.HasParseError()) {
+      return Status::Invalid("Invalid serialized JSON data for RangeIncType: ",
+                             rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
+                             serialized_data);
+    }
+    if (!document.IsObject()) {
+      return Status::Invalid(
+          "Invalid serialized JSON data for RangeIncType: not an object");
+    }
+  }
+
+  return std::make_shared<RangeIncType>(std::move(storage_type));
+}
+
+std::shared_ptr<Array> RangeIncType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("arrow.range_inc",
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<RangeIncArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> RangeIncType::Make(std::shared_ptr<DataType> value_type,
+                                                     bool allow_unbounded) {
+  auto storage = MakeIncStorageType(value_type, allow_unbounded);
+  return std::make_shared<RangeIncType>(std::move(storage));
+}
+
+std::shared_ptr<DataType> range_inc(std::shared_ptr<DataType> value_type,
+                                    bool allow_unbounded) {
+  auto result = RangeIncType::Make(std::move(value_type), allow_unbounded);
+  ARROW_CHECK_OK(result.status());
+  return std::move(result).ValueOrDie();
+}
+
 }  // namespace arrow::extension

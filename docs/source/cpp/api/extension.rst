@@ -46,6 +46,10 @@ Extension Type classes
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::extension::RangeIncType
+   :project: arrow_cpp
+   :members:
+
 Extension Array classes
 =======================
 
@@ -69,9 +73,16 @@ Extension Array classes
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::extension::RangeIncArray
+   :project: arrow_cpp
+   :members:
+
 Extension functions
 ===================
 
 .. doxygenfunction:: arrow::extension::range
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::extension::range_inc
    :project: arrow_cpp
 

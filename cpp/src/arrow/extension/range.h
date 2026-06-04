@@ -108,4 +108,77 @@ ARROW_EXPORT std::shared_ptr<DataType> range(std::shared_ptr<DataType> value_typ
                                              RangeClosed closed = RangeClosed::Left,
                                              bool allow_unbounded = true);
 
+/// \brief RangeIncType represents a bounded set (mathematical interval) over an
+/// orderable Arrow type T whose bound inclusivity is stored **per value**.
+///
+/// Unlike RangeType, which carries a single type-level "closed" parameter, this
+/// type records the inclusivity of each row's bounds in two boolean storage
+/// fields. This is required for continuous ranges (e.g. PostgreSQL's
+/// ``numrange``, ``tsrange``, ``tstzrange``) which cannot be canonicalized to a
+/// uniform closedness. It mirrors PostgreSQL's internal range representation.
+///
+/// Storage is a Struct with exactly four fields, in order:
+///   - "lower": T     (null, when nullable = unbounded below, i.e. -infinity)
+///   - "upper": T     (null, when nullable = unbounded above, i.e. +infinity)
+///   - "lower_inc": boolean, non-nullable: is the lower bound inclusive?
+///   - "upper_inc": boolean, non-nullable: is the upper bound inclusive?
+///
+/// "lower" and "upper" share the same orderable type T and may independently be
+/// nullable to represent an unbounded (infinite) endpoint. A null (infinite)
+/// bound is always treated as exclusive, regardless of its "*_inc" flag.
+///
+/// The outer struct's validity bit marks a null/absent range.
+///
+/// There is no type-level "closed" parameter, so the extension metadata carries
+/// no parameters (serialized as the empty JSON object ``{}``).
+class ARROW_EXPORT RangeIncType : public ExtensionType {
+ public:
+  /// \brief Construct a RangeIncType.
+  ///
+  /// \param[in] storage_type A four-field Struct type with fields "lower",
+  ///   "upper" (same orderable type T) and non-nullable boolean "lower_inc",
+  ///   "upper_inc".
+  explicit RangeIncType(std::shared_ptr<DataType> storage_type)
+      : ExtensionType(std::move(storage_type)) {}
+
+  std::string extension_name() const override { return "arrow.range_inc"; }
+  std::string ToString(bool show_metadata = false) const override;
+  bool ExtensionEquals(const ExtensionType& other) const override;
+  std::string Serialize() const override;
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized_data) const override;
+
+  /// \brief Create a RangeIncArray from ArrayData.
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  /// \brief Factory function.
+  ///
+  /// Constructs the four-field struct storage type internally.
+  /// \param[in] value_type The orderable Arrow subtype T for lower and upper.
+  /// \param[in] allow_unbounded Whether each side may be unbounded (infinite).
+  ///   When true, the "lower" and "upper" fields are nullable and a null bound
+  ///   denotes an infinite endpoint; when false, both bounds are non-nullable
+  ///   and the range is always finite. The "lower_inc" and "upper_inc" fields
+  ///   are always non-nullable. Defaults to true.
+  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> value_type,
+                                                bool allow_unbounded = true);
+
+  /// \brief Return the Arrow subtype T (the type of "lower" and "upper" fields).
+  std::shared_ptr<DataType> value_type() const;
+};
+
+/// \brief Array class for arrow.range_inc extension arrays.
+class ARROW_EXPORT RangeIncArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+/// \brief Create a RangeIncType with the given value subtype.
+///
+/// This is a convenience wrapper around RangeIncType::Make that aborts on error.
+/// For recoverable error handling prefer RangeIncType::Make.
+ARROW_EXPORT std::shared_ptr<DataType> range_inc(std::shared_ptr<DataType> value_type,
+                                                 bool allow_unbounded = true);
+
 }  // namespace arrow::extension
