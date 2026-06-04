@@ -74,6 +74,7 @@ These should be used to create Arrow data types and schemas.
    opaque
    bool8
    range_
+   range_inc
    uuid
    json_
    field
@@ -148,6 +149,7 @@ implemented by PyArrow.
    UuidType
    Bool8Type
    RangeType
+   RangeIncType
 
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types
