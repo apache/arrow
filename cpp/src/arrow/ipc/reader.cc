@@ -857,13 +857,15 @@ Status UnpackSchemaMessage(const void* opaque_schema, const IpcReadOptions& opti
                            DictionaryMemo* dictionary_memo,
                            std::shared_ptr<Schema>* schema,
                            std::shared_ptr<Schema>* out_schema,
-                           std::vector<bool>* field_inclusion_mask, bool* swap_endian) {
+                           std::vector<bool>* field_inclusion_mask,
+                           Endianness* original_endianness, bool* swap_endian) {
   RETURN_NOT_OK(internal::GetSchema(opaque_schema, dictionary_memo, schema));
 
   // If we are selecting only certain fields, populate the inclusion mask now
   // for fast lookups
   RETURN_NOT_OK(GetInclusionMaskAndOutSchema(*schema, options.included_fields,
                                              field_inclusion_mask, out_schema));
+  *original_endianness = out_schema->get()->endianness();
   *swap_endian = options.ensure_native_endian && !out_schema->get()->is_native_endian();
   if (*swap_endian) {
     // create a new schema with native endianness before swapping endian in ArrayData
@@ -877,12 +879,14 @@ Status UnpackSchemaMessage(const Message& message, const IpcReadOptions& options
                            DictionaryMemo* dictionary_memo,
                            std::shared_ptr<Schema>* schema,
                            std::shared_ptr<Schema>* out_schema,
-                           std::vector<bool>* field_inclusion_mask, bool* swap_endian) {
+                           std::vector<bool>* field_inclusion_mask,
+                           Endianness* original_endianness, bool* swap_endian) {
   CHECK_MESSAGE_TYPE(MessageType::SCHEMA, message.type());
   CHECK_HAS_NO_BODY(message);
 
   return UnpackSchemaMessage(message.header(), options, dictionary_memo, schema,
-                             out_schema, field_inclusion_mask, swap_endian);
+                             out_schema, field_inclusion_mask, original_endianness,
+                             swap_endian);
 }
 
 Status ReadDictionary(const Buffer& metadata, IpcReadContext context,
@@ -1061,7 +1065,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
   Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
                                       &filtered_schema_, &field_inclusion_mask_,
-                                      &swap_endian_));
+                                      &stats_.original_endianness, &swap_endian_));
 
     num_required_initial_dictionaries_ = dictionary_memo_.fields().num_dicts();
     num_read_initial_dictionaries_ = 0;
@@ -1498,7 +1502,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Get the schema and record any observed dictionaries
     RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
                                       &schema_, &out_schema_, &field_inclusion_mask_,
-                                      &swap_endian_));
+                                      &original_endianness_, &swap_endian_));
     stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
     return Status::OK();
   }
@@ -1528,7 +1532,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       // Get the schema and record any observed dictionaries
       RETURN_NOT_OK(UnpackSchemaMessage(
           self->footer_->schema(), options, &self->dictionary_memo_, &self->schema_,
-          &self->out_schema_, &self->field_inclusion_mask_, &self->swap_endian_));
+          &self->out_schema_, &self->field_inclusion_mask_, &self->original_endianness_,
+          &self->swap_endian_));
       self->stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
       return Status::OK();
     });
@@ -1538,7 +1543,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
 
-  ReadStats stats() const override { return stats_.poll(); }
+  ReadStats stats() const override {
+    auto stats = stats_.poll();
+    stats.original_endianness = original_endianness_;
+    return stats;
+  }
 
   Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
       const bool coalesce, const io::IOContext& io_context,
@@ -1629,7 +1638,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   };
 
   Result<FileBlock> GetRecordBatchBlock(int i) const {
-    return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i), footer_offset_);
+    ARROW_ASSIGN_OR_RAISE(
+        auto block,
+        FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i), footer_offset_));
+    return block;
   }
 
   Result<FileBlock> GetDictionaryBlock(int i) const {
@@ -1951,6 +1963,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<Schema> out_schema_;
 
   AtomicReadStats stats_;
+  Endianness original_endianness_;
   std::shared_ptr<io::internal::ReadRangeCache> metadata_cache_;
   std::unordered_set<int> cached_data_blocks_;
   Future<> dictionary_load_finished_;
@@ -2792,6 +2805,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
   struct IpcReadResult {
     std::shared_ptr<Schema> schema;
     std::vector<RecordBatchWithMetadata> batches = {};
+    ReadStats stats = {};
   };
 
   // Try to read the IPC file as a stream to compare the results (differential fuzzing)
@@ -2813,7 +2827,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
       RETURN_NOT_OK(ValidateFuzzBatch(batch));
       batches.push_back(batch);
     }
-    return IpcReadResult{batch_reader->schema(), batches};
+    return IpcReadResult{batch_reader->schema(), batches, batch_reader->stats()};
   };
 
   auto do_file_read = [&](bool pre_buffer) -> Result<IpcReadResult> {
@@ -2836,6 +2850,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
       result.batches.push_back(batch);
     }
     RETURN_NOT_OK(st);
+    result.stats = batch_reader->stats();
     return result;
   };
 
@@ -2886,6 +2901,11 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
         // to be considerably more difficult to detect.
         final_status &= Status::Invalid(
             "Different number of batches between IPC stream and IPC file footer, "
+            "skipping comparison");
+      } else if (maybe_read_result->stats.original_endianness !=
+                 maybe_stream_result->stats.original_endianness) {
+        final_status &= Status::Invalid(
+            "Different endianness between IPC stream and IPC file footer, "
             "skipping comparison");
       } else {
         compare_result(*maybe_stream_result);
