@@ -441,7 +441,7 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
-          
+
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
@@ -547,7 +547,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
@@ -564,9 +564,9 @@ jobs:
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
-      # (native sync instead of absl::Mutex). See ci/vcpkg/overlay-triplets-no-absl-sync.
-      VCPKG_DEFAULT_TRIPLET: x64-windows-no-absl-sync
-      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg/overlay-triplets-no-absl-sync
+      # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
+      VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
+      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -730,7 +730,7 @@ jobs:
           dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
           mv "${msi_name}" "${dev_msi_name}"
           cd ..
-          
+
           tree odbc-installer
       - name: Checkout Arrow
         uses: actions/checkout@v6
