@@ -398,7 +398,9 @@ void BlockSplitBloomFilter::Fold(uint32_t num_folds) {
 
   const uint32_t num_blocks = NumBlocks();
   // A fold group is a consecutive run of blocks ORed into one output block.
-  // Keeping the group size as (1 << num_folds) preserves the power-of-two bitset size.
+  // Keeping the group size as (1 << num_folds) preserves a power-of-two bitset
+  // size. Folding by this power-of-two group size keeps the old-to-new bucket
+  // remapping aligned with bucket lookup and avoids false negatives.
   const uint32_t group_size = UINT32_C(1) << num_folds;
   DCHECK_LE(group_size, num_blocks);
 
