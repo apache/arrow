@@ -31,7 +31,7 @@ on:
       - "ci/etc/rprofile"
       - "ci/scripts/PKGBUILD"
       - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/install_seaweedfs.sh"
       - "ci/scripts/r_*.sh"
       - "cpp/**"
       - "compose.yaml"
@@ -44,7 +44,7 @@ on:
       - "ci/etc/rprofile"
       - "ci/scripts/PKGBUILD"
       - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/install_seaweedfs.sh"
       - "ci/scripts/r_*.sh"
       - "cpp/**"
       - "compose.yaml"
@@ -279,7 +279,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$HOME/.local/bin"
-          ci/scripts/install_minio.sh latest "$HOME/.local"
+          ci/scripts/install_seaweedfs.sh 4.31 "$HOME/.local"
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Download Timezone Database
         shell: bash

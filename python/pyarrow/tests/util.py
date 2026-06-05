@@ -373,6 +373,7 @@ def _run_mc_command(mcdir, *args):
             raise ChildProcessError("Could not run mc")
 
 
+# TODO: Migrate this to match seaweedfs not minio.
 def _configure_s3_limited_user(s3_server, policy, username, password):
     """
     Attempts to use the mc command to configure the minio server

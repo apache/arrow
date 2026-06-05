@@ -276,7 +276,7 @@ def subtree_s3fs(request, s3fs):
     )
 
 
-_minio_limited_policy = """{
+_limited_policy = """{
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -526,7 +526,7 @@ def skip_azure(fs, reason):
 @pytest.mark.s3
 def test_s3fs_limited_permissions_create_bucket(s3_server):
     from pyarrow.fs import S3FileSystem
-    _configure_s3_limited_user(s3_server, _minio_limited_policy,
+    _configure_s3_limited_user(s3_server, _limited_policy,
                                'test_fs_limited_user', 'limited123')
     host, port, _, _ = s3_server['connection']
 

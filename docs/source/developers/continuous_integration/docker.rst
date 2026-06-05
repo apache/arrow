@@ -222,7 +222,7 @@ responsible for. Like:
 - ``docs_build.sh``: build the Sphinx documentation.
 - ``integration_dask.sh``: execute the dask integration tests.
 - ``integration_pandas.sh``: execute the pandas integration tests.
-- ``install_minio.sh``: install minio server for multiple platforms.
+- ``install_seaweedfs.sh``: install SeaweedFS server for multiple platforms.
 - ``install_conda.sh``: install miniconda for multiple platforms.
 - ``install_gcs_testbench.sh``: install the GCS testbench for multiple platforms.
 

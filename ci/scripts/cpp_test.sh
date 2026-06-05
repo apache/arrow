@@ -50,7 +50,7 @@ fi
 if ! type storage-testbench >/dev/null 2>&1; then
   exclude_tests+=("arrow-gcsfs-test")
 fi
-if ! type minio >/dev/null 2>&1; then
+if ! type weed >/dev/null 2>&1; then
   exclude_tests+=("arrow-s3fs-test")
 fi
 case "$(uname)" in

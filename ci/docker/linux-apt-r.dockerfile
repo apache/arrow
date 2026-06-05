@@ -93,8 +93,8 @@ RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
     pip install -U pip setuptools wheel && \
     pip install -r arrow/python/requirements-build.txt
 
-COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+COPY ci/scripts/install_seaweedfs.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_seaweedfs.sh 4.31 /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
