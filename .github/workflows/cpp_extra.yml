@@ -470,7 +470,7 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
-          
+
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
@@ -591,10 +591,19 @@ jobs:
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
+      # GH-49465: work around the gRPC/Abseil exit hang on Windows
+      # https://github.com/grpc/grpc/issues/39321
+      # https://github.com/abseil/abseil-cpp/issues/1877
+      # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
+      # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
+      ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
-      VCPKG_DEFAULT_TRIPLET: x64-windows
+      # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
+      # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
+      VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
+      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -764,7 +773,7 @@ jobs:
           dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
           mv "${msi_name}" "${dev_msi_name}"
           cd ..
-          
+
           tree odbc-installer
       - name: Checkout Arrow
         uses: actions/checkout@v6
