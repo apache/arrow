@@ -962,7 +962,8 @@ TEST(TestTime, TestNextDay) {
 
   ts = StringToTimestamp("2015-08-06 11:12:30");
   out = next_day_from_timestamp(context_ptr, ts, "AHSRK", 5);
-  EXPECT_EQ(context.get_error(), "The weekday in this entry is invalid");
+  EXPECT_NE(context.get_error().find("NEXT_DAY"), std::string::npos);
+  EXPECT_NE(context.get_error().find("AHSRK"), std::string::npos);
   context.Reset();
 }
 
@@ -1172,7 +1173,7 @@ TEST(TestTime, TestCastNullableInterval) {
   EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 1201), 1201);
   // validate overflow error when using bigint as input
   castNULLABLEINTERVALYEAR_int64(context_ptr, INT64_MAX);
-  EXPECT_EQ(context.get_error(), "Integer overflow");
+  EXPECT_NE(context.get_error().find("Integer overflow"), std::string::npos);
   context.Reset();
 }
 

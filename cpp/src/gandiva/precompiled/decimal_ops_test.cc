@@ -455,7 +455,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
                      DecimalScalar128{"201", 20, 3}, DecimalScalar128{"0", 20, 2},
                      result_precision, result_scale, &overflow);
   EXPECT_TRUE(context.has_error());
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_NE(context.get_error().find("divide by zero error"), std::string::npos);
 
   // divide-by-nonzero should not cause an error.
   context.Reset();
@@ -472,7 +472,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
                   DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
                   &overflow);
   EXPECT_TRUE(context.has_error());
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_NE(context.get_error().find("divide by zero error"), std::string::npos);
 
   // mod-by-nonzero should not cause an error.
   context.Reset();

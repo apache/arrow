@@ -65,7 +65,8 @@ TEST(TestExtendedMathOps, TestFactorial) {
   context.Reset();
 
   factorial_int32(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_TRUE(context.get_error().find("FACTORIAL") != std::string::npos);
+  EXPECT_TRUE(context.get_error().find("non-negative") != std::string::npos);
   context.Reset();
 
   for (int64_t i = 0; i <= 20; ++i) {
@@ -83,7 +84,8 @@ TEST(TestExtendedMathOps, TestFactorial) {
   context.Reset();
 
   factorial_int64(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_TRUE(context.get_error().find("FACTORIAL") != std::string::npos);
+  EXPECT_TRUE(context.get_error().find("non-negative") != std::string::npos);
   context.Reset();
 }
 

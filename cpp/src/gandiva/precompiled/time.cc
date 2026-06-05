@@ -268,7 +268,12 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
       }                                                                                  \
     }                                                                                    \
     if (dateSearch == 0) {                                                               \
-      gdv_fn_context_set_error_msg(context, "The weekday in this entry is invalid");     \
+      char err_msg[160];                                                                 \
+      snprintf(err_msg, sizeof(err_msg),                                                 \
+               "NEXT_DAY: '%.*s' is not a recognized weekday "                           \
+               "(expected MON|TUE|WED|THU|FRI|SAT|SUN)",                                 \
+               in_len, in);                                                              \
+      gdv_fn_context_set_error_msg(context, err_msg);                                    \
       return 0;                                                                          \
     }                                                                                    \
                                                                                          \
@@ -1047,7 +1052,12 @@ CAST_NULLABLE_INTERVAL_DAY(int64)
   gdv_month_interval castNULLABLEINTERVALYEAR_##TYPE(int64_t context, gdv_##TYPE in) { \
     gdv_month_interval value = static_cast<gdv_month_interval>(in);                    \
     if (value != in) {                                                                 \
-      gdv_fn_context_set_error_msg(context, "Integer overflow");                       \
+      char err_msg[96];                                                                \
+      snprintf(err_msg, sizeof(err_msg),                                               \
+               "CAST_INTERVAL_YEAR: Integer overflow casting %" PRId64                 \
+               " to month interval",                                                   \
+               static_cast<int64_t>(in));                                              \
+      gdv_fn_context_set_error_msg(context, err_msg);                                  \
     }                                                                                  \
     return value;                                                                      \
   }
