@@ -1296,6 +1296,66 @@ def test_replace_with_mask_null_type():
     result.validate(full=True)
     assert result.to_pylist() == [None]
 
+@pytest.mark.parametrize("arr,mask,replacements,expected", [
+    # Basic replacement with array mask
+    (pa.array([1, 2, 3, 4, 5]), pa.array([True, False, True, False, True]),
+     pa.array([10, 20, 30]), pa.array([10, 2, 20, 4, 30])),
+    # Scalar mask True/False
+    (pa.array([1, 2, 3]), True, pa.array([10, 20, 30]), pa.array([10, 20, 30])),
+    (pa.array([1, 2, 3]), False, pa.array([], type=pa.int64()), pa.array([1, 2, 3])),
+    # Scalar replacement
+    (pa.array([1, 2, 3, 4]), pa.array([True, False, True, False]),
+     pa.scalar(99), pa.array([99, 2, 99, 4])),
+    # Null handling in input array
+    (pa.array([1, None, 3, None, 5]), pa.array([False, True, False, True, True]),
+     pa.array([10, 20, 30]), pa.array([1, 10, 3, 20, 30])),
+    # Null handling in mask
+    (pa.array([1, 2, 3, 4, 5, 6]), pa.array([False, False, None, None, True, True]),
+     pa.array([10, None]), pa.array([1, 2, None, None, 10, None])),
+    # String type
+    (pa.array(['a', 'b', 'c', 'd']), pa.array([True, False, True, False]),
+     pa.array(['x', 'y']), pa.array(['x', 'b', 'y', 'd'])),
+    # Float type
+    (pa.array([1.1, 2.2, 3.3, 4.4]), pa.array([True, False, True, False]),
+     pa.array([10.5, 20.5]), pa.array([10.5, 2.2, 20.5, 4.4])),
+])
+def test_replace_with_mask(arr, mask, replacements, expected):
+    """Test with various data types """
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+@pytest.mark.parametrize("arr,mask,replacements,expected", [
+    # ChunkedArray with multiple chunks
+    (pa.chunked_array([[1, 2, 3], [4, 5, 6]]), pa.array([True, False, False, False, True, False]),
+     pa.array([10, 20]), pa.chunked_array([[10, 2, 3], [4, 20, 6]])),
+    # ChunkedArray with empty chunks
+    (pa.chunked_array([[1, 2], [], [3, 4]]), pa.array([True, False, True, False]),
+     pa.array([10, 20]), pa.chunked_array([[10, 2], [20, 4]])),
+])
+def test_replace_with_mask_chunked_array(arr, mask, replacements, expected):
+    """Test replace_with_mask with ChunkedArray inputs."""
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+@pytest.mark.parametrize("arr,mask,replacements,error_match", [
+    # Replacement count not match mask true count
+    (pa.array([1, 2, 3]), pa.array([True, True, False]), pa.array([10]), "expected 2.*but got 1"),
+    # Mask length not match
+    (pa.array([1, 2, 3]), pa.array([True, False]), pa.array([10]), None),
+])
+def test_replace_with_mask_errors(arr, mask, replacements, error_match):
+    """Test error cases for replace_with_mask."""
+    if error_match:
+        with pytest.raises(pa.ArrowInvalid, match=error_match):
+            pc.replace_with_mask(arr, mask, replacements)
+    else:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.replace_with_mask(arr, mask, replacements)
+
+
+
 
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
