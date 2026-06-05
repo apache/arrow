@@ -145,7 +145,6 @@ x-hierarchy:
       - ubuntu-ruby
     - ubuntu-python
     - ubuntu-python-sdist-test
-    - ubuntu-python-313-freethreading
     - ubuntu-r
     - ubuntu-r-only-r
   - ubuntu-cpp-bundled
@@ -1132,32 +1131,6 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
-  ############################ Python free-threading ##########################
-
-  ubuntu-python-313-freethreading:
-    # Usage:
-    #   docker compose build ubuntu-cpp
-    #   docker compose build ubuntu-python-313-freethreading
-    #   docker compose run --rm ubuntu-python-313-freethreading
-    # Parameters:
-    #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 22.04, 24.04
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
-    build:
-      context: .
-      dockerfile: ci/docker/linux-apt-python-313-freethreading.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
-      args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-    shm_size: *shm-size
-    environment:
-      <<: [*common, *ccache]
-      # Bundled build of OpenTelemetry needs a git client
-      ARROW_WITH_OPENTELEMETRY: "OFF"
-    volumes: *ubuntu-volumes
-    command: *python-command
-
   ############################ Python wheels ##################################
 
   # See available versions at:
@@ -1168,7 +1141,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2025-06-04-496f7e1
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2026.05.31-3
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1193,7 +1166,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2025-06-04-496f7e1
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2026.05.31-3
         musllinux: 1_2
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1234,7 +1207,7 @@ services:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        build_date: "20251014"  # python-build-standalone release date
+        build_date: "20260510"  # python-build-standalone release date
         arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
@@ -1278,7 +1251,7 @@ services:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        build_date: "20251014"  # python-build-standalone release date
+        build_date: "20260510"  # python-build-standalone release date
         arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile

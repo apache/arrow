@@ -41,6 +41,14 @@ RUN apk add --no-cache \
 # We will be able to use the main repo once we move to alpine 3.22 or later.
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mono
 
+# The linker shipped in Alpine (ld 2.44) causes issue with the generated wheel
+# on x86_64 which makes "import pyarrow" abort at startup with:
+#   Invalid file descriptor data passed to EncodedDescriptorDatabase::Add()
+# See: GH-48028
+# Link with mold to work around it.
+ENV ARROW_USE_MOLD=ON
+RUN apk add --no-cache mold
+
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On musllinux_1_2 a system python is installed (3.12) but pip is not
 # We therefore override the PATH with Python 3.10 in /opt/python
