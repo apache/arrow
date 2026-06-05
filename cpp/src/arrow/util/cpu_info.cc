@@ -200,7 +200,7 @@ void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
   }
 }
 
-#else
+#elif defined(__linux__)
 //------------------------------ LINUX ------------------------------//
 
 // Get cache size, return 0 on error
@@ -258,6 +258,13 @@ void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
       (*cache_sizes)[i] = cache_size;
     }
   }
+}
+
+#else
+
+template <std::size_t N>
+void OsRetrieveCacheSize(std::array<int64_t, N>* /* cache_sizes */) {
+  // NoOp, will be defaulted by CpuInfo::CacheSize
 }
 
 #endif  // WINDOWS, MACOS, LINUX
