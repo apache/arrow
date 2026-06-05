@@ -34,8 +34,8 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
-#include "arrow/compute/registry_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
@@ -163,26 +163,20 @@ const FunctionDoc search_sorted_doc(
 //   [meta-function dispatch]
 //
 
-// Dispatch on physical types rather than logical types to reduce template
-// instantiations. Types sharing the same physical layout (e.g. Date32/Int32,
-// Timestamp/Int64, String/Binary) share a single code path.
-// HalfFloatType is NOT included here; it is handled separately before the
-// physical-type switch because its physical type (UInt16) has different
-// comparison semantics (Float16 NaN handling).
 #define VISIT_SEARCH_SORTED_PHYSICAL_TYPES(VISIT) \
-  VISIT(BooleanType)                               \
-  VISIT(Int8Type)                                  \
-  VISIT(Int16Type)                                 \
-  VISIT(Int32Type)                                 \
-  VISIT(Int64Type)                                 \
-  VISIT(UInt8Type)                                 \
-  VISIT(UInt16Type)                                \
-  VISIT(UInt32Type)                                \
-  VISIT(UInt64Type)                                \
-  VISIT(FloatType)                                 \
-  VISIT(DoubleType)                                \
-  VISIT(BinaryType)                                \
-  VISIT(LargeBinaryType)                           \
+  VISIT(BooleanType)                              \
+  VISIT(Int8Type)                                 \
+  VISIT(Int16Type)                                \
+  VISIT(Int32Type)                                \
+  VISIT(Int64Type)                                \
+  VISIT(UInt8Type)                                \
+  VISIT(UInt16Type)                               \
+  VISIT(UInt32Type)                               \
+  VISIT(UInt64Type)                               \
+  VISIT(FloatType)                                \
+  VISIT(DoubleType)                               \
+  VISIT(BinaryType)                               \
+  VISIT(LargeBinaryType)                          \
   VISIT(BinaryViewType)
 
 template <typename ArrowType>
@@ -282,8 +276,8 @@ class RunEndEncodedValuesAccessor {
       : array_(array),
         values_(array.values()->data()),
         array_span_(*array.data()),
-        physical_range_(
-            ::arrow::ree_util::FindPhysicalRange(array_span_, array.offset(), array.length())) {}
+        physical_range_(::arrow::ree_util::FindPhysicalRange(array_span_, array.offset(),
+                                                             array.length())) {}
 
   /// Return the number of physical runs used as the search domain.
   int64_t length() const { return physical_range_.second; }
@@ -666,8 +660,8 @@ inline Status ValidateSortedValuesInput(const Datum& datum) {
 }
 
 /// Validate the needles input shape and supported encoding.
-/// Needles can be either a scalar or an array, but if an array is provided it must not
-/// have nested run-end encoding since that is not currently supported.
+/// Needles can be a scalar, array, or chunked array. Array-like needles must not have
+/// nested run-end encoding since that is not currently supported.
 inline Status ValidateNeedleInput(const Datum& datum) {
   if (!(datum.is_array() || datum.is_chunked_array() || datum.is_scalar())) {
     return Status::TypeError(
@@ -796,12 +790,9 @@ Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
     if (!needles.scalar()->is_valid) {
       return visitor(std::optional<SearchValue<ArrowType>>{});
     }
-    // Convert the scalar to a 1-element array so it flows through the
-    // array code path which handles physical-type conversion via ToPhysicalData.
-    ARROW_ASSIGN_OR_RAISE(auto scalar_array,
-                          MakeArrayFromScalar(*needles.scalar(), 1));
+    ARROW_ASSIGN_OR_RAISE(auto scalar_array, MakeArrayFromScalar(*needles.scalar(), 1));
     return VisitArrayNeedleRuns<ArrowType>(scalar_array->data(),
-                                            std::forward<Visitor>(visitor));
+                                           std::forward<Visitor>(visitor));
   }
 
   if (needles.is_chunked_array()) {
@@ -859,9 +850,8 @@ class InsertionIndexBuilder {
       ARROW_ASSIGN_OR_RAISE(null_bitmap, null_bitmap_builder_.Finish());
     }
 
-    return MakeArray(
-        ArrayData::Make(uint64(), length_, {std::move(null_bitmap), std::move(indices)},
-                        null_count_));
+    return MakeArray(ArrayData::Make(
+        uint64(), length_, {std::move(null_bitmap), std::move(indices)}, null_count_));
   }
 
  private:
@@ -891,26 +881,21 @@ Status EmitInsertionIndices(const ValuesAccessor& sorted_values, const Datum& ne
   return VisitNeedleRuns<ArrowType>(needles, emit_search_result);
 }
 
-/// Run search_sorted on the physical values of a run-end encoded needles array
-/// and repack the result with the original run-ends.
-///
-/// This is a single non-templated function — it delegates the actual search to
-/// the public SearchSorted API rather than duplicating the per-type search loop.
 inline Result<Datum> ComputeRunEndEncodedNeedleInsertionIndices(
     const Datum& values, const RunEndEncodedArray& needles,
     SearchSortedOptions::Side side, ExecContext* ctx) {
-  // Extract the physical (values child) array from the REE needles and search
-  // it against the full values datum.  The recursive SearchSorted call handles
-  // type dispatch, nulls, and insertion offsets internally.
+  ExecContext* exec_ctx = ctx != NULLPTR ? ctx : default_exec_context();
+
   ARROW_ASSIGN_OR_RAISE(auto physical_results,
                         SearchSorted(values, Datum(needles.LogicalValues()),
-                                     SearchSortedOptions(side), ctx));
+                                     SearchSortedOptions(side), exec_ctx));
 
-  ARROW_ASSIGN_OR_RAISE(auto logical_run_ends, needles.LogicalRunEnds(ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto logical_run_ends,
+                        needles.LogicalRunEnds(exec_ctx->memory_pool()));
   ARROW_ASSIGN_OR_RAISE(auto ree_result,
                         RunEndEncodedArray::Make(needles.length(), logical_run_ends,
                                                  physical_results.make_array()));
-  return RunEndDecode(Datum(ree_result), ctx);
+  return RunEndDecode(Datum(ree_result), exec_ctx);
 }
 
 /// Materialize output for scalar or array needles.
@@ -925,14 +910,10 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
       return Datum(std::make_shared<UInt64Scalar>());
     }
 
-    // Wrap the scalar in a 1-element array so it flows through the
-    // physical-type conversion in VisitArrayNeedleRuns (e.g. Date32 → Int32).
-    // Extract the single result back into a scalar to preserve output shape.
     ARROW_ASSIGN_OR_RAISE(auto scalar_arr, MakeArrayFromScalar(*scalar, 1));
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          ComputeInsertionIndices<ArrowType>(
-                              sorted_values, values, Datum(scalar_arr), side,
-                              insertion_offset, ctx));
+    ARROW_ASSIGN_OR_RAISE(auto result, ComputeInsertionIndices<ArrowType>(
+                                           sorted_values, values, Datum(scalar_arr), side,
+                                           insertion_offset, ctx));
     ARROW_ASSIGN_OR_RAISE(auto result_scalar, result.make_array()->GetScalar(0));
     return Datum(std::move(result_scalar));
   }
@@ -992,10 +973,9 @@ NonNullValuesRange MakePhysicalNonNullValuesRange(
       non_null_values_range.offset > 0 ? values_accessor.LeadingNullRunCount() : 0;
   const auto trailing_null_run_count =
       non_null_values_range.offset > 0 ? 0 : values_accessor.TrailingNullRunCount();
-  return NonNullValuesRange{
-      .offset = leading_null_run_count,
-      .length = values_accessor.length() - leading_null_run_count -
-                trailing_null_run_count};
+  return NonNullValuesRange{.offset = leading_null_run_count,
+                            .length = values_accessor.length() - leading_null_run_count -
+                                      trailing_null_run_count};
 }
 
 template <typename ArrowType, typename ValuesAccessor>
@@ -1060,8 +1040,7 @@ Result<Datum> VisitValuesAccessor(const ChunkedArray& values, Visitor&& visitor)
     ArrayVector physical_chunks;
     physical_chunks.reserve(static_cast<size_t>(values.num_chunks()));
     for (const auto& chunk : values.chunks()) {
-      physical_chunks.push_back(
-          MakeArray(ToPhysicalData(chunk->data(), physical_type)));
+      physical_chunks.push_back(MakeArray(ToPhysicalData(chunk->data(), physical_type)));
     }
     ChunkedArray physical_chunked(std::move(physical_chunks));
     ChunkedRunEndEncodedValuesAccessor<ArrowType> values_accessor(physical_chunked);
@@ -1126,8 +1105,8 @@ class SearchSortedMetaFunction : public MetaFunction {
     // Resolve to logical type first (stripping REE wrapper if present).
     auto logical_type_ptr = values.type();
     if (logical_type_ptr->id() == Type::RUN_END_ENCODED) {
-      logical_type_ptr = checked_cast<const RunEndEncodedType&>(*logical_type_ptr)
-                             .value_type();
+      logical_type_ptr =
+          checked_cast<const RunEndEncodedType&>(*logical_type_ptr).value_type();
     }
 
     // HalfFloatType must keep its logical type because its physical type

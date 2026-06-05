@@ -615,9 +615,11 @@ Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
 
 /// \brief Find insertion indices that preserve sorted order.
 ///
-/// The `values` datum must be a plain array or run-end encoded array sorted in
-/// ascending order. `needles` may be a scalar, plain array, or run-end encoded
-/// array whose logical value type matches `values`.
+/// The `values` datum must be a plain array, chunked array, or run-end encoded
+/// array (including chunked run-end encoded) sorted in ascending order.
+/// `needles` may be a scalar, plain array, chunked array, or run-end encoded
+/// array (including chunked run-end encoded) whose logical value type matches
+/// `values`.
 ///
 /// Nulls in `values` are supported when clustered entirely at the start or the
 /// end of the sorted array. Non-null needles are matched only against the
