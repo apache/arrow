@@ -1296,6 +1296,7 @@ def test_replace_with_mask_null_type():
     result.validate(full=True)
     assert result.to_pylist() == [None]
 
+
 @pytest.mark.parametrize("arr,mask,replacements,expected", [
     # Basic replacement with array mask
     (pa.array([1, 2, 3, 4, 5]), pa.array([True, False, True, False, True]),
@@ -1327,11 +1328,15 @@ def test_replace_with_mask(arr, mask, replacements, expected):
 
 @pytest.mark.parametrize("arr,mask,replacements,expected", [
     # ChunkedArray with multiple chunks
-    (pa.chunked_array([[1, 2, 3], [4, 5, 6]]), pa.array([True, False, False, False, True, False]),
-     pa.array([10, 20]), pa.chunked_array([[10, 2, 3], [4, 20, 6]])),
+    (pa.chunked_array([[1, 2, 3], [4, 5, 6]]),
+     pa.array([True, False, False, False, True, False]),
+     pa.array([10, 20]),
+     pa.chunked_array([[10, 2, 3], [4, 20, 6]])),
     # ChunkedArray with empty chunks
-    (pa.chunked_array([[1, 2], [], [3, 4]]), pa.array([True, False, True, False]),
-     pa.array([10, 20]), pa.chunked_array([[10, 2], [20, 4]])),
+    (pa.chunked_array([[1, 2], [], [3, 4]]),
+     pa.array([True, False, True, False]),
+     pa.array([10, 20]),
+     pa.chunked_array([[10, 2], [20, 4]])),
 ])
 def test_replace_with_mask_chunked_array(arr, mask, replacements, expected):
     """Test replace_with_mask with ChunkedArray inputs."""
@@ -1341,7 +1346,8 @@ def test_replace_with_mask_chunked_array(arr, mask, replacements, expected):
 
 @pytest.mark.parametrize("arr,mask,replacements,error_match", [
     # Replacement count not match mask true count
-    (pa.array([1, 2, 3]), pa.array([True, True, False]), pa.array([10]), "expected 2.*but got 1"),
+    (pa.array([1, 2, 3]), pa.array([True, True, False]),
+     pa.array([10]), "expected 2.*but got 1"),
     # Mask length not match
     (pa.array([1, 2, 3]), pa.array([True, False]), pa.array([10]), None),
 ])
@@ -1353,8 +1359,6 @@ def test_replace_with_mask_errors(arr, mask, replacements, error_match):
     else:
         with pytest.raises(pa.ArrowInvalid):
             pc.replace_with_mask(arr, mask, replacements)
-
-
 
 
 def test_binary_join():
