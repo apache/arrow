@@ -556,6 +556,17 @@ TEST(SearchSorted, RunEndEncodedNeedles) {
                     "[0, 0, 2, 2, 3, 3, 5]");
 }
 
+TEST(SearchSorted, SlicedRunEndEncodedNeedles) {
+  auto values = ArrayFromJSON(int32(), "[1, 1, 3, 5, 8]");
+  auto needles_type = run_end_encoded(int32(), int32());
+  ASSERT_OK_AND_ASSIGN(auto ree_needles,
+                       REEFromJSON(needles_type, "[null, 0, 0, 1, 1, 4, 4, 9, null]"));
+  auto sliced = ree_needles->Slice(1, 7);
+
+  CheckSearchSorted(Datum(values), Datum(sliced), "[0, 0, 0, 0, 3, 3, 5]",
+                    "[0, 0, 2, 2, 3, 3, 5]");
+}
+
 TEST(SearchSorted, SlicedRunEndEncodedValues) {
   auto values_type = run_end_encoded(int32(), int32());
   ASSERT_OK_AND_ASSIGN(auto ree_values,
