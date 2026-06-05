@@ -2035,6 +2035,20 @@ struct CoalesceFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
+
+  static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
+    static auto constraint =
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
+          DCHECK_GE(types.size(), 1);
+          DCHECK(std::all_of(types.begin(), types.end(), [](const TypeHolder& type) {
+            return is_decimal(type.id());
+          }));
+          return std::all_of(
+              types.begin() + 1, types.end(),
+              [&types](const TypeHolder& type) { return type == types[0]; });
+        });
+    return constraint;
+  }
 };
 
 // Helper: copy from a source value into all null slots of the output
@@ -2793,9 +2807,10 @@ void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
 }
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
-                       detail::GetTypeId get_id, ArrayKernelExec exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec,
+                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
   ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
-                                            /*is_varargs=*/true),
+                                            /*is_varargs=*/true, std::move(constraint)),
                       exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
@@ -2938,8 +2953,10 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, {boolean(), null(), float16()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
-    AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
-    AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<FixedSizeBinaryType>::Exec);
+    AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec,
+                      CoalesceFunction::DecimalMatchConstraint());
+    AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<FixedSizeBinaryType>::Exec,
+                      CoalesceFunction::DecimalMatchConstraint());
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
