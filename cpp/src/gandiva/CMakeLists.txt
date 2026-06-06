@@ -174,6 +174,7 @@ add_arrow_lib(gandiva
               LLVM::LLVM_LIBS)
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
+  target_link_libraries(${LIB_TARGET} PRIVATE arrow::xxhash)
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
 endforeach()
 

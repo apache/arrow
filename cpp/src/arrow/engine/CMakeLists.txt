@@ -67,6 +67,7 @@ add_arrow_lib(arrow_substrait
               ${SUBSTRAIT_INCLUDES})
 
 foreach(LIB_TARGET ${ARROW_SUBSTRAIT_LIBRARIES})
+  target_link_libraries(${LIB_TARGET} PRIVATE arrow::xxhash)
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
 endforeach()
 
