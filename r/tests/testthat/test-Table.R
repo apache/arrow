@@ -357,35 +357,15 @@ test_that("Table handles null type (ARROW-7064)", {
 
 test_that("Can create table with specific dictionary types", {
   fact <- example_data[, "fct"]
-  int_types <- c(int8(), int16(), int32(), int64())
-  # TODO: test uint types when format allows
-  # uint_types <- c(uint8(), uint16(), uint32(), uint64()) # nolint
-  for (i in int_types) {
+  index_types <- c(int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64())
+  for (i in index_types) {
     sch <- schema(fct = dictionary(i, utf8()))
     tab <- Table$create(fact, schema = sch)
     expect_equal(sch, tab$schema)
-    if (i != int64()) {
-      # TODO: same downcast to int32 as we do for int64() type elsewhere
-      expect_equal_data_frame(tab, fact)
-    }
+    expect_equal_data_frame(tab, fact)
   }
-})
 
-test_that("Table converts dictionary arrays with uint32/int64/uint64 index types back to R", {
-  fact <- example_data[, "fct"]
-
-  tab_uint32 <- Table$create(fact, schema = schema(fct = dictionary(uint32(), utf8())))
-  expect_equal(tab_uint32$schema, schema(fct = dictionary(uint32(), utf8())))
-  expect_equal_data_frame(tab_uint32, fact)
-
-  tab_int64 <- Table$create(fact, schema = schema(fct = dictionary(int64(), utf8())))
-  expect_equal(tab_int64$schema, schema(fct = dictionary(int64(), utf8())))
-  expect_equal_data_frame(tab_int64, fact)
-
-  tab_uint64 <- Table$create(fact, schema = schema(fct = dictionary(uint64(), utf8())))
-  expect_equal(tab_uint64$schema, schema(fct = dictionary(uint64(), utf8())))
-  expect_equal_data_frame(tab_uint64, fact)
-
+  # large_utf8 values exercise the non-ALTREP conversion path
   tab_large <- Table$create(fact, schema = schema(fct = dictionary(uint32(), large_utf8())))
   expect_equal(tab_large$schema, schema(fct = dictionary(uint32(), large_utf8())))
   expect_equal_data_frame(tab_large, fact)
