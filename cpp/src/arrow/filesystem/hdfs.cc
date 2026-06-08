@@ -437,7 +437,7 @@ class HadoopFileSystem::Impl {
 
   Status Copy(const std::string& src, const std::string& dst) {
     int ret = driver_->Copy(client_, src.c_str(), client_, dst.c_str());
-    CHECK_FAILURE(ret, "Rename");
+    CHECK_FAILURE(ret, "Copy");
     return Status::OK();
   }
 
