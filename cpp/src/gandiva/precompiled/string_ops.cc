@@ -2357,7 +2357,8 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
       char hd1 = text[i + 2];
       char hd2 = text[i + 3];
-      if (isxdigit(hd1) && isxdigit(hd2)) {
+      if (isxdigit(static_cast<unsigned char>(hd1)) &&
+          isxdigit(static_cast<unsigned char>(hd2))) {
         // [a-fA-F0-9]
         ret[j] = to_binary_from_hex(hd1) * 16 + to_binary_from_hex(hd2);
         i += 3;
@@ -2406,7 +2407,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
     int read_index = 0;                                                                 \
     while (read_index < in_len) {                                                       \
       char c1 = in[read_index];                                                         \
-      if (isxdigit(c1)) {                                                               \
+      if (isxdigit(static_cast<unsigned char>(c1))) {                                   \
         digit = to_binary_from_hex(c1);                                                 \
                                                                                         \
         OUT_TYPE next = result * 16 - digit;                                            \
@@ -2956,7 +2957,8 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
   for (int32_t i = 0; i < text_len; i += 2) {
     char b1 = text[i];
     char b2 = text[i + 1];
-    if (isxdigit(b1) && isxdigit(b2)) {
+    if (isxdigit(static_cast<unsigned char>(b1)) &&
+        isxdigit(static_cast<unsigned char>(b2))) {
       // [a-fA-F0-9]
       ret[j++] = to_binary_from_hex(b1) * 16 + to_binary_from_hex(b2);
     } else {
@@ -3024,9 +3026,9 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
-    if (isalpha(in[i]) > 0) {
+    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
       // Retain the first letter
-      ret[0] = toupper(in[i]);
+      ret[0] = toupper(static_cast<unsigned char>(in[i]));
       start_idx = i + 1;
       break;
     }
@@ -3042,8 +3044,8 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   soundex[0] = '\0';
   // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
-    if (isalpha(in[i]) > 0) {
-      c = toupper(in[i]) - 65;
+    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
+      c = toupper(static_cast<unsigned char>(in[i])) - 65;
       if (mappings[c] != soundex[si - 1]) {
         soundex[si] = mappings[c];
         si++;
