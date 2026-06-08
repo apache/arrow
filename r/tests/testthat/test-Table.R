@@ -371,7 +371,7 @@ test_that("Can create table with specific dictionary types", {
   }
 })
 
-test_that("Table converts dictionary arrays with wider index types back to R", {
+test_that("Table converts dictionary arrays with uint32/int64/uint64 index types back to R", {
   fact <- example_data[, "fct"]
 
   tab_uint32 <- Table$create(fact, schema = schema(fct = dictionary(uint32(), utf8())))
