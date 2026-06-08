@@ -375,7 +375,7 @@ struct FileSystemFactory {
                     std::string_view file, int line)
       : function(std::move(fn)), file(file), line(line) {}
 
-  /// Construct from a non-options aware factory function maintaing source compatibility
+  /// Construct from a non-options aware factory function maintaining source compatibility
   /// with existing factories.
   FileSystemFactory(std::function<Result<std::shared_ptr<FileSystem>>(
                         const Uri&, const io::IOContext&, std::string*)>
@@ -585,6 +585,10 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 ///            Each option is a (name, value) pair.
 ///            The expected type is specific to the backend and
 ///            option name.
+///            Options are only forwarded to schemes dispatched through a
+///            registered FileSystemFactory (currently "s3" and any scheme
+///            added via RegisterFileSystemFactory). They are ignored by the
+///            built-in schemes.
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.
 ARROW_EXPORT
@@ -621,6 +625,10 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 ///            Each option is a (name, value) pair.
 ///            The expected type is specific to the backend and
 ///            option name.
+///            Options are only forwarded to schemes dispatched through a
+///            registered FileSystemFactory (currently "s3" and any scheme
+///            added via RegisterFileSystemFactory). They are ignored by the
+///            built-in schemes.
 /// \param[in] io_context an IOContext which will be associated with the filesystem
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.

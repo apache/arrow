@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <any>
+#include <typeinfo>
+
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/filesystem_library.h"
 #include "arrow/result.h"
@@ -32,7 +35,25 @@ auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
       constexpr std::string_view kScheme = "example";
       EXPECT_EQ(uri.scheme(), kScheme);
       auto local_uri = "file" + uri.ToString().substr(kScheme.size());
-      return FileSystemFromUri(local_uri, options, io_context, out_path);
+      ARROW_ASSIGN_OR_RAISE(auto fs,
+                            FileSystemFromUri(local_uri, options, io_context, out_path));
+      for (const auto& [key, value] : options) {
+        EXPECT_TRUE(value.has_value());
+        if (key == "example_option_string") {
+          EXPECT_TRUE(value.type() == typeid(std::string));
+          if (out_path != nullptr) {
+            *out_path += "/" + std::any_cast<std::string>(value);
+          }
+        } else if (key == "example_option_int") {
+          EXPECT_TRUE(value.type() == typeid(int));
+          if (out_path != nullptr) {
+            *out_path += "/" + std::to_string(std::any_cast<int>(value));
+          }
+        } else {
+          ADD_FAILURE() << "Unexpected option: " << key;
+        }
+      }
+      return fs;
     },
     {});
 

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <any>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -144,9 +145,17 @@ TEST(FileSystemFromUri, LoadedRegisteredFactory) {
   EXPECT_THAT(FileSystemFromUri("example:///hey/yo", &path), Raises(StatusCode::Invalid));
 
   EXPECT_THAT(LoadFileSystemFactories(ARROW_FILESYSTEM_EXAMPLE_LIBPATH), Ok());
-
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("example:///hey/yo", &path));
   EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "local");
+
+  // Validate extra options are forwarded to the factory.
+  std::vector<std::pair<std::string, std::any>> options{
+      {"example_option_string", std::string("example_value")},
+      {"example_option_int", 42},
+  };
+  ASSERT_OK_AND_ASSIGN(fs, FileSystemFromUri("example:///hey/yo", options, &path));
+  EXPECT_EQ(path, "/hey/yo/example_value/42");
   EXPECT_EQ(fs->type_name(), "local");
 }
 
