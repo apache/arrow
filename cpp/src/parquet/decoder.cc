@@ -2478,7 +2478,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // Fast path: decode directly into output buffer if requesting all values
     if (needs_decode_ && max_values >= this->num_values_) {
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, reinterpret_cast<const char*>(this->data_), this->len_,
+          this->num_values_, this->data_, this->len_,
           buffer));
 
       const int decoded = this->num_values_;
@@ -2492,7 +2492,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, reinterpret_cast<const char*>(this->data_), this->len_,
+          this->num_values_, this->data_, this->len_,
           decoded_buffer_.data()));
       needs_decode_ = false;
     }
@@ -2526,7 +2526,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, reinterpret_cast<const char*>(this->data_), this->len_,
+          this->num_values_, this->data_, this->len_,
           decoded_buffer_.data()));
       needs_decode_ = false;
     }

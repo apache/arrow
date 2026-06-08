@@ -329,7 +329,7 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
   std::vector<TypeParam> input;
 
   int64_t max_size = AlpCodec<TypeParam>::GetMaxCompressedSize(0);
-  std::vector<char> buffer(max_size > 0 ? max_size : 8);  // Ensure some buffer
+  std::vector<uint8_t> buffer(max_size > 0 ? max_size : 8);  // Ensure some buffer
   int64_t comp_size = static_cast<int64_t>(buffer.size());
 
   AlpCodec<TypeParam>::Encode(input.data(), 0, buffer.data(), &comp_size);
@@ -794,7 +794,7 @@ class AlpCodecTest : public ::testing::Test {
     // Get max compressed size
     int64_t max_comp_size =
         AlpCodec<T>::GetMaxCompressedSize(input.size());
-    std::vector<char> comp_buffer(max_comp_size);
+    std::vector<uint8_t> comp_buffer(max_comp_size);
 
     // Encode
     int64_t comp_size = max_comp_size;
@@ -865,7 +865,7 @@ TYPED_TEST(AlpCodecTest, GetMaxCompressedSizeAdequate) {
 
     int64_t max_comp_size =
         AlpCodec<TypeParam>::GetMaxCompressedSize(static_cast<int64_t>(size));
-    std::vector<char> comp_buffer(max_comp_size);
+    std::vector<uint8_t> comp_buffer(max_comp_size);
     int64_t comp_size = max_comp_size;
 
     AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(size),
@@ -888,7 +888,7 @@ TYPED_TEST(AlpCodecTest, WideningDecode) {
 
     int64_t max_comp_size =
         AlpCodec<float>::GetMaxCompressedSize(static_cast<int64_t>(input.size()));
-    std::vector<char> comp_buffer(max_comp_size);
+    std::vector<uint8_t> comp_buffer(max_comp_size);
     int64_t comp_size = max_comp_size;
 
     AlpCodec<float>::Encode(input.data(), static_cast<int64_t>(input.size()),
@@ -1017,7 +1017,7 @@ TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
   // First, encode normally
   const int64_t num_elements = static_cast<int64_t>(input.size());
   int64_t max_comp_size = AlpCodec<TypeParam>::GetMaxCompressedSize(num_elements);
-  std::vector<char> comp_buffer1(max_comp_size);
+  std::vector<uint8_t> comp_buffer1(max_comp_size);
   int64_t comp_size1 = max_comp_size;
 
   AlpCodec<TypeParam>::Encode(input.data(), num_elements,
@@ -1026,7 +1026,7 @@ TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
   // Now, use the preset-based API
   auto preset = AlpCodec<TypeParam>::CreateSamplingPreset(input.data(), num_elements);
 
-  std::vector<char> comp_buffer2(max_comp_size);
+  std::vector<uint8_t> comp_buffer2(max_comp_size);
   int64_t comp_size2 = max_comp_size;
 
   AlpCodec<TypeParam>::EncodeWithPreset(input.data(), num_elements,
@@ -1064,14 +1064,14 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   int64_t max_comp_size = AlpCodec<TypeParam>::GetMaxCompressedSize(num_elements);
 
   // Encode batch1 with preset
-  std::vector<char> comp1(max_comp_size);
+  std::vector<uint8_t> comp1(max_comp_size);
   int64_t comp_size1 = max_comp_size;
   AlpCodec<TypeParam>::EncodeWithPreset(batch1.data(), num_elements,
                                           preset, AlpConstants::kAlpVectorSize,
                                           comp1.data(), &comp_size1);
 
   // Encode batch2 with same preset (reuse)
-  std::vector<char> comp2(max_comp_size);
+  std::vector<uint8_t> comp2(max_comp_size);
   int64_t comp_size2 = max_comp_size;
   AlpCodec<TypeParam>::EncodeWithPreset(batch2.data(), num_elements,
                                           preset, AlpConstants::kAlpVectorSize,
@@ -1194,7 +1194,7 @@ TYPED_TEST(AlpCodecTest, EmptyInput) {
   int64_t max_comp_size = AlpCodec<TypeParam>::GetMaxCompressedSize(0);
   EXPECT_GT(max_comp_size, 0);  // Should at least have header space
 
-  std::vector<char> comp_buffer(max_comp_size);
+  std::vector<uint8_t> comp_buffer(max_comp_size);
   int64_t comp_size = max_comp_size;
 
   // Encode 0 bytes (0 elements)
@@ -1218,7 +1218,7 @@ TYPED_TEST(AlpCodecTest, EmptyInput) {
 
 TEST(AlpRobustnessTest, TruncatedHeader) {
   // Test with buffer too small for header
-  std::vector<char> tiny_buffer(5);  // Less than header size (7 bytes)
+  std::vector<uint8_t> tiny_buffer(5);  // Less than header size (7 bytes)
 
   std::vector<double> output(100);
   ASSERT_NOT_OK(
@@ -1235,7 +1235,7 @@ TEST(AlpRobustnessTest, TruncatedData) {
 
   const int64_t num_elements = static_cast<int64_t>(input.size());
   int64_t max_size = AlpCodec<double>::GetMaxCompressedSize(num_elements);
-  std::vector<char> buffer(max_size);
+  std::vector<uint8_t> buffer(max_size);
   int64_t comp_size = max_size;
 
   AlpCodec<double>::Encode(input.data(), num_elements, buffer.data(), &comp_size);
@@ -1263,8 +1263,8 @@ TYPED_TEST(AlpEdgeCaseTest, CompressionDeterminism) {
   int64_t max_size = AlpCodec<TypeParam>::GetMaxCompressedSize(
       static_cast<int64_t>(input.size()));
 
-  std::vector<char> buffer1(max_size);
-  std::vector<char> buffer2(max_size);
+  std::vector<uint8_t> buffer1(max_size);
+  std::vector<uint8_t> buffer2(max_size);
   int64_t size1 = buffer1.size();
   int64_t size2 = buffer2.size();
 
@@ -1292,7 +1292,7 @@ TYPED_TEST(AlpEdgeCaseTest, DecompressionDeterminism) {
 
   int64_t max_size = AlpCodec<TypeParam>::GetMaxCompressedSize(
       static_cast<int64_t>(input.size()));
-  std::vector<char> buffer(max_size);
+  std::vector<uint8_t> buffer(max_size);
   int64_t comp_size = buffer.size();
 
   AlpCodec<TypeParam>::Encode(input.data(),
@@ -1345,7 +1345,7 @@ TYPED_TEST(AlpCodecTest, RoundTripAtMultipleVectorSizes) {
 
       int64_t max_comp_size = AlpCodec<TypeParam>::GetMaxCompressedSize(
           static_cast<int64_t>(n), vs);
-      std::vector<char> comp_buffer(max_comp_size);
+      std::vector<uint8_t> comp_buffer(max_comp_size);
       int64_t comp_size = comp_buffer.size();
 
       AlpCodec<TypeParam>::Encode(input.data(),
@@ -1381,7 +1381,7 @@ TYPED_TEST(AlpCodecTest, EncodeWithPresetAtDifferentVectorSizes) {
 
     int64_t max_comp_size = AlpCodec<TypeParam>::GetMaxCompressedSize(
         static_cast<int64_t>(n), vs);
-    std::vector<char> comp_buffer(max_comp_size);
+    std::vector<uint8_t> comp_buffer(max_comp_size);
     int64_t comp_size = comp_buffer.size();
 
     AlpCodec<TypeParam>::EncodeWithPreset(input.data(),
@@ -1417,7 +1417,7 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeZero) {
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
-  std::vector<char> buffer(4096);
+  std::vector<uint8_t> buffer(4096);
   int64_t comp_size = buffer.size();
 
   EXPECT_DEATH(AlpCodec<TypeParam>::Encode(
@@ -1432,7 +1432,7 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeNotPowerOfTwo) {
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
-  std::vector<char> buffer(4096);
+  std::vector<uint8_t> buffer(4096);
   int64_t comp_size = buffer.size();
 
   EXPECT_DEATH(AlpCodec<TypeParam>::Encode(
@@ -1447,7 +1447,7 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeExceedsMax) {
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
-  std::vector<char> buffer(4096);
+  std::vector<uint8_t> buffer(4096);
   int64_t comp_size = buffer.size();
 
   EXPECT_DEATH(AlpCodec<TypeParam>::Encode(

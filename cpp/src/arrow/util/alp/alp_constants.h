@@ -35,10 +35,9 @@ namespace alp {
 /// See: https://github.com/apache/parquet-format/blob/master/Encodings.md#alp
 class AlpConstants {
  public:
-  /// Number of elements compressed together as a unit.
+  /// Default number of elements compressed together as a unit.
   /// The format supports arbitrary power-of-2 sizes via log_vector_size in the
-  /// page header, but this implementation currently only supports 1024.
-  /// Must fit in uint16_t (max 65535), so log_vector_size must be <= 15.
+  /// page header (up to 2^kMaxLogVectorSize).
   static constexpr int64_t kAlpVectorSize = 1024;
 
   /// Maximum supported log_vector_size value. Capped at 15 because per-vector
