@@ -416,7 +416,7 @@ namespace {
 
 /// \brief Helper class for encoding/decoding individual values
 template <typename T>
-class AlpInlines : private AlpConstants {
+class AlpInlines {
  public:
   using Constants = AlpTypedConstants<T>;
   using ExactType = typename Constants::FloatingToExact;
@@ -463,7 +463,7 @@ class AlpInlines : private AlpConstants {
   static inline T DecodeValue(const SignedExactType encoded_value,
                               const AlpExponentAndFactor exponent_and_factor) {
     // The cast to T is needed to prevent a signed integer overflow.
-    return static_cast<T>(encoded_value) * GetFactor(exponent_and_factor.factor) *
+    return static_cast<T>(encoded_value) * AlpConstants::GetFactor(exponent_and_factor.factor) *
            Constants::GetFactor(exponent_and_factor.exponent);
   }
 };
@@ -571,7 +571,7 @@ std::optional<int64_t> AlpCompression<T>::EstimateCompressedSize(
   int64_t estimated_compression_size =
       static_cast<int64_t>(input_vector.size()) * estimated_bits_per_value;
   estimated_compression_size +=
-      num_exceptions * (kExactTypeBitSize + (sizeof(PositionType) * 8));
+      num_exceptions * (kExactTypeBitSize + (sizeof(AlpConstants::PositionType) * 8));
   return estimated_compression_size;
 }
 
@@ -596,7 +596,7 @@ AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
                                           Constants::kMaxExponent};
     // Start with worst possible total bits.
     const int64_t worst_total_bits =
-        (num_samples * (kExactTypeBitSize + sizeof(PositionType) * 8)) +
+        (num_samples * (kExactTypeBitSize + sizeof(AlpConstants::PositionType) * 8)) +
         (num_samples * kExactTypeBitSize);
 
     AlpCombination best{worst_case, 0, worst_total_bits};
@@ -643,7 +643,7 @@ AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
 
   // Save k' best combinations.
   const uint8_t num_combinations_to_keep =
-      std::min(kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size()));
+      std::min(AlpConstants::kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size()));
   std::vector<AlpExponentAndFactor> combinations;
   combinations.reserve(num_combinations_to_keep);
   for (uint8_t i = 0; i < num_combinations_to_keep; i++) {
@@ -702,7 +702,7 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
     if (estimated_compression_size >= best_total_bits) {
       worse_total_bits_counter += 1;
       // Early exit strategy.
-      if (worse_total_bits_counter == kSamplingEarlyExitThreshold) {
+      if (worse_total_bits_counter == AlpConstants::kSamplingEarlyExitThreshold) {
         break;
       }
       continue;
@@ -726,7 +726,7 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
   std::vector<SignedExactType> encoded_integers;
   encoded_integers.reserve(input_vector.size());
   std::vector<T> exceptions;
-  std::vector<PositionType> exception_positions;
+  std::vector<AlpConstants::PositionType> exception_positions;
 
   // Encoding Float/Double to SignedExactType(Int32, Int64).
   // Encode all values regardless of correctness to recover original floating-point.
@@ -745,8 +745,8 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
 
   // Finding first non-exception value.
   SignedExactType first_non_exception_value = 0;
-  PositionType exception_offset = 0;
-  for (const PositionType exception_position : exception_positions) {
+  AlpConstants::PositionType exception_offset = 0;
+  for (const AlpConstants::PositionType exception_position : exception_positions) {
     if (exception_offset != exception_position) {
       first_non_exception_value = encoded_integers[exception_offset];
       break;
@@ -755,7 +755,7 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
   }
 
   // Use first non-exception value as placeholder for all exception values.
-  for (const PositionType exception_position : exception_positions) {
+  for (const AlpConstants::PositionType exception_position : exception_positions) {
     const T actual_value = input_vector[exception_position];
     encoded_integers[exception_position] = first_non_exception_value;
     exceptions.push_back(actual_value);
