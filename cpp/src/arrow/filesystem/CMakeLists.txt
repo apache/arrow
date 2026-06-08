@@ -153,7 +153,5 @@ if(ARROW_HDFS)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 arrow::hadoop
-                 Boost::filesystem
-                 Boost::system)
+                 arrow::hadoop)
 endif()
