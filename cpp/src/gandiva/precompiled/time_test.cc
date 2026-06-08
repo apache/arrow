@@ -967,6 +967,36 @@ TEST(TestTime, TestNextDay) {
   context.Reset();
 }
 
+// Document that next_day's weekday-name matching is case-sensitive:
+// the WEEK[] lookup table holds uppercase names ("MONDAY", "TUE", ...) and
+// is_substr_utf8_utf8 does a byte-exact memcmp, so lowercase or mixed-case
+// input does not match and produces a NEXT_DAY error.
+TEST(TestTime, TestNextDayCaseSensitive) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");
+
+  // Uppercase: matches.
+  auto out = next_day_from_timestamp(context_ptr, ts, "FRIDAY", 6);
+  EXPECT_EQ(StringToTimestamp("2021-11-12 00:00:00"), out);
+  EXPECT_FALSE(context.has_error());
+
+  // Lowercase: does NOT match (case-sensitive memcmp against uppercase WEEK[]).
+  out = next_day_from_timestamp(context_ptr, ts, "friday", 6);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_NE(context.get_error().find("NEXT_DAY"), std::string::npos);
+  EXPECT_NE(context.get_error().find("friday"), std::string::npos);
+  context.Reset();
+
+  // Mixed case: also does NOT match.
+  out = next_day_from_timestamp(context_ptr, ts, "Friday", 6);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_NE(context.get_error().find("NEXT_DAY"), std::string::npos);
+  EXPECT_NE(context.get_error().find("Friday"), std::string::npos);
+  context.Reset();
+}
+
 TEST(TestTime, TestCastTimestampToTime) {
   gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   auto expected_response =
