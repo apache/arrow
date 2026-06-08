@@ -436,11 +436,6 @@ class AlpEncodedVector {
                                const AlpEncodedForVectorInfo<T>& for_info,
                                int32_t num_elements);
 
-  /// \brief Get the number of elements in this vector
-  ///
-  /// \return number of elements
-  int64_t GetNumElements() const { return num_elements_; }
-
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
   /// Stores [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues]
@@ -599,122 +594,6 @@ inline int64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding /*encoding*/) {
 }
 
 // ----------------------------------------------------------------------
-// AlpMetadataCache (LEGACY - not used with offset-based layout)
-
-/// \class AlpMetadataCache
-/// \brief [LEGACY] Cache for vector metadata to enable O(1) random access
-///
-/// \note This class is NOT used with the current offset-based interleaved layout.
-/// With the new layout [Header][Offsets...][Vector0][Vector1]..., the offset
-/// array provides O(1) random access directly, making this cache unnecessary.
-/// The AlpCodec::DecodeAlp function reads offsets and metadata inline.
-///
-/// This class was designed for the old grouped metadata layout:
-///   [Header][AlpInfos...][ForInfos...][Data...]
-/// where cumulative offset computation was needed.
-///
-/// \tparam T the floating point type (float or double)
-template <typename T>
-class AlpMetadataCache {
- public:
-  /// \brief Load all metadata from separate ALP and integer encoding metadata buffers
-  ///
-  /// \param[in] num_vectors number of vectors in the block
-  /// \param[in] vector_size size of each full vector (typically 1024)
-  /// \param[in] total_elements total number of elements across all vectors
-  /// \param[in] integer_encoding the integer encoding method used (determines metadata format)
-  /// \param[in] alp_metadata_buffer buffer containing all AlpEncodedVectorInfo contiguously
-  /// \param[in] int_encoding_metadata_buffer buffer containing integer encoding metadata
-  ///            (AlpEncodedForVectorInfo for kForBitPack)
-  /// \return a metadata cache with all metadata and precomputed offsets,
-  ///         or Status::Invalid if data is malformed
-  static Result<AlpMetadataCache> Load(
-      int32_t num_vectors, int32_t vector_size,
-      int32_t total_elements,
-      AlpIntegerEncoding integer_encoding,
-      arrow::util::span<const uint8_t> alp_metadata_buffer,
-      arrow::util::span<const uint8_t> int_encoding_metadata_buffer);
-
-  /// \brief Get ALP metadata for vector at given index
-  ///
-  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
-  /// \return reference to the vector's ALP metadata
-  const AlpEncodedVectorInfo& GetAlpInfo(int32_t vector_idx) const {
-    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(alp_infos_.size()))
-        << "vector_index_out_of_range: " << vector_idx;
-    return alp_infos_[vector_idx];
-  }
-
-  /// \brief Get FOR metadata for vector at given index
-  ///
-  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
-  /// \return reference to the vector's FOR metadata
-  const AlpEncodedForVectorInfo<T>& GetForInfo(int32_t vector_idx) const {
-    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(for_infos_.size()))
-        << "vector_index_out_of_range: " << vector_idx;
-    return for_infos_[vector_idx];
-  }
-
-  /// \brief Get offset to vector's data from start of data section
-  ///
-  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
-  /// \return byte offset from start of data section to this vector's data
-  int64_t GetVectorDataOffset(int32_t vector_idx) const {
-    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(cumulative_data_offsets_.size()))
-        << "vector_index_out_of_range: " << vector_idx;
-    return cumulative_data_offsets_[vector_idx];
-  }
-
-  /// \brief Get number of elements in vector at given index
-  ///
-  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
-  /// \return number of elements in this vector
-  int32_t GetVectorNumElements(int32_t vector_idx) const {
-    ARROW_CHECK(vector_idx >= 0 && vector_idx < static_cast<int32_t>(vector_num_elements_.size()))
-        << "vector_index_out_of_range: " << vector_idx;
-    return vector_num_elements_[vector_idx];
-  }
-
-  /// \brief Get number of vectors in the cache
-  ///
-  /// \return number of vectors
-  int32_t GetNumVectors() const { return static_cast<int32_t>(alp_infos_.size()); }
-
-  /// \brief Get total size of the data section in bytes
-  ///
-  /// \return total data size
-  int64_t GetTotalDataSize() const { return total_data_size_; }
-
-  /// \brief Get total size of the ALP metadata section in bytes
-  ///
-  /// \return total ALP metadata size (num_vectors * AlpEncodedVectorInfo::kStoredSize)
-  int64_t GetAlpMetadataSectionSize() const {
-    return alp_infos_.size() * AlpEncodedVectorInfo::kStoredSize;
-  }
-
-  /// \brief Get total size of the FOR metadata section in bytes
-  ///
-  /// \return total FOR metadata size (num_vectors * AlpEncodedForVectorInfo<T>::kStoredSize)
-  int64_t GetForMetadataSectionSize() const {
-    return for_infos_.size() * AlpEncodedForVectorInfo<T>::kStoredSize;
-  }
-
-  /// \brief Get total size of all metadata sections in bytes
-  ///
-  /// \return total metadata size (ALP + FOR)
-  int64_t GetTotalMetadataSectionSize() const {
-    return GetAlpMetadataSectionSize() + GetForMetadataSectionSize();
-  }
-
- private:
-  std::vector<AlpEncodedVectorInfo> alp_infos_;           // ALP metadata per vector
-  std::vector<AlpEncodedForVectorInfo<T>> for_infos_;     // FOR metadata per vector
-  std::vector<int64_t> cumulative_data_offsets_;          // Offset from data section start
-  std::vector<int32_t> vector_num_elements_;               // Number of elements in each vector
-  int64_t total_data_size_ = 0;                           // Total size of data section
-};
-
-// ----------------------------------------------------------------------
 // AlpEncodingParameters
 
 /// \brief Preset for ALP compression
@@ -770,7 +649,7 @@ class AlpCompression : private AlpConstants {
   /// \param[in] encoded_vector the ALP encoded vector to be decompressed
   /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
-  ///             Must be able to contain encoded_vector.GetNumElements().
+  ///             Must be able to contain encoded_vector.num_elements().
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
