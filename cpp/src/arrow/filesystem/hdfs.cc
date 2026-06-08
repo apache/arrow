@@ -297,10 +297,8 @@ class HadoopFileSystem::Impl {
   }
 
   Status MakeDirectory(const std::string& path) {
-    if (IsDirectory(path)) {
-      return Status::OK();
-    }
-    RETURN_NOT_OK(MakeDirectory(path));
+    int ret = driver_->MakeDirectory(client_, path.c_str());
+    CHECK_FAILURE(ret, "create directory");
     return Status::OK();
   }
 
