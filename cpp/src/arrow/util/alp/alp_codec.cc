@@ -179,6 +179,24 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(
   header.integer_encoding = util::SafeLoadAs<uint8_t>(ptr + 1);
   header.log_vector_size = util::SafeLoadAs<uint8_t>(ptr + 2);
   header.num_elements = util::SafeLoadAs<int32_t>(ptr + 3);
+
+  if (header.compression_mode != static_cast<uint8_t>(AlpMode::kAlp)) {
+    return Status::Invalid("ALP unsupported compression mode: ",
+                           static_cast<int>(header.compression_mode));
+  }
+  if (header.integer_encoding !=
+      static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack)) {
+    return Status::Invalid("ALP unsupported integer encoding: ",
+                           static_cast<int>(header.integer_encoding));
+  }
+  if (header.log_vector_size == 0 ||
+      header.log_vector_size > AlpConstants::kMaxLogVectorSize) {
+    return Status::Invalid("ALP invalid log_vector_size: ",
+                           static_cast<int>(header.log_vector_size));
+  }
+  if (header.num_elements < 0) {
+    return Status::Invalid("ALP invalid num_elements: ", header.num_elements);
+  }
   return header;
 }
 
