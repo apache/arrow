@@ -1050,7 +1050,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         reinterpret_cast<const T*>(sink_.data()),
         numElements,
         vector_size_,
-        reinterpret_cast<char*>(compressed_buffer->mutable_data()),
+        compressed_buffer->mutable_data(),
         &compSize);
 
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compSize));
