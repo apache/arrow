@@ -327,7 +327,68 @@ S3Options S3Options::FromAssumeRoleWithWebIdentity() {
 }
 
 Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
-  S3Options options;
+  return FromUriAndOptions(uri, FileSystemFactoryOptions{}, out_path);
+}
+
+Result<S3Options> S3Options::FromUri(const std::string& uri_string,
+                                     std::string* out_path) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri, out_path);
+}
+
+namespace {
+
+template <typename T>
+Result<T> GetOption(const std::string& key, const std::any& value) {
+  if (const auto* v = std::any_cast<T>(&value)) {
+    return *v;
+  }
+  return Status::Invalid("S3 filesystem option '", key, "' has the wrong type");
+}
+
+template <typename T>
+Result<std::shared_ptr<const T>> GetConstSharedPtrOption(const std::string& key,
+                                                         const std::any& value) {
+  if (const auto* v = std::any_cast<std::shared_ptr<const T>>(&value)) return *v;
+  if (const auto* v = std::any_cast<std::shared_ptr<T>>(&value)) return *v;
+  return Status::Invalid("S3 filesystem option '", key, "' has the wrong type");
+}
+
+}  // namespace
+
+Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
+                                               const FileSystemFactoryOptions& options,
+                                               std::string* out_path) {
+  std::optional<std::string> access_key, secret_key, session_token;
+  std::shared_ptr<S3RetryStrategy> retry_strategy;
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
+  for (const auto& [key, value] : options) {
+    if (key == "access_key") {
+      ARROW_ASSIGN_OR_RAISE(access_key, GetOption<std::string>(key, value));
+    } else if (key == "secret_key") {
+      ARROW_ASSIGN_OR_RAISE(secret_key, GetOption<std::string>(key, value));
+    } else if (key == "session_token") {
+      ARROW_ASSIGN_OR_RAISE(session_token, GetOption<std::string>(key, value));
+    } else if (key == "retry_strategy") {
+      ARROW_ASSIGN_OR_RAISE(retry_strategy,
+                            GetOption<std::shared_ptr<S3RetryStrategy>>(key, value));
+    } else if (key == "default_metadata") {
+      ARROW_ASSIGN_OR_RAISE(default_metadata,
+                            GetConstSharedPtrOption<KeyValueMetadata>(key, value));
+    } else {
+      return Status::Invalid("Unexpected option for S3 filesystem: '", key, "'");
+    }
+  }
+
+  if (access_key.has_value() != secret_key.has_value()) {
+    return Status::Invalid(
+        "Both 'access_key' and 'secret_key' must be provided together");
+  }
+  if (session_token.has_value() && !access_key.has_value()) {
+    return Status::Invalid("'session_token' requires 'access_key' and 'secret_key'");
+  }
+  S3Options s3_options;
 
   const auto bucket = uri.host();
   auto path = uri.path();
@@ -355,68 +416,81 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     options_map.emplace(kv.first, kv.second);
   }
 
-  const auto username = uri.username();
-  if (!username.empty()) {
-    options.ConfigureAccessKey(username, uri.password());
+  if (access_key.has_value()) {
+    s3_options.ConfigureAccessKey(*access_key, *secret_key, session_token.value_or(""));
   } else {
-    options.ConfigureDefaultCredentials();
+    const auto username = uri.username();
+    if (!username.empty()) {
+      s3_options.ConfigureAccessKey(username, uri.password());
+    } else {
+      s3_options.ConfigureDefaultCredentials();
+    }
   }
+
   // Prefer AWS service-specific endpoint url
   auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
   if (s3_endpoint_env.ok()) {
-    options.endpoint_override = *s3_endpoint_env;
+    s3_options.endpoint_override = *s3_endpoint_env;
   } else {
     auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
     if (endpoint_env.ok()) {
-      options.endpoint_override = *endpoint_env;
+      s3_options.endpoint_override = *endpoint_env;
     }
   }
 
   bool region_set = false;
   for (const auto& kv : options_map) {
     if (kv.first == "region") {
-      options.region = kv.second;
+      s3_options.region = kv.second;
       region_set = true;
     } else if (kv.first == "scheme") {
-      options.scheme = kv.second;
+      s3_options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
-      options.endpoint_override = kv.second;
+      s3_options.endpoint_override = kv.second;
     } else if (kv.first == "allow_delayed_open") {
-      ARROW_ASSIGN_OR_RAISE(options.allow_delayed_open,
+      ARROW_ASSIGN_OR_RAISE(s3_options.allow_delayed_open,
                             ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "allow_bucket_creation") {
-      ARROW_ASSIGN_OR_RAISE(options.allow_bucket_creation,
+      ARROW_ASSIGN_OR_RAISE(s3_options.allow_bucket_creation,
                             ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "allow_bucket_deletion") {
-      ARROW_ASSIGN_OR_RAISE(options.allow_bucket_deletion,
+      ARROW_ASSIGN_OR_RAISE(s3_options.allow_bucket_deletion,
                             ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "tls_ca_file_path") {
-      options.tls_ca_file_path = kv.second;
+      s3_options.tls_ca_file_path = kv.second;
     } else if (kv.first == "tls_ca_dir_path") {
-      options.tls_ca_dir_path = kv.second;
+      s3_options.tls_ca_dir_path = kv.second;
     } else if (kv.first == "tls_verify_certificates") {
-      ARROW_ASSIGN_OR_RAISE(options.tls_verify_certificates,
+      ARROW_ASSIGN_OR_RAISE(s3_options.tls_verify_certificates,
                             ::arrow::internal::ParseBoolean(kv.second));
     } else if (kv.first == "smart_defaults") {
-      options.smart_defaults = kv.second;
+      s3_options.smart_defaults = kv.second;
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
   }
 
-  if (!region_set && !bucket.empty() && options.endpoint_override.empty()) {
-    // XXX Should we use a dedicated resolver with the given credentials?
-    ARROW_ASSIGN_OR_RAISE(options.region, ResolveS3BucketRegion(bucket));
+  if (retry_strategy) {
+    s3_options.retry_strategy = std::move(retry_strategy);
+  }
+  if (default_metadata) {
+    s3_options.default_metadata = std::move(default_metadata);
   }
 
-  return options;
+  if (!region_set && !bucket.empty() && s3_options.endpoint_override.empty()) {
+    // XXX Should we use a dedicated resolver with the given credentials?
+    ARROW_ASSIGN_OR_RAISE(s3_options.region, ResolveS3BucketRegion(bucket));
+  }
+
+  return s3_options;
 }
 
-Result<S3Options> S3Options::FromUri(const std::string& uri_string,
-                                     std::string* out_path) {
+Result<S3Options> S3Options::FromUriAndOptions(const std::string& uri_string,
+                                               const FileSystemFactoryOptions& options,
+                                               std::string* out_path) {
   Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
-  return FromUri(uri, out_path);
+  return FromUriAndOptions(uri, options, out_path);
 }
 
 bool S3Options::Equals(const S3Options& other) const {
@@ -3606,13 +3680,9 @@ auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
     [](const arrow::util::Uri& uri, const FileSystemFactoryOptions& options,
        const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
-      if (!options.empty()) {
-        return Status::NotImplemented(
-            "S3 filesystem factory options are not supported yet, got: ", options.size(),
-            " option(s)");
-      }
       RETURN_NOT_OK(EnsureS3Initialized());
-      ARROW_ASSIGN_OR_RAISE(auto s3_options, S3Options::FromUri(uri, out_path));
+      ARROW_ASSIGN_OR_RAISE(auto s3_options,
+                            S3Options::FromUriAndOptions(uri, options, out_path));
       return S3FileSystem::Make(s3_options, io_context);
     },
     [] { DCHECK_OK(EnsureS3Finalized()); });
