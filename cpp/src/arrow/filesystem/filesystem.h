@@ -585,10 +585,11 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 ///            Each option is a (name, value) pair.
 ///            The expected type is specific to the backend and
 ///            option name.
-///            Options are only forwarded to schemes dispatched through a
-///            registered FileSystemFactory (currently "s3" and any scheme
-///            added via RegisterFileSystemFactory). They are ignored by the
-///            built-in schemes.
+///            Options are forwarded to schemes dispatched through a registered
+///            FileSystemFactory. A registered factory that does not support options
+///            (currently "s3") returns NotImplemented for non-empty options.
+///            Schemes not handled by a registered factory will also return
+///            NotImplemented for non-empty options.
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.
 ARROW_EXPORT
@@ -625,10 +626,11 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 ///            Each option is a (name, value) pair.
 ///            The expected type is specific to the backend and
 ///            option name.
-///            Options are only forwarded to schemes dispatched through a
-///            registered FileSystemFactory (currently "s3" and any scheme
-///            added via RegisterFileSystemFactory). They are ignored by the
-///            built-in schemes.
+///            Options are forwarded to schemes dispatched through a registered
+///            FileSystemFactory. A registered factory that does not support options
+///            (currently "s3") returns NotImplemented for non-empty options.
+///            Schemes not handled by a registered factory will also return
+///            NotImplemented for non-empty options.
 /// \param[in] io_context an IOContext which will be associated with the filesystem
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.
