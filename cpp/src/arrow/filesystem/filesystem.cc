@@ -907,6 +907,10 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(
       return factory->function(uri, options, io_context, out_path);
     }
   }
+  if (!options.empty()) {
+    return Status::NotImplemented("Filesystem options are not supported yet for scheme '",
+                                  scheme, "', got ", options.size(), " option(s)");
+  }
 
   if (scheme == "abfs" || scheme == "abfss") {
 #ifdef ARROW_AZURE
