@@ -20,6 +20,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/alp/alp.h"
@@ -77,7 +78,7 @@ class AlpCodec {
   static void EncodeWithPreset(const T* input, int64_t num_elements,
                                const AlpSamplerResult& preset,
                                int32_t vector_size,
-                               char* output, int64_t* output_size);
+                               uint8_t* output, int64_t* output_size);
 
   /// \brief Encode floating point values using ALP decimal compression
   ///
@@ -92,11 +93,11 @@ class AlpCodec {
   ///                this is set to 0 and we bail out.
   static void Encode(const T* input, int64_t num_elements,
                      int32_t vector_size,
-                     char* output, int64_t* output_size);
+                     uint8_t* output, int64_t* output_size);
 
   /// Convenience overload with default vector_size = kAlpVectorSize
   static void Encode(const T* input, int64_t num_elements,
-                     char* output, int64_t* output_size);
+                     uint8_t* output, int64_t* output_size);
 
   /// \brief Decode floating point values
   ///
@@ -110,7 +111,7 @@ class AlpCodec {
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static Status Decode(int32_t num_elements, const char* input, int64_t input_size,
+  static Status Decode(int32_t num_elements, const uint8_t* input, int64_t input_size,
                        TargetType* output);
 
   /// \brief Get the maximum compressed size for a given number of elements
@@ -153,7 +154,7 @@ class AlpCodec {
   /// \param[in] combinations the encoding preset to use
   /// \return the compression progress
   static CompressionProgress EncodeAlp(const T* input, int64_t element_count,
-                                       char* output, int64_t output_size,
+                                       uint8_t* output, int64_t output_size,
                                        const AlpEncodingParameters& combinations,
                                        int32_t vector_size);
 
@@ -171,7 +172,7 @@ class AlpCodec {
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static Result<DecompressionProgress> DecodeAlp(int64_t num_elements,
-                                                  const char* input, int64_t input_size,
+                                                  const uint8_t* input, int64_t input_size,
                                                   AlpIntegerEncoding integer_encoding,
                                                   int32_t vector_size,
                                                   int32_t total_elements,
@@ -182,7 +183,7 @@ class AlpCodec {
   /// \param[in] input the compressed buffer
   /// \param[in] input_size the size of the compressed data
   /// \return the AlpHeader, or an error if the buffer is too small
-  static Result<AlpHeader> LoadHeader(const char* input, int64_t input_size);
+  static Result<AlpHeader> LoadHeader(const uint8_t* input, int64_t input_size);
 };
 
 }  // namespace alp
