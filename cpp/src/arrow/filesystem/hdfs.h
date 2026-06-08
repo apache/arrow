@@ -47,7 +47,7 @@ struct ARROW_EXPORT HdfsOptions {
   HdfsOptions() = default;
   ~HdfsOptions() = default;
 
-  /// Hdfs configuration options, contains host, port, driver
+  /// Hdfs configuration options, contains host, port, user
   HdfsConnectionConfig connection_config;
 
   /// Used by Hdfs OpenWritable Interface.
