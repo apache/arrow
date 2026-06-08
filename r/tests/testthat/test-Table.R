@@ -385,6 +385,10 @@ test_that("Table converts dictionary arrays with uint32/int64/uint64 index types
   tab_uint64 <- Table$create(fact, schema = schema(fct = dictionary(uint64(), utf8())))
   expect_equal(tab_uint64$schema, schema(fct = dictionary(uint64(), utf8())))
   expect_equal_data_frame(tab_uint64, fact)
+
+  tab_large <- Table$create(fact, schema = schema(fct = dictionary(uint32(), large_utf8())))
+  expect_equal(tab_large$schema, schema(fct = dictionary(uint32(), large_utf8())))
+  expect_equal_data_frame(tab_large, fact)
 })
 
 test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
