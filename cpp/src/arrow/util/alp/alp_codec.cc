@@ -167,8 +167,8 @@ struct AlpCodec<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
 // AlpCodec implementation
 
 template <typename T>
-auto AlpCodec<T>::LoadHeader(const char* input, int64_t input_size)
-    -> Result<AlpHeader> {
+Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(
+    const char* input, int64_t input_size) {
   if (input_size < static_cast<int64_t>(AlpHeader::kSize)) {
     return Status::Invalid("ALP compressed buffer too small for header: ", input_size,
                            " < ", AlpHeader::kSize);
