@@ -1114,6 +1114,44 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   CheckTensorRowMajor<FloatType>(tensor2_row, 18, shape, strides_2);
 }
 
+TEST_F(TestRecordBatch, ToTensorNullToNanFloat16) {
+  // Tensor::Equals does not yet support NaN-aware comparison for float16, so
+  // null slots are verified by inspecting the raw buffer directly.
+  const int length = 9;
+
+  auto f0 = field("f0", float16());
+  auto f1 = field("f1", float16());
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(float16(), "[null, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(float16(), "[10, 20, 30, 40, null, 60, 70, 80, 90]");
+  auto batch = RecordBatch::Make(schema, length, {a0, a1});
+
+  // Column-major
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/true, /*row_major=*/false));
+  ASSERT_OK(tensor->Validate());
+
+  std::vector<int64_t> shape = {9, 2};
+  const int64_t f16_size = sizeof(uint16_t);
+  CheckTensor<HalfFloatType>(tensor, 18, shape, {f16_size, f16_size * shape[0]});
+
+  const auto* buf = reinterpret_cast<const uint16_t*>(tensor->raw_data());
+  EXPECT_TRUE(util::Float16::FromBits(buf[0]).is_nan());
+  EXPECT_TRUE(util::Float16::FromBits(buf[13]).is_nan());
+
+  // Row-major
+  ASSERT_OK_AND_ASSIGN(auto tensor_row, batch->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK(tensor_row->Validate());
+
+  CheckTensorRowMajor<HalfFloatType>(tensor_row, 18, shape,
+                                     {f16_size * shape[1], f16_size});
+
+  const auto* buf_row = reinterpret_cast<const uint16_t*>(tensor_row->raw_data());
+  EXPECT_TRUE(util::Float16::FromBits(buf_row[0]).is_nan());
+  EXPECT_TRUE(util::Float16::FromBits(buf_row[9]).is_nan());
+}
+
 TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   const int length = 9;
 

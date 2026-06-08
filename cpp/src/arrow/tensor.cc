@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
@@ -245,8 +246,14 @@ struct ConvertArrayToTensorVisitor {
         }
       } else {
         for (int64_t i = 0; i < in_data.length; ++i) {
-          *out_values++ =
-              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
+          if constexpr (T::type_id == Type::HALF_FLOAT && std::is_same_v<Out, uint16_t>) {
+            *out_values++ = in_data.IsNull(i)
+                                ? std::numeric_limits<util::Float16>::quiet_NaN().bits()
+                                : static_cast<Out>(in_values[i]);
+          } else {
+            *out_values++ = in_data.IsNull(i) ? static_cast<Out>(NAN)
+                                              : static_cast<Out>(in_values[i]);
+          }
         }
       }
       return Status::OK();
@@ -277,8 +284,15 @@ struct ConvertArrayToTensorRowMajorVisitor {
         }
       } else {
         for (int64_t i = 0; i < in_data.length; ++i) {
-          out_values[base + i * num_cols] =
-              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
+          if constexpr (T::type_id == Type::HALF_FLOAT && std::is_same_v<Out, uint16_t>) {
+            out_values[base + i * num_cols] =
+                in_data.IsNull(i) ? std::numeric_limits<util::Float16>::quiet_NaN().bits()
+                                  : static_cast<Out>(in_values[i]);
+          } else {
+            out_values[base + i * num_cols] = in_data.IsNull(i)
+                                                  ? static_cast<Out>(NAN)
+                                                  : static_cast<Out>(in_values[i]);
+          }
         }
       }
       return Status::OK();
