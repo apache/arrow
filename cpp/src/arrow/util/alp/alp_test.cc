@@ -779,8 +779,8 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
           {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
 
   // Verify metadata
-  EXPECT_EQ(encoded.alp_info, loaded.alp_info);
-  EXPECT_EQ(encoded.for_info, loaded.for_info);
+  EXPECT_EQ(encoded.alp_info(), loaded.alp_info());
+  EXPECT_EQ(encoded.for_info(), loaded.for_info());
 
   // Decompress loaded and verify
   std::vector<TypeParam> output(input.size());
@@ -842,7 +842,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // Verify we actually have exceptions
-  EXPECT_GT(encoded.alp_info.num_exceptions(), 0)
+  EXPECT_GT(encoded.alp_info().num_exceptions(), 0)
       << "Test requires exceptions to exercise alignment code path";
 
   // Store to buffer
@@ -856,11 +856,11 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
           {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
 
   // Verify view loaded correctly
-  EXPECT_EQ(view.alp_info, encoded.alp_info);
-  EXPECT_EQ(view.for_info, encoded.for_info);
-  EXPECT_EQ(view.num_elements, input.size());
-  EXPECT_EQ(view.exception_positions.size(), encoded.alp_info.num_exceptions());
-  EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions());
+  EXPECT_EQ(view.alp_info(), encoded.alp_info());
+  EXPECT_EQ(view.for_info(), encoded.for_info());
+  EXPECT_EQ(view.num_elements(), input.size());
+  EXPECT_EQ(view.exception_positions().size(), encoded.alp_info().num_exceptions());
+  EXPECT_EQ(view.exceptions().size(), encoded.alp_info().num_exceptions());
 
   // Decompress using the view - this exercises PatchExceptions with the
   // std::vector members (previously spans that could be misaligned)
@@ -897,7 +897,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // Verify we have exceptions
-  EXPECT_GE(encoded.alp_info.num_exceptions(), 2)
+  EXPECT_GE(encoded.alp_info().num_exceptions(), 2)
       << "Expected at least 2 exceptions (NaN and Inf)";
 
   // Store to buffer
@@ -908,7 +908,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t for_info_size = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
   const uint64_t bit_packed_size = AlpEncodedForVectorInfo<TypeParam>::GetBitPackedSize(
-      static_cast<uint16_t>(input.size()), encoded.for_info.bit_width());
+      static_cast<uint16_t>(input.size()), encoded.for_info().bit_width());
   const uint64_t exception_pos_offset = alp_info_size + for_info_size + bit_packed_size;
 
   // Log alignment info for debugging
@@ -927,12 +927,12 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
 
   // Access exceptions explicitly - with old code using spans, this would
   // be undefined behavior if the buffer wasn't properly aligned
-  EXPECT_EQ(view.exception_positions.size(), encoded.alp_info.num_exceptions());
-  EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions());
+  EXPECT_EQ(view.exception_positions().size(), encoded.alp_info().num_exceptions());
+  EXPECT_EQ(view.exceptions().size(), encoded.alp_info().num_exceptions());
 
   // Verify exception positions are accessible and valid
-  for (size_t i = 0; i < view.exception_positions.size(); ++i) {
-    EXPECT_LT(view.exception_positions[i], input.size())
+  for (size_t i = 0; i < view.exception_positions().size(); ++i) {
+    EXPECT_LT(view.exception_positions()[i], input.size())
         << "Exception position out of bounds at index " << i;
   }
 
@@ -961,7 +961,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
   }
 
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
-  EXPECT_GT(encoded.alp_info.num_exceptions(), 0);
+  EXPECT_GT(encoded.alp_info().num_exceptions(), 0);
 
   // Allocate buffer with extra byte, then use offset to create misaligned start
   std::vector<uint8_t> oversized_buffer(encoded.GetStoredSize() + 16);
@@ -1131,7 +1131,7 @@ TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // bit_width should be 0 for constant values
-  EXPECT_EQ(encoded.for_info.bit_width(), 0);
+  EXPECT_EQ(encoded.for_info().bit_width(), 0);
 
   // Verify round-trip
   std::vector<TypeParam> output(input.size());
@@ -1385,11 +1385,11 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInputViaCompression) {
   // Compress 0 elements - should produce a valid (minimal) encoded vector
   auto encoded = compressor.CompressVector(empty_input.data(), 0, preset);
 
-  EXPECT_EQ(encoded.num_elements, 0);
-  EXPECT_EQ(encoded.alp_info.num_exceptions(), 0);
-  EXPECT_EQ(encoded.packed_values.size(), 0);
-  EXPECT_EQ(encoded.exceptions.size(), 0);
-  EXPECT_EQ(encoded.exception_positions.size(), 0);
+  EXPECT_EQ(encoded.num_elements(), 0);
+  EXPECT_EQ(encoded.alp_info().num_exceptions(), 0);
+  EXPECT_EQ(encoded.packed_values().size(), 0);
+  EXPECT_EQ(encoded.exceptions().size(), 0);
+  EXPECT_EQ(encoded.exception_positions().size(), 0);
 
   // Decompress should also handle 0 elements
   std::vector<TypeParam> output;
