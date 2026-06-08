@@ -177,7 +177,8 @@ auto AlpCodec<T>::LoadHeader(const char* input, int64_t input_size)
   header.compression_mode = static_cast<uint8_t>(input[0]);
   header.integer_encoding = static_cast<uint8_t>(input[1]);
   header.log_vector_size = static_cast<uint8_t>(input[2]);
-  std::memcpy(&header.num_elements, input + 3, sizeof(header.num_elements));
+  header.num_elements = util::SafeLoadAs<int32_t>(
+      reinterpret_cast<const uint8_t*>(input + 3));
   return header;
 }
 
@@ -224,7 +225,7 @@ void AlpCodec<T>::EncodeWithPreset(const T* input, int64_t input_size,
   encoded_header[0] = header.compression_mode;
   encoded_header[1] = header.integer_encoding;
   encoded_header[2] = header.log_vector_size;
-  std::memcpy(encoded_header + 3, &header.num_elements, sizeof(header.num_elements));
+  util::SafeStore(encoded_header + 3, header.num_elements);
   *output_size = static_cast<int64_t>(AlpHeader::kSize) +
                  compression_progress.num_compressed_bytes_produced;
 }
@@ -373,7 +374,7 @@ auto AlpCodec<T>::EncodeAlp(const T* input, int64_t element_count, char* output,
   // Phase 3: Write offsets section
   char* offset_ptr = output;
   for (const auto& offset : vector_offsets) {
-    std::memcpy(offset_ptr, &offset, sizeof(AlpConstants::OffsetType));
+    util::SafeStore(offset_ptr, offset);
     offset_ptr += sizeof(AlpConstants::OffsetType);
   }
 
@@ -512,7 +513,7 @@ auto AlpCodec<T>::DecodeAlp(int64_t num_elements,
     const int64_t data_remaining =
         input_size - (ptr - reinterpret_cast<const uint8_t*>(input));
     const int64_t data_size =
-        for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+        for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions());
     if (data_size > data_remaining) {
       return Status::Invalid("ALP insufficient buffer for vector data: need=",
                              data_size, ", remaining=", data_remaining,
@@ -532,7 +533,7 @@ auto AlpCodec<T>::DecodeAlp(int64_t num_elements,
     // Track bytes consumed for last vector
     if (vector_index == num_vectors - 1) {
       bytes_consumed = (ptr - reinterpret_cast<const uint8_t*>(input)) +
-          for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+          for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions());
     }
 
     output_offset += this_vector_elements;
