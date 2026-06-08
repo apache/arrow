@@ -461,7 +461,10 @@ disable Arrow gcs support with -Dgcs=disabled.
     endif
 
     if needs_hdfs
-        arrow_filesystem_srcs += ['filesystem/hdfs.cc']
+        arrow_filesystem_srcs += [
+            'filesystem/hdfs.cc',
+            'filesystem/hdfs_internal.cc',
+        ]
     endif
 
     if needs_s3
