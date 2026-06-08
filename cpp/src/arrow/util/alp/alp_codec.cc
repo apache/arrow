@@ -174,11 +174,11 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(
                            " < ", AlpHeader::kSize);
   }
   AlpHeader header{};
-  header.compression_mode = static_cast<uint8_t>(input[0]);
-  header.integer_encoding = static_cast<uint8_t>(input[1]);
-  header.log_vector_size = static_cast<uint8_t>(input[2]);
-  header.num_elements = util::SafeLoadAs<int32_t>(
-      reinterpret_cast<const uint8_t*>(input + 3));
+  const auto* ptr = reinterpret_cast<const uint8_t*>(input);
+  header.compression_mode = util::SafeLoadAs<uint8_t>(ptr);
+  header.integer_encoding = util::SafeLoadAs<uint8_t>(ptr + 1);
+  header.log_vector_size = util::SafeLoadAs<uint8_t>(ptr + 2);
+  header.num_elements = util::SafeLoadAs<int32_t>(ptr + 3);
   return header;
 }
 
