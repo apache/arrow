@@ -230,9 +230,9 @@ TEST(AlpIntegrationTest, LargeDoubleDataset) {
 TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   // Test AlpEncodedVectorInfo (non-templated, 4 bytes)
   AlpEncodedVectorInfo info{};
-  info.exponent = 5;
-  info.factor = 3;
-  info.num_exceptions = 10;
+  info.set_exponent(5);
+  info.set_factor(3);
+  info.set_num_exceptions(10);
 
   std::vector<uint8_t> buffer(AlpEncodedVectorInfo::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
@@ -240,16 +240,16 @@ TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   ASSERT_OK_AND_ASSIGN(AlpEncodedVectorInfo loaded,
                        AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
-  EXPECT_EQ(loaded.exponent, 5);
-  EXPECT_EQ(loaded.factor, 3);
-  EXPECT_EQ(loaded.num_exceptions, 10);
+  EXPECT_EQ(loaded.exponent(), 5);
+  EXPECT_EQ(loaded.factor(), 3);
+  EXPECT_EQ(loaded.num_exceptions(), 10);
 }
 
 TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripFloat) {
   // Test AlpEncodedForVectorInfo<float> (6 bytes)
   AlpEncodedForVectorInfo<float> info{};
-  info.frame_of_reference = 0x12345678U;
-  info.bit_width = 12;
+  info.set_frame_of_reference(0x12345678U);
+  info.set_bit_width(12);
 
   std::vector<uint8_t> buffer(AlpEncodedForVectorInfo<float>::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
@@ -257,15 +257,15 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripFloat) {
   ASSERT_OK_AND_ASSIGN(AlpEncodedForVectorInfo<float> loaded,
                        AlpEncodedForVectorInfo<float>::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
-  EXPECT_EQ(loaded.frame_of_reference, 0x12345678U);
-  EXPECT_EQ(loaded.bit_width, 12);
+  EXPECT_EQ(loaded.frame_of_reference(), 0x12345678U);
+  EXPECT_EQ(loaded.bit_width(), 12);
 }
 
 TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripDouble) {
   // Test AlpEncodedForVectorInfo<double> (10 bytes)
   AlpEncodedForVectorInfo<double> info{};
-  info.frame_of_reference = 0x123456789ABCDEF0ULL;
-  info.bit_width = 20;
+  info.set_frame_of_reference(0x123456789ABCDEF0ULL);
+  info.set_bit_width(20);
 
   std::vector<uint8_t> buffer(AlpEncodedForVectorInfo<double>::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
@@ -273,8 +273,8 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripDouble) {
   ASSERT_OK_AND_ASSIGN(AlpEncodedForVectorInfo<double> loaded,
                        AlpEncodedForVectorInfo<double>::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
-  EXPECT_EQ(loaded.frame_of_reference, 0x123456789ABCDEF0ULL);
-  EXPECT_EQ(loaded.bit_width, 20);
+  EXPECT_EQ(loaded.frame_of_reference(), 0x123456789ABCDEF0ULL);
+  EXPECT_EQ(loaded.bit_width(), 20);
 }
 
 TEST(AlpEncodedVectorInfoTest, Size) {
@@ -316,13 +316,13 @@ TYPED_TEST(AlpMetadataCacheTest, LoadEmptyBuffer) {
 TYPED_TEST(AlpMetadataCacheTest, LoadSingleVector) {
   // Create separate ALP and FOR metadata
   AlpEncodedVectorInfo alp_info{};
-  alp_info.exponent = 5;
-  alp_info.factor = 3;
-  alp_info.num_exceptions = 5;
+  alp_info.set_exponent(5);
+  alp_info.set_factor(3);
+  alp_info.set_num_exceptions(5);
 
   AlpEncodedForVectorInfo<TypeParam> for_info{};
-  for_info.frame_of_reference = 100;
-  for_info.bit_width = 8;
+  for_info.set_frame_of_reference(100);
+  for_info.set_bit_width(8);
 
   const uint16_t num_elements = 1024;
 
@@ -347,18 +347,18 @@ TYPED_TEST(AlpMetadataCacheTest, LoadSingleVector) {
 
   // Verify AlpInfo was loaded correctly
   const auto& loaded_alp = cache.GetAlpInfo(0);
-  EXPECT_EQ(loaded_alp.exponent, alp_info.exponent);
-  EXPECT_EQ(loaded_alp.factor, alp_info.factor);
-  EXPECT_EQ(loaded_alp.num_exceptions, alp_info.num_exceptions);
+  EXPECT_EQ(loaded_alp.exponent(), alp_info.exponent());
+  EXPECT_EQ(loaded_alp.factor(), alp_info.factor());
+  EXPECT_EQ(loaded_alp.num_exceptions(), alp_info.num_exceptions());
 
   // Verify ForInfo was loaded correctly
   const auto& loaded_for = cache.GetForInfo(0);
-  EXPECT_EQ(loaded_for.frame_of_reference, for_info.frame_of_reference);
-  EXPECT_EQ(loaded_for.bit_width, for_info.bit_width);
+  EXPECT_EQ(loaded_for.frame_of_reference(), for_info.frame_of_reference());
+  EXPECT_EQ(loaded_for.bit_width(), for_info.bit_width());
 
   // Verify total data size
   const uint64_t expected_data_size =
-      for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
+      for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions());
   EXPECT_EQ(cache.GetTotalDataSize(), expected_data_size);
   EXPECT_EQ(cache.GetTotalMetadataSectionSize(),
             AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<TypeParam>::kStoredSize);
@@ -373,23 +373,23 @@ TYPED_TEST(AlpMetadataCacheTest, LoadMultipleVectors) {
   std::vector<AlpEncodedVectorInfo> alp_infos(num_vectors);
   std::vector<AlpEncodedForVectorInfo<TypeParam>> for_infos(num_vectors);
 
-  alp_infos[0].exponent = 5;
-  alp_infos[0].factor = 3;
-  alp_infos[0].num_exceptions = 5;
-  for_infos[0].frame_of_reference = 100;
-  for_infos[0].bit_width = 8;
+  alp_infos[0].set_exponent(5);
+  alp_infos[0].set_factor(3);
+  alp_infos[0].set_num_exceptions(5);
+  for_infos[0].set_frame_of_reference(100);
+  for_infos[0].set_bit_width(8);
 
-  alp_infos[1].exponent = 6;
-  alp_infos[1].factor = 4;
-  alp_infos[1].num_exceptions = 10;
-  for_infos[1].frame_of_reference = 200;
-  for_infos[1].bit_width = 12;
+  alp_infos[1].set_exponent(6);
+  alp_infos[1].set_factor(4);
+  alp_infos[1].set_num_exceptions(10);
+  for_infos[1].set_frame_of_reference(200);
+  for_infos[1].set_bit_width(12);
 
-  alp_infos[2].exponent = 4;
-  alp_infos[2].factor = 2;
-  alp_infos[2].num_exceptions = 2;
-  for_infos[2].frame_of_reference = 300;
-  for_infos[2].bit_width = 6;
+  alp_infos[2].set_exponent(4);
+  alp_infos[2].set_factor(2);
+  alp_infos[2].set_num_exceptions(2);
+  for_infos[2].set_frame_of_reference(300);
+  for_infos[2].set_bit_width(6);
 
   // Store all AlpInfos contiguously
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
@@ -424,18 +424,18 @@ TYPED_TEST(AlpMetadataCacheTest, LoadMultipleVectors) {
   EXPECT_EQ(cache.GetVectorDataOffset(0), 0);
 
   const uint64_t offset1 =
-      for_infos[0].GetDataStoredSize(1024, alp_infos[0].num_exceptions);
+      for_infos[0].GetDataStoredSize(1024, alp_infos[0].num_exceptions());
   EXPECT_EQ(cache.GetVectorDataOffset(1), offset1);
 
   const uint64_t offset2 =
-      offset1 + for_infos[1].GetDataStoredSize(1024, alp_infos[1].num_exceptions);
+      offset1 + for_infos[1].GetDataStoredSize(1024, alp_infos[1].num_exceptions());
   EXPECT_EQ(cache.GetVectorDataOffset(2), offset2);
 
   // Check total data size
   const uint64_t expected_total =
-      for_infos[0].GetDataStoredSize(1024, alp_infos[0].num_exceptions) +
-      for_infos[1].GetDataStoredSize(1024, alp_infos[1].num_exceptions) +
-      for_infos[2].GetDataStoredSize(452, alp_infos[2].num_exceptions);
+      for_infos[0].GetDataStoredSize(1024, alp_infos[0].num_exceptions()) +
+      for_infos[1].GetDataStoredSize(1024, alp_infos[1].num_exceptions()) +
+      for_infos[2].GetDataStoredSize(452, alp_infos[2].num_exceptions());
   EXPECT_EQ(cache.GetTotalDataSize(), expected_total);
 
   // Verify metadata section size
@@ -453,11 +453,11 @@ TYPED_TEST(AlpMetadataCacheTest, RandomAccessToVectors) {
   std::vector<AlpEncodedVectorInfo> alp_infos(num_vectors);
   std::vector<AlpEncodedForVectorInfo<TypeParam>> for_infos(num_vectors);
   for (uint32_t i = 0; i < num_vectors; i++) {
-    alp_infos[i].exponent = 5;
-    alp_infos[i].factor = 3;
-    alp_infos[i].num_exceptions = static_cast<uint16_t>(i);  // Varying exception counts
-    for_infos[i].bit_width = 8 + (i % 4);                    // Varying bit widths
-    for_infos[i].frame_of_reference = 100 * i;
+    alp_infos[i].set_exponent(5);
+    alp_infos[i].set_factor(3);
+    alp_infos[i].set_num_exceptions(static_cast<uint16_t>(i));  // Varying exception counts
+    for_infos[i].set_bit_width(8 + (i % 4));                    // Varying bit widths
+    for_infos[i].set_frame_of_reference(100 * i);
   }
 
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
@@ -489,14 +489,14 @@ TYPED_TEST(AlpMetadataCacheTest, RandomAccessToVectors) {
   for (uint32_t i = 0; i < num_vectors; i++) {
     expected_offsets[i] = cumulative;
     cumulative +=
-        for_infos[i].GetDataStoredSize(vector_size, alp_infos[i].num_exceptions);
+        for_infos[i].GetDataStoredSize(vector_size, alp_infos[i].num_exceptions());
   }
 
   for (uint32_t idx : access_order) {
     EXPECT_EQ(cache.GetVectorDataOffset(idx), expected_offsets[idx]);
     EXPECT_EQ(cache.GetVectorNumElements(idx), vector_size);
-    EXPECT_EQ(cache.GetForInfo(idx).bit_width, for_infos[idx].bit_width);
-    EXPECT_EQ(cache.GetAlpInfo(idx).num_exceptions, alp_infos[idx].num_exceptions);
+    EXPECT_EQ(cache.GetForInfo(idx).bit_width(), for_infos[idx].bit_width());
+    EXPECT_EQ(cache.GetAlpInfo(idx).num_exceptions(), alp_infos[idx].num_exceptions());
   }
 }
 
@@ -842,7 +842,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // Verify we actually have exceptions
-  EXPECT_GT(encoded.alp_info.num_exceptions, 0)
+  EXPECT_GT(encoded.alp_info.num_exceptions(), 0)
       << "Test requires exceptions to exercise alignment code path";
 
   // Store to buffer
@@ -859,8 +859,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   EXPECT_EQ(view.alp_info, encoded.alp_info);
   EXPECT_EQ(view.for_info, encoded.for_info);
   EXPECT_EQ(view.num_elements, input.size());
-  EXPECT_EQ(view.exception_positions.size(), encoded.alp_info.num_exceptions);
-  EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions);
+  EXPECT_EQ(view.exception_positions.size(), encoded.alp_info.num_exceptions());
+  EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions());
 
   // Decompress using the view - this exercises PatchExceptions with the
   // std::vector members (previously spans that could be misaligned)
@@ -897,7 +897,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // Verify we have exceptions
-  EXPECT_GE(encoded.alp_info.num_exceptions, 2)
+  EXPECT_GE(encoded.alp_info.num_exceptions(), 2)
       << "Expected at least 2 exceptions (NaN and Inf)";
 
   // Store to buffer
@@ -908,7 +908,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t for_info_size = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
   const uint64_t bit_packed_size = AlpEncodedForVectorInfo<TypeParam>::GetBitPackedSize(
-      static_cast<uint16_t>(input.size()), encoded.for_info.bit_width);
+      static_cast<uint16_t>(input.size()), encoded.for_info.bit_width());
   const uint64_t exception_pos_offset = alp_info_size + for_info_size + bit_packed_size;
 
   // Log alignment info for debugging
@@ -927,8 +927,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
 
   // Access exceptions explicitly - with old code using spans, this would
   // be undefined behavior if the buffer wasn't properly aligned
-  EXPECT_EQ(view.exception_positions.size(), encoded.alp_info.num_exceptions);
-  EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions);
+  EXPECT_EQ(view.exception_positions.size(), encoded.alp_info.num_exceptions());
+  EXPECT_EQ(view.exceptions.size(), encoded.alp_info.num_exceptions());
 
   // Verify exception positions are accessible and valid
   for (size_t i = 0; i < view.exception_positions.size(); ++i) {
@@ -961,7 +961,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
   }
 
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
-  EXPECT_GT(encoded.alp_info.num_exceptions, 0);
+  EXPECT_GT(encoded.alp_info.num_exceptions(), 0);
 
   // Allocate buffer with extra byte, then use offset to create misaligned start
   std::vector<uint8_t> oversized_buffer(encoded.GetStoredSize() + 16);
@@ -1131,7 +1131,7 @@ TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // bit_width should be 0 for constant values
-  EXPECT_EQ(encoded.for_info.bit_width, 0);
+  EXPECT_EQ(encoded.for_info.bit_width(), 0);
 
   // Verify round-trip
   std::vector<TypeParam> output(input.size());
@@ -1386,7 +1386,7 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInputViaCompression) {
   auto encoded = compressor.CompressVector(empty_input.data(), 0, preset);
 
   EXPECT_EQ(encoded.num_elements, 0);
-  EXPECT_EQ(encoded.alp_info.num_exceptions, 0);
+  EXPECT_EQ(encoded.alp_info.num_exceptions(), 0);
   EXPECT_EQ(encoded.packed_values.size(), 0);
   EXPECT_EQ(encoded.exceptions.size(), 0);
   EXPECT_EQ(encoded.exception_positions.size(), 0);
@@ -1464,13 +1464,13 @@ TEST(AlpRobustnessTest, MetadataCacheOutOfBounds) {
   // Test that AlpMetadataCache properly checks bounds on vector access
   // Create a cache with 2 vectors
   AlpEncodedVectorInfo alp_info{};
-  alp_info.exponent = 5;
-  alp_info.factor = 3;
-  alp_info.num_exceptions = 0;
+  alp_info.set_exponent(5);
+  alp_info.set_factor(3);
+  alp_info.set_num_exceptions(0);
 
   AlpEncodedForVectorInfo<double> for_info{};
-  for_info.frame_of_reference = 100;
-  for_info.bit_width = 8;
+  for_info.set_frame_of_reference(100);
+  for_info.set_bit_width(8);
 
   constexpr uint32_t num_vectors = 2;
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
