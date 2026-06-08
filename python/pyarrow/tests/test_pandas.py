@@ -3901,6 +3901,7 @@ def test_singleton_blocks_zero_copy():
 
 
 def _check_to_pandas_memory_unchanged(obj, **kwargs):
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = obj.to_pandas(**kwargs)  # noqa
 
@@ -3966,6 +3967,7 @@ def test_table_uses_memory_pool():
     arr = pa.array(np.arange(N, dtype=np.int64))
     t = pa.table([arr, arr, arr], ['f0', 'f1', 'f2'])
 
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = t.to_pandas()
 
