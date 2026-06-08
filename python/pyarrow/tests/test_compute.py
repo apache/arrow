@@ -1321,7 +1321,7 @@ def test_replace_with_mask_null_type():
      pa.array([10.5, 20.5]), pa.array([10.5, 2.2, 20.5, 4.4])),
 ])
 def test_replace_with_mask(arr, mask, replacements, expected):
-    """Test with various data types """
+    """Test replace_with_mask with various data types."""
     result = pc.replace_with_mask(arr, mask, replacements)
     assert result.equals(expected)
 
@@ -1345,10 +1345,10 @@ def test_replace_with_mask_chunked_array(arr, mask, replacements, expected):
 
 
 @pytest.mark.parametrize("arr,mask,replacements,error_match", [
-    # Replacement count not match mask true count
+    # Replacement count does not match the number of true values in the mask
     (pa.array([1, 2, 3]), pa.array([True, True, False]),
      pa.array([10]), "expected 2.*but got 1"),
-    # Mask length not match
+    # Mask length does not match input array length
     (pa.array([1, 2, 3]), pa.array([True, False]), pa.array([10]), None),
 ])
 def test_replace_with_mask_errors(arr, mask, replacements, error_match):
