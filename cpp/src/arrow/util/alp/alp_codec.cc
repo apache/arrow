@@ -384,11 +384,11 @@ auto AlpCodec<T>::EncodeAlp(const T* input, int64_t element_count, char* output,
     uint8_t* vector_start = reinterpret_cast<uint8_t*>(output) + vector_offsets[i];
 
     // Write AlpInfo
-    vec.alp_info.Store({vector_start, AlpEncodedVectorInfo::kStoredSize});
+    vec.alp_info().Store({vector_start, AlpEncodedVectorInfo::kStoredSize});
     uint8_t* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
     // Write ForInfo — only kForBitPack is supported; validated at the API boundary
-    vec.for_info.Store({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
+    vec.for_info().Store({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
     ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
 
     // Write data (packed values + exception positions + exception values)
