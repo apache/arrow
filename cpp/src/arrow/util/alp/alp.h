@@ -627,7 +627,7 @@ class AlpSampler;
 ///
 /// \tparam T the type of data to be compressed. Currently float and double.
 template <typename T>
-class AlpCompression : private AlpConstants {
+class AlpCompression {
  public:
   using Constants = AlpTypedConstants<T>;
   using ExactType = typename Constants::FloatingToExact;
