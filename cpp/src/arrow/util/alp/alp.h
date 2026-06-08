@@ -135,7 +135,7 @@ namespace alp {
 /// \brief ALP compression mode
 ///
 /// Currently only ALP (decimal compression) is implemented.
-enum class AlpMode { kAlp };
+enum class AlpMode { kAlp = 0 };
 
 // ----------------------------------------------------------------------
 // AlpExponentAndFactor
@@ -180,17 +180,23 @@ struct AlpExponentAndFactor {
 ///   |    1    |  factor (uint8_t)   |  1 byte  |
 ///   |    2    |  num_exceptions     |  2 bytes |
 ///   +------------------------------------------+
-struct AlpEncodedVectorInfo {
-  /// Exponent used for decimal encoding (multiply by 10^exponent)
-  uint8_t exponent = 0;
-  /// Factor used for decimal encoding (divide by 10^factor)
-  uint8_t factor = 0;
-  /// Number of exceptions stored in this vector
-  int16_t num_exceptions = 0;
+class AlpEncodedVectorInfo {
+ public:
+  AlpEncodedVectorInfo() = default;
+  AlpEncodedVectorInfo(uint8_t exponent, uint8_t factor, int16_t num_exceptions)
+      : exponent_(exponent), factor_(factor), num_exceptions_(num_exceptions) {}
+
+  uint8_t exponent() const { return exponent_; }
+  uint8_t factor() const { return factor_; }
+  int16_t num_exceptions() const { return num_exceptions_; }
+
+  void set_exponent(uint8_t exponent) { exponent_ = exponent; }
+  void set_factor(uint8_t factor) { factor_ = factor; }
+  void set_num_exceptions(int16_t num_exceptions) { num_exceptions_ = num_exceptions; }
 
   /// Size of the serialized portion (4 bytes, fixed)
   static constexpr int64_t kStoredSize =
-      sizeof(exponent) + sizeof(factor) + sizeof(num_exceptions);
+      sizeof(uint8_t) + sizeof(uint8_t) + sizeof(int16_t);
   static_assert(kStoredSize == 4, "AlpEncodedVectorInfo stored size must be 4 bytes");
 
   /// \brief Store the ALP metadata into an output buffer
@@ -208,15 +214,20 @@ struct AlpEncodedVectorInfo {
 
   /// \brief Get exponent and factor as a combined struct
   AlpExponentAndFactor GetExponentAndFactor() const {
-    return AlpExponentAndFactor{exponent, factor};
+    return AlpExponentAndFactor{exponent_, factor_};
   }
 
   bool operator==(const AlpEncodedVectorInfo& other) const {
-    return exponent == other.exponent && factor == other.factor &&
-           num_exceptions == other.num_exceptions;
+    return exponent_ == other.exponent_ && factor_ == other.factor_ &&
+           num_exceptions_ == other.num_exceptions_;
   }
 
   bool operator!=(const AlpEncodedVectorInfo& other) const { return !(*this == other); }
+
+ private:
+  uint8_t exponent_ = 0;
+  uint8_t factor_ = 0;
+  int16_t num_exceptions_ = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -256,17 +267,25 @@ struct AlpEncodedVectorInfo {
 ///
 /// \tparam T the floating point type (float or double)
 template <typename T>
-struct AlpEncodedForVectorInfo {
+class AlpEncodedForVectorInfo {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
                 "AlpEncodedForVectorInfo only supports float and double");
 
+ public:
   /// Use uint32_t for float, uint64_t for double (matches encoded integer size)
   using ExactType = typename AlpTypedConstants<T>::FloatingToExact;
 
-  /// Delta used for frame of reference encoding (4 bytes for float, 8 for double)
-  ExactType frame_of_reference = 0;
-  /// Bitwidth used for bitpacking
-  uint8_t bit_width = 0;
+  AlpEncodedForVectorInfo() = default;
+  AlpEncodedForVectorInfo(ExactType frame_of_reference, uint8_t bit_width)
+      : frame_of_reference_(frame_of_reference), bit_width_(bit_width) {}
+
+  ExactType frame_of_reference() const { return frame_of_reference_; }
+  uint8_t bit_width() const { return bit_width_; }
+
+  void set_frame_of_reference(ExactType frame_of_reference) {
+    frame_of_reference_ = frame_of_reference;
+  }
+  void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
 
   /// Size of the serialized portion (5 bytes for float, 9 for double)
   static constexpr int64_t kStoredSize = sizeof(ExactType) + 1;
@@ -274,10 +293,10 @@ struct AlpEncodedForVectorInfo {
   /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
   ///
   /// \param[in] num_elements number of elements in this vector
-  /// \param[in] bit_width bits per element
+  /// \param[in] bw bits per element
   /// \return the size in bytes of the bitpacked data
-  static int64_t GetBitPackedSize(int32_t num_elements, uint8_t bit_width) {
-    return (static_cast<int64_t>(num_elements) * bit_width + 7) / 8;
+  static int64_t GetBitPackedSize(int32_t num_elements, uint8_t bw) {
+    return (static_cast<int64_t>(num_elements) * bw + 7) / 8;
   }
 
   /// \brief Store the FOR metadata into an output buffer
@@ -300,17 +319,21 @@ struct AlpEncodedForVectorInfo {
   /// \param[in] num_exceptions number of exceptions (from AlpEncodedVectorInfo)
   /// \return the size in bytes of packed values + exception positions + exceptions
   int64_t GetDataStoredSize(int32_t num_elements, int32_t num_exceptions) const {
-    const int64_t bit_packed_size = GetBitPackedSize(num_elements, bit_width);
+    const int64_t bit_packed_size = GetBitPackedSize(num_elements, bit_width_);
     return bit_packed_size +
            num_exceptions * static_cast<int64_t>(sizeof(AlpConstants::PositionType) + sizeof(T));
   }
 
   bool operator==(const AlpEncodedForVectorInfo& other) const {
-    return frame_of_reference == other.frame_of_reference &&
-           bit_width == other.bit_width;
+    return frame_of_reference_ == other.frame_of_reference_ &&
+           bit_width_ == other.bit_width_;
   }
 
   bool operator!=(const AlpEncodedForVectorInfo& other) const { return !(*this == other); }
+
+ private:
+  ExactType frame_of_reference_ = 0;
+  uint8_t bit_width_ = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -423,7 +446,7 @@ class AlpEncodedVector {
   ///
   /// \return the size in bytes of packed values + exception positions + exceptions
   int64_t GetDataStoredSize() const {
-    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
+    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions());
   }
 
   /// \brief Load a compressed vector from a compact format from an input buffer
@@ -508,7 +531,7 @@ struct AlpEncodedVectorView {
   ///
   /// \return the size in bytes of packed values + exception positions + exceptions
   int64_t GetDataStoredSize() const {
-    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
+    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions());
   }
 };
 
