@@ -77,7 +77,7 @@ static void printDoubleArray(const std::string& name, const double* data, size_t
 
 template <typename T>
 static void generateBlob(const std::string& prefix, const T* input, size_t count) {
-  int64_t decomp_size = static_cast<int64_t>(count * sizeof(T));
+  int64_t decomp_size = static_cast<int64_t>(count);
   int64_t max_size = AlpCodec<T>::GetMaxCompressedSize(decomp_size);
   std::vector<char> compressed(max_size);
   int64_t comp_size = max_size;
