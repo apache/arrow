@@ -1038,9 +1038,9 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     }
 
     // Call AlpCodec::Encode() - it handles sampling, preset selection, and compression
-    const int64_t decompSize = sink_.length();
+    const int64_t numElements = sink_.length() / static_cast<int64_t>(sizeof(T));
     int64_t compSize =
-        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(decompSize, vector_size_);
+        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(numElements, vector_size_);
 
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_buffer,
@@ -1048,7 +1048,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
     ::arrow::util::alp::AlpCodec<T>::Encode(
         reinterpret_cast<const T*>(sink_.data()),
-        decompSize,
+        numElements,
         vector_size_,
         reinterpret_cast<char*>(compressed_buffer->mutable_data()),
         &compSize);

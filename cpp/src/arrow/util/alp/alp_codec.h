@@ -55,10 +55,9 @@ class AlpCodec {
   /// outside of the benchmark loop or encode multiple batches with the same preset.
   ///
   /// \param[in] input pointer to the input data to sample
-  /// \param[in] input_size size of input in bytes.
-  /// \pre input_size must be a multiple of sizeof(T)
+  /// \param[in] num_elements number of elements to sample
   /// \return the sampling result containing the encoding preset
-  static AlpSamplerResult CreateSamplingPreset(const T* input, int64_t input_size);
+  static AlpSamplerResult CreateSamplingPreset(const T* input, int64_t num_elements);
 
   /// \brief Encode floating point values using a pre-computed preset
   ///
@@ -66,17 +65,16 @@ class AlpCodec {
   /// CreateSamplingPreset(). This avoids the sampling overhead during encoding.
   ///
   /// \param[in] input pointer to the input that is to be encoded
-  /// \param[in] input_size size of input in bytes.
+  /// \param[in] num_elements number of elements to encode
   /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
   /// \param[in] vector_size number of elements per vector (must be a power of 2,
   ///            at most 2^kMaxLogVectorSize)
   /// \param[out] output pointer to the memory region we will encode into.
-  ///             Must be at least GetMaxCompressedSize(input_size) bytes.
+  ///             Must be at least GetMaxCompressedSize(num_elements) bytes.
   /// \param[in,out] output_size the actual size of the encoded data in bytes,
   ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  /// \pre input_size must be a multiple of sizeof(T)
-  static void EncodeWithPreset(const T* input, int64_t input_size,
+  static void EncodeWithPreset(const T* input, int64_t num_elements,
                                const AlpSamplerResult& preset,
                                int32_t vector_size,
                                char* output, int64_t* output_size);
@@ -84,21 +82,20 @@ class AlpCodec {
   /// \brief Encode floating point values using ALP decimal compression
   ///
   /// \param[in] input pointer to the input that is to be encoded
-  /// \param[in] input_size size of input in bytes.
+  /// \param[in] num_elements number of elements to encode
   /// \param[in] vector_size number of elements per vector (must be a power of 2,
   ///            at most 2^kMaxLogVectorSize)
   /// \param[out] output pointer to the memory region we will encode into.
-  ///             Must be at least GetMaxCompressedSize(input_size) bytes.
+  ///             Must be at least GetMaxCompressedSize(num_elements) bytes.
   /// \param[in,out] output_size the actual size of the encoded data in bytes,
   ///                expects the size of output as input. If this is too small,
   ///                this is set to 0 and we bail out.
-  /// \pre input_size must be a multiple of sizeof(T)
-  static void Encode(const T* input, int64_t input_size,
+  static void Encode(const T* input, int64_t num_elements,
                      int32_t vector_size,
                      char* output, int64_t* output_size);
 
   /// Convenience overload with default vector_size = kAlpVectorSize
-  static void Encode(const T* input, int64_t input_size,
+  static void Encode(const T* input, int64_t num_elements,
                      char* output, int64_t* output_size);
 
   /// \brief Decode floating point values
@@ -116,13 +113,12 @@ class AlpCodec {
   static Status Decode(int32_t num_elements, const char* input, int64_t input_size,
                        TargetType* output);
 
-  /// \brief Get the maximum compressed size of an uncompressed buffer
+  /// \brief Get the maximum compressed size for a given number of elements
   ///
-  /// \param[in] input_size the size of the uncompressed buffer in bytes
+  /// \param[in] num_elements number of elements to compress
   /// \param[in] vector_size number of elements per vector (must be a power of 2)
-  /// \pre input_size must be non-negative and a multiple of sizeof(T)
-  /// \return the maximum size of the compressed buffer
-  static int64_t GetMaxCompressedSize(int64_t input_size,
+  /// \return the maximum size of the compressed buffer in bytes
+  static int64_t GetMaxCompressedSize(int64_t num_elements,
                                       int32_t vector_size = AlpConstants::kAlpVectorSize);
 
  private:
