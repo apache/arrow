@@ -390,18 +390,32 @@ class AlpEncodedForVectorInfo {
 template <typename T>
 class AlpEncodedVector {
  public:
-  /// ALP-specific metadata (exponent, factor, num_exceptions)
-  AlpEncodedVectorInfo alp_info;
-  /// FOR-specific metadata (frame_of_reference, bit_width)
-  AlpEncodedForVectorInfo<T> for_info;
-  /// Number of elements in this vector (not serialized; from page header)
-  int32_t num_elements = 0;
-  /// Successfully encoded and bitpacked data
-  std::vector<uint8_t> packed_values;
-  /// Float values that could not be converted successfully
-  std::vector<T> exceptions;
-  /// Positions of the exceptions in the decompressed vector
-  std::vector<int16_t> exception_positions;
+  AlpEncodedVector() = default;
+
+  const AlpEncodedVectorInfo& alp_info() const { return alp_info_; }
+  AlpEncodedVectorInfo& mutable_alp_info() { return alp_info_; }
+  void set_alp_info(const AlpEncodedVectorInfo& info) { alp_info_ = info; }
+
+  const AlpEncodedForVectorInfo<T>& for_info() const { return for_info_; }
+  AlpEncodedForVectorInfo<T>& mutable_for_info() { return for_info_; }
+  void set_for_info(const AlpEncodedForVectorInfo<T>& info) { for_info_ = info; }
+
+  int32_t num_elements() const { return num_elements_; }
+  void set_num_elements(int32_t n) { num_elements_ = n; }
+
+  const std::vector<uint8_t>& packed_values() const { return packed_values_; }
+  std::vector<uint8_t>& mutable_packed_values() { return packed_values_; }
+  void set_packed_values(std::vector<uint8_t> v) { packed_values_ = std::move(v); }
+
+  const std::vector<T>& exceptions() const { return exceptions_; }
+  std::vector<T>& mutable_exceptions() { return exceptions_; }
+  void set_exceptions(std::vector<T> v) { exceptions_ = std::move(v); }
+
+  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
+  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
+  void set_exception_positions(std::vector<int16_t> v) {
+    exception_positions_ = std::move(v);
+  }
 
   /// Total metadata size (AlpInfo + ForInfo)
   static constexpr int64_t kMetadataStoredSize =
@@ -425,7 +439,7 @@ class AlpEncodedVector {
   /// \brief Get the number of elements in this vector
   ///
   /// \return number of elements
-  int64_t GetNumElements() const { return num_elements; }
+  int64_t GetNumElements() const { return num_elements_; }
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
@@ -446,7 +460,7 @@ class AlpEncodedVector {
   ///
   /// \return the size in bytes of packed values + exception positions + exceptions
   int64_t GetDataStoredSize() const {
-    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions());
+    return for_info_.GetDataStoredSize(num_elements_, alp_info_.num_exceptions());
   }
 
   /// \brief Load a compressed vector from a compact format from an input buffer
@@ -458,6 +472,14 @@ class AlpEncodedVector {
                                        int32_t num_elements);
 
   bool operator==(const AlpEncodedVector<T>& other) const;
+
+ private:
+  AlpEncodedVectorInfo alp_info_;
+  AlpEncodedForVectorInfo<T> for_info_;
+  int32_t num_elements_ = 0;
+  std::vector<uint8_t> packed_values_;
+  std::vector<T> exceptions_;
+  std::vector<int16_t> exception_positions_;
 };
 
 // ----------------------------------------------------------------------
@@ -481,19 +503,33 @@ class AlpEncodedVector {
 /// The underlying buffer must remain valid for the lifetime of the view
 /// (for packed_values access).
 template <typename T>
-struct AlpEncodedVectorView {
-  /// ALP-specific metadata (exponent, factor, num_exceptions)
-  AlpEncodedVectorInfo alp_info;
-  /// FOR-specific metadata (frame_of_reference, bit_width)
-  AlpEncodedForVectorInfo<T> for_info;
-  /// Number of elements in this vector (not serialized; from page header)
-  int32_t num_elements = 0;
-  /// View into bitpacked data (zero-copy, bytes have no alignment requirements)
-  arrow::util::span<const uint8_t> packed_values;
-  /// Exception positions (copied into aligned storage to avoid UB from misaligned access)
-  std::vector<int16_t> exception_positions;
-  /// Exception values (copied into aligned storage to avoid UB from misaligned access)
-  std::vector<T> exceptions;
+class AlpEncodedVectorView {
+ public:
+  AlpEncodedVectorView() = default;
+
+  const AlpEncodedVectorInfo& alp_info() const { return alp_info_; }
+  AlpEncodedVectorInfo& mutable_alp_info() { return alp_info_; }
+  void set_alp_info(const AlpEncodedVectorInfo& info) { alp_info_ = info; }
+
+  const AlpEncodedForVectorInfo<T>& for_info() const { return for_info_; }
+  AlpEncodedForVectorInfo<T>& mutable_for_info() { return for_info_; }
+  void set_for_info(const AlpEncodedForVectorInfo<T>& info) { for_info_ = info; }
+
+  int32_t num_elements() const { return num_elements_; }
+  void set_num_elements(int32_t n) { num_elements_ = n; }
+
+  arrow::util::span<const uint8_t> packed_values() const { return packed_values_; }
+  void set_packed_values(arrow::util::span<const uint8_t> v) { packed_values_ = v; }
+
+  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
+  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
+  void set_exception_positions(std::vector<int16_t> v) {
+    exception_positions_ = std::move(v);
+  }
+
+  const std::vector<T>& exceptions() const { return exceptions_; }
+  std::vector<T>& mutable_exceptions() { return exceptions_; }
+  void set_exceptions(std::vector<T> v) { exceptions_ = std::move(v); }
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
@@ -531,8 +567,16 @@ struct AlpEncodedVectorView {
   ///
   /// \return the size in bytes of packed values + exception positions + exceptions
   int64_t GetDataStoredSize() const {
-    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions());
+    return for_info_.GetDataStoredSize(num_elements_, alp_info_.num_exceptions());
   }
+
+ private:
+  AlpEncodedVectorInfo alp_info_;
+  AlpEncodedForVectorInfo<T> for_info_;
+  int32_t num_elements_ = 0;
+  arrow::util::span<const uint8_t> packed_values_;
+  std::vector<int16_t> exception_positions_;
+  std::vector<T> exceptions_;
 };
 
 // ----------------------------------------------------------------------
