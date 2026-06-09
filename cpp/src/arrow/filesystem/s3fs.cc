@@ -3609,7 +3609,7 @@ auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
       if (!options.empty()) {
         return Status::NotImplemented(
             "S3 filesystem factory options are not supported yet, got: ", options.size(),
-            " options");
+            " option(s)");
       }
       RETURN_NOT_OK(EnsureS3Initialized());
       ARROW_ASSIGN_OR_RAISE(auto s3_options, S3Options::FromUri(uri, out_path));

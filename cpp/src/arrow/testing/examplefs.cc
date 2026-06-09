@@ -16,7 +16,6 @@
 // under the License.
 
 #include <any>
-#include <typeinfo>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/filesystem_library.h"

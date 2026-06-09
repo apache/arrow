@@ -389,7 +389,8 @@ struct FileSystemFactory {
                      std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
           if (!options.empty()) {
             return Status::NotImplemented(
-                "This filesystem does not support additional options");
+                "Filesystem factory does not support additional options, got ",
+                options.size(), " option(s)");
           }
           return fn(uri, ctx, out_path);
         }),
