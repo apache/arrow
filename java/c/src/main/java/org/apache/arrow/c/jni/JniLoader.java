@@ -105,6 +105,9 @@ public class JniLoader {
       case "aarch64":
         arch = "aarch_64";
         break;
+      case "ppc64le":
+        arch = "ppcle_64";
+        break;
       default:
         break;
     }
