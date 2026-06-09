@@ -21,6 +21,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/filesystem_library.h"
 #include "arrow/result.h"
+#include "arrow/testing/examplefs.h"
 #include "arrow/util/uri.h"
 
 #include <gtest/gtest.h>
@@ -48,6 +49,15 @@ auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
           EXPECT_TRUE(value.type() == typeid(int));
           if (out_path != nullptr) {
             *out_path += "/" + std::to_string(std::any_cast<int>(value));
+          }
+        } else if (key == "example_typed_option") {
+          if (const auto* opt =
+                  std::any_cast<std::shared_ptr<ExampleTypedOption>>(&value)) {
+            if (out_path != nullptr) {
+              *out_path += "/" + std::to_string((*opt)->value());
+            }
+          } else if (out_path != nullptr) {
+            *out_path += "/typed_cast_failed";
           }
         } else {
           ADD_FAILURE() << "Unexpected option: " << key;

@@ -30,6 +30,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/testing/examplefs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/io_util.h"
@@ -83,6 +84,12 @@ Result<std::shared_ptr<FileSystem>> FSFromUriOrPath(const std::string& uri,
 
 ////////////////////////////////////////////////////////////////////////////
 // Registered FileSystemFactory tests
+
+struct ConcreteTypedOption : ExampleTypedOption {
+  explicit ConcreteTypedOption(int value) : value_(value) {}
+  int value() const override { return value_; }
+  int value_;
+};
 
 class SlowFileSystemPublicProps : public SlowFileSystem {
  public:
@@ -153,9 +160,11 @@ TEST(FileSystemFromUri, LoadedRegisteredFactory) {
   std::vector<std::pair<std::string, std::any>> options{
       {"example_option_string", std::string("example_value")},
       {"example_option_int", 42},
+      {"example_typed_option",
+       std::shared_ptr<ExampleTypedOption>(std::make_shared<ConcreteTypedOption>(12345))},
   };
   ASSERT_OK_AND_ASSIGN(fs, FileSystemFromUri("example:///hey/yo", options, &path));
-  EXPECT_EQ(path, "/hey/yo/example_value/42");
+  EXPECT_EQ(path, "/hey/yo/example_value/42/12345");
   EXPECT_EQ(fs->type_name(), "local");
 }
 
