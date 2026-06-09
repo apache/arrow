@@ -218,7 +218,11 @@ TEST_P(BloomFilterBuilderFoldingTest, RespectsOption) {
        i < test_case.inserted_count + kNonInsertedCount; ++i) {
     false_positives += filter.FindHash(filter.Hash(i));
   }
-  EXPECT_LT(static_cast<double>(false_positives) / kNonInsertedCount, kFpp);
+  const auto sample_fpp = static_cast<double>(false_positives) / kNonInsertedCount;
+  EXPECT_LT(sample_fpp, kFpp);
+  // If the actual fpp, as computed on this sample, is significantly below kFpp / 2,
+  // then we could have folded the bloom filter at least once more.
+  EXPECT_GT(sample_fpp, kFpp / 2.1);
 }
 
 INSTANTIATE_TEST_SUITE_P(
