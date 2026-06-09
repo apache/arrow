@@ -1700,7 +1700,11 @@ FORCE_INLINE
 gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
                       int32_t in2_len) {
   if (in1_len < 0 || in2_len < 0) {
-    gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
+    char err_msg[128];
+    snprintf(err_msg, sizeof(err_msg),
+             "LEVENSHTEIN: input lengths must be non-negative, got %d and %d", in1_len,
+             in2_len);
+    gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
 
@@ -1736,7 +1740,8 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
   int* ptr = reinterpret_cast<int*>(
       gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2 * sizeof(int)));
   if (ptr == nullptr) {
-    gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
+    gdv_fn_context_set_error_msg(context,
+                                 "LEVENSHTEIN: could not allocate working memory");
     return 0;
   }
 
