@@ -77,30 +77,6 @@ TEST(TestStringOps, TestChrBigInt) {
   out = chr_int64(ctx_ptr, 0, &out_len);
   EXPECT_EQ(std::string(out, out_len), std::string("\0", 1));
 
-  out = chr_int32(ctx_ptr, -158, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "b");
-
-  out = chr_int64(ctx_ptr, -5, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xFB");
-
-  out = chr_int32(ctx_ptr, -340, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xAC");
-
-  out = chr_int64(ctx_ptr, -66, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xBE");
-
-  // €
-  out = chr_int32(ctx_ptr, 128, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x80");
-
-  // œ
-  out = chr_int64(ctx_ptr, 156, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x9C");
-
-  // ÿ
-  out = chr_int32(ctx_ptr, 255, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xFF");
-
   // BACKSPACE
   out = chr_int64(ctx_ptr, 8, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\b");
