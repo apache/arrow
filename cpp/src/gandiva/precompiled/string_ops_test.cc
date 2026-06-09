@@ -134,11 +134,12 @@ TEST(TestStringOps, TestChrBigInt) {
 
   EXPECT_FALSE(ctx.has_error());
 
-  // Invalid code points raise an error.
+  // Invalid code points raise an error that includes the offending value.
   chr_int64(ctx_ptr, -1, &out_len);
   EXPECT_EQ(out_len, 0);
   EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
       << ctx.get_error();
+  EXPECT_TRUE(ctx.get_error().find("-1") != std::string::npos) << ctx.get_error();
   ctx.Reset();
 
   chr_int64(ctx_ptr, 0x110000, &out_len);
