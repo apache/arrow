@@ -350,6 +350,22 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <typename Type>
+struct ArrayIterator<Type, enable_if_binary_view_like<Type>> {
+  const BinaryViewType::c_type* views;
+  const std::shared_ptr<Buffer>* data_buffers;
+  int64_t position;
+
+  explicit ArrayIterator(const ArraySpan& arr)
+      : views(arr.GetValues<BinaryViewType::c_type>(1)),
+        data_buffers(arr.GetVariadicBuffers().data()),
+        position(0) {}
+
+  std::string_view operator()() {
+    return util::FromBinaryView(views[position++], data_buffers);
+  }
+};
+
 template <>
 struct ArrayIterator<FixedSizeBinaryType> {
   const ArraySpan& arr;
