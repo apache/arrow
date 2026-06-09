@@ -636,6 +636,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 ///            FileSystemFactory. Non-empty options return NotImplemented for a registered
 ///            FileSystemFactory that does not support them or for schemes not handled by
 ///            a registered factory.
+/// \param[in] io_context an IOContext which will be associated with the filesystem
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.
 ARROW_EXPORT
