@@ -359,9 +359,11 @@ class ARROW_EXPORT FileSystem
   bool default_async_is_sync_ = true;
 };
 
+using FileSystemFactoryOptions = std::vector<std::pair<std::string, std::any>>;
+
 struct FileSystemFactory {
   std::function<Result<std::shared_ptr<FileSystem>>(
-      const Uri& uri, const std::vector<std::pair<std::string, std::any>>& options,
+      const Uri& uri, const FileSystemFactoryOptions& options,
       const io::IOContext& io_context, std::string* out_path)>
       function;
   std::string_view file;
@@ -369,8 +371,8 @@ struct FileSystemFactory {
 
   /// Construct from an options-aware factory function.
   FileSystemFactory(std::function<Result<std::shared_ptr<FileSystem>>(
-                        const Uri&, const std::vector<std::pair<std::string, std::any>>&,
-                        const io::IOContext&, std::string*)>
+                        const Uri&, const FileSystemFactoryOptions&, const io::IOContext&,
+                        std::string*)>
                         fn,
                     std::string_view file, int line)
       : function(std::move(fn)), file(file), line(line) {}
@@ -382,10 +384,15 @@ struct FileSystemFactory {
                         fn,
                     std::string_view file, int line)
       : function([fn = std::move(fn)](
-                     const Uri& uri,
-                     const std::vector<std::pair<std::string, std::any>>& /*ignored*/,
+                     const Uri& uri, const FileSystemFactoryOptions& options,
                      const io::IOContext& ctx,
-                     std::string* out_path) { return fn(uri, ctx, out_path); }),
+                     std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
+          if (!options.empty()) {
+            return Status::NotImplemented(
+                "This filesystem does not support additional options");
+          }
+          return fn(uri, ctx, out_path);
+        }),
         file(file),
         line(line) {}
 
@@ -593,8 +600,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.
 ARROW_EXPORT
-Result<std::shared_ptr<FileSystem>> FileSystemFromUri(
-    const std::string& uri, const std::vector<std::pair<std::string, std::any>>& options,
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
+    const std::string& uri, const FileSystemFactoryOptions& options,
     std::string* out_path = NULLPTR);
 
 /// \brief Create a new FileSystem by URI with a custom IO context
@@ -635,8 +642,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return out_fs FileSystem instance.
 ARROW_EXPORT
-Result<std::shared_ptr<FileSystem>> FileSystemFromUri(
-    const std::string& uri, const std::vector<std::pair<std::string, std::any>>& options,
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
+    const std::string& uri, const FileSystemFactoryOptions& options,
     const io::IOContext& io_context, std::string* out_path = NULLPTR);
 
 /// \brief Create a new FileSystem by URI

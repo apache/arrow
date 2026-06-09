@@ -84,10 +84,10 @@ TEST(S3Test, FromUri) {
 }
 
 TEST(S3Test, FromUriRejectsOptions) {
-  std::vector<std::pair<std::string, std::any>> options{{"some_option", 1}};
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                  ::testing::HasSubstr("options are not supported"),
-                                  FileSystemFromUri("s3://bucket/key", options));
+  FileSystemFactoryOptions options{{"some_option", 1}};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("options are not supported"),
+      FileSystemFromUriAndOptions("s3://bucket/key", options));
 }
 
 }  // namespace arrow::fs

@@ -641,10 +641,10 @@ TEST_F(TestMockFS, FileSystemFromUri) {
       Invalid, ::testing::HasSubstr("syntax error at character ' ' (position 12)"),
       FileSystemFromUri("mock:/folder name/bar", &path));
   CheckDirs({});
-  std::vector<std::pair<std::string, std::any>> options{{"some_option", 1}};
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                  ::testing::HasSubstr("options are not supported"),
-                                  FileSystemFromUri("mock:///foo/bar", options, &path));
+  FileSystemFactoryOptions options{{"some_option", 1}};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("options are not supported"),
+      FileSystemFromUriAndOptions("mock:///foo/bar", options, &path));
   CheckDirs({});
 }
 

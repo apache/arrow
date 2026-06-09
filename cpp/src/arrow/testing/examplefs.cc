@@ -30,14 +30,13 @@ namespace arrow::fs {
 
 auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "example",
-    [](const Uri& uri, const std::vector<std::pair<std::string, std::any>>& options,
+    [](const Uri& uri, const FileSystemFactoryOptions& options,
        const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
       constexpr std::string_view kScheme = "example";
       EXPECT_EQ(uri.scheme(), kScheme);
       auto local_uri = "file" + uri.ToString().substr(kScheme.size());
-      ARROW_ASSIGN_OR_RAISE(auto fs,
-                            FileSystemFromUri(local_uri, options, io_context, out_path));
+      ARROW_ASSIGN_OR_RAISE(auto fs, FileSystemFromUri(local_uri, io_context, out_path));
       for (const auto& [key, value] : options) {
         EXPECT_TRUE(value.has_value());
         if (key == "example_option_string") {

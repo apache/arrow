@@ -3603,8 +3603,7 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
 
 auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "s3",
-    [](const arrow::util::Uri& uri,
-       const std::vector<std::pair<std::string, std::any>>& options,
+    [](const arrow::util::Uri& uri, const FileSystemFactoryOptions& options,
        const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
       if (!options.empty()) {

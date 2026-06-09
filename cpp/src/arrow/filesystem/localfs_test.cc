@@ -157,13 +157,14 @@ TEST(FileSystemFromUri, LoadedRegisteredFactory) {
   EXPECT_EQ(fs->type_name(), "local");
 
   // Validate extra options are forwarded to the factory.
-  std::vector<std::pair<std::string, std::any>> options{
+  FileSystemFactoryOptions options{
       {"example_option_string", std::string("example_value")},
       {"example_option_int", 42},
       {"example_typed_option",
        std::shared_ptr<ExampleTypedOption>(std::make_shared<ConcreteTypedOption>(12345))},
   };
-  ASSERT_OK_AND_ASSIGN(fs, FileSystemFromUri("example:///hey/yo", options, &path));
+  ASSERT_OK_AND_ASSIGN(fs,
+                       FileSystemFromUriAndOptions("example:///hey/yo", options, &path));
   EXPECT_EQ(path, "/hey/yo/example_value/42/12345");
   EXPECT_EQ(fs->type_name(), "local");
 }
