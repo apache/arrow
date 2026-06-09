@@ -593,7 +593,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build support for encryption. Fail if OpenSSL is not found"
                 OFF
                 DEPENDS
-                ARROW_FILESYSTEM)
+                ARROW_FILESYSTEM
+                ARROW_JSON)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
