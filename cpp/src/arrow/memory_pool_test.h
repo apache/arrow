@@ -38,20 +38,30 @@ class TestMemoryPoolBase : public ::testing::Test {
     auto pool = memory_pool();
 
     uint8_t* data;
+#ifdef ENABLE_MEMORY_POOL_STATS
     const auto old_bytes_allocated = pool->bytes_allocated();
+#endif
     ASSERT_OK(pool->Allocate(100, &data));
     EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data) % 64);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(old_bytes_allocated + 100, pool->bytes_allocated());
+#endif
 
     uint8_t* data2;
     ASSERT_OK(pool->Allocate(27, &data2));
     EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data2) % 64);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(old_bytes_allocated + 127, pool->bytes_allocated());
+#endif
 
     pool->Free(data, 100);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(old_bytes_allocated + 27, pool->bytes_allocated());
+#endif
     pool->Free(data2, 27);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(old_bytes_allocated, pool->bytes_allocated());
+#endif
   }
 
   void TestOOM() {
@@ -71,19 +81,25 @@ class TestMemoryPoolBase : public ::testing::Test {
 
     uint8_t* data;
     ASSERT_OK(pool->Allocate(10, &data));
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(10, pool->bytes_allocated());
+#endif
     data[0] = 35;
     data[9] = 12;
 
     // Expand
     ASSERT_OK(pool->Reallocate(10, 20, &data));
     ASSERT_EQ(data[9], 12);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(20, pool->bytes_allocated());
+#endif
 
     // Shrink
     ASSERT_OK(pool->Reallocate(20, 5, &data));
     ASSERT_EQ(data[0], 35);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(5, pool->bytes_allocated());
+#endif
 
     // Free
     pool->Free(data, 5);

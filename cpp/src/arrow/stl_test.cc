@@ -527,6 +527,7 @@ TEST(TestTupleVectorFromTable, CastingNeeded) {
   ASSERT_EQ(rows, expected_rows);
 }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
 TEST(STLMemoryPool, Base) {
   std::allocator<uint8_t> allocator;
   STLMemoryPool<std::allocator<uint8_t>> pool(allocator);
@@ -557,6 +558,7 @@ TEST(allocator, MemoryTracking) {
   alloc.deallocate(data, 100);
   ASSERT_EQ(0, pool->bytes_allocated());
 }
+#endif
 
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(ARROW_JEMALLOC))
 
@@ -567,6 +569,7 @@ TEST(allocator, TestOOM) {
   ASSERT_THROW(alloc.allocate(max_alloc), std::bad_alloc);
 }
 
+#  ifdef ENABLE_MEMORY_POOL_STATS
 TEST(stl_allocator, MaxMemory) {
   auto pool = MemoryPool::CreateDefault();
 
@@ -579,6 +582,7 @@ TEST(stl_allocator, MaxMemory) {
 
   ASSERT_EQ(2000, pool->max_memory());
 }
+#  endif
 
 #endif  // !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
         // || defined(ARROW_JEMALLOC))
