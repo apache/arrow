@@ -16,6 +16,7 @@
 // under the License.
 
 // String functions
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -1929,9 +1930,19 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
     *out_len = 0;
     return "";
   }
+
+  gdv_int32 double_len = 0;
+  gdv_int32 alloc_len = 0;
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::MultiplyWithOverflow(in_len, 2, &double_len)) ||
+      ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(double_len, 2, &alloc_len))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return "";
+  }
+
   // try to allocate double size output string (worst case)
-  auto out =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, (in_len * 2) + 2));
+  auto out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -2429,6 +2440,71 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
   return ret;
 }
 
+struct ConcatWsLengthState {
+  gdv_int32 total_length = 0;
+  gdv_int32 valid_count = 0;
+};
+
+FORCE_INLINE
+bool concat_ws_length_error(gdv_int64 context, const char* message, bool* out_valid,
+                            gdv_int32* out_len) {
+  gdv_fn_context_set_error_msg(context, message);
+  *out_len = 0;
+  *out_valid = false;
+  return false;
+}
+
+FORCE_INLINE
+bool concat_ws_accumulate_word_length(gdv_int64 context, ConcatWsLengthState* state,
+                                      gdv_int32 word_len, bool word_validity,
+                                      bool* out_valid, gdv_int32* out_len) {
+  if (!word_validity) {
+    return true;
+  }
+
+  if (ARROW_PREDICT_FALSE(word_len < 0)) {
+    return concat_ws_length_error(context, "Invalid (negative) data length", out_valid,
+                                  out_len);
+  }
+
+  gdv_int32 total_length = 0;
+  if (ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(state->total_length, word_len,
+                                                           &total_length))) {
+    return concat_ws_length_error(context, "Would overflow maximum output size",
+                                  out_valid, out_len);
+  }
+
+  state->total_length = total_length;
+  state->valid_count++;
+  return true;
+}
+
+FORCE_INLINE
+bool concat_ws_finish_length(gdv_int64 context, ConcatWsLengthState* state,
+                             gdv_int32 separator_len, bool* out_valid,
+                             gdv_int32* out_len) {
+  if (ARROW_PREDICT_FALSE(separator_len < 0)) {
+    return concat_ws_length_error(context, "Invalid (negative) data length", out_valid,
+                                  out_len);
+  }
+
+  if (state->valid_count > 1) {
+    gdv_int32 separators_length = 0;
+    gdv_int32 total_length = 0;
+    if (ARROW_PREDICT_FALSE(arrow::internal::MultiplyWithOverflow(
+            separator_len, state->valid_count - 1, &separators_length)) ||
+        ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(
+            state->total_length, separators_length, &total_length))) {
+      return concat_ws_length_error(context, "Would overflow maximum output size",
+                                    out_valid, out_len);
+    }
+    state->total_length = total_length;
+  }
+
+  *out_len = state->total_length;
+  return true;
+}
+
 FORCE_INLINE
 void concat_word(char* out_buf, int* out_idx, const char* in_buf, int in_len,
                  bool in_validity, const char* separator, int separator_len,
@@ -2456,7 +2532,6 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
                                 const char* word2, int32_t word2_len, bool word2_validity,
                                 bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
@@ -2464,16 +2539,15 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
+  ConcatWsLengthState state;
+  if (!concat_ws_accumulate_word_length(context, &state, word1_len, word1_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word2_len, word2_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_finish_length(context, &state, separator_len, out_valid, out_len)) {
+    return "";
   }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
   if (*out_len == 0) {
     *out_valid = true;
     return "";
@@ -2508,7 +2582,6 @@ const char* concat_ws_utf8_utf8_utf8(
     const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
     int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
@@ -2516,20 +2589,16 @@ const char* concat_ws_utf8_utf8_utf8(
     return "";
   }
 
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
+  ConcatWsLengthState state;
+  if (!concat_ws_accumulate_word_length(context, &state, word1_len, word1_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word2_len, word2_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word3_len, word3_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_finish_length(context, &state, separator_len, out_valid, out_len)) {
+    return "";
   }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
-  }
-  if (word3_validity) {
-    *out_len += word3_len;
-    numValidInput++;
-  }
-
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
 
   if (*out_len == 0) {
     *out_len = 0;
@@ -2569,31 +2638,25 @@ const char* concat_ws_utf8_utf8_utf8_utf8(
     int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
     bool word4_validity, bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
-  }
-  if (word3_validity) {
-    *out_len += word3_len;
-    numValidInput++;
-  }
-  if (word4_validity) {
-    *out_len += word4_len;
-    numValidInput++;
-  }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+  ConcatWsLengthState state;
+  if (!concat_ws_accumulate_word_length(context, &state, word1_len, word1_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word2_len, word2_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word3_len, word3_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word4_len, word4_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_finish_length(context, &state, separator_len, out_valid, out_len)) {
+    return "";
+  }
 
   if (*out_len == 0) {
     *out_len = 0;
@@ -2636,35 +2699,27 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
     bool word4_validity, const char* word5, int32_t word5_len, bool word5_validity,
     bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
-  }
-  if (word3_validity) {
-    *out_len += word3_len;
-    numValidInput++;
-  }
-  if (word4_validity) {
-    *out_len += word4_len;
-    numValidInput++;
-  }
-  if (word5_validity) {
-    *out_len += word5_len;
-    numValidInput++;
-  }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+  ConcatWsLengthState state;
+  if (!concat_ws_accumulate_word_length(context, &state, word1_len, word1_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word2_len, word2_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word3_len, word3_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word4_len, word4_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_accumulate_word_length(context, &state, word5_len, word5_validity,
+                                        out_valid, out_len) ||
+      !concat_ws_finish_length(context, &state, separator_len, out_valid, out_len)) {
+    return "";
+  }
 
   if (*out_len == 0) {
     *out_len = 0;
@@ -2834,8 +2889,22 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
     return "";
   }
 
-  auto ret =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len * 2 + 1));
+  if (ARROW_PREDICT_FALSE(text_len < 0)) {
+    gdv_fn_context_set_error_msg(context, "Invalid (negative) data length");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t hex_len = 0;
+  int32_t alloc_len = 0;
+  if (ARROW_PREDICT_FALSE(arrow::internal::MultiplyWithOverflow(text_len, 2, &hex_len)) ||
+      ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(hex_len, 1, &alloc_len))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return "";
+  }
+
+  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_len));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -2844,7 +2913,7 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
   }
 
   uint32_t ret_index = 0;
-  uint32_t max_len = static_cast<uint32_t>(text_len) * 2;
+  uint32_t max_len = static_cast<uint32_t>(hex_len);
   uint32_t max_char_to_write = 4;
 
   for (gdv_int32 i = 0; i < text_len; i++) {

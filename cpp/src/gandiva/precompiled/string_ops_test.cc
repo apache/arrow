@@ -1165,6 +1165,21 @@ TEST(TestStringOps, TestQuote) {
   out_str = quote_utf8(ctx_ptr, "'''''''''", 9, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "'\\'\\'\\'\\'\\'\\'\\'\\'\\''");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      quote_utf8(ctx_ptr, "abc", std::numeric_limits<int32_t>::max() / 2 + 1, &out_len);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  out_str = quote_utf8(ctx_ptr, "abc", std::numeric_limits<int32_t>::max() / 2, &out_len);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestLtrim) {
@@ -2298,6 +2313,22 @@ TEST(TestStringOps, TestConcatWs) {
   EXPECT_EQ(std::string(out, out_len), "hey");
   EXPECT_EQ(out_result, true);
 
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, -1, true, word2,
+                            word2_len, false, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
+  ctx.Reset();
+
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, -1, true, word1, word1_len, true, word2,
+                            word2_len, false, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
+  ctx.Reset();
+
   separator = "#";
   sep_len = static_cast<int32_t>(strlen(separator));
   const char* word3 = "wow";
@@ -2308,6 +2339,16 @@ TEST(TestStringOps, TestConcatWs) {
                                  &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "hey#hello#wow");
   EXPECT_EQ(out_result, true);
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator,
+                                 std::numeric_limits<int32_t>::max() / 2 + 1, true, "", 0,
+                                 true, "", 0, true, "", 0, true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 
   out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, "", 0, true, word2,
                                  word2_len, false, word3, word3_len, true, &out_result,
@@ -2498,6 +2539,14 @@ TEST(TestStringOps, TestToHex) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(out_len, 2 * in_len);
   EXPECT_EQ(output, "090A090A090A090A0A0A092061206C657474405D6572");
+
+  out_str =
+      to_hex_binary(ctx_ptr, "A", std::numeric_limits<int32_t>::max() / 2 + 1, &out_len);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestToHexInt64) {
