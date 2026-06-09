@@ -40,14 +40,16 @@ auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
       for (const auto& [key, value] : options) {
         EXPECT_TRUE(value.has_value());
         if (key == "example_option_string") {
-          EXPECT_TRUE(value.type() == typeid(std::string));
-          if (out_path != nullptr) {
-            *out_path += "/" + std::any_cast<std::string>(value);
+          if (const auto* s = std::any_cast<std::string>(&value)) {
+            if (out_path != nullptr) *out_path += "/" + *s;
+          } else {
+            ADD_FAILURE() << "example_option_string has wrong type";
           }
         } else if (key == "example_option_int") {
-          EXPECT_TRUE(value.type() == typeid(int));
-          if (out_path != nullptr) {
-            *out_path += "/" + std::to_string(std::any_cast<int>(value));
+          if (const auto* i = std::any_cast<int>(&value)) {
+            if (out_path != nullptr) *out_path += "/" + std::to_string(*i);
+          } else {
+            ADD_FAILURE() << "example_option_int has wrong type";
           }
         } else if (key == "example_typed_option") {
           if (const auto* opt =
