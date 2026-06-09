@@ -370,6 +370,7 @@ uint32_t BlockSplitBloomFilter::NumFoldsForTargetFpp(double target_fpp,
   if (num_blocks < 2) {
     return 0;
   }
+  // Number of blocks is a power of two
   DCHECK_EQ(num_blocks & (num_blocks - 1), 0);
 
   // Estimate the fill rate after folding from the current average fill rate.
