@@ -440,6 +440,14 @@ struct SingleParserTimestampValueDecoder : public ValueDecoder {
   const TimestampParser& parser_;
 };
 
+std::vector<const TimestampParser*> GetTimestampParsers(const ConvertOptions& options) {
+  std::vector<const TimestampParser*> parsers(options.timestamp_parsers.size());
+  for (size_t i = 0; i < options.timestamp_parsers.size(); ++i) {
+    parsers[i] = options.timestamp_parsers[i].get();
+  }
+  return parsers;
+}
+
 struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   using value_type = int64_t;
 
@@ -449,7 +457,7 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
       : ValueDecoder(type, options, trie_cache),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
         expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()),
-        parsers_(GetParsers(options_)) {}
+        parsers_(GetTimestampParsers(options_)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     bool zone_offset_present = false;
@@ -464,18 +472,93 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   }
 
  protected:
-  using ParserVector = std::vector<const TimestampParser*>;
-
-  static ParserVector GetParsers(const ConvertOptions& options) {
-    ParserVector parsers(options.timestamp_parsers.size());
-    for (size_t i = 0; i < options.timestamp_parsers.size(); ++i) {
-      parsers[i] = options.timestamp_parsers[i].get();
-    }
-    return parsers;
-  }
-
   TimeUnit::type unit_;
   bool expect_timezone_;
+  std::vector<const TimestampParser*> parsers_;
+};
+
+//
+// Value decoder for dates and times, with fallback to user-defined
+// timestamp parsers
+//
+
+// Tries the ISO-8601 format first, then the user-defined timestamp parsers.
+// A timestamp produced by a user-defined parser is floored to the day
+// boundary for dates, and reduced to the time of day for times (consistent
+// with casting a timestamp to date32/date64/time32/time64).
+template <typename T>
+struct DateTimeWithParsersValueDecoder : public ValueDecoder {
+  using value_type = typename T::c_type;
+
+  DateTimeWithParsersValueDecoder(const std::shared_ptr<DataType>& type,
+                                  const ConvertOptions& options,
+                                  const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
+        concrete_type_(checked_cast<const T&>(*type)),
+        parse_unit_(GetParseUnit(concrete_type_)),
+        ticks_per_day_(TicksPerDay(parse_unit_)),
+        parsers_(GetTimestampParsers(options_)) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    TrimWhiteSpace(&data, &size);
+    if (ARROW_PREDICT_TRUE(string_converter_.Convert(
+            concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
+      return Status::OK();
+    }
+    for (const auto& parser : parsers_) {
+      int64_t timestamp = 0;
+      bool zone_offset_present = false;
+      if (parser->operator()(reinterpret_cast<const char*>(data), size, parse_unit_,
+                             &timestamp, &zone_offset_present) &&
+          !zone_offset_present) {
+        // Floor division, to handle values before the epoch
+        int64_t days = timestamp / ticks_per_day_;
+        days -= (timestamp % ticks_per_day_) < 0;
+        if constexpr (std::is_same_v<T, Date32Type>) {
+          *out = static_cast<value_type>(days);
+        } else if constexpr (std::is_same_v<T, Date64Type>) {
+          *out = days * kMillisPerDay;
+        } else {
+          static_assert(is_time_type<T>::value);
+          *out = static_cast<value_type>(timestamp - days * ticks_per_day_);
+        }
+        return Status::OK();
+      }
+    }
+    return GenericConversionError(type_, data, size);
+  }
+
+ protected:
+  static constexpr int64_t kMillisPerDay = 86400000;
+
+  static TimeUnit::type GetParseUnit(const T& type) {
+    if constexpr (is_time_type<T>::value) {
+      // Parse in the time type's own unit, so that the time of day can be
+      // extracted without further conversion
+      return type.unit();
+    } else {
+      return TimeUnit::SECOND;
+    }
+  }
+
+  static int64_t TicksPerDay(TimeUnit::type unit) {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return 86400LL;
+      case TimeUnit::MILLI:
+        return 86400000LL;
+      case TimeUnit::MICRO:
+        return 86400000000LL;
+      case TimeUnit::NANO:
+        return 86400000000000LL;
+    }
+    return -1;  // unreachable
+  }
+
+  const T& concrete_type_;
+  arrow::internal::StringConverter<T> string_converter_;
+  const TimeUnit::type parse_unit_;
+  const int64_t ticks_per_day_;
   std::vector<const TimestampParser*> parsers_;
 };
 
@@ -673,6 +756,24 @@ std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType
 }
 
 //
+// Concrete Converter factory for dates and times
+//
+
+template <template <typename, typename> class ConverterType, typename T>
+std::shared_ptr<Converter> MakeDateTimeConverter(const std::shared_ptr<DataType>& type,
+                                                 const ConvertOptions& options,
+                                                 MemoryPool* pool) {
+  if (options.timestamp_parsers.empty()) {
+    // Default to ISO-8601
+    return std::make_shared<ConverterType<T, NumericValueDecoder<T>>>(type, options,
+                                                                      pool);
+  }
+  // Try ISO-8601 first, then the user-defined timestamp parsers
+  return std::make_shared<ConverterType<T, DateTimeWithParsersValueDecoder<T>>>(
+      type, options, pool);
+}
+
+//
 // Concrete Converter factory for reals
 //
 
@@ -743,10 +844,6 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::FLOAT, FloatType)
     NUMERIC_CONVERTER_CASE(Type::DOUBLE, DoubleType)
     REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
-    NUMERIC_CONVERTER_CASE(Type::DATE32, Date32Type)
-    NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
-    NUMERIC_CONVERTER_CASE(Type::TIME32, Time32Type)
-    NUMERIC_CONVERTER_CASE(Type::TIME64, Time64Type)
     NUMERIC_CONVERTER_CASE(Type::DURATION, DurationType)
     CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
     CONVERTER_CASE(Type::BINARY,
@@ -758,6 +855,22 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
 
     case Type::TIMESTAMP:
       ptr = MakeTimestampConverter<PrimitiveConverter>(type, options, pool);
+      break;
+
+    case Type::DATE32:
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Date32Type>(type, options, pool);
+      break;
+
+    case Type::DATE64:
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Date64Type>(type, options, pool);
+      break;
+
+    case Type::TIME32:
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Time32Type>(type, options, pool);
+      break;
+
+    case Type::TIME64:
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Time64Type>(type, options, pool);
       break;
 
     case Type::STRING:
