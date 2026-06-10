@@ -30,10 +30,6 @@ characters? (default \code{FALSE})
 }
 }
 
-\examples{
-\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
-\dontshow{\}) # examplesIf}
-}
 \seealso{
 \link{FileFormat}
 }
