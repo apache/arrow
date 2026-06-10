@@ -1829,7 +1829,8 @@ TEST(TestDictionaryBuilderOrdered, MakeDictionaryBuilderPreservesOrdered) {
   for (bool ordered : {true, false}) {
     ARROW_SCOPED_TRACE("ordered = ", ordered);
     auto dict_type = dictionary(int8(), utf8(), ordered);
-    ASSERT_OK_AND_ASSIGN(auto builder, MakeDictionaryBuilder(dict_type));
+    ASSERT_OK_AND_ASSIGN(auto builder,
+                         MakeDictionaryBuilder(dict_type, /*dictionary=*/nullptr));
 
     auto builder_type = builder->type();
     ASSERT_EQ(checked_cast<const DictionaryType&>(*builder_type).ordered(), ordered);
