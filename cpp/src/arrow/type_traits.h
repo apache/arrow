@@ -104,6 +104,16 @@ struct CTypeTraits {};
 /// \addtogroup type-traits
 /// @{
 template <>
+struct CTypeTraits<Decimal128> {
+  using ArrowType = Decimal128Type;
+};
+
+template <>
+struct CTypeTraits<Decimal256> {
+  using ArrowType = Decimal256Type;
+};
+
+template <>
 struct TypeTraits<NullType> {
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
