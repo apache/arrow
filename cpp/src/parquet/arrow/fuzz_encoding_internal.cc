@@ -155,6 +155,14 @@ namespace {
 // Just to use std::vector<T> while avoiding std::vector<bool>
 using BooleanSlot = std::array<uint8_t, sizeof(bool)>;
 
+// OOM during fuzzing is an expected soft failure; any other non-OK status
+// indicates a real bug and should abort so OSS-Fuzz can report it.
+Status FuzzCheckOk(const Status& st) {
+  if (st.IsOutOfMemory()) return st;
+  ARROW_CHECK_OK(st);
+  return Status::OK();
+}
+
 template <typename T>
 using PoolAllocator = ::arrow::stl::allocator<T>;
 
@@ -283,7 +291,7 @@ struct TypedFuzzEncoding {
       // Read as Arrow directly and use that as reference
       ARROW_ASSIGN_OR_RAISE(reference_array_,
                             DecodeArrow(source_encoding_, encoded_data_));
-      ARROW_CHECK_OK(reference_array_->ValidateFull());
+      RETURN_NOT_OK(FuzzCheckOk(reference_array_->ValidateFull()));
     } else {
       ARROW_ASSIGN_OR_RAISE(reference_values_,
                             Decode(source_encoding_, encoded_data_, num_values_));
@@ -300,13 +308,15 @@ struct TypedFuzzEncoding {
         encoder->Put(*reference_array_);
         auto reencoded_buffer = encoder->FlushValues();
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
-        auto array = DecodeArrow(roundtrip_encoding_, reencoded_data).ValueOrDie();
-        ARROW_CHECK_OK(array->ValidateFull());
-        ARROW_CHECK_OK(CompareAgainstReference(array));
+        auto array_result = DecodeArrow(roundtrip_encoding_, reencoded_data);
+        RETURN_NOT_OK(FuzzCheckOk(array_result.status()));
+        auto array = std::move(*array_result);
+        RETURN_NOT_OK(FuzzCheckOk(array->ValidateFull()));
+        RETURN_NOT_OK(FuzzCheckOk(CompareAgainstReference(array)));
         // Compare with reading raw values
         for (const int chunk_size : chunk_sizes()) {
-          ARROW_CHECK_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
-                                            chunk_size, compare_chunk));
+          RETURN_NOT_OK(FuzzCheckOk(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
+                                                       chunk_size, compare_chunk)));
         }
       } else {
         encoder->Put(reference_values_.data(),
@@ -315,8 +325,8 @@ struct TypedFuzzEncoding {
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
         // Vary chunk sizes
         for (const int chunk_size : chunk_sizes()) {
-          ARROW_CHECK_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
-                                            chunk_size, compare_chunk));
+          RETURN_NOT_OK(FuzzCheckOk(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
+                                                       chunk_size, compare_chunk)));
         }
       }
       END_PARQUET_CATCH_EXCEPTIONS
