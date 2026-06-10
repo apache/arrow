@@ -20,6 +20,7 @@
 #include "arrow/type_fwd.h"
 
 #include "parquet/bloom_filter.h"
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/index_location.h"
 #include "parquet/type_fwd.h"
 
@@ -71,8 +72,12 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// \param schema The schema of the file and it must outlive the created builder.
   /// \param properties Properties to get bloom filter options. It must outlive the
   /// created builder.
-  static std::unique_ptr<BloomFilterBuilder> Make(const SchemaDescriptor* schema,
-                                                  const WriterProperties* properties);
+  /// \param file_encryptor File level encryptor used to encrypt bloom filters of
+  /// encrypted columns. May be null for unencrypted files. Must outlive the created
+  /// builder.
+  static std::unique_ptr<BloomFilterBuilder> Make(
+      const SchemaDescriptor* schema, const WriterProperties* properties,
+      InternalFileEncryptor* file_encryptor = NULLPTR);
 
   /// \brief Start a new row group to write bloom filters, meaning that next calls
   /// to `CreateBloomFilter` will create bloom filters for the new row group.

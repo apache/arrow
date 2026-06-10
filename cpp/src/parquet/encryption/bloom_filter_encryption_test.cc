@@ -21,12 +21,15 @@
 #include <string>
 
 #include "arrow/io/file.h"
+#include "arrow/io/memory.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
 
 namespace parquet::encryption::test {
 namespace {
@@ -89,6 +92,106 @@ TEST(EncryptedBloomFilterReader, ReadEncryptedBloomFilter) {
     const float value = static_cast<float>(i) + 0.25f;
     EXPECT_TRUE(float_filter->FindHash(float_filter->Hash(value)));
   }
+}
+
+namespace {
+
+std::shared_ptr<schema::GroupNode> SingleInt64Schema(const std::string& field_name) {
+  auto field = schema::PrimitiveNode::Make(field_name, Repetition::REQUIRED, Type::INT64,
+                                           ConvertedType::NONE);
+  return std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, {field}));
+}
+
+std::shared_ptr<FileEncryptionProperties> BuildEncryptionProperties(
+    const std::string& /*field_name*/) {
+  FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
+  return builder.build();
+}
+
+std::shared_ptr<FileDecryptionProperties> BuildDecryptionPropertiesWithExplicitKeys(
+    const std::string& /*field_name*/) {
+  FileDecryptionProperties::Builder builder;
+  return builder.footer_key(kFooterEncryptionKey)->build();
+}
+
+}  // namespace
+
+// Round trip, write a small encrypted file with a Bloom filter on the encrypted
+// column, then read it back and verify the Bloom filter contains the inserted
+// values and rejects values that were never inserted.
+TEST(EncryptedBloomFilterWriter, RoundTripEncryptedBloomFilter) {
+  const std::string field_name = "id";
+  constexpr int kNumValues = 64;
+
+  auto schema = SingleInt64Schema(field_name);
+
+  WriterProperties::Builder prop_builder;
+  prop_builder.compression(Compression::UNCOMPRESSED);
+  prop_builder.enable_bloom_filter(field_name, {});
+  prop_builder.encryption(BuildEncryptionProperties(field_name));
+  auto writer_properties = prop_builder.build();
+
+  PARQUET_ASSIGN_OR_THROW(auto sink, ::arrow::io::BufferOutputStream::Create());
+  auto file_writer = ParquetFileWriter::Open(sink, schema, writer_properties);
+  auto* row_group_writer = file_writer->AppendRowGroup();
+  auto* int64_writer = static_cast<Int64Writer*>(row_group_writer->NextColumn());
+  std::vector<int64_t> values(kNumValues);
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = static_cast<int64_t>(i) * 7 + 13;
+  }
+  int64_writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                           values.data());
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  ReaderProperties reader_properties = default_reader_properties();
+  reader_properties.file_decryption_properties(
+      BuildDecryptionPropertiesWithExplicitKeys(field_name));
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source, reader_properties);
+  auto& bloom_filter_reader = file_reader->GetBloomFilterReader();
+  auto row_group_0 = bloom_filter_reader.RowGroup(0);
+  ASSERT_NE(nullptr, row_group_0);
+  auto filter = row_group_0->GetColumnBloomFilter(0);
+  ASSERT_NE(nullptr, filter);
+
+  for (int64_t value : values) {
+    EXPECT_TRUE(filter->FindHash(filter->Hash(value)))
+        << "missing inserted value " << value;
+  }
+
+  for (int64_t miss : {int64_t{-1}, int64_t{1'000'000}, int64_t{1'000'001}}) {
+    EXPECT_FALSE(filter->FindHash(filter->Hash(miss)))
+        << "unexpected hit for non-inserted value " << miss;
+  }
+}
+
+TEST(EncryptedBloomFilterWriter, ColumnKeyEncryptedBloomFilterIsNotYetImplemented) {
+  const std::string field_name = "id";
+  auto schema = SingleInt64Schema(field_name);
+
+  auto col_props =
+      ColumnEncryptionProperties::Builder().key(kColumnEncryptionKey1)->build();
+  ColumnPathToEncryptionPropertiesMap encrypted_columns{{field_name, col_props}};
+  FileEncryptionProperties::Builder enc_builder(kFooterEncryptionKey);
+  auto file_encryption_properties =
+      enc_builder.encrypted_columns(std::move(encrypted_columns))->build();
+
+  WriterProperties::Builder prop_builder;
+  prop_builder.compression(Compression::UNCOMPRESSED);
+  prop_builder.enable_bloom_filter(field_name, {});
+  prop_builder.encryption(file_encryption_properties);
+  auto writer_properties = prop_builder.build();
+
+  PARQUET_ASSIGN_OR_THROW(auto sink, ::arrow::io::BufferOutputStream::Create());
+  auto file_writer = ParquetFileWriter::Open(sink, schema, writer_properties);
+  auto* row_group_writer = file_writer->AppendRowGroup();
+  auto* int64_writer = static_cast<Int64Writer*>(row_group_writer->NextColumn());
+  int64_t value = 42;
+  int64_writer->WriteBatch(1, nullptr, nullptr, &value);
+  EXPECT_THROW(file_writer->Close(), ParquetException);
 }
 
 }  // namespace parquet::encryption::test

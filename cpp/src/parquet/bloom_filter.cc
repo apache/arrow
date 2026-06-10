@@ -30,6 +30,7 @@
 #include "parquet/bloom_filter.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/xxhasher.h"
@@ -343,6 +344,48 @@ void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
   serializer.Serialize(&header, sink);
 
   PARQUET_THROW_NOT_OK(sink->Write(data_->data(), num_bytes_));
+}
+
+void BlockSplitBloomFilter::WriteEncrypted(ArrowOutputStream* sink, Encryptor* encryptor,
+                                           int16_t row_group_ordinal,
+                                           int16_t column_ordinal) const {
+  DCHECK(sink != nullptr);
+  if (encryptor == nullptr) {
+    throw ParquetException("Bloom filter encryptor must be provided");
+  }
+
+  format::BloomFilterHeader header;
+  if (ARROW_PREDICT_FALSE(algorithm_ != BloomFilter::Algorithm::BLOCK)) {
+    throw ParquetException("BloomFilter does not support Algorithm other than BLOCK");
+  }
+  header.algorithm.__set_BLOCK(format::SplitBlockAlgorithm());
+  if (ARROW_PREDICT_FALSE(hash_strategy_ != HashStrategy::XXHASH)) {
+    throw ParquetException("BloomFilter does not support Hash other than XXHASH");
+  }
+  header.hash.__set_XXHASH(format::XxHash());
+  if (ARROW_PREDICT_FALSE(compression_strategy_ != CompressionStrategy::UNCOMPRESSED)) {
+    throw ParquetException(
+        "BloomFilter does not support Compression other than UNCOMPRESSED");
+  }
+  header.compression.__set_UNCOMPRESSED(format::Uncompressed());
+  header.__set_numBytes(num_bytes_);
+
+  // Bloom filter header and bitset are separate encrypted modules with different AADs.
+  encryptor->UpdateAad(
+      encryption::CreateModuleAad(encryptor->file_aad(), encryption::kBloomFilterHeader,
+                                  row_group_ordinal, column_ordinal, -1));
+  ThriftSerializer serializer;
+  serializer.Serialize(&header, sink, encryptor);
+
+  encryptor->UpdateAad(
+      encryption::CreateModuleAad(encryptor->file_aad(), encryption::kBloomFilterBitset,
+                                  row_group_ordinal, column_ordinal, -1));
+  auto cipher_buffer =
+      AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(num_bytes_));
+  std::span<const uint8_t> bitset_span(data_->data(), num_bytes_);
+  int32_t cipher_buffer_len =
+      encryptor->Encrypt(bitset_span, cipher_buffer->mutable_span_as<uint8_t>());
+  PARQUET_THROW_NOT_OK(sink->Write(cipher_buffer->data(), cipher_buffer_len));
 }
 
 bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {

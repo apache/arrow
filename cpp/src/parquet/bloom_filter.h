@@ -277,6 +277,20 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   void InsertHash(uint64_t hash) override;
   void InsertHashes(const uint64_t* hashes, int num_values) override;
   void WriteTo(ArrowOutputStream* sink) const override;
+
+  /// Serialize this Bloom filter as two encrypted modules (header and bitset)
+  /// using the supplied metadata encryptor.
+  ///
+  /// The same encryptor is used for both modules, switching the AAD between
+  /// kBloomFilterHeader and kBloomFilterBitset before each encryption.
+  ///
+  /// @param sink The output stream to write to.
+  /// @param encryptor Metadata encryptor for this column. Must not be null.
+  /// @param row_group_ordinal Ordinal of the row group containing this Bloom filter.
+  /// @param column_ordinal Ordinal of the column containing this Bloom filter.
+  void WriteEncrypted(ArrowOutputStream* sink, Encryptor* encryptor,
+                      int16_t row_group_ordinal, int16_t column_ordinal) const;
+
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
   uint64_t Hash(int32_t value) const override { return hasher_->Hash(value); }

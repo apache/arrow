@@ -503,11 +503,10 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   void WriteBloomFilter() {
     if (bloom_filter_builder_ != nullptr) {
-      if (properties_->file_encryption_properties()) {
-        ParquetException::NYI("Encryption is not currently supported with bloom filter");
-      }
       // Serialize bloom filter after all row groups have been written and report
-      // location to the file metadata.
+      // location to the file metadata. Bloom filters of encrypted columns are
+      // encrypted using each column's metadata encryptor (the builder was
+      // constructed with the file-level encryptor when encryption was enabled).
       auto locations = bloom_filter_builder_->WriteTo(sink_.get());
       metadata_->SetIndexLocations(IndexKind::kBloomFilter, locations);
     }
@@ -575,7 +574,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
     }
     if (properties_->bloom_filter_enabled()) {
-      bloom_filter_builder_ = BloomFilterBuilder::Make(schema(), properties_.get());
+      bloom_filter_builder_ =
+          BloomFilterBuilder::Make(schema(), properties_.get(), file_encryptor_.get());
     }
     if (properties_->page_index_enabled()) {
       page_index_builder_ = PageIndexBuilder::Make(&schema_, file_encryptor_.get());

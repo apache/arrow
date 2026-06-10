@@ -26,6 +26,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
@@ -151,12 +152,15 @@ namespace {
 
 /// \brief A concrete implementation of BloomFilterBuilder.
 ///
-/// \note Column encryption for bloom filter is not implemented yet.
+/// When `file_encryptor` is provided, bloom filters of encrypted columns are
+/// serialized using the column's metadata encryptor, bloom filters of
+/// unencrypted columns are serialized in plaintext.
 class BloomFilterBuilderImpl : public BloomFilterBuilder {
  public:
   BloomFilterBuilderImpl(const SchemaDescriptor* schema,
-                         const WriterProperties* properties)
-      : schema_(schema), properties_(properties) {}
+                         const WriterProperties* properties,
+                         InternalFileEncryptor* file_encryptor)
+      : schema_(schema), properties_(properties), file_encryptor_(file_encryptor) {}
 
   void AppendRowGroup() override;
 
@@ -183,6 +187,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 
   const SchemaDescriptor* schema_;
   const WriterProperties* properties_;
+  InternalFileEncryptor* file_encryptor_;
   bool finished_ = false;
 
   using RowGroupBloomFilters =
@@ -225,6 +230,9 @@ IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) 
   }
   finished_ = true;
 
+  // Bloom filter ordinals are encoded as int16 in the AAD when encryption is enabled.
+  constexpr size_t kEncryptedOrdinalLimit = std::numeric_limits<int16_t>::max();  // 32767
+
   IndexLocations locations;
 
   for (size_t i = 0; i != bloom_filters_.size(); ++i) {
@@ -232,7 +240,37 @@ IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) 
     for (const auto& [column_id, filter] : row_group_bloom_filters) {
       // TODO(GH-43138): Determine the quality of bloom filter before writing it.
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
-      filter->WriteTo(sink);
+
+      const auto column_path = schema_->Column(column_id)->path()->ToDotString();
+      std::shared_ptr<Encryptor> meta_encryptor =
+          file_encryptor_ != nullptr
+              ? file_encryptor_->GetColumnMetaEncryptor(column_path)
+              : nullptr;
+      if (meta_encryptor != nullptr) {
+        const auto& column_props = properties_->column_encryption_properties(column_path);
+        if (column_props != nullptr && column_props->is_encrypted() &&
+            !column_props->is_encrypted_with_footer_key()) {
+          ParquetException::NYI("Bloom filter writing with a dedicated column key");
+        }
+        if (ARROW_PREDICT_FALSE(i > kEncryptedOrdinalLimit)) {
+          throw ParquetException(
+              "Encrypted files cannot contain more than 32767 row groups");
+        }
+        if (ARROW_PREDICT_FALSE(static_cast<size_t>(column_id) >
+                                kEncryptedOrdinalLimit)) {
+          throw ParquetException(
+              "Encrypted files cannot contain more than 32767 columns");
+        }
+        auto* block_filter = dynamic_cast<BlockSplitBloomFilter*>(filter.get());
+        if (block_filter == nullptr) {
+          throw ParquetException(
+              "Only BlockSplitBloomFilter is supported for encrypted bloom filters");
+        }
+        block_filter->WriteEncrypted(sink, meta_encryptor.get(), static_cast<int16_t>(i),
+                                     static_cast<int16_t>(column_id));
+      } else {
+        filter->WriteTo(sink);
+      }
       PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
 
       if (pos - offset > std::numeric_limits<int32_t>::max()) {
@@ -253,8 +291,9 @@ IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) 
 }  // namespace
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
-    const SchemaDescriptor* schema, const WriterProperties* properties) {
-  return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
+    const SchemaDescriptor* schema, const WriterProperties* properties,
+    InternalFileEncryptor* file_encryptor) {
+  return std::make_unique<BloomFilterBuilderImpl>(schema, properties, file_encryptor);
 }
 
 }  // namespace parquet
