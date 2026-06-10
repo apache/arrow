@@ -725,7 +725,8 @@ class Converter_Dictionary : public Converter {
     // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
-    if (dictionary_->type_id() != Type::STRING) {
+    if (dictionary_->type_id() != Type::STRING &&
+        dictionary_->type_id() != Type::LARGE_STRING) {
       cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
