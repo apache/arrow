@@ -2049,6 +2049,30 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         else:
             return None
 
+    def to_pandas_dtype(self):
+        """
+        Return the equivalent pandas dtype, an instance of
+        :class:`pandas.ArrowDtype` wrapping this extension type.
+
+        Each value of the resulting pandas column is a tensor with this
+        type's ``shape``. Returning a pandas extension dtype (rather than a
+        NumPy dtype) is what lets ``Table.to_pandas(split_blocks=True)``
+        build an extension block for this type.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.fixed_shape_tensor(pa.int32(), [2, 2]).to_pandas_dtype()
+        extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>[pyarrow]
+        """
+        import pandas as pd
+        if not hasattr(pd, "ArrowDtype"):
+            # pandas < 1.5 has no ArrowDtype able to hold tensors, so keep the
+            # documented fallback. Conversion code catches this and produces an
+            # object-dtype column instead.
+            raise NotImplementedError(str(self))
+        return pd.ArrowDtype(self)
+
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
 
