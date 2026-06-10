@@ -52,10 +52,11 @@ jobs:
         id: detect
         env:
           GH_TOKEN: ${{ github.token }}
+          RC_TAG: ${{ inputs.rc_tag }}
         run: |
           case "${GITHUB_EVENT_NAME}" in
             workflow_dispatch)
-              tag="${{ inputs.rc_tag }}"
+              tag="${RC_TAG}"
               ;;
             pull_request)
               tag="$(gh release list \
@@ -90,8 +91,9 @@ jobs:
       TEST_APT: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Run
         run: |
@@ -133,7 +135,9 @@ jobs:
       TEST_BINARY: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Run
         run: |
           dev/release/verify-release-candidate.sh ${VERSION} ${RC}
@@ -156,8 +160,10 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Setup Archery
@@ -202,7 +208,9 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -220,10 +228,11 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           submodules: recursive
-      - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
+      - uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4.0.1
       - name: Install System Dependencies
         run: |
           choco install --no-progress --yes boost-msvc-14.1
@@ -254,8 +263,9 @@ jobs:
       TEST_YUM: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Run
         run: |

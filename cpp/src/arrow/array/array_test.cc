@@ -41,6 +41,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_run_end.h"
 #include "arrow/array/builder_time.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -995,6 +996,123 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_EQ(8, result->length());
     ASSERT_EQ(8, result->null_count());
   }
+}
+
+class TestBuilderAppendArraySlice : public TestArray {
+ public:
+  virtual void AssertResult(const Array& expected, const Array& actual) {
+    AssertArraysEqual(expected, actual, true);
+  }
+
+  void CheckAppendArraySlice(const std::shared_ptr<DataType>& type) {
+    auto rag = random::RandomArrayGenerator(0xdeadbeef);
+    const int64_t total_length = 100;
+
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+      auto array = rag.ArrayOf(type, total_length, null_probability);
+
+      std::unique_ptr<ArrayBuilder> builder;
+      ASSERT_OK(MakeBuilder(pool_, type, &builder));
+
+      // Slice the array into multiple pieces
+      ArrayVector slices;
+      std::vector<int64_t> offsets = {0, 10, 10, 25, 60, 100};
+      for (size_t i = 0; i < offsets.size() - 1; ++i) {
+        int64_t start = offsets[i];
+        int64_t length = offsets[i + 1] - offsets[i];
+        auto slice = array->Slice(start, length);
+        slices.push_back(slice);
+
+        ArraySpan span(*slice->data());
+        ASSERT_OK(builder->AppendArraySlice(span, 0, slice->length()));
+      }
+
+      std::shared_ptr<Array> actual;
+      ASSERT_OK(builder->Finish(&actual));
+      ASSERT_OK(actual->ValidateFull());
+
+      ASSERT_OK_AND_ASSIGN(auto expected, Concatenate(slices, pool_));
+      AssertResult(*expected, *actual);
+    }
+  }
+
+  void CheckAppendArraySlice(const std::vector<std::shared_ptr<DataType>>& types) {
+    for (const auto& type : types) {
+      ARROW_SCOPED_TRACE("type = ", type->ToString());
+      CheckAppendArraySlice(type);
+    }
+  }
+};
+
+TEST_F(TestBuilderAppendArraySlice, Primitives) {
+  CheckAppendArraySlice(PrimitiveTypes());
+}
+
+TEST_F(TestBuilderAppendArraySlice, Temporals) { CheckAppendArraySlice(TemporalTypes()); }
+
+TEST_F(TestBuilderAppendArraySlice, Intervals) { CheckAppendArraySlice(IntervalTypes()); }
+
+TEST_F(TestBuilderAppendArraySlice, Durations) { CheckAppendArraySlice(DurationTypes()); }
+
+TEST_F(TestBuilderAppendArraySlice, Decimals) {
+  CheckAppendArraySlice(
+      {decimal32(7, 2), decimal64(12, 2), decimal128(10, 2), decimal256(10, 2)});
+}
+
+TEST_F(TestBuilderAppendArraySlice, Nested) {
+  CheckAppendArraySlice({list(int32()), large_list(int32()), list_view(int32()),
+                         large_list_view(int32()), fixed_size_list(int32(), 3),
+                         struct_({field("a", int32()), field("b", utf8())}),
+                         sparse_union({field("a", int32()), field("b", utf8())}),
+                         dense_union({field("a", int32()), field("b", utf8())})});
+}
+
+TEST_F(TestBuilderAppendArraySlice, FixedSizeBinary) {
+  CheckAppendArraySlice(fixed_size_binary(10));
+}
+
+TEST_F(TestBuilderAppendArraySlice, Float16) { CheckAppendArraySlice(float16()); }
+
+TEST_F(TestBuilderAppendArraySlice, RunEndEncoded) {
+  CheckAppendArraySlice(run_end_encoded(int32(), utf8()));
+  CheckAppendArraySlice(run_end_encoded(int32(), int64()));
+}
+
+// Dictionary types require a custom AssertResult because DictionaryBuilder
+// re-encodes values based on discovery order. This can change both the
+// dictionary and the indices, causing standard physical equality checks to fail.
+//
+// Example: Slicing values ["b", "a"] from an array with dictionary ["a", "b"]
+// (indices [1, 0]) and appending them to a fresh builder results in a new
+// dictionary ["b", "a"] (indices [0, 1]). Both represent the same logical
+// data but differ physically.
+class TestBuilderAppendArraySliceDictionary : public TestBuilderAppendArraySlice {
+ public:
+  void AssertResult(const Array& expected, const Array& actual) override {
+    const auto& expected_dict = internal::checked_cast<const DictionaryArray&>(expected);
+    const auto& actual_dict = internal::checked_cast<const DictionaryArray&>(actual);
+    const auto& expected_values = *expected_dict.dictionary();
+    const auto& actual_values = *actual_dict.dictionary();
+
+    ASSERT_EQ(expected.length(), actual.length());
+    for (int64_t i = 0; i < expected.length(); ++i) {
+      if (expected.IsNull(i)) {
+        ASSERT_TRUE(actual.IsNull(i));
+      } else {
+        ASSERT_FALSE(actual.IsNull(i));
+        ASSERT_OK_AND_ASSIGN(auto expected_val,
+                             expected_values.GetScalar(expected_dict.GetValueIndex(i)));
+        ASSERT_OK_AND_ASSIGN(auto actual_val,
+                             actual_values.GetScalar(actual_dict.GetValueIndex(i)));
+        AssertScalarsEqual(*expected_val, *actual_val);
+      }
+    }
+  }
+};
+
+TEST_F(TestBuilderAppendArraySliceDictionary, Dictionary) {
+  CheckAppendArraySlice(dictionary(int8(), utf8()));
+  CheckAppendArraySlice(dictionary(int32(), utf8()));
 }
 
 // GH-39976: Test out-of-line data size calculation in
@@ -3909,6 +4027,7 @@ class TestArrayDataStatistics : public ::testing::Test {
  public:
   void SetUp() {
     valids_ = {1, 0, 1, 1};
+    row_count_ = static_cast<int64_t>(valids_.size());
     null_count_ = std::count(valids_.begin(), valids_.end(), 0);
     distinct_count_ = 3.0;
     max_byte_width_ = 4.0;
@@ -3921,6 +4040,7 @@ class TestArrayDataStatistics : public ::testing::Test {
     data_ = ArrayData::Make(int32(), values_.size(), {null_buffer_, values_buffer_},
                             null_count_);
     data_->statistics = std::make_shared<ArrayStatistics>();
+    data_->statistics->row_count = row_count_;
     data_->statistics->null_count = null_count_;
     data_->statistics->distinct_count = distinct_count_;
     data_->statistics->max_byte_width = max_byte_width_;
@@ -3934,6 +4054,7 @@ class TestArrayDataStatistics : public ::testing::Test {
 
  protected:
   std::vector<uint8_t> valids_;
+  int64_t row_count_;
   int64_t null_count_;
   double distinct_count_;
   double max_byte_width_;
@@ -3949,6 +4070,9 @@ class TestArrayDataStatistics : public ::testing::Test {
 TEST_F(TestArrayDataStatistics, MoveConstructor) {
   ArrayData copied_data(*data_);
   ArrayData moved_data(std::move(copied_data));
+
+  ASSERT_TRUE(moved_data.statistics->row_count.has_value());
+  ASSERT_EQ(row_count_, std::get<int64_t>(moved_data.statistics->row_count.value()));
 
   ASSERT_TRUE(moved_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, std::get<int64_t>(moved_data.statistics->null_count.value()));
@@ -3979,6 +4103,9 @@ TEST_F(TestArrayDataStatistics, MoveConstructor) {
 
 TEST_F(TestArrayDataStatistics, CopyConstructor) {
   ArrayData copied_data(*data_);
+
+  ASSERT_TRUE(copied_data.statistics->row_count.has_value());
+  ASSERT_EQ(row_count_, std::get<int64_t>(copied_data.statistics->row_count.value()));
 
   ASSERT_TRUE(copied_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, std::get<int64_t>(copied_data.statistics->null_count.value()));
@@ -4012,6 +4139,9 @@ TEST_F(TestArrayDataStatistics, MoveAssignment) {
   ArrayData moved_data;
   moved_data = std::move(copied_data);
 
+  ASSERT_TRUE(moved_data.statistics->row_count.has_value());
+  ASSERT_EQ(row_count_, std::get<int64_t>(moved_data.statistics->row_count.value()));
+
   ASSERT_TRUE(moved_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, std::get<int64_t>(moved_data.statistics->null_count.value()));
 
@@ -4043,6 +4173,9 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
   ArrayData copied_data;
   copied_data = *data_;
 
+  ASSERT_TRUE(copied_data.statistics->row_count.has_value());
+  ASSERT_EQ(row_count_, std::get<int64_t>(copied_data.statistics->row_count.value()));
+
   ASSERT_TRUE(copied_data.statistics->null_count.has_value());
   ASSERT_EQ(null_count_, std::get<int64_t>(copied_data.statistics->null_count.value()));
 
@@ -4073,6 +4206,9 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
 TEST_F(TestArrayDataStatistics, CopyTo) {
   ASSERT_OK_AND_ASSIGN(auto copied_data,
                        data_->CopyTo(arrow::default_cpu_memory_manager()));
+
+  ASSERT_TRUE(copied_data->statistics->row_count.has_value());
+  ASSERT_EQ(row_count_, std::get<int64_t>(copied_data->statistics->row_count.value()));
 
   ASSERT_TRUE(copied_data->statistics->null_count.has_value());
   ASSERT_EQ(null_count_, std::get<int64_t>(copied_data->statistics->null_count.value()));
@@ -4217,6 +4353,84 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
         ArrayFromJSON(float16(), "[1,2,3,1,null,3,1,null,3,1,2,3,1,null,3,1,null,3]");
     AssertArraysEqual(*array, *comp);
   }
+}
+
+class TestDayTimeIntervalBuilder : public ::testing::Test {
+ public:
+  void VerifyValue(const DayTimeIntervalBuilder& builder, int64_t index,
+                   DayTimeIntervalType::DayMilliseconds expected) {
+    ASSERT_EQ(builder.GetValue(index), expected);
+    ASSERT_EQ(builder[index], expected);
+  }
+};
+
+TEST_F(TestDayTimeIntervalBuilder, TestAppend) {
+  DayTimeIntervalBuilder builder;
+  DayTimeIntervalType::DayMilliseconds value1{1, 100};
+  DayTimeIntervalType::DayMilliseconds value2{3, 200};
+  DayTimeIntervalType::DayMilliseconds value3{5, 300};
+
+  ASSERT_OK(builder.Append(value1));
+  ASSERT_OK(builder.Append(value2));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_EQ(1, builder.null_count());  // Verify null count in builder
+  ASSERT_OK(builder.Reserve(3));
+  builder.UnsafeAppend(value3);
+
+  VerifyValue(builder, 0, value1);
+  VerifyValue(builder, 1, value2);
+  VerifyValue(builder, 3, value3);
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  const auto& day_time_array = checked_cast<const DayTimeIntervalArray&>(*array);
+
+  // Verify null value
+  ASSERT_TRUE(day_time_array.IsNull(2));
+  ASSERT_EQ(1, day_time_array.null_count());
+
+  // Verify non-null values in the array
+  ASSERT_FALSE(day_time_array.IsNull(0));
+  ASSERT_EQ(day_time_array.GetValue(0), value1);
+  ASSERT_FALSE(day_time_array.IsNull(1));
+  ASSERT_EQ(day_time_array.GetValue(1), value2);
+  ASSERT_FALSE(day_time_array.IsNull(3));
+  ASSERT_EQ(day_time_array.GetValue(3), value3);
+}
+
+TEST_F(TestDayTimeIntervalBuilder, TestBulkAppend) {
+  DayTimeIntervalBuilder builder;
+  std::vector<DayTimeIntervalType::DayMilliseconds> values{{1, 100}, {3, 200}, {5, 300}};
+  std::vector<bool> is_valid{true, false, true};
+  std::vector<uint8_t> is_valid_bytes{1, 0, 1};
+
+  ASSERT_OK(builder.AppendValues(values));
+  ASSERT_OK(builder.AppendValues(values, is_valid));
+  ASSERT_OK(builder.AppendValues(values.data(), values.size(), is_valid_bytes.data()));
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->null_count(), 2);
+  ASSERT_EQ(array->length(), 9);
+
+  const auto& day_time_array = checked_cast<const DayTimeIntervalArray&>(*array);
+  ASSERT_EQ(day_time_array.GetValue(0), values[0]);
+  ASSERT_TRUE(day_time_array.IsNull(4));
+  ASSERT_TRUE(day_time_array.IsNull(7));
+  ASSERT_EQ(day_time_array.GetValue(2), values[2]);
+}
+
+TEST_F(TestDayTimeIntervalBuilder, TestConstructors) {
+  DayTimeIntervalBuilder builder1;
+  ASSERT_EQ(builder1.type()->id(), Type::INTERVAL_DAY_TIME);
+
+  auto pool = default_memory_pool();
+  DayTimeIntervalBuilder builder2(pool);
+  ASSERT_EQ(builder2.type()->id(), Type::INTERVAL_DAY_TIME);
+
+  auto type = day_time_interval();
+  DayTimeIntervalBuilder builder3(type, pool);
+  ASSERT_EQ(builder3.type()->id(), Type::INTERVAL_DAY_TIME);
+  ASSERT_TRUE(builder3.type()->Equals(type));
 }
 
 }  // namespace arrow

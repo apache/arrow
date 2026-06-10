@@ -217,15 +217,15 @@ struct ReplaceMaskImpl<Type, enable_if_null<Type>> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
-    out->value = array;
-    return Status::OK();
+    out->value = array.ToArrayData();
+    return replacements_offset;
   }
   static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
                                        const ArraySpan& mask, int64_t mask_offset,
                                        ExecValue replacements,
                                        int64_t replacements_offset, ExecResult* out) {
-    out->value = array;
-    return Status::OK();
+    out->value = array.ToArrayData();
+    return replacements_offset;
   }
 };
 
@@ -252,12 +252,13 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
             MakeArrayFromScalar(*replacements.scalar, array.length, ctx->memory_pool()));
         out->value = std::move(replacement_array->data());
       } else {
-        // Set to be a slice of replacements
+        // Set to be a slice of replacements. We manually adjust offset/length instead of
+        // calling ArrayData::Slice() to avoid creating an extra copy.
         std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
         result->offset += replacements_offset;
         result->length = array.length;
-
-        // TODO(wesm): why is the replacements null count not sufficient?
+        // The null count from the original replacements array is not sufficient because
+        // it applies to the entire array, not this specific slice. Must mark as unknown.
         result->null_count = kUnknownNullCount;
         out->value = result;
       }

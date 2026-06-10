@@ -17,53 +17,94 @@
 
 #include "arrow/testing/math.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace {
 
 template <typename Float>
-bool WithinUlpOneWay(Float left, Float right, int n_ulps) {
-  // The delta between 1.0 and the FP value immediately before it.
-  // We're using this value because `frexp` returns a mantissa between 0.5 and 1.0.
-  static const Float kOneUlp = Float(1.0) - std::nextafter(Float(1.0), Float(0.0));
+struct FloatToUInt;
 
-  DCHECK_GE(n_ulps, 1);
+template <>
+struct FloatToUInt<double> {
+  using Type = uint64_t;
+};
 
-  if (left == 0) {
-    return left == right;
+template <>
+struct FloatToUInt<float> {
+  using Type = uint32_t;
+};
+
+template <>
+struct FloatToUInt<util::Float16> {
+  using Type = uint16_t;
+};
+
+template <typename Float>
+struct UlpDistanceUtil {
+ public:
+  using UIntType = typename FloatToUInt<Float>::Type;
+  static constexpr UIntType kNumberOfBits = sizeof(Float) * 8;
+  static constexpr UIntType kSignMask = static_cast<UIntType>(1) << (kNumberOfBits - 1);
+
+  // This implementation is inspired by:
+  // https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
+  static UIntType UlpDistance(Float left, Float right) {
+    auto unsigned_left = util::SafeCopy<UIntType>(left);
+    auto unsigned_right = util::SafeCopy<UIntType>(right);
+    auto biased_left = ConvertSignAndMagnitudeToBiased(unsigned_left);
+    auto biased_right = ConvertSignAndMagnitudeToBiased(unsigned_right);
+    if (biased_left > biased_right) {
+      std::swap(biased_left, biased_right);
+    }
+    return biased_right - biased_left;
   }
-  if (left < 0) {
-    left = -left;
-    right = -right;
-  }
 
-  int left_exp;
-  Float left_mant = std::frexp(left, &left_exp);
-  Float delta = static_cast<Float>(n_ulps) * kOneUlp;
-  Float lower_bound = std::ldexp(left_mant - delta, left_exp);
-  Float upper_bound = std::ldexp(left_mant + delta, left_exp);
-  return right >= lower_bound && right <= upper_bound;
-}
+ private:
+  // Source reference (GoogleTest):
+  // https://github.com/google/googletest/blob/1b96fa13f549387b7549cc89e1a785cf143a1a50/googletest/include/gtest/internal/gtest-internal.h#L345-L368
+  static UIntType ConvertSignAndMagnitudeToBiased(UIntType value) {
+    if (value & kSignMask) {
+      return ~value + 1;
+    } else {
+      return value | kSignMask;
+    }
+  }
+};
 
 template <typename Float>
 bool WithinUlpGeneric(Float left, Float right, int n_ulps) {
-  if (std::isnan(left) || std::isnan(right)) {
-    return std::isnan(left) == std::isnan(right);
+  if constexpr (std::is_same_v<Float, util::Float16>) {
+    if (left.is_nan() || right.is_nan()) {
+      return left.is_nan() == right.is_nan();
+    } else if (left.is_infinity() || right.is_infinity()) {
+      return left == right;
+    }
+  } else {
+    if (std::isnan(left) || std::isnan(right)) {
+      return std::isnan(left) == std::isnan(right);
+    }
+    if (!std::isfinite(left) || !std::isfinite(right)) {
+      return left == right;
+    }
   }
-  if (!std::isfinite(left) || !std::isfinite(right)) {
-    return left == right;
-  }
+
   if (n_ulps == 0) {
     return left == right;
   }
-  return (std::abs(left) <= std::abs(right)) ? WithinUlpOneWay(left, right, n_ulps)
-                                             : WithinUlpOneWay(right, left, n_ulps);
+
+  DCHECK_GE(n_ulps, 1);
+  return UlpDistanceUtil<Float>::UlpDistance(left, right) <=
+         static_cast<uint64_t>(n_ulps);
 }
 
 template <typename Float>
@@ -75,12 +116,20 @@ void AssertWithinUlpGeneric(Float left, Float right, int n_ulps) {
 
 }  // namespace
 
+bool WithinUlp(util::Float16 left, util::Float16 right, int n_ulps) {
+  return WithinUlpGeneric(left, right, n_ulps);
+}
+
 bool WithinUlp(float left, float right, int n_ulps) {
   return WithinUlpGeneric(left, right, n_ulps);
 }
 
 bool WithinUlp(double left, double right, int n_ulps) {
   return WithinUlpGeneric(left, right, n_ulps);
+}
+
+void AssertWithinUlp(util::Float16 left, util::Float16 right, int n_ulps) {
+  AssertWithinUlpGeneric(left, right, n_ulps);
 }
 
 void AssertWithinUlp(float left, float right, int n_ulps) {

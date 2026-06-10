@@ -62,8 +62,6 @@ struct ParquetVersion {
   };
 };
 
-struct PageIndexLocation;
-
 class FileMetaData;
 class FileCryptoMetaData;
 class RowGroupMetaData;
@@ -90,6 +88,10 @@ struct EncodedGeoStatistics;
 
 class ColumnIndex;
 class OffsetIndex;
+class BloomFilter;
+struct BloomFilterOptions;
+struct ColumnChunkId;
+struct IndexLocation;
 
 namespace arrow {
 

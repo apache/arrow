@@ -25,6 +25,22 @@
 
 namespace arrow {
 
+TEST(TestArrayStatistics, RowCountExact) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.row_count.has_value());
+  statistics.row_count = 45;
+  ASSERT_TRUE(statistics.row_count.has_value());
+  ASSERT_EQ(45, std::get<int64_t>(statistics.row_count.value()));
+}
+
+TEST(TestArrayStatistics, RowCountApproximate) {
+  ArrayStatistics statistics;
+  ASSERT_FALSE(statistics.row_count.has_value());
+  statistics.row_count = 45.0;
+  ASSERT_TRUE(statistics.row_count.has_value());
+  ASSERT_DOUBLE_EQ(45.0, std::get<double>(statistics.row_count.value()));
+}
+
 TEST(TestArrayStatistics, NullCountExact) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.null_count.has_value());
@@ -112,6 +128,18 @@ TEST(TestArrayStatistics, Equals) {
   ArrayStatistics statistics1;
   ArrayStatistics statistics2;
 
+  ASSERT_EQ(statistics1, statistics2);
+
+  // Test ROW_COUNT_EXACT
+  statistics1.row_count = 45;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.row_count = 45;
+  ASSERT_EQ(statistics1, statistics2);
+
+  // Test ROW_COUNT_APPROXIMATE
+  statistics1.row_count = 45.0;
+  ASSERT_NE(statistics1, statistics2);
+  statistics2.row_count = 45.0;
   ASSERT_EQ(statistics1, statistics2);
 
   // Test NULL_COUNT_EXACT

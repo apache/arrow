@@ -20,8 +20,6 @@
 
 namespace arrow::flight::sql::odbc {
 
-using std::optional;
-
 class GetTablesReader {
  private:
   std::shared_ptr<RecordBatch> record_batch_;
@@ -32,9 +30,9 @@ class GetTablesReader {
 
   bool Next();
 
-  optional<std::string> GetCatalogName();
+  std::optional<std::string> GetCatalogName();
 
-  optional<std::string> GetDbSchemaName();
+  std::optional<std::string> GetDbSchemaName();
 
   std::string GetTableName();
 

@@ -1,0 +1,151 @@
+<!---
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+
+## Steps to Register the Apache Arrow Flight SQL ODBC driver
+
+After building the repository you will find the built ODBC binaries in the build artifacts.
+
+On Windows, the driver binary will be located at `C:\path\to\arrow\cpp\build\debug\Debug\arrow_flight_sql_odbc.dll` for a debug build and `C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll` for a release build.
+
+On macOS, the driver binary will be located at `/path/to/arrow/cpp/build/debug/libarrow_flight_sql_odbc.dylib` for a debug build and `/path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.dylib` for a release build.
+
+On Linux, the driver binary will be located at `/path/to/arrow/cpp/build/debug/libarrow_flight_sql_odbc.so` for a debug build and `/path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.so` for a release build.
+
+1. Open your system terminal. On Windows this should be PowerShell in administrator mode.
+
+2. Register your ODBC binary:
+
+   1. Navigate to the root of the Arrow repo.
+   2. Run script to register your ODBC driver binary as Apache Arrow Flight SQL ODBC Driver.<br>
+      On Windows:
+      ```
+      .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
+      ```
+      Example command for reference:
+      ```
+      .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll
+      ```
+      On macOS:
+      ```
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/< release | debug >/libarrow_flight_sql_odbc.dylib
+      ```
+      Example command for reference:
+      ```
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.dylib
+      ```
+      On Linux:
+      ```
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/< release | debug >/libarrow_flight_sql_odbc.so
+      ```
+      Example command for reference:
+      ```
+      sudo ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.so
+      ```
+
+If the registration is successful, then Apache Arrow Flight SQL ODBC Driver should show as an available ODBC driver. On Windows this should be visible in the x64 ODBC Driver Manager. On macOS this should be visible in `$HOME/Library/ODBC/odbcinst.ini`. On Linux this should be visible in `/etc/odbcinst.ini`.
+
+## Steps to Generate Windows Installer
+1. Install WiX toolset v6 from [GitHub](https://github.com/wixtoolset/wix/releases/).
+2. Build with  `ARROW_FLIGHT_SQL_ODBC=ON` and `ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON`.
+3. `cd` to `build` folder.
+4. Run `cpack`. 
+
+If the generation is successful, you will find `Apache-Arrow-Flight-SQL-ODBC-<version>-win64.msi` generated under the `build` folder.
+
+
+## Steps to Enable Logging
+Arrow Flight SQL ODBC driver uses Arrow's internal logging framework. By default, the log messages are printed to the terminal.
+1. Set environment variable `ARROW_ODBC_LOG_LEVEL` to any of the following valid values to enable logging. If `ARROW_ODBC_LOG_LEVEL` is set to a non-empty string that does not match any of the following values, `DEBUG` level is used by default. 
+
+The characters are case-insensitive.
+- TRACE
+- DEBUG 
+- INFO
+- WARNING
+- ERROR 
+- FATAL
+
+The Windows ODBC driver currently does not support writing log files. `ARROW_USE_GLOG` is required to write log files, and `ARROW_USE_GLOG` is disabled on Windows platform since plasma using `glog` is not fully tested on windows.
+
+Note: GH-47670 running more than 1 tests with logging enabled is not fully supported. 
+
+## Steps to Run the ODBC tests
+After ODBC has been registered, you can run the ODBC tests. It is recommended to run the ODBC tests locally first.
+
+1. Run ODBC unit test: 
+
+    ```
+    .\cpp\build\< release | debug >\< Release | Debug>\arrow-odbc-spi-impl-test.exe
+    ```
+2. Set up and run ODBC remote test:
+
+   1. Set up a Dremio open source docker instance:
+   
+      1. Run this command inside the docker terminal to create a Dremio open source docker.
+          ```
+          docker run -p 9047:9047 -p 31010:31010 -p 45678:45678 -p 32010:32010 -e DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dpaths.dist=file:///opt/dremio/data/dist dremio/dremio-oss
+          ```
+
+      2. Enable unicode support in Docker: 
+
+          1. Open `dremio-env` in an editor. The file is located in the `/opt/dremio/conf` directory.
+          2. Set the `DREMIO_JAVA_SERVER_EXTRA_OPTS` property to the following value:
+              ```
+              DREMIO_JAVA_SERVER_EXTRA_OPTS='-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$en_US'
+              ```
+      3. Navigate to: http://localhost:9047 and create an user account. The account credentials will be used for remote testing.
+
+      4. Create test table:
+          
+          Run this query inside Dremio
+          ```
+          Create Table $scratch.ODBCTest As 
+          SELECT
+            CAST(2147483647 AS INTEGER) AS sinteger_max,
+
+            CAST(9223372036854775807 AS BIGINT) AS sbigint_max,
+
+            CAST(999999999 AS DECIMAL(38, 0)) AS decimal_positive,
+
+            CAST(3.40282347E38 AS FLOAT) AS float_max,
+
+            CAST(1.7976931348623157E308 AS DOUBLE) AS double_max,
+
+            CAST(true AS BOOLEAN) AS bit_true,
+
+            CAST(DATE '9999-12-31' AS DATE) AS date_max,
+            CAST(TIME '23:59:59' AS TIME) AS time_max,
+            CAST(TIMESTAMP '9999-12-31 23:59:59' AS TIMESTAMP) AS timestamp_max;
+          ```
+      5. The docker instance only needs to be set up once, and can be re-used for running the tests.
+   2. Replace `REDACTED` with actual Dremio docker credentials in the command. Set environment variable `ARROW_FLIGHT_SQL_ODBC_CONN` to 
+      ```
+      driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=32010;pwd=REDACTED;uid=REDACTED;useEncryption=false;useWideChar=true;
+      ```
+   3. Run ODBC remote test: 
+
+      ```
+      .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
+      ```
+
+## Known Limitations
+
+- Conversion from timestamp data type with specified time zone value to strings is not supported at the moment. This doesn't impact driver's usage of retrieving timestamp data from Power BI on Windows, and Excel on macOS and Windows. See GH-47504 for more context.
+- Conversion from strings to big int data type has a limit range of -9007199254740992 to 9007199254740992.
+- On Linux, `isql` commands `tables` and `columns` don't work due to GH-49702. Users are not blocked from fetching data tables.

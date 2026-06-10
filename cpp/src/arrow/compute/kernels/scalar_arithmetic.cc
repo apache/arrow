@@ -1347,13 +1347,13 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             {"y", "x"}};
 
 const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
-                            ("NaN is returned for input values x with |x| > 1.\n"
+                            ("NaN is returned for input values x with \\|x\\| > 1.\n"
                              "At x = +/- 1, returns +/- infinity.\n"
                              "To raise an error instead, see \"atanh_checked\"."),
                             {"x"}};
 
 const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic tangent",
-                                    ("Input values x with |x| >= 1.0 raise an error\n"
+                                    ("Input values x with \\|x\\| >= 1.0 raise an error\n"
                                      "to return NaN instead, see \"atanh\"."),
                                     {"x"}};
 

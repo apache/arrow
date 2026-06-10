@@ -21,6 +21,8 @@
 #include "arrow/flight/types.h"
 #include "gtest/gtest.h"
 
+#include <optional>
+
 namespace arrow::flight::sql::odbc {
 
 TEST(AttributeTests, SetAndGetAttribute) {
@@ -28,7 +30,7 @@ TEST(AttributeTests, SetAndGetAttribute) {
   connection.SetClosed(false);
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(200));
-  const boost::optional<Connection::Attribute> first_value =
+  const std::optional<Connection::Attribute> first_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
   EXPECT_TRUE(first_value);
@@ -37,7 +39,7 @@ TEST(AttributeTests, SetAndGetAttribute) {
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(300));
 
-  const boost::optional<Connection::Attribute> change_value =
+  const std::optional<Connection::Attribute> change_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
   EXPECT_TRUE(change_value);
@@ -49,7 +51,7 @@ TEST(AttributeTests, SetAndGetAttribute) {
 TEST(AttributeTests, GetAttributeWithoutSetting) {
   FlightSqlConnection connection(OdbcVersion::V_3);
 
-  const boost::optional<Connection::Attribute> optional =
+  const std::optional<Connection::Attribute> optional =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
   connection.SetClosed(false);
 
@@ -72,7 +74,7 @@ TEST(MetadataSettingsTest, StringColumnLengthTest) {
        std::to_string(expected_string_column_length)},
   };
 
-  const boost::optional<int32_t> actual_string_column_length =
+  const std::optional<int32_t> actual_string_column_length =
       connection.GetStringColumnLength(properties);
 
   EXPECT_TRUE(actual_string_column_length);

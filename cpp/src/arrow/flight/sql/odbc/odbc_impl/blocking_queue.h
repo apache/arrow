@@ -18,9 +18,9 @@
 #pragma once
 
 #include <atomic>
-#include <boost/optional.hpp>
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -43,13 +43,13 @@ class BlockingQueue {
   std::atomic<bool> closed_{false};
 
  public:
-  typedef std::function<boost::optional<T>(void)> Supplier;
+  typedef std::function<std::optional<T>(void)> Supplier;
 
   explicit BlockingQueue(size_t capacity) : capacity_(capacity), buffer_(capacity) {}
 
   void AddProducer(Supplier supplier) {
     active_threads_++;
-    threads_.emplace_back([=] {
+    threads_.emplace_back([this, supplier] {
       while (!closed_) {
         // Block while queue is full
         std::unique_lock<std::mutex> unique_lock(mtx_);
@@ -58,7 +58,7 @@ class BlockingQueue {
 
         // Only one thread at a time be notified and call supplier
         auto item = supplier();
-        if (!item) break;
+        if (!item.has_value()) break;
 
         Push(*item);
       }

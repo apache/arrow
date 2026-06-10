@@ -164,7 +164,9 @@ class UnpackStructGenerator:
             "  using simd_batch = xsimd::make_sized_batch_t<"
             f"{self.out_type}, {self.simd_value_count}>;"
         )
-        print(f"  static constexpr int kValuesUnpacked = {self.out_bit_width};")
+        n_values_unpacked = self.out_bit_width # This is a property of this algorithm
+        print(f"  static constexpr int kValuesUnpacked = {n_values_unpacked};")
+        print(f"  static constexpr int kBytesRead = {(n_values_unpacked * bit) // 8};")
         print()
         self.print_unpack_bit_func(bit)
         print("};")
@@ -177,6 +179,10 @@ class UnpackStructGenerator:
         print(
             "  static constexpr int kValuesUnpacked = "
             f"{self.struct_name}<uint32_t, kBitWidth>::kValuesUnpacked;"
+        )
+        print(
+            "  static constexpr int kBytesRead = "
+            f"{self.struct_name}<uint32_t, kBitWidth>::kBytesRead;"
         )
         print()
 

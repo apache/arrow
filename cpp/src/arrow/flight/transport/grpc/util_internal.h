@@ -17,10 +17,27 @@
 
 #pragma once
 
+#include <grpcpp/grpcpp.h>
+
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/util/macros.h"
+
+// gRPC 1.51.0 or later defines GRPC_CPP_VERSION_MAJOR and so on.
+#ifdef GRPC_CPP_VERSION_MAJOR
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
+    ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
+      (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
+      ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
+        GRPC_CPP_VERSION_PATCH >= (patch)))))
+#else
+#  define GRPC_CPP_VERSION_CHECK(major, minor, patch) 0
+#endif
+
+#if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+#  include <absl/status/status.h>
+#endif
 
 namespace grpc {
 
@@ -90,6 +107,12 @@ ARROW_FLIGHT_EXPORT
 ::grpc::Status ToGrpcStatus(const Status& arrow_status,
                             ::grpc::ServerContext* ctx = nullptr);
 
+// gRPC 1.80.0 or later use absl::Status.
+#if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+/// Convert an Abseil status to an Arrow status.
+ARROW_FLIGHT_EXPORT
+Status FromAbslStatus(const ::absl::Status& absl_status);
+#endif
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight

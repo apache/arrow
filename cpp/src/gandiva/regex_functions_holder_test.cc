@@ -88,9 +88,8 @@ TEST_F(TestLikeHolder, TestPcreSpecialWithNewLine) {
 }
 
 TEST_F(TestLikeHolder, TestRegexEscape) {
-  std::string res;
-  ARROW_EXPECT_OK(RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res));
-
+  ASSERT_OK_AND_ASSIGN(auto res,
+                       RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#'));
   EXPECT_EQ(res, "%hello_abc.def#");
 }
 

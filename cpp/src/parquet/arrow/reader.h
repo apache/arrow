@@ -116,15 +116,28 @@ class RowGroupReader;
 class PARQUET_EXPORT FileReader {
  public:
   /// Factory function to create a FileReader from a ParquetFileReader and properties
+  /// \deprecated Deprecated in 23.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 23.0.0. Use arrow::Result version instead.")
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               const ArrowReaderProperties& properties,
                               std::unique_ptr<FileReader>* out);
 
   /// Factory function to create a FileReader from a ParquetFileReader
+  /// \deprecated Deprecated in 23.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 23.0.0. Use arrow::Result version instead.")
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               std::unique_ptr<FileReader>* out);
+
+  /// Factory function to create a FileReader from a ParquetFileReader and properties
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+      const ArrowReaderProperties& properties);
+
+  /// Factory function to create a FileReader from a ParquetFileReader
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
@@ -222,7 +235,11 @@ class PARQUET_EXPORT FileReader {
                           int64_t rows_to_readahead = 0) = 0;
 
   /// Read all columns into a Table
-  virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadTable() = 0;
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
 
   /// \brief Read the given columns into a Table
   ///
@@ -241,20 +258,48 @@ class PARQUET_EXPORT FileReader {
   /// manifest().schema_fields to get the top level fields, and then walk the
   /// tree to identify the relevant leaf fields and access its column_index.
   /// To get the total number of leaf fields, use FileMetadata.num_columns().
-  virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
-                                    std::shared_ptr<::arrow::Table>* out) = 0;
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadTable(
+      const std::vector<int>& column_indices) = 0;
 
-  virtual ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
-                                       std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadTable(const std::vector<int>& column_indices,
+                            std::shared_ptr<::arrow::Table>* out);
 
-  virtual ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row group columns into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroup(
+      int i, const std::vector<int>& column_indices) = 0;
 
-  virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row group into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroup(int i) = 0;
 
-  virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
-                                        std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row groups columns into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroups(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices) = 0;
+
+  /// \brief Read the given row groups into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroups(
+      const std::vector<int>& row_groups) = 0;
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
+                               std::shared_ptr<::arrow::Table>* out);
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out);
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
+                                const std::vector<int>& column_indices,
+                                std::shared_ptr<::arrow::Table>* out);
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
+                                std::shared_ptr<::arrow::Table>* out);
 
   /// \brief Scan file contents with one thread, return number of rows
   virtual ::arrow::Status ScanContents(std::vector<int> columns,
@@ -375,11 +420,5 @@ PARQUET_EXPORT
                                     std::shared_ptr<::arrow::Scalar>* min,
                                     std::shared_ptr<::arrow::Scalar>* max);
 
-namespace internal {
-
-PARQUET_EXPORT
-::arrow::Status FuzzReader(const uint8_t* data, int64_t size);
-
-}  // namespace internal
 }  // namespace arrow
 }  // namespace parquet

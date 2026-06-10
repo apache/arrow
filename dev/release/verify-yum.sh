@@ -44,7 +44,7 @@ repository_version="${distribution_version}"
 
 cmake_package=cmake
 cmake_command=cmake
-devtoolset=
+gcc_toolset=
 scl_package=
 have_arrow_libs=no
 have_flight=yes
@@ -60,25 +60,21 @@ uninstall_command="dnf remove -y"
 clean_command="dnf clean"
 info_command="dnf info --enablerepo=crb"
 
-# GH-42128
-# Switch all repos to point to to vault.centos.org, use for EOL distros
-fix_eol_repositories() {
-  sed -i \
-    -e 's/^mirrorlist/#mirrorlist/' \
-    -e 's/^#baseurl/baseurl/' \
-    -e 's/mirror\.centos\.org/vault.centos.org/' \
-    /etc/yum.repos.d/*.repo
-}
-
 echo "::group::Prepare repository"
 
 case "${distribution}-${distribution_version}" in
   almalinux-8)
     distribution_prefix="almalinux"
+    gcc_toolset=14
     have_arrow_libs=yes
     ruby_devel_packages+=(redhat-rpm-config)
     install_command="dnf install -y --enablerepo=powertools"
     info_command="dnf info --enablerepo=powertools"
+    ;;
+  almalinux-9)
+    distribution_prefix="almalinux"
+    gcc_toolset=12
+    ruby_devel_packages+=(redhat-rpm-config)
     ;;
   almalinux-*)
     distribution_prefix="almalinux"
@@ -96,23 +92,6 @@ case "${distribution}-${distribution_version}" in
     # problem.
     install_command="dnf install -y --allowerasing"
     info_command="dnf info"
-    ;;
-  centos-7)
-    distribution_prefix="centos"
-    cmake_package=cmake3
-    cmake_command=cmake3
-    devtoolset=11
-    scl_package=centos-release-scl-rh
-    have_arrow_libs=yes
-    have_flight=no
-    have_gandiva=no
-    have_ruby=no
-    have_vala=no
-    install_command="yum install -y"
-    uninstall_command="yum remove -y"
-    clean_command="yum clean"
-    info_command="yum info"
-    fix_eol_repositories
     ;;
   centos-*)
     distribution_prefix="centos"
@@ -191,24 +170,16 @@ echo "::endgroup::"
 echo "::group::Test Apache Arrow C++"
 mkdir -p build
 ${install_command} ${enablerepo_epel} arrow-devel-${package_version}
-if [ -n "${devtoolset}" ]; then
-  ${install_command} ${scl_package}
-  sed -i \
-    -e 's/^mirrorlist/#mirrorlist/' \
-    -e 's/^#baseurl/baseurl/' \
-    -e 's/mirror\.centos\.org/vault.centos.org/' \
-    /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-fi
 ${install_command} \
   ${cmake_package} \
   git \
   libarchive \
   pkg-config
-if [ -n "${devtoolset}" ]; then
+if [ -n "${gcc_toolset}" ]; then
   ${install_command} \
-    devtoolset-${devtoolset}-gcc-c++ \
-    devtoolset-${devtoolset}-make
-  . /opt/rh/devtoolset-${devtoolset}/enable
+    gcc-toolset-${gcc_toolset} \
+    make
+  . /opt/rh/gcc-toolset-${gcc_toolset}/enable
 else
   ${install_command} \
     gcc-c++ \
@@ -226,12 +197,24 @@ if [ "${cmake_version_major}" -gt "3" ] || \
    [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
   cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
   pushd build/minimal_build
-  ${cmake_command} .
-  make -j$(nproc)
-  ./arrow-example
-  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-  ./arrow-example
+  cmake -S . -B build_shared
+  make -C build_shared -j$(nproc)
+  build_shared/arrow-example
+  cmake -S . -B build_static -DARROW_LINK_SHARED=OFF
+  make -C build_static -j$(nproc)
+  build_static/arrow-example
+  mkdir -p build_pkg_config
+  c++ \
+    example.cc \
+    -o build_pkg_config/arrow-example \
+    $(pkg-config --cflags --libs arrow) \
+    -std=c++2a
+  build_pkg_config/arrow-example
   popd
+fi
+if [ -n "${gcc_toolset}" ]; then
+  dnf remove -y "gcc-toolset-${gcc_toolset}-*"
+  ${install_command} gcc-c++
 fi
 echo "::endgroup::"
 

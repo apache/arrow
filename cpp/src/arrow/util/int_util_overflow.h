@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
+#include <optional>
 #include <type_traits>
 
 #include "arrow/status.h"
@@ -161,6 +163,37 @@ NON_GENERIC_OPS_WITH_OVERFLOW(DivideWithOverflow)
 
 #undef NON_GENERIC_OPS_WITH_OVERFLOW
 #undef NON_GENERIC_OP_WITH_OVERFLOW
+
+// Convenience functions over an arbitrary number of arguments
+template <typename Int>
+std::optional<Int> AddWithOverflow(std::initializer_list<Int> vs) {
+  if (vs.size() == 0) {
+    return {};
+  }
+  auto it = vs.begin();
+  Int v = *it++;
+  while (it != vs.end()) {
+    if (ARROW_PREDICT_FALSE(AddWithOverflowGeneric(v, *it++, &v))) {
+      return {};
+    }
+  }
+  return v;
+}
+
+template <typename Int>
+std::optional<Int> MultiplyWithOverflow(std::initializer_list<Int> vs) {
+  if (vs.size() == 0) {
+    return {};
+  }
+  auto it = vs.begin();
+  Int v = *it++;
+  while (it != vs.end()) {
+    if (ARROW_PREDICT_FALSE(MultiplyWithOverflowGeneric(v, *it++, &v))) {
+      return {};
+    }
+  }
+  return v;
+}
 
 // Define function NegateWithOverflow with the signature `bool(T u, T* out)`
 // where T is a signed integer type.  On overflow, these functions return true.

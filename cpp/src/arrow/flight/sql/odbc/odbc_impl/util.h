@@ -29,6 +29,15 @@
 #include <functional>
 #include <optional>
 
+#ifdef __linux__
+// Linux driver manager uses utf16string
+#  define CONVERT_SQLWCHAR_STR(wvar, var) \
+    CONVERT_UTF16_STR(const std::u16string wvar, var)
+#else
+// Windows and macOS uses wstring
+#  define CONVERT_SQLWCHAR_STR(wvar, var) CONVERT_WIDE_STR(const std::wstring wvar, var)
+#endif  // __linux__
+
 #define CONVERT_WIDE_STR(wstring_var, utf8_target)                                \
   wstring_var = [&] {                                                             \
     arrow::Result<std::wstring> res = arrow::util::UTF8ToWideString(utf8_target); \
@@ -43,13 +52,18 @@
     return res.ValueOrDie();                                                         \
   }()
 
+#define CONVERT_UTF16_STR(utf16string_var, utf8_target)                              \
+  utf16string_var = [&] {                                                            \
+    arrow::Result<std::u16string> res = arrow::util::UTF8StringToUTF16(utf8_target); \
+    arrow::flight::sql::odbc::util::ThrowIfNotOK(res.status());                      \
+    return res.ValueOrDie();                                                         \
+  }()
+
 namespace arrow::flight::sql::odbc {
 namespace util {
 
 typedef std::function<std::shared_ptr<Array>(const std::shared_ptr<Array>&)>
     ArrayConvertTask;
-
-using std::optional;
 
 inline void ThrowIfNotOK(const Status& status) {
   if (!status.ok()) {
@@ -63,7 +77,7 @@ inline bool CheckIfSetToOnlyValidValue(const AttributeTypeT& value, T allowed_va
 }
 
 template <typename BUILDER, typename T>
-Status AppendToBuilder(BUILDER& builder, optional<T> opt_value) {
+Status AppendToBuilder(BUILDER& builder, std::optional<T> opt_value) {
   if (opt_value) {
     return builder.Append(*opt_value);
   } else {
@@ -87,29 +101,30 @@ CDataType ConvertCDataTypeFromV2ToV3(int16_t data_type_v2);
 
 std::string GetTypeNameFromSqlDataType(int16_t data_type);
 
-optional<int16_t> GetRadixFromSqlDataType(SqlDataType data_type);
+std::optional<int16_t> GetRadixFromSqlDataType(SqlDataType data_type);
 
 int16_t GetNonConciseDataType(SqlDataType data_type);
 
-optional<int16_t> GetSqlDateTimeSubCode(SqlDataType data_type);
+std::optional<int16_t> GetSqlDateTimeSubCode(SqlDataType data_type);
 
-optional<int32_t> GetCharOctetLength(SqlDataType data_type,
-                                     const arrow::Result<int32_t>& column_size,
-                                     const int32_t decimal_precison = 0);
+std::optional<int32_t> GetCharOctetLength(SqlDataType data_type,
+                                          const arrow::Result<int32_t>& column_size,
+                                          const int32_t decimal_precison = 0);
 
-optional<int32_t> GetBufferLength(SqlDataType data_type,
-                                  const optional<int32_t>& column_size);
+std::optional<int32_t> GetBufferLength(SqlDataType data_type,
+                                       const std::optional<int32_t>& column_size);
 
-optional<int32_t> GetLength(SqlDataType data_type, const optional<int32_t>& column_size);
+std::optional<int32_t> GetLength(SqlDataType data_type,
+                                 const std::optional<int32_t>& column_size);
 
-optional<int32_t> GetTypeScale(SqlDataType data_type,
-                               const optional<int32_t>& type_scale);
+std::optional<int32_t> GetTypeScale(SqlDataType data_type,
+                                    const std::optional<int32_t>& type_scale);
 
-optional<int32_t> GetColumnSize(SqlDataType data_type,
-                                const optional<int32_t>& column_size);
+std::optional<int32_t> GetColumnSize(SqlDataType data_type,
+                                     const std::optional<int32_t>& column_size);
 
-optional<int32_t> GetDisplaySize(SqlDataType data_type,
-                                 const optional<int32_t>& column_size);
+std::optional<int32_t> GetDisplaySize(SqlDataType data_type,
+                                      const std::optional<int32_t>& column_size);
 
 std::string ConvertSqlPatternToRegexString(const std::string& pattern);
 
@@ -136,15 +151,15 @@ int32_t GetDecimalTypePrecision(const std::shared_ptr<DataType>& decimal_type);
 /// Parse a string value to a boolean.
 /// \param value            the value to be parsed.
 /// \return                 the parsed valued.
-boost::optional<bool> AsBool(const std::string& value);
+std::optional<bool> AsBool(const std::string& value);
 
 /// Looks up for a value inside the ConnPropertyMap and then try to parse it.
 /// In case it does not find or it cannot parse, the default value will be returned.
 /// \param conn_property_map    the map with the connection properties.
 /// \param property_name      the name of the property that will be looked up.
 /// \return                   the parsed valued.
-boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
-                             std::string_view property_name);
+std::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_map,
+                           std::string_view property_name);
 
 /// Looks up for a value inside the ConnPropertyMap and then try to parse it.
 /// In case it does not find or it cannot parse, the default value will be returned.
@@ -154,9 +169,9 @@ boost::optional<bool> AsBool(const Connection::ConnPropertyMap& conn_property_ma
 /// looked up. \return                             the parsed valued. \exception
 /// std::invalid_argument    exception from std::stoi \exception
 /// std::out_of_range        exception from std::stoi
-boost::optional<int32_t> AsInt32(int32_t min_value,
-                                 const Connection::ConnPropertyMap& conn_property_map,
-                                 std::string_view property_name);
+std::optional<int32_t> AsInt32(int32_t min_value,
+                               const Connection::ConnPropertyMap& conn_property_map,
+                               std::string_view property_name);
 
 }  // namespace util
 }  // namespace arrow::flight::sql::odbc

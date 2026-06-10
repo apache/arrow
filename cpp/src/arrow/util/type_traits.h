@@ -69,5 +69,9 @@ struct SizedIntImpl<8> {
 template <int kNumBytes>
 using SizedInt = typename SizedIntImpl<kNumBytes>::type;
 
+// Map a number of bytes to a type
+template <int kNumBytes>
+using SizedUint = std::make_unsigned_t<SizedInt<kNumBytes>>;
+
 }  // namespace internal
 }  // namespace arrow

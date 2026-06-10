@@ -17,8 +17,6 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
 
-#include <sql.h>
-#include <sqlext.h>
 #include <algorithm>
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -27,6 +25,10 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/type_utilities.h"
+
+// Include ODBC headers after arrow headers to avoid conflicts
+#include <sql.h>
+#include <sqlext.h>
 
 using ODBC::DescriptorRecord;
 using ODBC::ODBCConnection;
@@ -155,7 +157,7 @@ void ODBCDescriptor::SetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     throw DriverException("Bookmarks are unsupported.", "07009");
   }
 
-  if (record_number > records_.size()) {
+  if (static_cast<size_t>(record_number) > records_.size()) {
     throw DriverException("Invalid descriptor index", "HY009");
   }
 
@@ -276,7 +278,9 @@ void ODBCDescriptor::GetHeaderField(SQLSMALLINT field_identifier, SQLPOINTER val
       GetAttribute(rows_processed_ptr_, value, buffer_length, output_length);
       break;
     case SQL_DESC_COUNT: {
-      GetAttribute(highest_one_based_bound_record_, value, buffer_length, output_length);
+      // highest_one_based_bound_record_ equals number of records + 1
+      GetAttribute(static_cast<SQLSMALLINT>(highest_one_based_bound_record_ - 1), value,
+                   buffer_length, output_length);
       break;
     }
     default:
@@ -306,58 +310,59 @@ void ODBCDescriptor::GetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     throw DriverException("Bookmarks are unsupported.", "07009");
   }
 
-  if (record_number > records_.size()) {
+  if (static_cast<size_t>(record_number) > records_.size()) {
     throw DriverException("Invalid descriptor index", "07009");
   }
 
-  // TODO: Restrict fields based on AppDescriptor IPD, and IRD.
+  // GH-47867 TODO: Restrict fields based on AppDescriptor IPD, and IRD.
 
+  bool length_in_bytes = true;
   SQLSMALLINT zero_based_record = record_number - 1;
   const DescriptorRecord& record = records_[zero_based_record];
   switch (field_identifier) {
     case SQL_DESC_BASE_COLUMN_NAME:
-      GetAttributeUTF8(record.base_column_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.base_column_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_BASE_TABLE_NAME:
-      GetAttributeUTF8(record.base_table_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.base_table_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_CATALOG_NAME:
-      GetAttributeUTF8(record.catalog_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.catalog_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_LABEL:
-      GetAttributeUTF8(record.label, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.label, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_LITERAL_PREFIX:
-      GetAttributeUTF8(record.literal_prefix, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.literal_prefix, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_LITERAL_SUFFIX:
-      GetAttributeUTF8(record.literal_suffix, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.literal_suffix, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_LOCAL_TYPE_NAME:
-      GetAttributeUTF8(record.local_type_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.local_type_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_NAME:
-      GetAttributeUTF8(record.name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_SCHEMA_NAME:
-      GetAttributeUTF8(record.schema_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.schema_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_TABLE_NAME:
-      GetAttributeUTF8(record.table_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.table_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
     case SQL_DESC_TYPE_NAME:
-      GetAttributeUTF8(record.type_name, value, buffer_length, output_length,
-                       GetDiagnostics());
+      GetAttributeSQLWCHAR(record.type_name, length_in_bytes, value, buffer_length,
+                           output_length, GetDiagnostics());
       break;
 
     case SQL_DESC_DATA_PTR:
@@ -367,7 +372,7 @@ void ODBCDescriptor::GetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     case SQL_DESC_OCTET_LENGTH_PTR:
       GetAttribute(record.indicator_ptr, value, buffer_length, output_length);
       break;
-
+    case SQL_COLUMN_LENGTH:  // ODBC 2.0
     case SQL_DESC_LENGTH:
       GetAttribute(record.length, value, buffer_length, output_length);
       break;
@@ -407,12 +412,14 @@ void ODBCDescriptor::GetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     case SQL_DESC_PARAMETER_TYPE:
       GetAttribute(record.param_type, value, buffer_length, output_length);
       break;
+    case SQL_COLUMN_PRECISION:  // ODBC 2.0
     case SQL_DESC_PRECISION:
       GetAttribute(record.precision, value, buffer_length, output_length);
       break;
     case SQL_DESC_ROWVER:
       GetAttribute(record.row_ver, value, buffer_length, output_length);
       break;
+    case SQL_COLUMN_SCALE:  // ODBC 2.0
     case SQL_DESC_SCALE:
       GetAttribute(record.scale, value, buffer_length, output_length);
       break;
@@ -479,6 +486,8 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
 
   for (size_t i = 0; i < records_.size(); ++i) {
     size_t one_based_index = i + 1;
+    int16_t concise_type = rsmd->GetConciseType(one_based_index);
+
     records_[i].base_column_name = rsmd->GetBaseColumnName(one_based_index);
     records_[i].base_table_name = rsmd->GetBaseTableName(one_based_index);
     records_[i].catalog_name = rsmd->GetCatalogName(one_based_index);
@@ -489,9 +498,8 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
     records_[i].name = rsmd->GetName(one_based_index);
     records_[i].schema_name = rsmd->GetSchemaName(one_based_index);
     records_[i].table_name = rsmd->GetTableName(one_based_index);
-    records_[i].type_name = rsmd->GetTypeName(one_based_index);
-    records_[i].concise_type = GetSqlTypeForODBCVersion(
-        rsmd->GetConciseType(one_based_index), is_2x_connection_);
+    records_[i].type_name = rsmd->GetTypeName(one_based_index, concise_type);
+    records_[i].concise_type = GetSqlTypeForODBCVersion(concise_type, is_2x_connection_);
     records_[i].data_ptr = nullptr;
     records_[i].indicator_ptr = nullptr;
     records_[i].display_size = rsmd->GetColumnDisplaySize(one_based_index);
@@ -533,7 +541,7 @@ void ODBCDescriptor::BindCol(SQLSMALLINT record_number, SQLSMALLINT c_type,
   assert(is_writable_);
 
   // The set of records auto-expands to the supplied record number.
-  if (records_.size() < record_number) {
+  if (records_.size() < static_cast<size_t>(record_number)) {
     records_.resize(record_number);
   }
 
@@ -553,7 +561,7 @@ void ODBCDescriptor::BindCol(SQLSMALLINT record_number, SQLSMALLINT c_type,
 }
 
 void ODBCDescriptor::SetDataPtrOnRecord(SQLPOINTER data_ptr, SQLSMALLINT record_number) {
-  assert(record_number <= records_.size());
+  assert(static_cast<size_t>(record_number) <= records_.size());
   DescriptorRecord& record = records_[record_number - 1];
   if (data_ptr) {
     record.CheckConsistency();

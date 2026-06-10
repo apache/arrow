@@ -89,21 +89,21 @@ class Lexer {
       case AT_ESCAPE:
         // will never reach here if escaping = false
         // just to hint the compiler to remove dead code
-        if (!SpecializedOptions::escaping) return nullptr;
+        if constexpr (!SpecializedOptions::escaping) return nullptr;
         goto AtEscape;
       case IN_QUOTED_FIELD:
-        if (!SpecializedOptions::quoting) return nullptr;
+        if constexpr (!SpecializedOptions::quoting) return nullptr;
         goto InQuotedField;
       case AT_QUOTED_QUOTE:
-        if (!SpecializedOptions::quoting) return nullptr;
+        if constexpr (!SpecializedOptions::quoting) return nullptr;
         goto AtQuotedQuote;
       case AT_QUOTED_ESCAPE:
-        if (!SpecializedOptions::quoting) return nullptr;
+        if constexpr (!SpecializedOptions::quoting) return nullptr;
         goto AtQuotedEscape;
     }
 
   FieldStart:
-    if (!SpecializedOptions::quoting) {
+    if constexpr (!SpecializedOptions::quoting) {
       goto InField;
     } else {
       // At the start of a field

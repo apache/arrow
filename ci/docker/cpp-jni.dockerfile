@@ -21,19 +21,20 @@ FROM ${base}
 ARG arch
 ARG arch_short
 
-SHELL ["/bin/bash", "-i", "-c"]
-ENTRYPOINT ["/bin/bash", "-i", "-c"]
-
 # Install basic dependencies
-RUN dnf install -y \
-    autoconf \
-    curl \
-    flex \
-    gdb \
-    git \
-    perl-IPC-Cmd \
-    wget \
-    zip
+RUN dnf module enable -y llvm-toolset && \
+    dnf install -y \
+      autoconf \
+      curl \
+      flex \
+      gdb \
+      git \
+      llvm-devel \
+      llvm-toolset \
+      perl-IPC-Cmd \
+      perl-Time-Piece \
+      wget \
+      zip
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
@@ -56,6 +57,11 @@ RUN /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
 ARG ccache=4.1
 COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
+
+# Install bison (> 3.7 required for building thrift)
+ARG bison=3.7.6
+COPY ci/scripts/install_bison.sh arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_bison.sh ${bison} /usr/local
 
 # Install vcpkg
 ARG vcpkg
@@ -98,7 +104,9 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-feature=azure \
         --x-feature=dev \
         --x-feature=flight \
-        --x-feature=gandiva \
+        # We can't use LLVM installed by vcpkg with gcc-toolset because
+        # LLVM installed by vcpkg doesn't use libc++ installed by gcc-toolset.
+        # --x-feature=gandiva \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=orc \
@@ -108,4 +116,5 @@ RUN --mount=type=secret,id=github_repository_owner \
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_CMAKE_ARGS="-DARROW_BUILD_TESTS=ON" \
-    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux
+    CMAKE_PRESET=ninja-${CMAKE_BUILD_TYPE}-jni-linux \
+    VCPKG_TARGET_TRIPLET=${VCPKG_DEFAULT_TRIPLET}

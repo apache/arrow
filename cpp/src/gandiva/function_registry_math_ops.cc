@@ -103,6 +103,14 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
                      "gdv_fn_random", NativeFunction::kNeedsFunctionHolder),
       NativeFunction("random", {"rand"}, DataTypeVector{int32()}, float64(),
                      kResultNullNever, "gdv_fn_random_with_seed",
+                     NativeFunction::kNeedsFunctionHolder),
+      NativeFunction("rand_integer", {}, DataTypeVector{}, int32(), kResultNullNever,
+                     "gdv_fn_rand_integer", NativeFunction::kNeedsFunctionHolder),
+      NativeFunction("rand_integer", {}, DataTypeVector{int32()}, int32(),
+                     kResultNullNever, "gdv_fn_rand_integer_with_range",
+                     NativeFunction::kNeedsFunctionHolder),
+      NativeFunction("rand_integer", {}, DataTypeVector{int32(), int32()}, int32(),
+                     kResultNullNever, "gdv_fn_rand_integer_with_min_max",
                      NativeFunction::kNeedsFunctionHolder)};
 
   return math_fn_registry_;

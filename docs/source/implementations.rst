@@ -113,7 +113,7 @@ The source files for the Cookbook are maintained in the
    C++ <cpp/index>
    C GLib <c_glib/index>
    Go <https://arrow.apache.org/go/>
-   Java <java/index>
+   Java <https://arrow.apache.org/java/current/>
    JavaScript <https://arrow.apache.org/js/current/>
    Julia <https://arrow.apache.org/julia/>
    MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
@@ -121,6 +121,6 @@ The source files for the Cookbook are maintained in the
    R <https://arrow.apache.org/docs/r>
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
-   Swift <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>
+   Swift <https://arrow.apache.org/swift/>
    nanoarrow <https://arrow.apache.org/nanoarrow/>
    Implementation Status <status>

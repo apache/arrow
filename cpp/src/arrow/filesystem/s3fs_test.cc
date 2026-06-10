@@ -420,7 +420,7 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
 class S3RegionResolutionTest : public AwsTestMixin {};
 
 TEST_F(S3RegionResolutionTest, PublicBucket) {
-  ASSERT_OK_AND_EQ("us-east-2", ResolveS3BucketRegion("voltrondata-labs-datasets"));
+  ASSERT_OK_AND_EQ("us-east-1", ResolveS3BucketRegion("arrow-datasets"));
 
   // Taken from a registry of open S3-hosted datasets
   // at https://github.com/awslabs/open-data-registry
@@ -432,9 +432,11 @@ TEST_F(S3RegionResolutionTest, PublicBucket) {
 }
 
 TEST_F(S3RegionResolutionTest, RestrictedBucket) {
-  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("ursa-labs-r-test"));
+  // usgs-landsat is a RequesterPays bucket from AWS Open Data Registry
+  // https://github.com/awslabs/open-data-registry/blob/main/datasets/usgs-landsat.yaml
+  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("usgs-landsat"));
   // Same again, cached
-  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("ursa-labs-r-test"));
+  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("usgs-landsat"));
 }
 
 TEST_F(S3RegionResolutionTest, NonExistentBucket) {

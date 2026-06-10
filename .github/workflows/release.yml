@@ -73,3 +73,14 @@ jobs:
             --title "${RELEASE_TITLE}" \
             --verify-tag \
             release_candidate_artifacts/*
+      - name: Remove Draft GitHub Releases
+        run: |
+          gh release list \
+            --jq '.[] | select(.isDraft).tagName' \
+            --json isDraft,tagName \
+            --repo ${GITHUB_REPOSITORY} |
+              while read tag; do \
+                gh release delete ${tag} \
+                  --repo ${GITHUB_REPOSITORY} \
+                  --yes; \
+              done

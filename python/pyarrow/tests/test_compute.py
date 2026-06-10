@@ -40,7 +40,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.lib import ArrowNotImplementedError
+from pyarrow.lib import ArrowNotImplementedError, ArrowIndexError
 
 try:
     import pyarrow.substrait as pas
@@ -883,6 +883,38 @@ def test_generated_docstrings():
             Alternative way of passing options.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
+        >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+        >>> pc.min_max(arr1)
+        <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
+
+        Using ``skip_nulls`` to handle null values.
+
+        >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+        >>> pc.min_max(arr2)
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr2, skip_nulls=False)
+        <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+        Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+        >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+        >>> pc.min_max(arr3)
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+        <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+        This function also works with string values.
+
+        >>> arr4 = pa.array(["z", None, "y", "x"])
+        >>> pc.min_max(arr4)
+        <pyarrow.StructScalar: [('min', 'x'), ('max', 'z')]>
         """)
     # Without options
     assert pc.add.__doc__ == textwrap.dedent("""\
@@ -1237,6 +1269,34 @@ def test_extract_regex_span():
     assert struct.tolist() == expected
 
 
+def test_replace_with_mask_null_type():
+    # GH-47447: replace_with_mask crashed for null type arrays
+    input = pa.array([None], pa.null())
+    replacements = pa.array([None], pa.null())
+
+    result = pc.replace_with_mask(input, True, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    result = pc.replace_with_mask(input, False, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([True])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([False])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
@@ -1588,6 +1648,38 @@ def test_filter_null_type():
     assert len(chunked_arr.filter(mask)) == 5
     assert len(batch.filter(mask).column(0)) == 5
     assert len(table.filter(mask).column(0)) == 5
+
+
+def test_inverse_permutation():
+    arr0 = pa.array([], type=pa.int32())
+    arr = pa.chunked_array([
+        arr0, [9, 7, 5, 3, 1], [0], [2, 4, 6], [8], arr0,
+    ])
+    expected = pa.chunked_array([[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]], type=pa.int32())
+    assert pc.inverse_permutation(arr).equals(expected)
+
+    options = pc.InversePermutationOptions(max_index=9, output_type=pa.int32())
+    assert pc.inverse_permutation(arr, options=options).equals(expected)
+    assert pc.inverse_permutation(arr, max_index=-1).equals(expected)
+
+    with pytest.raises(ArrowIndexError, match="Index out of bounds: 9"):
+        pc.inverse_permutation(arr, max_index=4)
+
+
+def test_scatter():
+    values = pa.array([True, False, True, True, False, False, True, True, True, False])
+    indices = pa.array([9, 8, 7, 6, 5, 4, 3, 2, 1, 0])
+    expected = pa.array([False, True, True, True, False,
+                        False, True, True, False, True])
+    result = pc.scatter(values, indices)
+    assert result.equals(expected)
+
+    options = pc.ScatterOptions(max_index=-1)
+    assert pc.scatter(values, indices, options=options).equals(expected)
+    assert pc.scatter(values, indices, max_index=9).equals(expected)
+
+    with pytest.raises(ArrowIndexError, match="Index out of bounds: 9"):
+        pc.scatter(values, indices, max_index=4)
 
 
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
@@ -2298,6 +2390,26 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
+def _compare_strftime_strings_on_windows(result, expected):
+    # TODO(GH-48767): On Windows, std::chrono returns GMT offset
+    # instead of timezone abbreviations (e.g. "CET")
+    # https://github.com/apache/arrow/issues/48767
+
+    # Match timezone suffixes (UTC), offsets (GMT+1), or abbreviations (CET)
+    p = "(UTC|GMT[+-]?[0-9]*|[A-Z]{2,5})$"
+
+    ends_with_tz = pc.match_substring_regex(result, p)
+    all_end_with_tz = pc.all(ends_with_tz, skip_nulls=True).as_py()
+    assert all_end_with_tz, "All timezone values should be GMT offset format, "\
+                            f"UTC, or timezone abbreviation\nActual: {result}"
+
+    result_substring = pc.replace_substring_regex(result, pattern=p, replacement="")
+    expected_substring = pc.replace_substring_regex(expected, pattern=p, replacement="")
+    assert result_substring.equals(expected_substring), \
+        f"Expected: {expected}, \nActual: {result} " \
+        "\nNote: tz suffix is not being compared"
+
+
 @pytest.mark.pandas
 @pytest.mark.timezone_data
 def test_strftime():
@@ -2319,7 +2431,10 @@ def test_strftime():
                 result = pc.strftime(tsa, options=options)
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
-                assert result.equals(expected)
+                if sys.platform == "win32" and fmt == "%Z":
+                    _compare_strftime_strings_on_windows(result, expected)
+                else:
+                    assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
 
@@ -2333,7 +2448,10 @@ def test_strftime():
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
-        assert result.equals(expected)
+        if sys.platform == "win32":
+            _compare_strftime_strings_on_windows(result, expected)
+        else:
+            assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
@@ -2550,7 +2668,9 @@ def test_assume_timezone():
             pc.assume_timezone(ta_zoned, options=options)
 
     invalid_options = pc.AssumeTimezoneOptions("Europe/Brusselsss")
-    with pytest.raises(ValueError, match="not found in timezone database"):
+    with pytest.raises(ValueError,
+                       match="not found in timezone database|"
+                             "unable to locate time_zone"):
         pc.assume_timezone(ta, options=invalid_options)
 
     timezone = "Europe/Brussels"
@@ -2725,6 +2845,14 @@ def test_round_temporal(unit):
         "1992-01-01 00:00:00.100000000",
         "1999-12-04 05:55:34.794991104",
         "2026-10-26 08:39:00.316686848"]
+
+    # Windows timezone database appears to disagree with IANA timezone database on
+    # some historical timestamps. We exclude those timestamps from testing on Windows.
+    # Specifically removing:
+    # "1941-05-27 11:46:43.822831872" and "1943-12-14 07:32:05.424766464"
+    if sys.platform == "win32":
+        timestamps = timestamps[:3] + timestamps[5:]
+
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
@@ -2747,6 +2875,57 @@ def test_count():
     with pytest.raises(ValueError,
                        match='"something else" is not a valid count mode'):
         pc.count(arr, 'something else')
+
+
+def test_count_run_end_encoded_nulls():
+    arr = pc.run_end_encode(
+        pa.array([1, 1, None, None, None, 2, 2, 2, None, 3]))
+
+    assert pc.count(arr, mode="only_valid").as_py() == 6
+    assert pc.count(arr, mode="only_null").as_py() == 4
+    assert pc.count(arr, mode="all").as_py() == 10
+    # Slice crosses run boundaries: logical [None, None, 2, 2, 2, None].
+    assert pc.count(arr.slice(3, 6), mode="only_valid").as_py() == 3
+    assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
+
+
+def test_count_sparse_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        [
+            pa.array([0.5, 99.0, None, 3.0, 88.0, 77.0]),
+            pa.array([False, None, True, False, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
+def test_count_dense_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.5, None, 3.0]),
+            pa.array([None, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
 
 
 def test_index():
@@ -3419,8 +3598,8 @@ def test_struct_fields_options():
     with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
         pc.struct_field(arr, '.a.foo')
 
-    # TODO: https://issues.apache.org/jira/browse/ARROW-14853
-    # assert pc.struct_field(arr) == arr
+    with pytest.raises(pa.ArrowInvalid, match="cannot be called without options"):
+        pc.struct_field(arr)
 
 
 def test_case_when():
@@ -3866,7 +4045,8 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     (0, 1,),
     (0, 2,),
     (1, 2,),
-    (2, 4,)
+    (2, 4,),
+    (0, 0,)
 ))
 @pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
@@ -3914,18 +4094,17 @@ def test_list_slice_field_names_retained(return_fixed_size, type):
 
 def test_list_slice_bad_parameters():
     arr = pa.array([[1]], pa.list_(pa.int8(), 1))
-    msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
+    msg = (
+        r"`start`(.*) should be greater than or equal to 0 "
+        r"and not greater than `stop`(.*)"
+    )
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, -1, 1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
 
-    # TODO(ARROW-18281): start==stop -> empty lists
-    with pytest.raises(pa.ArrowInvalid, match=msg):
-        pc.list_slice(arr, 0, 0)  # start == stop?
-
     # Step not >= 1
-    msg = "`step` must be >= 1, got: "
+    msg = "`step` must be greater than or equal to 1, got: "
     with pytest.raises(pa.ArrowInvalid, match=msg + "0"):
         pc.list_slice(arr, 0, 1, step=0)
     with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):

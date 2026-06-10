@@ -76,8 +76,8 @@ std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
 // Tests for NthToIndices
 
 template <typename ArrayType>
-auto GetLogicalValue(const ArrayType& array, uint64_t index)
-    -> decltype(array.GetView(index)) {
+auto GetLogicalValue(const ArrayType& array,
+                     uint64_t index) -> decltype(array.GetView(index)) {
   return array.GetView(index);
 }
 
@@ -433,6 +433,27 @@ TEST(ArraySortIndicesFunction, AllNullDictionaryArray) {
         AssertDatumsEqual(expected, actual, /*verbose=*/true);
         ++i;
       }
+    }
+  }
+}
+
+TEST(ArraySortIndicesFunction, NullTypeDictionaryArray) {
+  // Test that dictionaries with Type::NA (null type) values can be sorted.
+  // All values in a null-type dictionary are logically null, so sorting
+  // should just arrange indices based on null placement, preserving order.
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    auto dict_type = dictionary(index_type, null());
+    auto dict_arr = DictArrayFromJSON(dict_type, "[null, 0, 0, null]", "[null]");
+
+    for (auto null_placement : AllNullPlacements()) {
+      ArraySortOptions options{SortOrder::Ascending, null_placement};
+      // All nulls, so output should be identity permutation
+      auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3]");
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           CallFunction("array_sort_indices", {dict_arr}, &options));
+      ValidateOutput(actual);
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
     }
   }
 }
@@ -2339,6 +2360,36 @@ TEST_F(TestRank, Real) {
     SetInput(ArrayFromJSON(real_type, "[1.2, 0.0, 5.3, null, 5.3, null, 0.0]"));
     AssertRankAllTiebreakers();
   }
+}
+
+TEST_F(TestRank, NaNsAndNulls) {
+  auto type = float64();
+  auto array = ArrayFromJSON(type, "[1.0, null, NaN, 2.0, NaN, null]");
+  SetInput(array);
+
+  // Sorted order (at_end): [1.0, 2.0, NaN, NaN, null, null]
+  // Ranks (min): [1, 5, 3, 2, 3, 5]
+  auto expected_at_end = ArrayFromJSON(uint64(), "[1, 5, 3, 2, 3, 5]");
+  AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+             expected_at_end);
+
+  // Sorted order (at_start): [null, null, NaN, NaN, 1.0, 2.0]
+  // Ranks (min): [5, 1, 3, 6, 3, 1]
+  auto expected_at_start = ArrayFromJSON(uint64(), "[5, 1, 3, 6, 3, 1]");
+  AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+             expected_at_start);
+
+  // Sorted order (descending, at_end): [2.0, 1.0, NaN, NaN, null, null]
+  // Ranks (min): [2, 5, 3, 1, 3, 5]
+  auto expected_desc_at_end = ArrayFromJSON(uint64(), "[2, 5, 3, 1, 3, 5]");
+  AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+             expected_desc_at_end);
+
+  // Sorted order (descending, at_start): [null, null, NaN, NaN, 2.0, 1.0]
+  // Ranks (min): [6, 1, 3, 5, 3, 1]
+  auto expected_desc_at_start = ArrayFromJSON(uint64(), "[6, 1, 3, 5, 3, 1]");
+  AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+             expected_desc_at_start);
 }
 
 TEST_F(TestRank, Integral) {

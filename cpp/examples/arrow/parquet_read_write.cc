@@ -38,7 +38,7 @@ arrow::Status ReadFullFile(std::string path_to_file) {
 
   // Read entire file as a single Arrow table
   std::shared_ptr<arrow::Table> table;
-  ARROW_RETURN_NOT_OK(arrow_reader->ReadTable(&table));
+  ARROW_ASSIGN_OR_RAISE(table, arrow_reader->ReadTable());
   return arrow::Status::OK();
 }
 

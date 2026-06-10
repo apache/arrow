@@ -437,6 +437,59 @@ module ValuesListArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_large_list
+    values = [
+      [
+        [
+          true,
+          nil,
+        ],
+        nil,
+        [
+          nil,
+          false,
+        ],
+      ],
+      nil,
+    ]
+    target = build({
+                     type: :large_list,
+                     field: {
+                       name: :sub_element,
+                       type: :boolean,
+                     },
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
+  def test_fixed_size_list
+    values = [
+      [
+        [
+          true,
+          nil,
+        ],
+        nil,
+        [
+          nil,
+          false,
+        ],
+      ],
+      nil,
+    ]
+    target = build({
+                     type: :fixed_size_list,
+                     field: {
+                       name: :sub_element,
+                       type: :boolean,
+                     },
+                     size: 2,
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
   def test_struct
     values = [
       [

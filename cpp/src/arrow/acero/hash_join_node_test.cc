@@ -1902,6 +1902,41 @@ TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
   }
 }
 
+TEST(HashJoin, CheckResidualFilterType) {
+  BatchesWithSchema input_left;
+  input_left.schema = schema({field("lkey", int32()), field("lpayload", int32())});
+
+  BatchesWithSchema input_right;
+  input_right.schema = schema({field("rkey", int32()), field("rpayload", int32())});
+
+  Declaration left{"source",
+                   SourceNodeOptions{input_left.schema, input_left.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}};
+  Declaration right{
+      "source", SourceNodeOptions{input_right.schema, input_right.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}};
+
+  for (const auto& filter :
+       {literal(MakeNullScalar(boolean())), literal(true), literal(false),
+        equal(field_ref("lpayload"), field_ref("rpayload"))}) {
+    HashJoinNodeOptions options{
+        JoinType::INNER, {FieldRef("lkey")}, {FieldRef("rkey")}, filter};
+    Declaration join{"hashjoin", {left, right}, options};
+    ASSERT_OK(DeclarationToStatus(std::move(join)));
+  }
+
+  for (const auto& filter :
+       {literal(NullScalar()), literal(42),
+        call("add", {field_ref("lpayload"), field_ref("rpayload")})}) {
+    HashJoinNodeOptions options{
+        JoinType::INNER, {FieldRef("lkey")}, {FieldRef("rkey")}, filter};
+    Declaration join{"hashjoin", {left, right}, options};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                    ::testing::HasSubstr("must evaluate to bool"),
+                                    DeclarationToStatus(std::move(join)));
+  }
+}
+
 class ResidualFilterCaseRunner {
  public:
   ResidualFilterCaseRunner(BatchesWithSchema left_input, BatchesWithSchema right_input)
@@ -2369,8 +2404,8 @@ TEST(HashJoin, FineGrainedResidualFilter) {
   {
     // Literal false, null, and scalar false, null.
     for (Expression filter :
-         {literal(false), literal(NullScalar()), equal(literal(0), literal(1)),
-          equal(literal(1), literal(NullScalar()))}) {
+         {literal(false), literal(MakeNullScalar(boolean())),
+          equal(literal(0), literal(1)), equal(literal(1), literal(NullScalar()))}) {
       std::vector<FieldRef> left_keys{"l_key", "l_filter"},
           right_keys{"r_key", "r_filter"};
       {

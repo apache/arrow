@@ -26,7 +26,18 @@
 #' @section Methods:
 #'
 #' - `f$ToString()`: convert to a string
-#' - `f$Equals(other)`: test for equality. More naturally called as `f == other`
+#' - `f$Equals(other, check_metadata = FALSE)`: test for equality.
+#'    More naturally called as `f == other`
+#' - `f$WithMetadata(metadata)`: returns a new `Field` with the key-value
+#'    `metadata` set. Note that all list elements in `metadata` will be coerced
+#'    to `character`.
+#' - `f$RemoveMetadata()`: returns a new `Field` without metadata.
+#'
+#' @section Active bindings:
+#'
+#' - `$HasMetadata`: logical: does this `Field` have extra metadata?
+#' - `$metadata`: returns the key-value metadata as a named list, or `NULL`
+#'    if no metadata is set.
 #'
 #' @name Field
 #' @rdname Field-class
@@ -38,8 +49,15 @@ Field <- R6Class(
     ToString = function() {
       prettier_dictionary_type(Field__ToString(self))
     },
-    Equals = function(other, ...) {
-      inherits(other, "Field") && Field__Equals(self, other)
+    Equals = function(other, check_metadata = FALSE, ...) {
+      inherits(other, "Field") && Field__Equals(self, other, isTRUE(check_metadata))
+    },
+    WithMetadata = function(metadata = NULL) {
+      metadata <- prepare_key_value_metadata(metadata)
+      Field__WithMetadata(self, metadata)
+    },
+    RemoveMetadata = function() {
+      Field__RemoveMetadata(self)
     },
     export_to_c = function(ptr) ExportField(self, ptr)
   ),
@@ -52,14 +70,27 @@ Field <- R6Class(
     },
     type = function() {
       Field__type(self)
+    },
+    HasMetadata = function() {
+      Field__HasMetadata(self)
+    },
+    metadata = function() {
+      if (self$HasMetadata) {
+        as.list(Field__metadata(self))
+      } else {
+        NULL
+      }
     }
   )
 )
-Field$create <- function(name, type, metadata, nullable = TRUE) {
+Field$create <- function(name, type, metadata = NULL, nullable = TRUE) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   type <- as_type(type, name)
-  assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  Field__initialize(enc2utf8(name), type, nullable)
+  f <- Field__initialize(enc2utf8(name), type, nullable)
+  if (!is.null(metadata)) {
+    f <- f$WithMetadata(metadata)
+  }
+  f
 }
 #' @include arrowExports.R
 Field$import_from_c <- ImportField
@@ -68,11 +99,13 @@ Field$import_from_c <- ImportField
 #'
 #' @param name field name
 #' @param type logical type, instance of [DataType]
-#' @param metadata currently ignored
+#' @param metadata a named character vector or list to attach as field metadata.
+#'   All values will be coerced to `character`.
 #' @param nullable TRUE if field is nullable
 #'
 #' @examples
 #' field("x", int32())
+#' field("x", int32(), metadata = list(key = "value"))
 #' @rdname Field
 #' @seealso [Field]
 #' @export

@@ -152,11 +152,26 @@ class PackageTask
       "DEB_BUILD_OPTIONS",
       "RPM_BUILD_NCPUS",
     ]
+    # The following environment variables carry the build variations that
+    # reprotest injects to verify reproducibility.
+    if File.basename(Dir.pwd) == apt_dir
+      pass_through_env_names += [
+        "CPU_LIST",
+        "FAKETIME",
+        "HOME",
+        "LANG",
+        "LANGUAGE",
+        "LC_ALL",
+        "NO_FAKE_STAT",
+        "TZ",
+      ]
+    end
     pass_through_env_names.each do |name|
       value = ENV[name]
       next unless value
       run_command_line.concat(["--env", "#{name}=#{value}"])
     end
+    run_command_line.concat(["--env", "UMASK=%04o" % File.umask])
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
@@ -188,7 +203,7 @@ class PackageTask
     run_command_line << image
     run_command_line << "/host/build.sh" unless console
 
-    sh(*build_command_line)
+    sh(*build_command_line) if Dir.exist?(ENV["HOME"])
     sh(*run_command_line)
   end
 
@@ -278,6 +293,8 @@ class PackageTask
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",
       # "ubuntu-noble-arm64",
+      "ubuntu-resolute",
+      # "ubuntu-resolute-arm64",
     ]
   end
 
@@ -422,8 +439,6 @@ VERSION=#{@deb_upstream_version}
       # "amazon-linux-2023-arch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-7",
-      # "centos-7-aarch64",
     ]
   end
 

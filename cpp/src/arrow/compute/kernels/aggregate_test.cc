@@ -941,6 +941,46 @@ TYPED_TEST(TestCountKernel, SimpleCount) {
   EXPECT_THAT(Count(*MakeScalar(ty, 1), all), ResultWith(Datum(int64_t(1))));
 }
 
+TEST(TestCountKernel, RunEndEncodedNulls) {
+  auto input = ArrayFromJSON(int32(), "[1, 1, null, null, null, 2, 2, 2, null, 3]");
+  ASSERT_OK_AND_ASSIGN(auto encoded, RunEndEncode(input));
+
+  auto array = encoded.make_array();
+  ValidateCount(*array, {6, 4});
+  // Logical slice: [null, null, 2, 2, 2, null].
+  ValidateCount(*array->Slice(3, 6), {3, 3});
+}
+
+TEST(TestCountKernel, SparseUnionSlicedNulls) {
+  // GH-50113: Sliced unions can report incorrect null counts in count.
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1, 1]");
+  ArrayVector children = {
+      ArrayFromJSON(float64(), "[0.5, 99.0, null, 3.0, 88.0, 77.0]"),
+      ArrayFromJSON(boolean(), "[false, null, true, false, true, false]")};
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       SparseUnionArray::Make(*type_ids, std::move(children)));
+
+  // Logical array: [0.5, null, null, 3.0, true, false].
+  ValidateCount(*array, {4, 2});
+  // Logical slice: [null, null, 3.0, true].
+  ValidateCount(*array->Slice(1, 4), {2, 2});
+}
+
+TEST(TestCountKernel, DenseUnionSlicedNulls) {
+  // GH-50113: Sliced unions can report incorrect null counts in count.
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1, 1]");
+  auto value_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1, 2]");
+  ArrayVector children = {ArrayFromJSON(float64(), "[0.5, null, 3.0]"),
+                          ArrayFromJSON(boolean(), "[null, true, false]")};
+  ASSERT_OK_AND_ASSIGN(
+      auto array, DenseUnionArray::Make(*type_ids, *value_offsets, std::move(children)));
+
+  // Logical array: [0.5, null, null, 3.0, true, false].
+  ValidateCount(*array, {4, 2});
+  // Logical slice: [null, null, 3.0, true].
+  ValidateCount(*array->Slice(1, 4), {2, 2});
+}
+
 template <typename ArrowType>
 class TestRandomNumericCountKernel : public ::testing::Test {};
 
@@ -1841,6 +1881,24 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     AssertMinMaxIsNull(array, options);
   }
 
+  void AssertMinMaxIsNaN(const Datum& array, const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
+      ASSERT_TRUE(std::isnan(checked_cast<const ScalarType&>(*val).value));
+    }
+  }
+
+  void AssertMinMaxIsNaN(const std::string& json, const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertMinMaxIsNaN(array, options);
+  }
+
+  void AssertMinMaxIsNaN(const std::vector<std::string>& json,
+                         const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertMinMaxIsNaN(array, options);
+  }
+
   std::shared_ptr<DataType> type_singleton() {
     return default_type_instance<ArrowType>();
   }
@@ -1963,6 +2021,9 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
   this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
+  this->AssertMinMaxIs("[NaN, null, 42]", 42, 42, options);
+  this->AssertMinMaxIsNaN("[NaN, NaN]", options);
+  this->AssertMinMaxIsNaN("[NaN, null]", options);
   this->AssertMinMaxIs(chunked_input1, 1, 9, options);
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
@@ -1980,6 +2041,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
   this->AssertMinMaxIsNull("[5, -Inf, null, 3, 4]", options);
+  this->AssertMinMaxIsNull("[NaN, null]", options);
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
@@ -3275,15 +3337,8 @@ void CheckVarStd(const Datum& array, const VarianceOptions& options,
   auto var = checked_cast<const DoubleScalar*>(out_var.scalar().get());
   auto std = checked_cast<const DoubleScalar*>(out_std.scalar().get());
   ASSERT_TRUE(var->is_valid && std->is_valid);
-  // Near zero these macros don't work as well
-  // (and MinGW can give results slightly off from zero)
-  if (std::abs(expected_var) < 1e-20) {
-    ASSERT_NEAR(std->value * std->value, var->value, 1e-20);
-    ASSERT_NEAR(var->value, expected_var, 1e-20);
-  } else {
-    ASSERT_DOUBLE_EQ(std->value * std->value, var->value);
-    ASSERT_DOUBLE_EQ(var->value, expected_var);  // < 4ULP
-  }
+  AssertWithinUlp(std->value * std->value, var->value, /*n_ulps=*/2);
+  AssertWithinUlp(var->value, expected_var, /*n_ulps=*/5);
 }
 
 template <typename ArrowType>
@@ -3874,8 +3929,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 #define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
 #define DOUBLE(x) Datum(static_cast<double>(x))
 // output type per interpolation: linear, lower, higher, nearest, midpoint
-#define O(a, b, c, d, e) \
-  { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
+#define O(a, b, c, d, e) {DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e)}
 
 template <typename ArrowType>
 class TestIntegerQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {};
@@ -4159,6 +4213,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
   void VerifyTDigest(const std::shared_ptr<ChunkedArray>& chunked,
                      std::vector<double>& quantiles) {
+    // For some reason, TDigest computations with libc++ seem much less accurate.
+    // A possible explanation is that libc++ has less precise implementations
+    // of std::sin and std::asin, used in the TDigest implementation.
+#  ifdef _LIBCPP_VERSION
+    constexpr double kRelativeTolerance = 0.09;
+#  else
+    constexpr double kRelativeTolerance = 0.05;
+#  endif
     TDigestOptions options(quantiles);
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
     const auto& out_array = out.make_array();
@@ -4173,7 +4235,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     const double* approx = out_array->data()->GetValues<double>(1);
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
-      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      const double tolerance = std::fabs(exact_scalar->value) * kRelativeTolerance;
       EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
     }
   }

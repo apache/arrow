@@ -386,16 +386,22 @@ gdv_int64 get_power_of_10(gdv_int32 exp) {
 
 FORCE_INLINE
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
+  // For int64 (no fractional digits), positive scale is a no-op
+  if (out_scale >= 0) {
+    return in;
+  }
+  // GetScaleMultiplier only supports scales 0-38
+  if (out_scale < -38) {
+    return 0;
+  }
+
   bool overflow = false;
   arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
   arrow::BasicDecimal128 decimal_with_outscale =
       gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), 38,
                                     out_scale, out_scale, &overflow);
-  if (out_scale < 0) {
-    out_scale = 0;
-  }
   return gandiva::decimalops::ToInt64(
-      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
+      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, 0), &overflow);
 }
 
 FORCE_INLINE

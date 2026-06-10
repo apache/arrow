@@ -224,6 +224,9 @@ TEST(ExpressionUtils, MakeExecBatch) {
   auto duplicated_names =
       RecordBatch::Make(schema({GetField("i32"), GetField("i32")}), kNumRows, {i32, i32});
   ASSERT_RAISES(Invalid, MakeExecBatch(*kBoringSchema, duplicated_names));
+
+  ASSERT_OK_AND_ASSIGN(auto boring_table, Table::MakeEmpty(kBoringSchema));
+  ASSERT_RAISES(NotImplemented, MakeExecBatch(*kBoringSchema, boring_table));
 }
 
 class WidgetifyOptions : public compute::FunctionOptions {

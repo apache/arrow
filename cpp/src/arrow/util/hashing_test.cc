@@ -30,6 +30,7 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/hashing.h"
@@ -376,6 +377,32 @@ TEST(ScalarMemoTable, StressInt64) {
   ASSERT_EQ(table.size(), map.size());
 }
 
+TEST(ScalarMemoTable, MergeTablePropagatesInsertError) {
+  int64_t bytes_allocated_limit = 0;
+  {
+    ProxyMemoryPool probe(default_memory_pool());
+    ScalarMemoTable<int64_t> target(&probe, 0);
+    for (int64_t value = 0; value < 15; ++value) {
+      AssertGetOrInsert(target, value, static_cast<int32_t>(value));
+    }
+    bytes_allocated_limit = probe.bytes_allocated();
+  }
+  ASSERT_GT(bytes_allocated_limit, 0);
+
+  ScalarMemoTable<int64_t> source(default_memory_pool(), 0);
+  AssertGetOrInsert(source, 15, 0);
+
+  ProxyMemoryPool proxy(default_memory_pool());
+  CappedMemoryPool pool(&proxy, bytes_allocated_limit);
+  ScalarMemoTable<int64_t> target(&pool, 0);
+  for (int64_t value = 0; value < 15; ++value) {
+    AssertGetOrInsert(target, value, static_cast<int32_t>(value));
+  }
+  ASSERT_EQ(proxy.bytes_allocated(), bytes_allocated_limit);
+
+  ASSERT_RAISES(OutOfMemory, target.MergeTable(source));
+}
+
 TEST(BinaryMemoTable, Basics) {
   std::string A = "", B = "a", C = "foo", D = "bar", E, F;
   E += '\0';
@@ -478,6 +505,35 @@ TEST(BinaryMemoTable, Stress) {
     }
   }
   ASSERT_EQ(table.size(), map.size());
+}
+
+TEST(BinaryMemoTable, MergeTablePropagatesInsertError) {
+  const std::vector<std::string> initial_values = {"a", "bb", "ccc", "dddd"};
+  const std::string extra_value(4096, 'x');
+
+  int64_t bytes_allocated_limit = 0;
+  {
+    ProxyMemoryPool probe(default_memory_pool());
+    BinaryMemoTable<BinaryBuilder> target(&probe, 0);
+    for (size_t i = 0; i < initial_values.size(); ++i) {
+      AssertGetOrInsert(target, initial_values[i], static_cast<int32_t>(i));
+    }
+    bytes_allocated_limit = probe.bytes_allocated();
+  }
+  ASSERT_GT(bytes_allocated_limit, 0);
+
+  BinaryMemoTable<BinaryBuilder> source(default_memory_pool(), 0);
+  AssertGetOrInsert(source, extra_value, 0);
+
+  ProxyMemoryPool proxy(default_memory_pool());
+  CappedMemoryPool pool(&proxy, bytes_allocated_limit);
+  BinaryMemoTable<BinaryBuilder> target(&pool, 0);
+  for (size_t i = 0; i < initial_values.size(); ++i) {
+    AssertGetOrInsert(target, initial_values[i], static_cast<int32_t>(i));
+  }
+  ASSERT_EQ(proxy.bytes_allocated(), bytes_allocated_limit);
+
+  ASSERT_RAISES(OutOfMemory, target.MergeTable(source));
 }
 
 TEST(BinaryMemoTable, Empty) {

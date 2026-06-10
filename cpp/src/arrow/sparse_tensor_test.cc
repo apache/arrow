@@ -1641,10 +1641,32 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestNonAscendingShape) {
   ASSERT_TRUE(st->Equals(*sparse_tensor));
 }
 
+TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestEqualityMismatchedDimensions) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  // 2D vs 3D - comparing indices with different dimensionality
+  // 2D CSF: ndim=2, so indptr.size()=1, indices.size()=2
+  std::vector<int64_t> axis_order_2D = {0, 1};
+  std::vector<std::vector<c_index_value_type>> indptr_2D = {{0, 1}};
+  std::vector<std::vector<c_index_value_type>> indices_2D = {{0}, {0}};
+  auto si_2D = this->MakeSparseCSFIndex(axis_order_2D, indptr_2D, indices_2D);
+
+  // 3D CSF: ndim=3, so indptr.size()=2, indices.size()=3
+  std::vector<int64_t> axis_order_3D = {0, 1, 2};
+  std::vector<std::vector<c_index_value_type>> indptr_3D = {{0, 1}, {0, 1}};
+  std::vector<std::vector<c_index_value_type>> indices_3D = {{0}, {0}, {0}};
+  auto si_3D = this->MakeSparseCSFIndex(axis_order_3D, indptr_3D, indices_3D);
+
+  ASSERT_FALSE(si_2D->Equals(*si_3D));
+  ASSERT_FALSE(si_3D->Equals(*si_2D));
+  ASSERT_TRUE(si_2D->Equals(*si_2D));
+}
+
 REGISTER_TYPED_TEST_SUITE_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor,
                             TestTensorToSparseTensor, TestSparseTensorToTensor,
                             TestAlternativeAxisOrder, TestNonAscendingShape,
-                            TestRoundTrip);
+                            TestRoundTrip, TestEqualityMismatchedDimensions);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt8, TestSparseCSFTensorForIndexValueType, Int8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestSparseCSFTensorForIndexValueType,

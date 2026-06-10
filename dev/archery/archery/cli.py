@@ -667,7 +667,8 @@ def _set_default(opt, default):
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
-              help='Include C++ in integration tests')
+              help='Include C++ in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_CPP")
 @click.option('--with-dotnet', type=bool, default=False,
               help='Include .NET in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_DOTNET")
@@ -683,6 +684,9 @@ def _set_default(opt, default):
 @click.option('--with-nanoarrow', type=bool, default=False,
               help='Include nanoarrow in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
+@click.option('--with-ruby', type=bool, default=False,
+              help='Include Ruby in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_RUBY")
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")

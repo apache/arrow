@@ -24,4 +24,3 @@ method = cmake
 
 [provide]
 boost_filesystem = boost_filesystem_dep
-boost_system = boost_system_dep

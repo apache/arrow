@@ -19,7 +19,7 @@
 
 ## Python library for Apache Arrow
 
-[![pypi](https://img.shields.io/pypi/v/pyarrow.svg)](https://pypi.org/project/pyarrow/) [![conda-forge](https://img.shields.io/conda/vn/conda-forge/pyarrow.svg)](https://anaconda.org/conda-forge/pyarrow)
+[![pypi](https://img.shields.io/pypi/v/pyarrow.svg)](https://pypi.org/project/pyarrow/) [![conda-forge](https://anaconda.org/conda-forge/pyarrow/badges/version.svg)](https://anaconda.org/conda-forge/pyarrow)
 
 This library provides a Python API for functionality provided by the Arrow C++
 libraries, along with tools for Arrow integration and interoperability with
@@ -42,7 +42,7 @@ pip install pyarrow
 ```
 
 If you encounter any issues importing the pip wheels on Windows, you may need
-to install the latest [Visual C++ Redistributable for Visual Studio][6].
+to install the latest [Visual C++ Redistributable for Visual Studio][3].
 
 ## Development
 
@@ -53,7 +53,5 @@ See [Python Development][2] in the documentation subproject.
 See [documentation build instructions][1] in the documentation subproject.
 
 [1]: https://github.com/apache/arrow/blob/main/docs/source/developers/documentation.rst
-[2]: https://arrow.apache.org/docs/developers/python.html
-[3]: https://github.com/pandas-dev/pandas
-[5]: https://arrow.apache.org/docs/latest/python/benchmarks.html
-[6]: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version
+[2]: https://arrow.apache.org/docs/developers/python/index.html
+[3]: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version

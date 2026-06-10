@@ -16,6 +16,9 @@
 // under the License.
 
 #include <cmath>
+#include <memory>
+#include <type_traits>
+#include <vector>
 
 #include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
@@ -32,8 +35,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 
-namespace arrow {
+namespace arrow::util {
 
 // Test basic cases for contains NaN.
 class TestAssertContainsNaN : public ::testing::Test {};
@@ -198,8 +202,15 @@ void CheckWithinUlp(Float x, Float y, int n_ulp) {
   CheckWithinUlpSingle(-y, -x, n_ulp);
 
   for (int exp : {1, -1, 10, -10}) {
-    Float x_scaled = std::ldexp(x, exp);
-    Float y_scaled = std::ldexp(y, exp);
+    Float x_scaled(0);
+    Float y_scaled(0);
+    if constexpr (std::is_same_v<Float, Float16>) {
+      x_scaled = Float16(std::ldexp(x.ToFloat(), exp));
+      y_scaled = Float16(std::ldexp(y.ToFloat(), exp));
+    } else {
+      x_scaled = std::ldexp(x, exp);
+      y_scaled = std::ldexp(y, exp);
+    }
     CheckWithinUlpSingle(x_scaled, y_scaled, n_ulp);
     CheckWithinUlpSingle(y_scaled, x_scaled, n_ulp);
   }
@@ -219,8 +230,15 @@ void CheckNotWithinUlp(Float x, Float y, int n_ulp) {
   }
 
   for (int exp : {1, -1, 10, -10}) {
-    Float x_scaled = std::ldexp(x, exp);
-    Float y_scaled = std::ldexp(y, exp);
+    Float x_scaled(0);
+    Float y_scaled(0);
+    if constexpr (std::is_same_v<Float, Float16>) {
+      x_scaled = Float16(std::ldexp(x.ToFloat(), exp));
+      y_scaled = Float16(std::ldexp(y.ToFloat(), exp));
+    } else {
+      x_scaled = std::ldexp(x, exp);
+      y_scaled = std::ldexp(y, exp);
+    }
     CheckNotWithinUlpSingle(x_scaled, y_scaled, n_ulp);
     CheckNotWithinUlpSingle(y_scaled, x_scaled, n_ulp);
   }
@@ -242,6 +260,10 @@ TEST(TestWithinUlp, Double) {
   CheckWithinUlp(1.0, 0.9999999999999999, 1);
   CheckWithinUlp(1.0, 0.9999999999999988, 11);
   CheckNotWithinUlp(1.0, 0.9999999999999988, 10);
+  CheckWithinUlp(1.0000000000000002, 0.9999999999999999, 2);
+  CheckNotWithinUlp(1.0000000000000002, 0.9999999999999999, 1);
+  CheckWithinUlp(0.9999999999999988, 1.0000000000000007, 14);
+  CheckNotWithinUlp(0.9999999999999988, 1.0000000000000007, 13);
 
   CheckWithinUlp(123.4567, 123.45670000000015, 11);
   CheckNotWithinUlp(123.4567, 123.45670000000015, 10);
@@ -271,6 +293,10 @@ TEST(TestWithinUlp, Float) {
   CheckWithinUlp(1.0f, 0.99999994f, 1);
   CheckWithinUlp(1.0f, 0.99999934f, 11);
   CheckNotWithinUlp(1.0f, 0.99999934f, 10);
+  CheckWithinUlp(1.0000001f, 0.99999994f, 2);
+  CheckNotWithinUlp(1.0000001f, 0.99999994f, 1);
+  CheckWithinUlp(1.0000013f, 0.99999934f, 22);
+  CheckNotWithinUlp(1.0000013f, 0.99999934f, 21);
 
   CheckWithinUlp(123.456f, 123.456085f, 11);
   CheckNotWithinUlp(123.456f, 123.456085f, 10);
@@ -284,15 +310,65 @@ TEST(TestWithinUlp, Float) {
   CheckNotWithinUlp(12.34f, -12.34f, 10);
 }
 
+std::vector<Float16> ConvertToFloat16Vector(const std::vector<float>& float_values) {
+  std::vector<Float16> float16_vector;
+  float16_vector.reserve(float_values.size());
+  for (auto& value : float_values) {
+    float16_vector.emplace_back(value);
+  }
+  return float16_vector;
+}
+
+TEST(TestWithinUlp, Float16) {
+  for (Float16 f : ConvertToFloat16Vector({0.0f, 1e-8f, 1.0f, 123.456f})) {
+    CheckWithinUlp(f, f, 0);
+    CheckWithinUlp(f, f, 1);
+    CheckWithinUlp(f, f, 42);
+  }
+  CheckWithinUlp(Float16(-0.0f), Float16(0.0f), 1);
+  CheckWithinUlp(Float16(1.0f), Float16(1.00097656f), 1);
+  CheckWithinUlp(Float16(1.0f), Float16(1.01074219f), 11);
+  CheckNotWithinUlp(Float16(1.0f), Float16(1.00097656f), 0);
+  CheckNotWithinUlp(Float16(1.0f), Float16(1.01074219f), 10);
+  // left and right have a different exponent but are still very close
+  CheckWithinUlp(Float16(1.0f), Float16(0.999511719f), 1);
+  CheckWithinUlp(Float16(1.0f), Float16(0.994628906f), 11);
+  CheckNotWithinUlp(Float16(1.0f), Float16(0.994628906f), 10);
+  CheckWithinUlp(Float16(1.00097656), Float16(0.999511719f), 2);
+  CheckNotWithinUlp(Float16(1.00097656), Float16(0.999511719f), 1);
+  CheckWithinUlp(Float16(1.01074219f), Float16(0.994628906f), 22);
+  CheckNotWithinUlp(Float16(1.01074219f), Float16(0.994628906f), 21);
+
+  CheckWithinUlp(Float16(123.456f), Float16(124.143501f), 11);
+  // The assertion below does not work because ldexp(Float16(124.143501f), 10)
+  // results in inf in Float16.
+  // CheckNotWithinUlp(Float16(123.456f), Float16(124.143501f), 10);
+
+  CheckWithinUlp(std::numeric_limits<Float16>::infinity(),
+                 std::numeric_limits<Float16>::infinity(), 10);
+  CheckWithinUlp(-std::numeric_limits<Float16>::infinity(),
+                 -std::numeric_limits<Float16>::infinity(), 10);
+  CheckWithinUlp(std::numeric_limits<Float16>::quiet_NaN(),
+                 std::numeric_limits<Float16>::quiet_NaN(), 10);
+  CheckNotWithinUlp(std::numeric_limits<Float16>::infinity(),
+                    -std::numeric_limits<Float16>::infinity(), 10);
+  CheckNotWithinUlp(Float16(12.34f), -std::numeric_limits<Float16>::infinity(), 10);
+  CheckNotWithinUlp(Float16(12.34f), std::numeric_limits<Float16>::quiet_NaN(), 10);
+  CheckNotWithinUlp(Float16(12.34f), Float16(-12.34f), 10);
+}
+
 TEST(AssertTestWithinUlp, Basics) {
   AssertWithinUlp(123.4567, 123.45670000000015, 11);
   AssertWithinUlp(123.456f, 123.456085f, 11);
+  AssertWithinUlp(Float16(123.456f), Float16(124.143501f), 11);
 #ifndef _WIN32
   // GH-47442
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.4567, 123.45670000000015, 10),
                        "not within 10 ulps");
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
+  EXPECT_FATAL_FAILURE(AssertWithinUlp(Float16(123.456f), Float16(124.143501f), 10),
+                       "not within 10 ulps");
 #endif
 }
 
-}  // namespace arrow
+}  // namespace arrow::util

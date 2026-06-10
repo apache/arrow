@@ -123,7 +123,7 @@ classdef StructArray < arrow.array.Array
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.array.internal.getArrayProxyIDs
+            import arrow.array.internal.getProxyIDs
             import arrow.internal.validate.parseValid
 
             if numel(arrowArrays) == 0
@@ -135,7 +135,7 @@ classdef StructArray < arrow.array.Array
             validateColumnNames(opts.FieldNames, numel(arrowArrays));
             validElements = parseValid(opts, arrowArrays{1}.NumElements);
 
-            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            arrayProxyIDs = getProxyIDs(arrowArrays);
             args = struct(ArrayProxyIDs=arrayProxyIDs, ...
                 FieldNames=opts.FieldNames, Valid=validElements);
             proxyName = "arrow.array.proxy.StructArray";
@@ -152,7 +152,7 @@ classdef StructArray < arrow.array.Array
 
             import arrow.tabular.internal.decompose
             import arrow.tabular.internal.validateColumnNames
-            import arrow.array.internal.getArrayProxyIDs
+            import arrow.array.internal.getProxyIDs
             import arrow.internal.validate.parseValid
 
             if width(T) == 0
@@ -166,7 +166,7 @@ classdef StructArray < arrow.array.Array
             validateColumnNames(opts.FieldNames, width(T));
 
             arrowArrays = decompose(T);
-            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            arrayProxyIDs = getProxyIDs(arrowArrays);
             validElements = parseValid(opts, height(T));
 
             args = struct(ArrayProxyIDs=arrayProxyIDs, ...

@@ -268,6 +268,9 @@ TEST(TestTensor, MakeFailureCases) {
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
                                       {sizeof(double) * 12, sizeof(double)}));
 
+  // row-major (implicit strides) shape larger than the backing buffer
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {3, 100}));
+
   // too many dim_names are supplied
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {}, {"foo", "bar", "baz"}));
 }

@@ -192,6 +192,35 @@ struct GetByteRangesArray {
 
   Status Visit(const LargeBinaryType& type) const { return VisitBaseBinary(type); }
 
+  template <typename BaseViewType>
+  Status VisitBaseViewType(const BaseViewType& type) const {
+    using c_type = typename BaseViewType::c_type;
+    RETURN_NOT_OK(VisitBitmap(input.buffers[0]));
+    const Buffer& views = *input.buffers[1];
+    RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(views.data())));
+    RETURN_NOT_OK(range_offsets->Append(sizeof(c_type) * offset));
+    RETURN_NOT_OK(range_lengths->Append(sizeof(c_type) * length));
+
+    // The following calculation is an over estimate of the size since views buffer
+    // might
+    // 1. Not reference all the values in data buffers (the array was filtered without gc)
+    // 2. Reference a value multiple times without repeating it in the data buffer
+    //
+    // Producing exact byte size would require linear scan of all values in view buffer
+    for (size_t i = 2; i < input.buffers.size(); i++) {
+      const Buffer& buf = *input.buffers[i];
+      RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(buf.data())));
+      RETURN_NOT_OK(range_offsets->Append(0));
+      RETURN_NOT_OK(range_lengths->Append(static_cast<uint64_t>(buf.size())));
+    }
+
+    return Status::OK();
+  }
+
+  Status Visit(const StringViewType& type) const { return VisitBaseViewType(type); }
+
+  Status Visit(const BinaryViewType& type) const { return VisitBaseViewType(type); }
+
   template <typename BaseListType>
   Status VisitBaseList(const BaseListType& type) const {
     using offset_type = typename BaseListType::offset_type;
@@ -214,6 +243,39 @@ struct GetByteRangesArray {
   Status Visit(const ListType& type) const { return VisitBaseList(type); }
 
   Status Visit(const LargeListType& type) const { return VisitBaseList(type); }
+
+  template <typename BaseListViewType>
+  Status VisitBaseListView(const BaseListViewType& type) const {
+    using offset_type = typename BaseListViewType::offset_type;
+    RETURN_NOT_OK(VisitBitmap(input.buffers[0]));
+
+    const Buffer& offsets_buffer = *input.buffers[1];
+    RETURN_NOT_OK(
+        range_starts->Append(reinterpret_cast<uint64_t>(offsets_buffer.data())));
+    RETURN_NOT_OK(range_offsets->Append(sizeof(offset_type) * offset));
+    RETURN_NOT_OK(range_lengths->Append(sizeof(offset_type) * length));
+
+    const Buffer& lengths_buffer = *input.buffers[2];
+    RETURN_NOT_OK(
+        range_starts->Append(reinterpret_cast<uint64_t>(lengths_buffer.data())));
+    RETURN_NOT_OK(range_offsets->Append(sizeof(offset_type) * offset));
+    RETURN_NOT_OK(range_lengths->Append(sizeof(offset_type) * length));
+
+    // The following calculation is an over estimate of the byte size since views
+    // buffer might
+    // 1. Not reference all the values in data buffers (the array was filtered without gc)
+    // 2. Reference a value multiple times without repeating it in the data buffer
+    //
+    // Producing exact byte size would require linear scan of all values in view buffer
+    GetByteRangesArray child{
+        *input.child_data[0], 0, input.child_data[0]->length, range_starts, range_offsets,
+        range_lengths};
+    return VisitTypeInline(*type.value_type(), &child);
+  }
+
+  Status Visit(const ListViewType& type) const { return VisitBaseListView(type); }
+
+  Status Visit(const LargeListViewType& type) const { return VisitBaseListView(type); }
 
   Status Visit(const FixedSizeListType& type) const {
     RETURN_NOT_OK(VisitBitmap(input.buffers[0]));

@@ -21,12 +21,12 @@
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <type_traits>
 #include <vector>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
 
 namespace arrow {
 
@@ -77,7 +77,7 @@ class ARROW_EXPORT ChunkResolver {
 
  public:
   explicit ChunkResolver(const ArrayVector& chunks) noexcept;
-  explicit ChunkResolver(util::span<const Array* const> chunks) noexcept;
+  explicit ChunkResolver(std::span<const Array* const> chunks) noexcept;
   explicit ChunkResolver(const RecordBatchVector& batches) noexcept;
 
   /// \brief Construct a ChunkResolver from a vector of chunks.size() + 1 offsets.

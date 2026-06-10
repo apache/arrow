@@ -418,9 +418,11 @@ ARROW_TESTING_EXPORT
 void AssertChildExit(int child_pid, int expected_exit_status = 0);
 #endif
 
-// A RAII-style object that switches to a new locale, and switches back
-// to the old locale when going out of scope.  Doesn't do anything if the
-// new locale doesn't exist on the local machine.
+// A RAII-style object that temporarily switches to a new locale
+//
+// The guard switches back to the old locale when going out of scope.
+// It doesn't do anything if the new locale doesn't exist on the local machine.
+//
 // ATTENTION: may crash with an assertion failure on Windows debug builds.
 // See ARROW-6108, also https://gerrit.libreoffice.org/#/c/54110/
 class ARROW_TESTING_EXPORT LocaleGuard {
@@ -433,15 +435,20 @@ class ARROW_TESTING_EXPORT LocaleGuard {
   std::unique_ptr<Impl> impl_;
 };
 
+// A RAII-style object that temporarily sets an environment variable
+//
+// The guard restores the variable's previous value when going out of scope,
+// or deletes the variable if it was not initially set.
+// The environment variable can also be temporarily deleted if std::nullopt
+// is passed instead of a string value.
 class ARROW_TESTING_EXPORT EnvVarGuard {
  public:
-  EnvVarGuard(const std::string& name, const std::string& value);
+  EnvVarGuard(std::string name, std::optional<std::string> value);
   ~EnvVarGuard();
 
  protected:
-  const std::string name_;
-  std::string old_value_;
-  bool was_set_;
+  std::string name_;
+  std::optional<std::string> old_value_;
 };
 
 namespace internal {

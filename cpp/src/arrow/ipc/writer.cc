@@ -1493,7 +1493,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     RETURN_NOT_OK(UpdatePosition());
 
     // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(kArrowMagicBytes, strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Write(kArrowMagicBytes.data(), kArrowMagicBytes.size()));
     RETURN_NOT_OK(Align());
 
     return Status::OK();
@@ -1521,7 +1521,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
 
     // Write magic bytes to end file
-    return Write(kArrowMagicBytes, strlen(kArrowMagicBytes));
+    return Write(kArrowMagicBytes.data(), kArrowMagicBytes.size());
   }
 
  protected:

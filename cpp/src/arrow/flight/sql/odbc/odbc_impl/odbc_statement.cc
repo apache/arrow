@@ -15,12 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
+// platform.h platform.h includes windows.h so it needs to be included first
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
+#include "arrow/type.h"
+
+// Include ODBC headers after arrow fwd type header to avoid conflicts
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
@@ -29,8 +34,8 @@
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
+#include <optional>
 #include <utility>
 
 using ODBC::DescriptorRecord;
@@ -129,6 +134,9 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_WLONGVARCHAR:
       return SQL_C_WCHAR;
 
+    case SQL_BIT:
+      return SQL_C_BIT;
+
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
@@ -146,12 +154,19 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_BIGINT:
       return record.is_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
 
+    case SQL_NUMERIC:
+    case SQL_DECIMAL:
+      return SQL_C_NUMERIC;
+
+    case SQL_FLOAT:
     case SQL_REAL:
       return SQL_C_FLOAT;
 
-    case SQL_FLOAT:
     case SQL_DOUBLE:
       return SQL_C_DOUBLE;
+
+    case SQL_GUID:
+      return SQL_C_GUID;
 
     case SQL_DATE:
     case SQL_TYPE_DATE:
@@ -165,32 +180,32 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_TYPE_TIMESTAMP:
       return SQL_C_TYPE_TIMESTAMP;
 
-    case SQL_C_INTERVAL_DAY:
-      return SQL_INTERVAL_DAY;
-    case SQL_C_INTERVAL_DAY_TO_HOUR:
-      return SQL_INTERVAL_DAY_TO_HOUR;
-    case SQL_C_INTERVAL_DAY_TO_MINUTE:
-      return SQL_INTERVAL_DAY_TO_MINUTE;
-    case SQL_C_INTERVAL_DAY_TO_SECOND:
-      return SQL_INTERVAL_DAY_TO_SECOND;
-    case SQL_C_INTERVAL_HOUR:
-      return SQL_INTERVAL_HOUR;
-    case SQL_C_INTERVAL_HOUR_TO_MINUTE:
-      return SQL_INTERVAL_HOUR_TO_MINUTE;
-    case SQL_C_INTERVAL_HOUR_TO_SECOND:
-      return SQL_INTERVAL_HOUR_TO_SECOND;
-    case SQL_C_INTERVAL_MINUTE:
-      return SQL_INTERVAL_MINUTE;
-    case SQL_C_INTERVAL_MINUTE_TO_SECOND:
-      return SQL_INTERVAL_MINUTE_TO_SECOND;
-    case SQL_C_INTERVAL_SECOND:
-      return SQL_INTERVAL_SECOND;
-    case SQL_C_INTERVAL_YEAR:
-      return SQL_INTERVAL_YEAR;
-    case SQL_C_INTERVAL_YEAR_TO_MONTH:
-      return SQL_INTERVAL_YEAR_TO_MONTH;
-    case SQL_C_INTERVAL_MONTH:
-      return SQL_INTERVAL_MONTH;
+    case SQL_INTERVAL_DAY:
+      return SQL_C_INTERVAL_DAY;
+    case SQL_INTERVAL_DAY_TO_HOUR:
+      return SQL_C_INTERVAL_DAY_TO_HOUR;
+    case SQL_INTERVAL_DAY_TO_MINUTE:
+      return SQL_C_INTERVAL_DAY_TO_MINUTE;
+    case SQL_INTERVAL_DAY_TO_SECOND:
+      return SQL_C_INTERVAL_DAY_TO_SECOND;
+    case SQL_INTERVAL_HOUR:
+      return SQL_C_INTERVAL_HOUR;
+    case SQL_INTERVAL_HOUR_TO_MINUTE:
+      return SQL_C_INTERVAL_HOUR_TO_MINUTE;
+    case SQL_INTERVAL_HOUR_TO_SECOND:
+      return SQL_C_INTERVAL_HOUR_TO_SECOND;
+    case SQL_INTERVAL_MINUTE:
+      return SQL_C_INTERVAL_MINUTE;
+    case SQL_INTERVAL_MINUTE_TO_SECOND:
+      return SQL_C_INTERVAL_MINUTE_TO_SECOND;
+    case SQL_INTERVAL_SECOND:
+      return SQL_C_INTERVAL_SECOND;
+    case SQL_INTERVAL_YEAR:
+      return SQL_C_INTERVAL_YEAR;
+    case SQL_INTERVAL_YEAR_TO_MONTH:
+      return SQL_C_INTERVAL_YEAR_TO_MONTH;
+    case SQL_INTERVAL_MONTH:
+      return SQL_C_INTERVAL_MONTH;
 
     default:
       throw DriverException("Unknown SQL type: " + std::to_string(record.concise_type),
@@ -273,7 +288,7 @@ void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
 bool ODBCStatement::IsPrepared() const { return is_prepared_; }
 
 void ODBCStatement::Prepare(const std::string& query) {
-  boost::optional<std::shared_ptr<ResultSetMetadata> > metadata =
+  std::optional<std::shared_ptr<ResultSetMetadata> > metadata =
       spi_statement_->Prepare(query);
 
   if (metadata) {
@@ -306,7 +321,8 @@ void ODBCStatement::ExecuteDirect(const std::string& query) {
   is_prepared_ = false;
 }
 
-bool ODBCStatement::Fetch(size_t rows) {
+bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
+                          SQLUSMALLINT* row_status_array) {
   if (has_reached_end_of_result_) {
     ird_->SetRowsProcessed(0);
     return false;
@@ -339,10 +355,23 @@ bool ODBCStatement::Fetch(size_t rows) {
     current_ard_->NotifyBindingsHavePropagated();
   }
 
-  size_t rows_fetched = current_result_->Move(rows, current_ard_->GetBindOffset(),
-                                              current_ard_->GetBoundStructOffset(),
-                                              ird_->GetArrayStatusPtr());
+  uint16_t* array_status_ptr;
+  if (row_status_array) {
+    // For SQLExtendedFetch only
+    array_status_ptr = row_status_array;
+  } else {
+    array_status_ptr = ird_->GetArrayStatusPtr();
+  }
+
+  size_t rows_fetched =
+      current_result_->Move(rows, current_ard_->GetBindOffset(),
+                            current_ard_->GetBoundStructOffset(), array_status_ptr);
   ird_->SetRowsProcessed(static_cast<SQLULEN>(rows_fetched));
+
+  if (row_count_ptr) {
+    // For SQLExtendedFetch only
+    *row_count_ptr = rows_fetched;
+  }
 
   row_number_ += rows_fetched;
   has_reached_end_of_result_ = rows_fetched != rows;
@@ -352,7 +381,7 @@ bool ODBCStatement::Fetch(size_t rows) {
 void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
                                 SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr,
                                 bool is_unicode) {
-  boost::optional<Statement::Attribute> spi_attribute;
+  std::optional<Statement::Attribute> spi_attribute;
   switch (statement_attribute) {
     // Descriptor accessor attributes
     case SQL_ATTR_APP_PARAM_DESC:
@@ -375,6 +404,14 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
       return;
     case SQL_ATTR_PARAM_BIND_TYPE:
       current_apd_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
+      if (output) {
+        // Convert SQLINTEGER output to SQLULEN, since SQL_DESC_BIND_TYPE is SQLINTEGER
+        // and SQL_ATTR_PARAM_BIND_TYPE is SQLULEN
+        SQLINTEGER* output_int_ptr = reinterpret_cast<SQLINTEGER*>(output);
+        SQLINTEGER output_int = *output_int_ptr;
+        SQLULEN* typed_output = reinterpret_cast<SQLULEN*>(output);
+        *typed_output = static_cast<SQLULEN>(output_int);
+      }
       return;
     case SQL_ATTR_PARAM_OPERATION_PTR:
       current_apd_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
@@ -398,6 +435,14 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
       return;
     case SQL_ATTR_ROW_BIND_TYPE:
       current_ard_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
+      if (output) {
+        // Convert SQLINTEGER output to SQLULEN, since SQL_DESC_BIND_TYPE is SQLINTEGER
+        // and SQL_ATTR_ROW_BIND_TYPE is SQLULEN
+        SQLINTEGER* output_int_ptr = reinterpret_cast<SQLINTEGER*>(output);
+        SQLINTEGER output_int = *output_int_ptr;
+        SQLULEN* typed_output = reinterpret_cast<SQLULEN*>(output);
+        *typed_output = static_cast<SQLULEN>(output_int);
+      }
       return;
     case SQL_ATTR_ROW_OPERATION_PTR:
       current_ard_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
@@ -513,7 +558,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
   switch (statement_attribute) {
     case SQL_ATTR_APP_PARAM_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (current_apd_ != desc) {
+      if (desc && current_apd_ != desc) {
         if (current_apd_ != built_in_apd_.get()) {
           current_apd_->DetachFromStatement(this, true);
         }
@@ -526,7 +571,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
     }
     case SQL_ATTR_APP_ROW_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (current_ard_ != desc) {
+      if (desc && current_ard_ != desc) {
         if (current_ard_ != built_in_ard_.get()) {
           current_ard_->DetachFromStatement(this, false);
         }
@@ -627,7 +672,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
       CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_UB_OFF));
       return;
     case SQL_ATTR_RETRIEVE_DATA:
-      CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_TRUE));
+      CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_RD_ON));
       return;
     case SQL_ROWSET_SIZE:
       SetAttribute(value, rowset_size_);
@@ -677,7 +722,7 @@ void ODBCStatement::RevertAppDescriptor(bool isApd) {
 
 void ODBCStatement::CloseCursor(bool suppress_errors) {
   if (!suppress_errors && !current_result_) {
-    throw DriverException("Invalid cursor state", "28000");
+    throw DriverException("Invalid cursor state", "24000");
   }
 
   if (current_result_) {
@@ -691,24 +736,27 @@ void ODBCStatement::CloseCursor(bool suppress_errors) {
   has_reached_end_of_result_ = false;
 }
 
-bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
-                            SQLPOINTER data_ptr, SQLLEN buffer_length,
-                            SQLLEN* indicator_ptr) {
+SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
+                                 SQLPOINTER data_ptr, SQLLEN buffer_length,
+                                 SQLLEN* indicator_ptr) {
   if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
-  } else if (record_number > ird_->GetRecords().size()) {
+  } else if (static_cast<size_t>(record_number) > ird_->GetRecords().size()) {
     throw DriverException("Invalid column index: " + std::to_string(record_number),
                           "07009");
   }
 
   SQLSMALLINT evaluated_c_type = c_type;
 
-  // TODO: Get proper default precision and scale from abstraction.
-  int precision = 38;  // arrow::Decimal128Type::kMaxPrecision;
-  int scale = 0;
+  // Get precision and scale from IRD (implementation row descriptor) as defaults.
+  // These can be overridden by ARD (application row descriptor) if specified.
+  const DescriptorRecord& ird_record = ird_->GetRecords()[record_number - 1];
+  int precision = ird_record.precision > 0 ? ird_record.precision
+                                           : arrow::Decimal128Type::kMaxPrecision;
+  int scale = ird_record.scale;
 
   if (c_type == SQL_ARD_TYPE) {
-    if (record_number > current_ard_->GetRecords().size()) {
+    if (static_cast<size_t>(record_number) > current_ard_->GetRecords().size()) {
       throw DriverException("Invalid column index: " + std::to_string(record_number),
                             "07009");
     }
@@ -721,18 +769,47 @@ bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
   // Note: this is intentionally not an else if, since the type can be SQL_C_DEFAULT in
   // the ARD.
   if (evaluated_c_type == SQL_C_DEFAULT) {
-    if (record_number <= current_ard_->GetRecords().size()) {
+    if (static_cast<size_t>(record_number) <= current_ard_->GetRecords().size()) {
       const DescriptorRecord& ard_record = current_ard_->GetRecords()[record_number - 1];
       precision = ard_record.precision;
       scale = ard_record.scale;
     }
 
-    const DescriptorRecord& ird_record = ird_->GetRecords()[record_number - 1];
     evaluated_c_type = getc_typeForSQLType(ird_record);
   }
 
   return current_result_->GetData(record_number, evaluated_c_type, precision, scale,
                                   data_ptr, buffer_length, indicator_ptr);
+}
+
+SQLRETURN ODBCStatement::GetMoreResults() {
+  // Multiple result sets are not supported by Arrow protocol.
+  if (current_result_) {
+    return SQL_NO_DATA;
+  } else {
+    throw DriverException("Function sequence error", "HY010");
+  }
+}
+
+void ODBCStatement::GetColumnCount(SQLSMALLINT* column_count_ptr) {
+  if (!column_count_ptr) {
+    // column count pointer is not valid, do nothing as ODBC spec does not mention this as
+    // an error
+    return;
+  }
+  size_t column_count = ird_->GetRecords().size();
+  *column_count_ptr = static_cast<SQLSMALLINT>(column_count);
+}
+
+void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
+  if (!row_count_ptr) {
+    // row count pointer is not valid, do nothing as ODBC spec does not mention this as an
+    // error
+    return;
+  }
+  // Will always be -1 (meaning number of rows unknown) since only SELECT is supported by
+  // driver
+  *row_count_ptr = -1;
 }
 
 void ODBCStatement::ReleaseStatement() {

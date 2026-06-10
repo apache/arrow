@@ -37,7 +37,9 @@ Obtaining pyarrow with ORC Support
 --------------------------------------
 
 If you installed ``pyarrow`` with pip or conda, it should be built with ORC
-support bundled::
+support bundled:
+
+.. code-block:: python
 
    >>> from pyarrow import orc
 
@@ -52,7 +54,9 @@ Reading and Writing Single Files
 The functions :func:`~.orc.read_table` and :func:`~.orc.write_table`
 read and write the :ref:`pyarrow.Table <data.table>` object, respectively.
 
-Let's look at a simple table::
+Let's look at a simple table:
+
+.. code-block:: python
 
    >>> import numpy as np
    >>> import pyarrow as pa
@@ -65,19 +69,25 @@ Let's look at a simple table::
    ...     }
    ... )
 
-We write this to ORC format with ``write_table``::
+We write this to ORC format with ``write_table``:
+
+.. code-block:: python
 
    >>> from pyarrow import orc
    >>> orc.write_table(table, 'example.orc')
 
 This creates a single ORC file. In practice, an ORC dataset may consist
 of many files in many directories. We can read a single file back with
-``read_table``::
+``read_table``:
+
+.. code-block:: python
 
    >>> table2 = orc.read_table('example.orc')
 
 You can pass a subset of columns to read, which can be much faster than reading
-the whole file (due to the columnar layout)::
+the whole file (due to the columnar layout):
+
+.. code-block:: python
 
    >>> orc.read_table('example.orc', columns=['one', 'three'])
    pyarrow.Table
@@ -120,11 +130,13 @@ See the :func:`~pyarrow.orc.write_table()` docstring for more details.
 Finer-grained Reading and Writing
 ---------------------------------
 
-``read_table`` uses the :class:`~.ORCFile` class, which has other features::
+``read_table`` uses the :class:`~.ORCFile` class, which has other features:
+
+.. code-block:: python
 
    >>> orc_file = orc.ORCFile('example.orc')
    >>> orc_file.metadata
-
+   <BLANKLINE>
    -- metadata --
    >>> orc_file.schema
    one: double
@@ -139,7 +151,9 @@ As you can learn more in the `Apache ORC format
 <https://orc.apache.org/specification/>`_, an ORC file consists of
 multiple stripes. ``read_table`` will read all of the stripes and
 concatenate them into a single table. You can read individual stripes with
-``read_stripe``::
+``read_stripe``:
+
+.. code-block:: python
 
    >>> orc_file.nstripes
    1
@@ -148,8 +162,14 @@ concatenate them into a single table. You can read individual stripes with
    one: double
    two: string
    three: bool
+   ----
+   one: [-1,nan,2.5]
+   two: ["foo","bar","baz"]
+   three: [true,false,true]
 
-We can write an ORC file using ``ORCWriter``::
+We can write an ORC file using ``ORCWriter``:
+
+.. code-block:: python
 
    >>> with orc.ORCWriter('example2.orc') as writer:
    ...     writer.write(table)
@@ -159,12 +179,14 @@ Compression
 
 The data pages within a column in a row group can be compressed after the
 encoding passes (dictionary, RLE encoding). In PyArrow we don't use compression
-by default, but Snappy, ZSTD, Zlib, and LZ4 are also supported::
+by default, but Snappy, ZSTD, Zlib, and LZ4 are also supported:
 
-   >>> orc.write_table(table, where, compression='uncompressed')
-   >>> orc.write_table(table, where, compression='zlib')
-   >>> orc.write_table(table, where, compression='zstd')
-   >>> orc.write_table(table, where, compression='snappy')
+.. code-block:: python
+
+   >>> orc.write_table(table, 'example.orc', compression='uncompressed')
+   >>> orc.write_table(table, 'example.orc', compression='zlib')
+   >>> orc.write_table(table, 'example.orc', compression='zstd')
+   >>> orc.write_table(table, 'example.orc', compression='snappy')
 
 Snappy generally results in better performance, while Zlib may yield smaller
 files.
@@ -173,12 +195,14 @@ Reading from cloud storage
 --------------------------
 
 In addition to local files, pyarrow supports other filesystems, such as cloud
-filesystems, through the ``filesystem`` keyword::
+filesystems, through the ``filesystem`` keyword:
+
+.. code-block:: python
 
    >>> from pyarrow import fs
 
-   >>> s3  = fs.S3FileSystem(region="us-east-2")
-   >>> table = orc.read_table("bucket/object/key/prefix", filesystem=s3)
+   >>> s3  = fs.S3FileSystem(region="us-east-2")  # doctest: +SKIP
+   >>> table = orc.read_table("bucket/object/key/prefix", filesystem=s3)  # doctest: +SKIP
 
 .. seealso::
    :ref:`Documentation for filesystems <filesystem>`.

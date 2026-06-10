@@ -133,14 +133,21 @@ class OSFile {
     return ::arrow::internal::FileRead(fd_.fd(), reinterpret_cast<uint8_t*>(out), nbytes);
   }
 
-  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                         void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(internal::ValidateRange(position, nbytes));
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
     need_seeking_.store(true);
-    return ::arrow::internal::FileReadAt(fd_.fd(), reinterpret_cast<uint8_t*>(out),
-                                         position, nbytes);
+    ARROW_ASSIGN_OR_RAISE(auto real_nbytes, ::arrow::internal::FileReadAt(
+                                                fd_.fd(), reinterpret_cast<uint8_t*>(out),
+                                                position, nbytes));
+    if (!allow_short_read && real_nbytes != nbytes) {
+      return Status::IOError("File too short: expected to be able to read ", nbytes,
+                             " bytes, got ", real_nbytes);
+    }
+    return real_nbytes;
   }
 
   Status Seek(int64_t pos) {
@@ -230,21 +237,20 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(buffer));
+    return buffer;
   }
 
-  Result<std::shared_ptr<Buffer>> ReadBufferAt(int64_t position, int64_t nbytes) {
+  Result<std::shared_ptr<Buffer>> ReadBufferAt(int64_t position, int64_t nbytes,
+                                               bool allow_short_read) {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, pool_));
 
-    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
-                          ReadAt(position, nbytes, buffer->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadAt(position, nbytes, allow_short_read,
+                                                     buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(buffer));
+    return buffer;
   }
 
   Status WillNeed(const std::vector<ReadRange>& ranges) {
@@ -322,12 +328,14 @@ Result<int64_t> ReadableFile::DoRead(int64_t nbytes, void* out) {
   return impl_->Read(nbytes, out);
 }
 
-Result<int64_t> ReadableFile::DoReadAt(int64_t position, int64_t nbytes, void* out) {
-  return impl_->ReadAt(position, nbytes, out);
+Result<int64_t> ReadableFile::DoReadAt(int64_t position, int64_t nbytes,
+                                       bool allow_short_read, void* out) {
+  return impl_->ReadAt(position, nbytes, allow_short_read, out);
 }
 
-Result<std::shared_ptr<Buffer>> ReadableFile::DoReadAt(int64_t position, int64_t nbytes) {
-  return impl_->ReadBufferAt(position, nbytes);
+Result<std::shared_ptr<Buffer>> ReadableFile::DoReadAt(int64_t position, int64_t nbytes,
+                                                       bool allow_short_read) {
+  return impl_->ReadBufferAt(position, nbytes, allow_short_read);
 }
 
 Result<std::shared_ptr<Buffer>> ReadableFile::DoRead(int64_t nbytes) {

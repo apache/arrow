@@ -21,6 +21,7 @@
 
 #include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
+#include <arrow-glib/executor.h>
 #include <arrow-glib/reader.h>
 
 G_BEGIN_DECLS
@@ -40,7 +41,7 @@ struct _GArrowExecuteContextClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *
-garrow_execute_context_new(void);
+garrow_execute_context_new(GArrowExecutor *executor);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
@@ -182,6 +183,10 @@ GARROW_AVAILABLE_IN_11_0
 GArrowProjectNodeOptions *
 garrow_project_node_options_new(GList *expressions, gchar **names, gsize n_names);
 
+GARROW_AVAILABLE_IN_24_0
+GList *
+garrow_project_node_options_get_expressions(GArrowProjectNodeOptions *options);
+
 #define GARROW_TYPE_AGGREGATION (garrow_aggregation_get_type())
 GARROW_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(
@@ -216,6 +221,10 @@ garrow_aggregate_node_options_new(GList *aggregations,
                                   const gchar **keys,
                                   gsize n_keys,
                                   GError **error);
+
+GARROW_AVAILABLE_IN_24_0
+GList *
+garrow_aggregate_node_options_get_aggregations(GArrowAggregateNodeOptions *options);
 
 #define GARROW_TYPE_SINK_NODE_OPTIONS (garrow_sink_node_options_get_type())
 GARROW_AVAILABLE_IN_6_0
@@ -322,7 +331,7 @@ struct _GArrowExecutePlanClass
 
 GARROW_AVAILABLE_IN_6_0
 GArrowExecutePlan *
-garrow_execute_plan_new(GError **error);
+garrow_execute_plan_new(GArrowExecuteContext *context, GError **error);
 GARROW_AVAILABLE_IN_6_0
 GArrowExecuteNode *
 garrow_execute_plan_build_node(GArrowExecutePlan *plan,
@@ -1121,5 +1130,705 @@ garrow_struct_field_options_set_field_ref(GArrowStructFieldOptions *options,
 GARROW_AVAILABLE_IN_16_0
 GArrowStructFieldOptions *
 garrow_struct_field_options_new(void);
+
+/**
+ * GArrowAssumeTimezoneAmbiguous:
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE: Raise an error on ambiguous times.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST: Emit the earliest instant.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST: Emit the latest instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Ambiguous`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST,
+} GArrowAssumeTimezoneAmbiguous;
+
+/**
+ * GArrowAssumeTimezoneNonexistent:
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE: Raise an error on nonexistent times.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST: Emit the instant just before the DST
+ * shift.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST: Emit the DST shift instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Nonexistent`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST,
+} GArrowAssumeTimezoneNonexistent;
+
+#define GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS (garrow_assume_timezone_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowAssumeTimezoneOptions,
+                         garrow_assume_timezone_options,
+                         GARROW,
+                         ASSUME_TIMEZONE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowAssumeTimezoneOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new(void);
+
+#define GARROW_TYPE_CUMULATIVE_OPTIONS (garrow_cumulative_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowCumulativeOptions,
+                         garrow_cumulative_options,
+                         GARROW,
+                         CUMULATIVE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowCumulativeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCumulativeOptions *
+garrow_cumulative_options_new(void);
+
+/**
+ * GArrowDictionaryEncodeNullEncodingBehavior:
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE: The null value will be added to the
+ * dictionary with a proper index.
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK: The null value will be masked in the
+ * indices array.
+ *
+ * They correspond to the values of
+ * `arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE,
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK,
+} GArrowDictionaryEncodeNullEncodingBehavior;
+
+#define GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS                                            \
+  (garrow_dictionary_encode_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryEncodeOptions,
+                         garrow_dictionary_encode_options,
+                         GARROW,
+                         DICTIONARY_ENCODE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDictionaryEncodeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new(void);
+
+#define GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS                                       \
+  (garrow_element_wise_aggregate_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowElementWiseAggregateOptions,
+                         garrow_element_wise_aggregate_options,
+                         GARROW,
+                         ELEMENT_WISE_AGGREGATE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowElementWiseAggregateOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new(void);
+
+#define GARROW_TYPE_DAY_OF_WEEK_OPTIONS (garrow_day_of_week_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDayOfWeekOptions,
+                         garrow_day_of_week_options,
+                         GARROW,
+                         DAY_OF_WEEK_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDayOfWeekOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new(void);
+
+#define GARROW_TYPE_EXTRACT_REGEX_OPTIONS (garrow_extract_regex_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExtractRegexOptions,
+                         garrow_extract_regex_options,
+                         GARROW,
+                         EXTRACT_REGEX_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowExtractRegexOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new(void);
+
+#define GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS                                           \
+  (garrow_extract_regex_span_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExtractRegexSpanOptions,
+                         garrow_extract_regex_span_options,
+                         GARROW,
+                         EXTRACT_REGEX_SPAN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowExtractRegexSpanOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new(void);
+
+/**
+ * GArrowJoinNullHandlingBehavior:
+ * @GARROW_JOIN_NULL_HANDLING_EMIT_NULL: A null in any input results in a null in the
+ * output.
+ * @GARROW_JOIN_NULL_HANDLING_SKIP: Nulls in inputs are skipped.
+ * @GARROW_JOIN_NULL_HANDLING_REPLACE: Nulls in inputs are replaced with the replacement
+ * string.
+ *
+ * They correspond to the values of
+ * `arrow::compute::JoinOptions::NullHandlingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_JOIN_NULL_HANDLING_EMIT_NULL,
+  GARROW_JOIN_NULL_HANDLING_SKIP,
+  GARROW_JOIN_NULL_HANDLING_REPLACE,
+} GArrowJoinNullHandlingBehavior;
+
+#define GARROW_TYPE_JOIN_OPTIONS (garrow_join_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowJoinOptions, garrow_join_options, GARROW, JOIN_OPTIONS, GArrowFunctionOptions)
+struct _GArrowJoinOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowJoinOptions *
+garrow_join_options_new(void);
+
+#define GARROW_TYPE_LIST_FLATTEN_OPTIONS (garrow_list_flatten_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowListFlattenOptions,
+                         garrow_list_flatten_options,
+                         GARROW,
+                         LIST_FLATTEN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowListFlattenOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new(void);
+
+/**
+ * GArrowMapLookupOccurrence:
+ * @GARROW_MAP_LOOKUP_OCCURRENCE_FIRST: Return the first matching value.
+ * @GARROW_MAP_LOOKUP_OCCURRENCE_LAST: Return the last matching value.
+ * @GARROW_MAP_LOOKUP_OCCURRENCE_ALL: Return all matching values.
+ *
+ * They correspond to the values of
+ * `arrow::compute::MapLookupOptions::Occurrence`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_MAP_LOOKUP_OCCURRENCE_FIRST,
+  GARROW_MAP_LOOKUP_OCCURRENCE_LAST,
+  GARROW_MAP_LOOKUP_OCCURRENCE_ALL,
+} GArrowMapLookupOccurrence;
+
+#define GARROW_TYPE_MAP_LOOKUP_OPTIONS (garrow_map_lookup_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowMapLookupOptions,
+                         garrow_map_lookup_options,
+                         GARROW,
+                         MAP_LOOKUP_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowMapLookupOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowMapLookupOptions *
+garrow_map_lookup_options_new(GArrowScalar *query_key,
+                              GArrowMapLookupOccurrence occurrence);
+
+/**
+ * GArrowListSliceReturnFixedSizeList:
+ * @GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO: Return the same type which was passed
+ * in (default).
+ * @GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE: Explicitly return the same type which
+ * was passed in.
+ * @GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE: Return a FixedSizeListArray. If stop is
+ * after a list element's length, nulls will be appended to create the requested slice
+ * size.
+ *
+ * They correspond to the values of
+ * `std::optional<bool>` for `arrow::compute::ListSliceOptions::return_fixed_size_list`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO,
+  GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE,
+  GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE,
+} GArrowListSliceReturnFixedSizeList;
+
+/**
+ * GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED:
+ *
+ * Sentinel value for the stop property in #GArrowListSliceOptions indicating
+ * that the stop value is not set. When this value is used, the slice will
+ * continue to the end of the list.
+ *
+ * Since: 23.0.0
+ */
+#define GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED -1
+
+#define GARROW_TYPE_LIST_SLICE_OPTIONS             (garrow_list_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowListSliceOptions,
+                         garrow_list_slice_options,
+                         GARROW,
+                         LIST_SLICE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowListSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowListSliceOptions *
+garrow_list_slice_options_new(void);
+
+#define GARROW_TYPE_MODE_OPTIONS (garrow_mode_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowModeOptions, garrow_mode_options, GARROW, MODE_OPTIONS, GArrowFunctionOptions)
+struct _GArrowModeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowModeOptions *
+garrow_mode_options_new(void);
+
+#define GARROW_TYPE_NULL_OPTIONS (garrow_null_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowNullOptions, garrow_null_options, GARROW, NULL_OPTIONS, GArrowFunctionOptions)
+struct _GArrowNullOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowNullOptions *
+garrow_null_options_new(void);
+
+#define GARROW_TYPE_PAD_OPTIONS (garrow_pad_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowPadOptions, garrow_pad_options, GARROW, PAD_OPTIONS, GArrowFunctionOptions)
+struct _GArrowPadOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPadOptions *
+garrow_pad_options_new(void);
+
+#define GARROW_TYPE_PAIRWISE_OPTIONS (garrow_pairwise_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPairwiseOptions,
+                         garrow_pairwise_options,
+                         GARROW,
+                         PAIRWISE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPairwiseOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPairwiseOptions *
+garrow_pairwise_options_new(void);
+
+#define GARROW_TYPE_REPLACE_SLICE_OPTIONS (garrow_replace_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowReplaceSliceOptions,
+                         garrow_replace_slice_options,
+                         GARROW,
+                         REPLACE_SLICE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowReplaceSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new(void);
+
+#define GARROW_TYPE_PARTITION_NTH_OPTIONS (garrow_partition_nth_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPartitionNthOptions,
+                         garrow_partition_nth_options,
+                         GARROW,
+                         PARTITION_NTH_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPartitionNthOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new(void);
+
+/**
+ * GArrowPivotWiderUnexpectedKeyBehavior:
+ * @GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_IGNORE: Unexpected pivot keys are ignored
+ * silently.
+ * @GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_RAISE: Unexpected pivot keys return a
+ * KeyError.
+ *
+ * They correspond to the values of
+ * `arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_IGNORE,
+  GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_RAISE,
+} GArrowPivotWiderUnexpectedKeyBehavior;
+
+#define GARROW_TYPE_PIVOT_WIDER_OPTIONS (garrow_pivot_wider_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPivotWiderOptions,
+                         garrow_pivot_wider_options,
+                         GARROW,
+                         PIVOT_WIDER_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPivotWiderOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new(void);
+
+#define GARROW_TYPE_RANK_QUANTILE_OPTIONS (garrow_rank_quantile_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRankQuantileOptions,
+                         garrow_rank_quantile_options,
+                         GARROW,
+                         RANK_QUANTILE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRankQuantileOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new(void);
+GARROW_AVAILABLE_IN_23_0
+GList *
+garrow_rank_quantile_options_get_sort_keys(GArrowRankQuantileOptions *options);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_rank_quantile_options_set_sort_keys(GArrowRankQuantileOptions *options,
+                                           GList *sort_keys);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_rank_quantile_options_add_sort_key(GArrowRankQuantileOptions *options,
+                                          GArrowSortKey *sort_key);
+
+#define GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS                                            \
+  (garrow_replace_substring_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowReplaceSubstringOptions,
+                         garrow_replace_substring_options,
+                         GARROW,
+                         REPLACE_SUBSTRING_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowReplaceSubstringOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new(void);
+
+#define GARROW_TYPE_ROUND_BINARY_OPTIONS (garrow_round_binary_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundBinaryOptions,
+                         garrow_round_binary_options,
+                         GARROW,
+                         ROUND_BINARY_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundBinaryOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new(void);
+
+/**
+ * GArrowCalendarUnit:
+ * @GARROW_CALENDAR_UNIT_NANOSECOND: Nanosecond
+ * @GARROW_CALENDAR_UNIT_MICROSECOND: Microsecond
+ * @GARROW_CALENDAR_UNIT_MILLISECOND: Millisecond
+ * @GARROW_CALENDAR_UNIT_SECOND: Second
+ * @GARROW_CALENDAR_UNIT_MINUTE: Minute
+ * @GARROW_CALENDAR_UNIT_HOUR: Hour
+ * @GARROW_CALENDAR_UNIT_DAY: Day
+ * @GARROW_CALENDAR_UNIT_WEEK: Week
+ * @GARROW_CALENDAR_UNIT_MONTH: Month
+ * @GARROW_CALENDAR_UNIT_QUARTER: Quarter
+ * @GARROW_CALENDAR_UNIT_YEAR: Year
+ *
+ * They correspond to the values of `arrow::compute::CalendarUnit`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_CALENDAR_UNIT_NANOSECOND,
+  GARROW_CALENDAR_UNIT_MICROSECOND,
+  GARROW_CALENDAR_UNIT_MILLISECOND,
+  GARROW_CALENDAR_UNIT_SECOND,
+  GARROW_CALENDAR_UNIT_MINUTE,
+  GARROW_CALENDAR_UNIT_HOUR,
+  GARROW_CALENDAR_UNIT_DAY,
+  GARROW_CALENDAR_UNIT_WEEK,
+  GARROW_CALENDAR_UNIT_MONTH,
+  GARROW_CALENDAR_UNIT_QUARTER,
+  GARROW_CALENDAR_UNIT_YEAR,
+} GArrowCalendarUnit;
+
+#define GARROW_TYPE_CALENDAR_UNIT          (garrow_calendar_unit_get_type())
+
+#define GARROW_TYPE_ROUND_TEMPORAL_OPTIONS (garrow_round_temporal_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundTemporalOptions,
+                         garrow_round_temporal_options,
+                         GARROW,
+                         ROUND_TEMPORAL_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundTemporalOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new(void);
+
+#define GARROW_TYPE_SELECT_K_OPTIONS (garrow_select_k_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowSelectKOptions,
+                         garrow_select_k_options,
+                         GARROW,
+                         SELECT_K_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSelectKOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSelectKOptions *
+garrow_select_k_options_new(void);
+
+GARROW_AVAILABLE_IN_23_0
+GList *
+garrow_select_k_options_get_sort_keys(GArrowSelectKOptions *options);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_select_k_options_set_sort_keys(GArrowSelectKOptions *options, GList *sort_keys);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_select_k_options_add_sort_key(GArrowSelectKOptions *options,
+                                     GArrowSortKey *sort_key);
+
+#define GARROW_TYPE_SKEW_OPTIONS (garrow_skew_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSkewOptions, garrow_skew_options, GARROW, SKEW_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSkewOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSkewOptions *
+garrow_skew_options_new(void);
+
+#define GARROW_TYPE_SLICE_OPTIONS (garrow_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSliceOptions, garrow_slice_options, GARROW, SLICE_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSliceOptions *
+garrow_slice_options_new(void);
+
+#define GARROW_TYPE_TDIGEST_OPTIONS (garrow_tdigest_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowTDigestOptions,
+                         garrow_tdigest_options,
+                         GARROW,
+                         TDIGEST_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowTDigestOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTDigestOptions *
+garrow_tdigest_options_new(void);
+GARROW_AVAILABLE_IN_23_0
+const gdouble *
+garrow_tdigest_options_get_qs(GArrowTDigestOptions *options, gsize *n);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_tdigest_options_set_q(GArrowTDigestOptions *options, gdouble q);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_tdigest_options_set_qs(GArrowTDigestOptions *options, const gdouble *qs, gsize n);
+
+#define GARROW_TYPE_TRIM_OPTIONS (garrow_trim_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowTrimOptions, garrow_trim_options, GARROW, TRIM_OPTIONS, GArrowFunctionOptions)
+struct _GArrowTrimOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTrimOptions *
+garrow_trim_options_new(void);
+
+#define GARROW_TYPE_WEEK_OPTIONS (garrow_week_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowWeekOptions, garrow_week_options, GARROW, WEEK_OPTIONS, GArrowFunctionOptions)
+struct _GArrowWeekOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowWeekOptions *
+garrow_week_options_new(void);
+
+#define GARROW_TYPE_WINSORIZE_OPTIONS (garrow_winsorize_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowWinsorizeOptions,
+                         garrow_winsorize_options,
+                         GARROW,
+                         WINSORIZE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowWinsorizeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new(void);
+
+#define GARROW_TYPE_ZERO_FILL_OPTIONS (garrow_zero_fill_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowZeroFillOptions,
+                         garrow_zero_fill_options,
+                         GARROW,
+                         ZERO_FILL_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowZeroFillOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new(void);
+
+#define GARROW_TYPE_SPLIT_OPTIONS (garrow_split_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSplitOptions, garrow_split_options, GARROW, SPLIT_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSplitOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSplitOptions *
+garrow_split_options_new(void);
+
+#define GARROW_TYPE_MAKE_STRUCT_OPTIONS (garrow_make_struct_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowMakeStructOptions,
+                         garrow_make_struct_options,
+                         GARROW,
+                         MAKE_STRUCT_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowMakeStructOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowMakeStructOptions *
+garrow_make_struct_options_new(void);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
+                                     const char *name,
+                                     gboolean nullability,
+                                     GHashTable *metadata);
 
 G_END_DECLS

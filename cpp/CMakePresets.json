@@ -132,6 +132,14 @@
       }
     },
     {
+      "name": "features-opentelemetry",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_WITH_OPENTELEMETRY": "ON"
+      }
+    },
+    {
       "name": "features-python-minimal",
       "inherits": [
         "features-minimal"
@@ -162,6 +170,7 @@
         "features-filesystems",
         "features-flight-sql",
         "features-gandiva",
+        "features-opentelemetry",
         "features-python"
       ],
       "hidden": true,
@@ -180,6 +189,7 @@
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
         "ARROW_FLIGHT_SQL_ODBC": "ON",
+        "ARROW_FLIGHT_SQL_ODBC_INSTALLER": "ON",
         "ARROW_TENSORFLOW": "ON",
         "PARQUET_BUILD_EXAMPLES": "ON",
         "PARQUET_BUILD_EXECUTABLES": "ON"
@@ -315,6 +325,17 @@
       "cacheVariables": {}
     },
     {
+      "name": "ninja-debug-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql",
+        "base-debug"
+      ],
+      "displayName": "Debug build with tests and Flight SQL ODBC",
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
+    },
+    {
       "name": "ninja-debug-gandiva",
       "inherits": [
         "features-gandiva",
@@ -440,13 +461,20 @@
       ],
       "displayName": "Debug build with IPC and Parquet fuzzing targets",
       "cacheVariables": {
+        "ARROW_CSV": "ON",
+        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
+        "ARROW_FUZZING": "ON",
+        "ARROW_IPC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_WITH_BROTLI": "ON",
+        "ARROW_WITH_LZ4": "ON",
+        "ARROW_WITH_SNAPPY": "ON",
+        "ARROW_WITH_ZLIB": "ON",
+        "ARROW_WITH_ZSTD": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "ARROW_IPC": "ON",
-        "ARROW_PARQUET": "ON",
-        "ARROW_FUZZING": "ON",
-        "ARROW_WITH_SNAPPY": "ON"
+        "PARQUET_REQUIRE_ENCRYPTION": "ON"
       }
     },
     {
@@ -502,6 +530,17 @@
       ],
       "displayName": "Release build with Flight SQL",
       "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql",
+        "base-release"
+      ],
+      "displayName": "Release build with Flight SQL ODBC",
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
     },
     {
       "name": "ninja-release-gandiva",

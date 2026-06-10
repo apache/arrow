@@ -17,6 +17,8 @@
 
 module Parquet
   class ArrowFileReader
+    include Arrow::BlockClosable
+
     def each_row_group
       return to_enum(__method__) {n_row_groups} unless block_given?
 

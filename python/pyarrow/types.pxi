@@ -3111,17 +3111,17 @@ cdef class Schema(_Weakrefable):
     @classmethod
     def from_pandas(cls, df, preserve_index=None):
         """
-        Returns implied schema from dataframe
+        Returns implied schema from DataFrame
 
         Parameters
         ----------
         df : pandas.DataFrame
-        preserve_index : bool, default True
-            Whether to store the index as an additional column (or columns, for
-            MultiIndex) in the resulting `Table`.
-            The default of None will store the index as a column, except for
-            RangeIndex which is stored as metadata only. Use
-            ``preserve_index=True`` to force it to be stored as a column.
+
+        preserve_index : bool, optional
+            Whether to store the index as an additional field in the resulting
+            ``Schema``. The default of None will store the index as a field,
+            except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a field.
 
         Returns
         -------
@@ -3136,11 +3136,11 @@ cdef class Schema(_Weakrefable):
         ...     'str': ['a', 'b']
         ... })
 
-        Create an Arrow Schema from the schema of a pandas dataframe:
+        Create an Arrow Schema from the schema of a pandas DataFrame:
 
         >>> pa.Schema.from_pandas(df)
         int: int64
-        str: string
+        str: large_string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, ...
         """
@@ -4166,7 +4166,7 @@ def tzinfo_to_string(tz):
     return frombytes(GetResultValue(TzinfoToString(<PyObject*>tz)))
 
 
-def string_to_tzinfo(name):
+def string_to_tzinfo(name, *, prefer_zoneinfo=True):
     """
     Convert a time zone name into a time zone object.
 
@@ -4177,15 +4177,21 @@ def string_to_tzinfo(name):
 
     Parameters
     ----------
-      name: str
+    name: str
         Time zone name.
+    prefer_zoneinfo : bool, default True
+        If True, resolve named timezones using ``zoneinfo`` first and only
+        fall back to ``pytz`` when needed. If False, prefer ``pytz`` when it
+        is available.
 
     Returns
     -------
       tz : datetime.tzinfo
         Time zone object
     """
-    cdef PyObject* tz = GetResultValue(StringToTzinfo(name.encode('utf-8')))
+    cdef PyObject* tz = GetResultValue(
+        StringToTzinfo(name.encode('utf-8'), prefer_zoneinfo)
+    )
     return PyObject_to_object(tz)
 
 

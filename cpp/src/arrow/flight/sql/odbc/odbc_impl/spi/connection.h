@@ -17,15 +17,17 @@
 
 #pragma once
 
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
 
 namespace arrow::flight::sql::odbc {
@@ -35,14 +37,16 @@ struct CaseInsensitiveComparator {
   using is_transparent = std::true_type;
 
   bool operator()(std::string_view s1, std::string_view s2) const {
-    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+    return std::lexicographical_compare(
+        s1.begin(), s1.end(), s2.begin(), s2.end(), [](char a, char b) {
+          return std::tolower(static_cast<unsigned char>(a)) <
+                 std::tolower(static_cast<unsigned char>(b));
+        });
   }
 };
 
 // PropertyMap is case-insensitive for keys.
 typedef std::map<std::string, std::string, CaseInsensitiveComparator> PropertyMap;
-
-class Statement;
 
 /// \brief High-level representation of an ODBC connection.
 class Connection {
@@ -88,7 +92,7 @@ class Connection {
 
   /// \brief Retrieve a connection attribute
   /// \param attribute [in] Attribute to be retrieved.
-  virtual boost::optional<Connection::Attribute> GetAttribute(
+  virtual std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) = 0;
 
   /// \brief Retrieves info from the database (see ODBC's SQLGetInfo).

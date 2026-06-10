@@ -368,7 +368,7 @@ class PrimitiveFilterImpl {
           }
         }
       }  // !filter_block.AllSet()
-    }    // while(in_position < values_length_)
+    }  // while(in_position < values_length_)
   }
 
   // Write the next out_position given the selected in_position for the input

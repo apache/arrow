@@ -13,7 +13,21 @@
 
 \itemize{
 \item \code{f$ToString()}: convert to a string
-\item \code{f$Equals(other)}: test for equality. More naturally called as \code{f == other}
+\item \code{f$Equals(other, check_metadata = FALSE)}: test for equality.
+More naturally called as \code{f == other}
+\item \code{f$WithMetadata(metadata)}: returns a new \code{Field} with the key-value
+\code{metadata} set. Note that all list elements in \code{metadata} will be coerced
+to \code{character}.
+\item \code{f$RemoveMetadata()}: returns a new \code{Field} without metadata.
+}
+}
+
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$HasMetadata}: logical: does this \code{Field} have extra metadata?
+\item \verb{$metadata}: returns the key-value metadata as a named list, or \code{NULL}
+if no metadata is set.
 }
 }
 

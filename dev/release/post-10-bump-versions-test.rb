@@ -381,19 +381,27 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     changes = parse_patch(log)
     sampled_changes = changes.collect do |change|
       first_hunk = change[:hunks][0]
-      first_removed_line = first_hunk.find { |line| line.start_with?("-") }
-      first_added_line = first_hunk.find { |line| line.start_with?("+") }
+      first_removed_line = first_hunk.find {|line| line.start_with?("-")}
+      first_added_line = first_hunk.find {|line| line.start_with?("+")}
+      last_hunk = change[:hunks][-1]
+      last_removed_line = last_hunk.find {|line| line.start_with?("-")}
+      last_added_line = last_hunk.find {|line| line.start_with?("+")}
       {
-        sampled_diff: [first_removed_line, first_added_line],
+        first_sampled_diff: [first_removed_line, first_added_line],
+        last_sampled_diff: [last_removed_line, last_added_line],
         path: change[:path],
       }
     end
     if bump_type.nil?
       expected_changes = [
         {
-          sampled_diff: [
+          first_sampled_diff: [
             "-Package: libarrow#{@so_version}",
             "+Package: libarrow#{@next_so_version}",
+          ],
+          last_sampled_diff: [
+            "-  gir1.2-parquet-#{@gi_api_version} (= ${binary:Version}),",
+            "+  gir1.2-parquet-#{@next_gi_api_version} (= ${binary:Version}),",
           ],
           path: "dev/tasks/linux-packages/apache-arrow/debian/control.in",
         },

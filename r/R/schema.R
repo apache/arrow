@@ -366,7 +366,7 @@ length.Schema <- function(x) x$num_fields
   if (is.numeric(i)) {
     if (all(i < 0)) {
       # in R, negative i means "everything but i"
-      i <- setdiff(seq_len(length(x)), -1 * i)
+      i <- setdiff(seq_along(x), -1 * i)
     }
   }
   fields <- map(i, ~ x[[.]])
@@ -467,7 +467,7 @@ as_schema.StructType <- function(x, ...) {
 
 #' @export
 as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
-  as.data.frame(Table__from_schema(x))
+  Table__from_schema(x)$to_data_frame()
 }
 
 #' @export

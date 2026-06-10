@@ -86,7 +86,7 @@ echo
 
 rm -rf $EXAMPLE_BUILD_DIR
 mkdir -p $EXAMPLE_BUILD_DIR
-${CXX:-c++} -std=c++17 \
+${CXX:-c++} -std=c++20 \
   -o $EXAMPLE_BUILD_DIR/arrow-example \
   $EXAMPLE_DIR/example.cc \
   $(PKG_CONFIG_PATH=$ARROW_BUILD_DIR/lib/pkgconfig \

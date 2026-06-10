@@ -83,6 +83,18 @@ SQLRETURN SQL_API SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle,
       buffer_length, text_length_ptr);
 }
 
+#if defined(__APPLE__)
+// macOS ODBC Driver Manager doesn't map SQLError to SQLGetDiagRec, so we need to
+// implement SQLError for macOS.
+// on Windows, SQLError mapping implemented by Driver Manager is preferred.
+SQLRETURN SQL_API SQLError(SQLHENV env, SQLHDBC conn, SQLHSTMT stmt, SQLWCHAR* sql_state,
+                           SQLINTEGER* native_error_ptr, SQLWCHAR* message_text,
+                           SQLSMALLINT buffer_length, SQLSMALLINT* text_length_ptr) {
+  return arrow::flight::sql::odbc::SQLError(env, conn, stmt, sql_state, native_error_ptr,
+                                            message_text, buffer_length, text_length_ptr);
+}
+#endif  // __APPLE__
+
 SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER value_ptr,
                                 SQLINTEGER buffer_len, SQLINTEGER* str_len_ptr) {
   return arrow::flight::sql::odbc::SQLGetEnvAttr(env, attr, value_ptr, buffer_len,
