@@ -18,12 +18,12 @@
 #include "arrow/util/ulp_distance_internal.h"
 
 #include <algorithm>
-#include <bit>
 #include <cinttypes>
 #include <cmath>
 #include <type_traits>
 
 #include "arrow/util/float16.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow::internal {
 namespace {
@@ -56,8 +56,8 @@ struct UlpDistanceUtil {
   // This implementation is inspired by:
   // https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
   static UIntType UlpDistance(Float left, Float right) {
-    auto unsigned_left = std::bit_cast<UIntType>(left);
-    auto unsigned_right = std::bit_cast<UIntType>(right);
+    auto unsigned_left = util::SafeCopy<UIntType>(left);
+    auto unsigned_right = util::SafeCopy<UIntType>(right);
     auto biased_left = ConvertSignAndMagnitudeToBiased(unsigned_left);
     auto biased_right = ConvertSignAndMagnitudeToBiased(unsigned_right);
     if (biased_left > biased_right) {

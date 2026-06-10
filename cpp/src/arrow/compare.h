@@ -157,7 +157,7 @@ ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
 /// types, this is equivalent to ArrayEquals(left, right)
 ///
 /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
-/// \ref arrow::kDefaultAbsoluteTolerance is used.
+/// 'arrow::kDefaultAbsoluteTolerance' is used.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
@@ -174,7 +174,7 @@ ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
 /// Returns true if indicated equal-length segment of arrays are approximately equal
 ///
 /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
-/// \ref arrow::kDefaultAbsoluteTolerance is used.
+/// 'arrow::kDefaultAbsoluteTolerance' is used.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeApproxEquals(const Array& left, const Array& right,
@@ -217,7 +217,7 @@ ARROW_EXPORT bool ScalarEquals(const Scalar& left, const Scalar& right,
 /// Returns true if scalars are approximately equal
 ///
 /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
-/// \ref arrow::kDefaultAbsoluteTolerance is used.
+/// 'arrow::kDefaultAbsoluteTolerance' is used.
 ///
 /// \param[in] left a Scalar
 /// \param[in] right a Scalar
