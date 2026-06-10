@@ -2889,6 +2889,45 @@ def test_count_run_end_encoded_nulls():
     assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
 
 
+def test_count_sparse_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        [
+            pa.array([0.5, 99.0, None, 3.0, 88.0, 77.0]),
+            pa.array([False, None, True, False, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
+def test_count_dense_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.5, None, 3.0]),
+            pa.array([None, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
 def test_index():
     arr = pa.array([0, 1, None, 3, 4], type=pa.int64())
     assert pc.index(arr, pa.scalar(0)).as_py() == 0
