@@ -239,6 +239,17 @@ std::string fs___FileSystem__type_name(
 }
 
 // [[arrow::export]]
+std::string fs___example_accept_options(const std::string& string_value, int int_value,
+                                        int typed_value) {
+  fs::FileSystemFactoryOptions options = {
+      {"example_option_string", std::any{string_value}},
+      {"example_option_int", std::any{int_value}},
+      {"example_option_typed_var", std::any{fs::ExampleOption(typed_value)}},
+  };
+  return ValueOrStop(fs::ExampleAcceptOptions(options));
+}
+
+// [[arrow::export]]
 std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
     const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs) {
   return std::make_shared<fs::SubTreeFileSystem>(base_path, base_fs);

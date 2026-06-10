@@ -20,6 +20,7 @@
 from libc.stdint cimport *
 
 from libcpp cimport bool as c_bool, nullptr
+from libcpp.any cimport any as c_any
 from libcpp.functional cimport function
 from libcpp.memory cimport (shared_ptr, unique_ptr, make_shared,
                             static_pointer_cast, dynamic_pointer_cast)

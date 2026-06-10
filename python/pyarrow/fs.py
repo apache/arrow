@@ -33,6 +33,7 @@ from pyarrow._fs import (  # noqa
     PyFileSystem,
     _copy_files,
     _copy_files_selector,
+    _example_accept_options
 )
 
 # For backward compatibility.

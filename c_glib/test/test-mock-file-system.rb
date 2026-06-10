@@ -27,4 +27,11 @@ class TestMockFileSystem < Test::Unit::TestCase
   def test_type_name
     assert_equal("mock", @fs.type_name)
   end
+
+  def test_example_accept_options
+    assert_equal("example_option_string=str(hi);" +
+                  "example_option_int=int(42);" +
+                  "example_option_typed_var=typed(7);",
+                 Arrow::FileSystem.example_accept_options("hi", 42, 7))
+  end
 end

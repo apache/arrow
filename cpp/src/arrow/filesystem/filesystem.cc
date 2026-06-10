@@ -964,6 +964,23 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(
 
 }  // namespace
 
+Result<std::string> ExampleAcceptOptions(const FileSystemFactoryOptions& options) {
+  if (options.empty()) return Status::Invalid("no options");
+  std::string out;
+  for (const auto& [key, value] : options) {
+    if (const auto* s = std::any_cast<std::string>(&value)) {
+      out += key + "=str(" + *s + ");";
+    } else if (const auto* i = std::any_cast<int>(&value)) {
+      out += key + "=int(" + std::to_string(*i) + ");";
+    } else if (const auto* t = std::any_cast<ExampleOption>(&value)) {
+      out += key + "=typed(" + std::to_string(t->value()) + ");";
+    } else {
+      return Status::Invalid("option '", key, "' has unsupported type");
+    }
+  }
+  return out;
+}
+
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {
   return FileSystemFromUriAndOptions(uri_string, /*options=*/{}, io::default_io_context(),

@@ -361,6 +361,18 @@ class ARROW_EXPORT FileSystem
 
 using FileSystemFactoryOptions = std::vector<std::pair<std::string, std::any>>;
 
+class ARROW_EXPORT ExampleOption {
+ public:
+  explicit ExampleOption(int value) : value_(value) {}
+  int value() const { return value_; }
+
+ private:
+  int value_;
+};
+
+ARROW_EXPORT
+Result<std::string> ExampleAcceptOptions(const FileSystemFactoryOptions& options);
+
 struct FileSystemFactory {
   std::function<Result<std::shared_ptr<FileSystem>>(
       const Uri& uri, const FileSystemFactoryOptions& options,
