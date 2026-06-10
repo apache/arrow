@@ -221,7 +221,7 @@ jobs:
         platform:
           - arch: "amd64"
             runs-on: ubuntu-latest
-          - arch: "arm64v8"
+          - arch: "arm64/v8"
             runs-on: ubuntu-24.04-arm
     env:
       ARCH: ${{ matrix.platform.arch }}
@@ -584,7 +584,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG

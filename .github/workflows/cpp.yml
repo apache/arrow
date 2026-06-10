@@ -96,7 +96,7 @@ jobs:
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu 24.04 C++ ASAN UBSAN
             ubuntu: 24.04
-          - arch: arm64v8
+          - arch: arm64/v8
             clang-tools: 18
             image: ubuntu-cpp
             llvm: 18

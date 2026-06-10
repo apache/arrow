@@ -16,9 +16,10 @@
 # under the License.
 
 ARG repo
-ARG arch=amd64
+ARG arch
+ARG arch_short
 ARG python=3.10
-FROM ${repo}:${arch}-conda-python-${python}
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG pandas=latest
 ARG numpy=latest

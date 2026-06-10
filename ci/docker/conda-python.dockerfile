@@ -17,7 +17,8 @@
 
 ARG repo
 ARG arch
-FROM ${repo}:${arch}-conda-cpp
+ARG arch_short
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-cpp
 
 # install python specific packages
 ARG python=3.10
