@@ -3064,6 +3064,7 @@ function(build_re2)
 
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
+  set(RE2_BUILD_TESTING OFF)
 
   fetchcontent_makeavailable(re2)
 
