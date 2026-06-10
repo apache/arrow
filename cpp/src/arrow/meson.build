@@ -177,7 +177,7 @@ arrow_util_srcs = [
     'util/bitmap_ops.cc',
     'util/bpacking.cc',
     'util/bpacking_scalar.cc',
-    'util/bpacking_simd_default.cc',
+    'util/bpacking_simd_128.cc',
     'util/byte_size.cc',
     'util/byte_stream_split_internal.cc',
     'util/cancel.cc',
@@ -507,6 +507,8 @@ if needs_json
             'sources': [
                 'extension/fixed_shape_tensor.cc',
                 'extension/opaque.cc',
+                'extension/tensor_internal.cc',
+                'extension/variable_shape_tensor.cc',
                 'json/options.cc',
                 'json/chunked_builder.cc',
                 'json/chunker.cc',

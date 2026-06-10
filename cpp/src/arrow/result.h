@@ -228,8 +228,8 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   }
 
   /// Templatized constructor which constructs a `Result<T>` by moving the
-  /// contents of a `Result<U>`. `T` must be implicitly constructible from `U
-  /// &&`.
+  /// contents of a `Result<U>`. `T` must be implicitly constructible from
+  /// `U&&`.
   ///
   /// Sets `other` to contain a non-OK status with a `StatusError::Invalid`
   /// error code.

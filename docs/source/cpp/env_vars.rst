@@ -94,7 +94,7 @@ that changing their value later will have an effect.
    value "1"; use "0" to disable.
 
    If enabled, at-fork handlers make Arrow C++ compatible with the use of the
-   ``fork()`` system call, such as by Python's :python:mod:`multiprocessing`,
+   ``fork()`` system call, such as by Python's :py:mod:`multiprocessing`,
    but at the expense of executing
    `potentially unsafe code <https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_atfork.html>`__
    in a forked child process if the parent process is multi-threaded.

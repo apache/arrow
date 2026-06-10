@@ -73,6 +73,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_BROTLI:=ON}
 : ${ARROW_WITH_BZ2:=ON}
 : ${ARROW_WITH_LZ4:=ON}
+: ${ARROW_WITH_OPENTELEMETRY:=ON}
 : ${ARROW_WITH_SNAPPY:=ON}
 : ${ARROW_WITH_ZLIB:=ON}
 : ${ARROW_WITH_ZSTD:=ON}
@@ -125,6 +126,7 @@ cmake \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
+    -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
@@ -144,9 +146,8 @@ cmake --build . --target install
 popd
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
-export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-export PYARROW_BUNDLE_ARROW_CPP=1
-export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
+export PYARROW_BUNDLE_ARROW_CPP=ON
+export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
@@ -159,7 +160,6 @@ export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
-export PYARROW_CMAKE_OPTIONS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 export ARROW_HOME=${build_dir}/install
 # PyArrow build configuration
 export CMAKE_PREFIX_PATH=${build_dir}/install
@@ -167,7 +167,11 @@ export CMAKE_PREFIX_PATH=${build_dir}/install
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
-python -m build --sdist --wheel . --no-isolation
+python -m build --sdist --wheel . --no-isolation \
+  -C build.verbose=true \
+  -C cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
+  -C cmake.args="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" \
+  -C cmake.args="-DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="

@@ -350,7 +350,7 @@ sudo apt update
 sudo apt install -y -V libarrow-dev
 ```
 
-```{bash, save=run & !sys_install & macos}
+```{bash, save=run & !sys_install}
 MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 

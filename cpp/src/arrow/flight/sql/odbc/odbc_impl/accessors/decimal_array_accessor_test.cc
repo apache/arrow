@@ -83,7 +83,7 @@ void AssertNumericOutput(int input_precision, int input_scale,
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
 
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(sizeof(NUMERIC_STRUCT), str_len_buffer[i]);
 
     ASSERT_EQ(output_precision, buffer[i].precision);

@@ -32,6 +32,8 @@ is a space-efficient columnar storage format for complex data.  The Parquet
 C++ implementation is part of the Apache Arrow project and benefits
 from tight integration with the Arrow C++ classes and facilities.
 
+.. _cpp-parquet-reading:
+
 Reading Parquet files
 =====================
 

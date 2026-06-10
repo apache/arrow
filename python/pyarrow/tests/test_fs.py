@@ -636,7 +636,29 @@ def test_subtree_filesystem():
                                   ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
-def test_filesystem_pickling(fs, pickle_module):
+class _PickleModuleSubTreeFileSystemWrapper:
+    def __init__(self, pickle_module):
+        self.pickle_module = pickle_module
+
+    def dumps(self, obj):
+        return self.pickle_module.dumps(SubTreeFileSystem("/", obj))
+
+    def loads(self, data):
+        return self.pickle_module.loads(data).base_fs
+
+
+@pytest.fixture(params=[True, False])
+def pickle_with_and_without_subtree_filesystem(pickle_module, request):
+    # When creating a SubTreeFileSystem, the python side object for the base
+    # filesystem is lost. This makes it a pickling scenario worth testing.
+    wrap_with_subtree_filesystem = request.param
+    if wrap_with_subtree_filesystem:
+        return _PickleModuleSubTreeFileSystemWrapper(pickle_module)
+    return pickle_module
+
+
+def test_filesystem_pickling(fs, pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
 
@@ -646,7 +668,10 @@ def test_filesystem_pickling(fs, pickle_module):
     assert restored.equals(fs)
 
 
-def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_module):
+def test_filesystem_is_functional_after_pickling(
+    fs, pathfn, pickle_with_and_without_subtree_filesystem
+):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
     skip_fsspec_s3fs(fs)
@@ -1171,7 +1196,8 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.gcs
-def test_gcs_options(pickle_module):
+def test_gcs_options(pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import GcsFileSystem
     dt = datetime.now()
     fs = GcsFileSystem(access_token='abc',
@@ -1209,7 +1235,8 @@ def test_gcs_options(pickle_module):
 
 
 @pytest.mark.s3
-def test_s3_options(pickle_module):
+def test_s3_options(pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import (AwsDefaultS3RetryStrategy,
                             AwsStandardS3RetryStrategy, S3FileSystem,
                             S3RetryStrategy)
@@ -1313,7 +1340,8 @@ def test_s3_options(pickle_module):
 
 
 @pytest.mark.s3
-def test_s3_proxy_options(monkeypatch, pickle_module):
+def test_s3_proxy_options(monkeypatch, pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import S3FileSystem
 
     # The following two are equivalent:
@@ -1478,7 +1506,8 @@ def test_s3fs_wrong_region():
 
 
 @pytest.mark.azure
-def test_azurefs_options(pickle_module):
+def test_azurefs_options(pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import AzureFileSystem
 
     fs1 = AzureFileSystem(account_name='fake-account-name')
@@ -1572,7 +1601,8 @@ def test_azurefs_options(pickle_module):
 
 
 @pytest.mark.hdfs
-def test_hdfs_options(hdfs_connection, pickle_module):
+def test_hdfs_options(hdfs_connection, pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import HadoopFileSystem
     if not pa.have_libhdfs():
         pytest.skip('Cannot locate libhdfs')
@@ -1765,7 +1795,8 @@ def test_py_filesystem_equality():
     assert fs1 != object()
 
 
-def test_py_filesystem_pickling(pickle_module):
+def test_py_filesystem_pickling(pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     handler = DummyHandler()
     fs = PyFileSystem(handler)
 

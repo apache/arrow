@@ -1269,6 +1269,34 @@ def test_extract_regex_span():
     assert struct.tolist() == expected
 
 
+def test_replace_with_mask_null_type():
+    # GH-47447: replace_with_mask crashed for null type arrays
+    input = pa.array([None], pa.null())
+    replacements = pa.array([None], pa.null())
+
+    result = pc.replace_with_mask(input, True, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    result = pc.replace_with_mask(input, False, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([True])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+    mask = pa.array([False])
+    result = pc.replace_with_mask(input, mask, replacements)
+    assert result.type == pa.null()
+    result.validate(full=True)
+    assert result.to_pylist() == [None]
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
@@ -2362,6 +2390,26 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
+def _compare_strftime_strings_on_windows(result, expected):
+    # TODO(GH-48767): On Windows, std::chrono returns GMT offset
+    # instead of timezone abbreviations (e.g. "CET")
+    # https://github.com/apache/arrow/issues/48767
+
+    # Match timezone suffixes (UTC), offsets (GMT+1), or abbreviations (CET)
+    p = "(UTC|GMT[+-]?[0-9]*|[A-Z]{2,5})$"
+
+    ends_with_tz = pc.match_substring_regex(result, p)
+    all_end_with_tz = pc.all(ends_with_tz, skip_nulls=True).as_py()
+    assert all_end_with_tz, "All timezone values should be GMT offset format, "\
+                            f"UTC, or timezone abbreviation\nActual: {result}"
+
+    result_substring = pc.replace_substring_regex(result, pattern=p, replacement="")
+    expected_substring = pc.replace_substring_regex(expected, pattern=p, replacement="")
+    assert result_substring.equals(expected_substring), \
+        f"Expected: {expected}, \nActual: {result} " \
+        "\nNote: tz suffix is not being compared"
+
+
 @pytest.mark.pandas
 @pytest.mark.timezone_data
 def test_strftime():
@@ -2383,7 +2431,10 @@ def test_strftime():
                 result = pc.strftime(tsa, options=options)
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
-                assert result.equals(expected)
+                if sys.platform == "win32" and fmt == "%Z":
+                    _compare_strftime_strings_on_windows(result, expected)
+                else:
+                    assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
 
@@ -2397,7 +2448,10 @@ def test_strftime():
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
-        assert result.equals(expected)
+        if sys.platform == "win32":
+            _compare_strftime_strings_on_windows(result, expected)
+        else:
+            assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
@@ -2614,7 +2668,9 @@ def test_assume_timezone():
             pc.assume_timezone(ta_zoned, options=options)
 
     invalid_options = pc.AssumeTimezoneOptions("Europe/Brusselsss")
-    with pytest.raises(ValueError, match="not found in timezone database"):
+    with pytest.raises(ValueError,
+                       match="not found in timezone database|"
+                             "unable to locate time_zone"):
         pc.assume_timezone(ta, options=invalid_options)
 
     timezone = "Europe/Brussels"
@@ -2789,6 +2845,14 @@ def test_round_temporal(unit):
         "1992-01-01 00:00:00.100000000",
         "1999-12-04 05:55:34.794991104",
         "2026-10-26 08:39:00.316686848"]
+
+    # Windows timezone database appears to disagree with IANA timezone database on
+    # some historical timestamps. We exclude those timestamps from testing on Windows.
+    # Specifically removing:
+    # "1941-05-27 11:46:43.822831872" and "1943-12-14 07:32:05.424766464"
+    if sys.platform == "win32":
+        timestamps = timestamps[:3] + timestamps[5:]
+
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
@@ -2811,6 +2875,57 @@ def test_count():
     with pytest.raises(ValueError,
                        match='"something else" is not a valid count mode'):
         pc.count(arr, 'something else')
+
+
+def test_count_run_end_encoded_nulls():
+    arr = pc.run_end_encode(
+        pa.array([1, 1, None, None, None, 2, 2, 2, None, 3]))
+
+    assert pc.count(arr, mode="only_valid").as_py() == 6
+    assert pc.count(arr, mode="only_null").as_py() == 4
+    assert pc.count(arr, mode="all").as_py() == 10
+    # Slice crosses run boundaries: logical [None, None, 2, 2, 2, None].
+    assert pc.count(arr.slice(3, 6), mode="only_valid").as_py() == 3
+    assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
+
+
+def test_count_sparse_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        [
+            pa.array([0.5, 99.0, None, 3.0, 88.0, 77.0]),
+            pa.array([False, None, True, False, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
+def test_count_dense_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.5, None, 3.0]),
+            pa.array([None, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
 
 
 def test_index():

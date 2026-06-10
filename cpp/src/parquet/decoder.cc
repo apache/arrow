@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -759,7 +760,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
     // We're going to decode `num_values - null_count` PLAIN values,
     // and each value has a 4-byte length header that doesn't count for the
     // Arrow binary data length.
-    int64_t estimated_data_length = len_ - 4 * (num_values - null_count);
+    int64_t estimated_data_length =
+        len_ - 4 * static_cast<int64_t>(num_values - null_count);
     if (ARROW_PREDICT_FALSE(estimated_data_length < 0)) {
       return Status::Invalid("Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
     }
@@ -1477,34 +1479,57 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
-    }
-    std::vector<T> values(num_values);
-    int decoded_count = GetInternal(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
-    return decoded_count;
+    auto reserve = [out](int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    };
+    auto append_values = [out](T* values, int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->AppendValues(values, num_values));
+    };
+    return DecodeArrowInternal(num_values, null_count, valid_bits, valid_bits_offset,
+                               reserve, append_values);
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
-    }
-    std::vector<T> values(num_values);
-    int decoded_count = GetInternal(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
-    for (int i = 0; i < decoded_count; ++i) {
-      PARQUET_THROW_NOT_OK(out->Append(values[i]));
-    }
-    return decoded_count;
+    auto reserve = [out](int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    };
+    auto append_values = [out](T* values, int64_t num_values) {
+      for (int i = 0; i < num_values; ++i) {
+        PARQUET_THROW_NOT_OK(out->Append(values[i]));
+      }
+    };
+    return DecodeArrowInternal(num_values, null_count, valid_bits, valid_bits_offset,
+                               reserve, append_values);
   }
 
  private:
   static constexpr int kMaxDeltaBitWidth = static_cast<int>(sizeof(T) * 8);
+
+  template <typename ReserveFunc, typename AppendValuesFunc>
+  int DecodeArrowInternal(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset, ReserveFunc&& reserve_func,
+                          AppendValuesFunc&& append_values_func) {
+    if (null_count != 0) {
+      // TODO(ARROW-34660): implement DecodeArrow with null slots.
+      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
+    }
+    reserve_func(num_values);
+    constexpr int kBatchSize = 1024;
+    std::array<T, kBatchSize> values;
+    int offset = 0;
+    while (offset < num_values) {
+      const int batch_size = std::min(num_values - offset, kBatchSize);
+      int decoded_count = GetInternal(values.data(), batch_size);
+      if (decoded_count != batch_size) {
+        ParquetException::EofException("Not enough values in data page");
+      }
+      append_values_func(values.data(), batch_size);
+      offset += batch_size;
+    }
+    return num_values;
+  }
 
   void InitHeader() {
     if (!decoder_->GetVlqInt(&values_per_block_) ||
@@ -1691,6 +1716,7 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
   explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : Base(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
+        pool_(pool),
         len_decoder_(nullptr, pool),
         buffered_length_(AllocateBuffer(pool, 0)) {}
 
@@ -1779,15 +1805,19 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values - null_count);
-    const int num_valid_values = Decode(values.data(), num_values - null_count);
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        ::arrow::AllocateBuffer(sizeof(ByteArray) * (num_values - null_count), pool_));
+    auto values_data = values_buffer->template mutable_data_as<ByteArray>();
+
+    const int num_valid_values = Decode(values_data, num_values - null_count);
     if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
       throw ParquetException("Expected to decode ", num_values - null_count,
                              " values, but decoded ", num_valid_values, " values.");
     }
 
     auto visit_binary_helper = [&](auto* helper) {
-      auto values_ptr = values.data();
+      auto values_ptr = reinterpret_cast<const ByteArray*>(values_data);
       int value_idx = 0;
 
       RETURN_NOT_OK(
@@ -1812,6 +1842,7 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
         out, num_values, /*estimated_data_length=*/{}, visit_binary_helper);
   }
 
+  MemoryPool* pool_;
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_{0};
@@ -2115,15 +2146,19 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values - null_count);
-    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        ::arrow::AllocateBuffer(sizeof(ByteArray) * (num_values - null_count), pool_));
+    auto values_data = values_buffer->template mutable_data_as<ByteArray>();
+
+    const int num_valid_values = GetInternal(values_data, num_values - null_count);
     if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
       throw ParquetException("Expected to decode ", num_values - null_count,
                              " values, but decoded ", num_valid_values, " values.");
     }
 
     auto visit_binary_helper = [&](auto* helper) {
-      auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
+      auto values_ptr = reinterpret_cast<const ByteArray*>(values_data);
       int value_idx = 0;
 
       PARQUET_THROW_NOT_OK(
@@ -2272,11 +2307,13 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
  protected:
   int DecodeRaw(uint8_t* out_buffer, int max_values) {
     const int values_to_decode = std::min(this->num_values_, max_values);
-    ::arrow::util::internal::ByteStreamSplitDecode(this->data_, this->type_length_,
-                                                   values_to_decode, stride_, out_buffer);
-    this->data_ += values_to_decode;
-    this->num_values_ -= values_to_decode;
-    this->len_ -= this->type_length_ * values_to_decode;
+    if (ARROW_PREDICT_TRUE(values_to_decode > 0)) {
+      ::arrow::util::internal::ByteStreamSplitDecode(
+          this->data_, this->type_length_, values_to_decode, stride_, out_buffer);
+      this->data_ += values_to_decode;
+      this->num_values_ -= values_to_decode;
+      this->len_ -= this->type_length_ * values_to_decode;
+    }
     return values_to_decode;
   }
 
@@ -2447,4 +2484,28 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
+
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return {Encoding::PLAIN, Encoding::RLE};
+    case Type::INT32:
+    case Type::INT64:
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
+              Encoding::BYTE_STREAM_SPLIT};
+    case Type::INT96:
+      return {Encoding::PLAIN};
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
+    case Type::BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
+              Encoding::DELTA_BYTE_ARRAY};
+    default:
+      throw ParquetException("Invalid physical type");
+  }
+}
+
 }  // namespace parquet

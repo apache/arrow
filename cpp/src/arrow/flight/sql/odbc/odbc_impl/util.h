@@ -29,6 +29,15 @@
 #include <functional>
 #include <optional>
 
+#ifdef __linux__
+// Linux driver manager uses utf16string
+#  define CONVERT_SQLWCHAR_STR(wvar, var) \
+    CONVERT_UTF16_STR(const std::u16string wvar, var)
+#else
+// Windows and macOS uses wstring
+#  define CONVERT_SQLWCHAR_STR(wvar, var) CONVERT_WIDE_STR(const std::wstring wvar, var)
+#endif  // __linux__
+
 #define CONVERT_WIDE_STR(wstring_var, utf8_target)                                \
   wstring_var = [&] {                                                             \
     arrow::Result<std::wstring> res = arrow::util::UTF8ToWideString(utf8_target); \
@@ -39,6 +48,13 @@
 #define CONVERT_UTF8_STR(string_var, wide_str_target)                                \
   string_var = [&] {                                                                 \
     arrow::Result<std::string> res = arrow::util::WideStringToUTF8(wide_str_target); \
+    arrow::flight::sql::odbc::util::ThrowIfNotOK(res.status());                      \
+    return res.ValueOrDie();                                                         \
+  }()
+
+#define CONVERT_UTF16_STR(utf16string_var, utf8_target)                              \
+  utf16string_var = [&] {                                                            \
+    arrow::Result<std::u16string> res = arrow::util::UTF8StringToUTF16(utf8_target); \
     arrow::flight::sql::odbc::util::ThrowIfNotOK(res.status());                      \
     return res.ValueOrDie();                                                         \
   }()

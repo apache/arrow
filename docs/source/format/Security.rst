@@ -26,9 +26,14 @@ data from untrusted sources. It focuses specifically on data passed in a
 standardized serialized form (such as a IPC stream), as opposed to an
 implementation-specific native representation (such as ``arrow::Array`` in C++).
 
-.. note::
+.. important::
    Implementation-specific concerns, such as bad API usage, are out of scope
    for this document. Please refer to the implementation's own documentation.
+
+.. seealso::
+
+   Arrow C++ :ref:`cpp-security`
+      Security model for Arrow C++ APIs
 
 
 Who should read this
@@ -49,10 +54,12 @@ You should read this document if you belong to either of these two categories:
 Columnar Format
 ===============
 
+.. _format-invalid-data:
+
 Invalid data
 ------------
 
-The Arrow :ref:`columnar format <_format_columnar>` is an efficient binary
+The Arrow :ref:`columnar format <format_columnar>` is an efficient binary
 representation with a focus on performance and efficiency. While the format
 does not store raw pointers, the contents of Arrow buffers are often
 combined and converted to pointers into the process' address space.
@@ -88,8 +95,6 @@ high speed processing. It is **extremely recommended** that your application
 explicitly validates any Arrow data it receives under serialized form
 from untrusted sources. Many Arrow implementations provide explicit APIs to
 perform such validation.
-
-.. TODO: link to some validation APIs for the main implementations here?
 
 Advice for implementors
 '''''''''''''''''''''''
@@ -165,7 +170,7 @@ have bugs anyway.
 IPC Format
 ==========
 
-The :ref:`IPC format <_ipc-message-format>` is a serialization format for the
+The :ref:`IPC format <ipc-message-format>` is a serialization format for the
 columnar format with associated metadata. Reading an IPC stream or file from
 an untrusted source comes with similar caveats as reading the Arrow columnar
 format.

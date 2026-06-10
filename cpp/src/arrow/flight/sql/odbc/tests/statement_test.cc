@@ -38,11 +38,9 @@ using TestTypes = ::testing::Types<StatementMockTest, StatementRemoteTest>;
 TYPED_TEST_SUITE(StatementTest, TestTypes);
 
 TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
-  std::wstring wsql = L"SELECT 1;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -54,27 +52,29 @@ TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectInvalidQuery) {
-  std::wstring wsql = L"SELECT;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT;");
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_ERROR, SQLExecDirect(this->stmt, wsql, wsql_len));
   // ODBC provides generic error code HY000 to all statement errors
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY000);
 }
 
 TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
-  std::wstring wsql = L"SELECT 1;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLPrepare(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLPrepare(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecute(this->stmt));
 
@@ -89,23 +89,31 @@ TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLPrepareInvalidQuery) {
-  std::wstring wsql = L"SELECT;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT;");
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLPrepare(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_ERROR, SQLPrepare(this->stmt, wsql, wsql_len));
   // ODBC provides generic error code HY000 to all statement errors
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY000);
 
   ASSERT_EQ(SQL_ERROR, SQLExecute(this->stmt));
   // Verify function sequence error state is returned
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectDataQuery) {
@@ -348,15 +356,13 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectTimeQuery) {
   // Mock server test is skipped due to limitation on the mock server.
   // Time type from mock server does not include the fraction
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
     SELECT CAST(TIME '00:00:00' AS TIME) AS time_min,
            CAST(TIME '23:59:59' AS TIME) AS time_max;
-    )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+    )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -383,11 +389,9 @@ TEST_F(StatementMockTest, TestSQLExecDirectVarbinaryQuery) {
   // Have binary test on mock test base as remote test servers tend to have different
   // formats for binary data
 
-  std::wstring wsql = L"SELECT X'ABCDEF' AS c_varbinary;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT X'ABCDEF' AS c_varbinary;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -591,15 +595,13 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectTimeQueryDefaultType) {
   // Mock server test is skipped due to limitation on the mock server.
   // Time type from mock server does not include the fraction
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT CAST(TIME '00:00:00' AS TIME) AS time_min,
           CAST(TIME '23:59:59' AS TIME) AS time_max;
-   )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+   )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -627,11 +629,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectVarbinaryQueryDefaultType) {
   // Mock server has type `DENSE_UNION` for varbinary.
   // Note that not all remote servers support "from_hex" function
 
-  std::wstring wsql = L"SELECT from_hex('ABCDEF') AS c_varbinary;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT from_hex('ABCDEF') AS c_varbinary;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -649,11 +649,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectVarbinaryQueryDefaultType) {
 // TODO(GH-48730): Enable this test when ARD/IRD descriptor support is fully implemented
 TYPED_TEST(StatementTest, DISABLED_TestGetDataPrecisionScaleUsesIRDAsDefault) {
   // Verify that SQLGetData uses IRD precision/scale as defaults when ARD values are unset
-  std::wstring wsql = L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;";
-  std::vector<SQLWCHAR> sql(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql[0], static_cast<SQLINTEGER>(sql.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -697,11 +695,9 @@ TYPED_TEST(StatementTest, DISABLED_TestGetDataPrecisionScaleUsesIRDAsDefault) {
 TYPED_TEST(StatementTest, DISABLED_TestGetDataPrecisionScaleUsesARDWhenSet) {
   // Verify that SQLGetData uses ARD precision/scale when set, for both SQL_ARD_TYPE and
   // SQL_C_DEFAULT
-  std::wstring wsql = L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;";
-  std::vector<SQLWCHAR> sql(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql[0], static_cast<SQLINTEGER>(sql.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -744,11 +740,10 @@ TYPED_TEST(StatementTest, DISABLED_TestGetDataPrecisionScaleUsesARDWhenSet) {
 
 TYPED_TEST(StatementTest, TestSQLExecDirectGuidQueryUnsupported) {
   // Query GUID as string as SQLite does not support GUID
-  std::wstring wsql = L"SELECT 'C77313CF-4E08-47CE-B6DF-94DD2FCF3541' AS guid;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              L"SELECT 'C77313CF-4E08-47CE-B6DF-94DD2FCF3541' AS guid;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -761,18 +756,16 @@ TYPED_TEST(StatementTest, TestSQLExecDirectGuidQueryUnsupported) {
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectRowFetching) {
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT 1 AS small_table
    UNION ALL
    SELECT 2
    UNION ALL
    SELECT 3;
- )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+ )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   // Fetch row 1
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -805,28 +798,31 @@ TYPED_TEST(StatementTest, TestSQLExecDirectRowFetching) {
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(3, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
-
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
   SQLLEN rows_fetched;
   SQLSetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &rows_fetched, 0);
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT 1 AS small_table
    UNION ALL
    SELECT 2
    UNION ALL
    SELECT 3;
- )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+ )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   // Fetch row 1
   ASSERT_EQ(SQL_SUCCESS, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
@@ -864,19 +860,23 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(3, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
   // SQL_FETCH_NEXT is the only supported fetch orientation.
 
-  std::wstring wsql = L"SELECT 1;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_PRIOR, 0));
 
@@ -901,16 +901,18 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
 
   ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_BOOKMARK, fetch_offset));
 
-  // DM returns state HY106 for SQL_FETCH_BOOKMARK
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+#else
+  // Windows DM returns state HY106 for SQL_FETCH_BOOKMARK
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY106);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectVarcharTruncation) {
-  std::wstring wsql = L"SELECT 'VERY LONG STRING here' AS string_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 'VERY LONG STRING here' AS string_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -957,11 +959,10 @@ TYPED_TEST(StatementTest, TestSQLExecDirectVarcharTruncation) {
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectWVarcharTruncation) {
-  std::wstring wsql = L"SELECT 'VERY LONG Unicode STRING 句子 here' AS wstring_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(
+      wsql, L"SELECT 'VERY LONG Unicode STRING 句子 here' AS wstring_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -975,7 +976,8 @@ TYPED_TEST(StatementTest, TestSQLExecDirectWVarcharTruncation) {
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 
-  EXPECT_EQ(std::wstring(L"VERY LONG Unicode STRING 句子"), std::wstring(wchar_val));
+  std::wstring wchar_result = ConvertToWString(wchar_val);
+  EXPECT_EQ(std::wstring(L"VERY LONG Unicode STRING 句子"), wchar_result);
   EXPECT_EQ(32 * wchar_size, ind);
 
   // Fetch same column 2nd time
@@ -987,7 +989,8 @@ TYPED_TEST(StatementTest, TestSQLExecDirectWVarcharTruncation) {
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 
-  EXPECT_EQ(std::wstring(L" "), std::wstring(wchar_val2));
+  wchar_result = ConvertToWString(wchar_val2);
+  EXPECT_EQ(std::wstring(L" "), wchar_result);
   EXPECT_EQ(5 * wchar_size, ind);
 
   // Fetch same column 3rd time
@@ -999,7 +1002,8 @@ TYPED_TEST(StatementTest, TestSQLExecDirectWVarcharTruncation) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetData(this->stmt, 1, SQL_C_WCHAR, &wchar_val3, buf_len, &ind));
 
-  EXPECT_EQ(std::wstring(L"here"), std::wstring(wchar_val3));
+  wchar_result = ConvertToWString(wchar_val3);
+  EXPECT_EQ(std::wstring(L"here"), wchar_result);
   EXPECT_EQ(4 * wchar_size, ind);
 
   // Attempt to fetch data 4th time
@@ -1012,11 +1016,9 @@ TEST_F(StatementMockTest, TestSQLExecDirectVarbinaryTruncation) {
   // Have binary test on mock test base as remote test servers tend to have different
   // formats for binary data
 
-  std::wstring wsql = L"SELECT X'ABCDEFAB' AS c_varbinary;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT X'ABCDEFAB' AS c_varbinary;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1057,9 +1059,9 @@ TYPED_TEST(StatementTest, DISABLED_TestSQLExecDirectFloatTruncation) {
   // GH-46985: return warning message instead of error on float truncation case
   std::wstring wsql;
   if constexpr (std::is_same_v<TypeParam, StatementMockTest>) {
-    wsql = std::wstring(L"SELECT CAST(1.234 AS REAL) AS float_val");
+    wsql = L"SELECT CAST(1.234 AS REAL) AS float_val";
   } else if constexpr (std::is_same_v<TypeParam, StatementRemoteTest>) {
-    wsql = std::wstring(L"SELECT CAST(1.234 AS FLOAT) AS float_val");
+    wsql = L"SELECT CAST(1.234 AS FLOAT) AS float_val";
   }
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
@@ -1082,11 +1084,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQuery) {
   // Limitation on mock test server prevents null from working properly, so use remote
   // server instead. Mock server has type `DENSE_UNION` for null column data.
 
-  std::wstring wsql = L"SELECT null as null_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT null as null_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1104,17 +1104,15 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   // Have binary test on mock test base as remote test servers tend to have different
   // formats for binary data
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
        SELECT 1,
        'VERY LONG STRING here' AS string_col,
        'VERY LONG Unicode STRING 句子 here' AS wstring_col,
        X'ABCDEFAB' AS c_varbinary;
- )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+ )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1155,11 +1153,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
   // Limitation on mock test server prevents null from working properly, so use remote
   // server instead. Mock server has type `DENSE_UNION` for null column data.
 
-  std::wstring wsql = L"SELECT null as null_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT null as null_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1170,6 +1166,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
 }
 
+// MacOS Driver Manager iODBC returns SQL_ERROR when invalid buffer length is provided to
+// SQLGetData
+#ifndef __APPLE__
 TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   // Verify the driver ignores invalid buffer length for fixed data types
 
@@ -1367,6 +1366,7 @@ TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   EXPECT_EQ(59, timestamp_var.second);
   EXPECT_EQ(0, timestamp_var.fraction);
 }
+#endif  // __APPLE__
 
 TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
   // Numeric Types
@@ -1503,7 +1503,7 @@ TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
             SQLBindCol(this->stmt, 25, SQL_C_CHAR, &char_val, buf_len, &ind));
 
   SQLWCHAR wchar_val[2];
-  size_t wchar_size = arrow::flight::sql::odbc::GetSqlWCharSize();
+  size_t wchar_size = GetSqlWCharSize();
   buf_len = wchar_size * 2;
 
   ASSERT_EQ(SQL_SUCCESS,
@@ -1533,10 +1533,10 @@ TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
 
   SQL_TIMESTAMP_STRUCT timestamp_val_min{}, timestamp_val_max{};
 
-  EXPECT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 31, SQL_C_TYPE_TIMESTAMP,
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 31, SQL_C_TYPE_TIMESTAMP,
                                     &timestamp_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 32, SQL_C_TYPE_TIMESTAMP,
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 32, SQL_C_TYPE_TIMESTAMP,
                                     &timestamp_val_max, buf_len, &ind));
 
   // Execute query and fetch data once since there is only 1 row.
@@ -1659,15 +1659,13 @@ TEST_F(StatementRemoteTest, TestSQLBindColTimeQuery) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 2, SQL_C_TYPE_TIME, &time_var_max, buf_len, &ind));
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT CAST(TIME '00:00:00' AS TIME) AS time_min,
           CAST(TIME '23:59:59' AS TIME) AS time_max;
-   )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+   )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1693,11 +1691,9 @@ TEST_F(StatementMockTest, TestSQLBindColVarbinaryQuery) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLBindCol(this->stmt, 1, SQL_C_BINARY, &varbinary_val[0], buf_len, &ind));
 
-  std::wstring wsql = L"SELECT X'ABCDEF' AS c_varbinary;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT X'ABCDEF' AS c_varbinary;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1716,11 +1712,9 @@ TEST_F(StatementRemoteTest, TestSQLBindColNullQuery) {
 
   ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
 
-  std::wstring wsql = L"SELECT null as null_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT null as null_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -1736,11 +1730,9 @@ TEST_F(StatementRemoteTest, TestSQLBindColNullQueryNullIndicator) {
 
   ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
 
-  std::wstring wsql = L"SELECT null as null_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT null as null_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_ERROR, SQLFetch(this->stmt));
   // Verify invalid null indicator is reported, as it is required
@@ -1756,18 +1748,16 @@ TYPED_TEST(StatementTest, TestSQLBindColRowFetching) {
   // should be updated after every SQLFetch call.
   ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &val, buf_len, &ind));
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT 1 AS small_table
    UNION ALL
    SELECT 2
    UNION ALL
    SELECT 3;
- )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+ )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   // Fetch row 1
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1807,18 +1797,16 @@ TYPED_TEST(StatementTest, TestSQLBindColRowArraySize) {
   ASSERT_EQ(SQL_SUCCESS,
             SQLSetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &rows_fetched, 0));
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT 1 AS small_table
    UNION ALL
    SELECT 2
    UNION ALL
    SELECT 3;
- )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+ )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ATTR_ROW_ARRAY_SIZE,
                                         reinterpret_cast<SQLPOINTER>(rows), 0));
@@ -1927,18 +1915,16 @@ TYPED_TEST(StatementTest, TestSQLExtendedFetchRowFetching) {
   ASSERT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ROWSET_SIZE,
                                         reinterpret_cast<SQLPOINTER>(rows), 0));
 
-  std::wstring wsql =
-      LR"(
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql,
+                              LR"(
    SELECT 1 AS small_table
    UNION ALL
    SELECT 2
    UNION ALL
    SELECT 3;
- )";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+ )");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   // Fetch row 1-3.
   SQLULEN row_count;
@@ -1948,7 +1934,7 @@ TYPED_TEST(StatementTest, TestSQLExtendedFetchRowFetching) {
             SQLExtendedFetch(this->stmt, SQL_FETCH_NEXT, 0, &row_count, row_status));
   EXPECT_EQ(3, row_count);
 
-  for (int i = 0; i < rows; i++) {
+  for (SQLULEN i = 0; i < rows; i++) {
     EXPECT_EQ(SQL_SUCCESS, row_status[i]);
   }
 
@@ -1974,11 +1960,9 @@ TEST_F(StatementRemoteTest, DISABLED_TestSQLExtendedFetchQueryNullIndicator) {
 
   ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
 
-  std::wstring wsql = L"SELECT null as null_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT null as null_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   SQLULEN row_count1;
   SQLUSMALLINT row_status1[1];
@@ -1991,11 +1975,10 @@ TEST_F(StatementRemoteTest, DISABLED_TestSQLExtendedFetchQueryNullIndicator) {
 
 TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
   // Verify SQLMoreResults returns SQL_NO_DATA by default.
-  std::wstring wsql = L"SELECT 1;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
 }
@@ -2010,80 +1993,75 @@ TYPED_TEST(StatementTest, TestSQLMoreResultsInvalidFunctionSequence) {
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
   SQLWCHAR buf[1024];
   SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
-  SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
-  SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(input_str, L"SELECT * FROM mytable WHERE id == 1");
   SQLINTEGER output_char_len = 0;
-  std::wstring expected_string = std::wstring(input_str);
 
-  ASSERT_EQ(SQL_SUCCESS, SQLNativeSql(this->conn, input_str, input_char_len, buf,
+  ASSERT_EQ(SQL_SUCCESS, SQLNativeSql(this->conn, input_str, input_str_len, buf,
                                       buf_char_len, &output_char_len));
 
-  EXPECT_EQ(input_char_len, output_char_len);
+  EXPECT_EQ(input_str_len, output_char_len);
 
   // returned length is in characters
   std::wstring returned_string(buf, buf + output_char_len);
 
-  EXPECT_EQ(expected_string, returned_string);
+  std::wstring input = ConvertToWString(input_str, input_str_len);
+  EXPECT_EQ(input, returned_string);
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsNTSInputString) {
   SQLWCHAR buf[1024];
   SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
-  SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
-  SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(input_str, L"SELECT * FROM mytable WHERE id == 1");
   SQLINTEGER output_char_len = 0;
-  std::wstring expected_string = std::wstring(input_str);
 
   ASSERT_EQ(SQL_SUCCESS, SQLNativeSql(this->conn, input_str, SQL_NTS, buf, buf_char_len,
                                       &output_char_len));
 
-  EXPECT_EQ(input_char_len, output_char_len);
+  EXPECT_EQ(input_str_len, output_char_len);
 
   // returned length is in characters
   std::wstring returned_string(buf, buf + output_char_len);
 
+  std::wstring expected_string = ConvertToWString(input_str, input_str_len);
   EXPECT_EQ(expected_string, returned_string);
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputStringLength) {
-  SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
-  SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(input_str, L"SELECT * FROM mytable WHERE id == 1");
   SQLINTEGER output_char_len = 0;
-  std::wstring expected_string = std::wstring(input_str);
 
-  ASSERT_EQ(SQL_SUCCESS, SQLNativeSql(this->conn, input_str, input_char_len, nullptr, 0,
+  ASSERT_EQ(SQL_SUCCESS, SQLNativeSql(this->conn, input_str, input_str_len, nullptr, 0,
                                       &output_char_len));
 
-  EXPECT_EQ(input_char_len, output_char_len);
+  EXPECT_EQ(input_str_len, output_char_len);
 
   ASSERT_EQ(SQL_SUCCESS,
             SQLNativeSql(this->conn, input_str, SQL_NTS, nullptr, 0, &output_char_len));
 
-  EXPECT_EQ(input_char_len, output_char_len);
+  EXPECT_EQ(input_str_len, output_char_len);
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsTruncatedString) {
   const SQLINTEGER small_buf_size_in_char = 11;
   SQLWCHAR small_buf[small_buf_size_in_char];
   SQLINTEGER small_buf_char_len = sizeof(small_buf) / GetSqlWCharSize();
-  SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
-  SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(input_str, L"SELECT * FROM mytable WHERE id == 1");
   SQLINTEGER output_char_len = 0;
 
   // Create expected return string based on buf size
   SQLWCHAR expected_string_buf[small_buf_size_in_char];
-  wcsncpy(expected_string_buf, input_str, 10);
+  std::copy(input_str, input_str + 10, expected_string_buf);
   expected_string_buf[10] = L'\0';
   std::wstring expected_string(expected_string_buf,
                                expected_string_buf + small_buf_size_in_char);
 
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLNativeSql(this->conn, input_str, input_char_len, small_buf,
+            SQLNativeSql(this->conn, input_str, input_str_len, small_buf,
                          small_buf_char_len, &output_char_len));
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState01004);
 
   // Returned text length represents full string char length regardless of truncation
-  EXPECT_EQ(input_char_len, output_char_len);
+  EXPECT_EQ(input_str_len, output_char_len);
 
   std::wstring returned_string(small_buf, small_buf + small_buf_char_len);
 
@@ -2093,30 +2071,28 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsTruncatedString) {
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsErrorOnBadInputs) {
   SQLWCHAR buf[1024];
   SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
-  SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
-  SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(input_str, L"SELECT * FROM mytable WHERE id == 1");
   SQLINTEGER output_char_len = 0;
 
-  ASSERT_EQ(SQL_ERROR, SQLNativeSql(this->conn, nullptr, input_char_len, buf,
-                                    buf_char_len, &output_char_len));
-  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY009);
-
-  ASSERT_EQ(SQL_ERROR, SQLNativeSql(this->conn, nullptr, SQL_NTS, buf, buf_char_len,
+  ASSERT_EQ(SQL_ERROR, SQLNativeSql(this->conn, nullptr, input_str_len, buf, buf_char_len,
                                     &output_char_len));
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY009);
 
   ASSERT_EQ(SQL_ERROR, SQLNativeSql(this->conn, input_str, -100, buf, buf_char_len,
                                     &output_char_len));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateS1090);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY090);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, SQLNumResultColsReturnsColumnsOnSelect) {
   SQLSMALLINT column_count = 0;
   SQLSMALLINT expected_value = 3;
-  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3");
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -2130,10 +2106,9 @@ TYPED_TEST(StatementTest, SQLNumResultColsReturnsColumnsOnSelect) {
 }
 
 TYPED_TEST(StatementTest, SQLNumResultColsReturnsSuccessOnNullptr) {
-  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3");
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -2149,18 +2124,28 @@ TYPED_TEST(StatementTest, SQLNumResultColsFunctionSequenceErrorOnNoQuery) {
   SQLSMALLINT expected_value = 0;
 
   ASSERT_EQ(SQL_ERROR, SQLNumResultCols(this->stmt, &column_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 
-  EXPECT_EQ(expected_value, column_count);
+  ASSERT_EQ(SQL_ERROR, SQLNumResultCols(this->stmt, &column_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
+
+  ASSERT_EQ(expected_value, column_count);
 }
 
 TYPED_TEST(StatementTest, SQLRowCountReturnsNegativeOneOnSelect) {
   SQLLEN row_count = 0;
   SQLLEN expected_value = -1;
-  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3");
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -2174,10 +2159,9 @@ TYPED_TEST(StatementTest, SQLRowCountReturnsNegativeOneOnSelect) {
 }
 
 TYPED_TEST(StatementTest, SQLRowCountReturnsSuccessOnNullptr) {
-  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3");
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -2193,17 +2177,27 @@ TYPED_TEST(StatementTest, SQLRowCountFunctionSequenceErrorOnNoQuery) {
   SQLLEN expected_value = 0;
 
   ASSERT_EQ(SQL_ERROR, SQLRowCount(this->stmt, &row_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 
   EXPECT_EQ(expected_value, row_count);
 }
 
-TYPED_TEST(StatementTest, TestSQLCloseCursor) {
-  std::wstring wsql = L"SELECT 1;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+TYPED_TEST(StatementTest, TestSQLFreeStmtSQLClose) {
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(this->stmt, SQL_CLOSE));
+}
+
+TYPED_TEST(StatementTest, TestSQLCloseCursor) {
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLCloseCursor(this->stmt));
 }

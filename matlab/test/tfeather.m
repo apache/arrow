@@ -22,6 +22,12 @@ classdef tfeather < matlab.unittest.TestCase
             import matlab.unittest.fixtures.WorkingFolderFixture;
             testCase.applyFixture(WorkingFolderFixture);
         end
+
+        function suppressFeatherV1Warnings(testCase)
+            import matlab.unittest.fixtures.SuppressedWarningsFixture
+            testCase.applyFixture(SuppressedWarningsFixture("arrow:io:feather:v1:FeatherReadDeprecated"));
+            testCase.applyFixture(SuppressedWarningsFixture("arrow:io:feather:v1:FeatherWriteDeprecated"));
+        end
         
     end
     
@@ -265,6 +271,29 @@ classdef tfeather < matlab.unittest.TestCase
 
             actualTable = roundtrip(filename, expectedTable);
             testCase.verifyEqual(actualTable, expectedTable);
+        end
+
+        function VerifyFeatherReadDeprecationWarning(testCase)
+            filename = fullfile(pwd, 'temp.feather');
+
+            t = array2table([1, 2, 3]);
+            featherwrite(filename, t);
+            
+            warning("on", "arrow:io:feather:v1:FeatherReadDeprecated");
+            fcn = @() featherread(filename);
+            testCase.verifyWarning(fcn, "arrow:io:feather:v1:FeatherReadDeprecated")
+            warning("off", "arrow:io:feather:v1:FeatherReadDeprecated");
+        end
+
+        function VerifyFeatherWriteDeprecationWarning(testCase)
+            filename = fullfile(pwd, 'temp.feather');
+
+            t = array2table([1, 2, 3]);
+            
+            warning("on", "arrow:io:feather:v1:FeatherWriteDeprecated");
+            fcn = @() featherwrite(filename, t);
+            testCase.verifyWarning(fcn, "arrow:io:feather:v1:FeatherWriteDeprecated")
+            warning("off", "arrow:io:feather:v1:FeatherReadDeprecated");
         end
 
     end

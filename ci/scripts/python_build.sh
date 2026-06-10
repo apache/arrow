@@ -59,9 +59,8 @@ if [ -n "${CONDA_PREFIX}" ]; then
   conda list
 fi
 
-export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
-export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
-
+export CMAKE_BUILD_PARALLEL_LEVEL=${n_jobs}
+export CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
 export PYARROW_WITH_ACERO=${ARROW_ACERO:-OFF}
 export PYARROW_WITH_AZURE=${ARROW_AZURE:-OFF}
 export PYARROW_WITH_CUDA=${ARROW_CUDA:-OFF}
@@ -76,8 +75,6 @@ export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION:-ON}
 export PYARROW_WITH_S3=${ARROW_S3:-OFF}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF}
 
-export PYARROW_PARALLEL=${n_jobs}
-
 : "${CMAKE_PREFIX_PATH:=${ARROW_HOME}}"
 export CMAKE_PREFIX_PATH
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
@@ -90,11 +87,9 @@ export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_P
 rm -rf "${python_build_dir}"
 cp -aL "${source_dir}" "${python_build_dir}"
 pushd "${python_build_dir}"
-# - Cannot call setup.py as it may install in the wrong directory
-#   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
-${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" .
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then

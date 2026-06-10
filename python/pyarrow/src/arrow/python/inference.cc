@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/extension/uuid.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
@@ -407,6 +408,7 @@ class TypeInferrer {
         arrow_scalar_count_(0),
         numpy_dtype_count_(0),
         interval_count_(0),
+        uuid_count_(0),
         max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
                               std::numeric_limits<int32_t>::min()),
         decimal_type_() {
@@ -475,6 +477,9 @@ class TypeInferrer {
       ++decimal_count_;
     } else if (PyObject_IsInstance(obj, interval_types_.obj())) {
       ++interval_count_;
+    } else if (internal::IsPyUuid(obj)) {
+      ++uuid_count_;
+      *keep_going = make_unions_;
     } else {
       return internal::InvalidValue(obj,
                                     "did not recognize Python value type when inferring "
@@ -604,6 +609,8 @@ class TypeInferrer {
       *out = utf8();
     } else if (interval_count_) {
       *out = month_day_nano_interval();
+    } else if (uuid_count_) {
+      *out = extension::uuid();
     } else if (arrow_scalar_count_) {
       *out = scalar_type_;
     } else {
@@ -766,6 +773,7 @@ class TypeInferrer {
   int64_t arrow_scalar_count_;
   int64_t numpy_dtype_count_;
   int64_t interval_count_;
+  int64_t uuid_count_;
   std::unique_ptr<TypeInferrer> list_inferrer_;
   std::vector<std::pair<std::string, TypeInferrer>> struct_inferrers_;
   std::unordered_map<std::string, size_t> struct_field_index_;

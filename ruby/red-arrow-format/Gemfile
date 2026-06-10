@@ -21,6 +21,11 @@ source "https://rubygems.org/"
 
 gemspec
 
-gem "rake"
 gem "red-arrow", path: "../red-arrow"
-gem "test-unit"
+
+group :development do
+  gem "benchmark-driver"
+  gem "rake"
+  gem "stringio"
+  gem "test-unit"
+end

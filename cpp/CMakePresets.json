@@ -132,6 +132,14 @@
       }
     },
     {
+      "name": "features-opentelemetry",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_WITH_OPENTELEMETRY": "ON"
+      }
+    },
+    {
       "name": "features-python-minimal",
       "inherits": [
         "features-minimal"
@@ -162,6 +170,7 @@
         "features-filesystems",
         "features-flight-sql",
         "features-gandiva",
+        "features-opentelemetry",
         "features-python"
       ],
       "hidden": true,

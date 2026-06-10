@@ -25,7 +25,7 @@ module ArrowFormat
     attr_reader :buffer
     def initialize(buffer, message)
       @buffer = buffer
-      super("#{message}: #{@buffer}")
+      super("#{message}: #{@buffer.inspect}")
     end
   end
 

@@ -69,7 +69,7 @@ void TestBindColumn(const std::shared_ptr<Connection>& connection) {
     total += fetched_rows;
     std::cout << "Total:" << total << std::endl;
 
-    for (int i = 0; i < fetched_rows; ++i) {
+    for (size_t i = 0; i < fetched_rows; ++i) {
       ARROW_LOG(DEBUG) << "Row[" << i << "] incidnt_num: '" << incidnt_num[i]
                        << "', Category: '" << category[i] << "'";
     }
@@ -138,7 +138,7 @@ void TestBindColumnBigInt(const std::shared_ptr<Connection>& connection) {
     total += fetched_rows;
     ARROW_LOG(DEBUG) << "Total:" << total;
 
-    for (int i = 0; i < fetched_rows; ++i) {
+    for (size_t i = 0; i < fetched_rows; ++i) {
       ARROW_LOG(DEBUG) << "Row[" << i << "] incidnt_num: '" << incidnt_num[i] << "', "
                        << "double_field: '" << double_field[i] << "', "
                        << "category: '" << category[i] << "'";
@@ -183,7 +183,7 @@ void TestGetColumnsV3(const std::shared_ptr<Connection>& connection) {
   ssize_t result_length;
 
   while (result_set->Move(1, 0, 0, nullptr) == 1) {
-    for (int i = 0; i < column_count; ++i) {
+    for (size_t i = 0; i < column_count; ++i) {
       result_set->GetData(1 + i, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0,
                           result.data(), buffer_length, &result_length);
       std::cout << (result_length != -1 ? result.data() : "NULL") << '\t';

@@ -86,11 +86,15 @@ module WriterHelper
     when Arrow::FixedSizeBinaryDataType
       ArrowFormat::FixedSizeBinaryType.new(red_arrow_type.byte_width)
     when Arrow::MapDataType
-      ArrowFormat::MapType.new(convert_field(red_arrow_type.field))
+      ArrowFormat::MapType.new(convert_field(red_arrow_type.field),
+                               red_arrow_type.keys_sorted?)
     when Arrow::ListDataType
       ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
     when Arrow::LargeListDataType
       ArrowFormat::LargeListType.new(convert_field(red_arrow_type.field))
+    when Arrow::FixedSizeListDataType
+      ArrowFormat::FixedSizeListType.new(convert_field(red_arrow_type.field),
+                                         red_arrow_type.list_size)
     when Arrow::StructDataType
       fields = red_arrow_type.fields.collect do |field|
         convert_field(field)
@@ -107,10 +111,14 @@ module WriterHelper
       end
       ArrowFormat::SparseUnionType.new(fields, red_arrow_type.type_codes)
     when Arrow::DictionaryDataType
+      @dictionary_id ||= 0
+      dictionary_id = @dictionary_id
+      @dictionary_id += 1
       index_type = convert_type(red_arrow_type.index_data_type)
-      type = convert_type(red_arrow_type.value_data_type)
-      ArrowFormat::DictionaryType.new(index_type,
-                                      type,
+      value_type = convert_type(red_arrow_type.value_data_type)
+      ArrowFormat::DictionaryType.new(dictionary_id,
+                                      index_type,
+                                      value_type,
                                       red_arrow_type.ordered?)
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
@@ -119,17 +127,9 @@ module WriterHelper
 
   def convert_field(red_arrow_field)
     type = convert_type(red_arrow_field.data_type)
-    if type.is_a?(ArrowFormat::DictionaryType)
-      @dictionary_id ||= 0
-      dictionary_id = @dictionary_id
-      @dictionary_id += 1
-    else
-      dictionary_id = nil
-    end
     ArrowFormat::Field.new(red_arrow_field.name,
                            type,
                            nullable: red_arrow_field.nullable?,
-                           dictionary_id: dictionary_id,
                            metadata: red_arrow_field.metadata)
   end
 
@@ -161,6 +161,10 @@ module WriterHelper
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.value_offsets_buffer),
                        convert_array(red_arrow_array.values_raw))
+    when ArrowFormat::FixedSizeListType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
+                       convert_array(red_arrow_array.values_raw))
     when ArrowFormat::StructType
       children = red_arrow_array.fields.collect do |red_arrow_field|
         convert_array(red_arrow_field)
@@ -189,7 +193,8 @@ module WriterHelper
     when ArrowFormat::DictionaryType
       validity_buffer = convert_buffer(red_arrow_array.null_bitmap)
       indices_buffer = convert_buffer(red_arrow_array.indices.data_buffer)
-      dictionary = convert_array(red_arrow_array.dictionary)
+      dictionary_array = convert_array(red_arrow_array.dictionary)
+      dictionary = ArrowFormat::Dictionary.new(0, dictionary_array)
       type.build_array(red_arrow_array.size,
                        validity_buffer,
                        indices_buffer,
@@ -281,6 +286,27 @@ module WriterTests
                    "key2" => "value2",
                  },
                  table.schema.metadata)
+  end
+
+  def test_custom_metadata_message_record_batch
+    field = ArrowFormat::Field.new("value", ArrowFormat::BooleanType.new)
+    schema = ArrowFormat::Schema.new([field])
+    column = convert_array(Arrow::BooleanArray.new([true, nil, false]))
+    record_batch = ArrowFormat::RecordBatch.new(schema, 3, [column],
+                                                message_metadata: {
+                                                  "key1" => "value1",
+                                                  "key2" => "value2",
+                                                })
+    output = StringIO.new(+"".b)
+    writer = writer_class.new(output)
+    write(writer, record_batch)
+    writer.finish
+    reader = reader_class.new(output.string)
+    assert_equal({
+                   "key1" => "value1",
+                   "key2" => "value2",
+                 },
+                 reader.first.message_metadata)
   end
 
   def test_null
@@ -806,6 +832,22 @@ module WriterTests
                  [type.to_s, values])
   end
 
+  def test_fixed_size_list
+    data_type = Arrow::FixedSizeListDataType.new({
+                                                   name: "count",
+                                                   type: :int8,
+                                                 },
+                                                 2)
+    array = Arrow::FixedSizeListArray.new(data_type,
+                                          [[-128, 127], nil, [-1, 1]])
+    type, values = roundtrip(array)
+    assert_equal([
+                   "fixed_size_list<count: int8>[2]",
+                   [[-128, 127], nil, [-1, 1]],
+                 ],
+                 [type.to_s, values])
+  end
+
   def test_map
     data_type = Arrow::MapDataType.new(:string, :int8)
     array = Arrow::MapArray.new(data_type,
@@ -904,16 +946,60 @@ module WriterTests
   end
 end
 
+module FileWriterTests
+  def test_custom_metadata_footer
+    output = StringIO.new(+"".b)
+    writer = writer_class.new(output)
+    field = ArrowFormat::Field.new("value", ArrowFormat::BooleanType.new)
+    schema = ArrowFormat::Schema.new([field])
+    writer.start(schema)
+    metadata = {
+      "key1" => "value1",
+      "key2" => "value2",
+    }
+    writer.finish(metadata)
+    buffer = Arrow::Buffer.new(output.string)
+    Arrow::BufferInputStream.open(buffer) do |input|
+      reader = Arrow::RecordBatchFileReader.new(input)
+      assert_equal(metadata, reader.metadata)
+    end
+  end
+end
+
+module StreamingWriterTests
+  def test_custom_metadata_message_schema
+    field = ArrowFormat::Field.new("value", ArrowFormat::BooleanType.new)
+    schema = ArrowFormat::Schema.new([field],
+                                     message_metadata: {
+                                       "key1" => "value1",
+                                       "key2" => "value2",
+                                     })
+    column = convert_array(Arrow::BooleanArray.new([true, nil, false]))
+    record_batch = ArrowFormat::RecordBatch.new(schema, 3, [column])
+    output = StringIO.new(+"".b)
+    writer = writer_class.new(output)
+    write(writer, record_batch)
+    writer.finish
+    input = StringIO.new(output.string)
+    reader = reader_class.new(input)
+    assert_equal({
+                   "key1" => "value1",
+                   "key2" => "value2",
+                 },
+                 reader.schema.message_metadata)
+  end
+end
+
 module WriterDictionaryDeltaTests
   def build_schema(value_type)
     index_type = ArrowFormat::Int32Type.singleton
+    dictionary_id = 1
     ordered = false
-    type = ArrowFormat::DictionaryType.new(index_type,
+    type = ArrowFormat::DictionaryType.new(dictionary_id,
+                                           index_type,
                                            value_type,
                                            ordered)
-    field = ArrowFormat::Field.new("value",
-                                   type,
-                                   dictionary_id: 1)
+    field = ArrowFormat::Field.new("value", type)
     ArrowFormat::Schema.new([field])
   end
 
@@ -931,11 +1017,19 @@ module WriterDictionaryDeltaTests
     schema = build_schema(value_type)
     type = schema.fields[0].type
 
+    dictionary_id = 1
+
     # The first record batch with new dictionary.
     raw_dictionary = values1.uniq
     red_arrow_dictionary =
       red_arrow_value_type.build_array(raw_dictionary)
-    dictionary = convert_array(red_arrow_dictionary)
+    dictionary_array = convert_array(red_arrow_dictionary)
+    dictionary =
+      ArrowFormat::Dictionary.new(dictionary_id, dictionary_array,
+                                  message_metadata: {
+                                    "key1" => "value1",
+                                    "key2" => "value2",
+                                  })
     indices1 = values1.collect do |value|
       raw_dictionary.index(value)
     end
@@ -950,7 +1044,9 @@ module WriterDictionaryDeltaTests
       raw_dictionary_more = raw_dictionary + raw_dictionary_delta
       red_arrow_dictionary_delta =
         red_arrow_value_type.build_array(raw_dictionary_delta)
-      dictionary_delta = convert_array(red_arrow_dictionary_delta)
+      dictionary_array_delta = convert_array(red_arrow_dictionary_delta)
+      dictionary_delta =
+        ArrowFormat::Dictionary.new(dictionary_id, dictionary_array_delta)
       indices2 = values2.collect do |value|
         raw_dictionary_more.index(value)
       end
@@ -962,7 +1058,9 @@ module WriterDictionaryDeltaTests
       raw_dictionary_more = raw_dictionary | values2.uniq
       red_arrow_dictionary_more =
         red_arrow_value_type.build_array(raw_dictionary_more)
-      dictionary_more = convert_array(red_arrow_dictionary_more)
+      dictionary_array_more = convert_array(red_arrow_dictionary_more)
+      dictionary_more = ArrowFormat::Dictionary.new(dictionary_id,
+                                                    dictionary_array_more)
       indices2 = values2.collect do |value|
         raw_dictionary_more.index(value)
       end
@@ -1478,10 +1576,14 @@ class TestFileWriter < Test::Unit::TestCase
     ArrowFormat::FileWriter
   end
 
+  def reader_class
+    ArrowFormat::FileReader
+  end
+
   def read(path)
     File.open(path, "rb") do |input|
-      reader = ArrowFormat::FileReader.new(input)
-      reader.to_a.collect do |record_batch|
+      reader = reader_class.new(input)
+      reader.collect do |record_batch|
         record_batch.to_h.tap do |hash|
           hash.each do |key, value|
             hash[key] = value.to_a
@@ -1493,6 +1595,7 @@ class TestFileWriter < Test::Unit::TestCase
 
   sub_test_case("Basic") do
     include WriterTests
+    include FileWriterTests
   end
 
   sub_test_case("Dictionary: delta") do
@@ -1523,9 +1626,13 @@ class TestStreamingWriter < Test::Unit::TestCase
     ArrowFormat::StreamingWriter
   end
 
+  def reader_class
+    ArrowFormat::StreamingReader
+  end
+
   def read(path)
     File.open(path, "rb") do |input|
-      reader = ArrowFormat::StreamingReader.new(input)
+      reader = reader_class.new(input)
       reader.collect do |record_batch|
         record_batch.to_h.tap do |hash|
           hash.each do |key, value|
@@ -1538,6 +1645,7 @@ class TestStreamingWriter < Test::Unit::TestCase
 
   sub_test_case("Basic") do
     include WriterTests
+    include StreamingWriterTests
   end
 
   sub_test_case("Dictionary: delta") do

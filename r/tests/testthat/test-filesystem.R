@@ -178,15 +178,15 @@ test_that("s3_bucket", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  bucket <- s3_bucket("ursa-labs-r-test")
+  bucket <- s3_bucket("arrow-datasets")
   expect_r6_class(bucket, "SubTreeFileSystem")
   expect_r6_class(bucket$base_fs, "S3FileSystem")
-  expect_identical(bucket$region, "us-west-2")
+  expect_identical(bucket$region, "us-east-1")
   expect_identical(
     capture.output(print(bucket)),
-    "SubTreeFileSystem: s3://ursa-labs-r-test/"
+    "SubTreeFileSystem: s3://arrow-datasets/"
   )
-  expect_identical(bucket$base_path, "ursa-labs-r-test/")
+  expect_identical(bucket$base_path, "arrow-datasets/")
 })
 
 test_that("gs_bucket", {

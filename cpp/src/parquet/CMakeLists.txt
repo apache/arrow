@@ -151,6 +151,7 @@ endif()
 # Library config
 
 set(PARQUET_SRCS
+    arrow/fuzz_encoding_internal.cc
     arrow/fuzz_internal.cc
     arrow/path_internal.cc
     arrow/reader.cc
@@ -227,11 +228,9 @@ endif()
 set(PARQUET_SHARED_LINK_LIBS)
 set(PARQUET_SHARED_PRIVATE_LINK_LIBS)
 
-if(ARROW_USE_XSIMD)
-  list(APPEND PARQUET_SHARED_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
-endif()
+list(APPEND PARQUET_SHARED_LINK_LIBS ${ARROW_XSIMD})
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
@@ -415,6 +414,7 @@ add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
+                   encryption/bloom_filter_encryption_test.cc
                    encryption/encryption_internal_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc

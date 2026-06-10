@@ -76,31 +76,6 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     Returns
     -------
     pa.Table
-
-    Examples
-    --------
-    >>> import pyarrow
-    >>> from pyarrow.interchange import from_dataframe
-
-    Convert a pandas dataframe to a pyarrow table:
-
-    >>> import pandas as pd
-    >>> df = pd.DataFrame({
-    ...         "n_attendees": [100, 10, 1],
-    ...         "country": ["Italy", "Spain", "Slovenia"],
-    ...     })
-    >>> df
-       n_attendees   country
-    0          100     Italy
-    1           10     Spain
-    2            1  Slovenia
-    >>> from_dataframe(df)
-    pyarrow.Table
-    n_attendees: int64
-    country: large_string
-    ----
-    n_attendees: [[100,10,1]]
-    country: [["Italy","Spain","Slovenia"]]
     """
     if isinstance(df, pa.Table):
         return df

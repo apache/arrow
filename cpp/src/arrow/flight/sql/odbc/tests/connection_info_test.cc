@@ -33,6 +33,12 @@ class ConnectionInfoMockTest : public FlightSQLODBCMockTestBase {};
 using TestTypes = ::testing::Types<ConnectionInfoMockTest, FlightSQLODBCRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionInfoTest, TestTypes);
 
+template <typename T>
+class ConnectionInfoHandleTest : public T {};
+using TestTypesHandle = ::testing::Types<FlightSQLOdbcEnvConnHandleMockTestBase,
+                                         FlightSQLOdbcEnvConnHandleRemoteTestBase>;
+TYPED_TEST_SUITE(ConnectionInfoHandleTest, TestTypesHandle);
+
 namespace {
 // Helper Functions
 
@@ -58,8 +64,8 @@ void GetInfo(SQLHDBC connection, SQLUSMALLINT info_type, SQLULEN* value) {
 }
 
 // Get SQLWCHAR return value
-void GetInfo(SQLHDBC connection, SQLUSMALLINT info_type, SQLWCHAR* value,
-             SQLSMALLINT buf_len = kOdbcBufferSize) {
+void GetInfoSQLWCHAR(SQLHDBC connection, SQLUSMALLINT info_type, SQLWCHAR* value,
+                     SQLSMALLINT buf_len = kOdbcBufferSize) {
   SQLSMALLINT message_length;
 
   ASSERT_EQ(SQL_SUCCESS,
@@ -69,11 +75,11 @@ void GetInfo(SQLHDBC connection, SQLUSMALLINT info_type, SQLWCHAR* value,
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoTruncation) {
   static constexpr int info_len = 1;
-  SQLWCHAR value[info_len] = L"";
+  SQLWCHAR value[info_len] = {};
   SQLSMALLINT message_length;
 
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetInfo(this->conn, SQL_KEYWORDS, value, info_len, &message_length));
+            SQLGetInfo(this->conn, SQL_INTEGRITY, value, info_len, &message_length));
 
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState01004);
@@ -129,10 +135,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoBatchSupport) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDataSourceName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DATA_SOURCE_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DATA_SOURCE_NAME, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 #ifdef SQL_DRIVER_AWARE_POOLING_SUPPORTED
@@ -201,24 +208,27 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverHstmt) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DRIVER_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DRIVER_NAME, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"Arrow Flight ODBC Driver"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"Arrow Flight ODBC Driver"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverOdbcVer) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DRIVER_ODBC_VER, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DRIVER_ODBC_VER, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"03.80"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"03.80"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverVer) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DRIVER_VER, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DRIVER_VER, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"00.09.0000.0"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"00.09.0000.0"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDynamicCursorAttributes1) {
@@ -316,10 +326,16 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoOdbcInterfaceConformance) {
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoOdbcVer) {
   // This is implemented only in the Driver Manager.
 
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_ODBC_VER, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_ODBC_VER, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"03.80.0000"), value);
+  std::wstring result = ConvertToWString(value);
+
+#ifdef __APPLE__
+  EXPECT_EQ(std::wstring(L"03.52.0000"), result);
+#else
+  EXPECT_EQ(std::wstring(L"03.80.0000"), result);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoParamArrayRowCounts) {
@@ -337,24 +353,27 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoParamArraySelects) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoRowUpdates) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_ROW_UPDATES, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_ROW_UPDATES, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoSearchPatternEscape) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_SEARCH_PATTERN_ESCAPE, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_SEARCH_PATTERN_ESCAPE, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"\\"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"\\"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoServerName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_SERVER_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_SERVER_NAME, value);
 
-  EXPECT_GT(wcslen(value), 0);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_GT(result.length(), 0);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoStaticCursorAttributes1) {
@@ -374,40 +393,45 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoStaticCursorAttributes2) {
 // DBMS Product Information
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDatabaseName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DATABASE_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DATABASE_NAME, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDbmsName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DBMS_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DBMS_NAME, value);
 
-  EXPECT_GT(wcslen(value), 0);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_GT(result.length(), 0);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDbmsVer) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DBMS_VER, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DBMS_VER, value);
 
-  EXPECT_GT(wcslen(value), 0);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_GT(result.length(), 0);
 }
 
 // Data Source Information
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAccessibleProcedures) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_ACCESSIBLE_PROCEDURES, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_ACCESSIBLE_PROCEDURES, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAccessibleTables) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_ACCESSIBLE_TABLES, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_ACCESSIBLE_TABLES, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"Y"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"Y"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoBookmarkPersistence) {
@@ -418,17 +442,19 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoBookmarkPersistence) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogTerm) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_CATALOG_TERM, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_CATALOG_TERM, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCollationSeq) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_COLLATION_SEQ, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_COLLATION_SEQ, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoConcatNullBehavior) {
@@ -460,10 +486,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCursorSensitivity) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDataSourceReadOnly) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DATA_SOURCE_READ_ONLY, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DATA_SOURCE_READ_ONLY, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDefaultTxnIsolation) {
@@ -474,31 +501,35 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDefaultTxnIsolation) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDescribeParameter) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_DESCRIBE_PARAMETER, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_DESCRIBE_PARAMETER, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoMultResultSets) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_MULT_RESULT_SETS, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_MULT_RESULT_SETS, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoMultipleActiveTxn) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_MULTIPLE_ACTIVE_TXN, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_MULTIPLE_ACTIVE_TXN, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoNeedLongDataLen) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_NEED_LONG_DATA_LEN, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_NEED_LONG_DATA_LEN, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoNullCollation) {
@@ -508,17 +539,19 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoNullCollation) {
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoProcedureTerm) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_PROCEDURE_TERM, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_PROCEDURE_TERM, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoSchemaTerm) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_SCHEMA_TERM, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_SCHEMA_TERM, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"schema"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"schema"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoScrollOptions) {
@@ -529,10 +562,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoScrollOptions) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoTableTerm) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_TABLE_TERM, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_TABLE_TERM, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"table"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"table"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoTxnCapable) {
@@ -550,10 +584,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoTxnIsolationOption) {
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoUserName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_USER_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_USER_NAME, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 // Supported SQL
@@ -581,25 +616,34 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAlterTable) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogLocation) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoCatalogLocation) {
+  // GH-49482 TODO: resolve inconsitent return value for SQL_CATALOG_LOCATION and change
+  // test type to `ConnectionInfoTest`
+  this->ConnectWithString(this->GetConnectionString(), this->conn);
+
   SQLUSMALLINT value;
   GetInfo(this->conn, SQL_CATALOG_LOCATION, &value);
 
   EXPECT_EQ(static_cast<SQLUSMALLINT>(0), value);
+
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogName) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_CATALOG_NAME, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_CATALOG_NAME, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogNameSeparator) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_CATALOG_NAME_SEPARATOR, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_CATALOG_NAME_SEPARATOR, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCatalogUsage) {
@@ -610,10 +654,11 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCatalogUsage) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoColumnAlias) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_COLUMN_ALIAS, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_COLUMN_ALIAS, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"Y"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"Y"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCorrelationName) {
@@ -707,18 +752,32 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropSchema) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
+  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_SCHEMA and change test
+  // type to `ConnectionInfoTest`
+  this->ConnectWithString(this->GetConnectionString(), this->conn);
+
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTable) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropTable) {
+  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_TABLE and change test
+  // type to `ConnectionInfoTest`
+  this->ConnectWithString(this->GetConnectionString(), this->conn);
+
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_TABLE, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTranslation) {
@@ -736,10 +795,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropView) {
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoExpressionsInOrderby) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_EXPRESSIONS_IN_ORDERBY, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_EXPRESSIONS_IN_ORDERBY, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoGroupBy) {
@@ -757,10 +817,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoIdentifierCase) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoIdentifierQuoteChar) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_IDENTIFIER_QUOTE_CHAR, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_IDENTIFIER_QUOTE_CHAR, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"\""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"\""), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoIndexKeywords) {
@@ -779,26 +840,29 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoInsertStatement) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoIntegrity) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_INTEGRITY, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_INTEGRITY, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoKeywords) {
-  // Keyword strings can require 5000 buffer length
-  static constexpr int info_len = kOdbcBufferSize * 5;
-  SQLWCHAR value[info_len] = L"";
-  GetInfo(this->conn, SQL_KEYWORDS, value, info_len);
+  // Keyword strings can require 10000 buffer length
+  static constexpr int info_len = kOdbcBufferSize * 10;
+  SQLWCHAR value[info_len] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_KEYWORDS, value, info_len);
 
-  EXPECT_GT(wcslen(value), 0);
+  std::wstring result = ConvertToWString(value, -1, info_len);
+  EXPECT_GT(result.length(), 0);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoLikeEscapeClause) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_LIKE_ESCAPE_CLAUSE, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_LIKE_ESCAPE_CLAUSE, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"Y"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"Y"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoNonNullableColumns) {
@@ -816,24 +880,27 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoOjCapabilities) {
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoOrderByColumnsInSelect) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_ORDER_BY_COLUMNS_IN_SELECT, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_ORDER_BY_COLUMNS_IN_SELECT, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"Y"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"Y"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoOuterJoins) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_OUTER_JOINS, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_OUTER_JOINS, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoProcedures) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_PROCEDURES, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_PROCEDURES, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoQuotedIdentifierCase) {
@@ -851,10 +918,11 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoSchemaUsage) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoSpecialCharacters) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_SPECIAL_CHARACTERS, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_SPECIAL_CHARACTERS, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoSqlConformance) {
@@ -974,17 +1042,19 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoMaxProcedureNameLen) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoMaxRowSize) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_MAX_ROW_SIZE, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_MAX_ROW_SIZE, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L""), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L""), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoMaxRowSizeIncludesLong) {
-  SQLWCHAR value[kOdbcBufferSize] = L"";
-  GetInfo(this->conn, SQL_MAX_ROW_SIZE_INCLUDES_LONG, value);
+  SQLWCHAR value[kOdbcBufferSize] = {};
+  GetInfoSQLWCHAR(this->conn, SQL_MAX_ROW_SIZE_INCLUDES_LONG, value);
 
-  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_EQ(std::wstring(L"N"), result);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoMaxSchemaNameLen) {

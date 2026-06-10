@@ -98,15 +98,30 @@ cpp_version = build_info.cpp_build_info.version
 cpp_version_info = build_info.cpp_build_info.version_info
 
 
+# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+# https://github.com/apache/arrow/issues/48593
 def set_timezone_db_path(path):
     """
     Configure the path to text timezone database on Windows.
+
+    .. deprecated:: 24.0.0
+       This function is deprecated and will be removed in a future version.
+       PyArrow now uses the operating system's timezone database on Windows.
 
     Parameters
     ----------
     path : str
         Path to text timezone database.
     """
+
+    warnings.warn(
+        "pyarrow.set_timezone_db_path is deprecated as of 24.0.0 "
+        "and will be removed in a future version. PyArrow now uses the "
+        "operating system's timezone database on most Windows builds.",
+        FutureWarning,
+        stacklevel=2
+    )
+
     cdef:
         CGlobalOptions options
 

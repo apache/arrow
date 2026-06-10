@@ -60,7 +60,7 @@ from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_p
                          MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
-                         io_thread_count, set_io_thread_count)
+                         io_thread_count, is_opentelemetry_enabled, set_io_thread_count)
 
 
 def show_versions():
@@ -135,6 +135,7 @@ def show_info():
     for module in modules:
         status = "Enabled" if _module_is_available(module) else "-"
         print(f"  {module: <20}: {status: <8}")
+    print(f"  {'opentelemetry': <20}: {'Enabled' if is_opentelemetry_enabled() else '-': <8}")
 
     print("\nFilesystems:")
     filesystems = ["AzureFileSystem", "GcsFileSystem",
@@ -304,7 +305,11 @@ def get_include():
     Return absolute path to directory containing Arrow C++ include
     headers. Similar to numpy.get_include
     """
-    return _os.path.join(_os.path.dirname(__file__), 'include')
+    # Use pyarrow.lib location instead of just __file__. That works
+    # for both editable and non-editable builds as it points
+    # to the actual location of the compiled C++ extension.
+    from pyarrow import lib as _lib
+    return _os.path.join(_os.path.dirname(_lib.__file__), 'include')
 
 
 def _get_pkg_config_executable():
@@ -387,7 +392,11 @@ def get_library_dirs():
     Return lists of directories likely to contain Arrow C++ libraries for
     linking C or Cython extensions using pyarrow
     """
-    package_cwd = _os.path.dirname(__file__)
+    # Use pyarrow.lib location instead of just __file__. That works
+    # for both editable and non-editable builds as it points
+    # to the actual location of the compiled C++ extension.
+    from pyarrow import lib as _lib
+    package_cwd = _os.path.dirname(_lib.__file__)
     library_dirs = [package_cwd]
 
     def append_library_dir(library_dir):

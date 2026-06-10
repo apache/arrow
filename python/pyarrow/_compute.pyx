@@ -3160,7 +3160,7 @@ def register_vector_function(func, function_name, function_doc, in_types, out_ty
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        *args. The last in_type will be the type of all varargs
+        ``*args``. The last in_type will be the type of all varargs
         arguments.
     function_name : str
         Name of the function. There should only be one function
@@ -3241,7 +3241,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
         in_types defined. It must return a Scalar matching the
         out_type.
         To define a varargs function, pass a callable that takes
-        *args. The in_type needs to match in type of inputs when
+        ``*args``. The in_type needs to match in type of inputs when
         the function gets called.
     function_name : str
         Name of the function. This name must be unique, i.e.,

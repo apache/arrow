@@ -43,7 +43,7 @@ TEST(StringArrayAccessor, Test_CDataType_CHAR_Basic) {
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
 
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(values[i].length(), str_len_buffer[i]);
     ASSERT_EQ(values[i], std::string(buffer.data() + i * max_str_len));
   }
@@ -102,7 +102,7 @@ TEST(StringArrayAccessor, Test_CDataType_WCHAR_Basic) {
             accessor->GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                       diagnostics, nullptr));
 
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(values[i].length() * GetSqlWCharSize(), str_len_buffer[i]);
     std::vector<uint8_t> expected;
     Utf8ToWcs(values[i].c_str(), &expected);

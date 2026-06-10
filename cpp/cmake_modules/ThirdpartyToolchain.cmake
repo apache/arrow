@@ -622,19 +622,9 @@ endif()
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
-  string(REPLACE "." "_" ARROW_CARES_BUILD_VERSION_UNDERSCORES
-                 ${ARROW_CARES_BUILD_VERSION})
   set_urls(CARES_SOURCE_URL
-           "https://github.com/c-ares/c-ares/releases/download/cares-${ARROW_CARES_BUILD_VERSION_UNDERSCORES}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+           "https://github.com/c-ares/c-ares/releases/download/v${ARROW_CARES_BUILD_VERSION}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
-endif()
-
-if(DEFINED ENV{ARROW_CRC32C_URL})
-  set(CRC32C_SOURCE_URL "$ENV{ARROW_CRC32C_URL}")
-else()
-  set_urls(CRC32C_SOURCE_URL
-           "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
-  )
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -753,7 +743,7 @@ else()
                    ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
   set_urls(PROTOBUF_SOURCE_URL
-           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
+           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -1090,7 +1080,7 @@ function(build_boost)
     set(ARROW_BOOST_NEED_MULTIPRECISION FALSE)
   endif()
   if(ARROW_ENABLE_THREADING)
-    if(ARROW_WITH_THRIFT OR (ARROW_FLIGHT_SQL_ODBC AND MSVC))
+    if(ARROW_WITH_THRIFT OR ARROW_FLIGHT_SQL_ODBC)
       list(APPEND BOOST_INCLUDE_LIBRARIES locale)
     endif()
     if(ARROW_BOOST_NEED_MULTIPRECISION)
@@ -1113,6 +1103,22 @@ function(build_boost)
     list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
   else()
     list(APPEND BOOST_EXCLUDE_LIBRARIES uuid)
+  endif()
+  if(ARROW_FLIGHT_SQL_ODBC)
+    # GH-49244: Replace boost beast with alternatives in ODBC
+    # GH-49243: Replace boost variant with std::variant in ODBC
+    # GH-49245: Replace boost xpressive with alternatives in ODBC
+    list(APPEND
+         BOOST_INCLUDE_LIBRARIES
+         beast
+         variant
+         xpressive)
+  else()
+    list(APPEND
+         BOOST_EXCLUDE_LIBRARIES
+         beast
+         variant
+         xpressive)
   endif()
   set(BOOST_SKIP_INSTALL_RULES ON)
   if(NOT ARROW_ENABLE_THREADING)
@@ -1667,7 +1673,8 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_USE_GLOG)
+   OR ARROW_USE_GLOG
+   OR (ARROW_FLIGHT_SQL AND ARROW_BUILD_EXAMPLES))
   set(ARROW_NEED_GFLAGS TRUE)
 else()
   set(ARROW_NEED_GFLAGS FALSE)
@@ -1874,11 +1881,57 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
+# Abseil defined here so it can be called from build_protobuf()
+
+function(build_absl)
+  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
+  message(STATUS "Building Abseil from source using FetchContent")
+  set(ABSL_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
+  endif()
+
+  fetchcontent_declare(absl
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${ABSL_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # Unity build causes symbol redefinition errors (e.g. kDigits in
+  # time_zone_fixed.cc and time_zone_posix.cc anonymous namespaces).
+  set(CMAKE_UNITY_BUILD OFF)
+  # We have to enable Abseil install to add Abseil targets to an export set.
+  # But we don't install Abseil by EXCLUDE_FROM_ALL.
+  # This is necessary for bundled Protobuf otherwise it fails on configure.
+  set(ABSL_ENABLE_INSTALL ON)
+  fetchcontent_makeavailable(absl)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  if(APPLE)
+    # This is due to upstream absl::cctz issue
+    # https://github.com/abseil/abseil-cpp/issues/283
+    find_library(CoreFoundation CoreFoundation)
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    target_link_libraries(time INTERFACE ${CoreFoundation})
+  endif()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# ----------------------------------------------------------------------
 # Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
 function(build_protobuf)
   list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
   message(STATUS "Building Protocol Buffers from source using FetchContent")
+
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
@@ -1891,11 +1944,27 @@ function(build_protobuf)
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
 
+  set(PROTOBUF_PATCH_COMMAND)
+  if(EMSCRIPTEN)
+    find_program(PATCH patch)
+    if(PATCH)
+      set(PROTOBUF_PATCH_COMMAND ${PATCH} -p1 -i)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        set(PROTOBUF_PATCH_COMMAND ${GIT} apply)
+      endif()
+    endif()
+    if(PROTOBUF_PATCH_COMMAND)
+      list(APPEND PROTOBUF_PATCH_COMMAND
+           ${CMAKE_CURRENT_LIST_DIR}/protobuf-emscripten.patch)
+    endif()
+  endif()
   fetchcontent_declare(protobuf
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       PATCH_COMMAND ${PROTOBUF_PATCH_COMMAND}
                        URL ${PROTOBUF_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
-                       SOURCE_SUBDIR cmake)
+                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
@@ -1913,6 +1982,11 @@ function(build_protobuf)
   string(REPLACE "-ffat-lto-objects" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
   set(protobuf_BUILD_TESTS OFF)
+  # Always build protobuf as a static library regardless of BUILD_SHARED_LIBS.
+  # Without this, FetchContent inherits BUILD_SHARED_LIBS from the parent
+  # project and may build protobuf as a DLL, causing unresolved symbols
+  # when linking arrow.dll on MSVC.
+  set(protobuf_BUILD_SHARED_LIBS OFF)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
@@ -1983,9 +2057,7 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} protobuf::libprotobuf
-      PARENT_SCOPE)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -1993,19 +2065,27 @@ function(build_protobuf)
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
+    # cross-compiled (PyArrow on emscripten) needs utf8_range bundled explicitly.
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8_range)
+
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
+    if(ABSL_VENDORED)
+      # Force protobuf to reuse Arrow's already-extracted absl source
+      # so we don't re-download and we don't have issues with multiple abseil.
+      list(APPEND PROTOBUF_HOST_CMAKE_ARGS -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON
+           "-DFETCHCONTENT_SOURCE_DIR_ABSL=${absl_SOURCE_DIR}")
+    endif()
 
     # We reuse the FetchContent downloaded source but build it with host compiler
     externalproject_add(protobuf_ep_host
                         ${EP_COMMON_OPTIONS}
                         CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
                         SOURCE_DIR "${protobuf_SOURCE_DIR}"
-                        SOURCE_SUBDIR cmake
                         BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
                         DOWNLOAD_COMMAND "" DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 
@@ -2014,9 +2094,136 @@ function(build_protobuf)
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
+    # For cross-compilation along with ExternalProject we need to
+    # manually include absl deps to the bundled static libs so that
+    # they are available for the generated code in protobuf v31.
+    list(APPEND
+         ARROW_BUNDLED_STATIC_LIBS
+         absl::bad_any_cast_impl
+         absl::bad_optional_access
+         absl::bad_variant_access
+         absl::base
+         absl::city
+         absl::civil_time
+         absl::cord
+         absl::cord_internal
+         absl::cordz_functions
+         absl::cordz_handle
+         absl::cordz_info
+         absl::cordz_sample_token
+         absl::crc32c
+         absl::crc_cord_state
+         absl::crc_cpu_detect
+         absl::crc_internal
+         absl::debugging_internal
+         absl::decode_rust_punycode
+         absl::demangle_internal
+         absl::demangle_rust
+         absl::die_if_null
+         absl::examine_stack
+         absl::exponential_biased
+         absl::failure_signal_handler
+         absl::flags_commandlineflag
+         absl::flags_commandlineflag_internal
+         absl::flags_config
+         absl::flags_internal
+         absl::flags_marshalling
+         absl::flags_parse
+         absl::flags_private_handle_accessor
+         absl::flags_program_name
+         absl::flags_reflection
+         absl::flags_usage
+         absl::flags_usage_internal
+         absl::graphcycles_internal
+         absl::hash
+         absl::hashtablez_sampler
+         absl::int128
+         absl::kernel_timeout_internal
+         absl::leak_check
+         absl::log_globals
+         absl::log_initialize
+         absl::log_internal_check_op
+         absl::log_internal_conditions
+         absl::log_internal_fnmatch
+         absl::log_internal_format
+         absl::log_internal_globals
+         absl::log_internal_log_sink_set
+         absl::log_internal_message
+         absl::log_internal_nullguard
+         absl::log_internal_proto
+         absl::log_severity
+         absl::log_sink
+         absl::low_level_hash
+         absl::malloc_internal
+         absl::periodic_sampler
+         absl::poison
+         absl::random_distributions
+         absl::random_internal_distribution_test_util
+         absl::random_internal_platform
+         absl::random_internal_pool_urbg
+         absl::random_internal_randen
+         absl::random_internal_randen_hwaes
+         absl::random_internal_randen_hwaes_impl
+         absl::random_internal_randen_slow
+         absl::random_internal_seed_material
+         absl::random_seed_gen_exception
+         absl::random_seed_sequences
+         absl::raw_hash_set
+         absl::raw_logging_internal
+         absl::scoped_set_env
+         absl::spinlock_wait
+         absl::stacktrace
+         absl::status
+         absl::statusor
+         absl::str_format_internal
+         absl::strerror
+         absl::strings
+         absl::strings_internal
+         absl::symbolize
+         absl::synchronization
+         absl::throw_delegate
+         absl::time
+         absl::time_zone
+         absl::utf8_for_code_point
+         absl::vlog_config_internal)
   endif()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
+
+# Abseil must be resolved before Protobuf because Protobuf 22+ requires
+# Abseil during its own configure. See GH-49764.
+if(ARROW_WITH_GOOGLE_CLOUD_CPP
+   OR ARROW_WITH_GRPC
+   OR ARROW_WITH_PROTOBUF)
+  # Abseil 20230125 released CRC32C which is necessary for GCS builds
+  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
+  # Google Cloud C++ SDK, gRPC and any dependency that pulls Protobuf
+  # requires Abseil.
+  if(ARROW_WITH_GOOGLE_CLOUD_CPP
+     OR ARROW_ORC
+     OR ARROW_SUBSTRAIT
+     OR ARROW_WITH_OPENTELEMETRY)
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
+  else()
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
+  endif()
+  resolve_dependency(absl
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_ABSL_PC_PACKAGE_NAME}
+                     HAVE_ALT
+                     TRUE
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_ABSL_REQUIRED_VERSION})
+endif()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
@@ -2349,6 +2556,7 @@ if(ARROW_MIMALLOC)
   set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
   if(MINGW)
     # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
+    # This is still required as of mimalloc 3.3.1, tested as part of GH-49772
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
@@ -2574,34 +2782,33 @@ if(ARROW_BUILD_BENCHMARKS)
                      FALSE)
 endif()
 
-macro(build_rapidjson)
-  message(STATUS "Building RapidJSON from source")
-  set(RAPIDJSON_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DRAPIDJSON_BUILD_DOC=OFF
-      -DRAPIDJSON_BUILD_EXAMPLES=OFF
-      -DRAPIDJSON_BUILD_TESTS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+function(build_rapidjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "RapidJSON: ")
+  message(STATUS "Building from source")
 
-  externalproject_add(rapidjson_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${RAPIDJSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
-
-  set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
+  fetchcontent_declare(rapidjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${RAPIDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
+  set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+  set(RAPIDJSON_BUILD_DOC OFF)
+  set(RAPIDJSON_BUILD_EXAMPLES OFF)
+  set(RAPIDJSON_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(rapidjson)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${rapidjson_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   add_library(RapidJSON INTERFACE IMPORTED)
-  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
-  add_dependencies(RapidJSON rapidjson_ep)
+  target_include_directories(RapidJSON INTERFACE "${rapidjson_SOURCE_DIR}/include")
+  add_dependencies(RapidJSON rapidjson)
 
-  set(RAPIDJSON_VENDORED TRUE)
-endmacro()
+  set(RAPIDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
@@ -2637,28 +2844,20 @@ macro(build_xsimd)
   set(XSIMD_VENDORED TRUE)
 endmacro()
 
-if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
-                                             ))
-  set(ARROW_USE_XSIMD TRUE)
+# Xsimd is mandatory as its CPU feature detection is the basis for Arrow CpuInfo
+resolve_dependency(xsimd
+                   FORCE_ANY_NEWER_VERSION
+                   TRUE
+                   IS_RUNTIME_DEPENDENCY
+                   FALSE
+                   REQUIRED_VERSION
+                   "14.2.0")
+
+if(xsimd_SOURCE STREQUAL "BUNDLED")
+  set(ARROW_XSIMD arrow::xsimd)
 else()
-  set(ARROW_USE_XSIMD FALSE)
-endif()
-
-if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE
-                     IS_RUNTIME_DEPENDENCY
-                     FALSE
-                     REQUIRED_VERSION
-                     "14.0.0")
-
-  if(xsimd_SOURCE STREQUAL "BUNDLED")
-    set(ARROW_XSIMD arrow::xsimd)
-  else()
-    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
-    set(ARROW_XSIMD xsimd)
-  endif()
+  message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+  set(ARROW_XSIMD xsimd)
 endif()
 
 macro(build_zlib)
@@ -3025,8 +3224,7 @@ function(build_cares)
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
     find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv REQUIRED)
-    set_target_properties(c-ares::cares PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                   "${LIBRESOLV_LIBRARY}")
+    target_link_libraries(c-ares INTERFACE ${LIBRESOLV_LIBRARY})
   endif()
 
   set(ARROW_BUNDLED_STATIC_LIBS
@@ -3037,46 +3235,6 @@ endfunction()
 
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
-
-function(build_absl)
-  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
-  message(STATUS "Building Abseil from source using FetchContent")
-  set(ABSL_VENDORED
-      TRUE
-      PARENT_SCOPE)
-
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
-  endif()
-
-  fetchcontent_declare(absl
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${ABSL_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  # We have to enable Abseil install to add Abseil targets to an export set.
-  # But we don't install Abseil by EXCLUDE_FROM_ALL.
-  set(ABSL_ENABLE_INSTALL ON)
-  fetchcontent_makeavailable(absl)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  if(APPLE)
-    # This is due to upstream absl::cctz issue
-    # https://github.com/abseil/abseil-cpp/issues/283
-    find_library(CoreFoundation CoreFoundation)
-    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
-    # Cannot use set_property on alias targets (absl::time is an alias)
-    set_property(TARGET time
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
-  endif()
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
 
 function(build_grpc)
   resolve_dependency(c-ares
@@ -3125,9 +3283,12 @@ function(build_grpc)
 
   set(gRPC_SSL_PROVIDER "none")
   set(_gRPC_SSL_LIBRARIES "OpenSSL::SSL;OpenSSL::Crypto")
-  set(gRPC_ZLIB_PROVIDER "package")
+  set(gRPC_ZLIB_PROVIDER
+      "package"
+      CACHE STRING "" FORCE)
   set(gRPC_INSTALL OFF)
   set(gRPC_BUILD_TESTS OFF)
+  set(gRPC_DOWNLOAD_ARCHIVES OFF)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
@@ -3153,8 +3314,7 @@ function(build_grpc)
       gpr
       grpc
       grpc++
-      grpc++_reflection
-      upb)
+      grpc++_reflection)
 
   foreach(target ${GRPC_LIBRARY_TARGETS})
     if(TARGET ${target} AND NOT TARGET gRPC::${target})
@@ -3202,36 +3362,12 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling
-       gRPC::upb)
+       gRPC::grpcpp_for_bundling)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
       PARENT_SCOPE)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
-
-if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
-  set(ARROW_ABSL_REQUIRED_VERSION 20211102)
-  # Google Cloud C++ SDK and gRPC require Google Abseil
-  if(ARROW_WITH_GOOGLE_CLOUD_CPP)
-    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
-    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
-  else()
-    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
-    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
-  endif()
-  resolve_dependency(absl
-                     ARROW_CMAKE_PACKAGE_NAME
-                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
-                     ARROW_PC_PACKAGE_NAME
-                     ${ARROW_ABSL_PC_PACKAGE_NAME}
-                     HAVE_ALT
-                     TRUE
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_ABSL_REQUIRED_VERSION})
-endif()
 
 if(ARROW_WITH_GRPC)
   if(NOT ARROW_ENABLE_THREADING)
@@ -3291,45 +3427,7 @@ if(ARROW_WITH_GRPC)
 endif()
 
 # ----------------------------------------------------------------------
-# GCS and dependencies
-
-function(build_crc32c_once)
-  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
-  message(STATUS "Building CRC32C from source using FetchContent")
-  set(CRC32C_VENDORED
-      TRUE
-      PARENT_SCOPE)
-  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
-  set(CRC32C_PREFIX
-      "${CRC32C_PREFIX}"
-      PARENT_SCOPE)
-
-  fetchcontent_declare(crc32c
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${CRC32C_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  set(CRC32C_BUILD_TESTS OFF)
-  set(CRC32C_BUILD_BENCHMARKS OFF)
-  set(CRC32C_USE_GLOG OFF)
-  fetchcontent_makeavailable(crc32c)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
-  if(NOT TARGET Crc32c::crc32c)
-    add_library(Crc32c::crc32c ALIAS crc32c)
-  endif()
-
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
-      PARENT_SCOPE)
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
+# OpenTelemetry C++ and dependencies
 
 function(build_nlohmann_json)
   list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
@@ -3364,6 +3462,107 @@ if(ARROW_WITH_NLOHMANN_JSON)
   message(STATUS "Found nlohmann_json headers: ${nlohmann_json_INCLUDE_DIR}")
 endif()
 
+function(build_opentelemetry)
+  list(APPEND CMAKE_MESSAGE_INDENT "OpenTelemetry: ")
+  message(STATUS "Building OpenTelemetry from source using FetchContent")
+
+  if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
+    message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
+                        "Protobuf is version ${Protobuf_VERSION}")
+  endif()
+
+  set(OPENTELEMETRY_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  fetchcontent_declare(opentelemetry_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
+  )
+
+  fetchcontent_makeavailable(opentelemetry_proto)
+
+  fetchcontent_declare(opentelemetry_cpp
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # Unity build causes symbol redefinition errors in protobuf-generated code
+  set(CMAKE_UNITY_BUILD FALSE)
+  set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
+  set(WITH_EXAMPLES OFF)
+  set(WITH_OTLP_HTTP ON)
+  set(WITH_OTLP_GRPC OFF)
+  set(WITH_FUNC_TESTS OFF)
+  # These options are slated for removal in v1.14 and their features are deemed stable
+  # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+  # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+  # client initialization. There may still be a solution, but we disable them for now.
+  set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
+  set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
+
+  fetchcontent_makeavailable(opentelemetry_cpp)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${opentelemetry_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  # Remove unused directories to save build directory storage
+  file(REMOVE_RECURSE "${opentelemetry_cpp_SOURCE_DIR}/ci")
+
+  # OpenTelemetry creates its own targets. We need to add them to bundled static libs.
+  # The targets created by OpenTelemetry's CMakeLists.txt use the opentelemetry:: namespace.
+  # List of libraries that we actually need and want to bundle.
+  set(_OPENTELEMETRY_BUNDLED_LIBS
+      opentelemetry-cpp::common
+      opentelemetry-cpp::http_client_curl
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_client
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::otlp_http_exporter
+      opentelemetry-cpp::otlp_recordable
+      opentelemetry-cpp::proto
+      opentelemetry-cpp::resources
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::version)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use OpenTelemetry with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
+  # cURL is required whether we build from source or use an existing installation
+  # (OTel's cmake files do not call find_curl for you)
+  find_curl()
+  resolve_dependency(opentelemetry-cpp)
+  set(ARROW_OPENTELEMETRY_LIBS
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_exporter)
+  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
+# GCS and dependencies
+
 function(build_google_cloud_cpp_storage)
   list(APPEND CMAKE_MESSAGE_INDENT "google-cloud-cpp: ")
   message(STATUS "Building google-cloud-cpp from source using FetchContent")
@@ -3371,18 +3570,53 @@ function(build_google_cloud_cpp_storage)
       TRUE
       PARENT_SCOPE)
 
-  # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
-  build_crc32c_once()
+  # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
+  # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
+  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+  find_program(PATCH patch)
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11")
+    # This is for RTools 40.
+    if(PATCH)
+      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+            ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
+      endif()
+    endif()
+  endif()
+
+  # Reproducible builds are only a requirement for the Linux packaging jobs.
+  if(PATCH AND NOT WIN32)
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
+  endif()
 
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
+  # google-cloud-cpp v3+ uses BCryptHash() which requires Windows 10+
+  if(MINGW)
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0A01")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0A01")
+  endif()
+
   message(STATUS "Only building the google-cloud-cpp::storage component")
-  set(GOOGLE_CLOUD_CPP_ENABLE storage)
+  # Disable auto-added features (monitoring, trace, opentelemetry, universe_domain)
+  # that require gRPC - storage only needs REST/curl.
+  set(GOOGLE_CLOUD_CPP_ENABLE
+      "storage;-monitoring;-trace;-opentelemetry;-universe_domain")
   # We need this to build with OpenSSL 3.0.
   # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
   set(GOOGLE_CLOUD_CPP_ENABLE_WERROR OFF)
@@ -3394,6 +3628,30 @@ function(build_google_cloud_cpp_storage)
   set(CMAKE_UNITY_BUILD FALSE)
 
   fetchcontent_makeavailable(google_cloud_cpp)
+
+  # In google-cloud-cpp v3+, google_cloud_cpp_common unconditionally compiles
+  # internal/opentelemetry.cc which #includes opentelemetry-cpp API headers.
+  # We disable the opentelemetry feature (to avoid pulling in gRPC), but we
+  # still need to provide the OTel API include path. We add it directly
+  # (instead of linking opentelemetry-cpp::api) to avoid export set issues.
+  if(TARGET google_cloud_cpp_common)
+    if(TARGET opentelemetry-cpp::api)
+      get_target_property(_otel_api_includes opentelemetry-cpp::api
+                          INTERFACE_INCLUDE_DIRECTORIES)
+    else()
+      # OpenTelemetry is not available (ARROW_WITH_OPENTELEMETRY=OFF), but we
+      # still need the header-only API for google-cloud-cpp v3+. Fetch just
+      # the source to get the headers without building anything.
+      fetchcontent_declare(opentelemetry_cpp
+                           ${FC_DECLARE_COMMON_OPTIONS}
+                           URL ${OPENTELEMETRY_SOURCE_URL}
+                           URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
+      fetchcontent_populate(opentelemetry_cpp)
+      set(_otel_api_includes "${opentelemetry_cpp_SOURCE_DIR}/api/include")
+    endif()
+    target_include_directories(google_cloud_cpp_common SYSTEM
+                               PUBLIC $<BUILD_INTERFACE:${_otel_api_includes}>)
+  endif()
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
@@ -3425,6 +3683,10 @@ function(build_google_cloud_cpp_storage)
          absl::cordz_functions
          absl::cordz_info
          absl::cordz_handle
+         absl::crc32c
+         absl::crc_internal
+         absl::crc_cord_state
+         absl::crc_cpu_detect
          absl::debugging_internal
          absl::demangle_internal
          absl::exponential_biased
@@ -3566,8 +3828,18 @@ function(build_orc)
 
     fetchcontent_makeavailable(orc)
 
+    # ORC 2.2.1 unconditionally adds /std:c++17 on MSVC via
+    # add_compile_options, which overrides CMAKE_CXX_STANDARD and causes
+    # ABI mismatches with protobuf (GlobalEmptyStringConstexpr vs
+    # GlobalEmptyStringDynamicInit). Override the standard on the orc target.
+    # Fixed in ORC 2.3.0: https://github.com/apache/orc/commit/7674f43
+    if(MSVC)
+      target_compile_options(orc PRIVATE "/std:c++${CMAKE_CXX_STANDARD}")
+    endif()
+
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
+    target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
 
     # ar -M rejects paths with "c++/" because "+" is a line continuation
     # character in MRI scripts, so we have to create a copy of the static lib
@@ -3599,6 +3871,12 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
 
+    # Protobuf >= v22 headers transitively include Abseil headers.
+    # ORC build needs the Abseil include directory if we're using a bundled Abseil.
+    if(absl_SOURCE_DIR)
+      set(ORC_ABSL_INCLUDE_DIR "${absl_SOURCE_DIR}")
+    endif()
+
     get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
@@ -3609,8 +3887,14 @@ function(build_orc)
     get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
 
+    if(ORC_ABSL_INCLUDE_DIR)
+      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS} -isystem ${ORC_ABSL_INCLUDE_DIR}")
+    else()
+      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
+    endif()
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
+        "-DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}"
         "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
         -DSTOP_BUILD_ON_WARNING=OFF
         -DBUILD_LIBHDFSPP=OFF
@@ -3696,114 +3980,6 @@ if(ARROW_ORC)
 endif()
 
 # ----------------------------------------------------------------------
-# OpenTelemetry C++
-
-function(build_opentelemetry)
-  list(APPEND CMAKE_MESSAGE_INDENT "OpenTelemetry: ")
-  message(STATUS "Building OpenTelemetry from source using FetchContent")
-
-  if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
-    message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
-                        "Protobuf is version ${Protobuf_VERSION}")
-  endif()
-
-  set(OPENTELEMETRY_VENDORED
-      TRUE
-      PARENT_SCOPE)
-
-  fetchcontent_declare(opentelemetry_proto
-                       ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
-  )
-
-  # Use FetchContent_Populate instead of MakeAvailable because opentelemetry-proto
-  # has no CMakeLists.txt.
-  cmake_policy(PUSH)
-  if(POLICY CMP0169)
-    cmake_policy(SET CMP0169 OLD)
-  endif()
-  fetchcontent_populate(opentelemetry_proto)
-  cmake_policy(POP)
-
-  fetchcontent_declare(opentelemetry_cpp
-                       ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${OPENTELEMETRY_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  # Unity build causes symbol redefinition errors in protobuf-generated code
-  set(CMAKE_UNITY_BUILD FALSE)
-  set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
-  set(WITH_EXAMPLES OFF)
-  set(WITH_OTLP_HTTP ON)
-  set(WITH_OTLP_GRPC OFF)
-  set(WITH_FUNC_TESTS OFF)
-  # These options are slated for removal in v1.14 and their features are deemed stable
-  # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
-  # finicky - resulting in build failures or ABI-related runtime errors during HTTP
-  # client initialization. There may still be a solution, but we disable them for now.
-  set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
-  set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
-
-  fetchcontent_makeavailable(opentelemetry_cpp)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${opentelemetry_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  # Remove unused directories to save build directory storage
-  file(REMOVE_RECURSE "${opentelemetry_cpp_SOURCE_DIR}/ci")
-
-  # OpenTelemetry creates its own targets. We need to add them to bundled static libs.
-  # The targets created by OpenTelemetry's CMakeLists.txt use the opentelemetry:: namespace.
-  # List of libraries that we actually need and want to bundle.
-  set(_OPENTELEMETRY_BUNDLED_LIBS
-      opentelemetry-cpp::common
-      opentelemetry-cpp::http_client_curl
-      opentelemetry-cpp::logs
-      opentelemetry-cpp::ostream_log_record_exporter
-      opentelemetry-cpp::ostream_span_exporter
-      opentelemetry-cpp::otlp_http_client
-      opentelemetry-cpp::otlp_http_log_record_exporter
-      opentelemetry-cpp::otlp_http_exporter
-      opentelemetry-cpp::otlp_recordable
-      opentelemetry-cpp::proto
-      opentelemetry-cpp::resources
-      opentelemetry-cpp::trace
-      opentelemetry-cpp::version)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
-  set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
-      PARENT_SCOPE)
-
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
-if(ARROW_WITH_OPENTELEMETRY)
-  if(NOT ARROW_ENABLE_THREADING)
-    message(FATAL_ERROR "Can't use OpenTelemetry with ARROW_ENABLE_THREADING=OFF")
-  endif()
-
-  # cURL is required whether we build from source or use an existing installation
-  # (OTel's cmake files do not call find_curl for you)
-  find_curl()
-  resolve_dependency(opentelemetry-cpp)
-  set(ARROW_OPENTELEMETRY_LIBS
-      opentelemetry-cpp::trace
-      opentelemetry-cpp::logs
-      opentelemetry-cpp::otlp_http_log_record_exporter
-      opentelemetry-cpp::ostream_log_record_exporter
-      opentelemetry-cpp::ostream_span_exporter
-      opentelemetry-cpp::otlp_http_exporter)
-  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
-endif()
-
-# ----------------------------------------------------------------------
 # AWS SDK for C++
 
 function(build_awssdk)
@@ -3852,6 +4028,15 @@ function(build_awssdk)
   prepare_fetchcontent()
   set(BUILD_DEPS OFF)
   set(BUILD_TOOL OFF)
+  # This is for aws-lc. -ffile-prefix-map is needed for reproducible
+  # builds. If ASM flags doesn't have --file-prefix-map, it may
+  # produce different binaries. Only aws-lc uses assembler. So this is
+  # for aws-lc.
+  if(CMAKE_CXX_FLAGS MATCHES "-ffile-prefix-map=" AND NOT CMAKE_ASM_FLAGS MATCHES
+                                                      "-ffile-prefix-map=")
+    string(REGEX MATCH " -ffile-prefix-map=[^ ]+ " FFILE_PREFIX_MAP "${CMAKE_CXX_FLAGS}")
+    string(APPEND CMAKE_ASM_FLAGS "${FFILE_PREFIX_MAP}")
+  endif()
   set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
   set(ENABLE_TESTING OFF)
   set(IN_SOURCE_BUILD ON)
@@ -3865,6 +4050,10 @@ function(build_awssdk)
     # 0x0601 == _WIN32_WINNT_WIN7
     string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
     string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    string(APPEND CMAKE_C_FLAGS " -Wno-implicit-fallthrough")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-implicit-fallthrough")
   endif()
 
   # For aws-lc
@@ -3881,35 +4070,6 @@ function(build_awssdk)
   # Link time optimization is causing trouble like GH-34349
   string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-
-  # For aws-c-io
-  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-    # This is for RTools 40. We can remove this after we dropped
-    # support for R < 4.2. schannel.h in RTools 40 is old.
-
-    # For schannel.h
-    #
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_SERVER=0x00000040")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_CLIENT=0x00000080")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_SERVER=0x00000100")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_CLIENT=0x00000200")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_SERVER=0x00000400")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_CLIENT=0x00000800")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_SERVER=0x00001000")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_CLIENT=0x00002000")
-    string(APPEND CMAKE_C_FLAGS " -DSCH_USE_STRONG_CRYPTO=0x00400000")
-
-    # For sspi.h
-    #
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ne-sspi-sec_application_protocol_negotiation_ext
-    string(APPEND CMAKE_C_FLAGS " -DSecApplicationProtocolNegotiationExt_ALPN=2")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-secbuffer
-    string(APPEND CMAKE_C_FLAGS " -DSECBUFFER_ALERT=17")
-  endif()
 
   # For aws-sdk-cpp
   #
@@ -3949,29 +4109,6 @@ function(build_awssdk)
           "$<TARGET_FILE:ZLIB::ZLIB>"
           CACHE STRING "" FORCE)
     endif()
-  endif()
-  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-    # This is for RTools 40. We can remove this after we dropped
-    # support for R < 4.2. schannel.h in RTools 40 is old.
-
-    # For winhttp.h
-    #
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/winhttp/error-messages
-    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_UNHANDLED_SCRIPT_TYPE=12176")
-    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_SCRIPT_EXECUTION_ERROR=12177")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/ns-winhttp-winhttp_async_result
-    string(APPEND CMAKE_CXX_FLAGS " -DAPI_GET_PROXY_FOR_URL=6")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
-    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE=0x02000000")
-    string(APPEND CMAKE_CXX_FLAGS
-           " -DWINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE=0x04000000")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/winhttp/option-flags
-    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2=0x00000800")
-    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_NO_CLIENT_CERT_CONTEXT=0")
   endif()
 
   set(AWSSDK_LINK_LIBRARIES)

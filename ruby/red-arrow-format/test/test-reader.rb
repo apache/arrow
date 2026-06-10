@@ -26,9 +26,7 @@ module ReaderTests
       else
         table = data
       end
-      path = File.join(tmp_dir, "data.#{file_extension}")
-      table.save(path)
-      File.open(path, "rb") do |input|
+      open_input(table, tmp_dir) do |input|
         reader = reader_class.new(input)
         case data
         when Arrow::Array
@@ -561,6 +559,26 @@ module ReaderTests
                  [type.to_s, values])
   end
 
+  def test_fixed_size_list
+    data_type = Arrow::FixedSizeListDataType.new({
+                                                   name: "count",
+                                                   type: :int8,
+                                                 },
+                                                 2)
+    array = Arrow::FixedSizeListArray.new(data_type,
+                                          [[-128, 127], nil, [-1, 1]])
+    type, values = roundtrip(array)
+    assert_equal([
+                   "FixedSizeList<count: Int8>(2)",
+                   [
+                     [-128, 127],
+                     nil,
+                     [-1, 1],
+                   ],
+                 ],
+                 [type.to_s, values])
+  end
+
   def test_struct
     data_type = Arrow::StructDataType.new(count: :int8,
                                           visible: :boolean)
@@ -650,15 +668,68 @@ module ReaderTests
     array = string_array.dictionary_encode
     type, values = roundtrip(array)
     assert_equal([
-                   "Dictionary<index=Int32, value=UTF8, ordered=false>",
+                   "Dictionary<id=0, index=Int32, value=UTF8, ordered=false>",
                    ["a", "b", "c", nil, "a"],
                  ],
                  [type.to_s, values])
   end
 end
 
-class TestFileReader < Test::Unit::TestCase
+module FileReaderTests
+  def test_custom_metadata_footer
+    Dir.mktmpdir do |tmp_dir|
+      table = Arrow::Table.new(value: Arrow::Int8Array.new([1, 2, 3]))
+      metadata = {
+        "key1" => "value1",
+        "key2" => "value2",
+      }
+      open_input(table, tmp_dir, metadata: metadata) do |input|
+        reader = reader_class.new(input)
+        assert_equal(metadata, reader.metadata)
+      end
+    ensure
+      GC.start
+    end
+  end
+end
+
+module FileInput
+  def open_input(table, tmp_dir, **options, &block)
+    path = File.join(tmp_dir, "data.#{file_extension}")
+    table.save(path, **options)
+    File.open(path, "rb", &block)
+  end
+end
+
+module PipeInput
+  def open_input(table, tmp_dir, **options)
+    buffer = Arrow::ResizableBuffer.new(4096)
+    table.save(buffer, format: format, **options)
+    IO.pipe do |input, output|
+      write_thread = Thread.new do
+        output.write(buffer.data.to_s)
+      end
+      begin
+        yield(input)
+      ensure
+        write_thread.join
+      end
+    end
+  end
+end
+
+module StringInput
+  def open_input(table, tmp_dir, **options)
+    buffer = Arrow::ResizableBuffer.new(4096)
+    table.save(buffer, format: format, **options)
+    yield(buffer.data.to_s)
+  end
+end
+
+class TestFileReaderFileInput < Test::Unit::TestCase
   include ReaderTests
+  include FileReaderTests
+  include FileInput
 
   def file_extension
     "arrow"
@@ -669,11 +740,52 @@ class TestFileReader < Test::Unit::TestCase
   end
 end
 
-class TestStreamingReader < Test::Unit::TestCase
+class TestFileReaderStringInput < Test::Unit::TestCase
   include ReaderTests
+  include FileReaderTests
+  include StringInput
+
+  def format
+    :arrow_file
+  end
+
+  def reader_class
+    ArrowFormat::FileReader
+  end
+end
+
+class TestStreamingReaderFileInupt < Test::Unit::TestCase
+  include ReaderTests
+  include FileInput
 
   def file_extension
     "arrows"
+  end
+
+  def reader_class
+    ArrowFormat::StreamingReader
+  end
+end
+
+class TestStreamingReaderPipeInupt < Test::Unit::TestCase
+  include ReaderTests
+  include PipeInput
+
+  def format
+    :arrow_streaming
+  end
+
+  def reader_class
+    ArrowFormat::StreamingReader
+  end
+end
+
+class TestStreamingReaderStringInupt < Test::Unit::TestCase
+  include ReaderTests
+  include StringInput
+
+  def format
+    :arrow_streaming
   end
 
   def reader_class

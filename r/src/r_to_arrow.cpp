@@ -93,6 +93,8 @@ RVectorType GetVectorType(SEXP x) {
         return FACTOR;
       } else if (Rf_inherits(x, "Date")) {
         return DATE_INT;
+      } else if (Rf_inherits(x, "POSIXct")) {
+        return POSIXCT;
       }
       return INT32;
     case STRSXP:
@@ -1027,8 +1029,8 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
 
     // first we need to handle the levels
     SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
-    auto memo_chunked_chunked_array =
-        arrow::r::vec_to_arrow_ChunkedArray(levels, utf8(), false);
+    auto memo_chunked_chunked_array = arrow::r::vec_to_arrow_ChunkedArray(
+        levels, this->dict_type_->value_type(), false);
     for (const auto& chunk : memo_chunked_chunked_array->chunks()) {
       RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*chunk));
     }

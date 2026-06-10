@@ -17,8 +17,6 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
 
-#include <sql.h>
-#include <sqlext.h>
 #include <algorithm>
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -27,6 +25,10 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/type_utilities.h"
+
+// Include ODBC headers after arrow headers to avoid conflicts
+#include <sql.h>
+#include <sqlext.h>
 
 using ODBC::DescriptorRecord;
 using ODBC::ODBCConnection;
@@ -155,7 +157,7 @@ void ODBCDescriptor::SetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     throw DriverException("Bookmarks are unsupported.", "07009");
   }
 
-  if (record_number > records_.size()) {
+  if (static_cast<size_t>(record_number) > records_.size()) {
     throw DriverException("Invalid descriptor index", "HY009");
   }
 
@@ -308,7 +310,7 @@ void ODBCDescriptor::GetField(SQLSMALLINT record_number, SQLSMALLINT field_ident
     throw DriverException("Bookmarks are unsupported.", "07009");
   }
 
-  if (record_number > records_.size()) {
+  if (static_cast<size_t>(record_number) > records_.size()) {
     throw DriverException("Invalid descriptor index", "07009");
   }
 
@@ -539,7 +541,7 @@ void ODBCDescriptor::BindCol(SQLSMALLINT record_number, SQLSMALLINT c_type,
   assert(is_writable_);
 
   // The set of records auto-expands to the supplied record number.
-  if (records_.size() < record_number) {
+  if (records_.size() < static_cast<size_t>(record_number)) {
     records_.resize(record_number);
   }
 
@@ -559,7 +561,7 @@ void ODBCDescriptor::BindCol(SQLSMALLINT record_number, SQLSMALLINT c_type,
 }
 
 void ODBCDescriptor::SetDataPtrOnRecord(SQLPOINTER data_ptr, SQLSMALLINT record_number) {
-  assert(record_number <= records_.size());
+  assert(static_cast<size_t>(record_number) <= records_.size());
   DescriptorRecord& record = records_[record_number - 1];
   if (data_ptr) {
     record.CheckConsistency();

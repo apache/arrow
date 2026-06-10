@@ -995,3 +995,59 @@ def test_map_scalar_with_empty_values():
     s = pa.scalar(v, type=map_type)
 
     assert s.as_py(maps_as_pydicts="strict") == v
+
+
+def test_arithmetic_dunders():
+    # GH-32007
+    scl1 = pa.scalar(42)
+    scl2 = pa.scalar(-17)
+
+    assert (scl1 + scl2).equals(pc.add_checked(scl1, scl2))
+    assert (scl2 / scl1).equals(pc.divide_checked(scl2, scl1))
+    assert (scl1 * scl2).equals(pc.multiply_checked(scl1, scl2))
+    assert (-scl1).equals(pc.negate_checked(scl1))
+    assert (scl1 ** 2).equals(pc.power_checked(scl1, 2))
+    assert (scl1 - scl2).equals(pc.subtract_checked(scl1, scl2))
+
+
+def test_bitwise_dunders():
+    # GH-32007
+    scl1 = pa.scalar(42)
+    scl2 = pa.scalar(-17)
+
+    assert (scl1 & scl2).equals(pc.bit_wise_and(scl1, scl2))
+    assert (scl1 | scl2).equals(pc.bit_wise_or(scl1, scl2))
+    assert (scl1 ^ scl2).equals(pc.bit_wise_xor(scl1, scl2))
+    assert (scl2 << scl1).equals(pc.shift_left_checked(scl2, scl1))
+    assert (scl2 >> scl1).equals(pc.shift_right_checked(scl2, scl1))
+
+
+def test_dunders_unmatching_types():
+    # GH-32007
+    error_match = r"Function '\w+' has no kernel matching input types"
+    string_scl = pa.scalar("abc")
+    double_scl = pa.scalar(1.23)
+
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_scl + double_scl
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_scl - double_scl
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_scl / double_scl
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_scl * double_scl
+
+
+def test_dunders_checked_overflow():
+    # GH-32007
+    error_match = "overflow"
+    scl = pa.scalar(127, type=pa.int8())
+
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl + scl
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl - (-scl)
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl ** scl
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl * scl

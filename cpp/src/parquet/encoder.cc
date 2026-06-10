@@ -116,9 +116,9 @@ class EncoderImpl : virtual public Encoder {
   const Encoding::type encoding_;
   MemoryPool* pool_;
 
-  /// Type length from descr
+  // Type length from descr
   const int type_length_;
-  /// Number of unencoded bytes written to the encoder. Used for ByteArray type only.
+  // Number of unencoded bytes written to the encoder. Used for ByteArray type only.
   int64_t unencoded_byte_array_data_bytes_ = 0;
 };
 
@@ -875,10 +875,12 @@ class ByteStreamSplitEncoderBase : public EncoderImpl,
       return buf;
     }
     auto output_buffer = AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
-    uint8_t* output_buffer_raw = output_buffer->mutable_data();
-    const uint8_t* raw_values = sink_.data();
-    ::arrow::util::internal::ByteStreamSplitEncode(
-        raw_values, /*width=*/byte_width_, num_values_in_buffer_, output_buffer_raw);
+    if (num_values_in_buffer_ > 0) {
+      uint8_t* output_buffer_raw = output_buffer->mutable_data();
+      const uint8_t* raw_values = sink_.data();
+      ::arrow::util::internal::ByteStreamSplitEncode(
+          raw_values, /*width=*/byte_width_, num_values_in_buffer_, output_buffer_raw);
+    }
     sink_.Reset();
     num_values_in_buffer_ = 0;
     return output_buffer;
@@ -1167,8 +1169,16 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
+    // TODO: We can remove this condition once CRAN upgrades its macOS
+    // SDK from 11.3.
+    // __apple_build_version__ should be defined only on Apple clang
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+    const auto bit_width = bit_width_data[i] =
+        std::log2p1(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#else
     const auto bit_width = bit_width_data[i] =
         std::bit_width(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#endif
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // Convert delta to frame of reference. See overflow comment above.

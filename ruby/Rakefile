@@ -35,9 +35,11 @@ end
 
 packages.each do |package|
   namespace package do
+    package_dir = File.join(base_dir, package)
+
     desc "Run test for #{package}"
     task :test do
-      cd(File.join(base_dir, package)) do
+      cd(package_dir) do
         if ENV["USE_BUNDLER"]
           sh("bundle", "exec", "rake", "test")
         else
@@ -46,9 +48,22 @@ packages.each do |package|
       end
     end
 
+    desc "Run benchmark for #{package}"
+    task :benchmark do
+      cd(package_dir) do
+        if File.directory?("benchmark")
+          if ENV["USE_BUNDLER"]
+            sh("bundle", "exec", "rake", "benchmark")
+          else
+            ruby("-S", "rake", "benchmark")
+          end
+        end
+      end
+    end
+
     desc "Install #{package}"
     task :install do
-      cd(File.join(base_dir, package)) do
+      cd(package_dir) do
         if ENV["USE_BUNDLER"]
           sh("bundle", "exec", "rake", "install")
         else
@@ -69,6 +84,9 @@ end
 
 desc "Run test for all packages"
 task test: sorted_packages.collect {|package| "#{package}:test"}
+
+desc "Run benchmark for all packages"
+task benchmark: sorted_packages.collect {|package| "#{package}:benchmark"}
 
 desc "Install all packages"
 task install: sorted_packages.collect {|package| "#{package}:install"}

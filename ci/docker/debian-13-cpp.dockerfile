@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:13
-ARG arch
+FROM --platform=linux/${arch} debian:13
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -53,9 +52,9 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -75,6 +74,7 @@ RUN apt-get update -y -q && \
         libzstd-dev \
         llvm-${llvm}-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
         npm \
@@ -124,6 +124,7 @@ ENV ARROW_ACERO=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \

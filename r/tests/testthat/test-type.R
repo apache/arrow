@@ -53,6 +53,25 @@ test_that("infer_type() infers from R type", {
   )
 })
 
+test_that("infer_type() errors clearly for POSIXct with invalid tzone", {
+  x <- as.POSIXct("2019-02-14 13:55:05", tz = "UTC")
+  attr(x, "tzone") <- 123
+
+  expect_error(
+    infer_type(x),
+    "`tzone` attribute of a `POSIXct` vector must be a character vector"
+  )
+
+  # Also check zero-length POSIXct
+  x <- as.POSIXct(x = NULL)
+  attr(x, "tzone") <- 123
+
+  expect_error(
+    infer_type(x),
+    "`tzone` attribute of a `POSIXct` vector must be a character vector"
+  )
+})
+
 test_that("infer_type() default method errors for unknown classes", {
   vec <- structure(list(), class = "class_not_supported")
 

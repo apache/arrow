@@ -29,21 +29,16 @@ namespace {
 template <typename Uint>
 struct UnpackDynamicFunction {
   using FunctionType = decltype(&bpacking::unpack_scalar<Uint>);
-  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
-  static constexpr auto implementations() {
+  static constexpr auto targets() {
     return std::array{
-#if defined(ARROW_HAVE_SSE4_2)
-        Implementation{DispatchLevel::NONE, &bpacking::unpack_sse4_2<Uint>},
-#else
-        Implementation{DispatchLevel::NONE, &bpacking::unpack_scalar<Uint>},
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, &bpacking::unpack_avx2<Uint>},
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-        Implementation{DispatchLevel::AVX512, &bpacking::unpack_avx512<Uint>},
-#endif
+        ARROW_DISPATCH_TARGET_NONE(&bpacking::unpack_scalar<Uint>)    //
+        ARROW_DISPATCH_TARGET_NEON(&bpacking::unpack_neon<Uint>)      //
+        ARROW_DISPATCH_TARGET_SVE128(&bpacking::unpack_sve128<Uint>)  //
+        ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_sve256<Uint>)  //
+        ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_sse4_2<Uint>)  //
+        ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_avx2<Uint>)      //
+        ARROW_DISPATCH_TARGET_AVX512(&bpacking::unpack_avx512<Uint>)  //
     };
   }
 };
@@ -52,12 +47,8 @@ struct UnpackDynamicFunction {
 
 template <typename Uint>
 void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-#if defined(ARROW_HAVE_NEON)
-  return bpacking::unpack_neon(in, out, opts);
-#else
-  static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
-  return dispatch.func(in, out, opts);
-#endif
+  static const DynamicDispatch<UnpackDynamicFunction<Uint>> dispatch;
+  return dispatch(in, out, opts);
 }
 
 template void unpack<bool>(const uint8_t*, bool*, const UnpackOptions&);

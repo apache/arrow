@@ -368,13 +368,14 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
 
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.
-Result<PyObject*> StringToTzinfo(const std::string& tz) {
+Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
   std::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
   OwnedRef zoneinfo;
   OwnedRef datetime;
 
-  if (internal::ImportModule("pytz", &pytz).ok()) {
+  // Legacy behavior: prefer pytz objects when available
+  if (!prefer_zoneinfo && internal::ImportModule("pytz", &pytz).ok()) {
     if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
       int sign = -1;
       if (sign_str == "+") {
@@ -406,7 +407,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
     return tzinfo;
   }
 
-  // catch fixed offset if pytz is not present
+  // Handle fixed offsets with datetime.timezone
   if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
     RETURN_NOT_OK(internal::ImportModule("datetime", &datetime));
     int sign = -1;
@@ -447,7 +448,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
     return tzinfo;
   }
 
-  // fallback on zoneinfo if tz is string and pytz is not present
+  // Use zoneinfo for named timezones when available
   if (internal::ImportModule("zoneinfo", &zoneinfo).ok()) {
     OwnedRef class_zoneinfo;
     RETURN_NOT_OK(
@@ -456,12 +457,25 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
         PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
     auto tzinfo =
         PyObject_CallFunctionObjArgs(class_zoneinfo.obj(), py_tz_string.obj(), NULL);
+    if (tzinfo != nullptr) {
+      return tzinfo;
+    }
+
+    // Keep backwards compatibility for named timezones only available in pytz
+    PyErr_Clear();
+  }
+
+  if (internal::ImportModule("pytz", &pytz).ok()) {
+    OwnedRef timezone;
+    RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
+    OwnedRef py_tz_string(
+        PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
+    auto tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
     RETURN_IF_PYERROR();
     return tzinfo;
   }
 
-  return Status::Invalid(
-      "Pytz package or Python>=3.8 for zoneinfo module must be installed.");
+  return Status::Invalid("The zoneinfo module or pytz package must be installed.");
 }
 
 Result<std::string> TzinfoToString(PyObject* tzinfo) {

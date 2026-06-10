@@ -3678,4 +3678,161 @@ TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
+TEST_F(TestProjector, TestRandomNoArgs) {
+  // Test random() with no arguments - returns double in [0, 1)
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::float64());
+
+  auto rand_node = TreeExprBuilder::MakeFunction("random", {}, arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(rand_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [0, 1)
+  auto result = std::dynamic_pointer_cast<arrow::DoubleArray>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    double value = result->Value(i);
+    EXPECT_GE(value, 0.0);
+    EXPECT_LT(value, 1.0);
+  }
+}
+
+TEST_F(TestProjector, TestRandomWithSeed) {
+  // Test rand(seed) - with seed literal, returns double in [0, 1)
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::float64());
+
+  auto seed_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(12345));
+  auto rand_node =
+      TreeExprBuilder::MakeFunction("rand", {seed_literal}, arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(rand_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [0, 1)
+  auto result = std::dynamic_pointer_cast<arrow::DoubleArray>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    double value = result->Value(i);
+    EXPECT_GE(value, 0.0);
+    EXPECT_LT(value, 1.0);
+  }
+}
+
+TEST_F(TestProjector, TestRandIntegerNoArgs) {
+  // Test rand_integer() with no arguments - full int32 range
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::int32());
+
+  auto rand_int_node = TreeExprBuilder::MakeFunction("rand_integer", {}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(rand_int_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are valid int32 (no specific range check for full range)
+  auto result = std::dynamic_pointer_cast<arrow::Int32Array>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+}
+
+TEST_F(TestProjector, TestRandIntegerWithRange) {
+  // Test rand_integer(10) - range [0, 9]
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::int32());
+
+  auto range_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(10));
+  auto rand_int_node =
+      TreeExprBuilder::MakeFunction("rand_integer", {range_literal}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(rand_int_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [0, 9]
+  auto result = std::dynamic_pointer_cast<arrow::Int32Array>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    int32_t value = result->Value(i);
+    EXPECT_GE(value, 0);
+    EXPECT_LT(value, 10);
+  }
+}
+
+TEST_F(TestProjector, TestRandIntegerWithMinMax) {
+  // Test rand_integer(5, 15) - range [5, 15] inclusive
+  auto dummy_field = field("dummy", arrow::int32());
+  auto schema = arrow::schema({dummy_field});
+  auto out_field = field("out", arrow::int32());
+
+  auto min_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(5));
+  auto max_literal = TreeExprBuilder::MakeLiteral(static_cast<int32_t>(15));
+  auto rand_int_node = TreeExprBuilder::MakeFunction(
+      "rand_integer", {min_literal, max_literal}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(rand_int_node, out_field);
+
+  std::shared_ptr<Projector> projector;
+  ARROW_EXPECT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  int num_records = 100;
+  auto dummy_array = MakeArrowArrayInt32(std::vector<int32_t>(num_records, 0),
+                                         std::vector<bool>(num_records, true));
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {dummy_array});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+
+  // Verify all values are in range [5, 15] inclusive
+  auto result = std::dynamic_pointer_cast<arrow::Int32Array>(outs.at(0));
+  EXPECT_EQ(result->length(), num_records);
+  EXPECT_EQ(result->null_count(), 0);
+  for (int i = 0; i < num_records; i++) {
+    int32_t value = result->Value(i);
+    EXPECT_GE(value, 5);
+    EXPECT_LE(value, 15);
+  }
+}
+
 }  // namespace gandiva

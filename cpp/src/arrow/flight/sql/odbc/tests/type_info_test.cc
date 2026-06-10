@@ -70,25 +70,25 @@ void CheckSQLDescribeCol(SQLHSTMT stmt, const SQLUSMALLINT column_index,
 }
 
 void CheckSQLDescribeColODBCVer2(SQLHSTMT stmt) {
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"PRECISION"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_PREFIX"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_SUFFIX"),
-                                    static_cast<const SQLWCHAR*>(L"CREATE_PARAMS"),
-                                    static_cast<const SQLWCHAR*>(L"NULLABLE"),
-                                    static_cast<const SQLWCHAR*>(L"CASE_SENSITIVE"),
-                                    static_cast<const SQLWCHAR*>(L"SEARCHABLE"),
-                                    static_cast<const SQLWCHAR*>(L"UNSIGNED_ATTRIBUTE"),
-                                    static_cast<const SQLWCHAR*>(L"MONEY"),
-                                    static_cast<const SQLWCHAR*>(L"AUTO_INCREMENT"),
-                                    static_cast<const SQLWCHAR*>(L"LOCAL_TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"MINIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"MAXIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATETIME_SUB"),
-                                    static_cast<const SQLWCHAR*>(L"NUM_PREC_RADIX"),
-                                    static_cast<const SQLWCHAR*>(L"INTERVAL_PRECISION")};
+  const std::wstring column_names[] = {L"TYPE_NAME",
+                                       L"DATA_TYPE",
+                                       L"PRECISION",
+                                       L"LITERAL_PREFIX",
+                                       L"LITERAL_SUFFIX",
+                                       L"CREATE_PARAMS",
+                                       L"NULLABLE",
+                                       L"CASE_SENSITIVE",
+                                       L"SEARCHABLE",
+                                       L"UNSIGNED_ATTRIBUTE",
+                                       L"MONEY",
+                                       L"AUTO_INCREMENT",
+                                       L"LOCAL_TYPE_NAME",
+                                       L"MINIMUM_SCALE",
+                                       L"MAXIMUM_SCALE",
+                                       L"SQL_DATA_TYPE",
+                                       L"SQL_DATETIME_SUB",
+                                       L"NUM_PREC_RADIX",
+                                       L"INTERVAL_PRECISION"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_SMALLINT, SQL_INTEGER,  SQL_WVARCHAR, SQL_WVARCHAR,
       SQL_WVARCHAR, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT,
@@ -112,25 +112,14 @@ void CheckSQLDescribeColODBCVer2(SQLHSTMT stmt) {
 }
 
 void CheckSQLDescribeColODBCVer3(SQLHSTMT stmt) {
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_SIZE"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_PREFIX"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_SUFFIX"),
-                                    static_cast<const SQLWCHAR*>(L"CREATE_PARAMS"),
-                                    static_cast<const SQLWCHAR*>(L"NULLABLE"),
-                                    static_cast<const SQLWCHAR*>(L"CASE_SENSITIVE"),
-                                    static_cast<const SQLWCHAR*>(L"SEARCHABLE"),
-                                    static_cast<const SQLWCHAR*>(L"UNSIGNED_ATTRIBUTE"),
-                                    static_cast<const SQLWCHAR*>(L"FIXED_PREC_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"AUTO_UNIQUE_VALUE"),
-                                    static_cast<const SQLWCHAR*>(L"LOCAL_TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"MINIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"MAXIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATETIME_SUB"),
-                                    static_cast<const SQLWCHAR*>(L"NUM_PREC_RADIX"),
-                                    static_cast<const SQLWCHAR*>(L"INTERVAL_PRECISION")};
+  const std::wstring column_names[] = {
+      L"TYPE_NAME",          L"DATA_TYPE",        L"COLUMN_SIZE",
+      L"LITERAL_PREFIX",     L"LITERAL_SUFFIX",   L"CREATE_PARAMS",
+      L"NULLABLE",           L"CASE_SENSITIVE",   L"SEARCHABLE",
+      L"UNSIGNED_ATTRIBUTE", L"FIXED_PREC_SCALE", L"AUTO_UNIQUE_VALUE",
+      L"LOCAL_TYPE_NAME",    L"MINIMUM_SCALE",    L"MAXIMUM_SCALE",
+      L"SQL_DATA_TYPE",      L"SQL_DATETIME_SUB", L"NUM_PREC_RADIX",
+      L"INTERVAL_PRECISION"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_SMALLINT, SQL_INTEGER,  SQL_WVARCHAR, SQL_WVARCHAR,
       SQL_WVARCHAR, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT,
@@ -206,12 +195,12 @@ void CheckSQLGetTypeInfo(
 }  // namespace
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_ALL_TYPES));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_ALL_TYPES));
 
   // Check bit data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"bit"),  // expected_type_name
                       SQL_BIT,               // expected_data_type
                       1,                     // expected_column_size
@@ -221,23 +210,23 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,          // expected_nullable
                       SQL_FALSE,             // expected_case_sensitive
                       SQL_SEARCHABLE,        // expected_searchable
-                      NULL,                  // expected_unsigned_attr
+                      0,                     // expected_unsigned_attr
                       SQL_FALSE,             // expected_fixed_prec_scale
-                      NULL,                  // expected_auto_unique_value
+                      0,                     // expected_auto_unique_value
                       std::wstring(L"bit"),  // expected_local_type_name
-                      NULL,                  // expected_min_scale
-                      NULL,                  // expected_max_scale
+                      0,                     // expected_min_scale
+                      0,                     // expected_max_scale
                       SQL_BIT,               // expected_sql_data_type
-                      NULL,                  // expected_sql_datetime_sub
-                      NULL,                  // expected_num_prec_radix
-                      NULL);                 // expected_interval_prec
+                      0,                     // expected_sql_datetime_sub
+                      0,                     // expected_num_prec_radix
+                      0);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check tinyint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"tinyint"),  // expected_type_name
                       SQL_TINYINT,               // expected_data_type
                       3,                         // expected_column_size
@@ -249,21 +238,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"tinyint"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_TINYINT,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check bigint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"bigint"),  // expected_type_name
                       SQL_BIGINT,               // expected_data_type
                       19,                       // expected_column_size
@@ -275,21 +264,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"bigint"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_BIGINT,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check longvarbinary data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"longvarbinary"),  // expected_type_name
                       SQL_LONGVARBINARY,               // expected_data_type
                       65536,                           // expected_column_size
@@ -299,23 +288,23 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_FALSE,                       // expected_case_sensitive
                       SQL_SEARCHABLE,                  // expected_searchable
-                      NULL,                            // expected_unsigned_attr
+                      0,                               // expected_unsigned_attr
                       SQL_FALSE,                       // expected_fixed_prec_scale
-                      NULL,                            // expected_auto_unique_value
+                      0,                               // expected_auto_unique_value
                       std::wstring(L"longvarbinary"),  // expected_local_type_name
-                      NULL,                            // expected_min_scale
-                      NULL,                            // expected_max_scale
+                      0,                               // expected_min_scale
+                      0,                               // expected_max_scale
                       SQL_LONGVARBINARY,               // expected_sql_data_type
-                      NULL,                            // expected_sql_datetime_sub
-                      NULL,                            // expected_num_prec_radix
-                      NULL);                           // expected_interval_prec
+                      0,                               // expected_sql_datetime_sub
+                      0,                               // expected_num_prec_radix
+                      0);                              // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check varbinary data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"varbinary"),  // expected_type_name
                       SQL_VARBINARY,               // expected_data_type
                       255,                         // expected_column_size
@@ -325,24 +314,24 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,                // expected_nullable
                       SQL_FALSE,                   // expected_case_sensitive
                       SQL_SEARCHABLE,              // expected_searchable
-                      NULL,                        // expected_unsigned_attr
+                      0,                           // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"varbinary"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_VARBINARY,               // expected_sql_data_type
-                      NULL,                        // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_sql_datetime_sub
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check text data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WLONGVARCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"text"),    // expected_type_name
                       SQL_WLONGVARCHAR,         // expected_data_type
                       65536,                    // expected_column_size
@@ -352,23 +341,23 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"text"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WLONGVARCHAR,         // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check longvarchar data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"longvarchar"),  // expected_type_name
                       SQL_WLONGVARCHAR,              // expected_data_type
                       65536,                         // expected_column_size
@@ -378,24 +367,24 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,                  // expected_nullable
                       SQL_FALSE,                     // expected_case_sensitive
                       SQL_SEARCHABLE,                // expected_searchable
-                      NULL,                          // expected_unsigned_attr
+                      0,                             // expected_unsigned_attr
                       SQL_FALSE,                     // expected_fixed_prec_scale
-                      NULL,                          // expected_auto_unique_value
+                      0,                             // expected_auto_unique_value
                       std::wstring(L"longvarchar"),  // expected_local_type_name
-                      NULL,                          // expected_min_scale
-                      NULL,                          // expected_max_scale
+                      0,                             // expected_min_scale
+                      0,                             // expected_max_scale
                       SQL_WLONGVARCHAR,              // expected_sql_data_type
-                      NULL,                          // expected_sql_datetime_sub
-                      NULL,                          // expected_num_prec_radix
-                      NULL);                         // expected_interval_prec
+                      0,                             // expected_sql_datetime_sub
+                      0,                             // expected_num_prec_radix
+                      0);                            // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check char data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"char"),    // expected_type_name
                       SQL_WCHAR,                // expected_data_type
                       255,                      // expected_column_size
@@ -405,23 +394,23 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"char"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WCHAR,                // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check integer data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"integer"),  // expected_type_name
                       SQL_INTEGER,               // expected_data_type
                       9,                         // expected_column_size
@@ -433,21 +422,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"integer"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_INTEGER,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check smallint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"smallint"),  // expected_type_name
                       SQL_SMALLINT,               // expected_data_type
                       5,                          // expected_column_size
@@ -459,21 +448,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,             // expected_searchable
                       SQL_FALSE,                  // expected_unsigned_attr
                       SQL_FALSE,                  // expected_fixed_prec_scale
-                      NULL,                       // expected_auto_unique_value
+                      0,                          // expected_auto_unique_value
                       std::wstring(L"smallint"),  // expected_local_type_name
-                      NULL,                       // expected_min_scale
-                      NULL,                       // expected_max_scale
+                      0,                          // expected_min_scale
+                      0,                          // expected_max_scale
                       SQL_SMALLINT,               // expected_sql_data_type
-                      NULL,                       // expected_sql_datetime_sub
-                      NULL,                       // expected_num_prec_radix
-                      NULL);                      // expected_interval_prec
+                      0,                          // expected_sql_datetime_sub
+                      0,                          // expected_num_prec_radix
+                      0);                         // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check float data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"float"),  // expected_type_name
                       SQL_FLOAT,               // expected_data_type
                       7,                       // expected_column_size
@@ -485,21 +474,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,          // expected_searchable
                       SQL_FALSE,               // expected_unsigned_attr
                       SQL_FALSE,               // expected_fixed_prec_scale
-                      NULL,                    // expected_auto_unique_value
+                      0,                       // expected_auto_unique_value
                       std::wstring(L"float"),  // expected_local_type_name
-                      NULL,                    // expected_min_scale
-                      NULL,                    // expected_max_scale
+                      0,                       // expected_min_scale
+                      0,                       // expected_max_scale
                       SQL_FLOAT,               // expected_sql_data_type
-                      NULL,                    // expected_sql_datetime_sub
-                      NULL,                    // expected_num_prec_radix
-                      NULL);                   // expected_interval_prec
+                      0,                       // expected_sql_datetime_sub
+                      0,                       // expected_num_prec_radix
+                      0);                      // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check double data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"double"),  // expected_type_name
                       SQL_DOUBLE,               // expected_data_type
                       15,                       // expected_column_size
@@ -511,22 +500,22 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"double"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_DOUBLE,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check numeric data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Mock server treats numeric data type as a double type
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"numeric"),  // expected_type_name
                       SQL_DOUBLE,                // expected_data_type
                       15,                        // expected_column_size
@@ -538,22 +527,22 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"numeric"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_DOUBLE,                // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check varchar data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WVARCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"varchar"),  // expected_type_name
                       SQL_WVARCHAR,              // expected_data_type
                       255,                       // expected_column_size
@@ -565,21 +554,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"varchar"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_WVARCHAR,              // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check date data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"date"),  // expected_type_name
                       SQL_TYPE_DATE,          // expected_data_type
                       10,                     // expected_column_size
@@ -591,21 +580,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_DATE,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check time data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"time"),  // expected_type_name
                       SQL_TYPE_TIME,          // expected_data_type
                       8,                      // expected_column_size
@@ -617,21 +606,21 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_TIME,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check timestamp data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"timestamp"),  // expected_type_name
                       SQL_TYPE_TIMESTAMP,          // expected_data_type
                       32,                          // expected_column_size
@@ -643,25 +632,25 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
                       SQL_CODE_TIMESTAMP,          // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_ALL_TYPES));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_ALL_TYPES));
 
   // Check bit data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"bit"),  // expected_type_name
                       SQL_BIT,               // expected_data_type
                       1,                     // expected_column_size
@@ -671,23 +660,23 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,          // expected_nullable
                       SQL_FALSE,             // expected_case_sensitive
                       SQL_SEARCHABLE,        // expected_searchable
-                      NULL,                  // expected_unsigned_attr
+                      0,                     // expected_unsigned_attr
                       SQL_FALSE,             // expected_fixed_prec_scale
-                      NULL,                  // expected_auto_unique_value
+                      0,                     // expected_auto_unique_value
                       std::wstring(L"bit"),  // expected_local_type_name
-                      NULL,                  // expected_min_scale
-                      NULL,                  // expected_max_scale
+                      0,                     // expected_min_scale
+                      0,                     // expected_max_scale
                       SQL_BIT,               // expected_sql_data_type
-                      NULL,                  // expected_sql_datetime_sub
-                      NULL,                  // expected_num_prec_radix
-                      NULL);                 // expected_interval_prec
+                      0,                     // expected_sql_datetime_sub
+                      0,                     // expected_num_prec_radix
+                      0);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check tinyint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"tinyint"),  // expected_type_name
                       SQL_TINYINT,               // expected_data_type
                       3,                         // expected_column_size
@@ -699,21 +688,21 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"tinyint"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_TINYINT,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check bigint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"bigint"),  // expected_type_name
                       SQL_BIGINT,               // expected_data_type
                       19,                       // expected_column_size
@@ -725,21 +714,21 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"bigint"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_BIGINT,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check longvarbinary data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"longvarbinary"),  // expected_type_name
                       SQL_LONGVARBINARY,               // expected_data_type
                       65536,                           // expected_column_size
@@ -749,23 +738,23 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_FALSE,                       // expected_case_sensitive
                       SQL_SEARCHABLE,                  // expected_searchable
-                      NULL,                            // expected_unsigned_attr
+                      0,                               // expected_unsigned_attr
                       SQL_FALSE,                       // expected_fixed_prec_scale
-                      NULL,                            // expected_auto_unique_value
+                      0,                               // expected_auto_unique_value
                       std::wstring(L"longvarbinary"),  // expected_local_type_name
-                      NULL,                            // expected_min_scale
-                      NULL,                            // expected_max_scale
+                      0,                               // expected_min_scale
+                      0,                               // expected_max_scale
                       SQL_LONGVARBINARY,               // expected_sql_data_type
-                      NULL,                            // expected_sql_datetime_sub
-                      NULL,                            // expected_num_prec_radix
-                      NULL);                           // expected_interval_prec
+                      0,                               // expected_sql_datetime_sub
+                      0,                               // expected_num_prec_radix
+                      0);                              // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check varbinary data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"varbinary"),  // expected_type_name
                       SQL_VARBINARY,               // expected_data_type
                       255,                         // expected_column_size
@@ -775,24 +764,24 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,                // expected_nullable
                       SQL_FALSE,                   // expected_case_sensitive
                       SQL_SEARCHABLE,              // expected_searchable
-                      NULL,                        // expected_unsigned_attr
+                      0,                           // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"varbinary"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_VARBINARY,               // expected_sql_data_type
-                      NULL,                        // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_sql_datetime_sub
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check text data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WLONGVARCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"text"),    // expected_type_name
                       SQL_WLONGVARCHAR,         // expected_data_type
                       65536,                    // expected_column_size
@@ -802,23 +791,23 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"text"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WLONGVARCHAR,         // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check longvarchar data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"longvarchar"),  // expected_type_name
                       SQL_WLONGVARCHAR,              // expected_data_type
                       65536,                         // expected_column_size
@@ -828,24 +817,24 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,                  // expected_nullable
                       SQL_FALSE,                     // expected_case_sensitive
                       SQL_SEARCHABLE,                // expected_searchable
-                      NULL,                          // expected_unsigned_attr
+                      0,                             // expected_unsigned_attr
                       SQL_FALSE,                     // expected_fixed_prec_scale
-                      NULL,                          // expected_auto_unique_value
+                      0,                             // expected_auto_unique_value
                       std::wstring(L"longvarchar"),  // expected_local_type_name
-                      NULL,                          // expected_min_scale
-                      NULL,                          // expected_max_scale
+                      0,                             // expected_min_scale
+                      0,                             // expected_max_scale
                       SQL_WLONGVARCHAR,              // expected_sql_data_type
-                      NULL,                          // expected_sql_datetime_sub
-                      NULL,                          // expected_num_prec_radix
-                      NULL);                         // expected_interval_prec
+                      0,                             // expected_sql_datetime_sub
+                      0,                             // expected_num_prec_radix
+                      0);                            // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check char data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"char"),    // expected_type_name
                       SQL_WCHAR,                // expected_data_type
                       255,                      // expected_column_size
@@ -855,23 +844,23 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"char"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WCHAR,                // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check integer data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"integer"),  // expected_type_name
                       SQL_INTEGER,               // expected_data_type
                       9,                         // expected_column_size
@@ -883,21 +872,21 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"integer"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_INTEGER,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check smallint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"smallint"),  // expected_type_name
                       SQL_SMALLINT,               // expected_data_type
                       5,                          // expected_column_size
@@ -909,21 +898,21 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,             // expected_searchable
                       SQL_FALSE,                  // expected_unsigned_attr
                       SQL_FALSE,                  // expected_fixed_prec_scale
-                      NULL,                       // expected_auto_unique_value
+                      0,                          // expected_auto_unique_value
                       std::wstring(L"smallint"),  // expected_local_type_name
-                      NULL,                       // expected_min_scale
-                      NULL,                       // expected_max_scale
+                      0,                          // expected_min_scale
+                      0,                          // expected_max_scale
                       SQL_SMALLINT,               // expected_sql_data_type
-                      NULL,                       // expected_sql_datetime_sub
-                      NULL,                       // expected_num_prec_radix
-                      NULL);                      // expected_interval_prec
+                      0,                          // expected_sql_datetime_sub
+                      0,                          // expected_num_prec_radix
+                      0);                         // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check float data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"float"),  // expected_type_name
                       SQL_FLOAT,               // expected_data_type
                       7,                       // expected_column_size
@@ -935,21 +924,21 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,          // expected_searchable
                       SQL_FALSE,               // expected_unsigned_attr
                       SQL_FALSE,               // expected_fixed_prec_scale
-                      NULL,                    // expected_auto_unique_value
+                      0,                       // expected_auto_unique_value
                       std::wstring(L"float"),  // expected_local_type_name
-                      NULL,                    // expected_min_scale
-                      NULL,                    // expected_max_scale
+                      0,                       // expected_min_scale
+                      0,                       // expected_max_scale
                       SQL_FLOAT,               // expected_sql_data_type
-                      NULL,                    // expected_sql_datetime_sub
-                      NULL,                    // expected_num_prec_radix
-                      NULL);                   // expected_interval_prec
+                      0,                       // expected_sql_datetime_sub
+                      0,                       // expected_num_prec_radix
+                      0);                      // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check double data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"double"),  // expected_type_name
                       SQL_DOUBLE,               // expected_data_type
                       15,                       // expected_column_size
@@ -961,22 +950,22 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"double"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_DOUBLE,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check numeric data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Mock server treats numeric data type as a double type
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"numeric"),  // expected_type_name
                       SQL_DOUBLE,                // expected_data_type
                       15,                        // expected_column_size
@@ -988,22 +977,22 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"numeric"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_DOUBLE,                // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check varchar data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WVARCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"varchar"),  // expected_type_name
                       SQL_WVARCHAR,              // expected_data_type
                       255,                       // expected_column_size
@@ -1015,21 +1004,21 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"varchar"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_WVARCHAR,              // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check date data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"date"),  // expected_type_name
                       SQL_DATE,               // expected_data_type
                       10,                     // expected_column_size
@@ -1041,21 +1030,22 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check time data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"time"),  // expected_type_name
                       SQL_TIME,               // expected_data_type
                       8,                      // expected_column_size
@@ -1067,21 +1057,22 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // Check timestamp data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"timestamp"),  // expected_type_name
                       SQL_TIMESTAMP,               // expected_data_type
                       32,                          // expected_column_size
@@ -1093,25 +1084,26 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                           // 0, driver
+                                                   // returns NULL for Ver2
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBit) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_BIT));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_BIT));
 
   // Check bit data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"bit"),  // expected_type_name
                       SQL_BIT,               // expected_data_type
                       1,                     // expected_column_size
@@ -1121,30 +1113,30 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBit) {
                       SQL_NULLABLE,          // expected_nullable
                       SQL_FALSE,             // expected_case_sensitive
                       SQL_SEARCHABLE,        // expected_searchable
-                      NULL,                  // expected_unsigned_attr
+                      0,                     // expected_unsigned_attr
                       SQL_FALSE,             // expected_fixed_prec_scale
-                      NULL,                  // expected_auto_unique_value
+                      0,                     // expected_auto_unique_value
                       std::wstring(L"bit"),  // expected_local_type_name
-                      NULL,                  // expected_min_scale
-                      NULL,                  // expected_max_scale
+                      0,                     // expected_min_scale
+                      0,                     // expected_max_scale
                       SQL_BIT,               // expected_sql_data_type
-                      NULL,                  // expected_sql_datetime_sub
-                      NULL,                  // expected_num_prec_radix
-                      NULL);                 // expected_interval_prec
+                      0,                     // expected_sql_datetime_sub
+                      0,                     // expected_num_prec_radix
+                      0);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoTinyInt) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TINYINT));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TINYINT));
 
   // Check tinyint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"tinyint"),  // expected_type_name
                       SQL_TINYINT,               // expected_data_type
                       3,                         // expected_column_size
@@ -1156,28 +1148,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoTinyInt) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"tinyint"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_TINYINT,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBigInt) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_BIGINT));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_BIGINT));
 
   // Check bigint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"bigint"),  // expected_type_name
                       SQL_BIGINT,               // expected_data_type
                       19,                       // expected_column_size
@@ -1189,28 +1181,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBigInt) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"bigint"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_BIGINT,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarbinary) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_LONGVARBINARY));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_LONGVARBINARY));
 
   // Check longvarbinary data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"longvarbinary"),  // expected_type_name
                       SQL_LONGVARBINARY,               // expected_data_type
                       65536,                           // expected_column_size
@@ -1220,30 +1212,30 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarbinary) {
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_FALSE,                       // expected_case_sensitive
                       SQL_SEARCHABLE,                  // expected_searchable
-                      NULL,                            // expected_unsigned_attr
+                      0,                               // expected_unsigned_attr
                       SQL_FALSE,                       // expected_fixed_prec_scale
-                      NULL,                            // expected_auto_unique_value
+                      0,                               // expected_auto_unique_value
                       std::wstring(L"longvarbinary"),  // expected_local_type_name
-                      NULL,                            // expected_min_scale
-                      NULL,                            // expected_max_scale
+                      0,                               // expected_min_scale
+                      0,                               // expected_max_scale
                       SQL_LONGVARBINARY,               // expected_sql_data_type
-                      NULL,                            // expected_sql_datetime_sub
-                      NULL,                            // expected_num_prec_radix
-                      NULL);                           // expected_interval_prec
+                      0,                               // expected_sql_datetime_sub
+                      0,                               // expected_num_prec_radix
+                      0);                              // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarbinary) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_VARBINARY));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_VARBINARY));
 
   // Check varbinary data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"varbinary"),  // expected_type_name
                       SQL_VARBINARY,               // expected_data_type
                       255,                         // expected_column_size
@@ -1253,29 +1245,29 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarbinary) {
                       SQL_NULLABLE,                // expected_nullable
                       SQL_FALSE,                   // expected_case_sensitive
                       SQL_SEARCHABLE,              // expected_searchable
-                      NULL,                        // expected_unsigned_attr
+                      0,                           // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"varbinary"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_VARBINARY,               // expected_sql_data_type
-                      NULL,                        // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_sql_datetime_sub
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_WLONGVARCHAR));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_WLONGVARCHAR));
 
   // Check text data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WLONGVARCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"text"),    // expected_type_name
                       SQL_WLONGVARCHAR,         // expected_data_type
                       65536,                    // expected_column_size
@@ -1285,23 +1277,23 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"text"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WLONGVARCHAR,         // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check longvarchar data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"longvarchar"),  // expected_type_name
                       SQL_WLONGVARCHAR,              // expected_data_type
                       65536,                         // expected_column_size
@@ -1311,31 +1303,31 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
                       SQL_NULLABLE,                  // expected_nullable
                       SQL_FALSE,                     // expected_case_sensitive
                       SQL_SEARCHABLE,                // expected_searchable
-                      NULL,                          // expected_unsigned_attr
+                      0,                             // expected_unsigned_attr
                       SQL_FALSE,                     // expected_fixed_prec_scale
-                      NULL,                          // expected_auto_unique_value
+                      0,                             // expected_auto_unique_value
                       std::wstring(L"longvarchar"),  // expected_local_type_name
-                      NULL,                          // expected_min_scale
-                      NULL,                          // expected_max_scale
+                      0,                             // expected_min_scale
+                      0,                             // expected_max_scale
                       SQL_WLONGVARCHAR,              // expected_sql_data_type
-                      NULL,                          // expected_sql_datetime_sub
-                      NULL,                          // expected_num_prec_radix
-                      NULL);                         // expected_interval_prec
+                      0,                             // expected_sql_datetime_sub
+                      0,                             // expected_num_prec_radix
+                      0);                            // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoChar) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_WCHAR));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_WCHAR));
 
   // Check char data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"char"),    // expected_type_name
                       SQL_WCHAR,                // expected_data_type
                       255,                      // expected_column_size
@@ -1345,30 +1337,30 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoChar) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"char"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WCHAR,                // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInteger) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_INTEGER));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_INTEGER));
 
   // Check integer data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"integer"),  // expected_type_name
                       SQL_INTEGER,               // expected_data_type
                       9,                         // expected_column_size
@@ -1380,28 +1372,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInteger) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"integer"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_INTEGER,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSmallInt) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_SMALLINT));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_SMALLINT));
 
   // Check smallint data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"smallint"),  // expected_type_name
                       SQL_SMALLINT,               // expected_data_type
                       5,                          // expected_column_size
@@ -1413,28 +1405,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSmallInt) {
                       SQL_SEARCHABLE,             // expected_searchable
                       SQL_FALSE,                  // expected_unsigned_attr
                       SQL_FALSE,                  // expected_fixed_prec_scale
-                      NULL,                       // expected_auto_unique_value
+                      0,                          // expected_auto_unique_value
                       std::wstring(L"smallint"),  // expected_local_type_name
-                      NULL,                       // expected_min_scale
-                      NULL,                       // expected_max_scale
+                      0,                          // expected_min_scale
+                      0,                          // expected_max_scale
                       SQL_SMALLINT,               // expected_sql_data_type
-                      NULL,                       // expected_sql_datetime_sub
-                      NULL,                       // expected_num_prec_radix
-                      NULL);                      // expected_interval_prec
+                      0,                          // expected_sql_datetime_sub
+                      0,                          // expected_num_prec_radix
+                      0);                         // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoFloat) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_FLOAT));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_FLOAT));
 
   // Check float data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"float"),  // expected_type_name
                       SQL_FLOAT,               // expected_data_type
                       7,                       // expected_column_size
@@ -1446,28 +1438,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoFloat) {
                       SQL_SEARCHABLE,          // expected_searchable
                       SQL_FALSE,               // expected_unsigned_attr
                       SQL_FALSE,               // expected_fixed_prec_scale
-                      NULL,                    // expected_auto_unique_value
+                      0,                       // expected_auto_unique_value
                       std::wstring(L"float"),  // expected_local_type_name
-                      NULL,                    // expected_min_scale
-                      NULL,                    // expected_max_scale
+                      0,                       // expected_min_scale
+                      0,                       // expected_max_scale
                       SQL_FLOAT,               // expected_sql_data_type
-                      NULL,                    // expected_sql_datetime_sub
-                      NULL,                    // expected_num_prec_radix
-                      NULL);                   // expected_interval_prec
+                      0,                       // expected_sql_datetime_sub
+                      0,                       // expected_num_prec_radix
+                      0);                      // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_DOUBLE));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_DOUBLE));
 
   // Check double data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"double"),  // expected_type_name
                       SQL_DOUBLE,               // expected_data_type
                       15,                       // expected_column_size
@@ -1479,22 +1471,22 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"double"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_DOUBLE,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // Check numeric data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Mock server treats numeric data type as a double type
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"numeric"),  // expected_type_name
                       SQL_DOUBLE,                // expected_data_type
                       15,                        // expected_column_size
@@ -1506,29 +1498,29 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"numeric"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_DOUBLE,                // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarchar) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_WVARCHAR));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_WVARCHAR));
 
   // Check varchar data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   // Driver returns SQL_WVARCHAR since unicode is enabled
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"varchar"),  // expected_type_name
                       SQL_WVARCHAR,              // expected_data_type
                       255,                       // expected_column_size
@@ -1540,28 +1532,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarchar) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"varchar"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_WVARCHAR,              // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeDate) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TYPE_DATE));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
 
   // Check date data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"date"),  // expected_type_name
                       SQL_TYPE_DATE,          // expected_data_type
                       10,                     // expected_column_size
@@ -1573,29 +1565,29 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeDate) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_DATE,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLDate) {
   // Pass ODBC Ver 2 data type
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_DATE));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_DATE));
 
   // Check date data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"date"),  // expected_type_name
                       SQL_TYPE_DATE,          // expected_data_type
                       10,                     // expected_column_size
@@ -1607,28 +1599,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLDate) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_DATE,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_DATE));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_DATE));
 
   // Check date data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"date"),  // expected_type_name
                       SQL_DATE,               // expected_data_type
                       10,                     // expected_column_size
@@ -1640,36 +1632,41 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
-TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeDateODBCVer2) {
+TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeDate) {
+#ifdef __APPLE__
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
+#else
   // Pass ODBC Ver 3 data type
-  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, SQL_TYPE_DATE));
+  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
 
   // Driver manager returns SQL data type out of range error state
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1004);
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
+#endif  // __APPLE__
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIME));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
 
   // Check time data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"time"),  // expected_type_name
                       SQL_TYPE_TIME,          // expected_data_type
                       8,                      // expected_column_size
@@ -1681,29 +1678,29 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_TIME,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTime) {
   // Pass ODBC Ver 2 data type
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TIME));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TIME));
 
   // Check time data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"time"),  // expected_type_name
                       SQL_TYPE_TIME,          // expected_data_type
                       8,                      // expected_column_size
@@ -1715,28 +1712,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTime) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_TIME,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TIME));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TIME));
 
   // Check time data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"time"),  // expected_type_name
                       SQL_TIME,               // expected_data_type
                       8,                      // expected_column_size
@@ -1748,36 +1745,41 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
-TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimeODBCVer2) {
+TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTime) {
+#ifdef __APPLE__
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
+#else
   // Pass ODBC Ver 3 data type
-  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIME));
+  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
 
   // Driver manager returns SQL data type out of range error state
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1004);
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
+#endif  // __APPLE__
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIMESTAMP));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
 
   // Check timestamp data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"timestamp"),  // expected_type_name
                       SQL_TYPE_TIMESTAMP,          // expected_data_type
                       32,                          // expected_column_size
@@ -1789,29 +1791,29 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
                       SQL_CODE_TIMESTAMP,          // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTimestamp) {
   // Pass ODBC Ver 2 data type
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TIMESTAMP));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TIMESTAMP));
 
   // Check timestamp data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"timestamp"),  // expected_type_name
                       SQL_TYPE_TIMESTAMP,          // expected_data_type
                       32,                          // expected_column_size
@@ -1823,28 +1825,28 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTimestamp) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
                       SQL_CODE_TIMESTAMP,          // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer3(this->stmt);
+  CheckSQLDescribeColODBCVer3(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TIMESTAMP));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TIMESTAMP));
 
   // Check timestamp data type
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  CheckSQLGetTypeInfo(this->stmt,
+  CheckSQLGetTypeInfo(stmt,
                       std::wstring(L"timestamp"),  // expected_type_name
                       SQL_TIMESTAMP,               // expected_data_type
                       32,                          // expected_column_size
@@ -1856,33 +1858,37 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,   // expected_sql_datetime_sub, driver returns NULL for Ver2
+                      0,   // expected_num_prec_radix
+                      0);  // expected_interval_prec
 
-  CheckSQLDescribeColODBCVer2(this->stmt);
+  CheckSQLDescribeColODBCVer2(stmt);
 
   // No more data
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
 }
 
-TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimestampODBCVer2) {
+TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
+#ifdef __APPLE__
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
+#else
   // Pass ODBC Ver 3 data type
-  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIMESTAMP));
+  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
 
   // Driver manager returns SQL data type out of range error state
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1004);
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
+#endif  // __APPLE__
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInvalidDataType) {
   SQLSMALLINT invalid_data_type = -114;
-  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, invalid_data_type));
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY004);
+  ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, invalid_data_type));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateHY004);
 }
 
 TYPED_TEST(TypeInfoTest, TestSQLGetTypeInfoUnsupportedDataType) {

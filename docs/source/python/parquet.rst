@@ -332,6 +332,8 @@ such as the row groups and column chunk metadata and statistics:
      data_page_offset: 36
      total_compressed_size: 106
      total_uncompressed_size: 102
+     bloom_filter_offset: None
+     bloom_filter_length: None
 
 Data Type Handling
 ------------------
