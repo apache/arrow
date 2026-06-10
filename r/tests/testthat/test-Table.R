@@ -373,40 +373,24 @@ test_that("Can create table with specific dictionary types", {
 
 test_that("Table converts dictionary arrays with wider index types back to R", {
   fact <- example_data[, "fct"]
-
-  tab_uint32 <- Table$create(fact, schema = schema(fct = dictionary(uint32(), utf8())))
-  expect_equal(tab_uint32$schema, schema(fct = dictionary(uint32(), utf8())))
-  expect_equal_data_frame(tab_uint32, fact)
-
-  tab_int64 <- Table$create(fact, schema = schema(fct = dictionary(int64(), utf8())))
-  expect_equal(tab_int64$schema, schema(fct = dictionary(int64(), utf8())))
-  expect_equal_data_frame(tab_int64, fact)
-
-  tab_uint64 <- Table$create(fact, schema = schema(fct = dictionary(uint64(), utf8())))
-  expect_equal(tab_uint64$schema, schema(fct = dictionary(uint64(), utf8())))
-  expect_equal_data_frame(tab_uint64, fact)
+  for (i in list(uint32(), int64(), uint64())) {
+    sch <- schema(fct = dictionary(i, utf8()))
+    tab <- Table$create(fact, schema = sch)
+    expect_equal(tab$schema, sch)
+    expect_equal_data_frame(tab, fact)
+  }
 })
 
 test_that("Table converts dictionary arrays with string_view values", {
-  expected <- data.frame(foo = factor(c("x", "y", "x")))
+  expected <- data.frame(foo = factor(c("x", NA, "x")))
   tab <- Table$create(expected, schema = schema(foo = dictionary(uint32(), string_view())))
   expect_equal_data_frame(tab, expected)
-
-  # with NAs
-  expected_na <- data.frame(foo = factor(c("x", NA, "x")))
-  tab_na <- Table$create(expected_na, schema = schema(foo = dictionary(uint32(), string_view())))
-  expect_equal_data_frame(tab_na, expected_na)
 })
 
 test_that("Table round-trips string_view columns", {
-  expected <- data.frame(x = c("hello", "world", ""))
+  expected <- data.frame(x = c("hello", NA, ""))
   tab <- Table$create(expected, schema = schema(x = string_view()))
   expect_equal_data_frame(tab, expected)
-
-  # with NAs
-  expected_na <- data.frame(x = c("hello", NA, ""))
-  tab_na <- Table$create(expected_na, schema = schema(x = string_view()))
-  expect_equal_data_frame(tab_na, expected_na)
 })
 
 test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
