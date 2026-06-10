@@ -2198,12 +2198,10 @@ void CheckFloatApproxEqualsWithAtol() {
   ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
   auto options = EqualOptions::Defaults().atol(0.2);
 
-  ASSERT_FALSE(a->Equals(b));
-  ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_TRUE(a->Equals(b, options));
   ASSERT_TRUE(a->ApproxEquals(b, options));
 
-  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options));
-  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options));
   ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
 }
 
@@ -2413,6 +2411,42 @@ void CheckFloatingZeroEquality() {
   }
 }
 
+template <typename TYPE>
+void CheckFloatApproxEqualsWithUlpDistance() {
+  using CType =
+      std::conditional_t<is_half_float_type<TYPE>::value, Float16, typename TYPE::c_type>;
+  auto type = TypeTraits<TYPE>::type_singleton();
+  std::vector<CType> a, b;
+  a = {CType(NAN), CType(+0.0), CType(INFINITY)};
+  b = {CType(NAN), CType(-0.0), CType(INFINITY)};
+  if constexpr (is_half_float_type<TYPE>::value) {
+    a.push_back(Float16(1.00097656));
+    b.push_back(Float16(0.999511719f));
+  } else if constexpr (std::is_same_v<TYPE, DoubleType>) {
+    a.push_back(CType(0.9999999999999999));
+    b.push_back(CType(1.0000000000000002));
+  } else if constexpr (std::is_same_v<TYPE, FloatType>) {
+    a.push_back(CType(1.0000001f));
+    b.push_back(CType(0.99999994f));
+  }
+
+  std::shared_ptr<Array> array_a, array_b;
+  ArrayFromVector<TYPE>(type, a, &array_a);
+  ArrayFromVector<TYPE>(type, b, &array_b);
+  auto options = EqualOptions::Defaults().ulp_distance(2);
+
+  // Check with NaN
+  ASSERT_FALSE(array_a->Equals(array_b, options));
+  ASSERT_TRUE(array_a->Equals(array_b, options.nans_equal(true)));
+
+  // Check With Signed Zero
+  ASSERT_FALSE(
+      array_a->Equals(array_b, options.nans_equal(true).signed_zeros_equal(false)));
+
+  // Check with Ulp Distance
+  ASSERT_FALSE(array_a->Equals(array_b, options.nans_equal(true).ulp_distance(1)));
+}
+
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
@@ -2444,6 +2478,12 @@ TEST(TestPrimitiveAdHoc, FloatingZeroEquality) {
   CheckFloatingZeroEquality<FloatType>();
   CheckFloatingZeroEquality<DoubleType>();
   CheckFloatingZeroEquality<HalfFloatType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingUlpDistanceEquality) {
+  CheckFloatApproxEqualsWithUlpDistance<HalfFloatType>();
+  CheckFloatApproxEqualsWithUlpDistance<FloatType>();
+  CheckFloatApproxEqualsWithUlpDistance<DoubleType>();
 }
 
 // ----------------------------------------------------------------------

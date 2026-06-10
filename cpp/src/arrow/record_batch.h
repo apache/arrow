@@ -137,12 +137,19 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Determine if two record batches are approximately equal
   ///
+  /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
+  /// \ref arrow::kDefaultAbsoluteTolerance is used.
+  ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are approximately equal
   bool ApproxEquals(const RecordBatch& other,
                     const EqualOptions& opts = EqualOptions::Defaults()) const {
-    return Equals(other, opts.use_schema(false).use_atol(true));
+    auto resolved_options = opts.use_schema(false);
+    if (!resolved_options.atol()) {
+      resolved_options = resolved_options.atol(kDefaultAbsoluteTolerance);
+    }
+    return Equals(other, resolved_options);
   }
 
   /// \return the record batch's schema

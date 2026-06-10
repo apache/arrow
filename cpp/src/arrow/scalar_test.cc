@@ -40,6 +40,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/float16.h"
+#include "gtest/gtest-spi.h"
 
 namespace arrow {
 
@@ -408,8 +409,7 @@ class TestRealScalar : public ::testing::Test {
   void TestUseAtol() {
     auto options = EqualOptions::Defaults().atol(0.2f);
 
-    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_, options));
-    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options.use_atol(true)));
+    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options));
     ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
   }
 
@@ -434,8 +434,8 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(struct_nan.ApproxEquals(struct_other_nan, options));
 
     options = options.atol(0.15);
-    ASSERT_FALSE(struct_val.Equals(struct_other_val, options));
-    ASSERT_FALSE(struct_other_val.Equals(struct_val, options));
+    ASSERT_TRUE(struct_val.Equals(struct_other_val, options));
+    ASSERT_TRUE(struct_other_val.Equals(struct_val, options));
     ASSERT_FALSE(struct_nan.Equals(struct_val, options));
     ASSERT_FALSE(struct_nan.Equals(struct_nan, options));
     ASSERT_FALSE(struct_nan.Equals(struct_other_nan, options));
@@ -446,8 +446,8 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(struct_nan.ApproxEquals(struct_other_nan, options));
 
     options = options.nans_equal(true);
-    ASSERT_FALSE(struct_val.Equals(struct_other_val, options));
-    ASSERT_FALSE(struct_other_val.Equals(struct_val, options));
+    ASSERT_TRUE(struct_val.Equals(struct_other_val, options));
+    ASSERT_TRUE(struct_other_val.Equals(struct_val, options));
     ASSERT_FALSE(struct_nan.Equals(struct_val, options));
     ASSERT_TRUE(struct_nan.Equals(struct_nan, options));
     ASSERT_TRUE(struct_nan.Equals(struct_other_nan, options));
@@ -491,7 +491,7 @@ class TestRealScalar : public ::testing::Test {
 
     options = options.atol(0.15);
     ASSERT_TRUE(list_val.Equals(list_val, options));
-    ASSERT_FALSE(list_val.Equals(list_other_val, options));
+    ASSERT_TRUE(list_val.Equals(list_other_val, options));
     ASSERT_FALSE(list_nan.Equals(list_val, options));
     ASSERT_FALSE(list_nan.Equals(list_nan, options));
     ASSERT_FALSE(list_nan.Equals(list_other_nan, options));
@@ -503,7 +503,7 @@ class TestRealScalar : public ::testing::Test {
 
     options = options.nans_equal(true);
     ASSERT_TRUE(list_val.Equals(list_val, options));
-    ASSERT_FALSE(list_val.Equals(list_other_val, options));
+    ASSERT_TRUE(list_val.Equals(list_other_val, options));
     ASSERT_FALSE(list_nan.Equals(list_val, options));
     ASSERT_TRUE(list_nan.Equals(list_nan, options));
     ASSERT_TRUE(list_nan.Equals(list_other_nan, options));
@@ -561,6 +561,66 @@ TYPED_TEST(TestRealScalar, LargeListOf) { this->TestLargeListOf(); }
 TYPED_TEST(TestRealScalar, ListViewOf) { this->TestListViewOf(); }
 
 TYPED_TEST(TestRealScalar, LargeListViewOf) { this->TestLargeListViewOf(); }
+
+namespace {
+
+template <typename CType>
+void AssertScalarsEqual(const CType& left, const CType& right,
+                        const EqualOptions& options) {
+  using ScalarType = TypeTraits<typename CTypeTraits<CType>::ArrowType>::ScalarType;
+  arrow::AssertScalarsEqual(ScalarType(left), ScalarType(right), false, options);
+}
+
+}  // namespace
+
+TEST(TestRealScalarUlpDistance, Double) {
+  // 'static' ensures the variable outlives EXPECT_FATAL_FAILURE's separate execution
+  // context.
+  static auto options = EqualOptions::Defaults();
+  AssertScalarsEqual(0.9999999999999988, 1.0000000000000007, options.ulp_distance(14));
+  EXPECT_FATAL_FAILURE(AssertScalarsEqual(0.9999999999999988, 1.0000000000000007,
+                                          options.ulp_distance(13)),
+                       "");
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(0.9999999999999988, std::numeric_limits<double>::quiet_NaN(),
+                         options.ulp_distance(14).nans_equal(true)),
+      "");
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(0.9999999999999988, std::numeric_limits<double>::quiet_NaN(),
+                         options.ulp_distance(14).nans_equal(false)),
+      "");
+}
+
+TEST(TestRealScalarUlpDistance, Float) {
+  static auto options = EqualOptions::Defaults();
+  AssertScalarsEqual(123.456f, 123.456085f, options.ulp_distance(11));
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(123.456f, 123.456085f, options.ulp_distance(10)), "");
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(123.456f, std::numeric_limits<float>::quiet_NaN(),
+                         options.ulp_distance(11).nans_equal(true)),
+      "");
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(123.456f, std::numeric_limits<float>::quiet_NaN(),
+                         options.ulp_distance(11).nans_equal(false)),
+      "");
+}
+
+TEST(TestRealScalarUlpDistance, HalfFloat) {
+  static auto options = EqualOptions::Defaults();
+  AssertScalarsEqual(Float16(1.00097656), Float16(0.999511719f), options.ulp_distance(2));
+  EXPECT_FATAL_FAILURE(AssertScalarsEqual(Float16(1.00097656), Float16(0.999511719f),
+                                          options.ulp_distance(1)),
+                       "");
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(Float16(1.00097656), std::numeric_limits<Float16>::quiet_NaN(),
+                         options.ulp_distance(2).nans_equal(true)),
+      "");
+  EXPECT_FATAL_FAILURE(
+      AssertScalarsEqual(Float16(1.00097656), std::numeric_limits<Float16>::quiet_NaN(),
+                         options.ulp_distance(2).nans_equal(false)),
+      "");
+}
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {

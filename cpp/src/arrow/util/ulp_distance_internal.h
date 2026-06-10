@@ -17,16 +17,18 @@
 
 #pragma once
 
-#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
-namespace arrow {
+namespace arrow::internal {
 
-ARROW_TESTING_EXPORT
-void AssertWithinUlp(util::Float16 left, util::Float16 right, int32_t n_ulps);
-ARROW_TESTING_EXPORT
-void AssertWithinUlp(float left, float right, int32_t n_ulps);
-ARROW_TESTING_EXPORT
-void AssertWithinUlp(double left, double right, int32_t n_ulps);
+ARROW_EXPORT
+bool WithinUlp(util::Float16 left, util::Float16 right, int32_t n_ulps);
 
-}  // namespace arrow
+ARROW_EXPORT
+bool WithinUlp(float left, float right, int32_t n_ulps);
+
+ARROW_EXPORT
+bool WithinUlp(double left, double right, int32_t n_ulps);
+
+}  // namespace arrow::internal

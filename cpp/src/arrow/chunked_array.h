@@ -166,6 +166,10 @@ class ARROW_EXPORT ChunkedArray {
   bool Equals(const std::shared_ptr<ChunkedArray>& other,
               const EqualOptions& opts = EqualOptions::Defaults()) const;
   /// \brief Determine if two chunked arrays approximately equal
+  ///
+  /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
+  /// \ref arrow::kDefaultAbsoluteTolerance is used.
+  ///
   bool ApproxEquals(const ChunkedArray& other,
                     const EqualOptions& = EqualOptions::Defaults()) const;
 

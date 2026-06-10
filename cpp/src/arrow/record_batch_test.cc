@@ -208,8 +208,7 @@ TEST_F(TestRecordBatchEqualOptions, Approx) {
   EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
 
   auto options = EqualOptions::Defaults().nans_equal(true).atol(0.1);
-  EXPECT_FALSE(b1->Equals(*b2, options));
-  EXPECT_TRUE(b1->Equals(*b2, options.use_atol(true)));
+  EXPECT_TRUE(b1->Equals(*b2, options));
   EXPECT_TRUE(b1->ApproxEquals(*b2, options));
 }
 
