@@ -20,6 +20,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>

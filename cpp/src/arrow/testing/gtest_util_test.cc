@@ -17,7 +17,6 @@
 
 #include <cmath>
 #include <memory>
-#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest-spi.h>

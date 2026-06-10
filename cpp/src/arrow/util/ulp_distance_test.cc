@@ -19,6 +19,8 @@
 
 #include <cinttypes>
 #include <cmath>
+#include <type_traits>
+#include <vector>
 
 #include "gtest/gtest.h"
 
