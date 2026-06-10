@@ -1767,8 +1767,7 @@ TEST(TestDictionaryBuilderOrdered, TypePreservesOrderedFlag) {
   for (bool ordered : {true, false}) {
     ARROW_SCOPED_TRACE("ordered = ", ordered);
     auto dict_type = dictionary(int8(), utf8(), ordered);
-    std::unique_ptr<ArrayBuilder> boxed_builder;
-    ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
+    ASSERT_OK_AND_ASSIGN(auto boxed_buider, MakeBuilder(dict_type));
 
     auto builder_type = boxed_builder->type();
     ASSERT_EQ(checked_cast<const DictionaryType&>(*builder_type).ordered(), ordered);
