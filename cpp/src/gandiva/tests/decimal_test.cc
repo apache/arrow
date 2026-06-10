@@ -976,7 +976,7 @@ TEST_F(TestDecimal, TestCastVarCharDecimal) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[1]);
 }
 
-// Regression test for DX-116032: castVARCHAR(decimal) must fail gracefully instead
+// Regression test for GH-50140: castVARCHAR(decimal) must fail gracefully instead
 // of corrupting native memory (SIGSEGV) when given an invalid output length.
 TEST_F(TestDecimal, TestCastVarCharDecimalNegativeLength) {
   constexpr int32_t precision = 38;
@@ -998,8 +998,8 @@ TEST_F(TestDecimal, TestCastVarCharDecimalNegativeLength) {
   auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  auto array_dec = MakeArrowArrayDecimal(
-      decimal_type, MakeDecimalVector({"10.51"}, scale), {true});
+  auto array_dec =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"10.51"}, scale), {true});
   auto in_batch = arrow::RecordBatch::Make(schema, 1, {array_dec});
 
   arrow::ArrayVector outputs;

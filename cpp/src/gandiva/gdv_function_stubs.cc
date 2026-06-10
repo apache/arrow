@@ -219,7 +219,8 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
   std::string dec_str = dec.ToString(x_scale);
   auto dec_str_length = static_cast<int32_t>(dec_str.length());
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, dec_str_length));
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, dec_str_length));
   if (ret == nullptr) {
     std::string err_msg = "Could not allocate memory for string: " + dec_str;
     gdv_fn_context_set_error_msg(context, err_msg.data());
