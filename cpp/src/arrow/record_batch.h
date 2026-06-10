@@ -138,7 +138,7 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Determine if two record batches are approximately equal
   ///
   /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
-  /// \ref arrow::kDefaultAbsoluteTolerance is used.
+  /// 'arrow::kDefaultAbsoluteTolerance' is used.
   ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] opts the options for equality comparisons

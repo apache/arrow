@@ -168,7 +168,7 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Determine if two chunked arrays approximately equal
   ///
   /// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
-  /// \ref arrow::kDefaultAbsoluteTolerance is used.
+  /// 'arrow::kDefaultAbsoluteTolerance' is used.
   ///
   bool ApproxEquals(const ChunkedArray& other,
                     const EqualOptions& = EqualOptions::Defaults()) const;
