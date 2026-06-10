@@ -522,13 +522,6 @@ inline Result<NonNullValuesRange> MakeNonNullValuesRangeFromNullPlacement(
                                 has_leading_nulls ? 0 : null_count);
 }
 
-inline const std::shared_ptr<Array>* FindFirstNonEmptyChunk(const ChunkedArray& values) {
-  const auto it = std::ranges::find_if(
-      values.chunks(),
-      [](const std::shared_ptr<Array>& chunk) { return chunk->length() != 0; });
-  return it == values.chunks().end() ? nullptr : &*it;
-}
-
 inline int64_t GetLogicalNullCount(const ArrayData& values) {
   if (!values.MayHaveLogicalNulls()) {
     return 0;
@@ -548,6 +541,36 @@ inline int64_t GetLogicalNullCount(const ChunkedArray& values) {
                              return GetLogicalNullCount(*chunk->data());
                            });
   return std::reduce(chunk_null_counts.begin(), chunk_null_counts.end(), int64_t{0});
+}
+
+inline bool IsNull(const ChunkedArray& values, int64_t index) {
+  DCHECK_GE(index, 0);
+  DCHECK_LT(index, values.length());
+
+  ChunkResolver resolver(values.chunks());
+  const auto location = resolver.Resolve(index);
+  return values.chunk(location.chunk_index)->IsNull(location.index_in_chunk);
+}
+
+template <typename IsNullAt>
+inline Result<NonNullValuesRange> FindNonNullValuesRangeFromNullCount(
+    int64_t length, int64_t null_count, IsNullAt&& is_null_at) {
+  DCHECK_GT(null_count, 0);
+  DCHECK_LE(null_count, length);
+
+  const bool has_leading_nulls = is_null_at(0);
+  if (has_leading_nulls) {
+    if (!is_null_at(null_count - 1) || (null_count < length && is_null_at(null_count))) {
+      return Status::Invalid(kClusteredNullValuesError);
+    }
+  } else {
+    const auto first_trailing_null_index = length - null_count;
+    if (!is_null_at(first_trailing_null_index) || !is_null_at(length - 1) ||
+        is_null_at(first_trailing_null_index - 1)) {
+      return Status::Invalid(kClusteredNullValuesError);
+    }
+  }
+  return MakeNonNullValuesRangeFromNullPlacement(length, null_count, has_leading_nulls);
 }
 
 /// Present a contiguous non-null slice of the searched values through the same
@@ -640,9 +663,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return non_null_values_range;
   }
 
-  const bool has_leading_nulls = values.IsNull(0);
-  return MakeNonNullValuesRangeFromNullPlacement(values.length, null_count,
-                                                 has_leading_nulls);
+  return FindNonNullValuesRangeFromNullCount(values.length, null_count,
+                                             [&](int64_t index) { return values.IsNull(index); });
 }
 
 /// Validate the searched values input shape and supported encoding.
@@ -683,12 +705,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& val
     return non_null_values_range;
   }
 
-  const auto* first_non_empty_chunk = FindFirstNonEmptyChunk(values);
-  DCHECK_NE(first_non_empty_chunk, nullptr);
-
-  const bool has_leading_nulls = (*first_non_empty_chunk)->IsNull(0);
-  return MakeNonNullValuesRangeFromNullPlacement(values.length(), null_count,
-                                                 has_leading_nulls);
+  return FindNonNullValuesRangeFromNullCount(values.length(), null_count,
+                                             [&](int64_t index) { return IsNull(values, index); });
 }
 
 /// Perform a lower- or upper-bound binary search over already sorted values.
