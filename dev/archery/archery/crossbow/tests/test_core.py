@@ -100,6 +100,23 @@ def test_latest_for_prefix(request):
                 "nightly-packaging-2022-04-11-0")
 
 
+def test_github_release_found():
+    """Test github_release looks up a release by its tag name."""
+    with mock.patch.object(Repo, 'as_github_repo') as mock_repo:
+        mock_release = mock.MagicMock()
+        mock_repo.return_value.get_release.return_value = mock_release
+
+        repo = Repo('/tmp/test', github_token='test_token')
+        result = repo.github_release('nightly-packaging-2022-04-10-0')
+
+        # PyGithub's get_release dispatches str arguments to the
+        # /releases/tags/{tag} endpoint, so the tag must be passed through
+        # as a string
+        mock_repo.return_value.get_release.assert_called_once_with(
+            'nightly-packaging-2022-04-10-0')
+        assert result == mock_release
+
+
 def test_github_release_not_found():
     """Test github_release returns None for 404."""
     with mock.patch.object(Repo, 'as_github_repo') as mock_repo:
