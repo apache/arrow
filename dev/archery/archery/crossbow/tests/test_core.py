@@ -241,7 +241,7 @@ def test_github_upload_asset_success():
         mock_asset = mock.MagicMock()
         mock_release.upload_asset.return_value = mock_asset
 
-        result = repo.github_upload_asset_requests(
+        result = repo.github_upload_asset(
             mock_release, '/path/to/file', 'file.tar.gz', 'application/gzip'
         )
 
@@ -267,7 +267,7 @@ def test_github_upload_asset_retry_on_422():
         mock_release.get_assets.return_value = [mock_existing_asset]
 
         with mock.patch('time.sleep'):  # Skip actual sleep
-            result = repo.github_upload_asset_requests(
+            result = repo.github_upload_asset(
                 mock_release, '/path/to/file', 'file.tar.gz',
                 'application/gzip', max_retries=3, retry_backoff=0
             )

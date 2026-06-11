@@ -22,7 +22,6 @@ import glob
 import time
 import logging
 import mimetypes
-import subprocess
 import textwrap
 import uuid
 from io import StringIO
@@ -491,8 +490,8 @@ class Repo:
                 return None
             raise
 
-    def github_upload_asset_requests(self, release, path, name, mime,
-                                     max_retries=None, retry_backoff=None):
+    def github_upload_asset(self, release, path, name, mime,
+                            max_retries=None, retry_backoff=None):
         if max_retries is None:
             max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 8))
         if retry_backoff is None:
@@ -528,24 +527,8 @@ class Repo:
 
         raise RuntimeError('GitHub asset uploading has failed!')
 
-    def github_upload_asset_curl(self, release, path, name, mime):
-        upload_url, _ = release.upload_url.split('{?')
-        upload_url += f"?name={name}"
-
-        command = [
-            'curl',
-            '--fail',
-            '-H', f"Authorization: token {self.github_token}",
-            '-H', f"Content-Type: {mime}",
-            '--data-binary', f'@{path}',
-            upload_url
-        ]
-        return subprocess.run(command, shell=False, check=True)
-
     def github_overwrite_release_assets(self, tag_name, target_commitish,
-                                        patterns, method='requests'):
-        # Since github has changed something the asset uploading via requests
-        # got instable, so prefer the cURL alternative.
+                                        patterns):
         repo = self.as_github_repo()
         if not tag_name:
             raise CrossbowError('Empty tag name')
@@ -573,16 +556,7 @@ class Repo:
                     f"{size}..."
                 )
 
-                if method == 'requests':
-                    self.github_upload_asset_requests(release, path, name=name,
-                                                      mime=mime)
-                elif method == 'curl':
-                    self.github_upload_asset_curl(release, path, name=name,
-                                                  mime=mime)
-                else:
-                    raise CrossbowError(
-                        f"Unsupported upload method {method}"
-                    )
+                self.github_upload_asset(release, path, name=name, mime=mime)
 
     def github_pr(self, title, head=None, base=None, body=None,
                   github_token=None, create=False):
