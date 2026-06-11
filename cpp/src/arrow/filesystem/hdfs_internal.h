@@ -42,9 +42,6 @@ using internal::IOErrorFromErrno;
 
 namespace fs::internal {
 
-class HdfsReadableFile;
-class HdfsOutputStream;
-
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 struct LibHdfsShim {
   void* handle;
@@ -220,6 +217,10 @@ struct LibHdfsShim {
 // TODO(wesm): Remove these exports when we are linking statically
 ARROW_EXPORT Status ConnectLibHdfs(LibHdfsShim** driver);
 
+}  // namespace fs::internal
+
+namespace fs {
+
 struct HdfsPathInfo {
   arrow::fs::FileType kind;
 
@@ -245,8 +246,8 @@ class ARROW_EXPORT HdfsReadableFile : public io::RandomAccessFile {
   static Result<std::shared_ptr<HdfsReadableFile>> Make(const std::string& path,
                                                         int32_t buffer_size,
                                                         const io::IOContext& io_context,
-                                                        LibHdfsShim* driver, hdfsFS fs,
-                                                        hdfsFile handle);
+                                                        internal::LibHdfsShim* driver,
+                                                        hdfsFS fs, hdfsFile handle);
 
   Status Close() override;
 
@@ -282,8 +283,8 @@ class ARROW_EXPORT HdfsOutputStream : public io::OutputStream {
 
   static Result<std::shared_ptr<HdfsOutputStream>> Make(const std::string& path,
                                                         int32_t buffer_size,
-                                                        LibHdfsShim* driver, hdfsFS fs,
-                                                        hdfsFile handle);
+                                                        internal::LibHdfsShim* driver,
+                                                        hdfsFS fs, hdfsFile handle);
 
   Status Close() override;
 
@@ -307,5 +308,5 @@ class ARROW_EXPORT HdfsOutputStream : public io::OutputStream {
   ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
 };
 
-}  // namespace fs::internal
+}  // namespace fs
 }  // namespace arrow

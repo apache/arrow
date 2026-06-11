@@ -44,8 +44,9 @@ using arrow::fs::HdfsOptions;
 
 namespace fs::internal {
 
-using arrow::fs::internal::HdfsPathInfo;
-using arrow::fs::internal::HdfsReadableFile;
+using arrow::fs::HdfsOutputStream;
+using arrow::fs::HdfsPathInfo;
+using arrow::fs::HdfsReadableFile;
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);

@@ -27,12 +27,10 @@
 
 namespace arrow::fs {
 
-namespace internal {
 class HdfsReadableFile;
 class HdfsOutputStream;
 
 struct HdfsPathInfo;
-}  // namespace internal
 
 struct HdfsConnectionConfig {
   std::string host;
@@ -104,10 +102,10 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   bool Exists(const std::string& path);
 
-  Status GetPathInfoStatus(const std::string& path, internal::HdfsPathInfo* info);
+  Status GetPathInfoStatus(const std::string& path, HdfsPathInfo* info);
 
   Status ListDirectory(const std::string& path,
-                       std::vector<internal::HdfsPathInfo>* listing);
+                       std::vector<HdfsPathInfo>* listing);
 
   // Delete file or directory
   // @param path absolute path to data
@@ -163,17 +161,17 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   //
   // @param path complete file path
   Status OpenReadable(const std::string& path, int32_t buffer_size,
-                      std::shared_ptr<internal::HdfsReadableFile>* file);
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path, int32_t buffer_size,
                       const io::IOContext& io_context,
-                      std::shared_ptr<internal::HdfsReadableFile>* file);
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path,
-                      std::shared_ptr<internal::HdfsReadableFile>* file);
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path, const io::IOContext& io_context,
-                      std::shared_ptr<internal::HdfsReadableFile>* file);
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   // FileMode::WRITE options
   // @param path complete file path
@@ -182,10 +180,10 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   // @param default_block_size 0 by default
   Status OpenWritable(const std::string& path, bool append, int32_t buffer_size,
                       int16_t replication, int64_t default_block_size,
-                      std::shared_ptr<internal::HdfsOutputStream>* file);
+                      std::shared_ptr<HdfsOutputStream>* file);
 
   Status OpenWritable(const std::string& path, bool append,
-                      std::shared_ptr<internal::HdfsOutputStream>* file);
+                      std::shared_ptr<HdfsOutputStream>* file);
 
  protected:
   HadoopFileSystem(const HdfsOptions& options, const io::IOContext&);

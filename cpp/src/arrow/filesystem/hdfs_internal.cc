@@ -571,8 +571,12 @@ Status GetPathInfoFailed(const std::string& path) {
 
 }  // namespace
 
+}  // namespace fs::internal
+
+namespace fs {
+
 // Private implementation for read-only files
-class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
+class HdfsReadableFile::HdfsReadableFileImpl : public internal::HdfsAnyFileImpl {
  public:
   explicit HdfsReadableFileImpl(MemoryPool* pool) : pool_(pool) {}
 
@@ -666,7 +670,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
     if (entry == nullptr) {
-      return GetPathInfoFailed(path_);
+      return internal::GetPathInfoFailed(path_);
     }
     int64_t size = entry->mSize;
     driver_->FreeFileInfo(entry, 1);
@@ -731,7 +735,7 @@ Result<std::shared_ptr<HdfsReadableFile>> HdfsReadableFile::Make(
 // File writing
 
 // Private implementation for writable-only files
-class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
+class HdfsOutputStream::HdfsOutputStreamImpl : public internal::HdfsAnyFileImpl {
  public:
   HdfsOutputStreamImpl() {}
 
@@ -802,7 +806,7 @@ Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
 
 Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(const std::string& path,
                                                                  int32_t buffer_size,
-                                                                 LibHdfsShim* driver,
+                                                                 internal::LibHdfsShim* driver,
                                                                  hdfsFS fs,
                                                                  hdfsFile handle) {
   std::shared_ptr<HdfsOutputStream> file(new HdfsOutputStream());
@@ -810,5 +814,5 @@ Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(const std::stri
   return file;
 }
 
-}  // namespace fs::internal
+}  // namespace fs
 }  // namespace arrow
