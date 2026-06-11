@@ -1321,12 +1321,12 @@ TEST_F(TestProjector, TestChr) {
   // 65 -> "A", 237 -> "í" (U+00ED), 8364 -> "€" (U+20AC), 26085 -> "日" (U+65E5),
   // 128512 -> "😀" (U+1F600).
   int num_records = 5;
-  auto array0 = MakeArrowArrayInt64({65, 237, 8364, 26085, 128512},
-                                    {true, true, true, true, true});
+  auto array0 =
+      MakeArrowArrayInt64({65, 237, 8364, 26085, 128512}, {true, true, true, true, true});
   // expected UTF-8 output
-  auto exp_chr =
-      MakeArrowArrayUtf8({"A", "\xC3\xAD", "\xE2\x82\xAC", "\xE6\x97\xA5", "\xF0\x9F\x98\x80"},
-                         {true, true, true, true, true});
+  auto exp_chr = MakeArrowArrayUtf8(
+      {"A", "\xC3\xAD", "\xE2\x82\xAC", "\xE6\x97\xA5", "\xF0\x9F\x98\x80"},
+      {true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
