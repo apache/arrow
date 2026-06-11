@@ -499,7 +499,7 @@ class Repo:
 
         for i in range(max_retries):
             try:
-                result = release.upload_asset(path, label=name,
+                result = release.upload_asset(path, name=name,
                                               content_type=mime)
                 logger.info(f"Attempt {i + 1} has finished.")
                 return result

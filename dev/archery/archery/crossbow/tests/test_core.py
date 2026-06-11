@@ -114,7 +114,9 @@ def test_github_release_not_found():
 def test_github_pr_create():
     """Test creating a pull request via PyGithub."""
     with mock.patch.object(Repo, 'as_github_repo') as mock_repo:
-        with mock.patch.object(Repo, 'default_branch_name', 'main'):
+        with mock.patch.object(Repo, 'default_branch_name',
+                               new_callable=mock.PropertyMock,
+                               return_value='main'):
             mock_pr = mock.MagicMock()
             mock_repo.return_value.create_pull.return_value = mock_pr
 
