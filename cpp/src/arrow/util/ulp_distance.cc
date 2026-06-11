@@ -83,7 +83,7 @@ struct UlpDistanceUtil {
 
 template <typename Float>
 bool WithinUlpGeneric(Float left, Float right, int32_t n_ulps) {
-  DCHECK(n_ulps >= 0);
+  DCHECK_GE(n_ulps, 0);
   return UlpDistanceUtil<Float>::UlpDistance(left, right) <=
          static_cast<uint64_t>(n_ulps);
 }
