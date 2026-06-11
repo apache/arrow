@@ -104,12 +104,12 @@ struct CTypeTraits {};
 /// \addtogroup type-traits
 /// @{
 template <>
-struct CTypeTraits<Decimal128> {
+struct CTypeTraits<Decimal128> : TypeTraits<Decimal128Type> {
   using ArrowType = Decimal128Type;
 };
 
 template <>
-struct CTypeTraits<Decimal256> {
+struct CTypeTraits<Decimal256> : TypeTraits<Decimal256Type> {
   using ArrowType = Decimal256Type;
 };
 
