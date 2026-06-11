@@ -17,6 +17,8 @@
 
 #include "./epoch_time_point.h"
 
+#include <string>
+
 extern "C" {
 
 #define __STDC_FORMAT_MACROS
@@ -268,10 +270,9 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
       }                                                                                  \
     }                                                                                    \
     if (dateSearch == 0) {                                                               \
-      char err_msg[160];                                                                 \
-      snprintf(err_msg, sizeof(err_msg),                                                 \
-               "NEXT_DAY: '%.*s' is not a recognized day of the week", in_len, in);      \
-      gdv_fn_context_set_error_msg(context, err_msg);                                    \
+      std::string err_msg = "NEXT_DAY: '" + std::string(in, in_len) +                    \
+                            "' is not a recognized day of the week";                     \
+      gdv_fn_context_set_error_msg(context, err_msg.c_str());                            \
       return 0;                                                                          \
     }                                                                                    \
                                                                                          \
