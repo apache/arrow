@@ -207,7 +207,7 @@ def test_token_expiration_date():
     with mock.patch.object(Repo, '_github_login') as mock_login:
         mock_github = mock.MagicMock()
         mock_login.return_value = mock_github
-        mock_github._Github__requester.requestJsonAndCheck.return_value = (
+        mock_github.requester.requestJsonAndCheck.return_value = (
             {'github-authentication-token-expiration': '2024-12-31 23:59:59 UTC'},
             {}
         )
@@ -223,7 +223,7 @@ def test_token_expiration_date_no_header():
     with mock.patch.object(Repo, '_github_login') as mock_login:
         mock_github = mock.MagicMock()
         mock_login.return_value = mock_github
-        mock_github._Github__requester.requestJsonAndCheck.return_value = (
+        mock_github.requester.requestJsonAndCheck.return_value = (
             {},
             {}
         )

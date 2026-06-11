@@ -465,12 +465,9 @@ class Repo:
     def token_expiration_date(self, github_token=None):
         """Returns the expiration date for the github_token provided"""
         github = self._github_login(github_token)
-        # NOTE: We access the private _Github__requester to get response
-        # headers, as PyGithub doesn't expose the token expiration header
-        # through its public API. This may break with future PyGithub updates.
-        headers, _ = github._Github__requester.requestJsonAndCheck(
-            "GET", "/user"
-        )
+        # PyGithub doesn't expose the token expiration header through a
+        # dedicated API, so request it via the public Requester escape hatch.
+        headers, _ = github.requester.requestJsonAndCheck("GET", "/user")
         # Response header in the form '2023-01-23 10:40:28 UTC'
         date_string = headers.get('github-authentication-token-expiration')
         if date_string:
