@@ -169,16 +169,23 @@ struct DictionaryBuilderCase {
   Status CreateFor() {
     using AdaptiveBuilderType = DictionaryBuilder<ValueType>;
     if (dictionary != nullptr) {
-      out->reset(new AdaptiveBuilderType(dictionary, pool));
+      auto* builder = new AdaptiveBuilderType(dictionary, pool);
+      builder->set_ordered(ordered);
+      out->reset(builder);
     } else if (exact_index_type) {
       if (!is_integer(index_type->id())) {
         return Status::TypeError("MakeBuilder: invalid index type ", *index_type);
       }
-      out->reset(new internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>(
-          index_type, value_type, pool));
+      auto* builder =
+          new internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>(
+              index_type, value_type, pool);
+      builder->set_ordered(ordered);
+      out->reset(builder);
     } else {
       auto start_int_size = index_type->byte_width();
-      out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool));
+      auto* builder = new AdaptiveBuilderType(start_int_size, value_type, pool);
+      builder->set_ordered(ordered);
+      out->reset(builder);
     }
     return Status::OK();
   }
@@ -191,6 +198,7 @@ struct DictionaryBuilderCase {
   const std::shared_ptr<Array>& dictionary;
   bool exact_index_type;
   std::unique_ptr<ArrayBuilder>* out;
+  bool ordered;
 };
 
 struct MakeBuilderImpl {
@@ -206,7 +214,8 @@ struct MakeBuilderImpl {
                                      dict_type.value_type(),
                                      /*dictionary=*/nullptr,
                                      exact_index_type,
-                                     &out};
+                                     &out,
+                                     dict_type.ordered()};
     return visitor.Make();
   }
 
@@ -332,9 +341,13 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out) {
   const auto& dict_type = static_cast<const DictionaryType&>(*type);
-  DictionaryBuilderCase visitor = {
-      pool,       dict_type.index_type(),     dict_type.value_type(),
-      dictionary, /*exact_index_type=*/false, out};
+  DictionaryBuilderCase visitor = {pool,
+                                   dict_type.index_type(),
+                                   dict_type.value_type(),
+                                   dictionary,
+                                   /*exact_index_type=*/false,
+                                   out,
+                                   dict_type.ordered()};
   return visitor.Make();
 }
 

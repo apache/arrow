@@ -680,6 +680,21 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   ASSERT_EQ(empty->num_rows(), 0);
 }
 
+// GH-41017 / GH-49674: RecordBatch::MakeEmpty calls MakeEmptyArray which calls
+// MakeBuilder. Verify that the ordered flag of a DictionaryType is preserved.
+TEST_F(TestRecordBatch, MakeEmptyPreservesDictionaryOrdered) {
+  auto dict_type = dictionary(int32(), utf8(), /*ordered=*/true);
+  auto schema = ::arrow::schema({field("col", dict_type)});
+
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::MakeEmpty(schema));
+  ASSERT_EQ(batch->num_rows(), 0);
+  ASSERT_EQ(batch->num_columns(), 1);
+
+  const auto& array_type = static_cast<const DictionaryType&>(*batch->column(0)->type());
+  ASSERT_TRUE(array_type.ordered())
+      << "RecordBatch::MakeEmpty lost ordered flag in dictionary-encoded column";
+}
+
 // See: https://github.com/apache/arrow/issues/35450
 TEST_F(TestRecordBatch, ToStructArrayMismatchedColumnLengths) {
   constexpr int kNumRows = 5;

@@ -854,6 +854,18 @@ TEST_F(TestArray, TestMakeEmptyArray) {
   }
 }
 
+// GH-41017: MakeEmptyArray calls MakeBuilder internally. Verify that the ordered
+// flag of a DictionaryType is preserved (was silently dropped before this fix).
+TEST_F(TestArray, TestMakeEmptyArrayPreservesDictionaryOrdered) {
+  auto ordered_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(ordered_type));
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->length(), 0);
+  const auto& result_type = checked_cast<const DictionaryType&>(*array->type());
+  ASSERT_TRUE(result_type.ordered())
+      << "MakeEmptyArray must preserve ordered=true from the input DictionaryType";
+}
+
 TEST_F(TestArray, TestFillFromScalar) {
   for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());

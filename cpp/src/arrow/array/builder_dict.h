@@ -490,8 +490,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override {
-    return ::arrow::dictionary(indices_builder_.type(), value_type_);
+    return ::arrow::dictionary(indices_builder_.type(), value_type_, ordered_);
   }
+
+  /// \brief Set whether the dictionary is ordered
+  void set_ordered(bool ordered) { ordered_ = ordered; }
 
  protected:
   template <typename c_type>
@@ -558,6 +561,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   // Only used for FixedSizeBinaryType
   int32_t byte_width_;
+
+  // Whether the dictionary is ordered
+  bool ordered_ = false;
 
   BuilderType indices_builder_;
   std::shared_ptr<DataType> value_type_;
@@ -647,7 +653,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
-    (*out)->type = dictionary((*out)->type, null());
+    (*out)->type = dictionary((*out)->type, null(), ordered_);
     (*out)->dictionary = NullArray(0).data();
     return Status::OK();
   }
@@ -659,11 +665,15 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override {
-    return ::arrow::dictionary(indices_builder_.type(), null());
+    return ::arrow::dictionary(indices_builder_.type(), null(), ordered_);
   }
+
+  /// \brief Set whether the dictionary is ordered
+  void set_ordered(bool ordered) { ordered_ = ordered; }
 
  protected:
   BuilderType indices_builder_;
+  bool ordered_ = false;
 };
 
 }  // namespace internal
