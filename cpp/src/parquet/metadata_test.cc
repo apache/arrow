@@ -350,14 +350,14 @@ void AssertColumnChunkMinMax(const FileMetaData& metadata,
 }  // namespace
 
 TEST(Metadata, UnknownColumnOrderIgnoresMinMax) {
-  std::string serialized_metadata = SerializeMetadata(SingleInt32MetadataWithStats());
-  const std::string kTypeDefinedOrder("\x1c\x00", 2);
-  const std::string kUnsupportedOrder("\x2c\x00", 2);
-  const auto pos = serialized_metadata.find(kTypeDefinedOrder);
-  ASSERT_NE(std::string::npos, pos);
-  serialized_metadata.replace(pos, kTypeDefinedOrder.size(), kUnsupportedOrder);
+  format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
+  // Simulate an unsupported ColumnOrder value: unknown union fields are skipped by Thrift,
+  // leaving an entry with no known field set.
+  thrift_metadata.column_orders.clear();
+  thrift_metadata.column_orders.emplace_back();
+  thrift_metadata.__isset.column_orders = true;
 
-  auto metadata = ParseMetadata(serialized_metadata);
+  auto metadata = ParseMetadata(SerializeMetadata(thrift_metadata));
   AssertColumnChunkHasNoMinMax(*metadata, ColumnOrder::UNKNOWN);
 }
 
