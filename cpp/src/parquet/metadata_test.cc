@@ -351,8 +351,8 @@ void AssertColumnChunkMinMax(const FileMetaData& metadata,
 
 TEST(Metadata, UnknownColumnOrderIgnoresMinMax) {
   format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
-  // Simulate an unsupported ColumnOrder value: unknown union fields are skipped by Thrift,
-  // leaving an entry with no known field set.
+  // Simulate an unsupported ColumnOrder value: unknown union fields are skipped by
+  // Thrift, leaving an entry with no known field set.
   thrift_metadata.column_orders.clear();
   thrift_metadata.column_orders.emplace_back();
   thrift_metadata.__isset.column_orders = true;
