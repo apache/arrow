@@ -19,6 +19,7 @@
 #  define M_PI 3.14159265358979323846
 #endif
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -61,12 +62,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int32(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int32(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("FACTORIAL") != std::string::npos);
-  EXPECT_TRUE(context.get_error().find("non-negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 
   for (int64_t i = 0; i <= 20; ++i) {
@@ -80,12 +81,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int64(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int64(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("FACTORIAL") != std::string::npos);
-  EXPECT_TRUE(context.get_error().find("non-negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 }
 

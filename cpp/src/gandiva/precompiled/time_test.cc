@@ -997,6 +997,45 @@ TEST(TestTime, TestNextDayCaseSensitive) {
   context.Reset();
 }
 
+// Document that next_day's weekday-name matching is loose: it uses
+// is_substr_utf8_utf8 to test whether the input is a *substring* of any
+// WEEK[] entry, walking the array in the order
+// SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY
+// and returning the FIRST match. This means single-letter prefixes 'S' and
+// 'T' are ambiguous and silently resolve to SUNDAY / TUESDAY respectively
+// (never SATURDAY / THURSDAY). Likewise, any substring shared across weekdays
+// (e.g. "DAY") matches SUNDAY because it is first in the array.
+TEST(TestTime, TestNextDayAmbiguousPrefix) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  gdv_timestamp ts = StringToTimestamp("2021-11-08 10:20:34");  // Mon
+
+  // "S" -> Sunday (could have been Saturday).
+  auto out = next_day_from_timestamp(context_ptr, ts, "S", 1);
+  EXPECT_EQ(StringToTimestamp("2021-11-14 00:00:00"), out);  // next Sunday
+  EXPECT_FALSE(context.has_error());
+
+  // "T" -> Tuesday (could have been Thursday).
+  out = next_day_from_timestamp(context_ptr, ts, "T", 1);
+  EXPECT_EQ(StringToTimestamp("2021-11-09 00:00:00"), out);  // next Tuesday
+  EXPECT_FALSE(context.has_error());
+
+  // "DAY" appears in every weekday name -> matches SUNDAY (first in array).
+  out = next_day_from_timestamp(context_ptr, ts, "DAY", 3);
+  EXPECT_EQ(StringToTimestamp("2021-11-14 00:00:00"), out);  // next Sunday
+  EXPECT_FALSE(context.has_error());
+
+  // Unambiguous 2-letter prefixes work as expected.
+  out = next_day_from_timestamp(context_ptr, ts, "SA", 2);
+  EXPECT_EQ(StringToTimestamp("2021-11-13 00:00:00"), out);  // next Saturday
+  EXPECT_FALSE(context.has_error());
+
+  out = next_day_from_timestamp(context_ptr, ts, "TH", 2);
+  EXPECT_EQ(StringToTimestamp("2021-11-11 00:00:00"), out);  // next Thursday
+  EXPECT_FALSE(context.has_error());
+}
+
 TEST(TestTime, TestCastTimestampToTime) {
   gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   auto expected_response =
