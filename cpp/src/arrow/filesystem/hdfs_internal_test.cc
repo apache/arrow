@@ -72,6 +72,7 @@ class TestHadoopFileSystem : public ::testing::Test {
                                           default_block_size, &file));
 
       RETURN_NOT_OK(file->Write(buffer, size));
+      RETURN_NOT_OK(file->Close());
     }
     return Status::OK();
   }
@@ -162,7 +163,7 @@ TEST_F(TestHadoopFileSystem, ConnectsAgain) {
     HdfsOptions options;
     options.connection_config = this->conf_;
     io::IOContext io_context = io::default_io_context();
-    ASSERT_OK_AND_ASSIGN(client_, HadoopFileSystem::Make(options, io_context));
+    ASSERT_OK_AND_ASSIGN(client, HadoopFileSystem::Make(options, io_context));
   }
 }
 
