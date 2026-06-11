@@ -104,8 +104,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status GetPathInfoStatus(const std::string& path, HdfsPathInfo* info);
 
-  Status ListDirectory(const std::string& path,
-                       std::vector<HdfsPathInfo>* listing);
+  Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing);
 
   // Delete file or directory
   // @param path absolute path to data
@@ -167,8 +166,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
                       const io::IOContext& io_context,
                       std::shared_ptr<HdfsReadableFile>* file);
 
-  Status OpenReadable(const std::string& path,
-                      std::shared_ptr<HdfsReadableFile>* file);
+  Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path, const io::IOContext& io_context,
                       std::shared_ptr<HdfsReadableFile>* file);

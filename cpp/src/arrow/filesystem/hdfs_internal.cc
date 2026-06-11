@@ -804,11 +804,9 @@ Status HdfsOutputStream::Flush() { return impl_->Flush(); }
 
 Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
 
-Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(const std::string& path,
-                                                                 int32_t buffer_size,
-                                                                 internal::LibHdfsShim* driver,
-                                                                 hdfsFS fs,
-                                                                 hdfsFile handle) {
+Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(
+    const std::string& path, int32_t buffer_size, internal::LibHdfsShim* driver,
+    hdfsFS fs, hdfsFile handle) {
   std::shared_ptr<HdfsOutputStream> file(new HdfsOutputStream());
   file->impl_->set_members(path, driver, fs, handle);
   return file;
