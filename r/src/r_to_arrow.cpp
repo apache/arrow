@@ -996,14 +996,6 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
   Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() override {
     ARROW_ASSIGN_OR_RAISE(auto result, this->builder_->Finish());
 
-    auto result_type = checked_cast<DictionaryType*>(result->type().get());
-    if (this->dict_type_->ordered() && !result_type->ordered()) {
-      // TODO: we should not have to do that, there is probably something wrong
-      //       in the DictionaryBuilder code
-      result->data()->type =
-          arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
-    }
-
     return std::make_shared<ChunkedArray>(
         std::make_shared<DictionaryArray>(result->data()));
   }
