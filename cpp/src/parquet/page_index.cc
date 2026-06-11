@@ -38,7 +38,7 @@ namespace parquet {
 
 namespace {
 
-inline bool CanTrustPageIndexMinMax(const ColumnDescriptor& descr) {
+bool CanTrustPageIndexMinMax(const ColumnDescriptor& descr) {
   const auto column_order = descr.column_order().get_order();
   return column_order != ColumnOrder::UNKNOWN && column_order != ColumnOrder::UNDEFINED &&
          descr.sort_order() != SortOrder::UNKNOWN;
