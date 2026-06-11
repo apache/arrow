@@ -101,7 +101,7 @@ enum class StatsMinMaxMode {
   kNormal,
 };
 
-inline StatsMinMaxMode GetStatsMinMaxMode(const ColumnDescriptor& descr) {
+StatsMinMaxMode GetStatsMinMaxMode(const ColumnDescriptor& descr) {
   switch (descr.column_order().get_order()) {
     case ColumnOrder::TYPE_DEFINED_ORDER:
       return descr.sort_order() != SortOrder::UNKNOWN ? StatsMinMaxMode::kNormal
