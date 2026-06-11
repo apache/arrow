@@ -90,36 +90,111 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
   return "UNKNOWN";
 }
 
+namespace {
+
+enum class StatsMinMaxMode {
+  // Ignore min/max fields because their ordering is unknown or unsupported.
+  kDiscard,
+  // Use legacy min/max fields for files without column orders.
+  kLegacy,
+  // Use min_value/max_value fields with the column's well-defined order.
+  kNormal,
+};
+
+inline StatsMinMaxMode GetStatsMinMaxMode(const ColumnDescriptor& descr) {
+  switch (descr.column_order().get_order()) {
+    case ColumnOrder::TYPE_DEFINED_ORDER:
+      return descr.sort_order() != SortOrder::UNKNOWN ? StatsMinMaxMode::kNormal
+                                                      : StatsMinMaxMode::kDiscard;
+    case ColumnOrder::UNDEFINED:
+      return descr.sort_order() != SortOrder::UNKNOWN ? StatsMinMaxMode::kLegacy
+                                                      : StatsMinMaxMode::kDiscard;
+    case ColumnOrder::UNKNOWN:
+      return StatsMinMaxMode::kDiscard;
+  }
+  return StatsMinMaxMode::kDiscard;
+}
+
+}  // namespace
+
+static EncodedStatistics EncodedStatisticsFromThrift(const format::Statistics& statistics,
+                                                     StatsMinMaxMode min_max) {
+  EncodedStatistics out;
+
+  switch (min_max) {
+    case StatsMinMaxMode::kNormal:
+      if (statistics.__isset.max_value) {
+        out.set_max(statistics.max_value);
+        if (statistics.__isset.is_max_value_exact) {
+          out.is_max_value_exact = statistics.is_max_value_exact;
+        }
+      }
+      if (statistics.__isset.min_value) {
+        out.set_min(statistics.min_value);
+        if (statistics.__isset.is_min_value_exact) {
+          out.is_min_value_exact = statistics.is_min_value_exact;
+        }
+      }
+      break;
+    case StatsMinMaxMode::kLegacy:
+      if (statistics.__isset.max) {
+        out.set_max(statistics.max);
+      }
+      if (statistics.__isset.min) {
+        out.set_min(statistics.min);
+      }
+      break;
+    case StatsMinMaxMode::kDiscard:
+      break;
+  }
+  if (statistics.__isset.null_count) {
+    out.set_null_count(statistics.null_count);
+  }
+  if (statistics.__isset.distinct_count) {
+    out.set_distinct_count(statistics.distinct_count);
+  }
+
+  return out;
+}
+
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr,
     ::arrow::MemoryPool* pool) {
-  std::optional<bool> min_exact =
-      metadata.statistics.__isset.is_min_value_exact
-          ? std::optional<bool>(metadata.statistics.is_min_value_exact)
-          : std::nullopt;
-  std::optional<bool> max_exact =
-      metadata.statistics.__isset.is_max_value_exact
-          ? std::optional<bool>(metadata.statistics.is_max_value_exact)
-          : std::nullopt;
-  // If ColumnOrder is defined, return max_value and min_value
-  if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
-    return MakeStatistics<DType>(
-        descr, metadata.statistics.min_value, metadata.statistics.max_value,
-        metadata.num_values - metadata.statistics.null_count,
-        metadata.statistics.null_count, metadata.statistics.distinct_count,
-        metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
-        metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count, min_exact, max_exact, pool);
+  const auto& statistics = metadata.statistics;
+  const std::string kEmpty = "";
+  const std::string* encoded_min = &kEmpty;
+  const std::string* encoded_max = &kEmpty;
+  bool has_min_max = false;
+  std::optional<bool> min_exact = std::nullopt;
+  std::optional<bool> max_exact = std::nullopt;
+
+  switch (GetStatsMinMaxMode(*descr)) {
+    case StatsMinMaxMode::kNormal:
+      encoded_min = &statistics.min_value;
+      encoded_max = &statistics.max_value;
+      has_min_max = statistics.__isset.max_value && statistics.__isset.min_value;
+      min_exact = statistics.__isset.is_min_value_exact
+                      ? std::optional<bool>(statistics.is_min_value_exact)
+                      : std::nullopt;
+      max_exact = statistics.__isset.is_max_value_exact
+                      ? std::optional<bool>(statistics.is_max_value_exact)
+                      : std::nullopt;
+      break;
+    case StatsMinMaxMode::kLegacy:
+      encoded_min = &statistics.min;
+      encoded_max = &statistics.max;
+      has_min_max = statistics.__isset.max && statistics.__isset.min;
+      break;
+    case StatsMinMaxMode::kDiscard:
+      break;
   }
-  // Default behavior
+
   return MakeStatistics<DType>(
-      descr, metadata.statistics.min, metadata.statistics.max,
-      metadata.num_values - metadata.statistics.null_count,
-      metadata.statistics.null_count, metadata.statistics.distinct_count,
-      metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
-      min_exact, max_exact, pool);
+      descr, *encoded_min, *encoded_max, metadata.num_values - statistics.null_count,
+      statistics.null_count, statistics.distinct_count, has_min_max,
+      statistics.__isset.null_count, statistics.__isset.distinct_count, min_exact,
+      max_exact, pool);
 }
 
 namespace {
@@ -337,11 +412,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_encoded_stats_ == nullptr) {
         possible_encoded_stats_ =
-            std::make_shared<EncodedStatistics>(FromThrift(column_metadata_->statistics));
-        if (descr_->sort_order() == SortOrder::UNKNOWN) {
-          // If the column SortOrder is Unknown we can't trust max/min.
-          possible_encoded_stats_->ClearMinMax();
-        }
+            std::make_shared<EncodedStatistics>(EncodedStatisticsFromThrift(
+                column_metadata_->statistics, GetStatsMinMaxMode(*descr_)));
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
@@ -1037,7 +1109,7 @@ class FileMetaData::FileMetaDataImpl {
         if (column_order.__isset.TYPE_ORDER) {
           column_orders.push_back(ColumnOrder::type_defined_);
         } else {
-          column_orders.push_back(ColumnOrder::undefined_);
+          column_orders.push_back(ColumnOrder::unknown_);
         }
       }
     } else {

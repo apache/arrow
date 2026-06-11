@@ -561,6 +561,58 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   }
 }
 
+template <typename T>
+std::shared_ptr<Buffer> SerializedColumnIndex(const T& min, const T& max) {
+  auto encode = [](const T& value) {
+    return std::string(reinterpret_cast<const char*>(&value), sizeof(value));
+  };
+  format::ColumnIndex column_index;
+  column_index.__set_null_pages({false});
+  column_index.__set_min_values({encode(min)});
+  column_index.__set_max_values({encode(max)});
+  column_index.__set_boundary_order(format::BoundaryOrder::UNORDERED);
+
+  auto sink = CreateOutputStream();
+  ThriftSerializer{}.Serialize(&column_index, sink.get());
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  return buffer;
+}
+
+void AssertColumnIndexIgnored(const ColumnDescriptor& read_descr,
+                              const std::shared_ptr<Buffer>& buffer) {
+  auto column_index =
+      ColumnIndex::Make(read_descr, buffer->data(), static_cast<uint32_t>(buffer->size()),
+                        default_reader_properties());
+  ASSERT_EQ(nullptr, column_index);
+}
+
+void AssertColumnIndexIgnoredWithColumnOrder(ColumnOrder column_order) {
+  auto node = schema::Int32("c1");
+  auto buffer = SerializedColumnIndex<int32_t>(/*min=*/1, /*max=*/2);
+
+  std::static_pointer_cast<schema::PrimitiveNode>(node)->SetColumnOrder(column_order);
+  ColumnDescriptor read_descr(node, /*max_definition_level=*/1,
+                              /*max_repetition_level=*/0);
+  AssertColumnIndexIgnored(read_descr, buffer);
+}
+
+TEST(PageIndex, ReadColumnIndexWithUnsupportedColumnOrder) {
+  AssertColumnIndexIgnoredWithColumnOrder(ColumnOrder::unknown_);
+  AssertColumnIndexIgnoredWithColumnOrder(ColumnOrder::undefined_);
+}
+
+TEST(PageIndex, ReadColumnIndexWithUnknownSortOrder) {
+  auto node = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED, Type::INT96);
+  ColumnDescriptor descr(node, /*max_definition_level=*/0, /*max_repetition_level=*/0);
+  ASSERT_EQ(SortOrder::UNKNOWN, descr.sort_order());
+
+  Int96 min{{1, 2, 3}};
+  Int96 max{{4, 5, 6}};
+  auto buffer = SerializedColumnIndex(min, max);
+
+  AssertColumnIndexIgnored(descr, buffer);
+}
+
 TEST(PageIndex, WriteInt32ColumnIndex) {
   auto encode = [=](int32_t value) {
     return std::string(reinterpret_cast<const char*>(&value), sizeof(int32_t));

@@ -38,6 +38,12 @@ namespace parquet {
 
 namespace {
 
+inline bool CanTrustPageIndexMinMax(const ColumnDescriptor& descr) {
+  const auto column_order = descr.column_order().get_order();
+  return column_order != ColumnOrder::UNKNOWN && column_order != ColumnOrder::UNDEFINED &&
+         descr.sort_order() != SortOrder::UNKNOWN;
+}
+
 template <typename DType>
 void Decode(std::unique_ptr<typename EncodingTraits<DType>::Decoder>& decoder,
             const std::string& input, std::vector<typename DType::c_type>* output,
@@ -972,6 +978,9 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                           BoundaryOrder::UNDEFINED)) {
     // Guard against UB when moving column_index
     throw ParquetException("Invalid ColumnIndex boundary_order");
+  }
+  if (!CanTrustPageIndexMinMax(descr)) {
+    return nullptr;
   }
   switch (descr.physical_type()) {
     case Type::BOOLEAN:
