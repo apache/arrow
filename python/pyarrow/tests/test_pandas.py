@@ -421,8 +421,18 @@ class TestConvertMetadata:
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
-        t = pa.Table.from_pandas(df, preserve_index=True)
-        assert t.schema.names == ['col', '__index_level_0__', '__index_level_1__']
+        # Explicit test
+        t = pa.table(df)
+        expected_schema = pa.schema([
+            ("col", pa.int64()),
+            ("__index_level_0__", pa.int64()),
+            ("__index_level_1__", pa.int64())
+        ])
+        assert t.schema.equals(expected_schema)
+
+        df2 = t.to_pandas()
+        assert df2.index.equals(pd.Index([10, 20, 30]))
+        assert df2.ndim == df.ndim == 2
 
     def test_index_level_name_bump_multiindex(self):
         # GH-46179
