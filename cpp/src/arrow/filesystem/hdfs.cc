@@ -38,7 +38,6 @@ using util::Uri;
 
 namespace fs {
 
-
 #define CHECK_FAILURE(RETURN_VALUE, WHAT)                       \
   do {                                                          \
     if (RETURN_VALUE == -1) {                                   \
