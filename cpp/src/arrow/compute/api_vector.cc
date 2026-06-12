@@ -83,20 +83,6 @@ struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
   }
 };
 template <>
-struct EnumTraits<NullPlacement>
-    : BasicEnumTraits<NullPlacement, NullPlacement::AtStart, NullPlacement::AtEnd> {
-  static std::string name() { return "NullPlacement"; }
-  static std::string value_name(NullPlacement value) {
-    switch (value) {
-      case NullPlacement::AtStart:
-        return "AtStart";
-      case NullPlacement::AtEnd:
-        return "AtEnd";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
 struct EnumTraits<RankOptions::Tiebreaker>
     : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Min, RankOptions::Max,
                       RankOptions::First, RankOptions::Dense> {
