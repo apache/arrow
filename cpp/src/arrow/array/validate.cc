@@ -504,6 +504,11 @@ struct ValidateArrayImpl {
                              : *layout.variadic_spec;
 
       if (buffer == nullptr) {
+        if (layout.variadic_spec && i >= static_cast<int>(layout.buffers.size())) {
+          return Status::Invalid("Array of type ", type.ToString(),
+                                 " has a null variadic buffer at buffer index ", i,
+                                 ", variadic buffer index ", i - layout.buffers.size());
+        }
         continue;
       }
       int64_t min_buffer_size = 0;

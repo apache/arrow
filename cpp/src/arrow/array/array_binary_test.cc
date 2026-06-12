@@ -403,6 +403,14 @@ TEST(StringViewArray, Validate) {
                                   }),
               Ok());
 
+  // Variadic buffer slots, when present, must contain real buffers.
+  EXPECT_THAT(MakeBinaryViewArray({nullptr},
+                                  {
+                                      util::ToInlineBinaryView("hello"),
+                                      util::ToInlineBinaryView("world"),
+                                  }),
+              Raises(StatusCode::Invalid));
+
   // non-inline views are expected to reference only buffers managed by the array
   EXPECT_THAT(
       MakeBinaryViewArray(
