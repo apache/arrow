@@ -302,13 +302,13 @@ TEST_F(MultipathLevelBuilderTest, ListViewOutOfOrder) {
   auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[3, 0, 5, 1]");
   auto sizes = ::arrow::ArrayFromJSON(::arrow::int32(), "[2, 1, 0, 2]");
   ASSERT_OK_AND_ASSIGN(
-      auto array, ::arrow::ListViewArray::FromArrays(
-                      ::arrow::list_view(
-                          field("Entries", ::arrow::int64(), /*nullable=*/false)),
-                      *offsets, *sizes, *values, default_memory_pool()));
+      auto array,
+      ::arrow::ListViewArray::FromArrays(
+          ::arrow::list_view(field("Entries", ::arrow::int64(), /*nullable=*/false)),
+          *offsets, *sizes, *values, default_memory_pool()));
 
-  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/false, &context_,
-                                         callback_));
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/false, &context_, callback_));
 
   ASSERT_THAT(results_, SizeIs(1));
   const CapturedResult& result = results_[0];
