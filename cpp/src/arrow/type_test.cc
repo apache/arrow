@@ -1493,6 +1493,20 @@ PRIMITIVE_TEST(DoubleType, double, DOUBLE, "double");
 
 PRIMITIVE_TEST(BooleanType, bool, BOOL, "bool");
 
+TEST(TypesTest, DecimalTraits) {
+  static_assert(std::is_same_v<TypeTraits<Decimal32Type>::CType, Decimal32>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal32>::ArrowType, Decimal32Type>);
+
+  static_assert(std::is_same_v<TypeTraits<Decimal64Type>::CType, Decimal64>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal64>::ArrowType, Decimal64Type>);
+
+  static_assert(std::is_same_v<TypeTraits<Decimal128Type>::CType, Decimal128>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal128>::ArrowType, Decimal128Type>);
+
+  static_assert(std::is_same_v<TypeTraits<Decimal256Type>::CType, Decimal256>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal256>::ArrowType, Decimal256Type>);
+}
+
 TEST(TestBinaryType, ToString) {
   BinaryType t1;
   BinaryType e1;
