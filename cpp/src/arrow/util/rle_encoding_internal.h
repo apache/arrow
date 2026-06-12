@@ -373,6 +373,10 @@ class BitPackedRunDecoder {
                                     rle_size_t value_bit_width) {
     const int64_t bits_read = static_cast<int64_t>(values_read_) * value_bit_width;
     const int64_t bytes_fully_read = bits_read / 8;
+    // The parser only creates runs whose full payload fits in max_read_bytes_ (see
+    // BitPackedRun), so the max_read_bytes difference below is in [0, max_read_bytes_]
+    // and fits an int. A negative (unbounded) max_read_bytes_ stays negative.
+    ARROW_DCHECK(max_read_bytes_ < 0 || bytes_fully_read <= max_read_bytes_);
     const uint8_t* unread_data = data_ + bytes_fully_read;
 
     const ::arrow::internal::UnpackOptions opts{
