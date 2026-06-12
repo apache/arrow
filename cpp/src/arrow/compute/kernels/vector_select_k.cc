@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -244,7 +245,7 @@ class ArraySelector : public TypeVisitor {
     //   n = null elements to take from PartitionResult
     // k = l + m + n because k was clipped to arr.length()
     // And directly compute the ranges in {output, output+k} where we will need to place
-    // the selected elements from each group -> no longer need to track null_placement
+    // the selected elements from each group -> no longer need to track null_placement.
     auto output = CalculateOutputRangesByNullLikeness(
         p.non_null_like_range.size(), p.nan_range.size(), p.null_range.size(),
         null_placement_, {output_begin, output_begin + k_});
@@ -277,9 +278,6 @@ struct TypedHeapItem {
 };
 
 class ChunkedArraySelector : public TypeVisitor {
-  using ResolvedSortKey = ResolvedTableSortKey;
-  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
-
  public:
   ChunkedArraySelector(ExecContext* ctx, const ChunkedArray& chunked_array,
                        const SelectKOptions& options, Datum* output)
@@ -306,25 +304,6 @@ class ChunkedArraySelector : public TypeVisitor {
   VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
 #undef VISIT
 
-  template <typename InType>
-  int64_t ComputeNanCount() {
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
-    if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
-      int64_t nan_count = 0;
-      for (const auto& chunk : physical_chunks_) {
-        auto values = std::make_shared<ArrayType>(chunk->data());
-        int64_t length = values->length();
-        for (int64_t index = 0; index < length; ++index) {
-          if (std::isnan(values->GetView(index))) {
-            nan_count++;
-          }
-        }
-      }
-      return nan_count;
-    }
-    return 0;
-  }
-
   template <typename InType, SortOrder sort_order>
   Status SelectKthInternal() {
     using GetView = GetViewType<InType>;
@@ -343,9 +322,37 @@ class ChunkedArraySelector : public TypeVisitor {
                           MakeMutableUInt64Array(k_, ctx_->memory_pool()));
     auto* output_begin = take_indices->GetMutableValues<uint64_t>(1);
 
-    int64_t null_count = chunked_array_.null_count();
-    int64_t nan_count = ComputeNanCount<InType>();
-    int64_t non_null_like_count = chunked_array_.length() - null_count - nan_count;
+    std::vector<std::shared_ptr<ArrayType>> chunks_holder;
+    chunks_holder.reserve(num_chunks);
+    std::vector<PartitionResultByNullLikeness> partitions_by_chunk;
+    partitions_by_chunk.reserve(num_chunks);
+    std::vector<std::vector<uint64_t>> indices_by_chunk;
+    indices_by_chunk.reserve(num_chunks);
+
+    int64_t null_count = 0;
+    int64_t nan_count = 0;
+    int64_t non_null_like_count = 0;
+
+    for (const auto& chunk : physical_chunks_) {
+      if (chunk->length() == 0) continue;
+      chunks_holder.emplace_back(std::make_shared<ArrayType>(chunk->data()));
+      ArrayType& arr = *chunks_holder.back();
+
+      auto& indices = indices_by_chunk.emplace_back();
+      indices.resize(arr.length());
+      uint64_t* indices_begin = indices.data();
+      uint64_t* indices_end = indices_begin + indices.size();
+      std::iota(indices_begin, indices_end, 0);
+
+      partitions_by_chunk.emplace_back(
+          PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
+              indices_begin, indices_end, arr, 0, null_placement_));
+
+      null_count += partitions_by_chunk.back().null_range.size();
+      nan_count += partitions_by_chunk.back().nan_range.size();
+      non_null_like_count += partitions_by_chunk.back().non_null_like_range.size();
+    }
+    DCHECK_EQ(non_null_like_count + null_count + nan_count, chunked_array_.length());
 
     auto output = CalculateOutputRangesByNullLikeness(non_null_like_count, nan_count,
                                                       null_count, null_placement_,
@@ -368,35 +375,29 @@ class ChunkedArraySelector : public TypeVisitor {
     using HeapContainer =
         std::priority_queue<HeapItem, std::vector<HeapItem>, decltype(cmp)>;
     HeapContainer heap(cmp);
-    std::vector<std::shared_ptr<ArrayType>> chunks_holder;
 
+    DCHECK_EQ(chunks_holder.size(), partitions_by_chunk.size());
     uint64_t offset = 0;
-    for (const auto& chunk : physical_chunks_) {
-      if (chunk->length() == 0) continue;
-      chunks_holder.emplace_back(std::make_shared<ArrayType>(chunk->data()));
-      ArrayType& arr = *chunks_holder[chunks_holder.size() - 1];
+    for (size_t chunk_id = 0; chunk_id < chunks_holder.size(); ++chunk_id) {
+      ArrayType& arr = *chunks_holder[chunk_id];
+      const auto& p = partitions_by_chunk[chunk_id];
 
-      std::vector<uint64_t> indices(arr.length());
-      uint64_t* indices_begin = indices.data();
-      uint64_t* indices_end = indices_begin + indices.size();
-      std::iota(indices_begin, indices_end, 0);
-
-      const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-          indices_begin, indices_end, arr, 0, null_placement_);
-
-      // First do nulls and nans
+      // Nulls
       auto iter = p.null_range.begin();
       for (; iter != p.null_range.end() && null_taken < output.null_range.size();
            ++iter) {
         output.null_range[null_taken] = offset + *iter;
         null_taken++;
       }
+
+      // NaNs
       iter = p.nan_range.begin();
       for (; iter != p.nan_range.end() && nan_taken < output.nan_range.size(); ++iter) {
         output.nan_range[nan_taken] = offset + *iter;
         nan_taken++;
       }
 
+      // Non-Nulllike
       iter = p.non_null_like_range.begin();
       for (; iter != p.non_null_like_range.end() &&
              heap.size() < output.non_null_like_range.size();
@@ -414,16 +415,16 @@ class ChunkedArraySelector : public TypeVisitor {
           heap.push(HeapItem{x_index, offset, &arr});
         }
       }
-      offset += chunk->length();
+      offset += arr.length();
     }
 
     // We sized output.non_null_like_range to hold exactly sufficient indices,
     // so the heap must have been completely filled
-    assert(heap.size() == output.non_null_like_range.size());
+    DCHECK_EQ(heap.size(), output.non_null_like_range.size());
 
-    for (auto reverse_out_iter = output.non_null_like_range.rbegin();
-         reverse_out_iter != output.non_null_like_range.rend(); reverse_out_iter++) {
-      *reverse_out_iter =
+    for (uint64_t& reverse_out_iter :
+         std::ranges::reverse_view(output.non_null_like_range)) {
+      reverse_out_iter =
           heap.top().index + heap.top().offset;  // heap-top has the next element
       heap.pop();
     }
@@ -507,7 +508,7 @@ class RecordBatchSelector {
       //   n = null elements to take from PartitionResult
       // k = l + m + n because k was clipped to num_rows()
       // And directly compute the ranges in output_indices_ where we will need to place
-      // the selected elements from each group -> no longer need to track null_placement
+      // the selected elements from each group -> no longer need to track null_placement.
       auto output = CalculateOutputRangesByNullLikeness(
           static_cast<int64_t>(p.non_null_like_range.size()),
           static_cast<int64_t>(p.nan_range.size()),
