@@ -104,16 +104,6 @@ struct CTypeTraits {};
 /// \addtogroup type-traits
 /// @{
 template <>
-struct CTypeTraits<Decimal128> : TypeTraits<Decimal128Type> {
-  using ArrowType = Decimal128Type;
-};
-
-template <>
-struct CTypeTraits<Decimal256> : TypeTraits<Decimal256Type> {
-  using ArrowType = Decimal256Type;
-};
-
-template <>
 struct TypeTraits<NullType> {
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
@@ -365,6 +355,26 @@ struct TypeTraits<Decimal256Type> {
   using ScalarType = Decimal256Scalar;
   using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct CTypeTraits<Decimal32> : TypeTraits<Decimal32Type> {
+  using ArrowType = Decimal32Type;
+};
+
+template <>
+struct CTypeTraits<Decimal64> : TypeTraits<Decimal64Type> {
+  using ArrowType = Decimal64Type;
+};
+
+template <>
+struct CTypeTraits<Decimal128> : TypeTraits<Decimal128Type> {
+  using ArrowType = Decimal128Type;
+};
+
+template <>
+struct CTypeTraits<Decimal256> : TypeTraits<Decimal256Type> {
+  using ArrowType = Decimal256Type;
 };
 
 template <>
