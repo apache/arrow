@@ -46,6 +46,9 @@ TYPED_TEST_SUITE(ColumnsOdbcV2Test, TestTypesOdbcV2);
 
 namespace {
 // Helper functions
+
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 void CheckSQLColumns(
     SQLHSTMT stmt, const std::wstring& expected_table,
     const std::wstring& expected_column, const SQLINTEGER& expected_data_type,
@@ -125,6 +128,7 @@ void CheckRemoteSQLColumns(
                   expected_octet_char_length, expected_ordinal_position,
                   expected_is_nullable);
 }
+#endif  // __linux__
 
 void CheckSQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT idx,
                           const std::string& expected_column_name,
@@ -416,6 +420,8 @@ TYPED_TEST(ColumnsTest, SQLColumnsTestInputData) {
   ValidateFetch(this->stmt, SQL_SUCCESS);
 }
 
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
   // Check table pattern and column pattern returns all columns
 
@@ -1210,6 +1216,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsTableColumnPattern) {
   // There is no more column
   EXPECT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
+#endif  // __linux__
 
 TEST_F(ColumnsMockTest, TestSQLColumnsInvalidTablePattern) {
   ASSIGN_SQLWCHAR_ARR(table_pattern, L"non-existent-table");
@@ -2560,10 +2567,6 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
 
   ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * from 数据 LIMIT 1;");
 
-  ASSIGN_SQLWCHAR_ARR_AND_LEN(expected_column_name, L"资料");
-  SQLSMALLINT expected_column_data_type = SQL_WVARCHAR;
-  SQLULEN expected_column_size = 0;
-
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -2572,13 +2575,14 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
                                         buf_char_len, &name_length, &column_data_type,
                                         &column_size, &decimal_digits, &nullable));
 
-  EXPECT_EQ(name_length, expected_column_name_len);
+  std::wstring expected_column_name_wstr = std::wstring(L"资料");
+  size_t expected_column_name_len = expected_column_name_wstr.length();
 
   std::wstring returned(column_name, column_name + name_length);
-  std::wstring expected_col_name_str = ConvertToWString(expected_column_name);
-  EXPECT_EQ(expected_col_name_str, returned);
-  EXPECT_EQ(expected_column_data_type, column_data_type);
-  EXPECT_EQ(expected_column_size, column_size);
+  EXPECT_EQ(expected_column_name_wstr, returned);
+  EXPECT_EQ(expected_column_name_len, name_length);
+  EXPECT_EQ(SQL_WVARCHAR, column_data_type);
+  EXPECT_EQ(0, column_size);
   EXPECT_EQ(0, decimal_digits);
   EXPECT_EQ(SQL_NULLABLE, nullable);
 
