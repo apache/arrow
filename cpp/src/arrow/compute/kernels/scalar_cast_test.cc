@@ -3307,9 +3307,12 @@ TEST(Cast, BinaryToString) {
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
 
-    // ARROW-16757: we no longer zero copy, but the contents are equal
-    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    if (!is_binary_view_like(*string_type)) {
+    if (is_binary_view_like(*string_type)) {
+      ASSERT_EQ(strings->data()->buffers.size(), 2);
+    } else {
+      // ARROW-16757: we no longer zero copy, but the contents are equal
+      ASSERT_NE(invalid_utf8->data()->buffers[1].get(),
+                strings->data()->buffers[2].get());
       ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
     }
   }
@@ -3349,9 +3352,12 @@ TEST(Cast, BinaryOrStringToBinary) {
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
 
-    // ARROW-16757: we no longer zero copy, but the contents are equal
-    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    if (!is_binary_view_like(*to_type)) {
+    if (is_binary_view_like(*to_type)) {
+      ASSERT_EQ(strings->data()->buffers.size(), 2);
+    } else {
+      // ARROW-16757: we no longer zero copy, but the contents are equal
+      ASSERT_NE(invalid_utf8->data()->buffers[1].get(),
+                strings->data()->buffers[2].get());
       ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
     }
 
