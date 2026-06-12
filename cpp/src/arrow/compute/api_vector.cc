@@ -256,7 +256,6 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys,
       null_placement(std::nullopt),
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
                                          std::optional<NullPlacement> null_placement)
@@ -264,6 +263,7 @@ RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
 constexpr char RankQuantileOptions::kTypeName[];
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
