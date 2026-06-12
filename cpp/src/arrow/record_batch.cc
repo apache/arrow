@@ -516,7 +516,7 @@ using OnStatistics =
 Status EnumerateOneStatistics(std::optional<int32_t> nth_column,
                               const std::shared_ptr<DataType>& array_type,
                               const std::shared_ptr<ArrayStatistics>& column_statistics,
-                              int* nth_statistics, OnStatistics on_statistics,
+                              int* nth_statistics, const OnStatistics& on_statistics,
                               std::optional<int64_t> exact_row_count = std::nullopt) {
   bool start_new_column = true;
   auto emit = [&](const char* key, const std::shared_ptr<DataType>& type,
@@ -592,7 +592,7 @@ Status EnumerateOneStatistics(std::optional<int32_t> nth_column,
 
 Status EnumerateArrayStatistics(const std::shared_ptr<ArrayData>& data,
                                 int32_t* nth_column, int* nth_statistics,
-                                OnStatistics on_statistics,
+                                const OnStatistics& on_statistics,
                                 bool include_exact_row_count = false) {
   const auto current_column = (*nth_column)++;
   RETURN_NOT_OK(EnumerateOneStatistics(
@@ -611,7 +611,7 @@ Status EnumerateStatistics(const Array& array, OnStatistics on_statistics) {
   int nth_statistics = 0;
   int32_t nth_column = 0;
   return EnumerateArrayStatistics(array.data(), &nth_column, &nth_statistics,
-                                  std::move(on_statistics),
+                                  on_statistics,
                                   /*include_exact_row_count=*/true);
 }
 
@@ -641,7 +641,6 @@ struct StringBuilderVisitor {
                            type.ToString());
   }
 };
-}  // namespace
 
 template <typename EnumerateStatisticsFunction>
 Result<std::shared_ptr<Array>> MakeStatisticsArrayFromEnumerator(
@@ -779,6 +778,8 @@ Result<std::shared_ptr<Array>> MakeStatisticsArrayFromEnumerator(
 
   return builder.Finish();
 }
+
+}  // namespace
 
 Result<std::shared_ptr<Array>> Array::MakeStatisticsArray(MemoryPool* memory_pool) const {
   return MakeStatisticsArrayFromEnumerator(
