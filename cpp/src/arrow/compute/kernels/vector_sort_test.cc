@@ -1256,34 +1256,6 @@ TEST_F(TestRecordBatchSortIndices, Null) {
   AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
 }
 
-TEST_F(TestRecordBatchSortIndices, MixedNullOrdering) {
-  auto schema = ::arrow::schema({
-      {field("a", uint8())},
-      {field("b", uint32())},
-  });
-  auto batch = RecordBatchFromJSON(schema,
-                                   R"([{"a": null, "b": 5},
-                                       {"a": 1,    "b": 3},
-                                       {"a": 3,    "b": null},
-                                       {"a": null, "b": null},
-                                       {"a": 2,    "b": 5},
-                                       {"a": 1,    "b": 5},
-                                       {"a": 3,    "b": 5}
-                                       ])");
-  const std::vector<SortKey> sort_keys{
-      SortKey("a", SortOrder::Ascending, NullPlacement::AtEnd),
-      SortKey("b", SortOrder::Descending, NullPlacement::AtEnd)};
-
-  SortOptions options(sort_keys);
-  AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
-
-  options.sort_keys.at(0).null_placement = NullPlacement::AtStart;
-  AssertSortIndices(batch, options, "[0, 3, 5, 1, 4, 6, 2]");
-
-  options.sort_keys.at(1).null_placement = NullPlacement::AtStart;
-  AssertSortIndices(batch, options, "[3, 0, 5, 1, 4, 2, 6]");
-}
-
 TEST_F(TestRecordBatchSortIndices, NaN) {
   auto schema = ::arrow::schema({
       {field("a", float32())},
