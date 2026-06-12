@@ -201,6 +201,7 @@ TEST_F(TestChunkedArray, ApproxEquals) {
   ASSERT_OK_AND_ASSIGN(auto chunked_array_2, ChunkedArray::Make({chunk_2}));
   auto options = EqualOptions::Defaults().atol(1e-3);
 
+  ASSERT_FALSE(chunked_array_1->Equals(chunked_array_2));
   ASSERT_TRUE(chunked_array_1->Equals(chunked_array_2, options));
   ASSERT_TRUE(chunked_array_1->ApproxEquals(*chunked_array_2, options));
 }

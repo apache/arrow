@@ -26,8 +26,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#include <variant>
-
 namespace arrow {
 
 struct ArrayStatistics;
@@ -60,6 +58,27 @@ class EqualOptions {
   EqualOptions signed_zeros_equal(bool v) const {
     auto res = EqualOptions(*this);
     res.signed_zeros_equal_ = v;
+    return res;
+  }
+
+  /// Whether the "atol" property is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on ApproxEquals methods.
+  /// \deprecated Deprecated in 24.0.0. Use arrow::EqualOptions::atol instead
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::EqualOptions::atol instead")
+  bool use_atol() const { return atol_.has_value(); }
+
+  /// Return a new EqualOptions object with the "use_atol" property changed.
+  /// \deprecated Deprecated in 24.0.0. Use arrow::EqualOptions::atol instead
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::EqualOptions::atol instead")
+  EqualOptions use_atol(bool v) const {
+    auto res = EqualOptions(*this);
+    if (v) {
+      res.atol_ = atol_.value_or(kDefaultAbsoluteTolerance);
+    } else {
+      res.atol_ = kDefaultAbsoluteTolerance;
+    }
     return res;
   }
 

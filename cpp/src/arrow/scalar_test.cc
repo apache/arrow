@@ -26,6 +26,7 @@
 #include <vector>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -41,7 +42,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/float16.h"
-#include "gtest/gtest-spi.h"
 
 namespace arrow {
 
@@ -410,6 +410,7 @@ class TestRealScalar : public ::testing::Test {
   void TestUseAtol() {
     auto options = EqualOptions::Defaults().atol(0.2f);
 
+    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_));
     ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options));
     ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
   }

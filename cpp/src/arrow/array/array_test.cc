@@ -2198,9 +2198,10 @@ void CheckFloatApproxEqualsWithAtol() {
   ArrayFromVector<TYPE>(type, {true}, {static_cast<c_type>(0.6)}, &b);
   auto options = EqualOptions::Defaults().atol(0.2);
 
-  ASSERT_TRUE(a->Equals(b, options));
+  ASSERT_FALSE(a->Equals(b));
   ASSERT_TRUE(a->ApproxEquals(b, options));
 
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b));
   ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options));
   ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
 }
