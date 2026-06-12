@@ -22,13 +22,14 @@
 # distutils: language = c++
 # cython: language_level = 3
 
+import warnings
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
-import warnings
 from pyarrow._compute cimport (
     Expression, FunctionOptions, _ensure_field_ref, _true,
     unwrap_null_placement, unwrap_sort_keys
@@ -278,7 +279,8 @@ class OrderByNodeOptions(_OrderByNodeOptions):
         if null_placement is not None:
             warnings.warn(
                 "Specifying null_placement in OrderByNodeOptions is deprecated "
-                "as of 24.0.0. Specify null_placement per sort_key instead."
+                "as of 24.0.0. Specify null_placement per sort_key instead.",
+                FutureWarning
             )
         self._set_options(sort_keys, null_placement)
 
