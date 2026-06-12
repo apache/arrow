@@ -92,75 +92,26 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 namespace {
 
-enum class StatsMinMaxMode {
-  // Ignore min/max fields because their ordering is unknown or unsupported.
-  kDiscard,
-  // Use legacy min/max fields for files without column orders.
-  kLegacy,
-  // Use min_value/max_value fields with the column's well-defined order.
-  kNormal,
-};
-
-StatsMinMaxMode GetStatsMinMaxMode(const ColumnDescriptor& descr) {
+StatisticsMinMaxField GetStatisticsMinMaxField(const ColumnDescriptor& descr) {
   switch (descr.column_order().get_order()) {
     case ColumnOrder::TYPE_DEFINED_ORDER:
-      return descr.sort_order() != SortOrder::UNKNOWN ? StatsMinMaxMode::kNormal
-                                                      : StatsMinMaxMode::kDiscard;
+      return descr.sort_order() != SortOrder::UNKNOWN
+                 ? StatisticsMinMaxField::kMinValueMaxValue
+                 : StatisticsMinMaxField::kInvalid;
     case ColumnOrder::UNDEFINED:
-      return descr.sort_order() != SortOrder::UNKNOWN ? StatsMinMaxMode::kLegacy
-                                                      : StatsMinMaxMode::kDiscard;
+      return descr.sort_order() == SortOrder::SIGNED
+                 ? StatisticsMinMaxField::kLegacyMinMax
+                 : StatisticsMinMaxField::kInvalid;
     case ColumnOrder::UNKNOWN:
-      return StatsMinMaxMode::kDiscard;
+      return StatisticsMinMaxField::kInvalid;
   }
-  return StatsMinMaxMode::kDiscard;
-}
-
-}  // namespace
-
-static EncodedStatistics EncodedStatisticsFromThrift(const format::Statistics& statistics,
-                                                     StatsMinMaxMode min_max) {
-  EncodedStatistics out;
-
-  switch (min_max) {
-    case StatsMinMaxMode::kNormal:
-      if (statistics.__isset.max_value) {
-        out.set_max(statistics.max_value);
-        if (statistics.__isset.is_max_value_exact) {
-          out.is_max_value_exact = statistics.is_max_value_exact;
-        }
-      }
-      if (statistics.__isset.min_value) {
-        out.set_min(statistics.min_value);
-        if (statistics.__isset.is_min_value_exact) {
-          out.is_min_value_exact = statistics.is_min_value_exact;
-        }
-      }
-      break;
-    case StatsMinMaxMode::kLegacy:
-      if (statistics.__isset.max) {
-        out.set_max(statistics.max);
-      }
-      if (statistics.__isset.min) {
-        out.set_min(statistics.min);
-      }
-      break;
-    case StatsMinMaxMode::kDiscard:
-      break;
-  }
-  if (statistics.__isset.null_count) {
-    out.set_null_count(statistics.null_count);
-  }
-  if (statistics.__isset.distinct_count) {
-    out.set_distinct_count(statistics.distinct_count);
-  }
-
-  return out;
+  return StatisticsMinMaxField::kInvalid;
 }
 
 template <typename DType>
-static std::shared_ptr<Statistics> MakeTypedColumnStats(
-    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr,
-    ::arrow::MemoryPool* pool) {
+std::shared_ptr<Statistics> MakeTypedColumnStats(const format::ColumnMetaData& metadata,
+                                                 const ColumnDescriptor* descr,
+                                                 ::arrow::MemoryPool* pool) {
   const auto& statistics = metadata.statistics;
   const std::string kEmpty = "";
   const std::string* encoded_min = &kEmpty;
@@ -169,8 +120,8 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
   std::optional<bool> min_exact = std::nullopt;
   std::optional<bool> max_exact = std::nullopt;
 
-  switch (GetStatsMinMaxMode(*descr)) {
-    case StatsMinMaxMode::kNormal:
+  switch (GetStatisticsMinMaxField(*descr)) {
+    case StatisticsMinMaxField::kMinValueMaxValue:
       encoded_min = &statistics.min_value;
       encoded_max = &statistics.max_value;
       has_min_max = statistics.__isset.max_value && statistics.__isset.min_value;
@@ -181,12 +132,12 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
                       ? std::optional<bool>(statistics.is_max_value_exact)
                       : std::nullopt;
       break;
-    case StatsMinMaxMode::kLegacy:
+    case StatisticsMinMaxField::kLegacyMinMax:
       encoded_min = &statistics.min;
       encoded_max = &statistics.max;
       has_min_max = statistics.__isset.max && statistics.__isset.min;
       break;
-    case StatsMinMaxMode::kDiscard:
+    case StatisticsMinMaxField::kInvalid:
       break;
   }
 
@@ -196,8 +147,6 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       statistics.__isset.null_count, statistics.__isset.distinct_count, min_exact,
       max_exact, pool);
 }
-
-namespace {
 
 std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
@@ -411,9 +360,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_encoded_stats_ == nullptr) {
-        possible_encoded_stats_ =
-            std::make_shared<EncodedStatistics>(EncodedStatisticsFromThrift(
-                column_metadata_->statistics, GetStatsMinMaxMode(*descr_)));
+        possible_encoded_stats_ = std::make_shared<EncodedStatistics>(
+            FromThrift(column_metadata_->statistics, GetStatisticsMinMaxField(*descr_)));
       }
     }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,

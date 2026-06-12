@@ -382,6 +382,19 @@ class PARQUET_EXPORT ColumnDescriptor {
     return la ? GetSortOrder(la, pt) : GetSortOrder(converted_type(), pt);
   }
 
+  // Whether ColumnOrder-governed min/max values have a supported ordering.
+  bool can_use_stats() const {
+    switch (column_order().get_order()) {
+      case ColumnOrder::TYPE_DEFINED_ORDER:
+        return sort_order() != SortOrder::UNKNOWN;
+      case ColumnOrder::UNDEFINED:
+        return sort_order() == SortOrder::SIGNED;
+      case ColumnOrder::UNKNOWN:
+        return false;
+    }
+    return false;
+  }
+
   const std::string& name() const { return primitive_node_->name(); }
 
   const std::shared_ptr<schema::ColumnPath> path() const;
