@@ -56,8 +56,8 @@ auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
             if (out_path != nullptr) {
               *out_path += "/" + std::to_string((*opt)->value());
             }
-          } else if (out_path != nullptr) {
-            *out_path += "/typed_cast_failed";
+          } else {
+            ADD_FAILURE() << "example_typed_option has wrong type";
           }
         } else {
           ADD_FAILURE() << "Unexpected option: " << key;
