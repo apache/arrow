@@ -22,6 +22,7 @@ Useful links:
 
 Authors:
 \itemize{
+  \item Jonathan Keane \email{jkeane@gmail.com}
   \item Neal Richardson \email{neal.p.richardson@gmail.com}
   \item Ian Cook \email{ianmcook@gmail.com}
   \item Nic Crane \email{thisisnic@gmail.com}

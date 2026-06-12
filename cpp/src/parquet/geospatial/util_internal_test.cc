@@ -166,6 +166,21 @@ TEST_P(WKBTestFixture, TestWKBBounderErrorForInputWithTooManyBytes) {
   ASSERT_THROW(bounder.MergeGeometry(wkb_with_extra_byte), ParquetException);
 }
 
+TEST(TestGeometryUtil, TestWKBBounderErrorForCoordinateSequenceSizeOverflow) {
+  WKBGeometryBounder bounder;
+
+  // LINESTRING with 0x10000001 XY coordinates but only one coordinate in the buffer.
+  // On 32-bit targets, 0x10000001 * sizeof(XY) would overflow to 16 bytes.
+  std::vector<uint8_t> wkb = {0x01,                    // little endian
+                              0x02, 0x00, 0x00, 0x00,  // LINESTRING
+                              0x01, 0x00, 0x00, 0x10,  // 0x10000001 coordinates
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,        // x = 0
+                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // y = 0
+                              0x00};
+
+  ASSERT_THROW(bounder.MergeGeometry(wkb), ParquetException);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     TestGeometryUtil, WKBTestFixture,
     ::testing::Values(

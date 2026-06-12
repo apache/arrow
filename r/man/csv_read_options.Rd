@@ -35,9 +35,11 @@ be "f0", "f1", ..., "fN".}
 \item{skip_rows_after_names}{Number of lines to skip after the column names (default 0).
 This number can be larger than the number of rows in one block, and empty rows are counted.
 The order of application is as follows:
-- \code{skip_rows} is applied (if non-zero);
-- column names are read (unless \code{column_names} is set);
-- \code{skip_rows_after_names} is applied (if non-zero).}
+\itemize{
+\item \code{skip_rows} is applied (if non-zero);
+\item column names are read (unless \code{column_names} is set);
+\item \code{skip_rows_after_names} is applied (if non-zero).
+}}
 }
 \description{
 CSV Reading Options

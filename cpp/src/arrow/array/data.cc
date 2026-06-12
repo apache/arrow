@@ -73,7 +73,7 @@ bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
   auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
   const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
   const int child_id = union_type->child_ids()[types[data.offset + i]];
-  return data.child_data[child_id]->IsNull(i);
+  return data.child_data[child_id]->IsNull(data.offset + i);
 }
 
 bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
@@ -698,7 +698,7 @@ bool ArraySpan::IsNullSparseUnion(int64_t i) const {
   auto* union_type = checked_cast<const SparseUnionType*>(this->type);
   const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
   const int child_id = union_type->child_ids()[types[this->offset + i]];
-  return this->child_data[child_id].IsNull(i);
+  return this->child_data[child_id].IsNull(this->offset + i);
 }
 
 bool ArraySpan::IsNullDenseUnion(int64_t i) const {
