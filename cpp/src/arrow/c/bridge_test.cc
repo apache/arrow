@@ -930,6 +930,20 @@ TEST_F(TestArrayExport, PrimitiveSliced) {
   TestPrimitive(factory);
 }
 
+TEST_F(TestArrayExport, RejectNullVariadicBuffers) {
+  auto arr = std::make_shared<BinaryViewArray>(
+      ArrayData::Make(binary_view(), /*length=*/2,
+                      {nullptr,
+                       Buffer::FromVector(std::vector<BinaryViewType::c_type>{
+                           util::ToInlineBinaryView("hello"),
+                           util::ToInlineBinaryView("world"),
+                       }),
+                       nullptr}));
+
+  struct ArrowArray c_export;
+  ASSERT_RAISES(Invalid, ExportArray(*arr, &c_export));
+}
+
 constexpr std::string_view binary_view_buffer_content0 = "12345foo bar baz quux",
                            binary_view_buffer_content1 = "BinaryViewMultipleBuffers";
 
