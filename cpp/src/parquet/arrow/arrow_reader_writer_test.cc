@@ -3371,9 +3371,10 @@ TEST(ArrowReadWrite, LargeListView) {
   auto values = ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5]");
   auto offsets = ArrayFromJSON(::arrow::int64(), "[3, 0, 5, 1]");
   auto sizes = ArrayFromJSON(::arrow::int64(), "[2, 1, 0, 2]");
+  auto element = ::arrow::field("element", ::arrow::int32());
   ASSERT_OK_AND_ASSIGN(auto array, ::arrow::LargeListViewArray::FromArrays(
-                                       ::arrow::large_list_view(::arrow::int32()),
-                                       *offsets, *sizes, *values, default_memory_pool()));
+                                       ::arrow::large_list_view(element), *offsets,
+                                       *sizes, *values, default_memory_pool()));
   auto table = Table::Make(
       ::arrow::schema({::arrow::field("root", array->type(), false)}), {array});
 
@@ -3385,7 +3386,7 @@ TEST(ArrowReadWrite, LargeListView) {
                            checked_cast<const ::arrow::LargeListViewArray&>(*array),
                            default_memory_pool()));
   auto expected = Table::Make(
-      ::arrow::schema({::arrow::field("root", ::arrow::large_list(::arrow::int32()))}),
+      ::arrow::schema({::arrow::field("root", ::arrow::large_list(element), false)}),
       {expected_array});
   ArrowReaderProperties reader_props;
   reader_props.set_list_type(::arrow::Type::LARGE_LIST);
