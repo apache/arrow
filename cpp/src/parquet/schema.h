@@ -383,7 +383,7 @@ class PARQUET_EXPORT ColumnDescriptor {
   }
 
   // Whether ColumnOrder-governed min/max values have a supported ordering.
-  bool can_use_stats() const {
+  bool can_use_min_max() const {
     switch (column_order().get_order()) {
       case ColumnOrder::TYPE_DEFINED_ORDER:
         return sort_order() != SortOrder::UNKNOWN;
