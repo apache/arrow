@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from types import TracebackType
+
 from typing_extensions import Self
 
 class ArrowException(Exception): ...
@@ -41,7 +43,12 @@ have_signal_refcycle: bool
 
 class SignalStopHandler:
     def __enter__(self) -> Self: ...
-    def __exit__(self, exc_type, exc_value, exc_tb) -> None: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None: ...
     @property
     def stop_token(self) -> StopToken: ...
 

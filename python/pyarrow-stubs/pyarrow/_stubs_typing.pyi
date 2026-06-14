@@ -17,9 +17,16 @@
 
 import datetime as dt
 
+from _typeshed import (
+    SupportsDunderGE,
+    SupportsDunderGT,
+    SupportsDunderLE,
+    SupportsDunderLT,
+)
 from collections.abc import Collection, Container, Iterator, Sequence, Sized
 from decimal import Decimal
 from typing import Any, Literal, Protocol, TypeAlias, TypeVar
+from typing_extensions import TypeAliasType
 
 import numpy as np
 
@@ -70,17 +77,18 @@ PyScalar: TypeAlias = (
     | dt.time
     | dt.timedelta
 )
-NumpyScalar: TypeAlias = "np.generic[Any]"
+NumpyScalar: TypeAlias = np.generic[Any]
 
-PyScalarT_co = TypeVar("PyScalarT_co", bound=PyScalar, covariant=True)
-NumpyScalarT_co = TypeVar("NumpyScalarT_co", bound=NumpyScalar, covariant=True)
-DataTypeT_co = TypeVar("DataTypeT_co", bound=lib.DataType, covariant=True)
-
-IntoArray: TypeAlias = (
-    Sequence[PyScalarT_co | None]
-    | NDArray[NumpyScalarT_co]
-    | lib.Array[lib.Scalar[DataTypeT_co]]
-    | ChunkedArray[Any]
+_PyScalarT_co = TypeVar("_PyScalarT_co", bound=PyScalar, covariant=True)
+_NumpyScalarT_co = TypeVar("_NumpyScalarT_co", bound=NumpyScalar, covariant=True)
+_DataTypeT_co = TypeVar("_DataTypeT_co", bound=lib.DataType, covariant=True)
+IntoArray = TypeAliasType(
+    "IntoArray",
+    Sequence[_PyScalarT_co | None]
+    | NDArray[_NumpyScalarT_co]
+    | lib.Array[lib.Scalar[_DataTypeT_co]]
+    | ChunkedArray[Any],
+    type_params=(_PyScalarT_co, _NumpyScalarT_co, _DataTypeT_co),
 )
 
 Mask: TypeAlias = IntoArray[bool, np.bool_, lib.BoolType]
@@ -91,65 +99,40 @@ _V = TypeVar("_V", covariant=True)
 
 SingleOrList: TypeAlias = list[_T] | _T
 
-
 class SupportsDunderEQ(Protocol):
     def __eq__(self, other: object, /) -> bool: ...
 
-
-class SupportsDunderLT(Protocol):
-    def __lt__(self, other: object, /) -> bool: ...
-
-
-class SupportsDunderGT(Protocol):
-    def __gt__(self, other: object, /) -> bool: ...
-
-
-class SupportsDunderLE(Protocol):
-    def __le__(self, other: object, /) -> bool: ...
-
-
-class SupportsDunderGE(Protocol):
-    def __ge__(self, other: object, /) -> bool: ...
-
-
 FilterTuple: TypeAlias = (
     tuple[str, Literal["=", "==", "!="], SupportsDunderEQ]
-    | tuple[str, Literal["<"], SupportsDunderLT]
-    | tuple[str, Literal[">"], SupportsDunderGT]
-    | tuple[str, Literal["<="], SupportsDunderLE]
-    | tuple[str, Literal[">="], SupportsDunderGE]
-    | tuple[str, Literal["in", "not in"], Collection]
+    | tuple[str, Literal["<"], SupportsDunderLT[Any]]
+    | tuple[str, Literal[">"], SupportsDunderGT[Any]]
+    | tuple[str, Literal["<="], SupportsDunderLE[Any]]
+    | tuple[str, Literal[">="], SupportsDunderGE[Any]]
+    | tuple[str, Literal["in", "not in"], Collection[Any]]
     | tuple[str, str, Any]  # Allow general str for operator to avoid type errors
 )
 
-
 class Buffer(Protocol): ...
-
-
 class SupportsPyBuffer(Protocol): ...
 
-
 class SupportsArrowStream(Protocol):
-    def __arrow_c_stream__(self, requested_schema=None, /) -> Any: ...
-
+    def __arrow_c_stream__(self, requested_schema: Any = None, /) -> Any: ...
 
 class SupportsPyArrowArray(Protocol):
-    def __arrow_array__(self, type=None, /) -> Any: ...
-
+    def __arrow_array__(self, type: Any = None, /) -> Any: ...
 
 class SupportsArrowArray(Protocol):
-    def __arrow_c_array__(self, requested_schema=None, /) -> Any: ...
-
+    def __arrow_c_array__(self, requested_schema: Any = None, /) -> Any: ...
 
 class SupportsArrowDeviceArray(Protocol):
-    def __arrow_c_device_array__(self, requested_schema=None, /, **kwargs) -> Any: ...
-
+    def __arrow_c_device_array__(
+        self, requested_schema: Any = None, /, **kwargs: Any
+    ) -> Any: ...
 
 class SupportsArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> Any: ...
 
-
-class NullableCollection(Sized, Container[_V], Protocol[_V]):
+class NullableCollection(Sized, Container[Any], Protocol[_V]):
     def __iter__(self) -> Iterator[_V] | Iterator[_V | None]: ...
     def __len__(self) -> int: ...
     def __contains__(self, item: Any, /) -> bool: ...
