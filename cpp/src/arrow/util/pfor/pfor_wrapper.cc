@@ -64,6 +64,24 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
   header.log_vector_size = util::SafeLoadAs<uint8_t>(ptr + 1);
   header.value_byte_width = util::SafeLoadAs<uint8_t>(ptr + 2);
   header.num_elements = util::SafeLoadAs<int32_t>(ptr + 3);
+
+  if (header.packing_mode != PforConstants::kPackingModeForBitPack) {
+    return Status::Invalid("PFOR unsupported packing mode: ",
+                           static_cast<int>(header.packing_mode));
+  }
+  if (header.value_byte_width != sizeof(T)) {
+    return Status::Invalid("PFOR value_byte_width mismatch: ",
+                           static_cast<int>(header.value_byte_width),
+                           " vs expected ", sizeof(T));
+  }
+  if (header.log_vector_size < PforConstants::kMinLogVectorSize ||
+      header.log_vector_size > PforConstants::kMaxLogVectorSize) {
+    return Status::Invalid("PFOR invalid log_vector_size: ",
+                           static_cast<int>(header.log_vector_size));
+  }
+  if (header.num_elements < 0) {
+    return Status::Invalid("PFOR invalid num_elements: ", header.num_elements);
+  }
   return header;
 }
 
@@ -152,14 +170,6 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
   ARROW_ASSIGN_OR_RAISE(
       PforHeader header,
       LoadHeader(arrow::util::span<const uint8_t>(src, comp_size)));
-
-  if (header.packing_mode != PforConstants::kPackingModeForBitPack) {
-    return Status::Invalid("PFOR unsupported packing mode: ", header.packing_mode);
-  }
-  if (header.value_byte_width != sizeof(T)) {
-    return Status::Invalid("PFOR value_byte_width mismatch: ", header.value_byte_width,
-                           " vs expected ", sizeof(T));
-  }
 
   const int32_t vector_size = 1 << header.log_vector_size;
   const int32_t num_vectors =
