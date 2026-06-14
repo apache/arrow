@@ -58,20 +58,6 @@ IntegerType: TypeAlias = (
     | lib.UInt32Type
     | lib.UInt64Type
 )
-
-Mask: TypeAlias = (
-    Sequence[bool | None]
-    | NDArray[np.bool_]
-    | lib.Array[lib.Scalar[lib.BoolType]]
-    | ChunkedArray[Any]
-)
-Indices: TypeAlias = (
-    Sequence[int | None]
-    | NDArray[np.integer[Any]]
-    | lib.Array[lib.Scalar[IntegerType]]
-    | ChunkedArray[Any]
-)
-
 PyScalar: TypeAlias = (
     bool
     | int
@@ -84,6 +70,21 @@ PyScalar: TypeAlias = (
     | dt.time
     | dt.timedelta
 )
+NumpyScalar: TypeAlias = "np.generic[Any]"
+
+PyScalarT_co = TypeVar("PyScalarT_co", bound=PyScalar, covariant=True)
+NumpyScalarT_co = TypeVar("NumpyScalarT_co", bound=NumpyScalar, covariant=True)
+DataTypeT_co = TypeVar("DataTypeT_co", bound=lib.DataType, covariant=True)
+
+IntoArray: TypeAlias = (
+    Sequence[PyScalarT_co | None]
+    | NDArray[NumpyScalarT_co]
+    | lib.Array[lib.Scalar[DataTypeT_co]]
+    | ChunkedArray[Any]
+)
+
+Mask: TypeAlias = IntoArray[bool, np.bool_, lib.BoolType]
+Indices: TypeAlias = IntoArray[int, np.integer[Any], IntegerType]
 
 _T = TypeVar("_T")
 _V = TypeVar("_V", covariant=True)
