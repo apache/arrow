@@ -144,7 +144,7 @@ repos:
           - "--extend-select"
           - "Y"
           - "--per-file-ignores"
-          - "python/pyarrow-stubs/pyarrow/*.pyi:E301,E302,E305,E701"
+          - "python/pyarrow-stubs/pyarrow/*.pyi:E301,E302,E305,E701,F821"
         files: >-
           ^(c_glib|dev|python)/
         types:
