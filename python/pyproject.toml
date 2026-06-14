@@ -88,6 +88,11 @@ metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/", "pyarrow-stubs/"]
 wheel.packages = ["pyarrow"]
 wheel.install-dir = "pyarrow"
+# TODO(GH-48970): Remove this when stubfiles are complete
+# Withhold the PEP 561 marker until the type stubs are complete. The .pyi files still ship
+# and are tested in CI, but without py.typed type checkers ignore them, we don't break
+# downstream users (GH-49831). The file is kept in-tree for CI type-checking.
+wheel.exclude = ["pyarrow/py.typed"]
 
 [tool.scikit-build.cmake.define]
 PYARROW_BUNDLE_ARROW_CPP = {env = "PYARROW_BUNDLE_ARROW_CPP", default = "OFF"}

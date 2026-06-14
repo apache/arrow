@@ -54,9 +54,10 @@ def validate_wheel(path):
                 info.filename.split("/")[-1] == filename for info in wheel_zip.filelist
             ), f"{filename} is missing from the wheel."
 
-        assert any(
-            info.filename == "pyarrow/py.typed" for info in wheel_zip.filelist
-        ), "pyarrow/py.typed is missing from the wheel."
+        # TODO(GH-48970): Uncomment when stubfiles are complete
+        # assert any(
+        #     info.filename == "pyarrow/py.typed" for info in wheel_zip.filelist
+        # ), "pyarrow/py.typed is missing from the wheel."
 
         source_root = Path(__file__).resolve().parents[2]
         stubs_dir = source_root / "python" / "pyarrow-stubs" / "pyarrow"
