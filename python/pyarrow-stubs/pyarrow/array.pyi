@@ -40,9 +40,9 @@ from pyarrow._stubs_typing import (
     Indices,
     Mask,
     Order,
-    SupportArrowArray,
-    SupportArrowDeviceArray,
-    SupportPyArrowArray,
+    SupportsArrowArray,
+    SupportsArrowDeviceArray,
+    SupportsPyArrowArray,
 )
 from pyarrow.lib import (
     Buffer,
@@ -122,8 +122,8 @@ from ._stubs_typing import NullableCollection
 
 
 def array(
-    values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray
-    | SupportArrowDeviceArray | SupportPyArrowArray,
+    values: NullableCollection[Any] | Iterable[Any] | SupportsArrowArray
+    | SupportsArrowDeviceArray | SupportsPyArrowArray,
     type: Any | None = None,
     mask: Mask | pd.Series[bool] | None = None,
     size: int | None = None,
@@ -134,8 +134,8 @@ def array(
 
 
 def asarray(
-    values: NullableCollection[Any] | Iterable[Any] | SupportArrowArray
-    | SupportArrowDeviceArray,
+    values: NullableCollection[Any] | Iterable[Any] | SupportsArrowArray
+    | SupportsArrowDeviceArray,
     type: _DataTypeT | Any | None = None,
 ) -> Array[Scalar[_DataTypeT]] | ArrayLike: ...
 

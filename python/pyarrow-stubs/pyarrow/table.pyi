@@ -48,9 +48,9 @@ from pyarrow._stubs_typing import (
     NullEncoding,
     NullSelectionBehavior,
     Order,
-    SupportArrowArray,
-    SupportArrowDeviceArray,
-    SupportArrowStream,
+    SupportsArrowArray,
+    SupportsArrowDeviceArray,
+    SupportsArrowStream,
 )
 from pyarrow.compute import Expression
 from pyarrow.interchange.dataframe import _PyArrowDataFrame
@@ -255,9 +255,9 @@ class ChunkedArray(_PandasConvertible[pd.Series], Generic[_Scalar_co]):
 
 def chunked_array(
     arrays: Iterable[NullableCollection[Any]]
-    | Iterable[Iterable[Any] | SupportArrowStream | SupportArrowArray]
+    | Iterable[Iterable[Any] | SupportsArrowStream | SupportsArrowArray]
     | Iterable[Array[_ScalarT]] | Array[_ScalarT]
-    | SupportArrowArray | SupportArrowStream,
+    | SupportsArrowArray | SupportsArrowStream,
     type: DataType | str | None = None,
 ) -> ChunkedArray[Scalar[Any]] | ChunkedArray[_ScalarT]: ...
 
@@ -613,8 +613,8 @@ def record_batch(
     data: Mapping[str, list[Any] | Array[Any]]
     | Collection[Array[Any] | ChunkedArray[Any] | list[Any]]
     | pd.DataFrame
-    | SupportArrowArray
-    | SupportArrowDeviceArray,
+    | SupportsArrowArray
+    | SupportsArrowDeviceArray,
     names: list[str] | Schema | None = None,
     schema: Schema | None = None,
     metadata: Mapping[str | bytes, str | bytes] | None = None,
@@ -624,9 +624,9 @@ def record_batch(
 def table(
     data: Collection[ArrayOrChunkedArray[Any] | list[Any] | range | str]
     | pd.DataFrame
-    | SupportArrowArray
-    | SupportArrowStream
-    | SupportArrowDeviceArray
+    | SupportsArrowArray
+    | SupportsArrowStream
+    | SupportsArrowDeviceArray
     | Mapping[str, list[Any] | Array[Any] | ChunkedArray[Any] | range]
     | Mapping[str, Any],
     names: list[str] | Schema | None = None,
