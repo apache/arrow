@@ -32,6 +32,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/span.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace util {
@@ -44,10 +45,10 @@ template <typename T>
 void PforWrapper<T>::StoreHeader(arrow::util::span<uint8_t> dest,
                                  const PforHeader& header) {
   uint8_t* ptr = dest.data();
-  ptr[0] = header.packing_mode;
-  ptr[1] = header.log_vector_size;
-  ptr[2] = header.value_byte_width;
-  std::memcpy(ptr + 3, &header.num_elements, sizeof(int32_t));
+  util::SafeStore(ptr + 0, header.packing_mode);
+  util::SafeStore(ptr + 1, header.log_vector_size);
+  util::SafeStore(ptr + 2, header.value_byte_width);
+  util::SafeStore(ptr + 3, header.num_elements);
 }
 
 template <typename T>
@@ -59,10 +60,10 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
   }
   PforHeader header;
   const uint8_t* ptr = src.data();
-  header.packing_mode = ptr[0];
-  header.log_vector_size = ptr[1];
-  header.value_byte_width = ptr[2];
-  std::memcpy(&header.num_elements, ptr + 3, sizeof(int32_t));
+  header.packing_mode = util::SafeLoadAs<uint8_t>(ptr + 0);
+  header.log_vector_size = util::SafeLoadAs<uint8_t>(ptr + 1);
+  header.value_byte_width = util::SafeLoadAs<uint8_t>(ptr + 2);
+  header.num_elements = util::SafeLoadAs<int32_t>(ptr + 3);
   return header;
 }
 
@@ -105,7 +106,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
   for (int32_t v = 0; v < num_vectors; ++v) {
     // Record offset (from start of offset array)
     uint32_t offset = static_cast<uint32_t>(write_ptr - data_start);
-    std::memcpy(offset_array_start + v * sizeof(uint32_t), &offset, sizeof(uint32_t));
+    util::SafeStore(offset_array_start + v * sizeof(uint32_t), offset);
 
     // Determine elements in this vector
     int32_t start_idx = v * vector_size;
@@ -169,9 +170,8 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
 
   // Step 3: Decode each vector
   for (int32_t v = 0; v < num_vectors; ++v) {
-    uint32_t offset;
-    std::memcpy(&offset, offset_array_start + v * sizeof(uint32_t),
-                sizeof(uint32_t));
+    uint32_t offset =
+        util::SafeLoadAs<uint32_t>(offset_array_start + v * sizeof(uint32_t));
 
     const uint8_t* vector_data = offset_array_start + offset;
 
