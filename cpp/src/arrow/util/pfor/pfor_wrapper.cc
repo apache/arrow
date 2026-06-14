@@ -51,8 +51,12 @@ void PforWrapper<T>::StoreHeader(arrow::util::span<uint8_t> dest,
 }
 
 template <typename T>
-typename PforWrapper<T>::PforHeader PforWrapper<T>::LoadHeader(
+Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
     arrow::util::span<const uint8_t> src) {
+  if (src.size() < static_cast<size_t>(PforConstants::kHeaderSize)) {
+    return Status::Invalid("PFOR compressed buffer too small for header: ",
+                           src.size(), " < ", PforConstants::kHeaderSize);
+  }
   PforHeader header;
   const uint8_t* ptr = src.data();
   header.packing_mode = ptr[0];
@@ -140,16 +144,13 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
   if (comp == nullptr) {
     return Status::Invalid("PFOR compressed data pointer is null");
   }
-  if (comp_size < PforConstants::kHeaderSize) {
-    return Status::Invalid("PFOR compressed buffer too small for header: ", comp_size,
-                           " < ", PforConstants::kHeaderSize);
-  }
 
   const auto* src = reinterpret_cast<const uint8_t*>(comp);
 
   // Step 1: Read header
-  PforHeader header = LoadHeader(
-      arrow::util::span<const uint8_t>(src, PforConstants::kHeaderSize));
+  ARROW_ASSIGN_OR_RAISE(
+      PforHeader header,
+      LoadHeader(arrow::util::span<const uint8_t>(src, comp_size)));
 
   if (header.packing_mode != PforConstants::kPackingModeForBitPack) {
     return Status::Invalid("PFOR unsupported packing mode: ", header.packing_mode);
