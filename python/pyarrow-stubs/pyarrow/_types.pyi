@@ -22,7 +22,7 @@ from decimal import Decimal  # noqa: F401
 from typing import Any, Generic, Literal, Protocol, TypeAlias, overload
 
 import numpy as np
-import pandas as pd  # type: ignore[import-not-found,import-untyped]
+import pandas as pd  # type: ignore[import-not-found,import-untyped]  # pyright: ignore[reportMissingImports,reportMissingTypeStubs]
 from typing_extensions import Self, TypeVar, deprecated
 
 from pyarrow._stubs_typing import SupportsArrowSchema, TimeUnit
