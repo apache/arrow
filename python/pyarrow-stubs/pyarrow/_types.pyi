@@ -210,6 +210,7 @@ _IndexT_co = TypeVar(
 )
 _ValueT = TypeVar("_ValueT", bound=DataType, default=DataType)
 _ValueT_co = TypeVar("_ValueT_co", bound=DataType, default=DataType, covariant=True)
+_BasicValueT = TypeVar("_BasicValueT", bound=_BasicDataType[Any])
 _K = TypeVar("_K", bound=DataType, default=DataType)
 _K_co = TypeVar("_K_co", bound=DataType, default=DataType, covariant=True)
 _Ordered = TypeVar("_Ordered", Literal[True], Literal[False], default=Literal[False])
@@ -765,4 +766,5 @@ __all__ = [
     "_Time32Unit",
     "_Time64Unit",
     "_DataTypeT",
+    "_BasicValueT",
 ]
