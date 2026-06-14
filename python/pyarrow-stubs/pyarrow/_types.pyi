@@ -196,30 +196,46 @@ _IndexT = TypeVar(
     UInt64Type,
     Int64Type,
 )
+_IndexT_co = TypeVar(
+    "_IndexT_co",
+    UInt8Type,
+    Int8Type,
+    UInt16Type,
+    Int16Type,
+    UInt32Type,
+    Int32Type,
+    UInt64Type,
+    Int64Type,
+    covariant=True,
+)
 _ValueT = TypeVar("_ValueT", bound=DataType, default=DataType)
 _ValueT_co = TypeVar("_ValueT_co", bound=DataType, default=DataType, covariant=True)
 _K = TypeVar("_K", bound=DataType, default=DataType)
+_K_co = TypeVar("_K_co", bound=DataType, default=DataType, covariant=True)
 _Ordered = TypeVar("_Ordered", Literal[True], Literal[False], default=Literal[False])
+_Ordered_co = TypeVar(
+    "_Ordered_co", Literal[True], Literal[False], default=Literal[False], covariant=True
+)
 
-class DictionaryType(DataType, Generic[_IndexT, _ValueT_co, _Ordered]):
+class DictionaryType(DataType, Generic[_IndexT_co, _ValueT_co, _Ordered_co]):
     @property
-    def ordered(self) -> _Ordered: ...
+    def ordered(self) -> _Ordered_co: ...
     @property
-    def index_type(self) -> _IndexT: ...
+    def index_type(self) -> _IndexT_co: ...
     @property
     def value_type(self) -> _ValueT_co: ...
 
-class MapType(DataType, Generic[_K, _ValueT, _Ordered]):
+class MapType(DataType, Generic[_K_co, _ValueT_co, _Ordered_co]):
     @property
-    def key_field(self) -> Field[_K]: ...
+    def key_field(self) -> Field[_K_co]: ...
     @property
-    def key_type(self) -> _K: ...
+    def key_type(self) -> _K_co: ...
     @property
-    def item_field(self) -> Field[_ValueT]: ...
+    def item_field(self) -> Field[_ValueT_co]: ...
     @property
-    def item_type(self) -> _ValueT: ...
+    def item_type(self) -> _ValueT_co: ...
     @property
-    def keys_sorted(self) -> _Ordered: ...
+    def keys_sorted(self) -> _Ordered_co: ...
 
 class StructType(DataType):
     def get_field_index(self, name: str | bytes) -> int: ...
@@ -254,10 +270,13 @@ class DenseUnionType(UnionType):
     def mode(self) -> Literal["dense"]: ...
 
 _RunEndType = TypeVar("_RunEndType", Int16Type, Int32Type, Int64Type)
+_RunEndType_co = TypeVar(
+    "_RunEndType_co", Int16Type, Int32Type, Int64Type, covariant=True
+)
 
-class RunEndEncodedType(DataType, Generic[_RunEndType, _ValueT_co]):
+class RunEndEncodedType(DataType, Generic[_RunEndType_co, _ValueT_co]):
     @property
-    def run_end_type(self) -> _RunEndType: ...
+    def run_end_type(self) -> _RunEndType_co: ...
     @property
     def value_type(self) -> _ValueT_co: ...
 
@@ -280,9 +299,9 @@ class ExtensionType(BaseExtensionType):
         cls, storage_type: DataType, serialized: bytes
     ) -> Self: ...
 
-class FixedShapeTensorType(BaseExtensionType, Generic[_ValueT]):
+class FixedShapeTensorType(BaseExtensionType, Generic[_ValueT_co]):
     @property
-    def value_type(self) -> _ValueT: ...
+    def value_type(self) -> _ValueT_co: ...
     @property
     def shape(self) -> list[int]: ...
     @property
@@ -380,7 +399,7 @@ class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
     def __init__(
         self,
         __arg0__: _KeyValueMetadataInput | KeyValueMetadata = None,
-        **kwargs: str,
+        **kwargs: str | bytes,
     ) -> None: ...
     def equals(self, other: KeyValueMetadata) -> bool: ...
     def __len__(self) -> int: ...
@@ -595,13 +614,13 @@ def struct(
     fields: _StructFieldsInput,
 ) -> StructType: ...
 def sparse_union(
-    child_fields: Sequence[Field[Any]], type_codes: Sequence[int] | None = None
+    child_fields: Iterable[Field[Any]], type_codes: Sequence[int] | None = None
 ) -> SparseUnionType: ...
 def dense_union(
-    child_fields: Sequence[Field[Any]], type_codes: Sequence[int] | None = None
+    child_fields: Iterable[Field[Any]], type_codes: Sequence[int] | None = None
 ) -> DenseUnionType: ...
 def union(
-    child_fields: Sequence[Field[Any]],
+    child_fields: Iterable[Field[Any]],
     mode: Literal["sparse", "dense"] | int,
     type_codes: Sequence[int] | None = None,
 ) -> SparseUnionType | DenseUnionType: ...
