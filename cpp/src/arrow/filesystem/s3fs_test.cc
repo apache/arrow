@@ -417,7 +417,7 @@ TEST_F(S3OptionsTest, FromUriAndOptionsCredentials) {
   ASSERT_EQ(options.GetSessionToken(), "tok");
 
   // Failure scenarios
-  // Pairing is correct
+  // Pairing is incorrect
   ASSERT_THAT(
       S3Options::FromUriAndOptions("s3://", {{"access_key", std::string("ak")}}, &path),
       Raises(StatusCode::Invalid, ::testing::HasSubstr("must be provided together")));
