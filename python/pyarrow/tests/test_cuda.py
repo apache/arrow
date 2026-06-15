@@ -32,7 +32,7 @@ except ImportError:
     pytestmark = pytest.mark.numpy
 
 
-cuda = pytest.importorskip("pyarrow.cuda")
+cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
 
 platform = sysconfig.get_platform()
 # TODO: enable ppc64 when Arrow C++ supports IPC in ppc64 systems:
@@ -858,7 +858,7 @@ def test_copy_to():
 
 
 def test_device_interface_array():
-    cffi = pytest.importorskip("pyarrow.cffi")
+    cffi = pytest.importorskip("pyarrow.cffi", exc_type=ImportError)
     ffi = cffi.ffi
 
     c_schema = ffi.new("struct ArrowSchema*")
@@ -911,7 +911,7 @@ def test_device_interface_array():
 
 
 def test_device_interface_batch_array():
-    cffi = pytest.importorskip("pyarrow.cffi")
+    cffi = pytest.importorskip("pyarrow.cffi", exc_type=ImportError)
     ffi = cffi.ffi
 
     c_schema = ffi.new("struct ArrowSchema*")

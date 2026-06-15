@@ -154,7 +154,7 @@ def test_dlpack_not_supported():
 
 
 def test_dlpack_cuda_not_supported():
-    cuda = pytest.importorskip("pyarrow.cuda")
+    cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
 
     schema = pa.schema([pa.field('f0', pa.int16())])
     a0 = pa.array([1, 2, 3], type=pa.int16())
