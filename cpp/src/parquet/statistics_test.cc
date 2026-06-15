@@ -1485,6 +1485,7 @@ class TestFloatStatistics : public ::testing::Test {
   }
 
   void TestNaNs();
+  void TestInfinities();
 
  protected:
   std::vector<uint8_t> data_buf_;
@@ -1559,6 +1560,24 @@ void TestFloatStatistics<T>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+// GH-50182: an all-infinity column must report that infinity as its min/max,
+// rather than the largest finite value (a finite seed is never displaced by an
+// infinity of the same sign).
+template <typename T>
+void TestFloatStatistics<T>::TestInfinities() {
+  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  constexpr c_type inf = std::numeric_limits<c_type>::infinity();
+  std::array<c_type, 3> all_pos_inf{inf, inf, inf};
+  std::array<c_type, 3> all_neg_inf{-inf, -inf, -inf};
+  std::array<c_type, 2> mixed_inf{inf, -inf};
+
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, -inf, -inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, -inf, inf);
+}
+
 struct BufferedFloat16 {
   explicit BufferedFloat16(Float16 f16) : f16(f16) {
     this->f16.ToLittleEndian(bytes_.data());
@@ -1611,12 +1630,33 @@ void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+template <>
+void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
+  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  using F16 = BufferedFloat16;
+  const auto pos_inf = F16(std::numeric_limits<Float16>::infinity());
+  const auto neg_inf = F16(-std::numeric_limits<Float16>::infinity());
+  const auto pinf = FLBA{pos_inf.bytes()};
+  const auto ninf = FLBA{neg_inf.bytes()};
+
+  std::array<FLBA, 3> all_pos_inf{pinf, pinf, pinf};
+  std::array<FLBA, 3> all_neg_inf{ninf, ninf, ninf};
+  std::array<FLBA, 2> mixed_inf{pinf, ninf};
+
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, pinf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, ninf, ninf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, ninf, pinf);
+}
+
 using FloatingPointTypes = ::testing::Types<FloatType, DoubleType, Float16LogicalType>;
 
 TYPED_TEST_SUITE(TestFloatStatistics, FloatingPointTypes);
 
 TYPED_TEST(TestFloatStatistics, NegativeZeros) { this->TestNegativeZeroes(); }
 TYPED_TEST(TestFloatStatistics, NaNs) { this->TestNaNs(); }
+TYPED_TEST(TestFloatStatistics, Infinities) { this->TestInfinities(); }
 
 // ARROW-7376
 TEST(TestStatisticsSortOrderFloatNaN, NaNAndNullsInfiniteLoop) {
