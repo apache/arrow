@@ -92,6 +92,7 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 namespace {
 
+// Keep this logic consistent with ColumnDescriptor::can_use_min_max().
 StatisticsMinMaxField GetStatisticsMinMaxField(const ColumnDescriptor& descr) {
   switch (descr.column_order().get_order()) {
     case ColumnOrder::TYPE_DEFINED_ORDER:

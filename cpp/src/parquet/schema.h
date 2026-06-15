@@ -388,6 +388,9 @@ class PARQUET_EXPORT ColumnDescriptor {
       case ColumnOrder::TYPE_DEFINED_ORDER:
         return sort_order() != SortOrder::UNKNOWN;
       case ColumnOrder::UNDEFINED:
+        // If there is no defined column order, the obsolete min and max fields
+        // in the Statistics object are to be used, and they are always sorted
+        // by signed comparison, so this has to be the column type's sort order.
         return sort_order() == SortOrder::SIGNED;
       case ColumnOrder::UNKNOWN:
         return false;

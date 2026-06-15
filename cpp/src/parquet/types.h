@@ -597,7 +597,7 @@ struct PageType {
 
 bool PageCanUseChecksum(PageType::type pageType);
 
-class ColumnOrder {
+class PARQUET_EXPORT ColumnOrder {
  public:
   enum type {
     // File metadata has no column order, only legacy min/max in stats are defined.
