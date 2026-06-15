@@ -1791,7 +1791,7 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     int64_t comp_size = max_size;
     ::arrow::util::pfor::PforWrapper<T>::Encode(
         values_.data(), num_values,
-        reinterpret_cast<char*>(buffer->mutable_data()), &comp_size);
+        buffer->mutable_data(), &comp_size);
 
     PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
     values_.clear();

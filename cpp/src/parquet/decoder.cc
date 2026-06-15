@@ -2401,7 +2401,7 @@ class PforDecoder : public TypedDecoderImpl<DType> {
       decoded_values_.resize(this->num_values_);
       ::arrow::util::pfor::PforWrapper<T>::Decode(
           decoded_values_.data(), static_cast<uint32_t>(this->num_values_),
-          reinterpret_cast<const char*>(data_), static_cast<size_t>(data_len_));
+          data_, static_cast<size_t>(data_len_));
     }
 
     std::memcpy(buffer, decoded_values_.data() + values_decoded_,
