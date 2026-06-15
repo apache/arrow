@@ -663,8 +663,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return non_null_values_range;
   }
 
-  return FindNonNullValuesRangeFromNullCount(values.length, null_count,
-                                             [&](int64_t index) { return values.IsNull(index); });
+  return FindNonNullValuesRangeFromNullCount(
+      values.length, null_count, [&](int64_t index) { return values.IsNull(index); });
 }
 
 /// Validate the searched values input shape and supported encoding.
@@ -705,8 +705,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& val
     return non_null_values_range;
   }
 
-  return FindNonNullValuesRangeFromNullCount(values.length(), null_count,
-                                             [&](int64_t index) { return IsNull(values, index); });
+  return FindNonNullValuesRangeFromNullCount(
+      values.length(), null_count, [&](int64_t index) { return IsNull(values, index); });
 }
 
 /// Perform a lower- or upper-bound binary search over already sorted values.
