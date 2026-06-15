@@ -326,7 +326,6 @@ TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNulls) {
                                    "[0, 3, 3, 6]");
 }
 
-
 TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNullsAndNullNeedles) {
   CheckSimpleSearchSortedAndScalar(float64(), "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
                                    "[0.0, 3.0, 4.0, NaN, null]", "[0, 1, 3, 4, null]",
@@ -334,8 +333,7 @@ TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNullsAndNullNeedles) {
 }
 
 TEST(SearchSorted, FloatValuesWithLeadingNullsAndTrailingNaNsAndNullNeedles) {
-  CheckSimpleSearchSortedAndScalar(float64(),
-                                   "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
+  CheckSimpleSearchSortedAndScalar(float64(), "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
                                    "[0.0, 3.0, 4.0, NaN, null]", "[1, 2, 4, 5, null]",
                                    "[1, 4, 4, 7, null]");
 }
