@@ -4722,8 +4722,10 @@ garrow_rank_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_OPTIONS_NULL_PLACEMENT:
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     options->null_placement = garrow_optional_null_placement_to_raw(
       static_cast<GArrowOptionalNullPlacement>(g_value_get_enum(value)));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     options->tiebreaker =
@@ -4745,8 +4747,10 @@ garrow_rank_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_OPTIONS_NULL_PLACEMENT:
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     g_value_set_enum(value,
                      garrow_optional_null_placement_from_raw(options->null_placement));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     g_value_set_enum(value, static_cast<GArrowRankTiebreaker>(options->tiebreaker));
@@ -4783,6 +4787,7 @@ garrow_rank_options_class_init(GArrowRankOptionsClass *klass)
    *
    * Since: 12.0.0
    */
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   spec =
     g_param_spec_enum("null-placement",
                       "Null placement",
@@ -4791,6 +4796,7 @@ garrow_rank_options_class_init(GArrowRankOptionsClass *klass)
                       GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
                       garrow_optional_null_placement_from_raw(options.null_placement),
                       static_cast<GParamFlags>(G_PARAM_READWRITE));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   g_object_class_install_property(gobject_class, PROP_RANK_OPTIONS_NULL_PLACEMENT, spec);
 
@@ -4842,9 +4848,11 @@ garrow_rank_options_equal(GArrowRankOptions *options, GArrowRankOptions *other_o
                                   arrow_other_options->sort_keys)) {
     return FALSE;
   }
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   if (arrow_options->null_placement != arrow_other_options->null_placement) {
     return FALSE;
   }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   if (arrow_options->tiebreaker != arrow_other_options->tiebreaker) {
     return FALSE;
   }
@@ -9030,8 +9038,10 @@ garrow_rank_quantile_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT:
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     options->null_placement = garrow_optional_null_placement_to_raw(
       static_cast<GArrowOptionalNullPlacement>(g_value_get_enum(value)));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -9050,8 +9060,10 @@ garrow_rank_quantile_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT:
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     g_value_set_enum(value,
                      garrow_optional_null_placement_from_raw(options->null_placement));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -9085,6 +9097,7 @@ garrow_rank_quantile_options_class_init(GArrowRankQuantileOptionsClass *klass)
    *
    * Since: 23.0.0
    */
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   spec =
     g_param_spec_enum("null-placement",
                       "Null placement",
@@ -9093,6 +9106,7 @@ garrow_rank_quantile_options_class_init(GArrowRankQuantileOptionsClass *klass)
                       GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
                       garrow_optional_null_placement_from_raw(options.null_placement),
                       static_cast<GParamFlags>(G_PARAM_READWRITE));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   g_object_class_install_property(gobject_class,
                                   PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT,
                                   spec);
@@ -11587,12 +11601,14 @@ garrow_index_options_get_raw(GArrowIndexOptions *options)
 GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options)
 {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   auto options = GARROW_RANK_OPTIONS(g_object_new(GARROW_TYPE_RANK_OPTIONS,
                                                   "null-placement",
                                                   arrow_options->null_placement,
                                                   "tiebreaker",
                                                   arrow_options->tiebreaker,
                                                   nullptr));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   auto arrow_new_options = garrow_rank_options_get_raw(options);
   arrow_new_options->sort_keys = arrow_options->sort_keys;
   return options;
@@ -12032,6 +12048,7 @@ GArrowPartitionNthOptions *
 garrow_partition_nth_options_new_raw(
   const arrow::compute::PartitionNthOptions *arrow_options)
 {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return GARROW_PARTITION_NTH_OPTIONS(
     g_object_new(GARROW_TYPE_PARTITION_NTH_OPTIONS,
                  "pivot",
@@ -12039,6 +12056,7 @@ garrow_partition_nth_options_new_raw(
                  "null-placement",
                  static_cast<GArrowNullPlacement>(arrow_options->null_placement),
                  nullptr));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 arrow::compute::PartitionNthOptions *
@@ -12076,11 +12094,13 @@ GArrowRankQuantileOptions *
 garrow_rank_quantile_options_new_raw(
   const arrow::compute::RankQuantileOptions *arrow_options)
 {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   auto options =
     GARROW_RANK_QUANTILE_OPTIONS(g_object_new(GARROW_TYPE_RANK_QUANTILE_OPTIONS,
                                               "null-placement",
                                               arrow_options->null_placement,
                                               nullptr));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   auto arrow_new_options = garrow_rank_quantile_options_get_raw(options);
   arrow_new_options->sort_keys = arrow_options->sort_keys;
   return options;
