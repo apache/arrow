@@ -139,8 +139,8 @@ TEST(PforVectorTest, Int32SimpleSequence) {
   std::iota(values.begin(), values.end(), 100);
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 64);
-  EXPECT_EQ(encoded.info.frame_of_reference(), 100);
-  EXPECT_EQ(encoded.info.num_exceptions(), 0);
+  EXPECT_EQ(encoded.info().frame_of_reference(), 100);
+  EXPECT_EQ(encoded.info().num_exceptions(), 0);
 
   // Serialize then decode
   size_t serialized_size =
@@ -158,8 +158,8 @@ TEST(PforVectorTest, Int32WithOutlier) {
   std::vector<int32_t> values = {100, 102, 101, 103, 100, 99, 50000, 104};
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 8);
-  EXPECT_EQ(encoded.info.frame_of_reference(), 99);
-  EXPECT_GT(encoded.info.num_exceptions(), 0);
+  EXPECT_EQ(encoded.info().frame_of_reference(), 99);
+  EXPECT_GT(encoded.info().num_exceptions(), 0);
 
   size_t serialized_size =
       PforCompression<int32_t>::SerializedVectorSize(encoded, 8);
@@ -176,8 +176,8 @@ TEST(PforVectorTest, Int32AllIdentical) {
   std::vector<int32_t> values(100, 42);
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 100);
-  EXPECT_EQ(encoded.info.bit_width(), 0);
-  EXPECT_EQ(encoded.info.num_exceptions(), 0);
+  EXPECT_EQ(encoded.info().bit_width(), 0);
+  EXPECT_EQ(encoded.info().num_exceptions(), 0);
 
   size_t serialized_size =
       PforCompression<int32_t>::SerializedVectorSize(encoded, 100);
@@ -194,7 +194,7 @@ TEST(PforVectorTest, Int32NegativeValues) {
   std::vector<int32_t> values = {-100, -50, -200, -1, -150};
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 5);
-  EXPECT_EQ(encoded.info.frame_of_reference(), -200);
+  EXPECT_EQ(encoded.info().frame_of_reference(), -200);
 
   size_t serialized_size =
       PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
@@ -246,7 +246,7 @@ TEST(PforVectorTest, Int64WithOutlier) {
   values[42] = 999999999999LL;  // Outlier
 
   auto encoded = PforCompression<int64_t>::EncodeVector(values.data(), 100);
-  EXPECT_GT(encoded.info.num_exceptions(), 0);
+  EXPECT_GT(encoded.info().num_exceptions(), 0);
 
   size_t serialized_size =
       PforCompression<int64_t>::SerializedVectorSize(encoded, 100);

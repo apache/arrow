@@ -105,11 +105,33 @@ class PforVectorInfo {
 
 /// \brief A PFOR-encoded vector with all its data sections
 template <typename T>
-struct PforEncodedVector {
-  PforVectorInfo<T> info;
-  std::vector<uint8_t> packed_values;
-  std::vector<int16_t> exception_positions;
-  std::vector<T> exception_values;
+class PforEncodedVector {
+ public:
+  PforEncodedVector() = default;
+
+  const PforVectorInfo<T>& info() const { return info_; }
+  PforVectorInfo<T>& mutable_info() { return info_; }
+  void set_info(const PforVectorInfo<T>& info) { info_ = info; }
+
+  const std::vector<uint8_t>& packed_values() const { return packed_values_; }
+  std::vector<uint8_t>& mutable_packed_values() { return packed_values_; }
+  void set_packed_values(std::vector<uint8_t> v) { packed_values_ = std::move(v); }
+
+  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
+  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
+  void set_exception_positions(std::vector<int16_t> v) {
+    exception_positions_ = std::move(v);
+  }
+
+  const std::vector<T>& exception_values() const { return exception_values_; }
+  std::vector<T>& mutable_exception_values() { return exception_values_; }
+  void set_exception_values(std::vector<T> v) { exception_values_ = std::move(v); }
+
+ private:
+  PforVectorInfo<T> info_;
+  std::vector<uint8_t> packed_values_;
+  std::vector<int16_t> exception_positions_;
+  std::vector<T> exception_values_;
 };
 
 // ----------------------------------------------------------------------
@@ -120,12 +142,29 @@ struct PforEncodedVector {
 /// The packed_values span points directly into the compressed buffer.
 /// Exception positions and values are copied into aligned storage.
 template <typename T>
-struct PforEncodedVectorView {
-  PforVectorInfo<T> info;
-  int32_t num_elements = 0;
-  arrow::util::span<const uint8_t> packed_values;
-  std::vector<int16_t> exception_positions;
-  std::vector<T> exception_values;
+class PforEncodedVectorView {
+ public:
+  PforEncodedVectorView() = default;
+
+  const PforVectorInfo<T>& info() const { return info_; }
+  PforVectorInfo<T>& mutable_info() { return info_; }
+  void set_info(const PforVectorInfo<T>& info) { info_ = info; }
+
+  int32_t num_elements() const { return num_elements_; }
+  void set_num_elements(int32_t n) { num_elements_ = n; }
+
+  arrow::util::span<const uint8_t> packed_values() const { return packed_values_; }
+  void set_packed_values(arrow::util::span<const uint8_t> v) { packed_values_ = v; }
+
+  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
+  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
+  void set_exception_positions(std::vector<int16_t> v) {
+    exception_positions_ = std::move(v);
+  }
+
+  const std::vector<T>& exception_values() const { return exception_values_; }
+  std::vector<T>& mutable_exception_values() { return exception_values_; }
+  void set_exception_values(std::vector<T> v) { exception_values_ = std::move(v); }
 
   /// \brief Create a zero-copy view from a serialized vector buffer
   ///
@@ -134,6 +173,13 @@ struct PforEncodedVectorView {
   /// \return the view, or an error if the buffer is too small
   static Result<PforEncodedVectorView> LoadView(
       arrow::util::span<const uint8_t> data, int32_t num_elements);
+
+ private:
+  PforVectorInfo<T> info_;
+  int32_t num_elements_ = 0;
+  arrow::util::span<const uint8_t> packed_values_;
+  std::vector<int16_t> exception_positions_;
+  std::vector<T> exception_values_;
 };
 
 // ----------------------------------------------------------------------
