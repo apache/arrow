@@ -122,7 +122,7 @@ class ARROW_EXPORT ChunkedArray {
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   /// \return chunk a particular chunk from the chunked array
-  const std::shared_ptr<Array>& chunk(int i) const { return chunks_[i]; }
+  const std::shared_ptr<Array>& chunk(size_t i) const { return chunks_[i]; }
 
   /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
