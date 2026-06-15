@@ -1914,9 +1914,33 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 text_len, const char* from_str,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len) {
+  // Count non-overlapping matches to size the output buffer exactly, so large
+  // results are not capped by an arbitrary limit.
+  gdv_int64 num_matches = 0;
+  if (from_str_len > 0 && from_str_len <= text_len) {
+    for (gdv_int32 i = 0; i <= text_len - from_str_len;) {
+      if (memcmp(text + i, from_str, from_str_len) == 0) {
+        num_matches++;
+        i += from_str_len;
+      } else {
+        i++;
+      }
+    }
+  }
+  gdv_int64 max_length =
+      static_cast<gdv_int64>(text_len) + num_matches * (to_str_len - from_str_len);
+  // Gandiva variable-length output uses int32 offsets, so a single output string
+  // cannot exceed INT_MAX bytes. Report this explicitly instead of letting the
+  // cast below wrap silently.
+  if (max_length > INT_MAX) {
+    gdv_fn_context_set_error_msg(context,
+                                 "REPLACE: output string exceeds maximum size of 2GB");
+    *out_len = 0;
+    return "";
+  }
   return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
-                                             from_str_len, to_str, to_str_len, 65535,
-                                             out_len);
+                                             from_str_len, to_str, to_str_len,
+                                             static_cast<gdv_int32>(max_length), out_len);
 }
 
 // Returns the quoted string (Includes escape character for any single quotes)
