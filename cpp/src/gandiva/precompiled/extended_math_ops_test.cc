@@ -128,7 +128,7 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
       log_int32_int32(reinterpret_cast<gdv_int64>(&context), 1 /*base*/, 10 /*value*/);
   VerifyFuzzyEquals(out, 0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"))
       << context.get_error();
 
   gandiva::ExecutionContext context1;

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/util/logging_internal.h"
@@ -962,8 +963,8 @@ TEST(TestTime, TestNextDay) {
 
   ts = StringToTimestamp("2015-08-06 11:12:30");
   out = next_day_from_timestamp(context_ptr, ts, "AHSRK", 5);
-  EXPECT_NE(context.get_error().find("NEXT_DAY"), std::string::npos);
-  EXPECT_NE(context.get_error().find("AHSRK"), std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("NEXT_DAY"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("AHSRK"));
   context.Reset();
 }
 
@@ -985,15 +986,15 @@ TEST(TestTime, TestNextDayCaseSensitive) {
   // Lowercase: does NOT match (case-sensitive memcmp against uppercase WEEK[]).
   out = next_day_from_timestamp(context_ptr, ts, "friday", 6);
   EXPECT_TRUE(context.has_error());
-  EXPECT_NE(context.get_error().find("NEXT_DAY"), std::string::npos);
-  EXPECT_NE(context.get_error().find("friday"), std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("NEXT_DAY"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("friday"));
   context.Reset();
 
   // Mixed case: also does NOT match.
   out = next_day_from_timestamp(context_ptr, ts, "Friday", 6);
   EXPECT_TRUE(context.has_error());
-  EXPECT_NE(context.get_error().find("NEXT_DAY"), std::string::npos);
-  EXPECT_NE(context.get_error().find("Friday"), std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("NEXT_DAY"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("Friday"));
   context.Reset();
 }
 
@@ -1242,7 +1243,7 @@ TEST(TestTime, TestCastNullableInterval) {
   EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 1201), 1201);
   // validate overflow error when using bigint as input
   castNULLABLEINTERVALYEAR_int64(context_ptr, INT64_MAX);
-  EXPECT_NE(context.get_error().find("Integer overflow"), std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("Integer overflow"));
   context.Reset();
 }
 
