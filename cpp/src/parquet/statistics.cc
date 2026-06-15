@@ -58,8 +58,6 @@ constexpr int value_length(int type_length, const FLBA& value) { return type_len
 // Static "constants" for normalizing float16 min/max values. These need to be expressed
 // as pointers because `Float16LogicalType` represents an FLBA.
 struct Float16Constants {
-  static constexpr const uint8_t* lowest() { return lowest_.data(); }
-  static constexpr const uint8_t* max() { return max_.data(); }
   static constexpr const uint8_t* positive_zero() { return positive_zero_.data(); }
   static constexpr const uint8_t* negative_zero() { return negative_zero_.data(); }
   static constexpr const uint8_t* positive_infinity() {
@@ -71,9 +69,6 @@ struct Float16Constants {
 
  private:
   using Bytes = std::array<uint8_t, 2>;
-  static constexpr Bytes lowest_ =
-      std::numeric_limits<Float16>::lowest().ToLittleEndian();
-  static constexpr Bytes max_ = std::numeric_limits<Float16>::max().ToLittleEndian();
   static constexpr Bytes positive_zero_ = (+Float16::FromBits(0)).ToLittleEndian();
   static constexpr Bytes negative_zero_ = (-Float16::FromBits(0)).ToLittleEndian();
   static constexpr Bytes positive_infinity_ =
