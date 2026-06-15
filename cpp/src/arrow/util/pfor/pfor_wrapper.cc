@@ -90,7 +90,7 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
 
 template <typename T>
 void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
-                            char* comp, int64_t* comp_size) {
+                            uint8_t* comp, int64_t* comp_size) {
   ARROW_DCHECK(num_values > 0);
   ARROW_DCHECK(comp != nullptr);
   ARROW_DCHECK(comp_size != nullptr);
@@ -103,7 +103,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
   uint8_t log_vector_size = 0;
   for (int32_t v = vector_size; v > 1; v >>= 1) ++log_vector_size;
 
-  auto* dest = reinterpret_cast<uint8_t*>(comp);
+  uint8_t* dest = comp;
 
   // Step 1: Write header
   PforHeader header;
@@ -146,7 +146,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
 }
 
 template <typename T>
-void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
+void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
                             int64_t* comp_size) {
   Encode(values, num_values, kVectorSize, comp, comp_size);
 }
@@ -155,7 +155,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, char* comp,
 // Decode
 
 template <typename T>
-Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
+Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp,
                               int64_t comp_size) {
   if (num_values <= 0) {
     return Status::Invalid("PFOR num_values must be positive: ", num_values);
@@ -164,7 +164,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const char* comp,
     return Status::Invalid("PFOR compressed data pointer is null");
   }
 
-  const auto* src = reinterpret_cast<const uint8_t*>(comp);
+  const uint8_t* src = comp;
 
   // Step 1: Read header
   ARROW_ASSIGN_OR_RAISE(
