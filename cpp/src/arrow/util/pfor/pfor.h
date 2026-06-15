@@ -88,6 +88,10 @@ class PforVectorInfo {
       return Status::Invalid("PFOR bit_width out of range: ",
                              static_cast<int>(info.bit_width_));
     }
+    if (info.num_exceptions_ < 0) {
+      return Status::Invalid("PFOR num_exceptions negative: ",
+                             info.num_exceptions_);
+    }
     return info;
   }
 
