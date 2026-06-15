@@ -406,29 +406,38 @@ int PlainDecoder<DType>::DecodeArrow(
   const uint8_t* data = this->data_;
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+#if ARROW_LITTLE_ENDIAN
   PARQUET_THROW_NOT_OK(
       VisitBitRuns(valid_bits, valid_bits_offset, num_values,
                    [&](int64_t position, int64_t run_length, bool is_valid) {
                      if (is_valid) {
-#if ARROW_LITTLE_ENDIAN
                        RETURN_NOT_OK(builder->AppendValues(
                            reinterpret_cast<const value_type*>(data), run_length));
                        data += run_length * sizeof(value_type);
-#else
-                       // On big-endian systems, we need to byte-swap each value
-                       // since Parquet data is stored in little-endian format
-                       for (int64_t i = 0; i < run_length; ++i) {
-                         value_type value = ::arrow::bit_util::FromLittleEndian(
-                             SafeLoadAs<value_type>(data));
-                         RETURN_NOT_OK(builder->Append(value));
-                         data += sizeof(value_type);
-                       }
-#endif
                      } else {
                        RETURN_NOT_OK(builder->AppendNulls(run_length));
                      }
                      return Status::OK();
                    }));
+#else
+  PARQUET_THROW_NOT_OK(VisitBitRuns(
+      valid_bits, valid_bits_offset, num_values,
+      [&](int64_t position, int64_t run_length, bool is_valid) {
+        if (is_valid) {
+          // On big-endian systems, we need to byte-swap each value
+          // since Parquet data is stored in little-endian format
+          for (int64_t i = 0; i < run_length; ++i) {
+            value_type value =
+                ::arrow::bit_util::FromLittleEndian(SafeLoadAs<value_type>(data));
+            RETURN_NOT_OK(builder->Append(value));
+            data += sizeof(value_type);
+          }
+        } else {
+          RETURN_NOT_OK(builder->AppendNulls(run_length));
+        }
+        return Status::OK();
+      }));
+#endif
 
   this->data_ = data;
   this->len_ -= sizeof(value_type) * values_decoded;
@@ -806,8 +815,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
             //   2. the running `value_len > estimated_data_length` check below.
             // This precondition follows from those two checks.
             DCHECK_GE(len_, 4);
-            auto value_len = 
-              ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data_));
+            auto value_len =
+                ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data_));
             // This check also ensures that `value_len <= len_ - 4` due to the way
             // `estimated_data_length` is computed.
             if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > estimated_data_length)) {
@@ -1693,13 +1702,15 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
           // Addition between min_delta, packed int and last_value should be treated as
           // unsigned addition. Overflow is as expected.
 #if ARROW_LITTLE_ENDIAN
-         buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                         static_cast<UT>(last_value_);
-         last_value_ = buffer[i + j];
+          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
+                          static_cast<UT>(last_value_);
+          last_value_ = buffer[i + j];
 #else
-        UT temp = static_cast<UT>(min_delta_) + static_cast<UT>(static_cast<uint64_t>(buffer[i + j])) + static_cast<UT>(last_value_);
-        buffer[i + j] = static_cast<T>(temp);
-        last_value_ = static_cast<T>(temp);
+          UT temp = static_cast<UT>(min_delta_) +
+                    static_cast<UT>(static_cast<uint64_t>(buffer[i + j])) +
+                    static_cast<UT>(last_value_);
+          buffer[i + j] = static_cast<T>(temp);
+          last_value_ = static_cast<T>(temp);
 #endif
         }
       }
