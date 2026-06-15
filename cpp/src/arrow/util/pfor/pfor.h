@@ -33,6 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/util/pfor/pfor_constants.h"
 #include "arrow/util/span.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace util {
@@ -46,17 +47,30 @@ namespace pfor {
 /// For INT32 (7 bytes): [frame_of_reference(4B)] [bit_width(1B)] [num_exceptions(2B)]
 /// For INT64 (11 bytes): [frame_of_reference(8B)] [bit_width(1B)] [num_exceptions(2B)]
 template <typename T>
-struct PforVectorInfo {
-  T frame_of_reference = 0;
-  uint8_t bit_width = 0;
-  int16_t num_exceptions = 0;
+class PforVectorInfo {
+ public:
+  PforVectorInfo() = default;
+  PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions)
+      : frame_of_reference_(frame_of_reference),
+        bit_width_(bit_width),
+        num_exceptions_(num_exceptions) {}
+
+  T frame_of_reference() const { return frame_of_reference_; }
+  uint8_t bit_width() const { return bit_width_; }
+  int16_t num_exceptions() const { return num_exceptions_; }
+
+  void set_frame_of_reference(T frame_of_reference) {
+    frame_of_reference_ = frame_of_reference;
+  }
+  void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
+  void set_num_exceptions(int16_t num_exceptions) { num_exceptions_ = num_exceptions; }
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(arrow::util::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
-    std::memcpy(ptr, &frame_of_reference, sizeof(T));
-    ptr[sizeof(T)] = bit_width;
-    std::memcpy(ptr + sizeof(T) + 1, &num_exceptions, sizeof(int16_t));
+    util::SafeStore(ptr, frame_of_reference_);
+    ptr[sizeof(T)] = bit_width_;
+    util::SafeStore(ptr + sizeof(T) + 1, num_exceptions_);
   }
 
   /// \brief Load this info from a byte buffer (little-endian)
@@ -67,14 +81,23 @@ struct PforVectorInfo {
     }
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
-    std::memcpy(&info.frame_of_reference, ptr, sizeof(T));
-    info.bit_width = ptr[sizeof(T)];
-    std::memcpy(&info.num_exceptions, ptr + sizeof(T) + 1, sizeof(int16_t));
+    info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
+    info.bit_width_ = ptr[sizeof(T)];
+    info.num_exceptions_ = util::SafeLoadAs<int16_t>(ptr + sizeof(T) + 1);
+    if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
+      return Status::Invalid("PFOR bit_width out of range: ",
+                             static_cast<int>(info.bit_width_));
+    }
     return info;
   }
 
   /// \brief Serialized size in bytes
   static constexpr int64_t kStoredSize = PforTypeTraits<T>::kVectorInfoSize;
+
+ private:
+  T frame_of_reference_ = 0;
+  uint8_t bit_width_ = 0;
+  int16_t num_exceptions_ = 0;
 };
 
 // ----------------------------------------------------------------------
