@@ -16,9 +16,27 @@
 # under the License.
 
 import argparse
+# TODO(GH-48970): Uncomment when wheel stub validation is re-enabled.
+# import ast
 from pathlib import Path
 import re
 import zipfile
+
+
+# TODO(GH-48970): Uncomment when wheel stub validation is re-enabled.
+# def _count_docstrings(source):
+#     """Count docstrings in module, function, and class bodies."""
+#     tree = ast.parse(source)
+#     count = 0
+#     for node in ast.walk(tree):
+#         if isinstance(node, (ast.Module, ast.FunctionDef,
+#                              ast.AsyncFunctionDef, ast.ClassDef)):
+#             if (node.body
+#                     and isinstance(node.body[0], ast.Expr)
+#                     and isinstance(node.body[0].value, ast.Constant)
+#                     and isinstance(node.body[0].value.value, str)):
+#                 count += 1
+#     return count
 
 
 def validate_wheel(path):
