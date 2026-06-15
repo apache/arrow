@@ -138,8 +138,8 @@ Schema <- R6Class(
       renamed_schema <- Schema__WithNames(self, names)
 
       # if we have R metadata containing column names, update names there too
-      if (!is.null(existing_metadata$r$columns)) {
-        names(existing_metadata$r$columns) <- names
+      if (!is.null(existing_metadata[["r"]]$columns)) {
+        names(existing_metadata[["r"]]$columns) <- names
       }
       renamed_schema$WithMetadata(existing_metadata)
     }
@@ -176,10 +176,10 @@ Schema <- R6Class(
       # Helper for the R metadata that handles the serialization
       # See also method on ArrowTabular
       if (missing(new)) {
-        self$metadata$r
+        self$metadata[["r"]]
       } else {
         # Set the R metadata
-        self$metadata$r <- new
+        self$metadata[["r"]] <- new
         self
       }
     }

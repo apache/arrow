@@ -517,3 +517,12 @@ test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame 
   expect_null(attr(spicy_df_no_metadata$num, "format.spss"))
   expect_equal(attr(spicy_df_with_metadata$num, "format.spss"), "F8.2")
 })
+
+test_that("metadata keys starting with 'r' don't cause partial matching - GH-50163", {
+  tbl <- arrow_table(x = 1:3)
+  tbl <- tbl$cast(tbl$schema$WithMetadata(list(rachel = "some_value")))
+
+  expect_no_warning(as.data.frame(tbl))
+  expect_no_warning(collect(tbl))
+  expect_no_error(expect_equal(group_vars(tbl), character(0)))
+})
