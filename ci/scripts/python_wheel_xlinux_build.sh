@@ -157,7 +157,8 @@ check_arrow_visibility
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUNDLE_ARROW_CPP=ON
-export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
+# TODO(GH-49831): Re-enable when pyarrow-stubs are shipped in wheels again.
+# export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
