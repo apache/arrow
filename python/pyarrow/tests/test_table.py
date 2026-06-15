@@ -3469,7 +3469,7 @@ def test_record_batch_sort():
     assert sorted_rb_dict["a"] == [None, None, 5, 5, 6, 7, 7, 35]
     assert sorted_rb_dict["b"] == [1, None, 8, 2, None, 4, 3, 1]
     assert sorted_rb_dict["c"] == ["ear", "dar",
-                                   "foobar", "gar", "far", "foo", "bar", "car"]
+                                   "gar", "foobar", "far", "foo", "bar", "car"]
 
 
 @pytest.mark.numpy
