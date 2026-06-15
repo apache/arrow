@@ -194,8 +194,8 @@ struct ReadRangeCache::Impl {
       // Add new entries, themselves ordered by offset
       if (entries.size() > 0) {
         std::vector<RangeCacheEntry> merged(entries.size() + new_entries.size());
-        std::merge(entries.begin(), entries.end(), new_entries.begin(),
-                   new_entries.end(), merged.begin());
+        std::merge(entries.begin(), entries.end(), new_entries.begin(), new_entries.end(),
+                   merged.begin());
         entries = std::move(merged);
       } else {
         entries = std::move(new_entries);
@@ -276,11 +276,10 @@ struct ReadRangeCache::Impl {
     std::unique_lock<std::mutex> guard(entry_mutex);
     // entries is sorted by range.offset, so we can fast-forward to the first
     // entry whose offset is >= start_offset and stop once we pass end_offset.
-    auto it = std::lower_bound(
-        entries.begin(), entries.end(), start_offset,
-        [](const RangeCacheEntry& entry, int64_t offset) {
-          return entry.range.offset < offset;
-        });
+    auto it = std::lower_bound(entries.begin(), entries.end(), start_offset,
+                               [](const RangeCacheEntry& entry, int64_t offset) {
+                                 return entry.range.offset < offset;
+                               });
     while (it != entries.end() && it->range.offset < end_offset) {
       if (it->range.offset + it->range.length <= end_offset) {
         it = entries.erase(it);
@@ -305,12 +304,12 @@ struct ReadRangeCache::Impl {
     {
       std::unique_lock<std::mutex> guard(entry_mutex);
       for (auto& range : ranges) {
-        const auto it = std::lower_bound(
-            entries.begin(), entries.end(), range,
-            [](const RangeCacheEntry& entry, const ReadRange& range) {
-              return entry.range.offset + entry.range.length <
-                     range.offset + range.length;
-            });
+        const auto it =
+            std::lower_bound(entries.begin(), entries.end(), range,
+                             [](const RangeCacheEntry& entry, const ReadRange& range) {
+                               return entry.range.offset + entry.range.length <
+                                      range.offset + range.length;
+                             });
         if (it != entries.end() && it->range.Contains(range)) {
           futures.push_back(Future<>(MaybeRead(&*it)));
         } else {
@@ -379,7 +378,8 @@ Future<> ReadRangeCache::WaitFor(std::vector<ReadRange> ranges) {
   return impl_->WaitFor(std::move(ranges));
 }
 
-Result<int64_t> ReadRangeCache::EvictEntriesInRange(int64_t start_offset, int64_t length) {
+Result<int64_t> ReadRangeCache::EvictEntriesInRange(int64_t start_offset,
+                                                    int64_t length) {
   return impl_->EvictEntriesInRange(start_offset, length);
 }
 

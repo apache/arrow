@@ -462,8 +462,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
       if (max_end > min_start) {
         PARQUET_THROW_NOT_OK(
-            cached_source_->EvictEntriesInRange(min_start, max_end - min_start)
-                .status());
+            cached_source_->EvictEntriesInRange(min_start, max_end - min_start).status());
       }
     }
   }
@@ -941,8 +940,8 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
-void ParquetFileReader::EvictPreBufferedData(
-    const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
+void ParquetFileReader::EvictPreBufferedData(const std::vector<int>& row_groups,
+                                             const std::vector<int>& column_indices) {
   // Access private methods here
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
