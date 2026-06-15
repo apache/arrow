@@ -2157,6 +2157,44 @@ TEST_P(GroupBy, AnyAndAll) {
   }
 }
 
+TEST_P(GroupBy, AnyAllSlicedNullableBoolean) {
+  auto table = TableFromJSON(schema({field("any_arg", boolean()),
+                                     field("all_arg", boolean()), field("key", int64())}),
+                             {R"([
+    [true,  false, 99],
+    [false, true,  10],
+    [null,  null,  10]
+  ])"});
+  auto sliced = table->Slice(1);
+
+  // GH-50043: hash_any/hash_all should respect the slice offset.
+  // After Slice(1), any_arg=[false, null] and all_arg=[true, null].
+  auto expected = ArrayFromJSON(struct_({
+                                    field("key_0", int64()),
+                                    field("hash_any", boolean()),
+                                    field("hash_all", boolean()),
+                                }),
+                                R"([
+      [10, false, true]
+    ])");
+
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    ASSERT_OK_AND_ASSIGN(auto actual, GroupByTest({sliced->GetColumnByName("any_arg"),
+                                                   sliced->GetColumnByName("all_arg")},
+                                                  {sliced->GetColumnByName("key")},
+                                                  {
+                                                      {"hash_any", nullptr},
+                                                      {"hash_all", nullptr},
+                                                  },
+                                                  use_threads));
+    ValidateOutput(actual);
+
+    AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
 TEST_P(GroupBy, AnyAllScalar) {
   BatchesWithSchema input;
   input.batches = {

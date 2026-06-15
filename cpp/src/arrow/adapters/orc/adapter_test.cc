@@ -1114,6 +1114,31 @@ TEST(TestWriteReadORCBatch, DenseUnionConversion) {
   TestUnionConversion(std::move(array));
 }
 
+TEST(TestWriteReadORCBatch, TimestampOutOfRangeIsRejected) {
+  // A timestamp far past year 2262 does not fit in int64 nanoseconds, so scaling
+  // seconds to nanoseconds overflows. The conversion must report it rather than
+  // produce a garbage value.
+  auto orc_type = liborc::Type::buildTypeFromString("struct<ts:timestamp>");
+
+  MemoryOutputStream mem_stream(kDefaultSmallMemStreamSize);
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+  auto orc_batch = writer->createRowBatch(1);
+
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(orc_batch.get());
+  auto ts_batch =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(struct_batch->fields[0]);
+  ts_batch->data[0] = 10000000000;  // ~year 2286, overflows once scaled to nanos
+  ts_batch->nanoseconds[0] = 0;
+  ts_batch->numElements = 1;
+  ts_batch->hasNulls = false;
+  struct_batch->numElements = 1;
+
+  ASSIGN_OR_ABORT(auto builder, MakeBuilder(timestamp(TimeUnit::NANO)));
+  ASSERT_RAISES(Invalid, adapters::orc::AppendBatch(
+                             orc_type->getSubtype(0), struct_batch->fields[0],
+                             /*offset=*/0, /*length=*/1, builder.get()));
+}
+
 class TestORCWriterMultipleWrite : public ::testing::Test {
  public:
   TestORCWriterMultipleWrite() : rand(kRandomSeed) {}

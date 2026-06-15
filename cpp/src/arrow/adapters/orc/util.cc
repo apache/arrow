@@ -31,6 +31,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
@@ -200,26 +201,27 @@ Status AppendTimestampBatch(liborc::ColumnVectorBatch* column_vector_batch,
   auto builder = checked_cast<TimestampBuilder*>(abuilder);
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(column_vector_batch);
 
-  if (length == 0) {
-    return Status::OK();
-  }
-
-  const uint8_t* valid_bytes = nullptr;
-  if (batch->hasNulls) {
-    valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
-  }
-
   const int64_t* seconds = batch->data.data() + offset;
   const int64_t* nanos = batch->nanoseconds.data() + offset;
 
-  auto transform_timestamp = [seconds, nanos](int64_t index) {
-    return seconds[index] * kOneSecondNanos + nanos[index];
-  };
-
-  auto transform_range = internal::MakeLazyRange(transform_timestamp, length);
-
-  RETURN_NOT_OK(
-      builder->AppendValues(transform_range.begin(), transform_range.end(), valid_bytes));
+  const bool has_nulls = batch->hasNulls;
+  RETURN_NOT_OK(builder->Reserve(length));
+  for (int64_t i = 0; i < length; i++) {
+    if (has_nulls && !batch->notNull[offset + i]) {
+      builder->UnsafeAppendNull();
+      continue;
+    }
+    // A timestamp past ~year 2262 does not fit in int64 nanoseconds; computing
+    // it with a bare `seconds * kOneSecondNanos` is signed overflow.
+    int64_t value;
+    if (ARROW_PREDICT_FALSE(
+            internal::MultiplyWithOverflow(seconds[i], kOneSecondNanos, &value) ||
+            internal::AddWithOverflow(value, nanos[i], &value))) {
+      return Status::Invalid("ORC timestamp (", seconds[i], "s + ", nanos[i],
+                             "ns) is out of range for nanosecond resolution");
+    }
+    builder->UnsafeAppend(value);
+  }
   return Status::OK();
 }
 

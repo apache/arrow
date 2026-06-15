@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:42
-ARG arch
+FROM --platform=linux/${arch} fedora:42
 
 # install dependencies
 RUN dnf update -y && \

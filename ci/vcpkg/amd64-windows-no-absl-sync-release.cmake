@@ -15,13 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG base=ubuntu:24.04
-FROM --platform=linux/${arch} ${base}
+# GH-49465: rebuild gRPC with native sync instead of absl::Mutex to avoid the
+# Windows exit hang. See the ODBC Windows job in cpp_extra.yml
+# Dynamic CRT/linkage and release-only to match that job.
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE dynamic)
+set(VCPKG_BUILD_TYPE release)
 
-ENV DEBIAN_FRONTEND=noninteractive
-COPY dev/release/setup-ubuntu.sh /
-RUN /setup-ubuntu.sh && \
-    rm /setup-ubuntu.sh && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists*
+set(VCPKG_C_FLAGS "/DGPR_DISABLE_ABSEIL_SYNC")
+set(VCPKG_CXX_FLAGS "/DGPR_DISABLE_ABSEIL_SYNC")

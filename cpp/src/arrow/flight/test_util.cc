@@ -265,8 +265,7 @@ std::vector<ActionType> ExampleActionTypes() {
 }
 
 Status ExampleTlsCertificates(std::vector<CertKeyPair>* out) {
-  std::string root;
-  RETURN_NOT_OK(GetTestResourceRoot(&root));
+  ARROW_ASSIGN_OR_RAISE(auto root, GetTestResourceRoot());
 
   *out = std::vector<CertKeyPair>();
   for (int i = 0; i < 2; i++) {
@@ -299,16 +298,11 @@ Status ExampleTlsCertificates(std::vector<CertKeyPair>* out) {
 }
 
 Status ExampleTlsCertificateRoot(CertKeyPair* out) {
-  std::string root;
-  RETURN_NOT_OK(GetTestResourceRoot(&root));
-
-  std::stringstream path;
-  path << root << "/flight/root-ca.pem";
-
+  ARROW_ASSIGN_OR_RAISE(auto path, GetTestResourcePath("flight/root-ca.pem"));
   try {
-    std::ifstream cert_file(path.str());
+    std::ifstream cert_file(path);
     if (!cert_file) {
-      return Status::IOError("Could not open certificate: " + path.str());
+      return Status::IOError("Could not open certificate: " + path);
     }
     std::stringstream cert;
     cert << cert_file.rdbuf();

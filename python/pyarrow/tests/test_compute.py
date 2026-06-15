@@ -1297,6 +1297,124 @@ def test_replace_with_mask_null_type():
     assert result.to_pylist() == [None]
 
 
+def test_replace_with_mask_basic():
+    """Test basic replacement with array mask."""
+    arr = pa.array([1, 2, 3, 4, 5])
+    mask = pa.array([True, False, True, False, True])
+    replacements = pa.array([10, 20, 30])
+    expected = pa.array([10, 2, 20, 4, 30])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_scalar_mask_true():
+    """Test replacement with scalar mask True."""
+    arr = pa.array([1, 2, 3])
+    mask = True
+    replacements = pa.array([10, 20, 30])
+    expected = pa.array([10, 20, 30])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_scalar_mask_false():
+    """Test replacement with scalar mask False."""
+    arr = pa.array([1, 2, 3])
+    mask = False
+    replacements = pa.array([], type=pa.int64())
+    expected = pa.array([1, 2, 3])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_scalar_replacement():
+    """Test replacement with scalar replacement value."""
+    arr = pa.array([1, 2, 3, 4])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.scalar(99)
+    expected = pa.array([99, 2, 99, 4])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_null_in_array():
+    """Test null handling in input array."""
+    arr = pa.array([1, None, 3, None, 5])
+    mask = pa.array([False, True, False, True, True])
+    replacements = pa.array([10, 20, 30])
+    expected = pa.array([1, 10, 3, 20, 30])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_null_in_mask():
+    """Test null handling in mask."""
+    arr = pa.array([1, 2, 3, 4, 5, 6])
+    mask = pa.array([False, False, None, None, True, True])
+    replacements = pa.array([10, None])
+    expected = pa.array([1, 2, None, None, 10, None])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_string_type():
+    """Test replacement with string type."""
+    arr = pa.array(['a', 'b', 'c', 'd'])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array(['x', 'y'])
+    expected = pa.array(['x', 'b', 'y', 'd'])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_float_type():
+    """Test replacement with float type."""
+    arr = pa.array([1.1, 2.2, 3.3, 4.4])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array([10.5, 20.5])
+    expected = pa.array([10.5, 2.2, 20.5, 4.4])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_chunked_array_multiple_chunks():
+    """Test replace_with_mask with ChunkedArray with multiple chunks."""
+    arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+    mask = pa.array([True, False, False, False, True, False])
+    replacements = pa.array([10, 20])
+    expected = pa.chunked_array([[10, 2, 3], [4, 20, 6]])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_chunked_array_empty_chunks():
+    """Test replace_with_mask with ChunkedArray with empty chunks."""
+    arr = pa.chunked_array([[1, 2], [], [3, 4]])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array([10, 20])
+    expected = pa.chunked_array([[10, 2], [20, 4]])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_error_replacement_count_mismatch():
+    """Replacement count does not match true values in mask."""
+    arr = pa.array([1, 2, 3])
+    mask = pa.array([True, True, False])
+    replacements = pa.array([10])
+    with pytest.raises(pa.ArrowInvalid, match="expected 2.*but got 1"):
+        pc.replace_with_mask(arr, mask, replacements)
+
+
+def test_replace_with_mask_error_mask_length_mismatch():
+    """Mask length does not match input array length."""
+    arr = pa.array([1, 2, 3])
+    mask = pa.array([True, False])
+    replacements = pa.array([10])
+    with pytest.raises(pa.ArrowInvalid):
+        pc.replace_with_mask(arr, mask, replacements)
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
@@ -2887,6 +3005,45 @@ def test_count_run_end_encoded_nulls():
     # Slice crosses run boundaries: logical [None, None, 2, 2, 2, None].
     assert pc.count(arr.slice(3, 6), mode="only_valid").as_py() == 3
     assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
+
+
+def test_count_sparse_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        [
+            pa.array([0.5, 99.0, None, 3.0, 88.0, 77.0]),
+            pa.array([False, None, True, False, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
+def test_count_dense_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.5, None, 3.0]),
+            pa.array([None, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
 
 
 def test_index():

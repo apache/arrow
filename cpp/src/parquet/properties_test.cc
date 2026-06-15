@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <optional>
 #include <string>
 
 #include "arrow/buffer.h"
@@ -24,6 +27,7 @@
 
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
+#include "parquet/test_util.h"
 
 namespace parquet {
 
@@ -113,6 +117,104 @@ TEST(TestWriterProperties, SetCodecOptions) {
   ASSERT_EQ(20, std::dynamic_pointer_cast<::arrow::util::BrotliCodecOptions>(
                     props->codec_options(ColumnPath::FromDotString("brotli")))
                     ->window_bits);
+}
+
+TEST(TestWriterProperties, BloomFilterNdvDefaults) {
+  BloomFilterOptions options;
+  ASSERT_FALSE(options.ndv.has_value());
+  ASSERT_TRUE(options.fold);
+  options.fpp = 0.05;
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(12345, resolved->ndv.value());
+  ASSERT_EQ(options.fpp, resolved->fpp);
+  ASSERT_TRUE(resolved->fold);
+}
+
+TEST(TestWriterProperties, BloomFilterExplicitNdv) {
+  BloomFilterOptions options{.ndv = 777, .fpp = 0.05};
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(777, resolved->ndv.value());
+}
+
+TEST(TestWriterProperties, BloomFilterNdvDefaultWithoutFolding) {
+  BloomFilterOptions options{.ndv = std::nullopt, .fpp = 0.05, .fold = false};
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(12345, resolved->ndv.value());
+  ASSERT_EQ(options.fpp, resolved->fpp);
+  ASSERT_FALSE(resolved->fold);
+}
+
+TEST(TestWriterProperties, BloomFilterExplicitNdvWithoutFolding) {
+  BloomFilterOptions options{.ndv = 777, .fpp = 0.05, .fold = false};
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(777, resolved->ndv.value());
+  ASSERT_FALSE(resolved->fold);
+}
+
+TEST(TestWriterProperties, BloomFilterRejectsNegativeNdv) {
+  BloomFilterOptions options{.ndv = -1, .fpp = 0.05};
+
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().enable_bloom_filter("a", options)->build(); },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("Bloom filter number of distinct values must be >= 0")));
+}
+
+TEST(TestWriterProperties, BloomFilterRejectsNanFpp) {
+  BloomFilterOptions options{.ndv = 777, .fpp = std::numeric_limits<double>::quiet_NaN()};
+
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().enable_bloom_filter("a", options)->build(); },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr(
+              "Bloom filter false positive probability must be in (0.0, 1.0)")));
+}
+
+TEST(TestWriterProperties, BloomFilterAllowsZeroNdv) {
+  BloomFilterOptions options{.ndv = 0, .fpp = 0.05};
+
+  auto props = WriterProperties::Builder().enable_bloom_filter("a", options)->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(0, resolved->ndv.value());
 }
 
 TEST(TestWriterProperties, ContentDefinedChunkingSettings) {
@@ -218,6 +320,16 @@ TEST_P(WriterPropertiesTest, RoundTripThroughBuilder) {
               column_properties.page_index_enabled());
     ASSERT_EQ(round_tripped_col.statistics_enabled(),
               column_properties.statistics_enabled());
+    const auto round_tripped_bloom_filter_options =
+        round_tripped_col.bloom_filter_options();
+    const auto bloom_filter_options = column_properties.bloom_filter_options();
+    ASSERT_EQ(round_tripped_bloom_filter_options.has_value(),
+              bloom_filter_options.has_value());
+    if (bloom_filter_options.has_value()) {
+      ASSERT_EQ(round_tripped_bloom_filter_options->ndv, bloom_filter_options->ndv);
+      ASSERT_EQ(round_tripped_bloom_filter_options->fpp, bloom_filter_options->fpp);
+      ASSERT_EQ(round_tripped_bloom_filter_options->fold, bloom_filter_options->fold);
+    }
   }
 }
 
@@ -284,6 +396,13 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     builder.disable_write_page_index();
     builder.enable_write_page_index(column_a);
     test_cases.emplace_back(builder.build(), "page_index_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.max_row_group_length(12345);
+    builder.enable_bloom_filter(
+        column_a, BloomFilterOptions{.ndv = std::nullopt, .fpp = 0.05, .fold = false});
+    test_cases.emplace_back(builder.build(), "bloom_filter_column_override");
   }
 
   return test_cases;

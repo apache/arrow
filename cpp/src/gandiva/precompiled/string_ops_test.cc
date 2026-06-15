@@ -1132,7 +1132,7 @@ TEST(TestStringOps, TestLevenshtein) {
   EXPECT_EQ(levenshtein(ctx_ptr, "book", -5, "back", 4), 0);
   EXPECT_TRUE(ctx.has_error());
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("String length must be greater than 0"));
+              ::testing::HasSubstr("LEVENSHTEIN: input lengths must be non-negative"));
   ctx.Reset();
 }
 

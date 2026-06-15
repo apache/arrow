@@ -1761,4 +1761,80 @@ TEST(TestDictionaryUnifier, TableZeroColumns) {
   AssertTablesEqual(*table, *unified);
 }
 
+// GH-49689: Ordered dictionary tests
+
+TEST(TestDictionaryBuilderOrdered, TypePreservesOrderedFlag) {
+  for (bool ordered : {true, false}) {
+    ARROW_SCOPED_TRACE("ordered = ", ordered);
+    auto dict_type = dictionary(int8(), utf8(), ordered);
+    ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
+
+    auto builder_type = boxed_builder->type();
+    ASSERT_EQ(checked_cast<const DictionaryType&>(*builder_type).ordered(), ordered);
+  }
+}
+
+TEST(TestDictionaryBuilderOrdered, FinishPreservesOrderedFlag) {
+  for (bool ordered : {true, false}) {
+    ARROW_SCOPED_TRACE("ordered = ", ordered);
+    auto dict_type = dictionary(int8(), utf8(), ordered);
+    ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
+    auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+
+    ASSERT_OK(builder.Append("a"));
+    ASSERT_OK(builder.Append("b"));
+    ASSERT_OK(builder.Append("a"));
+
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder.Finish(&result));
+
+    const auto& result_type = checked_cast<const DictionaryType&>(*result->type());
+    ASSERT_EQ(result_type.ordered(), ordered);
+
+    auto ex_dict = ArrayFromJSON(utf8(), R"(["a", "b"])");
+    auto ex_indices = ArrayFromJSON(int8(), "[0, 1, 0]");
+    DictionaryArray expected(dict_type, ex_indices, ex_dict);
+    AssertArraysEqual(expected, *result);
+  }
+}
+
+TEST(TestDictionaryBuilderOrdered, ListOfOrderedDictionary) {
+  for (bool ordered : {true, false}) {
+    ARROW_SCOPED_TRACE("ordered = ", ordered);
+    auto dict_type = dictionary(int8(), utf8(), ordered);
+    auto list_type = list(field("item", dict_type));
+
+    ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(list_type));
+    auto& list_builder = checked_cast<ListBuilder&>(*boxed_builder);
+    auto& dict_builder =
+        checked_cast<DictionaryBuilder<StringType>&>(*list_builder.value_builder());
+
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(dict_builder.Append("a"));
+    ASSERT_OK(dict_builder.Append("b"));
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(dict_builder.Append("a"));
+
+    std::shared_ptr<Array> result;
+    ASSERT_OK(list_builder.Finish(&result));
+
+    const auto& result_list_type = checked_cast<const ListType&>(*result->type());
+    const auto& result_dict_type =
+        checked_cast<const DictionaryType&>(*result_list_type.value_type());
+    ASSERT_EQ(result_dict_type.ordered(), ordered);
+  }
+}
+
+TEST(TestDictionaryBuilderOrdered, MakeDictionaryBuilderPreservesOrdered) {
+  for (bool ordered : {true, false}) {
+    ARROW_SCOPED_TRACE("ordered = ", ordered);
+    auto dict_type = dictionary(int8(), utf8(), ordered);
+    ASSERT_OK_AND_ASSIGN(auto builder,
+                         MakeDictionaryBuilder(dict_type, /*dictionary=*/nullptr));
+
+    auto builder_type = builder->type();
+    ASSERT_EQ(checked_cast<const DictionaryType&>(*builder_type).ordered(), ordered);
+  }
+}
+
 }  // namespace arrow
