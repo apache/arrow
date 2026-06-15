@@ -89,9 +89,10 @@ sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/", "pyarrow-stu
 wheel.packages = ["pyarrow"]
 wheel.install-dir = "pyarrow"
 # TODO(GH-48970): Remove this when stubfiles are complete
-# Withhold the PEP 561 marker until the type stubs are complete. The .pyi files still ship
-# and are tested in CI, but without py.typed type checkers ignore them, we don't break
-# downstream users (GH-49831). The file is kept in-tree for CI type-checking.
+# Withhold the PEP 561 marker until the type stubs are complete. The .pyi files
+# are also temporarily omitted from wheels, so type checkers don't rely on the
+# incomplete stubs and break downstream users (GH-49831). py.typed is kept
+# in-tree for CI type-checking.
 wheel.exclude = ["pyarrow/py.typed"]
 
 [tool.scikit-build.cmake.define]
