@@ -351,12 +351,14 @@ struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
 
 using ::std::optional;
 
-// True when min/max still hold the DefaultMin()/DefaultMax() seeds, i.e. no
-// valid (non-NaN) value was observed. The seeds satisfy DefaultMin > DefaultMax
-// -- an ordering real data can never produce -- so this does not depend on the
-// specific seed values and stays in sync with DefaultMin()/DefaultMax().
+// A usable min/max pair always satisfies min <= max. The reverse ordering
+// (min > max) is produced only by the inverted DefaultMin()/DefaultMax() seeds
+// -- left in place when no valid, non-NaN value was observed -- or by an
+// inverted caller-supplied range; in either case there is no statistic to emit.
+// Testing the ordering keeps this independent of the specific seed values, so it
+// cannot drift from DefaultMin()/DefaultMax().
 template <typename T>
-bool IsUninitializedMinMax(const T& min, const T& max) {
+bool IsInvalidMinMax(const T& min, const T& max) {
   return max < min;
 }
 
@@ -387,8 +389,9 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
     return ::std::nullopt;
   }
 
-  // No valid (non-NaN) value was seen: the running min/max still hold the seeds.
-  if (IsUninitializedMinMax(min, max)) {
+  // Discard an inverted min/max: either an empty/all-NaN input left the seeds in
+  // place, or the supplied range is invalid. A real value always has min <= max.
+  if (IsInvalidMinMax(min, max)) {
     return ::std::nullopt;
   }
 
@@ -415,7 +418,7 @@ optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_
     return ::std::nullopt;
   }
 
-  if (IsUninitializedMinMax(min, max)) {
+  if (IsInvalidMinMax(min, max)) {
     return ::std::nullopt;
   }
 
