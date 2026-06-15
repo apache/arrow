@@ -2399,7 +2399,7 @@ class PforDecoder : public TypedDecoderImpl<DType> {
     // Decode all values on first call, cache for subsequent calls
     if (decoded_values_.empty() && this->num_values_ > 0) {
       decoded_values_.resize(this->num_values_);
-      arrow::util::pfor::PforWrapper<T>::Decode(
+      ::arrow::util::pfor::PforWrapper<T>::Decode(
           decoded_values_.data(), static_cast<uint32_t>(this->num_values_),
           reinterpret_cast<const char*>(data_), static_cast<size_t>(data_len_));
     }

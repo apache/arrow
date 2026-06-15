@@ -1783,17 +1783,17 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     }
 
     const uint32_t num_values = static_cast<uint32_t>(values_.size());
-    size_t max_size =
-        arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values);
+    int64_t max_size =
+        ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values);
     PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateResizableBuffer(
-                                             static_cast<int64_t>(max_size), pool_));
+                                             max_size, pool_));
 
-    size_t comp_size = max_size;
-    arrow::util::pfor::PforWrapper<T>::Encode(
+    int64_t comp_size = max_size;
+    ::arrow::util::pfor::PforWrapper<T>::Encode(
         values_.data(), num_values,
         reinterpret_cast<char*>(buffer->mutable_data()), &comp_size);
 
-    PARQUET_THROW_NOT_OK(buffer->Resize(static_cast<int64_t>(comp_size)));
+    PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
     values_.clear();
     return std::move(buffer);
   }
