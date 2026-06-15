@@ -502,7 +502,7 @@ class RecordBatchSelector {
           input_indices_begin, input_indices_end, arr, 0,
           first_remaining_sort_key.null_placement);
 
-      // From k = output_range.size(), calculate
+      // From k = output_indices_.size(), calculate
       //   l = non_null_like elements to take from PartitionResult
       //   m = nan elements to take from PartitionResult
       //   n = null elements to take from PartitionResult
