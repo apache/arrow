@@ -69,34 +69,34 @@ TEST(PforBitsRequiredTest, Int64) {
 
 TEST(PforVectorInfoTest, Int32RoundTrip) {
   PforVectorInfo<int32_t> info;
-  info.frame_of_reference = -42;
-  info.bit_width = 17;
-  info.num_exceptions = 300;
+  info.set_frame_of_reference(-42);
+  info.set_bit_width(17);
+  info.set_num_exceptions(300);
 
   uint8_t buf[7];
   info.Store(arrow::util::span<uint8_t>(buf, 7));
   ASSERT_OK_AND_ASSIGN(auto loaded,
                        PforVectorInfo<int32_t>::Load(arrow::util::span<const uint8_t>(buf, 7)));
 
-  EXPECT_EQ(loaded.frame_of_reference, -42);
-  EXPECT_EQ(loaded.bit_width, 17);
-  EXPECT_EQ(loaded.num_exceptions, 300);
+  EXPECT_EQ(loaded.frame_of_reference(), -42);
+  EXPECT_EQ(loaded.bit_width(), 17);
+  EXPECT_EQ(loaded.num_exceptions(), 300);
 }
 
 TEST(PforVectorInfoTest, Int64RoundTrip) {
   PforVectorInfo<int64_t> info;
-  info.frame_of_reference = -123456789012345LL;
-  info.bit_width = 48;
-  info.num_exceptions = 30000;
+  info.set_frame_of_reference(-123456789012345LL);
+  info.set_bit_width(48);
+  info.set_num_exceptions(30000);
 
   uint8_t buf[11];
   info.Store(arrow::util::span<uint8_t>(buf, 11));
   ASSERT_OK_AND_ASSIGN(auto loaded,
                        PforVectorInfo<int64_t>::Load(arrow::util::span<const uint8_t>(buf, 11)));
 
-  EXPECT_EQ(loaded.frame_of_reference, -123456789012345LL);
-  EXPECT_EQ(loaded.bit_width, 48);
-  EXPECT_EQ(loaded.num_exceptions, 30000);
+  EXPECT_EQ(loaded.frame_of_reference(), -123456789012345LL);
+  EXPECT_EQ(loaded.bit_width(), 48);
+  EXPECT_EQ(loaded.num_exceptions(), 30000);
 }
 
 // ======================================================================
@@ -139,8 +139,8 @@ TEST(PforVectorTest, Int32SimpleSequence) {
   std::iota(values.begin(), values.end(), 100);
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 64);
-  EXPECT_EQ(encoded.info.frame_of_reference, 100);
-  EXPECT_EQ(encoded.info.num_exceptions, 0);
+  EXPECT_EQ(encoded.info.frame_of_reference(), 100);
+  EXPECT_EQ(encoded.info.num_exceptions(), 0);
 
   // Serialize then decode
   size_t serialized_size =
@@ -158,8 +158,8 @@ TEST(PforVectorTest, Int32WithOutlier) {
   std::vector<int32_t> values = {100, 102, 101, 103, 100, 99, 50000, 104};
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 8);
-  EXPECT_EQ(encoded.info.frame_of_reference, 99);
-  EXPECT_GT(encoded.info.num_exceptions, 0);
+  EXPECT_EQ(encoded.info.frame_of_reference(), 99);
+  EXPECT_GT(encoded.info.num_exceptions(), 0);
 
   size_t serialized_size =
       PforCompression<int32_t>::SerializedVectorSize(encoded, 8);
@@ -176,8 +176,8 @@ TEST(PforVectorTest, Int32AllIdentical) {
   std::vector<int32_t> values(100, 42);
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 100);
-  EXPECT_EQ(encoded.info.bit_width, 0);
-  EXPECT_EQ(encoded.info.num_exceptions, 0);
+  EXPECT_EQ(encoded.info.bit_width(), 0);
+  EXPECT_EQ(encoded.info.num_exceptions(), 0);
 
   size_t serialized_size =
       PforCompression<int32_t>::SerializedVectorSize(encoded, 100);
@@ -194,7 +194,7 @@ TEST(PforVectorTest, Int32NegativeValues) {
   std::vector<int32_t> values = {-100, -50, -200, -1, -150};
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 5);
-  EXPECT_EQ(encoded.info.frame_of_reference, -200);
+  EXPECT_EQ(encoded.info.frame_of_reference(), -200);
 
   size_t serialized_size =
       PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
@@ -246,7 +246,7 @@ TEST(PforVectorTest, Int64WithOutlier) {
   values[42] = 999999999999LL;  // Outlier
 
   auto encoded = PforCompression<int64_t>::EncodeVector(values.data(), 100);
-  EXPECT_GT(encoded.info.num_exceptions, 0);
+  EXPECT_GT(encoded.info.num_exceptions(), 0);
 
   size_t serialized_size =
       PforCompression<int64_t>::SerializedVectorSize(encoded, 100);
