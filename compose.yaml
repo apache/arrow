@@ -383,7 +383,7 @@ services:
     environment:
       - "DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$$en_US"
     healthcheck:
-      test: curl --fail http://localhost:9047 || exit 1
+      test: curl --fail http://localhost:9047
       interval: 10s
       timeout: 5s
       retries: 30
