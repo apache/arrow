@@ -3401,7 +3401,7 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
    *
    * Whether nulls and NaNs are placed at the start or at the end.
    *
-   * Since: 24.0.0
+   * Since: 25.0.0
    */
   spec = g_param_spec_enum(
     "null-placement",

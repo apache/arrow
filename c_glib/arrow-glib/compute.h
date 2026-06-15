@@ -539,7 +539,7 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
  * `GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED` is used to specify
  * `std::nullopt`.
  *
- * Since: 24.0.0
+ * Since: 25.0.0
  */
 typedef enum /*<prefix=GARROW_OPTIONAL_NULL_PLACEMENT_>*/ {
   GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED = -1,

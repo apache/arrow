@@ -2282,7 +2282,7 @@ class SortOptions(_SortOptions):
         if null_placement is not None:
             warnings.warn(
                 "Specifying null_placement in SortOptions is deprecated "
-                "as of 24.0.0. Specify null_placement per sort_key instead.",
+                "as of 25.0.0. Specify null_placement per sort_key instead.",
                 FutureWarning
             )
         self._set_options(sort_keys, null_placement)
@@ -2532,7 +2532,7 @@ class RankOptions(_RankOptions):
         if null_placement is not None:
             warnings.warn(
                 "Specifying null_placement in RankOptions is deprecated "
-                "as of 24.0.0. Specify null_placement per sort_key instead.",
+                "as of 25.0.0. Specify null_placement per sort_key instead.",
                 FutureWarning
             )
         self._set_options(sort_keys, null_placement, tiebreaker)
@@ -2579,7 +2579,7 @@ class RankQuantileOptions(_RankQuantileOptions):
         if null_placement is not None:
             warnings.warn(
                 "Specifying null_placement in RankOptions is deprecated "
-                "as of 24.0.0. Specify null_placement per sort_key instead.",
+                "as of 25.0.0. Specify null_placement per sort_key instead.",
                 FutureWarning
             )
         self._set_options(sort_keys, null_placement)

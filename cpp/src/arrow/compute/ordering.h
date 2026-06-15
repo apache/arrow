@@ -66,7 +66,7 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   explicit Ordering(std::vector<SortKey> sort_keys) : sort_keys_(std::move(sort_keys)) {}
 
   // DEPRECATED(will be removed after removing null_placement from Ordering)
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
   Ordering(std::vector<SortKey> sort_keys, std::optional<NullPlacement> null_placement)
       : sort_keys_(std::move(sort_keys)), null_placement_(null_placement) {}
   /// true if data ordered by other is also ordered by this

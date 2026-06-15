@@ -114,7 +114,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   SortOptions& operator=(const SortOptions&) = default;
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
   explicit SortOptions(std::vector<SortKey> sort_keys,
                        std::optional<NullPlacement> null_placement);
 
@@ -147,10 +147,10 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
 
-  // DEPRECATED(Deprecated in arrow 24.0.0, use null_placement in sort_keys instead)
+  // DEPRECATED(Deprecated in arrow 25.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
   std::optional<NullPlacement> null_placement;
 };
 
@@ -211,7 +211,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
   explicit RankOptions(std::vector<SortKey> sort_keys,
                        std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First);
@@ -251,7 +251,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
   std::optional<NullPlacement> null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
@@ -293,7 +293,7 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
   // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
   std::optional<NullPlacement> null_placement;
 };
 
