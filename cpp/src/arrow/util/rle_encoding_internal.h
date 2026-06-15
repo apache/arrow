@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <limits>
 #include <type_traits>
 #include <variant>
@@ -32,6 +33,7 @@
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow::util {
 
@@ -116,6 +118,9 @@ class RleRun {
     std::copy(data, data + raw_data_size(value_bit_width), data_.begin());
   }
 
+  /// The repeated value in the run
+  uint64_t value() const noexcept { return SafeLoadAs<uint64_t>(data_.data()); }
+
   /// The number of repeated values in this run.
   constexpr rle_size_t values_count() const noexcept { return values_count_; }
 
@@ -132,7 +137,7 @@ class RleRun {
  private:
   /// The repeated value raw bytes stored inside the class with enough space to store
   /// up to a 64 bit value.
-  std::array<uint8_t, 8> data_ = {};
+  alignas(8) std::array<uint8_t, 8> data_ = {};
   /// The number of time the value is repeated.
   rle_size_t values_count_ = 0;
 };
