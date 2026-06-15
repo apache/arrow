@@ -433,18 +433,16 @@ TEST_F(S3OptionsTest, FromUriAndOptionsCredentials) {
               Raises(StatusCode::Invalid, ::testing::HasSubstr("wrong type")));
 }
 
-TEST_F(S3OptionsTest, FromUriAndOptionsCredentialPrecedence) {
+TEST_F(S3OptionsTest, FromUriAndOptionsCredentialConflict) {
   std::string path;
   S3Options options;
-  // options override URI userinfo when not empty
   FileSystemFactoryOptions kv{
       {"access_key", std::string("opt_access_key")},
       {"secret_key", std::string("opt_secret_key")},
   };
+
   ASSERT_OK_AND_ASSIGN(
-      options,
-      S3Options::FromUriAndOptions(
-          "s3://uri_access_key:uri_secret_key@mybucket?region=us-east-1", kv, &path));
+      options, S3Options::FromUriAndOptions("s3://mybucket?region=us-east-1", kv, &path));
   ASSERT_EQ(options.GetAccessKey(), "opt_access_key");
   ASSERT_EQ(options.GetSecretKey(), "opt_secret_key");
 
@@ -454,6 +452,12 @@ TEST_F(S3OptionsTest, FromUriAndOptionsCredentialPrecedence) {
           "s3://uri_access_key:uri_secret_key@mybucket?region=us-east-1", {}, &path));
   ASSERT_EQ(options.GetAccessKey(), "uri_access_key");
   ASSERT_EQ(options.GetSecretKey(), "uri_secret_key");
+
+  // Providing credentials both in the URI and in the options is Invalid.
+  ASSERT_THAT(
+      S3Options::FromUriAndOptions(
+          "s3://uri_access_key:uri_secret_key@mybucket?region=us-east-1", kv, &path),
+      Raises(StatusCode::Invalid, ::testing::HasSubstr("provided both")));
 }
 
 TEST_F(S3OptionsTest, FromUriAndOptionsRetryStrategy) {

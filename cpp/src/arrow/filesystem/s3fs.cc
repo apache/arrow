@@ -337,26 +337,6 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
   return FromUri(uri, out_path);
 }
 
-namespace {
-
-template <typename T>
-Result<T> GetOption(const std::string& key, const std::any& value) {
-  if (const auto* v = std::any_cast<T>(&value)) {
-    return *v;
-  }
-  return Status::Invalid("S3 filesystem option '", key, "' has the wrong type");
-}
-
-template <typename T>
-Result<std::shared_ptr<const T>> GetConstSharedPtrOption(const std::string& key,
-                                                         const std::any& value) {
-  if (const auto* v = std::any_cast<std::shared_ptr<const T>>(&value)) return *v;
-  if (const auto* v = std::any_cast<std::shared_ptr<T>>(&value)) return *v;
-  return Status::Invalid("S3 filesystem option '", key, "' has the wrong type");
-}
-
-}  // namespace
-
 Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
                                                const FileSystemFactoryOptions& options,
                                                std::string* out_path) {
@@ -365,17 +345,19 @@ Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
   std::shared_ptr<const KeyValueMetadata> default_metadata;
   for (const auto& [key, value] : options) {
     if (key == "access_key") {
-      ARROW_ASSIGN_OR_RAISE(access_key, GetOption<std::string>(key, value));
+      ARROW_ASSIGN_OR_RAISE(access_key, internal::GetOption<std::string>(key, value));
     } else if (key == "secret_key") {
-      ARROW_ASSIGN_OR_RAISE(secret_key, GetOption<std::string>(key, value));
+      ARROW_ASSIGN_OR_RAISE(secret_key, internal::GetOption<std::string>(key, value));
     } else if (key == "session_token") {
-      ARROW_ASSIGN_OR_RAISE(session_token, GetOption<std::string>(key, value));
+      ARROW_ASSIGN_OR_RAISE(session_token, internal::GetOption<std::string>(key, value));
     } else if (key == "retry_strategy") {
-      ARROW_ASSIGN_OR_RAISE(retry_strategy,
-                            GetOption<std::shared_ptr<S3RetryStrategy>>(key, value));
+      ARROW_ASSIGN_OR_RAISE(
+          retry_strategy,
+          internal::GetOption<std::shared_ptr<S3RetryStrategy>>(key, value));
     } else if (key == "default_metadata") {
-      ARROW_ASSIGN_OR_RAISE(default_metadata,
-                            GetConstSharedPtrOption<KeyValueMetadata>(key, value));
+      ARROW_ASSIGN_OR_RAISE(
+          default_metadata,
+          internal::GetConstSharedPtrOption<KeyValueMetadata>(key, value));
     } else {
       return Status::Invalid("Unexpected option for S3 filesystem: '", key, "'");
     }
@@ -416,15 +398,18 @@ Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
     options_map.emplace(kv.first, kv.second);
   }
 
+  const auto username = uri.username();
+  if (access_key.has_value() && !username.empty()) {
+    return Status::Invalid(
+        "Credentials provided both in the URI and through filesystem options");
+  }
+
   if (access_key.has_value()) {
     s3_options.ConfigureAccessKey(*access_key, *secret_key, session_token.value_or(""));
+  } else if (!username.empty()) {
+    s3_options.ConfigureAccessKey(username, uri.password());
   } else {
-    const auto username = uri.username();
-    if (!username.empty()) {
-      s3_options.ConfigureAccessKey(username, uri.password());
-    } else {
-      s3_options.ConfigureDefaultCredentials();
-    }
+    s3_options.ConfigureDefaultCredentials();
   }
 
   // Prefer AWS service-specific endpoint url
