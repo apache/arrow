@@ -399,7 +399,8 @@ Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
   }
 
   const auto username = uri.username();
-  if (access_key.has_value() && !username.empty()) {
+  const auto password = uri.password();
+  if (access_key.has_value() && (!username.empty() || !password.empty())) {
     return Status::Invalid(
         "Credentials provided both in the URI and through filesystem options");
   }
@@ -407,7 +408,7 @@ Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
   if (access_key.has_value()) {
     s3_options.ConfigureAccessKey(*access_key, *secret_key, session_token.value_or(""));
   } else if (!username.empty()) {
-    s3_options.ConfigureAccessKey(username, uri.password());
+    s3_options.ConfigureAccessKey(username, password);
   } else {
     s3_options.ConfigureDefaultCredentials();
   }
