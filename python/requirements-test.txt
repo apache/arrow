@@ -3,5 +3,6 @@ hypothesis
 packaging
 pandas
 pytest
+pytest-xdist
 pytz
 pyuwsgi; sys.platform != 'win32' and python_version < '3.13'

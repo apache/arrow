@@ -38,6 +38,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           path: arrow
           # fetch the tags for version number generation
           fetch-depth: 0
@@ -53,8 +54,8 @@ jobs:
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
         run: |
           archery --debug trigger-bot \
-            --event-name ${{ github.event_name }} \
-            --event-payload ${{ github.event_path }}
+            --event-name "${GITHUB_EVENT_NAME}" \
+            --event-payload "${GITHUB_EVENT_PATH}"
 
   issue_assign:
     name: "Assign issue"
@@ -63,7 +64,7 @@ jobs:
     if: github.event.comment.body == 'take'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

@@ -162,7 +162,8 @@ Result<TypeHolder> ListSliceOutputType(const ListSliceOptions& opts,
           "`stop` being set.");
     }
     if (opts.step < 1) {
-      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
+      return Status::Invalid("`step` must be greater than or equal to 1, got: ",
+                             opts.step);
     }
     const auto length = ListSliceLength(opts.start, opts.step, *stop);
     return fixed_size_list(value_type, static_cast<int32_t>(length));
@@ -183,14 +184,15 @@ struct ListSlice {
     const auto* list_type = checked_cast<const BaseListType*>(list_array.type);
 
     // Pre-conditions
-    if (opts.start < 0 || (opts.stop.has_value() && opts.start >= opts.stop.value())) {
-      // TODO(ARROW-18281): support start == stop which should give empty lists
-      return Status::Invalid("`start`(", opts.start,
-                             ") should be greater than 0 and smaller than `stop`(",
-                             ToString(opts.stop), ")");
+    if (opts.start < 0 || (opts.stop.has_value() && opts.start > opts.stop.value())) {
+      return Status::Invalid(
+          "`start`(", opts.start,
+          ") should be greater than or equal to 0 and not greater than `stop`(",
+          ToString(opts.stop), ")");
     }
     if (opts.step < 1) {
-      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
+      return Status::Invalid("`step` must be greater than or equal to 1, got: ",
+                             opts.step);
     }
 
     auto* pool = ctx->memory_pool();

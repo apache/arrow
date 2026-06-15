@@ -163,10 +163,12 @@ struct _GArrowFeatherWritePropertiesClass
 };
 
 GARROW_AVAILABLE_IN_0_17
+GARROW_DEPRECATED_IN_24_0_FOR(garrow_write_options_new)
 GArrowFeatherWriteProperties *
 garrow_feather_write_properties_new(void);
 
 GARROW_AVAILABLE_IN_0_17
+GARROW_DEPRECATED_IN_24_0_FOR(garrow_record_batch_file_writer_new)
 gboolean
 garrow_table_write_as_feather(GArrowTable *table,
                               GArrowOutputStream *sink,

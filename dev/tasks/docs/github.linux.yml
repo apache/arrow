@@ -44,6 +44,7 @@ jobs:
       - name: Checkout Crossbow
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: {{ default_branch|default("main") }}
           path: crossbow
           fetch-depth: 1

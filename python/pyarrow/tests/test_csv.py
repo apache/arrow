@@ -213,6 +213,18 @@ def test_read_options(pickle_module):
         opts.column_names = ('a', 'b')
         opts.validate()
 
+    expected_repr_inner = """
+    use_threads=True,
+    block_size=1048576,
+    skip_rows=0,
+    skip_rows_after_names=0,
+    column_names=['a', 'b'],
+    autogenerate_column_names=True,
+    encoding='utf8'"""
+
+    assert repr(opts) == f"<pyarrow.csv.ReadOptions>({expected_repr_inner})"
+    assert str(opts) == f"ReadOptions({expected_repr_inner})"
+
 
 def test_parse_options(pickle_module):
     cls = ParseOptions
@@ -273,6 +285,18 @@ def test_parse_options(pickle_module):
         opts.escape_char = "\r"
         opts.validate()
 
+    expected_repr_inner = r"""
+    delimiter=',',
+    quote_char='"',
+    double_quote=True,
+    escape_char='\r',
+    newlines_in_values=False,
+    ignore_empty_lines=True,
+    invalid_row_handler=None"""
+
+    assert repr(opts) == f"<pyarrow.csv.ParseOptions>({expected_repr_inner})"
+    assert str(opts) == f"ParseOptions({expected_repr_inner})"
+
 
 def test_convert_options(pickle_module):
     cls = ConvertOptions
@@ -297,7 +321,8 @@ def test_convert_options(pickle_module):
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
-        timestamp_parsers=[ISO8601, '%y-%m'])
+        timestamp_parsers=[ISO8601, '%y-%m'],
+        default_column_type=pa.int16())
 
     with pytest.raises(ValueError):
         opts.decimal_point = '..'
@@ -325,6 +350,17 @@ def test_convert_options(pickle_module):
     with pytest.raises(TypeError):
         opts.column_types = 0
 
+    assert opts.default_column_type is None
+    opts.default_column_type = pa.string()
+    assert opts.default_column_type == pa.string()
+    opts.default_column_type = 'int32'
+    assert opts.default_column_type == pa.int32()
+    opts.default_column_type = None
+    assert opts.default_column_type is None
+
+    with pytest.raises(TypeError, match='DataType expected'):
+        opts.default_column_type = 123
+
     assert isinstance(opts.null_values, list)
     assert '' in opts.null_values
     assert 'N/A' in opts.null_values
@@ -344,15 +380,35 @@ def test_convert_options(pickle_module):
     assert opts.timestamp_parsers == [ISO8601]
 
     opts = cls(column_types={'a': pa.null()},
+               default_column_type=pa.int16(),
                null_values=['N', 'nn'], true_values=['T', 'tt'],
                false_values=['F', 'ff'], auto_dict_max_cardinality=999,
                timestamp_parsers=[ISO8601, '%Y-%m-%d'])
     assert opts.column_types == {'a': pa.null()}
+    assert opts.default_column_type == pa.int16()
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
     assert opts.auto_dict_max_cardinality == 999
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
+
+    expected_repr_inner = ("""
+    check_utf8=True,
+    column_types={'a': DataType(null)},
+    default_column_type=DataType(int16),
+    null_values=['N', 'nn'],
+    true_values=['T', 'tt'],
+    false_values=['F', 'ff'],
+    decimal_point='.',
+    strings_can_be_null=False,
+    quoted_strings_can_be_null=True,
+    include_columns=[],
+    include_missing_columns=False,
+    auto_dict_encode=False,
+    auto_dict_max_cardinality=999,
+    timestamp_parsers=['ISO8601', '%Y-%m-%d']""")
+    assert repr(opts) == f"<pyarrow.csv.ConvertOptions>({expected_repr_inner})"
+    assert str(opts) == f"ConvertOptions({expected_repr_inner})"
 
 
 def test_write_options():
@@ -377,6 +433,15 @@ def test_write_options():
         opts = cls()
         opts.batch_size = 0
         opts.validate()
+
+    expected_repr_inner = """
+    include_header=True,
+    batch_size=0,
+    delimiter=',',
+    quoting_style='needed'"""
+
+    assert repr(opts) == f"<pyarrow.csv.WriteOptions>({expected_repr_inner})"
+    assert str(opts) == f"WriteOptions({expected_repr_inner})"
 
 
 class BaseTestCSV(abc.ABC):
@@ -1331,6 +1396,61 @@ class BaseCSVTableRead(BaseTestCSV):
             'y': ['b', 'd', 'f'],
         }
 
+    def test_default_column_type(self):
+        rows = b"a,b,c,d\n001,2.5,hello,true\n4,3.14,world,false\n"
+
+        # Test with default_column_type only -
+        # all columns should use the specified type.
+        opts = ConvertOptions(default_column_type=pa.string())
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.string()),
+                            ('c', pa.string()),
+                            ('d', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["001", "4"],
+            'b': ["2.5", "3.14"],
+            'c': ["hello", "world"],
+            'd': ["true", "false"],
+        }
+
+        # Test with both column_types and default_column_type
+        # Columns specified in column_types should override default_column_type
+        opts = ConvertOptions(
+            column_types={'b': pa.float64(), 'd': pa.bool_()},
+            default_column_type=pa.string()
+        )
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.float64()),
+                            ('c', pa.string()),
+                            ('d', pa.bool_())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["001", "4"],
+            'b': [2.5, 3.14],
+            'c': ["hello", "world"],
+            'd': [True, False],
+        }
+
+        # Test that default_column_type disables type inference
+        opts_no_default = ConvertOptions(column_types={'b': pa.float64()})
+        table_no_default = self.read_bytes(rows, convert_options=opts_no_default)
+
+        opts_with_default = ConvertOptions(
+            column_types={'b': pa.float64()},
+            default_column_type=pa.string()
+        )
+        table_with_default = self.read_bytes(rows, convert_options=opts_with_default)
+
+        # Column 'a' should be int64 without default, string with default
+        assert table_no_default.schema.field('a').type == pa.int64()
+        assert table_with_default.schema.field('a').type == pa.string()
+        # Column 'b' should always be float64 since explicitly typed
+        assert table_no_default.schema.field('b').type == pa.float64()
+        assert table_with_default.schema.field('b').type == pa.float64()
+
     def test_no_ending_newline(self):
         # No \n after last line
         rows = b"a,b,c\n1,2,3\n4,5,6"
@@ -2065,3 +2185,37 @@ def test_read_csv_gil_deadlock():
     for i in range(20):
         with pytest.raises(pa.ArrowInvalid):
             read_csv(MyBytesIO(data))
+
+
+@pytest.mark.parametrize("tables,expected", [
+    # GH-36889: Empty batch at the beginning
+    (
+        lambda: [pa.table({"col1": []}).cast(pa.schema([("col1", pa.string())])),
+                 pa.table({"col1": ["a"]}),
+                 pa.table({"col1": ["b"]})],
+        b'"col1"\n"a"\n"b"\n'
+    ),
+    # GH-36889: Empty batch in the middle
+    (
+        lambda: [pa.table({"col1": ["a"]}),
+                 pa.table({"col1": []}).cast(pa.schema([("col1", pa.string())])),
+                 pa.table({"col1": ["b"]})],
+        b'"col1"\n"a"\n"b"\n'
+    ),
+    # GH-36889: Empty batch at the end
+    (
+        lambda: [pa.table({"col1": ["a"]}),
+                 pa.table({"col1": ["b"]}),
+                 pa.table({"col1": []}).cast(pa.schema([("col1", pa.string())]))],
+        b'"col1"\n"a"\n"b"\n'
+    ),
+])
+def test_write_csv_empty_batch_should_not_pollute_output(tables, expected):
+    combined = pa.concat_tables(tables())
+
+    buf = io.BytesIO()
+    write_csv(combined, buf)
+    buf.seek(0)
+    result = buf.read()
+
+    assert result == expected

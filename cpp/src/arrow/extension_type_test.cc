@@ -40,9 +40,9 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 
-namespace arrow {
-
 using arrow::ipc::test::RoundtripBatch;
+
+namespace arrow {
 
 class Parametric1Array : public ExtensionArray {
  public:

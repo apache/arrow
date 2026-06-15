@@ -45,14 +45,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/ree_util.h"
-#include "arrow/util/span.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
 
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::FirstTimeBitmapWriter;
-using ::arrow::util::span;
 
 namespace {
 
@@ -277,8 +275,16 @@ template <typename T>
 concept CBooleanConcept = std::same_as<T, bool>;
 
 // XXX: Ideally we want to have std::floating_point<Float16> = true.
+// Some older standard library implementations (e.g., macOS 11.x libc++) have partial
+// C++20 concepts support with std::same_as but lack std::floating_point.
+#if defined(__cpp_lib_concepts) && __cpp_lib_concepts >= 202002L
 template <typename T>
 concept CFloatingPointConcept = std::floating_point<T> || std::same_as<T, util::Float16>;
+#else
+template <typename T>
+concept CFloatingPointConcept =
+    std::is_floating_point_v<T> || std::same_as<T, util::Float16>;
+#endif
 
 template <typename T>
 concept CDecimalConcept = std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||
@@ -1255,7 +1261,8 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             input.buffers[0].data, input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
-              Impl::UpdateGroupWith(reduced, *g, bit_util::GetBit(bitmap, position));
+              Impl::UpdateGroupWith(reduced, *g,
+                                    bit_util::GetBit(bitmap, input.offset + position));
               g++;
             },
             [&] { bit_util::SetBitTo(no_nulls, *g++, false); });
@@ -1333,13 +1340,10 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
       null_count = kUnknownNullCount;
       ARROW_ASSIGN_OR_RAISE(auto no_nulls, no_nulls_.Finish());
       Impl::AdjustForMinCount(no_nulls->mutable_data(), reduced->data(), num_groups_);
-      if (null_bitmap) {
-        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
-                                   no_nulls->data(), /*right_offset=*/0, num_groups_,
-                                   /*out_offset=*/0, null_bitmap->mutable_data());
-      } else {
-        null_bitmap = std::move(no_nulls);
-      }
+
+      ARROW_ASSIGN_OR_RAISE(null_bitmap, arrow::internal::OptionalBitmapAnd(
+                                             pool_, null_bitmap, /*left_offset=*/0,
+                                             no_nulls, /*right_offset=*/0, num_groups_));
     }
 
     return ArrayData::Make(out_type(), num_groups_,

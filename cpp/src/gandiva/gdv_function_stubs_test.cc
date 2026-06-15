@@ -21,6 +21,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
 
@@ -350,6 +352,14 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromInt64) {
   out_str = gdv_fn_castVARCHAR_int64_int64(ctx_ptr, 12345, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "123");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_int64_int64(ctx_ptr, 347, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_int64_int64(ctx_ptr, 347, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  ctx.Reset();
 }
 
 TEST(TestGdvFnStubs, TestCastVARCHARFromMilliseconds) {
@@ -381,6 +391,15 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromMilliseconds) {
   out_str = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, ts, 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "2008");
   EXPECT_FALSE(ctx.has_error());
+
+  ts = StringToTimestamp("2021-04-23 10:20:33");
+  out_str = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, ts, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, ts, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  ctx.Reset();
 }
 
 TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
@@ -416,6 +435,14 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
   out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 1.2345f, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "1.2");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 1.2345f, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 1.2345f, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  ctx.Reset();
 }
 
 TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
@@ -450,6 +477,25 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
   // test with required length less than actual buffer length
   out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 1.2345, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "1.2");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 1.2345, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 1.2345, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  ctx.Reset();
+
+  // test long repeating decimal (1/3) with large buffer
+  out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 1.0 / 3.0, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0.3333333333333333");
+  EXPECT_FALSE(ctx.has_error());
+
+  // test exponential notation with large negative exponent (24 chars)
+  out_str =
+      gdv_fn_castVARCHAR_float64_int64(ctx_ptr, -1.2345678901234567e-100, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-1.2345678901234567E-100");
   EXPECT_FALSE(ctx.has_error());
 }
 
@@ -525,6 +571,21 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
 
   out_str = gdv_fn_substring_index(ctx_ptr, "路学\\L", 8, "\\", 1, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "L");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Large counts return full string when delimiter not found enough times
+  out_str = gdv_fn_substring_index(ctx_ptr, "a.b.c", 5, ".", 1, -1000, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "a.b.c", 5, ".", 1,
+                                   std::numeric_limits<int32_t>::max(), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "a.b.c", 5, ".", 1,
+                                   std::numeric_limits<int32_t>::min(), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
   EXPECT_FALSE(ctx.has_error());
 }
 

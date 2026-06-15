@@ -183,6 +183,10 @@ GARROW_AVAILABLE_IN_11_0
 GArrowProjectNodeOptions *
 garrow_project_node_options_new(GList *expressions, gchar **names, gsize n_names);
 
+GARROW_AVAILABLE_IN_24_0
+GList *
+garrow_project_node_options_get_expressions(GArrowProjectNodeOptions *options);
+
 #define GARROW_TYPE_AGGREGATION (garrow_aggregation_get_type())
 GARROW_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(
@@ -217,6 +221,10 @@ garrow_aggregate_node_options_new(GList *aggregations,
                                   const gchar **keys,
                                   gsize n_keys,
                                   GError **error);
+
+GARROW_AVAILABLE_IN_24_0
+GList *
+garrow_aggregate_node_options_get_aggregations(GArrowAggregateNodeOptions *options);
 
 #define GARROW_TYPE_SINK_NODE_OPTIONS (garrow_sink_node_options_get_type())
 GARROW_AVAILABLE_IN_6_0

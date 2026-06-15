@@ -17,6 +17,7 @@
 
 #include <string_view>
 
+#include "arrow/buffer.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/json/object_parser.h"

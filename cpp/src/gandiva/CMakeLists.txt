@@ -115,10 +115,8 @@ set(GANDIVA_STATIC_LINK_LIBS
     LLVM::LLVM_LIBS
     ${GANDIVA_OPENSSL_LIBS}
     Boost::headers)
-if(ARROW_USE_XSIMD)
-  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND GANDIVA_STATIC_LINK_LIBS ${ARROW_XSIMD})
-endif()
+list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+list(APPEND GANDIVA_STATIC_LINK_LIBS ${ARROW_XSIMD})
 if(ARROW_WITH_RE2)
   list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS re2::re2)
   list(APPEND GANDIVA_STATIC_LINK_LIBS re2::re2)
@@ -274,6 +272,7 @@ add_gandiva_test(internals-test
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc
+                 target_datalayout_test.cc
                  tests/test_util.cc
                  EXTRA_LINK_LIBS
                  re2::re2

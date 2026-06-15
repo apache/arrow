@@ -301,8 +301,8 @@ static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
     EXIT_NOT_OK(arrow_reader_result.status());
     auto arrow_reader = std::move(*arrow_reader_result);
 
-    std::shared_ptr<Table> table;
-    EXIT_NOT_OK(arrow_reader->ReadTable(&table));
+    auto table_result = arrow_reader->ReadTable();
+    EXIT_NOT_OK(table_result.status());
   }
 
   if (num_values == -1) {
@@ -777,8 +777,7 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
     EXIT_NOT_OK(arrow_reader_result.status());
     auto arrow_reader = std::move(*arrow_reader_result);
 
-    std::shared_ptr<Table> table;
-    EXIT_NOT_OK(arrow_reader->ReadRowGroups(rgs, &table));
+    PARQUET_ASSIGN_OR_THROW(auto table, arrow_reader->ReadRowGroups(rgs));
   }
   SetBytesProcessed<Int64Type>(state);
 }

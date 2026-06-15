@@ -33,6 +33,7 @@
 #include "arrow/json/parser.h"
 #include "arrow/json/rapidjson_defs.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/visit_type_inline.h"
@@ -110,20 +111,19 @@ struct GenerateImpl {
     return OK(writer.Double(val));
   }
 
-  Status GenerateAscii(const DataType&) {
-    auto size = std::poisson_distribution<>{4}(e);
-    std::uniform_int_distribution<uint16_t> gen_char(32, 126);  // FIXME generate UTF8
-    std::string s(size, '\0');
-    for (char& ch : s) ch = static_cast<char>(gen_char(e));
-    return OK(writer.String(s.c_str()));
+  Status GenerateUtf8(const DataType&) {
+    auto num_codepoints = std::poisson_distribution<>{4}(e);
+    auto seed = std::uniform_int_distribution<uint32_t>{}(e);
+    std::string s = RandomUtf8String(seed, num_codepoints);
+    return OK(writer.String(s));
   }
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& t) {
-    return GenerateAscii(t);
+    return GenerateUtf8(t);
   }
 
-  Status Visit(const BinaryViewType& t) { return GenerateAscii(t); }
+  Status Visit(const BinaryViewType& t) { return GenerateUtf8(t); }
 
   template <typename T>
   enable_if_list_like<T, Status> Visit(const T& t) {

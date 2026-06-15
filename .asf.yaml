@@ -33,9 +33,16 @@ github:
 
   collaborators:
     - alinaliBQ
+    - AntoinePrv
     - EnricoMi
     - hiroyuki-sato
     - HyukjinKwon
+    - tadeja
+
+  copilot_code_review:
+    enabled: true
+    review_drafts: false
+    review_on_push: true
 
 notifications:
   commits:      commits@arrow.apache.org

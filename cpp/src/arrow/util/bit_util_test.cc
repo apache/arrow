@@ -739,78 +739,9 @@ TEST(BitUtil, Log2) {
   EXPECT_EQ(bit_util::Log2(ULLONG_MAX), 64);
 }
 
-TEST(BitUtil, NumRequiredBits) {
-  EXPECT_EQ(bit_util::NumRequiredBits(0), 0);
-  EXPECT_EQ(bit_util::NumRequiredBits(1), 1);
-  EXPECT_EQ(bit_util::NumRequiredBits(2), 2);
-  EXPECT_EQ(bit_util::NumRequiredBits(3), 2);
-  EXPECT_EQ(bit_util::NumRequiredBits(4), 3);
-  EXPECT_EQ(bit_util::NumRequiredBits(5), 3);
-  EXPECT_EQ(bit_util::NumRequiredBits(7), 3);
-  EXPECT_EQ(bit_util::NumRequiredBits(8), 4);
-  EXPECT_EQ(bit_util::NumRequiredBits(9), 4);
-  EXPECT_EQ(bit_util::NumRequiredBits(UINT_MAX - 1), 32);
-  EXPECT_EQ(bit_util::NumRequiredBits(UINT_MAX), 32);
-  EXPECT_EQ(bit_util::NumRequiredBits(static_cast<uint64_t>(UINT_MAX) + 1), 33);
-  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX / 2), 63);
-  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX / 2 + 1), 64);
-  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX - 1), 64);
-  EXPECT_EQ(bit_util::NumRequiredBits(ULLONG_MAX), 64);
-}
-
 #define U32(x) static_cast<uint32_t>(x)
 #define U64(x) static_cast<uint64_t>(x)
 #define S64(x) static_cast<int64_t>(x)
-
-TEST(BitUtil, CountLeadingZeros) {
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(0)), 32);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(1)), 31);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(2)), 30);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(3)), 30);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(4)), 29);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(7)), 29);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(8)), 28);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(UINT_MAX / 2)), 1);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(UINT_MAX / 2 + 1)), 0);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U32(UINT_MAX)), 0);
-
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(0)), 64);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(1)), 63);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(2)), 62);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(3)), 62);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(4)), 61);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(7)), 61);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(8)), 60);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(UINT_MAX)), 32);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(UINT_MAX) + 1), 31);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(ULLONG_MAX / 2)), 1);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(ULLONG_MAX / 2 + 1)), 0);
-  EXPECT_EQ(bit_util::CountLeadingZeros(U64(ULLONG_MAX)), 0);
-}
-
-TEST(BitUtil, CountTrailingZeros) {
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(0)), 32);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 31), 31);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 30), 30);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 29), 29);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1) << 28), 28);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(8)), 3);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(4)), 2);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(2)), 1);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(1)), 0);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U32(ULONG_MAX)), 0);
-
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(0)), 64);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 63), 63);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 62), 62);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 61), 61);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1) << 60), 60);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(8)), 3);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(4)), 2);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(2)), 1);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(1)), 0);
-  EXPECT_EQ(bit_util::CountTrailingZeros(U64(ULLONG_MAX)), 0);
-}
 
 TEST(BitUtil, RoundUpToPowerOf2) {
   EXPECT_EQ(bit_util::RoundUpToPowerOf2(S64(7), 8), 8);

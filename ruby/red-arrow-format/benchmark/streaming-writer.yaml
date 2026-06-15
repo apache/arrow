@@ -1,0 +1,89 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+prelude: |
+  Warning[:experimental] = false
+
+  require "arrow"
+  require "arrow-format"
+
+  seed = 29
+  random = Random.new(seed)
+
+  n_columns = 100
+  n_rows = 10000
+  max_uint32 = 2 ** 32 - 1
+  arrays = n_columns.times.collect do |i|
+    if i.even?
+      Arrow::UInt32Array.new(n_rows.times.collect {random.rand(max_uint32)})
+    else
+      Arrow::BinaryArray.new(n_rows.times.collect {random.bytes(random.rand(10))})
+    end
+  end
+  columns = arrays.collect.with_index {|array, i| [i, array]}
+  red_arrow_table = Arrow::Table.new(columns)
+
+  fields = arrays.collect.with_index do |array, i|
+    case array
+    when Arrow::UInt32Array
+      type = ArrowFormat::UInt32Type.singleton
+    when Arrow::BinaryArray
+      type = ArrowFormat::BinaryType.singleton
+    end
+    ArrowFormat::Field.new(i.to_s, type)
+  end
+  schema = ArrowFormat::Schema.new(fields)
+  def convert_buffer(buffer)
+    return nil if buffer.nil?
+    IO::Buffer.for(buffer.data.to_s.dup)
+  end
+  columns = fields.zip(arrays).collect do |field, array|
+    case array
+    when Arrow::UInt32Array
+      field.type.build_array(n_rows,
+                             convert_buffer(array.null_bitmap),
+                             convert_buffer(array.data_buffer))
+    when Arrow::BinaryArray
+      field.type.build_array(n_rows,
+                             convert_buffer(array.null_bitmap),
+                             convert_buffer(array.offsets_buffer),
+                             convert_buffer(array.data_buffer))
+    end
+  end
+  red_arrow_format_record_batch =
+    ArrowFormat::RecordBatch.new(schema, n_rows, columns)
+
+  GC.start
+  GC.disable
+benchmark:
+  "Arrow::Table#save": |
+    buffer = Arrow::ResizableBuffer.new(4096)
+    red_arrow_table.save(buffer, format: :arrow_streaming)
+  "Arrow::RecordBatchStreamWriter": |
+    buffer = Arrow::ResizableBuffer.new(4096)
+    Arrow::BufferOutputStream.open(buffer) do |output|
+      schema = red_arrow_table.schema
+      Arrow::RecordBatchStreamWriter.open(output, schema) do |writer|
+        writer.write_table(red_arrow_table)
+      end
+    end
+  "ArrowFormat::StreamingWriter": |
+    output = +"".b
+    writer = ArrowFormat::StreamingWriter.new(output)
+    writer.start(red_arrow_format_record_batch.schema)
+    writer.write_record_batch(red_arrow_format_record_batch)
+    writer.finish

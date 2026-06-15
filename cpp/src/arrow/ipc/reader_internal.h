@@ -36,7 +36,7 @@ namespace internal {
 /// \brief An RandomAccessFile that doesn't perform real IO, but only save all the IO
 /// operations it receives, including read operation's <offset, length>, for replaying
 /// later
-class ARROW_EXPORT IoRecordedRandomAccessFile : public io::RandomAccessFile {
+class ARROW_EXPORT IoRecordedRandomAccessFile final : public io::RandomAccessFile {
  public:
   explicit IoRecordedRandomAccessFile(const int64_t file_size)
       : file_size_(file_size), position_(0) {}
@@ -55,9 +55,17 @@ class ARROW_EXPORT IoRecordedRandomAccessFile : public io::RandomAccessFile {
 
   Result<int64_t> GetSize() override;
 
-  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
+    return ReadAt(position, nbytes, /*allow_short_read=*/true, out);
+  }
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                         void* out) override;
 
-  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
+    return ReadAt(position, nbytes, /*allow_short_read=*/true);
+  }
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes,
+                                         bool allow_short_read) override;
 
   Result<int64_t> Read(int64_t nbytes, void* out) override;
 

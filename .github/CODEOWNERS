@@ -23,22 +23,7 @@
 # documentation about the syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Arrow Format
-# /format/
-
-## Components
-/c_glib/ @kou
-# /cpp/
-/cpp/src/arrow/acero @westonpace
-/cpp/src/arrow/adapters/orc @wgtmac
-/cpp/src/arrow/engine @westonpace
-/cpp/src/arrow/flight/ @lidavidm
-/cpp/src/parquet @wgtmac
-/matlab/ @kevingurney @kou @sgilmore10
-/python/ @AlenkaF @raulcd @rok
-/python/pyarrow/_flight.pyx @lidavidm
-/python/pyarrow/**/*gandiva* @wjones127
-/r/ @jonkeane @thisisnic
-/ruby/ @kou
+/format/ @pitrou
 
 # Docs
 # /docs/
@@ -46,6 +31,8 @@
 # *.rmd
 # *.rst
 # *.txt
+/docs/source/cpp @pitrou
+/docs/source/format/ @pitrou
 
 # PR CI and repository files
 /.github/ @assignUser @jonkeane @kou @raulcd
@@ -53,16 +40,45 @@
 .pre-commit-config.yaml @raulcd
 # .git*
 
-# release scripts, archery etc.
+# Release scripts, archery etc.
 /ci/ @assignUser @jonkeane @kou @raulcd
 /dev/ @assignUser @jonkeane @kou @raulcd
+/dev/archery/ @pitrou
 .dockerignore @raulcd
 .env @assignUser @jonkeane @kou @raulcd
 compose.yaml @assignUser @jonkeane @kou @raulcd
 
-# R specific packaging tooling
+# Components
+
+## C GLib
+/c_glib/ @kou
+
+## C++
+/cpp/src/arrow/ @pitrou
+/cpp/src/arrow/acero @westonpace
+/cpp/src/arrow/adapters/orc @wgtmac
+/cpp/src/arrow/engine @westonpace
+/cpp/src/arrow/flight/ @lidavidm
+/cpp/src/gandiva @dmitry-chirkov-dremio @lriggs @akravchukdremio @xxlaykxx
+/cpp/src/parquet @wgtmac @pitrou
+
+## MATLAB
+/.github/workflows/matlab.yml @kevingurney @sgilmore10
+/matlab/ @kevingurney @kou @sgilmore10
+
+## Python
+/python/ @AlenkaF @raulcd @rok
+/python/pyarrow/_flight.pyx @lidavidm
+/python/pyarrow/**/*gandiva* @wjones127
+/python/pyarrow/src/ @pitrou
+
+## R
+/r/ @jonkeane @thisisnic
 /r/configure* @assignUser
 /r/Makefile @assignUser
 /r/PACKAGING.md @assignUser
 /r/tools/ @assignUser
 /r/.Rbuildignore @assignUser
+
+## Ruby
+/ruby/ @kou

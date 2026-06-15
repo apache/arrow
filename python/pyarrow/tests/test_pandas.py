@@ -21,9 +21,11 @@ import json
 import multiprocessing as mp
 import sys
 import warnings
+import zoneinfo
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import hypothesis as h
 import hypothesis.strategies as st
@@ -402,13 +404,49 @@ class TestConvertMetadata:
         assert col3['name'] == col3['field_name']
 
         idx0_descr, foo_descr = js['index_columns']
-        assert idx0_descr == '__index_level_0__'
+        # __index_level_0__ exists, unnamed bumped to __index_level_1__
+        assert idx0_descr == '__index_level_1__'
         assert idx0['field_name'] == idx0_descr
         assert idx0['name'] is None
 
         assert foo_descr == 'foo'
         assert foo['field_name'] == foo_descr
         assert foo['name'] == foo_descr
+
+    def test_index_level_name_bump(self):
+        # GH-46179
+        df = pd.DataFrame(
+            {"col": [1, 2, 3], "__index_level_0__": [4, 5, 6]},
+            index=[10, 20, 30],
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # Explicit test
+        t = pa.table(df)
+        expected_schema = pa.schema([
+            ("col", pa.int64()),
+            ("__index_level_0__", pa.int64()),
+            ("__index_level_1__", pa.int64())
+        ])
+        assert t.schema.equals(expected_schema)
+
+        df2 = t.to_pandas()
+        assert df2.index.equals(pd.Index([10, 20, 30]))
+        assert df2.ndim == df.ndim == 2
+
+    def test_index_level_name_bump_multiindex(self):
+        # GH-46179
+        df = pd.DataFrame(
+            {"col": [1, 2], "__index_level_0__": [3, 4]},
+            index=pd.MultiIndex.from_arrays(
+                [[10, 20], [100, 200]], names=[None, None]
+            ),
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        assert t.schema.names == ['col', '__index_level_0__',
+                                  '__index_level_1__', '__index_level_2__']
 
     def test_categorical_column_index(self):
         df = pd.DataFrame(
@@ -637,8 +675,8 @@ class TestConvertMetadata:
             table_subset = table.remove_column(1)
             result = table_subset.to_pandas()
             expected = df[['a']]
-            if isinstance(df.index, pd.DatetimeIndex):
-                df.index.freq = None
+            if isinstance(expected.index, pd.DatetimeIndex):
+                expected.index.freq = None
             tm.assert_frame_equal(result, expected)
 
             table_subset2 = table_subset.remove_column(1)
@@ -1167,10 +1205,23 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_pytz_tzinfo(self):
         pytz = pytest.importorskip("pytz")
 
-        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
-            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+        timezones_pytz = [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]
+        timezones_zoneinfo = [
+            zoneinfo.ZoneInfo('UTC'),
+            zoneinfo.ZoneInfo('US/Eastern'),
+            timezone(timedelta(minutes=1))
+        ]
+
+        for tz, tz_zoneinfo in zip(timezones_pytz, timezones_zoneinfo):
+            values = [tz.localize(datetime(2018, 1, 1, 12, 23, 45))]
             df = pd.DataFrame({'datetime': values})
-            _check_pandas_roundtrip(df)
+            if Version(pd.__version__) >= Version("3.0.0"):
+                df_expected = pd.DataFrame(
+                    {'datetime': [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_zoneinfo)]}
+                )
+            else:
+                df_expected = None
+            _check_pandas_roundtrip(df, expected=df_expected)
 
     @h.given(st.none() | past.timezones)
     @h.settings(deadline=None)
@@ -1182,7 +1233,6 @@ class TestConvertDateTimeLikeTypes:
         _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_python_datetime_with_timezone_tzinfo(self):
-        pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
@@ -1190,14 +1240,19 @@ class TestConvertDateTimeLikeTypes:
         df = pd.DataFrame({'datetime': values}, index=values)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-        # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
         tz_timezone = timezone(timedelta(hours=hours))
-        tz_pytz = pytz.FixedOffset(hours * 60)
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
-        values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
         df = pd.DataFrame({'datetime': values}, index=values)
-        df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        if Version(pd.__version__) < Version("3.0.0"):
+            # datetime.timezone is going to be pytz.FixedOffset
+            pytz = pytest.importorskip("pytz")
+            tz_pytz = pytz.FixedOffset(hours * 60)
+            values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
+            df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        else:
+            df_exp = None
+
         _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
 
     def test_python_datetime_subclass(self):
@@ -2974,7 +3029,9 @@ class TestZeroCopyConversion:
             arr.to_pandas(zero_copy_only=True)
 
     def test_zero_copy_failure_on_object_types(self):
-        self.check_zero_copy_failure(pa.array(['A', 'B', 'C']))
+        if Version(pd.__version__) < Version("3.0.0"):
+            # pandas 3.0 includes default string dtype support
+            self.check_zero_copy_failure(pa.array(['A', 'B', 'C']))
 
     def test_zero_copy_failure_with_int_when_nulls(self):
         self.check_zero_copy_failure(pa.array([0, 1, None]))
@@ -3044,8 +3101,21 @@ class TestConvertMisc:
         df['a'] = df['a'].astype('category')
         _check_pandas_roundtrip(df)
 
+    def test_categorical_with_timezone(self):
+        # GH-49875: timezone was dropped when converting tz-aware categorical
+        cats = pd.DatetimeIndex(["2024-01-01", "2024-01-02"]).tz_localize("US/Eastern")
+        cat = pd.Categorical(values=[cats[0], cats[1], cats[0]], categories=cats)
+
+        arr = pa.array(cat, from_pandas=True)
+
+        assert arr.type.value_type.tz == "US/Eastern"
+
     def test_empty_arrays(self):
         for dtype_str, pa_type in self.type_pairs:
+            if (Version(pd.__version__) >= Version("3.0.0") and
+                    pa_type == pa.string()):
+                # PyArrow backed string dtype are set by default
+                dtype_str = 'str'
             arr = np.array([], dtype=np.dtype(dtype_str))
             _check_array_roundtrip(arr, type=pa_type)
 
@@ -3230,12 +3300,18 @@ class TestConvertMisc:
         empty_objects = pd.Series(np.array([], dtype=object))
         tm.assert_series_equal(arr.to_pandas(),
                                pd.Series(np.array([], dtype=np.int64)))
-        arr = pa.array([], type=pa.string())
-        tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.list_(pa.int64()))
         tm.assert_series_equal(arr.to_pandas(), empty_objects)
         arr = pa.array([], type=pa.struct([pa.field('a', pa.int64())]))
         tm.assert_series_equal(arr.to_pandas(), empty_objects)
+
+        arr = pa.array([], type=pa.string())
+        if Version(pd.__version__) >= Version("3.0.0"):
+            # PyArrow backed string dtype are set by default
+            empty_str = pd.Series([], dtype=str)
+            tm.assert_series_equal(arr.to_pandas(), empty_str)
+        else:
+            tm.assert_series_equal(arr.to_pandas(), empty_objects)
 
     def test_non_natural_stride(self):
         """
@@ -3861,6 +3937,7 @@ def test_singleton_blocks_zero_copy():
 
 
 def _check_to_pandas_memory_unchanged(obj, **kwargs):
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = obj.to_pandas(**kwargs)  # noqa
 
@@ -3926,6 +4003,7 @@ def test_table_uses_memory_pool():
     arr = pa.array(np.arange(N, dtype=np.int64))
     t = pa.table([arr, arr, arr], ['f0', 'f1', 'f2'])
 
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = t.to_pandas()
 
@@ -4651,6 +4729,36 @@ def test_chunked_array_to_pandas_types_mapper():
     assert result.dtype == np.dtype("int64")
 
 
+@pytest.mark.parametrize(
+    "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+)
+@pytest.mark.parametrize("data", [[], [None]])
+def test_array_to_pandas_string_dtype(string_type, data):
+    # GH-49002
+    if Version(pd.__version__) < Version("3.0.0"):
+        pytest.skip("PyArrow backed string dtype missing")
+
+    arr = pa.array(data, type=string_type)
+    result = arr.to_pandas()
+    assert result.dtype == pd.StringDtype(na_value=np.nan)
+
+    arr = pa.chunked_array([data], type=string_type)
+    result = arr.to_pandas()
+    assert result.dtype == pd.StringDtype(na_value=np.nan)
+
+    # Test types_mapper takes precedence
+    types_mapper = {string_type: None}.get
+    result = arr.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("object")
+
+    # Test strings_to_categorical
+    result = arr.to_pandas(strings_to_categorical=False)
+    assert result.dtype == pd.StringDtype(na_value=np.nan)
+    result = arr.to_pandas(strings_to_categorical=True)
+    assert result.dtype == pd.CategoricalDtype(categories=[],
+                                               ordered=False)
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 
@@ -4956,7 +5064,7 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert isinstance(result[0], datetime)
         if tz:
             assert result[0].tzinfo is not None
-            expected = result[0].tzinfo.fromutc(dt)
+            expected = dt.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz))
         else:
             assert result[0].tzinfo is None
             expected = dt

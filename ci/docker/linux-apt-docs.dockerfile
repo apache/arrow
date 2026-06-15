@@ -31,11 +31,9 @@ RUN apt-get update -y && \
         lsb-release && \
     gpg --keyserver keyserver.ubuntu.com \
         --recv-key 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 && \
-    gpg --export 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 | \
-        gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/cran.gpg \
-            --import - && \
-    echo "deb [signed-by=/usr/share/keyrings/cran.gpg] https://cloud.r-project.org/bin/linux/$(lsb_release -is | tr 'A-Z' 'a-z') $(lsb_release -cs)-cran40/" | \
+    gpg --armor --export 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 | \
+        tee /usr/share/keyrings/cran.asc && \
+    echo "deb [signed-by=/usr/share/keyrings/cran.asc] https://cloud.r-project.org/bin/linux/$(lsb_release -is | tr 'A-Z' 'a-z') $(lsb_release -cs)-cran40/" | \
         tee /etc/apt/sources.list.d/cran.list && \
     if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
         sed -i \

@@ -112,16 +112,24 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-Status GetTestResourceRoot(std::string* out) {
-  const char* c_root = std::getenv("ARROW_TEST_DATA");
-  if (!c_root) {
+Result<std::string> GetTestResourceRoot() {
+  auto maybe_var = ::arrow::internal::GetEnvVar("ARROW_TEST_DATA");
+  if (maybe_var.status().IsKeyError()) {
     return Status::IOError(
         "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
   }
-  *out = std::string(c_root);
-  return Status::OK();
+  return maybe_var;
 }
 
+Result<std::string> GetTestResourcePath(std::string subpath) {
+  ARROW_ASSIGN_OR_RAISE(auto root, GetTestResourceRoot());
+  if (!root.ends_with('/') && !subpath.starts_with('/')) {
+    root += '/';
+  }
+  return root + subpath;
+}
+
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
   if (!c_root) {
@@ -130,16 +138,20 @@ std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   return std::make_optional(std::string(c_root));
 }
 
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
+ARROW_SUPPRESS_DEPRECATION_WARNING
 Status InitTestTimezoneDatabase() {
   auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
   // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
   if (!maybe_tzdata.has_value()) return Status::OK();
 
   auto tzdata_path = std::string(maybe_tzdata.value());
-  arrow::GlobalOptions options = {std::make_optional(tzdata_path)};
+  arrow::GlobalOptions options;
+  options.timezone_db_path = std::make_optional(tzdata_path);
   ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port

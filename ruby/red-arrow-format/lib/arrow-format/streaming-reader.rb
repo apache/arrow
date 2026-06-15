@@ -21,29 +21,66 @@ module ArrowFormat
   class StreamingReader
     include Enumerable
 
-    attr_reader :schema
     def initialize(input)
-      @input = input
-      @schema = nil
-    end
-
-    def each
-      return to_enum(__method__) unless block_given?
-
-      reader = StreamingPullReader.new do |record_batch|
-        @schema ||= reader.schema
-        yield(record_batch)
+      case input
+      when File
+        @input = IO::Buffer.map(input, nil, 0, IO::Buffer::READONLY)
+        @offset = 0
+      when String
+        @input = IO::Buffer.for(input)
+        @offset = 0
+      else
+        @input = input
       end
 
-      buffer = "".b
+      @on_read = nil
+      @pull_reader = StreamingPullReader.new do |record_batch|
+        @on_read.call(record_batch) if @on_read
+      end
+      @buffer = "".b
+      ensure_schema
+    end
+
+    def schema
+      @pull_reader.schema
+    end
+
+    def each(&block)
+      return to_enum(__method__) unless block_given?
+
+      @on_read = block
+      begin
+        loop do
+          break unless consume
+        end
+      ensure
+        @on_read = nil
+      end
+    end
+
+    private
+    def consume
+      next_size = @pull_reader.next_required_size
+      return false if next_size.zero?
+
+      if @input.is_a?(IO::Buffer)
+        next_chunk = @input.slice(@offset, next_size)
+        @offset += next_size
+        @pull_reader.consume(next_chunk)
+        true
+      else
+        next_chunk = @input.read(next_size, @buffer)
+        return false if next_chunk.nil?
+
+        @pull_reader.consume(IO::Buffer.for(next_chunk))
+        true
+      end
+    end
+
+    def ensure_schema
       loop do
-        next_size = reader.next_required_size
-        break if next_size.zero?
-
-        next_chunk = @input.read(next_size, buffer)
-        break if next_chunk.nil?
-
-        reader.consume(IO::Buffer.for(next_chunk))
+        break unless consume
+        break if @pull_reader.schema
       end
     end
   end

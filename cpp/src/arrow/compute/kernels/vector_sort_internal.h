@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <span>
 
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
@@ -272,7 +273,7 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
 template <typename Partitioner>
 ChunkedNullPartitionResult PartitionNullsOnly(CompressedChunkLocation* locations_begin,
                                               CompressedChunkLocation* locations_end,
-                                              util::span<const Array* const> chunks,
+                                              std::span<const Array* const> chunks,
                                               int64_t null_count,
                                               NullPlacement null_placement) {
   if (null_count == 0) {

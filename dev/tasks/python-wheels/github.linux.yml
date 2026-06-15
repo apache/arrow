@@ -38,7 +38,7 @@ jobs:
       {% if arch == "amd64" %}
       ARCH: amd64
       {% else %}
-      ARCH: arm64v8
+      ARCH: arm64/v8
       {% endif %}
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"

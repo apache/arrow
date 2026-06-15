@@ -224,7 +224,7 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
@@ -248,7 +248,6 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
-#if defined _WIN32
 TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
   // Connect string
   std::string connect_str = this->GetConnectionString();
@@ -267,7 +266,7 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
@@ -348,14 +347,14 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectInputUidPwd) {
             SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                        static_cast<SQLSMALLINT>(pwd0.size())))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
   ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TEST_F(ConnectionRemoteTest, TestSQLConnectInvalidUid) {
@@ -422,17 +421,15 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
             SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                        static_cast<SQLSMALLINT>(pwd0.size())))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
   ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
-
-#endif  // _WIN32
 
 TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
   // Invalid connect string
@@ -442,7 +439,7 @@ TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize];
+  SQLWCHAR out_str[kOdbcBufferSize] = {0};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
@@ -463,10 +460,6 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDisconnectWithoutConnection) {
 
   // Expect ODBC driver manager to return error state
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState08003);
-}
-
-TYPED_TEST(ConnectionTest, TestConnect) {
-  // Verifies connect and disconnect works on its own
 }
 
 TYPED_TEST(ConnectionTest, TestSQLAllocFreeStmt) {
@@ -491,7 +484,7 @@ TYPED_TEST(ConnectionHandleTest, TestCloseConnectionWithOpenStatement) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLWCHAR out_str[kOdbcBufferSize] = {};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.

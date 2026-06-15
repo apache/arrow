@@ -47,18 +47,20 @@ Usage
 
 JSON reading functionality is available through the :mod:`pyarrow.json` module.
 In many cases, you will simply call the :func:`read_json` function
-with the file path you want to read from::
+with the file path you want to read from:
+
+.. code-block:: python
 
    >>> from pyarrow import json
-   >>> fn = 'my_data.json'
-   >>> table = json.read_json(fn)
-   >>> table
+   >>> fn = 'my_data.json'  # doctest: +SKIP
+   >>> table = json.read_json(fn)  # doctest: +SKIP
+   >>> table  # doctest: +SKIP
    pyarrow.Table
    a: int64
    b: double
    c: string
    d: bool
-   >>> table.to_pandas()
+   >>> table.to_pandas()  # doctest: +SKIP
       a    b     c      d
    0  1  2.0   foo  False
    1  4 -5.5  None   True
@@ -89,17 +91,19 @@ Thus, reading this JSON file:
    {"a": [1, 2], "b": {"c": true, "d": "1991-02-03"}}
    {"a": [3, 4, 5], "b": {"c": false, "d": "2019-04-01"}}
 
-returns the following data::
+returns the following data:
 
-   >>> table = json.read_json("my_data.json")
-   >>> table
+.. code-block:: python
+
+   >>> table = json.read_json("my_data.json")  # doctest: +SKIP
+   >>> table  # doctest: +SKIP
    pyarrow.Table
    a: list<item: int64>
      child 0, item: int64
    b: struct<c: bool, d: timestamp[s]>
      child 0, c: bool
      child 1, d: timestamp[s]
-   >>> table.to_pandas()
+   >>> table.to_pandas()  # doctest: +SKIP
               a                                       b
    0     [1, 2]   {'c': True, 'd': 1991-02-03 00:00:00}
    1  [3, 4, 5]  {'c': False, 'd': 2019-04-01 00:00:00}

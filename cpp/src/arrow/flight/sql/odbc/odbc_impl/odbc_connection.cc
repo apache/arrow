@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
-
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
+
+// Include ODBC headers after arrow fwd type header to avoid conflicts
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_connection.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
@@ -29,10 +30,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
-// Include ODBC headers after arrow headers to avoid conflicts with sql_info_undef.h
+// Include ODBC headers after arrow headers to avoid conflicts
 #include <odbcinst.h>
 #include <sql.h>
 #include <sqlext.h>
+
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
 #include <boost/xpressive/xpressive.hpp>
 #include <iterator>

@@ -324,6 +324,17 @@ test_that("array uses local timezone for POSIXct without timezone", {
   })
 })
 
+test_that("zero-length POSIXct can be converted (GH-48832)", {
+  # In R 4.5.2+, zero-length POSIXct vectors are integer type, not double
+  x <- as.POSIXct(x = NULL)
+
+  # Should behave the same as non-empty POSIXct with empty tzone
+  expect_type_equal(infer_type(x), timestamp("us"))
+  arr <- Array$create(x)
+  expect_equal(arr$length(), 0L)
+  expect_type_equal(arr, timestamp("us"))
+})
+
 test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(
@@ -332,7 +343,7 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   )
   if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
-    expect_false(any(df$no_tz == df$yes_tz))
+    expect_all_false(df$no_tz == df$yes_tz)
   }
   feather_file <- tempfile()
   on.exit(unlink(feather_file))
@@ -632,6 +643,13 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
   expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
   expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+  expect_array_roundtrip(list(ordered(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8(), ordered = TRUE)))
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -731,6 +749,13 @@ test_that("arrow_array() handles vector -> large list arrays", {
     as = large_list_of(dictionary(int8(), utf8()))
   )
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    large_list_of(dictionary(int8(), utf8(), ordered = TRUE)),
+    as = large_list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -796,6 +821,13 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
     list(factor(c("b", "a"), levels = c("a", "b"))),
     fixed_size_list_of(dictionary(int8(), utf8()), 2L),
     as = fixed_size_list_of(dictionary(int8(), utf8()), 2L)
+  )
+
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L),
+    as = fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L)
   )
 
   # struct

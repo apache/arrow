@@ -5907,6 +5907,7 @@ def test_make_write_options_error():
         pformat.make_write_options(43)
 
 
+@pytest.mark.substrait
 def test_scanner_from_substrait(dataset):
     try:
         import pyarrow.substrait as ps

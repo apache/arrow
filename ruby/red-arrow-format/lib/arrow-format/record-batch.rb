@@ -22,11 +22,19 @@ module ArrowFormat
 
     attr_reader :schema
     attr_reader :n_rows
+    alias_method :size, :n_rows
+    alias_method :length, :n_rows
     attr_reader :columns
-    def initialize(schema, n_rows, columns)
+    attr_reader :message_metadata
+    def initialize(schema, n_rows, columns, message_metadata: nil)
       @schema = schema
       @n_rows = n_rows
       @columns = columns
+      @message_metadata = message_metadata
+    end
+
+    def empty?
+      @n_rows.zero?
     end
 
     def to_h
@@ -70,7 +78,9 @@ module ArrowFormat
       Enumerator.new do |yielder|
         traverse = lambda do |array|
           yielder << array
-          if array.respond_to?(:children)
+          if array.respond_to?(:child)
+            traverse.call(array.child)
+          elsif array.respond_to?(:children)
             array.children.each do |child_array|
               traverse.call(child_array)
             end

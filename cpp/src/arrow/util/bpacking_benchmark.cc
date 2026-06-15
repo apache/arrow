@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -25,7 +26,7 @@
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_SVE128)
 #  include "arrow/util/cpu_info.h"
 #endif
 
@@ -33,7 +34,7 @@ namespace arrow::internal {
 namespace {
 
 template <typename Int>
-using UnpackFunc = void (*)(const uint8_t*, Int*, int, int, int);
+using UnpackFunc = void (*)(const uint8_t*, Int*, const UnpackOptions&);
 
 /// Get the number of bytes associate with a packing.
 constexpr int32_t GetNumBytes(int32_t num_values, int32_t bit_width) {
@@ -86,33 +87,62 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
   const uint8_t* packed_ptr =
       GetNextAlignedByte(packed.data(), sizeof(Int)) + (aligned ? 0 : 1);
 
-  std::vector<Int> unpacked(num_values, 0);
+  auto unpacked = std::make_unique<Int[]>(num_values);
+
+  const ::arrow::internal::UnpackOptions opts{
+      .batch_size = num_values,
+      .bit_width = bit_width,
+      .bit_offset = 0,
+      .max_read_bytes = -1,
+  };
 
   for (auto _ : state) {
-    unpack(packed_ptr, unpacked.data(), num_values, bit_width, /* bit_offset = */ 0);
+    unpack(packed_ptr, unpacked.get(), opts);
     benchmark::ClobberMemory();
   }
   state.SetItemsProcessed(num_values * state.iterations());
 }
 
-constexpr int32_t kMinRange = 64;
-constexpr int32_t kMaxRange = 32768;
-constexpr std::initializer_list<int64_t> kBitWidths16 = {1, 2, 8, 13};
-constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
-constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
+// Currently, the minimum unpack SIMD kernel size is 32 and the RLE-bit-packing encoder
+// will not emit runs larger than 512 (though other implementation might), so we biased
+// the benchmarks towards a rather small scale.
+static const auto kNumValuesRange = benchmark::CreateRange(32, 512, 2);
+constexpr auto kBitWidths8 = std::initializer_list<int64_t>{1, 2, 8};
+constexpr auto kBitWidths16 = std::initializer_list<int64_t>{1, 2, 8, 13};
+constexpr auto kBitWidths32 = std::initializer_list<int64_t>{1, 2, 8, 20};
+constexpr auto kBitWidths64 = std::initializer_list<int64_t>{1, 2, 8, 20, 47};
+
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValuesBool = {
+    {0, 1},
+    kNumValuesRange,
+};
+static const std::vector<std::vector<int64_t>> kBitWidthsNumValues8 = {
+    kBitWidths8,
+    kNumValuesRange,
+};
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues16 = {
     kBitWidths16,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues32 = {
     kBitWidths32,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValues64 = {
     kBitWidths64,
-    benchmark::CreateRange(kMinRange, kMaxRange, /*multi=*/32),
+    kNumValuesRange,
 };
 
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackBool(benchmark::State& state, bool aligned, UnpackFunc<bool> unpack,
+                   bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<bool>(state, aligned, unpack, skip, std::move(skip_msg));
+}
+/// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
+void BM_UnpackUint8(benchmark::State& state, bool aligned, UnpackFunc<uint8_t> unpack,
+                    bool skip = false, std::string skip_msg = "") {
+  return BM_Unpack<uint8_t>(state, aligned, unpack, skip, std::move(skip_msg));
+}
 /// Nudge for MSVC template inside BENCHMARK_CAPTURE macro.
 void BM_UnpackUint16(benchmark::State& state, bool aligned, UnpackFunc<uint16_t> unpack,
                      bool skip = false, std::string skip_msg = "") {
@@ -129,66 +159,69 @@ void BM_UnpackUint64(benchmark::State& state, bool aligned, UnpackFunc<uint64_t>
   return BM_Unpack<uint64_t>(state, aligned, unpack, skip, std::move(skip_msg));
 }
 
-BENCHMARK_CAPTURE(BM_UnpackUint16, ScalarUnaligned, false, &unpack_scalar<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, ScalarUnaligned, false, &unpack_scalar<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, ScalarUnaligned, false, &unpack_scalar<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
+// Register BM_Unpack{Bool,Uint8,Uint16,Uint32,Uint64} benchmarks for a given
+// UNPACK_FUNC templated on each of those types, with explicit skip args.
+#define BENCHMARK_UNPACK_ALL_TYPES_SKIP(LABEL, ALIGNED, UNPACK_FUNC, SKIP, SKIP_MSG)   \
+  BENCHMARK_CAPTURE(BM_UnpackBool, LABEL, ALIGNED, &UNPACK_FUNC<bool>, SKIP, SKIP_MSG) \
+      ->ArgsProduct(kBitWidthsNumValuesBool);                                          \
+  BENCHMARK_CAPTURE(BM_UnpackUint8, LABEL, ALIGNED, &UNPACK_FUNC<uint8_t>, SKIP,       \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues8);                                             \
+  BENCHMARK_CAPTURE(BM_UnpackUint16, LABEL, ALIGNED, &UNPACK_FUNC<uint16_t>, SKIP,     \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues16);                                            \
+  BENCHMARK_CAPTURE(BM_UnpackUint32, LABEL, ALIGNED, &UNPACK_FUNC<uint32_t>, SKIP,     \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues32);                                            \
+  BENCHMARK_CAPTURE(BM_UnpackUint64, LABEL, ALIGNED, &UNPACK_FUNC<uint64_t>, SKIP,     \
+                    SKIP_MSG)                                                          \
+      ->ArgsProduct(kBitWidthsNumValues64)
+
+#define BENCHMARK_UNPACK_ALL_TYPES(LABEL, ALIGNED, UNPACK_FUNC) \
+  BENCHMARK_UNPACK_ALL_TYPES_SKIP(LABEL, ALIGNED, UNPACK_FUNC, false, "")
+
+#define BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(LABEL, ALIGNED, UNPACK_FUNC, CPU_FEATURE, \
+                                           SKIP_MSG)                                 \
+  BENCHMARK_UNPACK_ALL_TYPES_SKIP(                                                   \
+      LABEL, ALIGNED, UNPACK_FUNC,                                                   \
+      !CpuInfo::GetInstance()->IsSupported(CpuInfo::CPU_FEATURE), SKIP_MSG)
+
+BENCHMARK_UNPACK_ALL_TYPES(ScalarUnaligned, false, bpacking::unpack_scalar);
+
+#if defined(ARROW_HAVE_SSE4_2)
+BENCHMARK_UNPACK_ALL_TYPES(Sse42Unaligned, false, bpacking::unpack_sse4_2);
+#endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-BENCHMARK_CAPTURE(BM_UnpackUint16, Avx2Unaligned, false, &unpack_avx2<uint16_t>,
-                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
-                  "Avx2 not available")
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, Avx2Unaligned, false, &unpack_avx2<uint32_t>,
-                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
-                  "Avx2 not available")
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, Avx2Unaligned, false, &unpack_avx2<uint64_t>,
-                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2),
-                  "Avx2 not available")
-    ->ArgsProduct(kBitWidthsNumValues64);
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Avx2Unaligned, false, bpacking::unpack_avx2, AVX2,
+                                   "Avx2 not available");
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-BENCHMARK_CAPTURE(BM_UnpackUint16, Avx512Unaligned, false, &unpack_avx512<uint16_t>,
-                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
-                  "Avx512 not available")
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, Avx512Unaligned, false, &unpack_avx512<uint32_t>,
-                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
-                  "Avx512 not available")
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, Avx512Unaligned, false, &unpack_avx512<uint64_t>,
-                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512),
-                  "Avx512 not available")
-    ->ArgsProduct(kBitWidthsNumValues64);
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Avx512Unaligned, false, bpacking::unpack_avx512,
+                                   AVX512, "Avx512 not available");
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-BENCHMARK_CAPTURE(BM_UnpackUint16, NeonUnaligned, false, &unpack_neon<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint32, NeonUnaligned, false, &unpack_neon<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint64, NeonUnaligned, false, &unpack_neon<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
+BENCHMARK_UNPACK_ALL_TYPES(NeonUnaligned, false, bpacking::unpack_neon);
 #endif
 
-BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicAligned, true, &unpack<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
-BENCHMARK_CAPTURE(BM_UnpackUint16, DynamicUnaligned, false, &unpack<uint16_t>)
-    ->ArgsProduct(kBitWidthsNumValues16);
+#if defined(ARROW_HAVE_RUNTIME_SVE128)
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Sve128Unaligned, false, bpacking::unpack_sve128,
+                                   SVE128, "Sve128 not available");
+#endif
 
-BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicAligned, true, &unpack<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
-BENCHMARK_CAPTURE(BM_UnpackUint32, DynamicUnaligned, false, &unpack<uint32_t>)
-    ->ArgsProduct(kBitWidthsNumValues32);
+#if defined(ARROW_HAVE_RUNTIME_SVE256)
+BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Sve256Unaligned, false, bpacking::unpack_sve256,
+                                   SVE256, "Sve256 not available");
+#endif
 
-BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicAligned, true, &unpack<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
-BENCHMARK_CAPTURE(BM_UnpackUint64, DynamicUnaligned, false, &unpack<uint64_t>)
-    ->ArgsProduct(kBitWidthsNumValues64);
+BENCHMARK_UNPACK_ALL_TYPES(DynamicAligned, true, unpack);
+BENCHMARK_UNPACK_ALL_TYPES(DynamicUnaligned, false, unpack);
+
+#undef BENCHMARK_UNPACK_ALL_TYPES_RUNTIME
+#undef BENCHMARK_UNPACK_ALL_TYPES
+#undef BENCHMARK_UNPACK_ALL_TYPES_SKIP
 
 }  // namespace
 }  // namespace arrow::internal

@@ -34,5 +34,14 @@ struct BuildInfo {
 ARROW_PYTHON_EXPORT
 const BuildInfo& GetBuildInfo();
 
+namespace internal {
+
+ARROW_PYTHON_EXPORT
+bool IsOpenTelemetryEnabled();
+
+ARROW_PYTHON_EXPORT
+bool IsThreadingEnabled();
+
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow

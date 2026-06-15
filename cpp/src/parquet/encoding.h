@@ -292,20 +292,32 @@ class TypedDecoder : virtual public Decoder {
 
   /// \brief Decode into an ArrayBuilder or other accumulator
   ///
+  /// \param[in] num_values number of values to decode, including null slots
+  /// \param[in] null_count number of null slots
+  /// \param[in] valid_bits validity bitmap
+  /// \param[in] valid_bits_offset bit offset to start into the validity bitmap
+  /// \param[in] out accumulator to decode into
+  ///
   /// This function assumes the definition levels were already decoded
   /// as a validity bitmap in the given `valid_bits`.  `null_count`
   /// is the number of 0s in `valid_bits`.
+  /// `valid_bits` must at least `valid_bits_offset + num_values` bits.
   /// As a space optimization, it is allowed for `valid_bits` to be null
   /// if `null_count` is zero.
+  /// This function throws a ParquetException if there are less than
+  /// `num_values - null_count` values left to decode.
   ///
-  /// \return number of values decoded
+  /// \return The number of non-null values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out) = 0;
 
   /// \brief Decode into an ArrayBuilder or other accumulator ignoring nulls
   ///
-  /// \return number of values decoded
+  /// \param[in] num_values number of values to decode
+  /// \param[in] out accumulator to decode into
+  ///
+  /// \return The number of values decoded
   int DecodeArrowNonNull(int num_values,
                          typename EncodingTraits<DType>::Accumulator* out) {
     return DecodeArrow(num_values, 0, /*valid_bits=*/NULLPTR, 0, out);
@@ -454,5 +466,11 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
   std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
+
+/// Return the list of supported encodings for the given physical type
+///
+/// Only non-dictionary encodings are returned.
+PARQUET_EXPORT
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type);
 
 }  // namespace parquet

@@ -349,7 +349,7 @@ Optional build components
 
 There are several optional components that can be enabled or disabled by setting
 specific flags to ``ON`` or ``OFF``, respectively. See the list of
-:ref:`python-dev-env-variables` below.
+:ref:`python-dev-components` below.
 
 You may choose between different kinds of C++ build types:
 
@@ -366,7 +366,7 @@ You may choose between different kinds of C++ build types:
    For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
-advisable to delete the build folder, see :ref:`python-dev-env-variables`.
+advisable to delete the build folder, see :ref:`stale_artifacts`.
 If the build has passed successfully and you need to rebuild due to latest pull
 from git main, then this step is not needed.
 
@@ -378,7 +378,7 @@ Build PyArrow
 If you did build one of the optional components in C++, the equivalent components
 will be enabled by default for building pyarrow. This default can be overridden
 by setting the corresponding ``PYARROW_WITH_$COMPONENT`` environment variable
-to 0 or 1, see :ref:`python-dev-env-variables` below.
+to 0 or 1, see :ref:`python-dev-components` below.
 
 To build PyArrow run:
 
@@ -391,7 +391,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow/python
-         $ python setup.py build_ext --inplace
+         $ pip install --no-build-isolation --editable . -vv
          $ popd
 
    .. tab-item:: Windows
@@ -400,7 +400,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow\python
-         $ python setup.py build_ext --inplace
+         $ pip install --no-build-isolation --editable . -vv
          $ popd
 
       .. note::
@@ -428,14 +428,19 @@ To build PyArrow run:
 
          .. code-block::
 
-            $ set PYARROW_BUNDLE_ARROW_CPP=1
-            $ python setup.py build_ext --inplace
+            $ set PYARROW_BUNDLE_ARROW_CPP=ON
+            $ pip install --no-build-isolation --editable . -vv
 
          Note that bundled Arrow C++ libraries will not be automatically
          updated when rebuilding Arrow C++.
 
+This creates an *editable install*, meaning changes to the Python source code
+will be reflected immediately without needing to reinstall the package.
+The ``--no-build-isolation`` flag ensures that the build uses your current
+environment's dependencies instead of creating an isolated one.
+
 To set the number of threads used to compile PyArrow's C++/Cython components,
-set the ``PYARROW_PARALLEL`` environment variable.
+set the ``CMAKE_BUILD_PARALLEL_LEVEL`` environment variable.
 
 If you build PyArrow but then make changes to the Arrow C++ or PyArrow code,
 you can end up with stale build artifacts. This can lead to
@@ -444,45 +449,28 @@ artifacts before rebuilding. See :ref:`python-dev-env-variables`.
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
-``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
-build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
-similarly.
+``pip install --no-build-isolation -vv -C cmake.build-type=Debug .``.
+A ``relwithdebinfo`` build can be created similarly.
 
 Self-Contained Wheel
 ^^^^^^^^^^^^^^^^^^^^
 
-If you're preparing a PyArrow wheel for distribution (e.g., for PyPI), you’ll
+If you're preparing a PyArrow wheel for distribution (e.g., for PyPI), you'll
 need to build a self-contained wheel (including the Arrow and Parquet C++
 libraries). This ensures that all necessary native libraries are bundled inside
 the wheel, so users can install it without needing to have Arrow or Parquet
 installed separately on their system.
 
-To do this, pass the ``--bundle-arrow-cpp`` option to the build command:
+To do this, set the ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before building ``pyarrow``:
 
 .. code-block::
 
-   $ pip install wheel  # if not installed
-   $ python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-            --bundle-arrow-cpp bdist_wheel
+   $ export PYARROW_BUNDLE_ARROW_CPP=ON
+   $ pip install build wheel  # if not installed
+   $ python -m build --sdist --wheel . --no-isolation
 
 This option is typically only needed for releases or distribution scenarios,
 not for local development.
-
-Editable install
-^^^^^^^^^^^^^^^^
-
-To install an editable PyArrow build, run the following command from the
-``arrow/python`` directory:
-
-.. code-block::
-
-   pip install -e . --no-build-isolation
-
-This creates an *editable install*, meaning changes to the Python source code
-will be reflected immediately without needing to reinstall the package.
-The ``--no-build-isolation`` flag ensures that the build uses your current
-environment's dependencies instead of creating an isolated one. This is
-especially useful during development and debugging.
 
 .. _stale_artifacts:
 
@@ -542,8 +530,8 @@ described in development section.
 
 .. _python-dev-env-variables:
 
-Relevant components and environment variables
-=============================================
+Relevant environment variables and build options
+================================================
 
 List of relevant environment variables that can be used to build
 PyArrow are:
@@ -555,14 +543,11 @@ PyArrow are:
    * - PyArrow environment variable
      - Description
      - Default value
-   * - ``PYARROW_BUILD_TYPE``
-     - Build type for PyArrow (release, debug or relwithdebinfo), sets ``CMAKE_BUILD_TYPE``
-     - ``release``
-   * - ``PYARROW_CMAKE_GENERATOR``
-     - Example: ``'Visual Studio 17 2022 Win64'``
+   * - ``CMAKE_BUILD_PARALLEL_LEVEL``
+     - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
-   * - ``PYARROW_CMAKE_OPTIONS``
-     - Extra CMake and Arrow options (ex. ``"-DARROW_SIMD_LEVEL=NONE -DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"``)
+   * - ``CMAKE_GENERATOR``
+     - Example: ``'Visual Studio 17 2022 Win64'``
      - ``''``
    * - ``PYARROW_CXXFLAGS``
      - Extra C++ compiler flags
@@ -576,12 +561,28 @@ PyArrow are:
    * - ``PYARROW_BUNDLE_CYTHON_CPP``
      - Bundle the C++ files generated by Cython
      - ``0`` (``OFF``)
-   * - ``PYARROW_BUILD_VERBOSE``
-     - Enable verbose output from Makefile builds
-     - ``0`` (``OFF``)
-   * - ``PYARROW_PARALLEL``
-     - Number of processes used to compile PyArrow’s C++/Cython components
-     - ``''``
+
+To set the build type (e.g. ``Debug``, ``Release``, ``RelWithDebInfo``), pass
+``-C cmake.build-type=Debug`` to ``pip install`` or to ``python -m build``.
+
+For extra CMake arguments you can use the ``-C cmake.args=``
+argument when building PyArrow. For example, to build a version of PyArrow
+with ``ARROW_SIMD_LEVEL=NONE``, you can run
+``pip install --no-build-isolation -vv -C cmake.args="-DARROW_SIMD_LEVEL=NONE" .``.
+
+On PyArrow 24.0.0 we migrated our Python build backend from setuptools to
+scikit-build-core, which is a CMake-based build system. Previous versions used
+``PYARROW_BUILD_TYPE`` and ``PYARROW_CMAKE_OPTIONS`` environment variables
+to customize the CMake invocation. This is no longer supported.
+Instead, use the ``-C cmake.build-type=<build_type>`` and ``-C cmake.args=-D<OPTION>=<VALUE>`` option as described above.
+
+To enable verbose output from the build tool, pass
+``-C build.verbose=true`` to ``pip install`` or to ``python -m build``.
+
+.. _python-dev-components:
+
+Relevant components
+===================
 
 The components being disabled or enabled when building PyArrow is by default
 based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
@@ -620,7 +621,7 @@ certain components to be built):
    * - ``ARROW_ORC``
      - ``PYARROW_WITH_ORC``
    * - ``ARROW_GANDIVA``
-     - ``PYARROW_WITH_GANDIVA``
+     - ``PYARROW_WITH_GANDIVA`` (deprecated since version 24.0.0)
 
 Installing Nightly Packages
 ===========================

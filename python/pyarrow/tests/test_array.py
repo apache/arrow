@@ -35,6 +35,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 from pyarrow.vendored.version import Version
+import pyarrow.compute as pc
 
 
 @pytest.mark.processes
@@ -1529,6 +1530,41 @@ def test_union_array_to_pylist_with_nulls():
         ]
     )
     assert arr.to_pylist() == [0.0, True, 1.1, None, 3.3, None, False]
+
+
+def test_sparse_union_array_slice_with_nulls():
+    # GH-50105: Sliced sparse union element access can return incorrect values.
+    type_ids = pa.array([0, 1, 0, 1, 0], type=pa.int8())
+    arr = pa.UnionArray.from_sparse(
+        type_ids,
+        [
+            pa.array([None, 20, 30, 40, 50]),
+            pa.array(["a", "b", "c", None, "e"]),
+        ],
+    )
+
+    # arr == [None, "b", 30, None, 50].
+    def check_values(array, expected):
+        assert [array[i].as_py() for i in range(len(array))] == expected
+        assert array.to_pylist() == expected
+
+    check_values(arr, [None, "b", 30, None, 50])
+
+    # arr.slice(1, 4) == ["b", 30, None, 50].
+    check_values(arr.slice(1, 4), ["b", 30, None, 50])
+
+    ints_with_offset = pa.array([999, None, 20, 30, 40, 50],
+                                type=pa.int64())[1:]
+    strs_with_offset = pa.array(["z", "a", "b", "c", None, "e"])[1:]
+    arr_with_sliced_children = pa.UnionArray.from_sparse(
+        type_ids, [ints_with_offset, strs_with_offset]
+    )
+
+    # arr_with_sliced_children == [None, "b", 30, None, 50].
+    check_values(arr_with_sliced_children, [None, "b", 30, None, 50])
+
+    # arr_with_sliced_children.slice(1, 4) == ["b", 30, None, 50].
+    check_values(arr_with_sliced_children.slice(1, 4), ["b", 30, None, 50])
 
 
 def test_union_array_slice():
@@ -4398,3 +4434,72 @@ def test_non_cpu_array():
         arr.tolist()
     with pytest.raises(NotImplementedError):
         arr.validate(full=True)
+
+
+def test_arithmetic_dunders():
+    # GH-32007
+    arr1 = pa.array([-1.1, 2.2, -3.3])
+    arr2 = pa.array([2.2, 4.4, 5.5])
+
+    assert (arr1 + arr2).equals(pc.add_checked(arr1, arr2))
+    assert (arr2 / arr1).equals(pc.divide_checked(arr2, arr1))
+    assert (arr1 * arr2).equals(pc.multiply_checked(arr1, arr2))
+    assert (-arr1).equals(pc.negate_checked(arr1))
+    assert (arr1 ** 2).equals(pc.power_checked(arr1, 2))
+    assert (arr1 - arr2).equals(pc.subtract_checked(arr1, arr2))
+
+
+def test_bitwise_dunders():
+    # GH-32007
+    arr1 = pa.array([-1, 2, -3])
+    arr2 = pa.array([2, 4, 5])
+
+    assert (arr1 & arr2).equals(pc.bit_wise_and(arr1, arr2))
+    assert (arr1 | arr2).equals(pc.bit_wise_or(arr1, arr2))
+    assert (arr1 ^ arr2).equals(pc.bit_wise_xor(arr1, arr2))
+    assert (arr1 << arr2).equals(pc.shift_left_checked(arr1, arr2))
+    assert (arr1 >> arr2).equals(pc.shift_right_checked(arr1, arr2))
+
+
+def test_dunders_unmatching_types():
+    # GH-32007
+    error_match = r"Function '\w+' has no kernel matching input types"
+    string_arr = pa.array(["a", "b", "c"])
+    nested_arr = pa.array([{"x": 1, "y": True}, {"z": 3.4, "x": 4}])
+    double_arr = pa.array([1.0, 2.0, 3.0])
+
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_arr + nested_arr
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_arr - double_arr
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        double_arr * nested_arr
+
+
+def test_dunders_mixed_types():
+    # GH-32007
+    arr = pa.array([11.0, 17.0, 23.0])
+    val = pa.scalar(3)
+
+    assert (arr + val).equals(pc.add_checked(arr, val))
+    assert (arr - val).equals(pc.subtract_checked(arr, val))
+    assert (arr / val).equals(pc.divide_checked(arr, val))
+    assert (arr * val).equals(pc.multiply_checked(arr, val))
+    assert (arr ** val).equals(pc.power_checked(arr, val))
+
+
+def test_dunders_checked_overflow():
+    # GH-32007
+    arr = pa.array([127, -128], type=pa.int8())
+    error_match = "overflow"
+
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr + arr
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr * arr
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr - (-arr)
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr ** pa.scalar(2, type=pa.int8())
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr / (-arr)

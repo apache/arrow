@@ -17,45 +17,69 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
 
-#include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
-#include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
-#include "arrow/flight/sql/odbc/odbc_impl/ui/dsn_configuration_window.h"
-#include "arrow/flight/sql/odbc/odbc_impl/ui/window.h"
-#include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
 
-#include <odbcinst.h>
+#include <boost/algorithm/string/predicate.hpp>
 #include <sstream>
+
+#include "arrow/flight/sql/odbc/odbc_impl/encoding_utils.h"
 
 namespace arrow::flight::sql::odbc {
 
 using config::Configuration;
 
-void PostError(DWORD error_code, LPCWSTR error_msg) {
+#ifdef __linux__
+// Linux driver manager uses utf16string
+std::u16string ConvertToSQLWCHAR(const std::string_view var) {
+  auto result = arrow::util::UTF8StringToUTF16(var);
+#else
+std::wstring ConvertToSQLWCHAR(const std::string_view var) {
+  // Windows and macOS
+  auto result = arrow::util::UTF8ToWideString(var);
+#endif
+  if (!result.status().ok()) {
+    PostArrowUtilError(result.status());
+    return {};  // return empty string on error
+  }
+  return result.ValueOrDie();
+}
+
+void PostError(DWORD error_code, LPWSTR error_msg) {
+#if defined _WIN32
   MessageBox(NULL, error_msg, L"Error!", MB_ICONEXCLAMATION | MB_OK);
+#endif  // _WIN32
   SQLPostInstallerError(error_code, error_msg);
 }
 
 void PostArrowUtilError(arrow::Status error_status) {
   std::string error_msg = error_status.message();
-  std::wstring werror_msg = arrow::util::UTF8ToWideString(error_msg).ValueOr(
-      L"Error during utf8 to wide string conversion");
+  CONVERT_SQLWCHAR_STR(werror_msg, error_msg);
 
-  PostError(ODBC_ERROR_GENERAL_ERR, werror_msg.c_str());
+  PostError(ODBC_ERROR_GENERAL_ERR,
+            const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(werror_msg.c_str())));
 }
 
 void PostLastInstallerError() {
 #define BUFFER_SIZE (1024)
   DWORD code;
-  wchar_t msg[BUFFER_SIZE];
-  SQLInstallerError(1, &code, msg, BUFFER_SIZE, NULL);
+  std::vector<SQLWCHAR> msg(BUFFER_SIZE);
+  SQLInstallerError(1, &code, msg.data(), BUFFER_SIZE, NULL);
 
-  std::wstringstream buf;
-  buf << L"Message: \"" << msg << L"\", Code: " << code;
-  std::wstring error_msg = buf.str();
+#ifdef __linux__
+  std::string code_str = std::to_string(code);
+  std::u16string code_u16 = arrow::util::UTF8StringToUTF16(code_str).ValueOr(
+      u"unknown code. Error during utf8 to utf16 conversion");
+  std::u16string error_msg = u"Message: \"" +
+                             std::u16string(reinterpret_cast<char16_t*>(msg.data())) +
+                             u"\", Code: " + code_u16;
+#else
+  // Windows/macOS
+  std::wstring error_msg =
+      L"Message: \"" + std::wstring(msg.data()) + L"\", Code: " + std::to_wstring(code);
+#endif  // __linux__
 
-  PostError(code, error_msg.c_str());
+  PostError(code, const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(error_msg.c_str())));
 }
 
 /**
@@ -65,7 +89,14 @@ void PostLastInstallerError() {
  * @return True on success and false on fail.
  */
 bool UnregisterDsn(const std::wstring& dsn) {
-  if (SQLRemoveDSNFromIni(dsn.c_str())) {
+#ifdef __linux__
+  auto dsn_vec = ODBC::ToSqlWCharVector(dsn);
+  const SQLWCHAR* dsn_arr = dsn_vec.data();
+#else
+  // Windows and macOS
+  const SQLWCHAR* dsn_arr = dsn.c_str();
+#endif
+  if (SQLRemoveDSNFromIni(dsn_arr)) {
     return true;
   }
 
@@ -82,14 +113,9 @@ bool UnregisterDsn(const std::wstring& dsn) {
  */
 bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
   const std::string& dsn = config.Get(FlightSqlConnection::DSN);
-  auto wdsn_result = arrow::util::UTF8ToWideString(dsn);
-  if (!wdsn_result.status().ok()) {
-    PostArrowUtilError(wdsn_result.status());
-    return false;
-  }
-  std::wstring wdsn = wdsn_result.ValueOrDie();
+  auto wdsn = ConvertToSQLWCHAR(dsn);
 
-  if (!SQLWriteDSNToIni(wdsn.c_str(), driver)) {
+  if (!SQLWriteDSNToIni(reinterpret_cast<LPCWSTR>(wdsn.c_str()), driver)) {
     PostLastInstallerError();
     return false;
   }
@@ -102,22 +128,13 @@ bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
       continue;
     }
 
-    auto wkey_result = arrow::util::UTF8ToWideString(key);
-    if (!wkey_result.status().ok()) {
-      PostArrowUtilError(wkey_result.status());
-      return false;
-    }
-    std::wstring wkey = wkey_result.ValueOrDie();
+    auto wkey = ConvertToSQLWCHAR(key);
+    auto wvalue = ConvertToSQLWCHAR(it->second);
 
-    auto wvalue_result = arrow::util::UTF8ToWideString(it->second);
-    if (!wvalue_result.status().ok()) {
-      PostArrowUtilError(wvalue_result.status());
-      return false;
-    }
-    std::wstring wvalue = wvalue_result.ValueOrDie();
-
-    if (!SQLWritePrivateProfileString(wdsn.c_str(), wkey.c_str(), wvalue.c_str(),
-                                      L"ODBC.INI")) {
+    if (!SQLWritePrivateProfileString(reinterpret_cast<LPCWSTR>(wdsn.c_str()),
+                                      reinterpret_cast<LPCWSTR>(wkey.c_str()),
+                                      reinterpret_cast<LPCWSTR>(wvalue.c_str()),
+                                      ODBC_INI)) {
       PostLastInstallerError();
       return false;
     }

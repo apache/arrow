@@ -35,7 +35,9 @@ from selenium import webdriver
 
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
     def log_request(self, code="-", size="-"):
-        # don't log successful requests
+        # don't log successful requests but log errors
+        if isinstance(code, int) and code >= 400:
+            sys.stderr.write(f"HTTP {code} for {self.path}\n")
         return
 
     def do_GET(self) -> bytes | None:
@@ -45,7 +47,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             with PYARROW_WHEEL_PATH.open(mode="rb") as wheel:
                 self.copyfile(wheel, self.wfile)
-        if self.path.endswith("/test.html"):
+        elif self.path.endswith("/test.html"):
             body = b"""
                 <!doctype html>
                 <html>
@@ -116,7 +118,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
 def run_server_thread(dist_dir, q):
     global _SERVER_ADDRESS
     os.chdir(dist_dir)
-    server = http.server.HTTPServer(("", 0), TemplateOverrider)
+    server = http.server.HTTPServer(("127.0.0.1", 0), TemplateOverrider)
     q.put(server.server_address)
     print(f"Starting server for {dist_dir} at: {server.server_address}")
     server.serve_forever()
@@ -200,7 +202,8 @@ class BrowserDriver:
     def __init__(self, hostname, port, driver):
         self.driver = driver
         self.driver.get(f"http://{hostname}:{port}/test.html")
-        self.driver.set_script_timeout(100)
+        # Chrome on CI takes longer than locally to compile.
+        self.driver.set_script_timeout(1200)
 
     def load_pyodide(self, dist_dir):
         pass
@@ -259,7 +262,9 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        super().__init__(hostname, port, webdriver.Chrome(options=options))
+        driver = webdriver.Chrome(options=options)
+        driver.command_executor._client_config.timeout = 1200
+        super().__init__(hostname, port, driver)
 
 
 class FirefoxDriver(BrowserDriver):
@@ -280,6 +285,7 @@ import micropip
 if "pyarrow" not in sys.modules:
     await micropip.install("hypothesis")
     import pyodide_js as pjs
+    await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")
     import pytest
@@ -335,7 +341,9 @@ with launch_server(dist_dir) as (hostname, port):
         """
 import pyarrow,pathlib
 pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
-pytest.main([pyarrow_dir, '-r', 's'])
+# Substrait expression serialization crashes pyodide with a
+# "Cannot convert a BigInt value to a number" error.
+pytest.main([pyarrow_dir, '-r', 's', '-m', 'not substrait'])
 """,
         wait_for_terminate=False,
     )

@@ -1,0 +1,9 @@
+Document: arrow-cuda-glib
+Title: Apache Arrow CUDA GLib Reference Manual
+Author: The Apache Software Foundation
+Abstract: Apache Arrow CUDA GLib provides an API for CUDA integration.
+Section: Programming
+
+Format: HTML
+Index: /usr/share/doc/libarrow-cuda-glib-doc/arrow-cuda-glib/index.html
+Files: /usr/share/doc/libarrow-cuda-glib-doc/arrow-cuda-glib/*.html

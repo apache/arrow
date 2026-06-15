@@ -1183,6 +1183,12 @@ cdef class OSFile(NativeFile):
     """
     A stream backed by a regular file descriptor.
 
+    Parameters
+    ----------
+    path : str or int
+        A file path or an open file descriptor.
+        Passed file descriptors are owned and closed by OSFile.
+
     Examples
     --------
     Create a new file to write to:
@@ -1228,22 +1234,33 @@ cdef class OSFile(NativeFile):
         object path
 
     def __cinit__(self, path, mode='r', MemoryPool memory_pool=None):
-        _check_is_file(path)
         self.path = path
 
         cdef:
             FileMode c_mode
             shared_ptr[Readable] handle
-            c_string c_path = encode_file_path(path)
+            c_string c_path
+            int fd
 
-        if mode in ('r', 'rb'):
-            self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
-        elif mode in ('w', 'wb'):
-            self._open_writable(c_path)
-        elif mode in ('a', 'ab'):
-            self._open_writable(c_path, append=True)
+        if isinstance(path, int):
+            fd = path
+            if mode in ('r', 'rb'):
+                self._open_readable_fd(fd, maybe_unbox_memory_pool(memory_pool))
+            elif mode in ('w', 'wb', 'a', 'ab'):
+                self._open_writable_fd(fd, append=(mode in ('a', 'ab')))
+            else:
+                raise ValueError(f'Invalid file mode: {mode}')
         else:
-            raise ValueError(f'Invalid file mode: {mode}')
+            _check_is_file(path)
+            c_path = encode_file_path(path)
+            if mode in ('r', 'rb'):
+                self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
+            elif mode in ('w', 'wb'):
+                self._open_writable(c_path)
+            elif mode in ('a', 'ab'):
+                self._open_writable(c_path, append=True)
+            else:
+                raise ValueError(f'Invalid file mode: {mode}')
 
     cdef _open_readable(self, c_string path, CMemoryPool* pool):
         cdef shared_ptr[ReadableFile] handle
@@ -1262,9 +1279,35 @@ cdef class OSFile(NativeFile):
         self.is_writable = True
         self._is_appending = append
 
+    cdef _open_readable_fd(self, int fd, CMemoryPool* pool):
+        cdef shared_ptr[ReadableFile] handle
+
+        with nogil:
+            handle = GetResultValue(ReadableFile.Open(fd, pool))
+
+        self.is_readable = True
+        self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
+
+    cdef _open_writable_fd(self, int fd, c_bool append=False):
+        with nogil:
+            self.output_stream = GetResultValue(FileOutputStream.Open(fd))
+        self.is_writable = True
+        self._is_appending = append
+
     def fileno(self):
         self._assert_open()
-        return self.handle.file_descriptor()
+        cdef:
+            shared_ptr[ReadableFile] readable_handle
+            shared_ptr[FileOutputStream] writable_handle
+
+        if self.is_readable:
+            readable_handle = static_pointer_cast[ReadableFile, CRandomAccessFile](
+                self.get_random_access_file())
+            return readable_handle.get().file_descriptor()
+        else:
+            writable_handle = static_pointer_cast[FileOutputStream, COutputStream](
+                self.get_output_stream())
+            return writable_handle.get().file_descriptor()
 
 
 cdef class FixedSizeBufferWriter(NativeFile):

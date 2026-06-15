@@ -60,10 +60,11 @@ set PYTHON=3.10
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
-call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA_ENV% ^
+call conda create --no-shortcuts -c conda-forge -q -y -p %_VERIFICATION_CONDA_ENV% ^
     --file=!ARROW_SOURCE!\ci\conda_env_cpp.txt ^
     --file=!ARROW_SOURCE!\ci\conda_env_python.txt ^
     git ^
+    pip ^
     python=%PYTHON% ^
     || exit /B 1
 
@@ -132,17 +133,22 @@ popd
 @rem Build and import pyarrow
 pushd !ARROW_SOURCE!\python
 
-pip install -r requirements-test.txt || exit /B 1
+python -m pip install build || exit /B 1
+python -m pip install -r requirements-test.txt || exit /B 1
 
-set PYARROW_CMAKE_GENERATOR=%GENERATOR%
+set CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_PARQUET_ENCRYPTION=1
 set PYARROW_WITH_DATASET=1
 set PYARROW_TEST_CYTHON=OFF
-python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
-pytest pyarrow -v -s --enable-parquet || exit /B 1
-
+set PYARROW_BUNDLE_ARROW_CPP=ON
+python -m build --sdist --wheel . --no-isolation || exit /B 1
+@rem Install the built wheel to verify it works
+for %%f in (dist\*.whl) do python -m pip install %%f || exit /B 1
 popd
+
+set PYARROW_TEST_PARQUET=ON
+pytest --pyargs pyarrow -v -s || exit /B 1
 
 call deactivate

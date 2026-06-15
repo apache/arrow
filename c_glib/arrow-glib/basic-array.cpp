@@ -1114,7 +1114,11 @@ garrow_array_get_null_bitmap(GArrowArray *array)
 
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_null_bitmap = arrow_array->null_bitmap();
-  return garrow_buffer_new_raw(&arrow_null_bitmap);
+  if (arrow_null_bitmap) {
+    return garrow_buffer_new_raw(&arrow_null_bitmap);
+  } else {
+    return nullptr;
+  }
 }
 
 /**

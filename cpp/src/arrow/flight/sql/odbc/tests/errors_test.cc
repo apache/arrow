@@ -47,6 +47,8 @@ using TestTypesHandle = ::testing::Types<FlightSQLOdbcEnvConnHandleMockTestBase,
                                          FlightSQLOdbcEnvConnHandleRemoteTestBase>;
 TYPED_TEST_SUITE(ErrorsHandleTest, TestTypesHandle);
 
+using ODBC::SqlWcharToString;
+
 TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   // Invalid connect string
   std::string connect_str = this->GetInvalidConnectionString();
@@ -90,9 +92,12 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   SQLWCHAR message_text[kOdbcBufferSize];
   SQLSMALLINT message_text_length;
 
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
-                            message_text, kOdbcBufferSize, &message_text_length));
+  SQLRETURN ret =
+      SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
+                      message_text, kOdbcBufferSize, &message_text_length);
+
+  // dependent on the size of the message it could output SQL_SUCCESS_WITH_INFO
+  EXPECT_TRUE(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO);
 
   EXPECT_GT(message_text_length, 100);
 
@@ -114,10 +119,9 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   EXPECT_EQ(
       SQL_SUCCESS,
       SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_SQLSTATE, sql_state,
-                      sql_state_size * arrow::flight::sql::odbc::GetSqlWCharSize(),
-                      &sql_state_length));
+                      sql_state_size * GetSqlWCharSize(), &sql_state_length));
 
-  EXPECT_EQ(std::wstring(L"28000"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorState28000, SqlWcharToString(sql_state));
 }
 
 TYPED_TEST(ErrorsHandleTest, DISABLED_TestSQLGetDiagFieldWForConnectFailureNTS) {
@@ -156,6 +160,8 @@ TYPED_TEST(ErrorsHandleTest, DISABLED_TestSQLGetDiagFieldWForConnectFailureNTS) 
   EXPECT_GT(message_text_length, 100);
 }
 
+// iODBC does not support application allocated descriptors.
+#ifndef __APPLE__
 TYPED_TEST(ErrorsTest, TestSQLGetDiagFieldWForDescriptorFailureFromDriverManager) {
   SQLHDESC descriptor;
 
@@ -216,7 +222,7 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagFieldWForDescriptorFailureFromDriverManager
       SQLGetDiagField(SQL_HANDLE_DESC, descriptor, RECORD_1, SQL_DIAG_SQLSTATE, sql_state,
                       sql_state_size * GetSqlWCharSize(), &sql_state_length));
 
-  EXPECT_EQ(std::wstring(L"IM001"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorStateIM001, SqlWcharToString(sql_state));
 
   // Free descriptor handle
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, descriptor));
@@ -245,13 +251,15 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecForDescriptorFailureFromDriverManager) {
   EXPECT_EQ(0, native_error);
 
   // API not implemented error from driver manager
-  EXPECT_EQ(std::wstring(L"IM001"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorStateIM001, SqlWcharToString(sql_state));
 
-  EXPECT_FALSE(std::wstring(message).empty());
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
 
   // Free descriptor handle
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, descriptor));
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagRecForConnectFailure) {
   // Invalid connect string
@@ -282,9 +290,10 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagRecForConnectFailure) {
 
   EXPECT_EQ(200, native_error);
 
-  EXPECT_EQ(std::wstring(L"28000"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorState28000, SqlWcharToString(sql_state));
 
-  EXPECT_FALSE(std::wstring(message).empty());
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
 }
 
 TYPED_TEST(ErrorsTest, TestSQLGetDiagRecInputData) {
@@ -304,12 +313,23 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecInputData) {
   EXPECT_EQ(SQL_NO_DATA, SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 1, nullptr, nullptr,
                                        nullptr, 0, nullptr));
 
-  // Invalid handle
+#ifdef __APPLE__
+  // MacOS ODBC driver manager requires connection handle
   EXPECT_EQ(SQL_INVALID_HANDLE,
+            SQLGetDiagRec(0, this->conn, 1, nullptr, nullptr, nullptr, 0, nullptr));
+#else
+  // Linux & Windows driver managers have different expected return values
+#  ifdef __linux__
+  SQLRETURN expected_rc = SQL_ERROR;
+#  else  // Windows
+  SQLRETURN expected_rc = SQL_INVALID_HANDLE;
+#  endif
+  EXPECT_EQ(expected_rc,
             SQLGetDiagRec(0, nullptr, 0, nullptr, nullptr, nullptr, 0, nullptr));
+#endif
 }
 
-TYPED_TEST(ErrorsTest, TestSQLErrorInputData) {
+TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorInputData) {
   // Test ODBC 2.0 API SQLError. Driver manager maps SQLError to SQLGetDiagRec.
   // SQLError does not post diagnostic records for itself.
 
@@ -320,8 +340,13 @@ TYPED_TEST(ErrorsTest, TestSQLErrorInputData) {
   EXPECT_EQ(SQL_NO_DATA, SQLError(nullptr, this->conn, nullptr, nullptr, nullptr, nullptr,
                                   0, nullptr));
 
+#ifdef __APPLE__
+  EXPECT_EQ(SQL_NO_DATA, SQLError(SQL_NULL_HENV, this->conn, this->stmt, nullptr, nullptr,
+                                  nullptr, 0, nullptr));
+#else
   EXPECT_EQ(SQL_NO_DATA, SQLError(nullptr, nullptr, this->stmt, nullptr, nullptr, nullptr,
                                   0, nullptr));
+#endif  // __APPLE__
 
   // Invalid handle
   EXPECT_EQ(SQL_INVALID_HANDLE,
@@ -345,137 +370,19 @@ TYPED_TEST(ErrorsTest, TestSQLErrorEnvErrorFromDriverManager) {
   ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
                                   message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
-  EXPECT_GT(message_length, 50);
+  EXPECT_GT(message_length, 40);
 
   EXPECT_EQ(0, native_error);
 
   // Function sequence error state from driver manager
-  EXPECT_EQ(std::wstring(L"HY010"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorStateHY010, SqlWcharToString(sql_state));
 
-  EXPECT_FALSE(std::wstring(message).empty());
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
 }
 
 TYPED_TEST(ErrorsTest, TestSQLErrorConnError) {
   // Test ODBC 2.0 API SQLError.
-  // Known Windows Driver Manager (DM) behavior:
-  // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
-  // DM passes 512 as buffer length to SQLError.
-
-  // Attempt to set unsupported attribute
-  SQLRETURN ret = SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr);
-
-  ASSERT_EQ(SQL_ERROR, ret);
-
-  SQLWCHAR sql_state[6] = {0};
-  SQLINTEGER native_error = 0;
-  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
-  SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, this->conn, nullptr, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
-
-  EXPECT_GT(message_length, 60);
-
-  EXPECT_EQ(100, native_error);
-
-  // optional feature not supported error state
-  EXPECT_EQ(std::wstring(L"HYC00"), std::wstring(sql_state));
-
-  EXPECT_FALSE(std::wstring(message).empty());
-}
-
-TYPED_TEST(ErrorsTest, TestSQLErrorStmtError) {
-  // Test ODBC 2.0 API SQLError.
-  // Known Windows Driver Manager (DM) behavior:
-  // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
-  // DM passes 512 as buffer length to SQLError.
-
-  std::wstring wsql = L"1";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
-
-  ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
-
-  SQLWCHAR sql_state[6] = {0};
-  SQLINTEGER native_error = 0;
-  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
-  SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
-
-  EXPECT_GT(message_length, 70);
-
-  EXPECT_EQ(100, native_error);
-
-  EXPECT_EQ(std::wstring(L"HY000"), std::wstring(sql_state));
-
-  EXPECT_FALSE(std::wstring(message).empty());
-}
-
-TYPED_TEST(ErrorsTest, TestSQLErrorStmtWarning) {
-  // Test ODBC 2.0 API SQLError.
-
-  std::wstring wsql = L"SELECT 'VERY LONG STRING here' AS string_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
-
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
-
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
-
-  const int len = 17;
-  SQLCHAR char_val[len];
-  SQLLEN buf_len = sizeof(SQLCHAR) * len;
-  SQLLEN ind;
-
-  EXPECT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 1, SQL_C_CHAR, &char_val, buf_len, &ind));
-
-  SQLWCHAR sql_state[6] = {0};
-  SQLINTEGER native_error = 0;
-  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
-  SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
-
-  EXPECT_GT(message_length, 50);
-
-  EXPECT_EQ(1000100, native_error);
-
-  // Verify string truncation warning is reported
-  EXPECT_EQ(std::wstring(L"01004"), std::wstring(sql_state));
-
-  EXPECT_FALSE(std::wstring(message).empty());
-}
-
-TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorEnvErrorODBCVer2FromDriverManager) {
-  // Test ODBC 2.0 API SQLError with ODBC ver 2.
-  // Known Windows Driver Manager (DM) behavior:
-  // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
-  // DM passes 512 as buffer length to SQLError.
-
-  // Attempt to set environment attribute after connection handle allocation
-  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION,
-                                     reinterpret_cast<void*>(SQL_OV_ODBC2), 0));
-
-  SQLWCHAR sql_state[6] = {0};
-  SQLINTEGER native_error = 0;
-  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
-  SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
-
-  EXPECT_GT(message_length, 50);
-
-  EXPECT_EQ(0, native_error);
-
-  // Function sequence error state from driver manager
-  EXPECT_EQ(std::wstring(L"S1010"), std::wstring(sql_state));
-
-  EXPECT_FALSE(std::wstring(message).empty());
-}
-
-TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorConnErrorODBCVer2) {
-  // Test ODBC 2.0 API SQLError with ODBC ver 2.
   // Known Windows Driver Manager (DM) behavior:
   // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
   // DM passes 512 as buffer length to SQLError.
@@ -495,49 +402,48 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorConnErrorODBCVer2) {
 
   EXPECT_EQ(100, native_error);
 
-  // optional feature not supported error state. Driver Manager maps state to S1C00
-  EXPECT_EQ(std::wstring(L"S1C00"), std::wstring(sql_state));
+  // optional feature not supported error state
+  EXPECT_EQ(kErrorStateHYC00, SqlWcharToString(sql_state));
 
-  EXPECT_FALSE(std::wstring(message).empty());
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
 }
 
-TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtErrorODBCVer2) {
-  // Test ODBC 2.0 API SQLError with ODBC ver 2.
+TYPED_TEST(ErrorsTest, TestSQLErrorStmtError) {
+  // Test ODBC 2.0 API SQLError.
   // Known Windows Driver Manager (DM) behavior:
   // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
   // DM passes 512 as buffer length to SQLError.
 
-  std::wstring wsql = L"1";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"1");
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_ERROR, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  SQLRETURN ret = SQLError(nullptr, this->conn, this->stmt, sql_state, &native_error,
+                           message, SQL_MAX_MESSAGE_LENGTH, &message_length);
+
+  EXPECT_TRUE(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO);
 
   EXPECT_GT(message_length, 70);
 
   EXPECT_EQ(100, native_error);
 
-  // Driver Manager maps error state to S1000
-  EXPECT_EQ(std::wstring(L"S1000"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorStateHY000, SqlWcharToString(sql_state));
 
-  EXPECT_FALSE(std::wstring(message).empty());
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
 }
 
-TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarningODBCVer2) {
+TYPED_TEST(ErrorsTest, TestSQLErrorStmtWarning) {
   // Test ODBC 2.0 API SQLError.
 
-  std::wstring wsql = L"SELECT 'VERY LONG STRING here' AS string_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 'VERY LONG STRING here' AS string_col;");
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
@@ -553,17 +459,152 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarningODBCVer2) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
+                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 
   EXPECT_EQ(1000100, native_error);
 
   // Verify string truncation warning is reported
-  EXPECT_EQ(std::wstring(L"01004"), std::wstring(sql_state));
+  EXPECT_EQ(kErrorState01004, SqlWcharToString(sql_state));
 
-  EXPECT_FALSE(std::wstring(message).empty());
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
+}
+
+TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorEnvErrorFromDriverManager) {
+  // Test ODBC 2.0 API SQLError with ODBC ver 2.
+  // Known Windows Driver Manager (DM) behavior:
+  // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
+  // DM passes 512 as buffer length to SQLError.
+
+  // Attempt to set environment attribute after connection handle allocation
+  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION,
+                                     reinterpret_cast<void*>(SQL_OV_ODBC2), 0));
+
+  SQLWCHAR sql_state[6] = {0};
+  SQLINTEGER native_error = 0;
+  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
+  SQLSMALLINT message_length = 0;
+  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+
+  EXPECT_GT(message_length, 40);
+
+  EXPECT_EQ(0, native_error);
+
+  // Function sequence error state from driver manager
+#ifdef __APPLE__
+  // MacOS Driver Manager returns HY010
+  EXPECT_EQ(kErrorStateHY010, SqlWcharToString(sql_state));
+#else  // Linux & Windows
+  // Linux & Windows Driver Managers returns S1010
+  EXPECT_EQ(kErrorStateS1010, SqlWcharToString(sql_state));
+#endif
+
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
+}
+
+#ifndef __APPLE__
+TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorConnError) {
+  // Test ODBC 2.0 API SQLError with ODBC ver 2.
+  // Known Windows Driver Manager (DM) behavior:
+  // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
+  // DM passes 512 as buffer length to SQLError.
+
+  // Known macOS Driver Manager (DM) behavior:
+  // Attempts to call SQLGetConnectOption without redirecting the API call to
+  // SQLGetConnectAttr. SQLGetConnectOption is not implemented as it is not required by
+  // macOS Excel.
+
+  // Attempt to set unsupported attribute
+  ASSERT_EQ(SQL_ERROR,
+            SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr));
+
+  SQLWCHAR sql_state[6] = {0};
+  SQLINTEGER native_error = 0;
+  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
+  SQLSMALLINT message_length = 0;
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, this->conn, nullptr, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+
+  EXPECT_GT(message_length, 60);
+
+  EXPECT_EQ(100, native_error);
+
+  // optional feature not supported error state. Driver Manager maps state to S1C00
+  EXPECT_EQ(kErrorStateS1C00, SqlWcharToString(sql_state));
+
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
+}
+#endif  // __APPLE__
+
+TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
+  // Test ODBC 2.0 API SQLError with ODBC ver 2.
+  // Known Windows Driver Manager (DM) behavior:
+  // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
+  // DM passes 512 as buffer length to SQLError.
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT * from non_existent_table;");
+
+  ASSERT_EQ(SQL_ERROR, SQLExecDirect(this->stmt, wsql, wsql_len));
+
+  SQLWCHAR sql_state[6] = {0};
+  SQLINTEGER native_error = 0;
+  SQLSMALLINT message_length = 0;
+  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
+                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  EXPECT_GT(message_length, 70);
+
+  EXPECT_EQ(100, native_error);
+
+  // Driver Manager maps error state to S1000
+  EXPECT_EQ(kErrorStateS1000, SqlWcharToString(sql_state));
+
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
+}
+
+TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarning) {
+  // Test ODBC 2.0 API SQLError.
+
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 'VERY LONG STRING here' AS string_col;");
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, wsql, wsql_len));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  const int len = 17;
+  SQLCHAR char_val[len];
+  SQLLEN buf_len = sizeof(SQLCHAR) * len;
+  SQLLEN ind;
+
+  EXPECT_EQ(SQL_SUCCESS_WITH_INFO,
+            SQLGetData(this->stmt, 1, SQL_C_CHAR, &char_val, buf_len, &ind));
+
+  SQLWCHAR sql_state[6] = {0};
+  SQLINTEGER native_error = 0;
+  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
+  SQLSMALLINT message_length = 0;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
+                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+
+  EXPECT_GT(message_length, 50);
+
+  EXPECT_EQ(1000100, native_error);
+
+  // Verify string truncation warning is reported
+  EXPECT_EQ(kErrorState01004, SqlWcharToString(sql_state));
+
+  std::string msg = SqlWcharToString(message);
+  EXPECT_FALSE(msg.empty());
 }
 
 }  // namespace arrow::flight::sql::odbc

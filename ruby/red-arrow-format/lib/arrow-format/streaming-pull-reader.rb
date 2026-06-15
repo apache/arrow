@@ -16,6 +16,7 @@
 # under the License.
 
 require_relative "array"
+require_relative "dictionary"
 require_relative "error"
 require_relative "field"
 require_relative "readable"
@@ -100,11 +101,23 @@ module ArrowFormat
     private
     def consume_initial(target)
       continuation = target.get_value(CONTINUATION_TYPE, 0)
-      unless continuation == CONTINUATION_INT32
+      if continuation == CONTINUATION_INT32
+        @state = :metadata_length
+      elsif continuation < 0
         raise ReadError.new("Invalid continuation token: " +
                             continuation.inspect)
+      else
+        # For backward compatibility of data produced prior to version
+        # 0.15.0. It doesn't have continuation token. Ignore it and
+        # re-read it as metadata length.
+        metadata_length = continuation
+        if metadata_length == 0
+          @state = :eos
+        else
+          @metadata_length = metadata_length
+          @state = :metadata
+        end
       end
-      @state = :metadata_length
     end
 
     def consume_metadata_length(target)
@@ -199,12 +212,12 @@ module ArrowFormat
                             header.inspect)
       end
 
-      @schema = read_schema(header)
+      @schema = read_schema(header, message.custom_metadata)
       @dictionaries = {}
       @dictionary_fields = {}
       @schema.fields.each do |field|
         next unless field.type.is_a?(DictionaryType)
-        @dictionary_fields[field.dictionary_id] = field
+        @dictionary_fields[field.type.id] = field
       end
       if @dictionaries.size < @dictionary_fields.size
         @state = :initial_dictionaries
@@ -213,31 +226,44 @@ module ArrowFormat
       end
     end
 
-    def process_dictionary_batch_message(message, body)
-      header = message.header
-      if @state == :initial_dictionaries and header.delta?
+    def process_dictionary_batch_message(fb_message, body)
+      fb_header = fb_message.header
+      if @state == :initial_dictionaries and fb_header.delta?
         raise ReadError.new("An initial dictionary batch message must be " +
                             "a non delta dictionary batch message: " +
-                            header.inspect)
+                            fb_header.inspect)
       end
-      field = @dictionary_fields[header.id]
+      field = @dictionary_fields[fb_header.id]
       value_type = field.type.value_type
-      schema = Schema.new([Field.new("dummy", value_type, true, nil)])
-      record_batch = read_record_batch(header.data, schema, body)
-      if header.delta?
-        @dictionaries[header.id] << record_batch.columns[0]
+      schema = Schema.new([Field.new("dummy", value_type)])
+      record_batch = read_record_batch(fb_message.version,
+                                       fb_header.data,
+                                       nil,
+                                       schema,
+                                       body)
+      message_metadata = read_custom_metadata(fb_message.custom_metadata)
+      dictionary = Dictionary.new(fb_header.id,
+                                  record_batch.columns[0],
+                                  message_metadata: message_metadata)
+      if fb_header.delta?
+        @dictionaries[fb_header.id] << dictionary
       else
-        @dictionaries[header.id] = [record_batch.columns[0]]
+        @dictionaries[fb_header.id] = [dictionary]
       end
     end
 
-    def find_dictionary(id)
+    def find_dictionaries(id)
       @dictionaries[id]
     end
 
-    def process_record_batch_message(message, body)
-      header = message.header
-      @on_read.call(read_record_batch(header, @schema, body))
+    def process_record_batch_message(fb_message, body)
+      fb_header = fb_message.header
+      record_batch = read_record_batch(fb_message.version,
+                                       fb_header,
+                                       fb_message.custom_metadata,
+                                       @schema,
+                                       body)
+      @on_read.call(record_batch)
     end
   end
 end

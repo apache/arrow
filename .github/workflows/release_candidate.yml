@@ -46,6 +46,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install dependencies
         run: |
@@ -101,7 +102,7 @@ jobs:
               "${RELEASE_TARBALL}"
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-candidate
           path: ${{ env.RELEASE_TARBALL }}*

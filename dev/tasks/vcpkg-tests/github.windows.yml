@@ -35,9 +35,6 @@ jobs:
         run: |
           arrow/ci/scripts/install_cmake.sh 3.29.0 /c/cmake
           echo "c:\\cmake\\bin" >> $GITHUB_PATH
-      - name: Download Timezone Database
-        shell: bash
-        run: arrow/ci/scripts/download_tz_database.sh
       - name: Remove and Reinstall vcpkg
         # When running vcpkg in GitHub Actions on Windows, remove the
         # preinstalled vcpkg and install the newest version from source.

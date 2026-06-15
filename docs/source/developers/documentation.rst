@@ -71,8 +71,9 @@ These two steps are mandatory and must be executed in order.
       this step requires that ``pyarrow`` library is installed
       in your python environment.  One way to accomplish
       this is to follow the build instructions at :ref:`python-development`
-      and then run ``python setup.py install`` in arrow/python
+      and then run ``pip install --no-build-isolation .`` in arrow/python
       (it is best to do this in a dedicated conda/virtual environment).
+      Add ``-vv`` to the pip command to get output of the build process.
 
       You can still build the documentation without ``pyarrow``
       library installed but note that Python part of the documentation

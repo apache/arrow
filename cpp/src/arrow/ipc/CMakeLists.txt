@@ -38,6 +38,7 @@ function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_test(feather_test)
+add_arrow_ipc_test(endianness_test)
 add_arrow_ipc_test(message_internal_test)
 add_arrow_ipc_test(read_write_test)
 add_arrow_ipc_test(tensor_test)

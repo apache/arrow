@@ -149,10 +149,31 @@ RandomAccessFile::~RandomAccessFile() = default;
 
 RandomAccessFile::RandomAccessFile() : interface_impl_(new Impl()) {}
 
+Result<int64_t> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
+                                         bool allow_short_read, void* out) {
+  ARROW_ASSIGN_OR_RAISE(auto real_nbytes, ReadAt(position, nbytes, out));
+  if (!allow_short_read && real_nbytes != nbytes) {
+    return Status::IOError("File too short: expected to be able to read ", nbytes,
+                           " bytes, got ", real_nbytes);
+  }
+  return real_nbytes;
+}
+
 Result<int64_t> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, void* out) {
   std::lock_guard<std::mutex> lock(interface_impl_->lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, out);
+}
+
+Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
+                                                         bool allow_short_read) {
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(position, nbytes));
+  // XXX the internal `IoRecordedRandomAccessFile` can return a null buffer
+  if (!allow_short_read && buffer && buffer->size() != nbytes) {
+    return Status::IOError("File too short: expected to be able to read ", nbytes,
+                           " bytes, got ", buffer->size());
+  }
+  return buffer;
 }
 
 Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
@@ -162,25 +183,39 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
   return Read(nbytes);
 }
 
-// Default ReadAsync() implementation: simply issue the read on the context's executor
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx,
                                                             int64_t position,
                                                             int64_t nbytes) {
+  return ReadAsync(ctx, position, nbytes, /*allow_short_read=*/true);
+}
+
+// Default ReadAsync() implementation: simply issue the read on the context's executor
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx,
+                                                            int64_t position,
+                                                            int64_t nbytes,
+                                                            bool allow_short_read) {
   auto self = std::dynamic_pointer_cast<RandomAccessFile>(shared_from_this());
-  return DeferNotOk(internal::SubmitIO(
-      ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
+  return DeferNotOk(internal::SubmitIO(ctx, [self, position, nbytes, allow_short_read] {
+    return self->ReadAt(position, nbytes, allow_short_read);
+  }));
 }
 
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
                                                             int64_t nbytes) {
-  return ReadAsync(io_context(), position, nbytes);
+  return ReadAsync(io_context(), position, nbytes, /*allow_short_read=*/true);
+}
+
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
+                                                            int64_t nbytes,
+                                                            bool allow_short_read) {
+  return ReadAsync(io_context(), position, nbytes, allow_short_read);
 }
 
 std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
     const IOContext& ctx, const std::vector<ReadRange>& ranges) {
   std::vector<Future<std::shared_ptr<Buffer>>> ret;
   for (auto r : ranges) {
-    ret.push_back(this->ReadAsync(ctx, r.offset, r.length));
+    ret.push_back(this->ReadAsync(ctx, r.offset, r.length, /*allow_short_read=*/false));
   }
   return ret;
 }
@@ -390,23 +425,15 @@ namespace {
 constexpr int kDefaultNumIoThreads = 8;
 
 std::shared_ptr<ThreadPool> MakeIOThreadPool() {
-  int threads = 0;
-  auto maybe_env_var = ::arrow::internal::GetEnvVar("ARROW_IO_THREADS");
-  if (maybe_env_var.ok()) {
-    auto str = *std::move(maybe_env_var);
-    if (!str.empty()) {
-      try {
-        threads = std::stoi(str);
-      } catch (...) {
-      }
-      if (threads <= 0) {
-        ARROW_LOG(WARNING)
-            << "ARROW_IO_THREADS does not contain a valid number of threads "
-               "(should be an integer > 0)";
-      }
-    }
+  int threads = kDefaultNumIoThreads;
+  auto maybe_num_threads = ::arrow::internal::GetEnvVarInteger(
+      "ARROW_IO_THREADS", /*min_value=*/1, /*max_value=*/std::numeric_limits<int>::max());
+  if (maybe_num_threads.ok()) {
+    threads = static_cast<int>(*maybe_num_threads);
+  } else if (!maybe_num_threads.status().IsKeyError()) {
+    maybe_num_threads.status().Warn();
   }
-  auto maybe_pool = ThreadPool::MakeEternal(threads > 0 ? threads : kDefaultNumIoThreads);
+  auto maybe_pool = ThreadPool::MakeEternal(threads);
   if (!maybe_pool.ok()) {
     maybe_pool.status().Abort("Failed to create global IO thread pool");
   }

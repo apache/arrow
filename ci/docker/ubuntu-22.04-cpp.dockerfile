@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:22.04
-FROM ${base}
+ARG arch=amd64
+ARG base=ubuntu:22.04
+FROM --platform=linux/${arch} ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -73,10 +74,10 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -120,6 +121,7 @@ RUN apt-get update -y -q && \
         rsync \
         tzdata \
         uuid-runtime \
+        unzip \
         wget \
         xz-utils && \
     apt-get clean && \

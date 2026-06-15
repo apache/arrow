@@ -39,6 +39,28 @@ task :test do
   end
 end
 
+benchmark_tasks = []
+namespace :benchmark do
+  Dir.glob("benchmark/*.yaml").sort.each do |yaml|
+    name = File.basename(yaml, ".*")
+    command_line = [
+      RbConfig.ruby, "-v", "-S", "benchmark-driver", File.expand_path(yaml),
+    ]
+
+    desc "Run #{name} benchmark"
+    task name do
+      puts("```console")
+      puts("$ #{command_line.join(" ")}")
+      sh(*command_line, verbose: false)
+      puts("```")
+    end
+    benchmark_tasks << "benchmark:#{name}"
+  end
+end
+
+desc "Run all benchmarks"
+task :benchmark => benchmark_tasks
+
 namespace :flat_buffers do
   desc "Generate FlatBuffers code"
   task :generate do

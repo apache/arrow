@@ -42,7 +42,7 @@ TEST(BinaryArrayAccessor, Test_CDataType_BINARY_Basic) {
             accessor.GetColumnarData(&binding, 0, values.size(), value_offset, false,
                                      diagnostics, nullptr));
 
-  for (int i = 0; i < values.size(); ++i) {
+  for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(values[i].length(), str_len_buffer[i]);
     // Beware that CDataType_BINARY values are not null terminated.
     // It's safe to create a std::string from this data because we know it's

@@ -315,8 +315,7 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
     ASSERT_OK(builder.properties(properties)->Build(&reader));
 
     if (read_strategy == "ReadTable") {
-      std::shared_ptr<Table> table;
-      ASSERT_OK(reader->ReadTable(column_indices, &table));
+      ASSERT_OK_AND_ASSIGN(auto table, reader->ReadTable(column_indices));
     } else {
       ASSERT_OK_AND_ASSIGN(auto rb_reader, reader->GetRecordBatchReader(
                                                std::vector<int>{0}, column_indices));

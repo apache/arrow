@@ -119,7 +119,6 @@
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
-#include "arrow/util/value_parsing.h"
 
 namespace arrow::fs {
 
@@ -3579,9 +3578,10 @@ S3GlobalOptions S3GlobalOptions::Defaults() {
     log_level = S3LogLevel::Off;
   }
 
-  value = arrow::internal::GetEnvVar("ARROW_S3_THREADS").ValueOr("1");
-  if (uint32_t u; ::arrow::internal::ParseUnsigned(value.data(), value.size(), &u)) {
-    num_event_loop_threads = u;
+  auto maybe_num_threads =
+      arrow::internal::GetEnvVarInteger("ARROW_S3_THREADS", /*min_value=*/1);
+  if (maybe_num_threads.ok()) {
+    num_event_loop_threads = static_cast<int>(*maybe_num_threads);
   }
   return S3GlobalOptions{log_level, num_event_loop_threads};
 }

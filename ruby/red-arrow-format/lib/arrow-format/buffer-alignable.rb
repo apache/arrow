@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "flat-buffers"
+require_relative "flatbuffers"
 
 module ArrowFormat
   module BufferAlignable

@@ -20,6 +20,7 @@ add_gandiva_test(projector-test
                  binary_test.cc
                  boolean_expr_test.cc
                  date_time_test.cc
+                 decimal_alignment_test.cc
                  decimal_single_test.cc
                  decimal_test.cc
                  filter_project_test.cc

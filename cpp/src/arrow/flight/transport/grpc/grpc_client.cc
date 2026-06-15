@@ -732,19 +732,31 @@ class GrpcClientImpl : public internal::ClientTransport {
 #  endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
 
 #  if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+#    if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+          auto certificate_provider =
+              std::make_shared<::grpc::experimental::InMemoryCertificateProvider>();
+          RETURN_NOT_OK(FromAbslStatus(certificate_provider->UpdateRoot(kDummyRootCert)));
+#    else
           auto certificate_provider =
               std::make_shared<::grpc::experimental::StaticDataCertificateProvider>(
                   kDummyRootCert);
+#    endif
 #    if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options(
               certificate_provider);
-#    else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
-            // While gRPC >= 1.36 does not require a root cert (it has a default)
-            // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+#    else  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+           // While gRPC >= 1.36 does not require a root cert (it has a default)
+           // in practice the path it hardcodes is broken. See grpc/grpc#21655.
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options;
+#      if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+          tls_options.set_root_certificate_provider(certificate_provider);
+#      else
           tls_options.set_certificate_provider(certificate_provider);
+#      endif
 #    endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+#    if !GRPC_CPP_VERSION_CHECK(1, 80, 0)
           tls_options.watch_root_certs();
+#    endif
           tls_options.set_root_cert_name("dummy");
 #    if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_certificate_verifier(std::move(cert_verifier));

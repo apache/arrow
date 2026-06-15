@@ -1812,9 +1812,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays([[2, 4, 5, 100],
-        ...                               ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...                               names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.column_names
         ['n_legs', 'animals']
         """
@@ -1876,14 +1875,12 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
+        >>> table = pa.table({'year': [None, 2022, 2019, 2021],
         ...                   'n_legs': [2, 4, 5, 100],
         ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
         >>> table.drop_null()
         pyarrow.Table
-        year: double
+        year: int64
         n_legs: int64
         animals: string
         ----
@@ -1912,10 +1909,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.field(0)
         pyarrow.Field<n_legs: int64>
         >>> table.field(1)
@@ -2067,10 +2062,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
         ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
         >>> for i in table.itercolumns():
         ...     print(i.null_count)
         ...
@@ -2138,13 +2131,11 @@ cdef class _Tabular(_PandasConvertible):
         --------
         Table (works similarly for RecordBatch)
 
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                   "Brittle stars", "Centipede"]})
         >>> table.sort_by('animal')
         pyarrow.Table
         year: int64
@@ -2186,11 +2177,9 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.take([1,3])
         pyarrow.Table
         year: int64
@@ -2478,10 +2467,8 @@ cdef class _Tabular(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Append column at the end:
 
@@ -2550,7 +2537,7 @@ cdef class RecordBatch(_Tabular):
     month: int64
     day: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -2590,7 +2577,7 @@ cdef class RecordBatch(_Tabular):
     month: int64
     day: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -2863,10 +2850,9 @@ cdef class RecordBatch(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch = pa.RecordBatch.from_arrays(
+        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...     names=['n_legs', 'animals'])
 
         Add column:
 
@@ -2936,10 +2922,9 @@ cdef class RecordBatch(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch = pa.RecordBatch.from_arrays(
+        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...     names=['n_legs', 'animals'])
         >>> batch.remove_column(1)
         pyarrow.RecordBatch
         n_legs: int64
@@ -2975,10 +2960,9 @@ cdef class RecordBatch(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch = pa.RecordBatch.from_arrays(
+        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...     names=['n_legs', 'animals'])
 
         Replace a column:
 
@@ -3044,10 +3028,9 @@ cdef class RecordBatch(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch = pa.RecordBatch.from_arrays(
+        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...     names=['n_legs', 'animals'])
         >>> new_names = ["n", "name"]
         >>> batch.rename_columns(new_names)
         pyarrow.RecordBatch
@@ -3323,15 +3306,12 @@ cdef class RecordBatch(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch = pa.RecordBatch.from_arrays(
+        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...     names=['n_legs', 'animals'])
         >>> batch.schema
         n_legs: int64
         animals: string
-        -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
         Define new schema and cast batch values:
 
@@ -3421,7 +3401,7 @@ cdef class RecordBatch(_Tabular):
         month: int64
         day: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [2020,2022,2021,2022]
         month: [3,5,7,9]
@@ -3584,11 +3564,11 @@ cdef class RecordBatch(_Tabular):
         --------
         >>> import pyarrow as pa
         >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
-        ...                    {'year': 2022, 'n_legs': 4}])
+        ...                    {'year': 2022, 'n_legs': 4, 'animals': 'Goat'}])
         >>> pa.RecordBatch.from_struct_array(struct).to_pandas()
            n_legs animals    year
         0       2  Parrot     NaN
-        1       4    None  2022.0
+        1       4    Goat  2022.0
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -3654,7 +3634,7 @@ cdef class RecordBatch(_Tabular):
         b: [10,20,30,40,null]
 
         Convert a RecordBatch to row-major Tensor with null values
-        written as ``NaN``s
+        written as NaN values
 
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
@@ -4161,7 +4141,7 @@ cdef class Table(_Tabular):
     pyarrow.Table
     year: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [[2020,2022,2019,2021]]
     n_legs: [[2,4,5,100]]
@@ -4287,11 +4267,9 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.slice(length=3)
         pyarrow.Table
         year: int64
@@ -4352,11 +4330,9 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.select([0,1])
         pyarrow.Table
         year: int64
@@ -4692,15 +4668,11 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.schema
         n_legs: int64
         animals: string
-        -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
         Define new schema and cast table values:
 
@@ -4792,7 +4764,7 @@ cdef class Table(_Tabular):
         >>> pa.Table.from_pandas(df)
         pyarrow.Table
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4939,11 +4911,11 @@ cdef class Table(_Tabular):
         --------
         >>> import pyarrow as pa
         >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
-        ...                    {'year': 2022, 'n_legs': 4}])
+        ...                    {'year': 2022, 'n_legs': 4, 'animals': 'Goat'}])
         >>> pa.Table.from_struct_array(struct).to_pandas()
            n_legs animals    year
         0       2  Parrot     NaN
-        1       4    None  2022.0
+        1       4    Goat  2022.0
         """
         if isinstance(struct_array, Array):
             return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
@@ -5137,10 +5109,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Convert a Table to a RecordBatchReader:
 
@@ -5151,8 +5121,6 @@ cdef class Table(_Tabular):
         >>> reader.schema
         n_legs: int64
         animals: string
-        -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
         >>> reader.read_all()
         pyarrow.Table
         n_legs: int64
@@ -5198,15 +5166,11 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.schema
         n_legs: int64
         animals: string
-        -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' ...
         """
         return pyarrow_wrap_schema(self.table.schema())
 
@@ -5293,10 +5257,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
-        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table.nbytes
         72
         """
@@ -5323,10 +5285,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
-        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table.get_total_buffer_size()
         76
         """
@@ -5365,10 +5325,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Add column:
 
@@ -5431,10 +5389,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.remove_column(1)
         pyarrow.Table
         n_legs: int64
@@ -5470,10 +5426,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Replace a column:
 
@@ -5532,10 +5486,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> new_names = ["n", "name"]
         >>> table.rename_columns(new_names)
         pyarrow.Table
@@ -5624,13 +5576,11 @@ cdef class Table(_Tabular):
 
         Examples
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
         year: int64
@@ -5687,16 +5637,13 @@ cdef class Table(_Tabular):
 
         Examples
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
         >>> import pyarrow.compute as pc
-        >>> df1 = pd.DataFrame({'id': [1, 2, 3],
-        ...                     'year': [2020, 2022, 2019]})
-        >>> df2 = pd.DataFrame({'id': [3, 4],
-        ...                     'n_legs': [5, 100],
-        ...                     'animal': ["Brittle stars", "Centipede"]})
-        >>> t1 = pa.Table.from_pandas(df1)
-        >>> t2 = pa.Table.from_pandas(df2)
+        >>> t1 = pa.table({'id': [1, 2, 3],
+        ...                'year': [2020, 2022, 2019]})
+        >>> t2 = pa.table({'id': [3, 4],
+        ...                'n_legs': [5, 100],
+        ...                'animal': ["Brittle stars", "Centipede"]})
 
         Left outer join:
 
@@ -5837,7 +5784,7 @@ cdef class Table(_Tabular):
         -------
         Table
 
-        Example
+        Examples
         --------
         >>> import pyarrow as pa
         >>> t1 = pa.table({'id': [1, 3, 2, 3, 3],
@@ -6008,7 +5955,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
     month: int64
     day: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -6169,7 +6116,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     pyarrow.Table
     year: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [[2020,2022,2019,2021]]
     n_legs: [[2,4,5,100]]
@@ -6321,8 +6268,8 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         "default" if promote_options == "none" else promote_options
     )
 
+    options.unify_schemas = promote_options != "none"
     with nogil:
-        options.unify_schemas = promote_options != "none"
         c_result_table = GetResultValue(
             ConcatenateTables(c_tables, options, pool))
 

@@ -20,6 +20,8 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/internal-hash-table.hpp>
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
@@ -289,15 +291,49 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                                     GArrowSchema *schema,
                                     GError **error)
 {
+  return garrow_record_batch_file_writer_new_full(sink, schema, nullptr, nullptr, error);
+}
+
+/**
+ * garrow_record_batch_file_writer_new_full:
+ * @sink: The output of the writer.
+ * @schema: The schema of the writer.
+ * @options: (nullable): The options for serialization.
+ * @metadata: (nullable) (element-type utf8 utf8): The custom metadata in
+ *   the footer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowRecordBatchFileWriter
+ *   or %NULL on error.
+ *
+ * Since: 24.0.0
+ */
+GArrowRecordBatchFileWriter *
+garrow_record_batch_file_writer_new_full(GArrowOutputStream *sink,
+                                         GArrowSchema *schema,
+                                         GArrowWriteOptions *options,
+                                         GHashTable *metadata,
+                                         GError **error)
+{
   auto arrow_sink = garrow_output_stream_get_raw(sink);
   auto arrow_schema = garrow_schema_get_raw(schema);
+  arrow::ipc::IpcWriteOptions arrow_options = arrow::ipc::IpcWriteOptions::Defaults();
+  if (options) {
+    arrow_options = *garrow_write_options_get_raw(options);
+  }
+  std::shared_ptr<arrow::KeyValueMetadata> arrow_metadata;
+  if (metadata) {
+    arrow_metadata = garrow_internal_hash_table_to_metadata(metadata);
+  }
+
   std::shared_ptr<arrow::ipc::RecordBatchWriter> arrow_writer;
-  auto arrow_writer_result = arrow::ipc::MakeFileWriter(arrow_sink, arrow_schema);
-  if (garrow::check(error, arrow_writer_result, "[record-batch-file-writer][open]")) {
+  auto arrow_writer_result =
+    arrow::ipc::MakeFileWriter(arrow_sink, arrow_schema, arrow_options, arrow_metadata);
+  if (garrow::check(error, arrow_writer_result, "[record-batch-file-writer][new]")) {
     auto arrow_writer = *arrow_writer_result;
     return garrow_record_batch_file_writer_new_raw(&arrow_writer);
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 

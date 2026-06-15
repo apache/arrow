@@ -41,4 +41,10 @@ class TestMapDataType < Test::Unit::TestCase
   def test_item
     assert_equal(@item_type, @data_type.item_type)
   end
+
+  def test_keys_sorted?
+    assert do
+      not @data_type.keys_sorted?
+    end
+  end
 end

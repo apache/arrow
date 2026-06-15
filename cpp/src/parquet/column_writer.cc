@@ -22,6 +22,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -40,6 +41,7 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
@@ -1488,6 +1490,21 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return current_encoder_->EstimatedDataEncodedSize();
   }
 
+  int64_t estimated_buffered_def_level_bytes() const override {
+    return definition_levels_sink_.length();
+  }
+
+  int64_t estimated_buffered_rep_level_bytes() const override {
+    return repetition_levels_sink_.length();
+  }
+
+  int64_t estimated_buffered_dict_bytes() const override {
+    if (current_dict_encoder_) {
+      return current_dict_encoder_->dict_encoded_size();
+    }
+    return 0;
+  }
+
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
@@ -1790,20 +1807,19 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       return;
     }
 
-    auto add_levels = [](std::vector<int64_t>& level_histogram,
-                         ::arrow::util::span<const int16_t> levels, int16_t max_level) {
+    auto add_levels = [](std::vector<int64_t>& level_histogram, const int16_t* levels,
+                         int64_t num_levels, int16_t max_level) {
       if (max_level == 0) {
         return;
       }
       ARROW_DCHECK_EQ(static_cast<size_t>(max_level) + 1, level_histogram.size());
-      ::parquet::UpdateLevelHistogram(levels, level_histogram);
+      std::span<const int16_t> level_span{levels, static_cast<size_t>(num_levels)};
+      ::parquet::UpdateLevelHistogram(level_span, level_histogram);
     };
 
-    add_levels(page_size_statistics_->definition_level_histogram,
-               {def_levels, static_cast<size_t>(num_levels)},
+    add_levels(page_size_statistics_->definition_level_histogram, def_levels, num_levels,
                descr_->max_definition_level());
-    add_levels(page_size_statistics_->repetition_level_histogram,
-               {rep_levels, static_cast<size_t>(num_levels)},
+    add_levels(page_size_statistics_->repetition_level_histogram, rep_levels, num_levels,
                descr_->max_repetition_level());
   }
 
@@ -2099,7 +2115,12 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
   PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
 
   SerializeFunctor<ParquetType, ArrowType> functor;
-  RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
+  // The value buffer could be empty if all values are nulls.
+  // The output buffer will then remain uninitialized, but that's ok since
+  // null value slots are not written in Parquet.
+  if (array.null_count() != array.length()) {
+    RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
+  }
   bool no_nulls =
       this->descr()->schema_node()->is_required() || (array.null_count() == 0);
   if (!maybe_parent_nulls && no_nulls) {
@@ -2331,7 +2352,13 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
 
     auto MultiplyBy = [&](const int64_t factor) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = values[i] * factor;
+        if (array.IsValid(i) &&
+            ARROW_PREDICT_FALSE(::arrow::internal::MultiplyWithOverflowGeneric(
+                values[i], factor, &out[i]))) {
+          return Status::Invalid("Integer overflow when casting timestamp value ",
+                                 values[i], " from ", source_type.ToString(), " to ",
+                                 target_type->ToString());
+        }
       }
       return Status::OK();
     };

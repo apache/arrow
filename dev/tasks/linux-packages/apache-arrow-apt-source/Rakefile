@@ -36,8 +36,21 @@ class ApacheArrowAptSourcePackageTask < PackageTask
     file @archive_name do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
-      download("https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS",
-               "#{@archive_base_name}/KEYS")
+
+      # Fetch KEYS in a subprocess with LD_PRELOAD stripped so any
+      # LD_PRELOAD'd libfaketime (e.g. from reprotest's time variation)
+      # doesn't fake the clock during TLS certificate verification.
+      # Clearing ENV["FAKETIME"] in this Ruby process is not enough:
+      # libfaketime parses FAKETIME once at library load and caches
+      # the offset.
+      sh({"LD_PRELOAD" => nil},
+         "curl",
+         "--silent",
+         "--show-error",
+         "--fail",
+         "--location",
+         "--output", "#{@archive_base_name}/KEYS",
+         "https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS")
       sh("tar", "czf", @archive_name, @archive_base_name)
       rm_rf(@archive_base_name)
     end

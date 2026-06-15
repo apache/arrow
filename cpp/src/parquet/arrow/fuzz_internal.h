@@ -30,6 +30,10 @@
 
 namespace parquet::fuzzing::internal {
 
+//
+// Helper APIs for full file Parquet fuzzing
+//
+
 struct EncryptionKey {
   ::arrow::util::SecureString key;
   std::string key_metadata;

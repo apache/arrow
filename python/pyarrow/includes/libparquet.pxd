@@ -22,7 +22,8 @@ from pyarrow.includes.libarrow cimport (Type, CChunkedArray, CScalar, CSchema,
                                         CStatus, CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata, CRandomAccessFile,
                                         COutputStream, CCacheOptions,
-                                        TimeUnit, CRecordBatchReader)
+                                        TimeUnit, CRecordBatchReader,
+                                        CSecureString)
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -370,6 +371,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
+        optional[int64_t] bloom_filter_offset() const
+        optional[int64_t] bloom_filter_length() const
         unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
         optional[ParquetIndexLocation] GetColumnIndexLocation() const
         optional[ParquetIndexLocation] GetOffsetIndexLocation() const
@@ -464,6 +467,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
+    cdef cppclass BloomFilterOptions:
+        int32_t ndv
+        double fpp
+
     cdef cppclass CdcOptions:
         int64_t min_chunk_size
         int64_t max_chunk_size
@@ -506,6 +513,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_content_defined_chunking()
             Builder* disable_content_defined_chunking()
             Builder* content_defined_chunking_options(CdcOptions options)
+            Builder* disable_bloom_filter(const c_string& path)
+            Builder* enable_bloom_filter(const c_string& path,
+                                         BloomFilterOptions bloom_filter_options)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -534,23 +544,20 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 
         int num_row_groups()
-        CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)
-        CStatus ReadRowGroup(int i, const vector[int]& column_indices,
-                             shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadRowGroup(int i)
+        CResult[shared_ptr[CTable]] ReadRowGroup(int i,
+                                                 const vector[int]& column_indices)
 
-        CStatus ReadRowGroups(const vector[int]& row_groups,
-                              shared_ptr[CTable]* out)
-        CStatus ReadRowGroups(const vector[int]& row_groups,
-                              const vector[int]& column_indices,
-                              shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadRowGroups(const vector[int]& row_groups)
+        CResult[shared_ptr[CTable]] ReadRowGroups(const vector[int]& row_groups,
+                                                  const vector[int]& column_indices)
 
         CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices,
                                                                      const vector[int]& column_indices)
         CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices)
 
-        CStatus ReadTable(shared_ptr[CTable]* out)
-        CStatus ReadTable(const vector[int]& column_indices,
-                          shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadTable()
+        CResult[shared_ptr[CTable]] ReadTable(const vector[int]& column_indices)
 
         CStatus ScanContents(vector[int] columns, int32_t column_batch_size,
                              int64_t* num_rows)
@@ -629,6 +636,28 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
             " parquet::FileDecryptionProperties":
         pass
 
+    cdef cppclass CFileDecryptionPropertiesBuilder\
+            " parquet::FileDecryptionProperties::Builder":
+        CFileDecryptionPropertiesBuilder() except +
+        CFileDecryptionPropertiesBuilder* footer_key(
+            CSecureString footer_key) except +
+        CFileDecryptionPropertiesBuilder* aad_prefix(
+            c_string aad_prefix) except +
+        CFileDecryptionPropertiesBuilder* disable_footer_signature_verification() except +
+        CFileDecryptionPropertiesBuilder* plaintext_files_allowed() except +
+        shared_ptr[CFileDecryptionProperties] build() except +
+
     cdef cppclass CFileEncryptionProperties\
             " parquet::FileEncryptionProperties":
         pass
+
+    cdef cppclass CFileEncryptionPropertiesBuilder\
+            " parquet::FileEncryptionProperties::Builder":
+        CFileEncryptionPropertiesBuilder(CSecureString footer_key) except +
+        CFileEncryptionPropertiesBuilder* set_plaintext_footer() except +
+        CFileEncryptionPropertiesBuilder* algorithm(
+            ParquetCipher parquet_cipher) except +
+        CFileEncryptionPropertiesBuilder* aad_prefix(
+            c_string aad_prefix) except +
+        CFileEncryptionPropertiesBuilder* disable_aad_prefix_storage() except +
+        shared_ptr[CFileEncryptionProperties] build() except +

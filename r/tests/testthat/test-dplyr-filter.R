@@ -287,24 +287,25 @@ test_that("filter environment scope", {
 })
 
 test_that("Filtering on a column that doesn't exist errors correctly", {
+  # expect_warning(., NA) because the usual behavior when it hits a filter
+  # that it can't evaluate is to raise a warning, collect() to R, and retry
+  # the filter. But we want this to error the first time because it's
+  # a user error, not solvable by retrying in R
+  expect_warning(
+    expect_error(
+      tbl |> record_batch() |> filter(not_a_col == 42) |> collect(),
+      "object 'not_a_col' not found"
+    ),
+    NA
+  )
+})
+
+test_that("Filtering on a non-existent column errors in the correct language", {
   with_language("fr", {
-    # expect_warning(., NA) because the usual behavior when it hits a filter
-    # that it can't evaluate is to raise a warning, collect() to R, and retry
-    # the filter. But we want this to error the first time because it's
-    # a user error, not solvable by retrying in R
     expect_warning(
       expect_error(
         tbl |> record_batch() |> filter(not_a_col == 42) |> collect(),
         "objet 'not_a_col' introuvable"
-      ),
-      NA
-    )
-  })
-  with_language("en", {
-    expect_warning(
-      expect_error(
-        tbl |> record_batch() |> filter(not_a_col == 42) |> collect(),
-        "object 'not_a_col' not found"
       ),
       NA
     )
@@ -496,5 +497,53 @@ test_that("filter() with aggregation expressions errors", {
   expect_warning(
     tab |> filter(int < mean(int)),
     "not supported in filter"
+  )
+})
+
+test_that("filter_out() basic", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(chr == "b") |>
+      select(chr, int, lgl) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter_out() keeps NA values in predicate result", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(lgl) |>
+      select(chr, int, lgl) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter_out() with multiple conditions", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(dbl > 2, chr %in% c("d", "f")) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("More complex select/filter_out", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(dbl > 2, chr == "d" | chr == "f") |>
+      select(chr, int, lgl) |>
+      filter(int < 5) |>
+      select(int, chr) |>
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      filter_out(!is.na(int)) |>
+      collect(),
+    tbl
   )
 })

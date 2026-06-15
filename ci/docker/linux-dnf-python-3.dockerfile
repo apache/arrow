@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+ARG arch
 ARG base
-FROM ${base}
+FROM --platform=linux/${arch} ${base}
 
 RUN dnf install -y \
         python3 \

@@ -475,7 +475,9 @@ cdef class ColumnChunkMetaData(_Weakrefable):
   dictionary_page_offset: {self.dictionary_page_offset}
   data_page_offset: {self.data_page_offset}
   total_compressed_size: {self.total_compressed_size}
-  total_uncompressed_size: {self.total_uncompressed_size}"""
+  total_uncompressed_size: {self.total_uncompressed_size}
+  bloom_filter_offset: {self.bloom_filter_offset}
+  bloom_filter_length: {self.bloom_filter_length}"""
 
     def to_dict(self):
         """
@@ -507,7 +509,9 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             dictionary_page_offset=self.dictionary_page_offset,
             data_page_offset=self.data_page_offset,
             total_compressed_size=self.total_compressed_size,
-            total_uncompressed_size=self.total_uncompressed_size
+            total_uncompressed_size=self.total_uncompressed_size,
+            bloom_filter_offset=self.bloom_filter_offset,
+            bloom_filter_length=self.bloom_filter_length,
         )
         return d
 
@@ -644,6 +648,22 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     def total_uncompressed_size(self):
         """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
+
+    @property
+    def bloom_filter_offset(self):
+        """Offset of bloom filter relative to beginning of the file (int or None)."""
+        cdef optional[int64_t] offset = self.metadata.bloom_filter_offset()
+        if offset.has_value():
+            return offset.value()
+        return None
+
+    @property
+    def bloom_filter_length(self):
+        """Length of bloom filter in bytes (int or None)."""
+        cdef optional[int64_t] length = self.metadata.bloom_filter_length()
+        if length.has_value():
+            return length.value()
+        return None
 
     @property
     def has_offset_index(self):
@@ -1524,7 +1544,7 @@ cdef compression_name_from_enum(ParquetCompression compression_):
 
 cdef int check_compression_name(name) except -1:
     if name.upper() not in {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
-                            'ZSTD'}:
+                            'LZ4_RAW', 'ZSTD'}:
         raise ArrowException("Unsupported compression: " + name)
     return 0
 
@@ -1539,7 +1559,7 @@ cdef ParquetCompression compression_from_name(name):
         return ParquetCompression_LZO
     elif name == 'BROTLI':
         return ParquetCompression_BROTLI
-    elif name == 'LZ4':
+    elif name == 'LZ4' or name == 'LZ4_RAW':
         return ParquetCompression_LZ4
     elif name == 'ZSTD':
         return ParquetCompression_ZSTD
@@ -1565,7 +1585,7 @@ cdef class ParquetReader(_Weakrefable):
     def open(self, object source not None, *, bint use_memory_map=False,
              read_dictionary=None, binary_type=None, list_type=None,
              FileMetaData metadata=None,
-             int buffer_size=0, bint pre_buffer=False,
+             int buffer_size=0, bint pre_buffer=True,
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
@@ -1584,7 +1604,7 @@ cdef class ParquetReader(_Weakrefable):
         list_type : subclass of pyarrow.DataType, optional
         metadata : FileMetaData, optional
         buffer_size : int, default 0
-        pre_buffer : bool, default False
+        pre_buffer : bool, default True
         coerce_int96_timestamp_unit : str, optional
         decryption_properties : FileDecryptionProperties, optional
         thrift_string_size_limit : int, optional
@@ -1811,7 +1831,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_row_groups
             vector[int] c_column_indices
 
@@ -1825,15 +1845,13 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, c_column_indices,
-                                            &ctable))
+                table_result = self.reader.get().ReadRowGroups(c_row_groups,
+                                                               c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, &ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadRowGroups(c_row_groups)
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def read_all(self, column_indices=None, bint use_threads=True):
         """
@@ -1847,7 +1865,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_column_indices
 
         self.set_use_threads(use_threads)
@@ -1857,14 +1875,12 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadTable(c_column_indices, &ctable))
+                table_result = self.reader.get().ReadTable(c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadTable(&ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadTable()
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def scan_contents(self, column_indices=None, batch_size=65536):
         """
@@ -1977,6 +1993,60 @@ cdef vector[CSortingColumn] _convert_sorting_columns(sorting_columns) except *:
 
     return c_sorting_columns
 
+cdef void _set_bloom_opts_for_column(
+        WriterProperties.Builder* props,
+        column,
+        column_bloom_opts) except *:
+    """Set Bloom filter options for a single column"""
+    cdef:
+        BloomFilterOptions bloom_opts
+
+    if isinstance(column_bloom_opts, dict):
+        if "ndv" in column_bloom_opts:
+            ndv = column_bloom_opts["ndv"]
+            if isinstance(ndv, int):
+                if ndv <= 0:
+                    raise ValueError(
+                        f"'bloom_filter_options:ndv' for column '{column}' must be greater than zero, got {ndv}")
+                bloom_opts.ndv = ndv
+            else:
+                raise TypeError(
+                    f"'bloom_filter_options:ndv' for column '{column}' must be an int")
+        if "fpp" in column_bloom_opts:
+            fpp = column_bloom_opts["fpp"]
+            if isinstance(fpp, float):
+                if fpp <= 0.0 or fpp >= 1.0:
+                    raise ValueError(
+                        f"'bloom_filter_options:fpp' for column '{column}' must be in (0.0, 1.0), got {fpp}")
+                bloom_opts.fpp = fpp
+            else:
+                raise TypeError(
+                    f"'bloom_filter_options:fpp' for column '{column}' must be a float")
+    elif isinstance(column_bloom_opts, bool):
+        # if True then use the defaults set above, if False then disable
+        if not column_bloom_opts:
+            props.disable_bloom_filter(tobytes(column))
+            return
+    else:
+        raise TypeError(
+            f"'bloom_filter_options:{column}' must be a boolean or a dictionary")
+
+    props.enable_bloom_filter(tobytes(column), bloom_opts)
+
+
+cdef void _set_bloom_filter_opts(
+        WriterProperties.Builder* props,
+        bloom_filter_options) except *:
+    """Set Bloom filter options for all columns"""
+    if bloom_filter_options is not None:
+        if isinstance(bloom_filter_options, dict):
+            # for each entry in bloom_filter_options, {"path": {"ndv": ndv, "fpp", fpp}}
+            # convert (ndv,fpp) to BloomFilterOptions struct and pass to props
+            for column, _bloom_opts in bloom_filter_options.items():
+                _set_bloom_opts_for_column(props, column, _bloom_opts)
+        else:
+            raise TypeError("'bloom_filter_options' must be a dictionary")
+
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
@@ -1996,7 +2066,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_checksum=False,
         sorting_columns=None,
         store_decimal_as_integer=False,
-        use_content_defined_chunking=False) except *:
+        use_content_defined_chunking=False,
+        bloom_filter_options=None) except *:
 
     """General writer properties"""
     cdef:
@@ -2125,6 +2196,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         else:
             raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
+
+    # bloom filters
+    _set_bloom_filter_opts(&props, bloom_filter_options)
 
     # size limits
     if data_page_size is not None:
@@ -2321,7 +2395,8 @@ cdef class ParquetWriter(_Weakrefable):
                   sorting_columns=None,
                   store_decimal_as_integer=False,
                   use_content_defined_chunking=False,
-                  write_time_adjusted_to_utc=False):
+                  write_time_adjusted_to_utc=False,
+                  bloom_filter_options=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2357,7 +2432,8 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
-            use_content_defined_chunking=use_content_defined_chunking
+            use_content_defined_chunking=use_content_defined_chunking,
+            bloom_filter_options=bloom_filter_options
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

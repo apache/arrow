@@ -1666,7 +1666,7 @@ cdef class FlightClient(_Weakrefable):
                 result = Result.__new__(Result)
                 with nogil:
                     check_flight_status(results.get().Next().Value(&result.result))
-                    if result.result == NULL:
+                    if result.result == nullptr:
                         break
                 yield result
         return _do_action_response()
@@ -1695,7 +1695,7 @@ cdef class FlightClient(_Weakrefable):
                 result = FlightInfo.__new__(FlightInfo)
                 with nogil:
                     check_flight_status(listing.get().Next().Value(&result.info))
-                    if result.info == NULL:
+                    if result.info == nullptr:
                         break
                 yield result
 

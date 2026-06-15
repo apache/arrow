@@ -17,6 +17,7 @@
 
 require "English"
 require "cgi/util"
+require 'digest'
 require "fileutils"
 require "find"
 require 'net/http'

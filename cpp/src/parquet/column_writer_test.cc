@@ -1053,8 +1053,10 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
                       {
                           PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
                       }));
-  auto properties =
-      WriterProperties::Builder().data_pagesize(1024 * 1024 * 1024)->build();
+  auto properties = WriterProperties::Builder()
+                        .data_pagesize(1024 * 1024 * 1024)
+                        ->max_rows_per_page(std::numeric_limits<int64_t>::max())
+                        ->build();
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 
@@ -1124,8 +1126,10 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(ThrowsOnDictIndicesTooLarge)) {
                       {
                           PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
                       }));
-  auto properties =
-      WriterProperties::Builder().data_pagesize(4 * 1024LL * 1024 * 1024)->build();
+  auto properties = WriterProperties::Builder()
+                        .data_pagesize(4 * 1024LL * 1024 * 1024)
+                        ->max_rows_per_page(std::numeric_limits<int64_t>::max())
+                        ->build();
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 

@@ -24,14 +24,16 @@ FROM ${base}
 # Define the full version number otherwise choco falls back to patch number 0 (3.10 => 3.10.0)
 ARG python=3.10
 
-ARG python_variant=default
-ENV PYTHON_VERSION=${python}
-ENV PYTHON_VARIANT=${python_variant}
-RUN pymanager install --version %PYTHON_VERSION% --variant %PYTHON_VARIANT%
+ARG python_variant_suffix=""
+ENV PYTHON_VERSION=${python}${python_variant_suffix}
+
+RUN pymanager install %PYTHON_VERSION%
 
 RUN py -%PYTHON_VERSION% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt C:/arrow/python/
 RUN py -%PYTHON_VERSION% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
+
+ENV PYTHON_CMD="py -${python}${python_variant_suffix}"
 
 ENV PYTHON=${python}

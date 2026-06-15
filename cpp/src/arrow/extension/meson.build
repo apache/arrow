@@ -19,7 +19,7 @@ canonical_extension_tests = ['bool8_test.cc', 'json_test.cc', 'uuid_test.cc']
 
 if needs_json
     canonical_extension_tests += [
-        'fixed_shape_tensor_test.cc',
+        'tensor_extension_array_test.cc',
         'opaque_test.cc',
     ]
 endif
@@ -32,5 +32,13 @@ exc = executable(
 test('arrow-canonical-extensions-test', exc)
 
 install_headers(
-    ['bool8.h', 'fixed_shape_tensor.h', 'json.h', 'opaque.h', 'uuid.h'],
+    [
+        'bool8.h',
+        'fixed_shape_tensor.h',
+        'json.h',
+        'opaque.h',
+        'parquet_variant.h',
+        'uuid.h',
+        'variable_shape_tensor.h',
+    ],
 )
