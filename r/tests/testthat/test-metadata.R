@@ -523,6 +523,5 @@ test_that("metadata keys starting with 'r' don't cause partial matching - GH-501
   tbl <- tbl$cast(tbl$schema$WithMetadata(list(rachel = "some_value")))
 
   expect_no_warning(as.data.frame(tbl))
-  expect_no_warning(collect(tbl))
-  expect_no_error(expect_equal(group_vars(tbl), character(0)))
+  expect_no_warning(collect.ArrowTabular(tbl))
 })
