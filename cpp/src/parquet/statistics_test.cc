@@ -1562,20 +1562,26 @@ void TestFloatStatistics<T>::TestNaNs() {
 
 // GH-50182: an all-infinity column must report that infinity as its min/max,
 // rather than the largest finite value (a finite seed is never displaced by an
-// infinity of the same sign).
+// infinity of the same sign). A NaN interspersed in such a column must be
+// ignored without corrupting the infinite min/max.
 template <typename T>
 void TestFloatStatistics<T>::TestInfinities() {
   NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
   ColumnDescriptor descr(node, 0, 0);
 
   constexpr c_type inf = std::numeric_limits<c_type>::infinity();
+  constexpr c_type nan = std::numeric_limits<c_type>::quiet_NaN();
   std::array<c_type, 3> all_pos_inf{inf, inf, inf};
   std::array<c_type, 3> all_neg_inf{-inf, -inf, -inf};
   std::array<c_type, 2> mixed_inf{inf, -inf};
+  std::array<c_type, 3> pos_inf_with_nan{inf, nan, inf};
+  std::array<c_type, 3> neg_inf_with_nan{-inf, nan, -inf};
 
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, inf, inf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, -inf, -inf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, -inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, -inf, -inf);
 }
 
 struct BufferedFloat16 {
@@ -1638,16 +1644,22 @@ void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
   using F16 = BufferedFloat16;
   const auto pos_inf = F16(std::numeric_limits<Float16>::infinity());
   const auto neg_inf = F16(-std::numeric_limits<Float16>::infinity());
+  const auto nan = F16(std::numeric_limits<Float16>::quiet_NaN());
   const auto pinf = FLBA{pos_inf.bytes()};
   const auto ninf = FLBA{neg_inf.bytes()};
+  const auto fnan = FLBA{nan.bytes()};
 
   std::array<FLBA, 3> all_pos_inf{pinf, pinf, pinf};
   std::array<FLBA, 3> all_neg_inf{ninf, ninf, ninf};
   std::array<FLBA, 2> mixed_inf{pinf, ninf};
+  std::array<FLBA, 3> pos_inf_with_nan{pinf, fnan, pinf};
+  std::array<FLBA, 3> neg_inf_with_nan{ninf, fnan, ninf};
 
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, pinf, pinf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, ninf, ninf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, ninf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, pinf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, ninf, ninf);
 }
 
 using FloatingPointTypes = ::testing::Types<FloatType, DoubleType, Float16LogicalType>;
