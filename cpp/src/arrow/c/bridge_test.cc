@@ -942,7 +942,12 @@ TEST_F(TestArrayExport, RejectNullVariadicBuffers) {
                                    nullptr}));
 
     struct ArrowArray c_export;
-    ASSERT_RAISES(Invalid, ExportArray(*arr, &c_export));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "Cannot export array of type " + type->ToString() +
+            ": null variadic buffer at buffer index #2 (variadic buffer index #0)"),
+        ExportArray(*arr, &c_export));
   }
 }
 
