@@ -119,9 +119,7 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 
   // Step 4: Collect exceptions and replace with placeholder (0)
   PforEncodedVector<T> result;
-  result.mutable_info().set_frame_of_reference(min_val);
-  result.mutable_info().set_bit_width(bit_width);
-  result.mutable_info().set_num_exceptions(num_exceptions);
+  result.set_info(PforVectorInfo<T>(min_val, bit_width, num_exceptions));
 
   if (num_exceptions > 0) {
     result.mutable_exception_positions().reserve(num_exceptions);
@@ -167,10 +165,6 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
-
-  if (info.num_exceptions() < 0) {
-    return Status::Invalid("PFOR num_exceptions negative: ", info.num_exceptions());
-  }
 
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width() == 0 && info.num_exceptions() == 0) {
