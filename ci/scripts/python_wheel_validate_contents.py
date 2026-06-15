@@ -16,27 +16,30 @@
 # under the License.
 
 import argparse
-# TODO(GH-48970): Uncomment when wheel stub validation is re-enabled.
-# import ast
+import ast
 from pathlib import Path
 import re
 import zipfile
 
 
-# TODO(GH-48970): Uncomment when wheel stub validation is re-enabled.
-# def _count_docstrings(source):
-#     """Count docstrings in module, function, and class bodies."""
-#     tree = ast.parse(source)
-#     count = 0
-#     for node in ast.walk(tree):
-#         if isinstance(node, (ast.Module, ast.FunctionDef,
-#                              ast.AsyncFunctionDef, ast.ClassDef)):
-#             if (node.body
-#                     and isinstance(node.body[0], ast.Expr)
-#                     and isinstance(node.body[0].value, ast.Constant)
-#                     and isinstance(node.body[0].value.value, str)):
-#                 count += 1
-#     return count
+# TODO(GH-48970): Set to True and remove the temporary absence checks below when
+# pyarrow-stubs are complete and should be shipped in wheels again.
+_STUBS_SHIPPED_IN_WHEEL = False
+
+
+def _count_docstrings(source):
+    """Count docstrings in module, function, and class bodies."""
+    tree = ast.parse(source)
+    count = 0
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef,
+                             ast.AsyncFunctionDef, ast.ClassDef)):
+            if (node.body
+                    and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and isinstance(node.body[0].value.value, str)):
+                count += 1
+    return count
 
 
 def validate_wheel(path):
@@ -56,21 +59,56 @@ def validate_wheel(path):
                 info.filename.split("/")[-1] == filename for info in wheel_zip.filelist
             ), f"{filename} is missing from the wheel."
 
-        # TODO(GH-48970): Invert these checks when stubfiles are complete and
-        # pyarrow-stubs are intentionally shipped in wheels again.
-        assert not any(
-            info.filename == "pyarrow/py.typed" for info in wheel_zip.filelist
-        ), "pyarrow/py.typed must not be present in the wheel."
+        if not _STUBS_SHIPPED_IN_WHEEL:
+            assert not any(
+                info.filename == "pyarrow/py.typed" for info in wheel_zip.filelist
+            ), "pyarrow/py.typed must not be present in the wheel."
 
-        wheel_stub_files = sorted(
+            wheel_stub_files = sorted(
+                info.filename
+                for info in wheel_zip.filelist
+                if (info.filename.startswith("pyarrow/")
+                    and info.filename.endswith(".pyi"))
+            )
+            assert not wheel_stub_files, (
+                "pyarrow .pyi files must not be present in the wheel: "
+                f"{wheel_stub_files}"
+            )
+            print(f"The wheel: {wheels[0]} seems valid.")
+            return
+
+        assert any(
+            info.filename == "pyarrow/py.typed" for info in wheel_zip.filelist
+        ), "pyarrow/py.typed is missing from the wheel."
+
+        source_root = Path(__file__).resolve().parents[2]
+        stubs_dir = source_root / "python" / "pyarrow-stubs" / "pyarrow"
+        assert stubs_dir.exists(), f"Stub source directory not found: {stubs_dir}"
+
+        expected_stub_files = {
+            f"pyarrow/{stub_file.relative_to(stubs_dir).as_posix()}"
+            for stub_file in stubs_dir.rglob("*.pyi")
+        }
+
+        wheel_stub_files = {
             info.filename
             for info in wheel_zip.filelist
             if info.filename.startswith("pyarrow/") and info.filename.endswith(".pyi")
+        }
+
+        assert wheel_stub_files == expected_stub_files, (
+            "Wheel .pyi files differ from python/pyarrow-stubs/pyarrow.\n"
+            f"Missing in wheel: {sorted(expected_stub_files - wheel_stub_files)}\n"
+            f"Unexpected in wheel: {sorted(wheel_stub_files - expected_stub_files)}"
         )
-        assert not wheel_stub_files, (
-            "pyarrow .pyi files must not be present in the wheel: "
-            f"{wheel_stub_files}"
+
+        wheel_docstring_count = sum(
+            _count_docstrings(wheel_zip.read(wsf).decode("utf-8"))
+            for wsf in wheel_stub_files
         )
+
+        print(f"Found {wheel_docstring_count} docstring(s) in wheel stubs.")
+        assert wheel_docstring_count, "No docstrings found in wheel stub files."
 
     print(f"The wheel: {wheels[0]} seems valid.")
 
