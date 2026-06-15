@@ -1374,7 +1374,11 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     /// \brief EXPERIMENTAL: Write binary serialized Arrow schema to the file,
     /// to enable certain read options (like "read_dictionary") to be set
-    /// automatically
+    /// automatically.
+    ///
+    /// This is required to read back Arrow types that are stored using a
+    /// different Parquet physical representation, such as ListView and
+    /// LargeListView, which are stored as regular Parquet LIST columns.
     Builder* store_schema() {
       store_schema_ = true;
       return this;

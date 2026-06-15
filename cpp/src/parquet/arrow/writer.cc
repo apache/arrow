@@ -175,6 +175,10 @@ class ArrowColumnWriterV2 {
                 const ElementRange& range = result.post_list_visited_elements[0];
                 values_array = result.leaf_array->Slice(range.start, range.Size());
               } else {
+                // Multiple leaf ranges can be produced when child values are
+                // skipped, such as null fixed-size-list slots, or when
+                // list-view ranges are non-contiguous. Concatenate the slices
+                // in logical write order.
                 ::arrow::ArrayVector arrays;
                 arrays.reserve(visited_component_size);
                 for (const auto& range : result.post_list_visited_elements) {

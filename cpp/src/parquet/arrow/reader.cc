@@ -42,6 +42,7 @@
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/type_traits.h"
 
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/bloom_filter.h"
@@ -689,6 +690,11 @@ class PARQUET_NO_EXPORT ListViewReader : public ListReader<IndexType> {
 
   ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
       std::shared_ptr<ArrayData> data) final {
+    static_assert(::arrow::internal::IsOneOf<IndexType, int32_t, int64_t>::value);
+    constexpr auto expected_type_id = std::is_same_v<IndexType, int32_t>
+                                          ? ::arrow::Type::LIST_VIEW
+                                          : ::arrow::Type::LARGE_LIST_VIEW;
+    DCHECK_EQ(this->field()->type()->id(), expected_type_id);
     DCHECK_EQ(data->buffers.size(), 2);
     const auto* offsets = reinterpret_cast<const IndexType*>(data->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(
@@ -698,7 +704,8 @@ class PARQUET_NO_EXPORT ListViewReader : public ListReader<IndexType> {
     for (int64_t i = 0; i < data->length; ++i) {
       sizes[i] = offsets[i + 1] - offsets[i];
     }
-    data->buffers[1] = ::arrow::SliceBuffer(std::move(data->buffers[1]), 0,
+    // ListReader produces length + 1 offsets; ListView stores one offset per slot.
+    data->buffers[1] = ::arrow::SliceBuffer(std::move(data->buffers[1]), /*offset=*/0,
                                             sizeof(IndexType) * data->length);
     data->buffers.push_back(std::move(sizes_buffer));
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
