@@ -356,6 +356,15 @@ struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
 
 using ::std::optional;
 
+// True when min/max still hold the DefaultMin()/DefaultMax() seeds, i.e. no
+// valid (non-NaN) value was observed. The seeds satisfy DefaultMin > DefaultMax
+// -- an ordering real data can never produce -- so this does not depend on the
+// specific seed values and stays in sync with DefaultMin()/DefaultMax().
+template <typename T>
+bool IsUninitializedMinMax(const T& min, const T& max) {
+  return max < min;
+}
+
 template <typename T>
 ::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
 CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
@@ -383,10 +392,8 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
     return ::std::nullopt;
   }
 
-  // No valid (non-NaN) value was seen: the running min/max still hold the
-  // +/-infinity seeds (note min > max here, which real data can never produce).
-  if (min == std::numeric_limits<T>::infinity() &&
-      max == -std::numeric_limits<T>::infinity()) {
+  // No valid (non-NaN) value was seen: the running min/max still hold the seeds.
+  if (IsUninitializedMinMax(min, max)) {
     return ::std::nullopt;
   }
 
@@ -413,8 +420,7 @@ optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_
     return ::std::nullopt;
   }
 
-  if (min == std::numeric_limits<Float16>::infinity() &&
-      max == -std::numeric_limits<Float16>::infinity()) {
+  if (IsUninitializedMinMax(min, max)) {
     return ::std::nullopt;
   }
 
