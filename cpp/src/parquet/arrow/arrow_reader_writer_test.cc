@@ -2756,8 +2756,7 @@ TEST(TestArrowReadWrite, EvictPreBufferedData) {
   reader->parquet_reader()->PreBuffer(row_groups, column_indices,
                                       ::arrow::io::IOContext(),
                                       ::arrow::io::CacheOptions::LazyDefaults());
-  ASSERT_OK(
-      reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 
   // Decode the first row group; reads go through the cache.
   std::shared_ptr<Table> rg_table;
@@ -2779,8 +2778,7 @@ TEST(TestArrowReadWrite, EvictPreBufferedData) {
   FileReaderBuilder no_prebuffer_builder;
   ASSERT_OK(no_prebuffer_builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(no_prebuffer_builder.Build(&no_prebuffer_reader));
-  no_prebuffer_reader->parquet_reader()->EvictPreBufferedData(row_groups,
-                                                              column_indices);
+  no_prebuffer_reader->parquet_reader()->EvictPreBufferedData(row_groups, column_indices);
 }
 
 // GH-39808: when Dataset.to_batches-style iteration drives the async
@@ -2831,8 +2829,8 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_OK_AND_ASSIGN(auto end_batch, fut_end.result());
   ASSERT_EQ(end_batch, nullptr);
 
-  ASSERT_OK_AND_ASSIGN(
-      auto actual, ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
   AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
 }
 
