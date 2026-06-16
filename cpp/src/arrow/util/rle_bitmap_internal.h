@@ -27,6 +27,7 @@
 
 namespace arrow::util {
 
+/// A lightweight view over a bitmap.
 template <typename B = uint8_t>
 class BitmapSpan {
  public:
@@ -38,10 +39,13 @@ class BitmapSpan {
     Normalize();
   }
 
+  /// Pointer to the byte where the first value is stored.
   constexpr byte_type* data() const noexcept { return data_; }
 
+  /// Bit offset of the first value in the first byte.
   constexpr size_type bit_start() const noexcept { return bit_start_; }
 
+  /// Return a new span starting at the given position.
   constexpr BitmapSpan NewStartingAt(size_type bit_start) const noexcept {
     auto out = *this;
     out.bit_start_ += bit_start;
@@ -217,10 +221,6 @@ class BitPackedRunToBitMapDecoder
     data_ = run.raw_data_ptr();
     values_count_ = run.values_count();
     values_read_ = 0;
-    // This decoder bounds all of its reads by `values_count_` alone and does not
-    // carry `max_read_bytes`. Its memory safety therefore relies on the producer
-    // having sized the run to fit the backing buffer. Check that contract here,
-    // at the point it is relied upon (a negative max means "unbounded").
     ARROW_DCHECK(run.raw_data_max_size() < 0 ||
                  bit_util::BytesForBits(values_count_) <= run.raw_data_max_size());
   }
