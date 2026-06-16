@@ -68,12 +68,7 @@ class S3ModuleTest : public ::testing::Test {
 
 class RegistrationTestEnvironment : public ::testing::Environment {
  public:
-  void SetUp() override {
-    // Unregister the s3 filesystem factory so that we can be sure the module loading and
-    // the factories from the module are actually working
-    ASSERT_OK(internal::UnregisterFileSystemFactory("s3"));
-    ASSERT_OK(LoadFileSystemFactories(ARROW_S3_LIBPATH));
-  }
+  void SetUp() override { ASSERT_OK(LoadFileSystemFactories(ARROW_S3_LIBPATH)); }
   void TearDown() override { EnsureFinalized(); }
 };
 

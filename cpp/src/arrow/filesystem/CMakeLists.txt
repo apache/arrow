@@ -73,9 +73,9 @@ if(ARROW_S3)
   # static variables storage of AWS SDK for C++ in libaws*.a may be
   # mixed with one in libarrow.
   if(ARROW_TEST_LINKAGE STREQUAL "shared")
-    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_shared)
+    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_s3_shared)
   else()
-    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_static)
+    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_s3_static)
   endif()
   list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   add_arrow_test(s3fs_test
@@ -107,7 +107,7 @@ if(ARROW_S3)
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
     target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
-                          ${GFLAGS_LIBRARIES})
+                          ${ARROW_S3_TEST_EXTRA_LINK_LIBS} ${GFLAGS_LIBRARIES})
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
 
@@ -119,6 +119,7 @@ if(ARROW_S3)
                         s3fs_benchmark.cc
                         s3_test_util.cc
                         STATIC_LINK_LIBS
+                        ${ARROW_S3_TEST_EXTRA_LINK_LIBS}
                         ${AWSSDK_LINK_LIBRARIES}
                         ${ARROW_BENCHMARK_LINK_LIBS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")
@@ -128,7 +129,7 @@ if(ARROW_S3)
     endif()
   endif()
 
-  if(ARROW_S3_MODULE AND ARROW_BUILD_TESTS)
+  if(ARROW_BUILD_TESTS)
     add_arrow_test(s3fs_module_test
                    SOURCES
                    s3fs_module_test.cc
@@ -136,11 +137,11 @@ if(ARROW_S3)
                    EXTRA_LABELS
                    filesystem
                    DEFINITIONS
-                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>"
+                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3_shared>"
                    EXTRA_LINK_LIBS
                    Boost::filesystem)
     target_compile_definitions(arrow-filesystem-test
-                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>")
+                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3_shared>")
     target_sources(arrow-filesystem-test PUBLIC s3fs_module_test.cc s3_test_util.cc)
     target_link_libraries(arrow-filesystem-test PUBLIC Boost::filesystem)
   endif()
