@@ -21,7 +21,9 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <ostream>
 #include <string>
 #include <unordered_map>
@@ -381,6 +383,12 @@ class SerializedFile : public ParquetFileReader::Contents {
                  const ::arrow::io::CacheOptions& options) {
     cached_source_ =
         std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
+    {
+      // GH-39808: a fresh cache invalidates any eviction runs we were
+      // tracking; they referenced the previous cache's byte ranges.
+      std::lock_guard<std::mutex> lock(eviction_mutex_);
+      evicted_runs_.clear();
+    }
     std::vector<::arrow::io::ReadRange> ranges;
     prebuffered_column_chunks_.clear();
     int num_cols = file_metadata_->num_columns();
@@ -433,41 +441,69 @@ class SerializedFile : public ParquetFileReader::Contents {
     return cached_source_->WaitFor(ranges);
   }
 
-  // Evict cached bytes that were populated by PreBuffer() for the given row
-  // groups and column indices. Callers should only invoke this once the
-  // corresponding row group data has been fully decoded and no readers are
-  // holding a reference to the cached buffers. Returns the number of cache
-  // entries that were evicted.
+  // Evict cached bytes populated by PreBuffer() for the given row groups. I/O
+  // coalescing can merge column chunks of adjacent row groups into one cache
+  // entry, so an entry is freed only once every row group it covers has been
+  // evicted: we track contiguous runs of evicted row groups (row-group index
+  // order matches byte order) and evict each run's combined byte window.
+  // Returns the number of cache entries evicted.
+  //
+  // Callers must have fully decoded the row groups (no reader still holds the
+  // cached buffers). Safe to call concurrently for different row groups.
   int64_t EvictPreBufferedData(const std::vector<int>& row_groups,
                                const std::vector<int>& column_indices) {
-    if (!cached_source_) {
+    if (!cached_source_ || column_indices.empty()) {
       return 0;
     }
     int64_t total_evicted = 0;
+    std::lock_guard<std::mutex> lock(eviction_mutex_);
     for (int row : row_groups) {
-      if (column_indices.empty()) {
-        continue;
-      }
-      // Bounding box of the row group's column chunk ranges. Using the bounding
-      // box (instead of per-column ranges) allows the cache to evict coalesced
-      // entries that cover multiple columns of the same row group, while
-      // leaving alone any entry that may have merged across row groups (in
-      // which case the merged entry extends beyond this bounding box and is
-      // not fully contained).
-      int64_t min_start = std::numeric_limits<int64_t>::max();
-      int64_t max_end = std::numeric_limits<int64_t>::min();
+      // Bounding box of this row group's selected column chunks.
+      int64_t start = std::numeric_limits<int64_t>::max();
+      int64_t end = std::numeric_limits<int64_t>::min();
       for (int col : column_indices) {
         auto range =
             ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col);
-        min_start = std::min(min_start, range.offset);
-        max_end = std::max(max_end, range.offset + range.length);
+        start = std::min(start, range.offset);
+        end = std::max(end, range.offset + range.length);
       }
-      if (max_end > min_start) {
-        PARQUET_ASSIGN_OR_THROW(
-            int64_t evicted,
-            cached_source_->EvictEntriesInRange(min_start, max_end - min_start));
-        total_evicted += evicted;
+      if (end <= start) {
+        continue;
       }
+
+      // Skip row groups already covered by a run (idempotent).
+      auto after = evicted_runs_.upper_bound(row);
+      if (after != evicted_runs_.begin() &&
+          row <= std::prev(after)->second.last_row_group) {
+        continue;
+      }
+
+      // Merge with the adjacent runs (one ending at row - 1, one starting at
+      // row + 1) into a single contiguous run, unioning the byte windows.
+      int first = row;
+      int last = row;
+      auto right = evicted_runs_.find(row + 1);
+      if (right != evicted_runs_.end()) {
+        last = right->second.last_row_group;
+        end = std::max(end, right->second.end_offset);
+        evicted_runs_.erase(right);
+      }
+      auto upper = evicted_runs_.lower_bound(row);
+      if (upper != evicted_runs_.begin()) {
+        auto left = std::prev(upper);
+        if (left->second.last_row_group == row - 1) {
+          first = left->first;
+          start = std::min(start, left->second.start_offset);
+          evicted_runs_.erase(left);
+        }
+      }
+      evicted_runs_[first] = EvictedRowGroupRun{last, start, end};
+
+      // A cross-row-group coalesced entry is fully contained in the run's
+      // window only once every row group it spans has been evicted.
+      PARQUET_ASSIGN_OR_THROW(int64_t evicted,
+                              cached_source_->EvictEntriesInRange(start, end - start));
+      total_evicted += evicted;
     }
     return total_evicted;
   }
@@ -653,6 +689,19 @@ class SerializedFile : public ParquetFileReader::Contents {
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
   std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
+
+  // GH-39808: contiguous runs of row groups whose pre-buffered bytes have been
+  // evicted, keyed by each run's first row-group index. A coalesced cache entry
+  // can span adjacent row groups, so it is freed only once every row group in
+  // its run has been evicted. Guarded by eviction_mutex_ because row groups are
+  // decoded (and evicted) concurrently under readahead.
+  struct EvictedRowGroupRun {
+    int last_row_group;
+    int64_t start_offset;
+    int64_t end_offset;
+  };
+  std::mutex eviction_mutex_;
+  std::map<int, EvictedRowGroupRun> evicted_runs_;
   // Maps row group ordinal and prebuffer status of its column chunks in the form of a
   // bitmap buffer.
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;

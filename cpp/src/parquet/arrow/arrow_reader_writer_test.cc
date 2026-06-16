@@ -2778,6 +2778,97 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
 }
 
+// GH-39808: with default coalescing a single cache entry can span adjacent row
+// groups. Per-row-group eviction must still release such an entry, but only
+// once every row group it covers has been evicted.
+TEST(TestArrowReadWrite, EvictPreBufferedDataReleasesCrossRowGroupEntry) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  const int num_rows = 1024;
+  const int row_group_size = 256;  // 4 row groups
+  const int num_columns = 2;
+  const std::vector<int> row_groups = {0, 1, 2, 3};
+  const std::vector<int> column_indices = {0, 1};
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+  ASSERT_EQ(reader->num_row_groups(), static_cast<int>(row_groups.size()));
+
+  // Force every column chunk of every row group to coalesce into a single
+  // cache entry that spans all row-group boundaries.
+  ::arrow::io::CacheOptions options = ::arrow::io::CacheOptions::LazyDefaults();
+  options.hole_size_limit = static_cast<int64_t>(buffer->size());
+  options.range_size_limit = static_cast<int64_t>(buffer->size());
+  reader->parquet_reader()->PreBuffer(row_groups, column_indices,
+                                      ::arrow::io::IOContext(), options);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  // Evicting any strict subset of the row groups leaves the spanning entry in
+  // place: it is not fully contained in any run that omits a row group it
+  // still covers, so each of these calls evicts nothing.
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({0}, column_indices));
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({1}, column_indices));
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({2}, column_indices));
+
+  // Once the final row group completes the contiguous run [0, 3], the spanning
+  // entry is fully contained and is freed.
+  ASSERT_EQ(1, reader->parquet_reader()->EvictPreBufferedData({3}, column_indices));
+
+  // Idempotent: re-evicting frees nothing more.
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({3}, column_indices));
+}
+
+// GH-39808: eviction order is non-deterministic under readahead (row groups
+// decode concurrently). The spanning entry must be freed exactly once the gap
+// between evicted runs is filled, regardless of order.
+TEST(TestArrowReadWrite, EvictPreBufferedDataReleasesCrossRowGroupEntryOutOfOrder) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  const int num_rows = 1024;
+  const int row_group_size = 256;  // 4 row groups
+  const int num_columns = 2;
+  const std::vector<int> row_groups = {0, 1, 2, 3};
+  const std::vector<int> column_indices = {0, 1};
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+
+  ::arrow::io::CacheOptions options = ::arrow::io::CacheOptions::LazyDefaults();
+  options.hole_size_limit = static_cast<int64_t>(buffer->size());
+  options.range_size_limit = static_cast<int64_t>(buffer->size());
+  reader->parquet_reader()->PreBuffer(row_groups, column_indices,
+                                      ::arrow::io::IOContext(), options);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  // Evict 2, then 0, then 3: runs {2,3} and {0} exist but neither covers the
+  // whole entry, so nothing is freed.
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({2}, column_indices));
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({0}, column_indices));
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({3}, column_indices));
+
+  // Evicting 1 fills the gap, merging {0} and {2,3} into {0,1,2,3}; the entry
+  // is now fully contained and freed.
+  ASSERT_EQ(1, reader->parquet_reader()->EvictPreBufferedData({1}, column_indices));
+}
+
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
   const int num_rows = 1024;
