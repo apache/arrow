@@ -300,7 +300,7 @@ struct ARROW_EXPORT S3Options {
   /// - "session_token" (std::string)
   /// - "retry_strategy" (std::shared_ptr<S3RetryStrategy>)
   /// - "default_metadata" (std::shared_ptr<const KeyValueMetadata>)
-  /// Options appearing both in the URI and in the options map return Status::Invalid;
+  /// Options appearing both in the URI and in the options list return Status::Invalid;
   /// unknown keys or invalid values return Status::Invalid.
   static Result<S3Options> FromUriAndOptions(const ::arrow::util::Uri& uri,
                                              const FileSystemFactoryOptions& options,
