@@ -2199,10 +2199,19 @@ void CheckFloatApproxEqualsWithAtol() {
   auto options = EqualOptions::Defaults().atol(0.2);
 
   ASSERT_FALSE(a->Equals(b));
+  ASSERT_TRUE(a->Equals(b, options));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_TRUE(a->Equals(b, options.use_atol(true)));
+  ASSERT_FALSE(a->Equals(b, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(a->ApproxEquals(b, options));
 
   ASSERT_FALSE(a->RangeEquals(0, 1, 0, b));
   ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_TRUE(a->RangeEquals(0, 1, 0, b, options.use_atol(true)));
+  ASSERT_FALSE(a->RangeEquals(0, 1, 0, b, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(ArrayRangeApproxEquals(*a, *b, 0, 1, 0, options));
 }
 

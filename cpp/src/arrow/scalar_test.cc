@@ -412,6 +412,10 @@ class TestRealScalar : public ::testing::Test {
 
     ASSERT_FALSE(scalar_val_->Equals(*scalar_other_));
     ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options));
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    ASSERT_TRUE(scalar_val_->Equals(*scalar_other_, options.use_atol(true)));
+    ASSERT_FALSE(scalar_val_->Equals(*scalar_other_, options.use_atol(false)));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ASSERT_TRUE(scalar_val_->ApproxEquals(*scalar_other_, options));
   }
 
