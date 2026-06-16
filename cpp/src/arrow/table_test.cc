@@ -306,9 +306,17 @@ TEST(TestTableEqualityFloatType, Approximate) {
 
   ASSERT_FALSE(table->Equals(*other_table, options));
 
-  ASSERT_TRUE(table->Equals(*other_table, options.use_atol(true).atol(1e-3)));
+  ASSERT_TRUE(table->Equals(*other_table, options.atol(1e-3)));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_TRUE(table->Equals(*other_table, options.atol(1e-3).use_atol(true)));
+  ASSERT_FALSE(table->Equals(*other_table, options.atol(1e-3).use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
-  ASSERT_FALSE(table->Equals(*other_table, options.use_atol(true).atol(1e-5)));
+  ASSERT_FALSE(table->Equals(*other_table, options.atol(1e-5)));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_FALSE(table->Equals(*other_table, options.use_atol(true)));
+  ASSERT_FALSE(table->Equals(*other_table, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 TEST(TestTableEqualitySameAddress, NonFloatType) {
