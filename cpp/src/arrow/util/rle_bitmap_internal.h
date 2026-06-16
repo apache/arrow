@@ -217,6 +217,12 @@ class BitPackedRunToBitMapDecoder
     data_ = run.raw_data_ptr();
     values_count_ = run.values_count();
     values_read_ = 0;
+    // This decoder bounds all of its reads by `values_count_` alone and does not
+    // carry `max_read_bytes`. Its memory safety therefore relies on the producer
+    // having sized the run to fit the backing buffer. Check that contract here,
+    // at the point it is relied upon (a negative max means "unbounded").
+    ARROW_DCHECK(run.raw_data_max_size() < 0 ||
+                 bit_util::BytesForBits(values_count_) <= run.raw_data_max_size());
   }
 
   /// Return the number of values that can be advanced.
