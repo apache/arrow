@@ -2318,6 +2318,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   if (shape.size() != 2) {
     return Status::Invalid("Invalid shape length for a sparse matrix");
   }
+  if (non_zero_length < 0) {
+    return Status::Invalid("Invalid non-zero length for a sparse matrix");
+  }
 
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
 
