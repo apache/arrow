@@ -1197,11 +1197,8 @@ class RowGroupGenerator {
           ::arrow::TableBatchReader table_reader(*table);
           table_reader.set_chunksize(batch_size);
           ARROW_ASSIGN_OR_RAISE(auto batches, table_reader.ToRecordBatches());
-          // GH-39808: once a row group has been fully decoded into Arrow
-          // arrays, the bytes cached by PreBuffer() for that row group are no
-          // longer needed. Release them so memory usage stays bounded while
-          // iterating a large dataset instead of growing until the whole file
-          // has been read.
+          // GH-39808: release this row group's pre-buffered bytes now that it
+          // is decoded, keeping memory bounded while iterating.
           if (pre_buffered) {
             self->parquet_reader()->EvictPreBufferedData({row_group}, column_indices);
           }

@@ -499,8 +499,6 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
       evicted_runs_[first] = EvictedRowGroupRun{last, start, end};
 
-      // A cross-row-group coalesced entry is fully contained in the run's
-      // window only once every row group it spans has been evicted.
       PARQUET_ASSIGN_OR_THROW(int64_t evicted,
                               cached_source_->EvictEntriesInRange(start, end - start));
       total_evicted += evicted;
