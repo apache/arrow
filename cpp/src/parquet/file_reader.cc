@@ -436,12 +436,14 @@ class SerializedFile : public ParquetFileReader::Contents {
   // Evict cached bytes that were populated by PreBuffer() for the given row
   // groups and column indices. Callers should only invoke this once the
   // corresponding row group data has been fully decoded and no readers are
-  // holding a reference to the cached buffers.
-  void EvictPreBufferedData(const std::vector<int>& row_groups,
-                            const std::vector<int>& column_indices) {
+  // holding a reference to the cached buffers. Returns the number of cache
+  // entries that were evicted.
+  int64_t EvictPreBufferedData(const std::vector<int>& row_groups,
+                               const std::vector<int>& column_indices) {
     if (!cached_source_) {
-      return;
+      return 0;
     }
+    int64_t total_evicted = 0;
     for (int row : row_groups) {
       if (column_indices.empty()) {
         continue;
@@ -461,10 +463,13 @@ class SerializedFile : public ParquetFileReader::Contents {
         max_end = std::max(max_end, range.offset + range.length);
       }
       if (max_end > min_start) {
-        PARQUET_THROW_NOT_OK(
-            cached_source_->EvictEntriesInRange(min_start, max_end - min_start).status());
+        PARQUET_ASSIGN_OR_THROW(
+            int64_t evicted,
+            cached_source_->EvictEntriesInRange(min_start, max_end - min_start));
+        total_evicted += evicted;
       }
     }
+    return total_evicted;
   }
 
   // Metadata/footer parsing. Divided up to separate sync/async paths, and to use
@@ -940,12 +945,12 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
-void ParquetFileReader::EvictPreBufferedData(const std::vector<int>& row_groups,
-                                             const std::vector<int>& column_indices) {
+int64_t ParquetFileReader::EvictPreBufferedData(const std::vector<int>& row_groups,
+                                                const std::vector<int>& column_indices) {
   // Access private methods here
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
-  file->EvictPreBufferedData(row_groups, column_indices);
+  return file->EvictPreBufferedData(row_groups, column_indices);
 }
 
 Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(

@@ -215,8 +215,8 @@ class PARQUET_EXPORT ParquetFileReader {
   /// unrelated data are left intact.
   ///
   /// Calling this method when PreBuffer() has not been called is a no-op.
-  void EvictPreBufferedData(const std::vector<int>& row_groups,
-                            const std::vector<int>& column_indices);
+  int64_t EvictPreBufferedData(const std::vector<int>& row_groups,
+                               const std::vector<int>& column_indices);
 
   /// Retrieve the list of byte ranges that would need to be read to retrieve
   /// the data for the specified row groups and column indices.
