@@ -2869,6 +2869,51 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataReleasesCrossRowGroupEntryOutOfOrde
   ASSERT_EQ(1, reader->parquet_reader()->EvictPreBufferedData({1}, column_indices));
 }
 
+// GH-39808: a filtered scan pre-buffers a non-contiguous subset of row groups.
+// I/O coalescing can still merge column chunks of two buffered row groups into
+// one entry that bridges the un-buffered (filtered-out) gap between them. Such
+// an entry must be freed once both buffered row groups are evicted, even though
+// they are not index-adjacent.
+TEST(TestArrowReadWrite, EvictPreBufferedDataReleasesEntrySpanningFilteredRowGroups) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  const int num_rows = 1024;
+  const int row_group_size = 256;  // 4 row groups
+  const int num_columns = 2;
+  const std::vector<int> buffered_row_groups = {0, 2};  // 1 and 3 filtered out
+  const std::vector<int> column_indices = {0, 1};
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+
+  // Huge limits coalesce RG0's and RG2's column chunks into ONE entry that
+  // bridges the un-buffered RG1 gap.
+  ::arrow::io::CacheOptions options = ::arrow::io::CacheOptions::LazyDefaults();
+  options.hole_size_limit = static_cast<int64_t>(buffer->size());
+  options.range_size_limit = static_cast<int64_t>(buffer->size());
+  reader->parquet_reader()->PreBuffer(buffered_row_groups, column_indices,
+                                      ::arrow::io::IOContext(), options);
+  ASSERT_OK(reader->parquet_reader()
+                ->WhenBuffered(buffered_row_groups, column_indices)
+                .status());
+
+  // Evicting only RG0 leaves the entry in place (RG2 still needs it).
+  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedData({0}, column_indices));
+
+  // Evicting RG2 completes the buffered run {0, 2} and frees the spanning
+  // entry, even though the un-buffered RG1 lies between them by index.
+  ASSERT_EQ(1, reader->parquet_reader()->EvictPreBufferedData({2}, column_indices));
+}
+
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
   const int num_rows = 1024;
