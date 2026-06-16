@@ -69,7 +69,8 @@ struct IsPositiveVisitor {
 
   template <typename... Ts>
   Status Visit(const NumericScalar<Ts...>& scalar) {
-    result = scalar.value > 0;
+    using V = typename NumericScalar<Ts...>::ValueType;
+    result = scalar.value > static_cast<V>(0);
     return Status::OK();
   }
   template <typename... Ts>
