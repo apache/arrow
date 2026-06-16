@@ -260,6 +260,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
+      CCACHE_DIR: /ccache
       PYTHON_CMD: "py -3.13"
     steps:
       - name: Disable Crash Dialogs
@@ -292,12 +293,11 @@ jobs:
         id: path-info
         shell: bash
         run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
           echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
       - name: Restore ccache
         uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: ${{ steps.path-info.outputs.cache-dir }}
+          path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows
       - name: Build Arrow C++ and PyArrow
         shell: cmd
@@ -310,7 +310,7 @@ jobs:
         continue-on-error: true
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: ${{ steps.path-info.outputs.cache-dir }}
+          path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows
       - name: Test PyArrow
         shell: cmd
