@@ -30,8 +30,8 @@ namespace arrow::util {
 
 namespace {
 
-// Expand a list of bytes into the bit-packed (LSB-first) sequence of booleans
-// they encode, keeping only the first `count` bits.
+/// Expand a list of bytes into the bit-packed (LSB-first) sequence of booleans
+/// they encode, keeping only the first `count` bits.
 std::vector<bool> BitsFromBytes(const std::vector<uint8_t>& bytes, rle_size_t count) {
   std::vector<bool> bits(count);
   for (rle_size_t i = 0; i < count; ++i) {
@@ -40,18 +40,18 @@ std::vector<bool> BitsFromBytes(const std::vector<uint8_t>& bytes, rle_size_t co
   return bits;
 }
 
-// Skip the first `skip` values with Advance(), then decode the rest of the run
-// into a contiguous output bitmap, in successive calls of at most `chunk` values
-// each, and compare the result against `expected`.
-//
-// This drives both decoder types through their byte-aligned and bit-unaligned
-// code paths depending on `chunk`: as soon as `chunk` is not a multiple of 8,
-// later calls land on a non-zero output bit offset.
-//
-// A non-zero `skip` additionally desynchronizes the decoder's read offset from
-// the (byte-aligned) output offset, which exercises the bit-unaligned
-// (GetBatchMisaligned) path of BitPackedRunToBitMapDecoder. With `skip == 0` the
-// read and output offsets stay in lockstep and only the aligned path is used.
+/// Skip the first `skip` values with Advance(), then decode the rest of the run
+/// into a contiguous output bitmap, in successive calls of at most `chunk` values
+/// each, and compare the result against `expected`.
+///
+/// This drives both decoder types through their byte-aligned and bit-unaligned
+/// code paths depending on `chunk`: as soon as `chunk` is not a multiple of 8,
+/// later calls land on a non-zero output bit offset.
+///
+/// A non-zero `skip` additionally desynchronizes the decoder's read offset from
+/// the (byte-aligned) output offset, which exercises the bit-unaligned
+/// (GetBatchMisaligned) path of BitPackedRunToBitMapDecoder. With `skip == 0` the
+/// read and output offsets stay in lockstep and only the aligned path is used.
 template <typename Decoder>
 void CheckChunkedDecode(const typename Decoder::RunType& run,
                         const std::vector<bool>& expected, rle_size_t chunk,
@@ -87,8 +87,8 @@ void CheckChunkedDecode(const typename Decoder::RunType& run,
   }
 }
 
-// The full battery of checks shared by both decoder types. `expected` is the
-// full sequence of booleans the run is supposed to decode to.
+/// The full battery of checks shared by both decoder types. `expected` is the
+/// full sequence of booleans the run is supposed to decode to.
 template <typename Decoder>
 void CheckBitMapDecoder(const typename Decoder::RunType& run,
                         const std::vector<bool>& expected) {
@@ -294,7 +294,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 namespace {
 
-// Append the LEB128 (unsigned, little-endian base-128) encoding of `value`.
+/// Append the LEB128 (unsigned, little-endian base-128) encoding of `value`.
 void AppendLeb128(std::vector<uint8_t>& out, uint32_t value) {
   uint8_t buf[bit_util::kMaxLEB128ByteLenFor<uint32_t>];
   const auto n_vals =
@@ -303,8 +303,8 @@ void AppendLeb128(std::vector<uint8_t>& out, uint32_t value) {
   out.insert(out.end(), buf, buf + n_vals);
 }
 
-// Append an RLE run of `count` copies of `value` (1-bit values) to the encoded
-// `bytes` stream and to the `expected` decoded sequence.
+/// Append an RLE run of `count` copies of `value` (1-bit values) to the encoded
+/// `bytes` stream and to the `expected` decoded sequence.
 void AppendRleRun(std::vector<uint8_t>& bytes, std::vector<bool>& expected, bool value,
                   rle_size_t count) {
   AppendLeb128(bytes, static_cast<uint32_t>(count) << 1);  // low bit 0 => RLE
@@ -312,8 +312,8 @@ void AppendRleRun(std::vector<uint8_t>& bytes, std::vector<bool>& expected, bool
   expected.insert(expected.end(), count, value);
 }
 
-// Append a bit-packed run holding `packed.size()` groups of 8 (1-bit) values,
-// LSB first, to the encoded `bytes` stream and to the `expected` sequence.
+/// Append a bit-packed run holding `packed.size()` groups of 8 (1-bit) values,
+/// LSB first, to the encoded `bytes` stream and to the `expected` sequence.
 void AppendBitPackedRun(std::vector<uint8_t>& bytes, std::vector<bool>& expected,
                         const std::vector<uint8_t>& packed) {
   const auto groups = static_cast<rle_size_t>(packed.size());
@@ -324,13 +324,13 @@ void AppendBitPackedRun(std::vector<uint8_t>& bytes, std::vector<bool>& expected
   }
 }
 
-// Decode the whole `bytes` stream into a bitmap starting at bit offset
-// `out_offset`, in successive GetBatch calls of at most `chunk` values, and
-// compare against `expected`.
-//
-// Decoding in small, byte-unaligned chunks and (with a non-zero `out_offset`)
-// at a non-aligned output position exercises how the decoder threads its output
-// bit offset across runs that do not end on a byte boundary.
+/// Decode the whole `bytes` stream into a bitmap starting at bit offset
+/// `out_offset`, in successive GetBatch calls of at most `chunk` values, and
+/// compare against `expected`.
+///
+/// Decoding in small, byte-unaligned chunks and (with a non-zero `out_offset`)
+/// at a non-aligned output position exercises how the decoder threads its output
+/// bit offset across runs that do not end on a byte boundary.
 void CheckRleBitPackedDecode(const std::vector<uint8_t>& bytes,
                              const std::vector<bool>& expected, rle_size_t chunk,
                              rle_size_t out_offset = 0) {
@@ -375,7 +375,7 @@ void CheckRleBitPackedDecode(const std::vector<uint8_t>& bytes,
   }
 }
 
-// Run the decode check over a battery of chunk sizes and output offsets.
+/// Run the decode check over a battery of chunk sizes and output offsets.
 void CheckRleBitPackedToBitMap(const std::vector<uint8_t>& bytes,
                                const std::vector<bool>& expected) {
   const auto n = static_cast<rle_size_t>(expected.size());
