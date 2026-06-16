@@ -110,9 +110,8 @@ class RunToBitMapDecoderMixin {
     const auto n_vals = derived()->GetBatchFast(out, batch_size);
 
     // TRAILER: Writing inside the last byte if caller asked for non multiple of 8 values
-    const auto n_last_vals = batch_size - n_vals;
-    if (ARROW_PREDICT_FALSE(derived()->remaining() > 0 && n_last_vals > 0)) {
-      ARROW_DCHECK_GT(n_last_vals, 0);
+    const auto n_last_vals = std::min(batch_size - n_vals, derived()->remaining());
+    if (ARROW_PREDICT_FALSE(n_last_vals > 0)) {
       ARROW_DCHECK_LT(n_last_vals, 8);
       out = out.NewStartingAt(n_vals);
       return n_vals + derived()->GetBatchFirstByte(out, n_last_vals);
@@ -322,5 +321,110 @@ class BitPackedRunToBitMapDecoder
     return to_read;
   }
 };
+
+/// A specialized decoder class to extract RLE+bitpacked booleans.
+///
+/// In some cases, such as when reading definition levels for nullable values (with
+/// no repetition and no nesting), we know values to be decoded will end up in an
+/// Arrow validity bitmap. In such cases, decoding values to a ``int16`` before
+/// encoding them again in overly wasteful.
+class RleBitPackedToBitMapDecoder {
+ public:
+  RleBitPackedToBitMapDecoder() noexcept = default;
+
+  /// Create a decoder object.
+  ///
+  /// data and data_size are the raw bytes to decode.
+  RleBitPackedToBitMapDecoder(const uint8_t* data, rle_size_t data_size) noexcept {
+    Reset(data, data_size);
+  }
+
+  void Reset(const uint8_t* data, rle_size_t data_size) noexcept {
+    parser_.Reset(data, data_size, /* value_bit_width= */ 1);
+    decoder_ = {};
+  }
+
+  /// Whether there is still runs to iterate over.
+  bool exhausted() const { return (run_remaining() == 0) && parser_.exhausted(); }
+
+  /// Get a batch of values return the number of decoded elements.
+  /// May write fewer elements to the output than requested if there are not enough
+  /// values left or if an error occurred.
+  [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size);
+
+ private:
+  /// Utility to map a run type to the associate decoder.
+  template <typename Run>
+  struct get_decoder;
+  template <>
+  struct get_decoder<RleRun> {
+    using type = RleRunToBitMapDecoder;
+  };
+  template <>
+  struct get_decoder<BitPackedRun> {
+    using type = BitPackedRunToBitMapDecoder;
+  };
+  template <typename Run>
+  using get_decoder_t = get_decoder<Run>::type;
+
+  RleBitPackedParser parser_ = {};
+  std::variant<RleRunToBitMapDecoder, BitPackedRunToBitMapDecoder> decoder_ = {};
+
+  /// Return the number of values that are remaining in the current run.
+  rle_size_t run_remaining() const {
+    return std::visit([](const auto& dec) { return dec.remaining(); }, decoder_);
+  }
+
+  /// Get a batch of values from the current run and return the number elements read.
+  [[nodiscard]] rle_size_t RunGetBatch(BitmapSpanMut out, rle_size_t batch_size) {
+    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder_);
+  }
+};
+
+/************************************************
+ *  RleBitPackedToBitMapDecoder implementation  *
+ ************************************************/
+
+inline auto RleBitPackedToBitMapDecoder::GetBatch(BitmapSpanMut out,
+                                                  rle_size_t batch_size) -> rle_size_t {
+  using ControlFlow = RleBitPackedParser::ControlFlow;
+
+  rle_size_t values_read = 0;
+
+  // Remaining from a previous call that would have left some unread data from a run.
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto read = RunGetBatch(out, batch_size);
+    values_read += read;
+
+    // Either we fulfilled all the batch to be read or we finished remaining run.
+    if (ARROW_PREDICT_FALSE(values_read == batch_size)) {
+      return values_read;
+    }
+    ARROW_DCHECK(run_remaining() == 0);
+  }
+
+  parser_.ParseWithCallable([&](auto run) {
+    using RunDecoder = get_decoder_t<decltype(run)>;
+
+    ARROW_DCHECK_LT(values_read, batch_size);
+    RunDecoder decoder(run);
+    // The output span carries its own bit offset, so advancing it past the values
+    // already written keeps successive runs correctly aligned in the bitmap.
+    const auto read =
+        decoder.GetBatch(out.NewStartingAt(values_read), batch_size - values_read);
+    ARROW_DCHECK_LE(read, batch_size - values_read);
+    values_read += read;
+
+    // Stop reading and store remaining decoder
+    if (ARROW_PREDICT_FALSE(values_read == batch_size || read == 0)) {
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+
+    return ControlFlow::Continue;
+  });
+
+  return values_read;
+}
 
 }  // namespace arrow::util
