@@ -5617,7 +5617,7 @@ def test_write_dataset_with_scanner_use_projected_schema(tempdir):
 @pytest.mark.parametrize("format", ("ipc", "parquet"))
 def test_read_table_nested_columns(tempdir, format):
     if format == "parquet":
-        pytest.importorskip("pyarrow.parquet")
+        pytest.importorskip("pyarrow.parquet", exc_type=ImportError)
 
     table = pa.table({"user_id": ["abc123", "qrs456"],
                       "a.dotted.field": [1, 2],
