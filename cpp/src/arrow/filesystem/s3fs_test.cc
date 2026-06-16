@@ -1737,5 +1737,18 @@ TEST(S3GlobalOptions, DefaultsLogLevel) {
   }
 }
 
+//// Minor validation test
+TEST_F(S3OptionsTest, MakeUri) {
+  S3Options options;
+  options.ConfigureAccessKey("minio", "miniopass");
+  options.region = "us-east-1";
+  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
+  ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
+  EXPECT_EQ(uri,
+            "s3://minio:miniopass@bucket/somedir/subdir/subfile"
+            "?region=us-east-1&scheme=https&endpoint_override="
+            "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
 }  // namespace fs
 }  // namespace arrow
