@@ -38,6 +38,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
+    ccache \
     clang \
     cmake \
     debhelper \
@@ -81,6 +82,8 @@ RUN \
     tzdata \
     valac \
     zlib1g-dev && \
+  # Ensure updating symlinks in /usr/lib/ccache/
+  update-ccache-symlinks && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
