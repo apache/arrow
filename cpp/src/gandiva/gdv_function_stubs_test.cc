@@ -124,7 +124,8 @@ TEST(TestGdvFnStubs, TestBase64Encode) {
   value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("BASE64"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("non-negative"));
   ctx.Reset();
 }
 
@@ -153,7 +154,8 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("UNBASE64"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("non-negative"));
   ctx.Reset();
 }
 
