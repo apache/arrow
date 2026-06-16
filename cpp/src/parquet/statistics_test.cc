@@ -1571,11 +1571,11 @@ void TestFloatStatistics<T>::TestInfinities() {
 
   constexpr c_type inf = std::numeric_limits<c_type>::infinity();
   constexpr c_type nan = std::numeric_limits<c_type>::quiet_NaN();
-  std::array<c_type, 3> all_pos_inf{inf, inf, inf};
-  std::array<c_type, 3> all_neg_inf{-inf, -inf, -inf};
-  std::array<c_type, 2> mixed_inf{inf, -inf};
-  std::array<c_type, 3> pos_inf_with_nan{inf, nan, inf};
-  std::array<c_type, 3> neg_inf_with_nan{-inf, nan, -inf};
+  std::vector<c_type> all_pos_inf{inf, inf, inf};
+  std::vector<c_type> all_neg_inf{-inf, -inf, -inf};
+  std::vector<c_type> mixed_inf{inf, -inf};
+  std::vector<c_type> pos_inf_with_nan{inf, nan, inf};
+  std::vector<c_type> neg_inf_with_nan{-inf, nan, -inf};
 
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, inf, inf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, -inf, -inf);
@@ -1649,11 +1649,11 @@ void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
   const auto ninf = FLBA{neg_inf.bytes()};
   const auto fnan = FLBA{nan.bytes()};
 
-  std::array<FLBA, 3> all_pos_inf{pinf, pinf, pinf};
-  std::array<FLBA, 3> all_neg_inf{ninf, ninf, ninf};
-  std::array<FLBA, 2> mixed_inf{pinf, ninf};
-  std::array<FLBA, 3> pos_inf_with_nan{pinf, fnan, pinf};
-  std::array<FLBA, 3> neg_inf_with_nan{ninf, fnan, ninf};
+  std::vector<FLBA> all_pos_inf{pinf, pinf, pinf};
+  std::vector<FLBA> all_neg_inf{ninf, ninf, ninf};
+  std::vector<FLBA> mixed_inf{pinf, ninf};
+  std::vector<FLBA> pos_inf_with_nan{pinf, fnan, pinf};
+  std::vector<FLBA> neg_inf_with_nan{ninf, fnan, ninf};
 
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, pinf, pinf);
   AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, ninf, ninf);
