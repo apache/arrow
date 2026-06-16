@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -110,8 +111,11 @@ template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, std::string> FormatNumericValue(
     ::std::string_view val) {
   std::stringstream result;
+  // The statistics value comes from the file's Thrift metadata, so its length
+  // is attacker controlled and the spec allows it to be truncated. Only copy
+  // the bytes that are actually present and leave the rest zero-padded.
   T value{};
-  std::memcpy(&value, val.data(), sizeof(T));
+  std::memcpy(&value, val.data(), std::min(sizeof(T), val.size()));
   result << value;
   return result.str();
 }
@@ -128,14 +132,14 @@ std::string FormatDecimalValue(Type::type parquet_type, ::std::string_view val,
   switch (parquet_type) {
     case Type::INT32: {
       int32_t int_value{};
-      std::memcpy(&int_value, val.data(), sizeof(int32_t));
+      std::memcpy(&int_value, val.data(), std::min(sizeof(int32_t), val.size()));
       ::arrow::Decimal128 decimal_value(int_value);
       result << decimal_value.ToString(scale);
       break;
     }
     case Type::INT64: {
       int64_t long_value{};
-      std::memcpy(&long_value, val.data(), sizeof(int64_t));
+      std::memcpy(&long_value, val.data(), std::min(sizeof(int64_t), val.size()));
       ::arrow::Decimal128 decimal_value(long_value);
       result << decimal_value.ToString(scale);
       break;
@@ -174,8 +178,11 @@ std::string FormatNonUTF8Value(::std::string_view val) {
 
 std::string FormatFloat16Value(::std::string_view val) {
   std::stringstream result;
-  auto float16 = ::arrow::util::Float16::FromLittleEndian(
-      reinterpret_cast<const uint8_t*>(val.data()));
+  // FromLittleEndian reads two bytes unconditionally; a truncated stat value
+  // may be shorter, so copy into a zero-padded buffer first.
+  std::array<uint8_t, 2> bytes{};
+  std::memcpy(bytes.data(), val.data(), std::min(bytes.size(), val.size()));
+  auto float16 = ::arrow::util::Float16::FromLittleEndian(bytes.data());
   result << float16.ToFloat();
   return result.str();
 }
@@ -184,49 +191,16 @@ std::string FormatFloat16Value(::std::string_view val) {
 
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
                             const std::shared_ptr<const LogicalType>& logical_type) {
-  // Statistics blobs come from the file's Thrift-encoded metadata and may have
-  // arbitrary length under a malicious writer. Reject any value that is shorter
-  // than what the physical (and, for FLOAT16, logical) type requires so the
-  // memcpy/byte loads below cannot run past the buffer.
-  size_t required = 0;
-  switch (parquet_type) {
-    case Type::BOOLEAN:
-      required = sizeof(bool);
-      break;
-    case Type::INT32:
-    case Type::FLOAT:
-      required = 4;
-      break;
-    case Type::INT64:
-    case Type::DOUBLE:
-      required = 8;
-      break;
-    case Type::INT96:
-      required = 3 * sizeof(int32_t);
-      break;
-    case Type::FIXED_LEN_BYTE_ARRAY:
-      if (logical_type != nullptr && logical_type->is_float16()) {
-        required = 2;
-      }
-      break;
-    case Type::BYTE_ARRAY:
-    case Type::UNDEFINED:
-    default:
-      break;
-  }
-  if (val.size() < required) {
-    std::stringstream ss;
-    ss << "Statistics value of " << val.size() << " bytes is too small for "
-       << TypeToString(parquet_type);
-    throw ParquetException(ss.str());
-  }
-
+  // Statistics values come straight from the file's Thrift metadata, so their
+  // length is attacker controlled and the spec allows them to be truncated.
+  // Every fixed-width read below clamps its copy to val.size() so a too-short
+  // value cannot drive a load past the end of the buffer.
   std::stringstream result;
   const char* bytes = val.data();
   switch (parquet_type) {
     case Type::BOOLEAN: {
       bool value{};
-      std::memcpy(&value, bytes, sizeof(bool));
+      std::memcpy(&value, bytes, std::min(sizeof(bool), val.size()));
       result << value;
       break;
     }
@@ -250,7 +224,7 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
     }
     case Type::INT96: {
       std::array<int32_t, 3> values{};
-      std::memcpy(values.data(), bytes, 3 * sizeof(int32_t));
+      std::memcpy(values.data(), bytes, std::min(sizeof(values), val.size()));
       result << values[0] << " " << values[1] << " " << values[2];
       break;
     }

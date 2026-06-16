@@ -20,7 +20,6 @@
 #include <string>
 
 #include "arrow/util/endian.h"
-#include "parquet/exception.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -181,25 +180,21 @@ TEST(TypePrinter, StatisticsTypes) {
 }
 
 TEST(TypePrinter, StatisticsTypesShortValue) {
-  // A maliciously crafted Parquet file may set a statistics min/max shorter
-  // than the column's physical type. FormatStatValue must reject it instead of
-  // memcpy'ing past the buffer.
-  ASSERT_THROW(FormatStatValue(Type::BOOLEAN, std::string()), ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::INT32, std::string("abc")), ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::INT64, std::string("abcdefg")), ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::FLOAT, std::string()), ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::DOUBLE, std::string("1234567")), ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::INT96, std::string("12345678901")),
-               ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::INT32, std::string("abc"),
-                               LogicalType::Decimal(6, 2)),
-               ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::INT64, std::string("abcdefg"),
-                               LogicalType::Decimal(18, 4)),
-               ParquetException);
-  ASSERT_THROW(FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, std::string("a"),
-                               LogicalType::Float16()),
-               ParquetException);
+  // The Parquet spec allows truncated statistics, so a min/max may be shorter
+  // than the column's physical type. FormatStatValue must format it without
+  // reading past the end of the value buffer (caught here under ASan).
+  ASSERT_NO_THROW(FormatStatValue(Type::BOOLEAN, std::string()));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT32, std::string("abc")));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT64, std::string("abcdefg")));
+  ASSERT_NO_THROW(FormatStatValue(Type::FLOAT, std::string()));
+  ASSERT_NO_THROW(FormatStatValue(Type::DOUBLE, std::string("1234567")));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT96, std::string("12345678901")));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::INT32, std::string("abc"), LogicalType::Decimal(6, 2)));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::INT64, std::string("abcdefg"), LogicalType::Decimal(18, 4)));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, std::string("a"), LogicalType::Float16()));
 }
 
 TEST(TestInt96Timestamp, Decoding) {
