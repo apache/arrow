@@ -512,6 +512,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+-------------------------------+-------+
 | expm1            | Unary  | Numeric                 | Float32/Float64               |       |
 +------------------+--------+-------------------------+-------------------------------+-------+
+| hypot            | Binary | Numeric                 | Float32/Float64               | \(3)  |
++------------------+--------+-------------------------+-------------------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
 +------------------+--------+-------------------------+-------------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
@@ -559,6 +561,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 * \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.  NaN
   values return NaN.  Integral and decimal values return signedness as Int8 and
   floating-point values return it with the same type as the input values.
+
+* \(3) Computes ``sqrt(x^2 + y^2)`` without undue overflow or underflow at
+  intermediate stages of the computation.  If either argument is infinite, the
+  result is ``+Inf`` even if the other argument is NaN.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~

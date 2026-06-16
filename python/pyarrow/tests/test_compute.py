@@ -3905,6 +3905,21 @@ def test_rank_normal_options():
     assert result.to_pylist() == expected
 
 
+@pytest.mark.numpy
+def test_hypot():
+    # hypot(x, y) = sqrt(x**2 + y**2); compared against numpy.
+    # (hypot has no Substrait mapping, so it is tested here rather than in the
+    # expression-serialization round-trip.)
+    x = np.array([3.0, 0.0, -5.0, 1.5, 7.25])
+    y = np.array([4.0, 0.0, 12.0, -2.0, 0.0])
+    result = pc.hypot(pa.array(x), pa.array(y))
+    np.testing.assert_array_almost_equal(
+        result.to_numpy(zero_copy_only=False), np.hypot(x, y))
+
+    # scalar inputs
+    assert pc.hypot(pa.scalar(3.0), pa.scalar(4.0)).as_py() == pytest.approx(5.0)
+
+
 def create_sample_expressions():
     # We need a schema for substrait conversion
     schema = pa.schema([pa.field("i64", pa.int64()), pa.field(

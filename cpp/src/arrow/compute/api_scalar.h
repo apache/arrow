@@ -806,6 +806,15 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the hypotenuse (Euclidean norm) of x and y, equivalent to
+/// sqrt(x^2 + y^2), without undue overflow or underflow at intermediate stages.
+/// \param[in] x The x-values to compute the hypotenuse for.
+/// \param[in] y The y-values to compute the hypotenuse for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hypotenuse of the values
+ARROW_EXPORT
+Result<Datum> Hypot(const Datum& x, const Datum& y, ExecContext* ctx = NULLPTR);
+
 /// \brief Compute the hyperbolic sine of the array values.
 /// \param[in] arg The values to compute the hyperbolic sine for.
 /// \param[in] ctx the function execution context, optional
