@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <any>
 #include <exception>
 #include <memory>
 #include <sstream>
@@ -80,6 +81,13 @@ TEST(S3Test, FromUri) {
             "s3://minio:miniopass@bucket/somedir/subdir/subfile"
             "?region=us-east-1&scheme=https&endpoint_override="
             "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+TEST(S3Test, FromUriRejectsOptions) {
+  FileSystemFactoryOptions options{{"some_option", 1}};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("options are not supported"),
+      FileSystemFromUriAndOptions("s3://bucket/key", options));
 }
 
 }  // namespace arrow::fs

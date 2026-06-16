@@ -100,6 +100,13 @@ struct _GArrowFileSystemClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_25_0
+gchar *
+garrow_file_system_example_accept_options(const gchar *string_value,
+                                          gint int_value,
+                                          gint typed_value,
+                                          GError **error);
+
 GARROW_AVAILABLE_IN_3_0
 GArrowFileSystem *
 garrow_file_system_create(const gchar *uri, GError **error);

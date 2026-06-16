@@ -1651,3 +1651,21 @@ def _copy_files_selector(FileSystem source_fs, FileSelector source_sel,
             destination_fs.unwrap(), c_destination_base_dir,
             c_default_io_context(), chunk_size, use_threads,
         ))
+
+
+def _example_accept_options(str value, int value_int, int value_typed):
+    cdef:
+        CFSFileSystemFactoryOptions options
+        pair[c_string, c_any] entry
+        c_string result
+    entry.first = tobytes("example_option_string")
+    entry.second = <c_string>tobytes(value)
+    options.push_back(entry)
+    entry.first = tobytes("example_option_int")
+    entry.second = <int>value_int
+    options.push_back(entry)
+    entry.first = tobytes("example_option_typed_var")
+    entry.second = CExampleOption(value_typed)
+    options.push_back(entry)
+    result = GetResultValue(CExampleAcceptOptions(options))
+    return frombytes(result)

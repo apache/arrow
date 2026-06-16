@@ -641,6 +641,42 @@ garrow_file_system_create(const gchar *uri, GError **error)
 }
 
 /**
+ * garrow_file_system_example_accept_options:
+ * @string_value: A string option value.
+ * @int_value: An integer option value.
+ * @typed_value: An integer used to build a typed option value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a showcase demonstrating that backend-specific options, stored
+ * as `std::any` in #arrow::fs::FileSystemFactoryOptions, can be built from
+ * the C GLib bindings and consumed by Arrow C++.
+ *
+ * Returns: (nullable) (transfer full): A string describing the options
+ *   received by Arrow C++, or %NULL on error.
+ *
+ * Since: 25.0.0
+ */
+gchar *
+garrow_file_system_example_accept_options(const gchar *string_value,
+                                          gint int_value,
+                                          gint typed_value,
+                                          GError **error)
+{
+  arrow::fs::FileSystemFactoryOptions options = {
+    {"example_option_string", std::any{std::string(string_value)}},
+    {"example_option_int", std::any{static_cast<int>(int_value)}},
+    {"example_option_typed_var",
+     std::any{arrow::fs::ExampleOption(static_cast<int>(typed_value))}},
+  };
+  auto result = arrow::fs::ExampleAcceptOptions(options);
+  if (garrow::check(error, result, "[file-system][example-accept-options]")) {
+    return g_strdup(result->c_str());
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_file_system_get_type_name:
  * @file_system: A #GArrowFileSystem.
  *

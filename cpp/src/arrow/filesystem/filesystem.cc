@@ -893,10 +893,10 @@ Status LoadFileSystemFactories(const char* libpath) {
 
 namespace {
 
-Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
-                                                          const std::string& uri_string,
-                                                          const io::IOContext& io_context,
-                                                          std::string* out_path) {
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(
+    const Uri& uri, const std::string& uri_string,
+    const FileSystemFactoryOptions& options, const io::IOContext& io_context,
+    std::string* out_path) {
   const auto scheme = uri.scheme();
 
   {
@@ -904,8 +904,12 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
         auto* factory,
         FileSystemFactoryRegistry::GetInstance()->FactoryForScheme(scheme));
     if (factory != nullptr) {
-      return factory->function(uri, io_context, out_path);
+      return factory->function(uri, options, io_context, out_path);
     }
+  }
+  if (!options.empty()) {
+    return Status::NotImplemented("Filesystem options are not supported yet for scheme '",
+                                  scheme, "', got ", options.size(), " option(s)");
   }
 
   if (scheme == "abfs" || scheme == "abfss") {
@@ -960,16 +964,47 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
 
 }  // namespace
 
+Result<std::string> ExampleAcceptOptions(const FileSystemFactoryOptions& options) {
+  if (options.empty()) return Status::Invalid("no options");
+  std::string out;
+  for (const auto& [key, value] : options) {
+    if (const auto* s = std::any_cast<std::string>(&value)) {
+      out += key + "=str(" + *s + ");";
+    } else if (const auto* i = std::any_cast<int>(&value)) {
+      out += key + "=int(" + std::to_string(*i) + ");";
+    } else if (const auto* t = std::any_cast<ExampleOption>(&value)) {
+      out += key + "=typed(" + std::to_string(t->value()) + ");";
+    } else {
+      return Status::Invalid("option '", key, "' has unsupported type");
+    }
+  }
+  return out;
+}
+
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {
-  return FileSystemFromUri(uri_string, io::default_io_context(), out_path);
+  return FileSystemFromUriAndOptions(uri_string, /*options=*/{}, io::default_io_context(),
+                                     out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
+    const std::string& uri_string, const FileSystemFactoryOptions& options,
+    std::string* out_path) {
+  return FileSystemFromUriAndOptions(uri_string, options, io::default_io_context(),
+                                     out_path);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       const io::IOContext& io_context,
                                                       std::string* out_path) {
+  return FileSystemFromUriAndOptions(uri_string, /*options=*/{}, io_context, out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
+    const std::string& uri_string, const FileSystemFactoryOptions& options,
+    const io::IOContext& io_context, std::string* out_path) {
   ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUri(uri_string));
-  return FileSystemFromUriReal(fsuri, uri_string, io_context, out_path);
+  return FileSystemFromUriReal(fsuri, uri_string, options, io_context, out_path);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,

@@ -202,3 +202,10 @@ test_that("gs_bucket", {
   )
   expect_identical(bucket$base_path, "arrow-datasets/")
 })
+
+test_that("ExampleAcceptOptions round-trips std::any options", {
+  expect_equal(
+    fs___example_accept_options("hi", 42L, 7L),
+    "example_option_string=str(hi);example_option_int=int(42);example_option_typed_var=typed(7);"
+  )
+})

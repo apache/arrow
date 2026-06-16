@@ -29,6 +29,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CFileType_File "arrow::fs::FileType::File"
         CFileType_Directory "arrow::fs::FileType::Directory"
 
+    ctypedef vector[pair[c_string, c_any]] CFSFileSystemFactoryOptions "arrow::fs::FileSystemFactoryOptions"
+    CResult[c_string] CExampleAcceptOptions "arrow::fs::ExampleAcceptOptions"(const CFSFileSystemFactoryOptions& options)
+    cdef cppclass CExampleOption "arrow::fs::ExampleOption":
+        CExampleOption(int value)
+        int value() const
+
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
         CFileInfo(CFileInfo)

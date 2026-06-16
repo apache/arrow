@@ -1248,14 +1248,6 @@ Field__Equals <- function(field, other, check_metadata) {
   .Call(`_arrow_Field__Equals`, field, other, check_metadata)
 }
 
-Field__nullable <- function(field) {
-  .Call(`_arrow_Field__nullable`, field)
-}
-
-Field__type <- function(field) {
-  .Call(`_arrow_Field__type`, field)
-}
-
 Field__HasMetadata <- function(field) {
   .Call(`_arrow_Field__HasMetadata`, field)
 }
@@ -1270,6 +1262,14 @@ Field__WithMetadata <- function(field, metadata) {
 
 Field__RemoveMetadata <- function(field) {
   .Call(`_arrow_Field__RemoveMetadata`, field)
+}
+
+Field__nullable <- function(field) {
+  .Call(`_arrow_Field__nullable`, field)
+}
+
+Field__type <- function(field) {
+  .Call(`_arrow_Field__type`, field)
 }
 
 fs___FileInfo__type <- function(x) {
@@ -1382,6 +1382,10 @@ fs___FileSystem__OpenAppendStream <- function(file_system, path) {
 
 fs___FileSystem__type_name <- function(file_system) {
   .Call(`_arrow_fs___FileSystem__type_name`, file_system)
+}
+
+fs___example_accept_options <- function(string_value, int_value, typed_value) {
+  .Call(`_arrow_fs___example_accept_options`, string_value, int_value, typed_value)
 }
 
 fs___SubTreeFileSystem__create <- function(base_path, base_fs) {

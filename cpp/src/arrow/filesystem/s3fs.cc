@@ -3603,11 +3603,17 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
 
 auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "s3",
-    [](const arrow::util::Uri& uri, const io::IOContext& io_context,
+    [](const arrow::util::Uri& uri, const FileSystemFactoryOptions& options,
+       const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
+      if (!options.empty()) {
+        return Status::NotImplemented(
+            "S3 filesystem factory options are not supported yet, got: ", options.size(),
+            " option(s)");
+      }
       RETURN_NOT_OK(EnsureS3Initialized());
-      ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
-      return S3FileSystem::Make(options, io_context);
+      ARROW_ASSIGN_OR_RAISE(auto s3_options, S3Options::FromUri(uri, out_path));
+      return S3FileSystem::Make(s3_options, io_context);
     },
     [] { DCHECK_OK(EnsureS3Finalized()); });
 

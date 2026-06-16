@@ -36,7 +36,7 @@ from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
-                        copy_files)
+                        copy_files, _example_accept_options)
 from pyarrow.util import find_free_port
 
 
@@ -2285,3 +2285,10 @@ def test_huggingface_filesystem_from_uri():
     expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
     assert fs == expected_fs
     assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
+
+
+def test_example_accept_options():
+    result = _example_accept_options("hi", 42, 7)
+    expected = "example_option_string=str(hi);example_option_int=int(42);" + \
+        "example_option_typed_var=typed(7);"
+    assert result == expected

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <any>
 #include <memory>
 #include <string>
 #include <utility>
@@ -639,6 +640,11 @@ TEST_F(TestMockFS, FileSystemFromUri) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("syntax error at character ' ' (position 12)"),
       FileSystemFromUri("mock:/folder name/bar", &path));
+  CheckDirs({});
+  FileSystemFactoryOptions options{{"some_option", 1}};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("options are not supported"),
+      FileSystemFromUriAndOptions("mock:///foo/bar", options, &path));
   CheckDirs({});
 }
 
