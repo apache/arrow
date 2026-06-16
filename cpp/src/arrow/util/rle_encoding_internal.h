@@ -104,10 +104,6 @@ class RleRunDecoder;
 /// 10 % on some benchmarks.
 class RleRun {
  public:
-  /// The decoder class used to decode a single run in the given type.
-  template <typename T>
-  using DecoderType = RleRunDecoder<T>;
-
   constexpr RleRun() noexcept = default;
 
   explicit RleRun(const uint8_t* data, rle_size_t values_count,
@@ -155,10 +151,6 @@ class BitPackedRunDecoder;
 /// 10 % on some benchmarks.
 class BitPackedRun {
  public:
-  /// The decoder class used to decode a single run in the given type.
-  template <typename T>
-  using DecoderType = BitPackedRunDecoder<T>;
-
   constexpr BitPackedRun() noexcept = default;
 
   constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
@@ -244,6 +236,10 @@ class RleBitPackedParser {
   /// ```
   template <typename Handler>
   void Parse(Handler&& handler);
+
+  /// Call the parser with a single callable for all event types.
+  template <typename Callable>
+  void ParseWithCallable(Callable&& func);
 
  private:
   /// The pointer to the beginning of the run
@@ -494,6 +490,20 @@ class RleBitPackedDecoder {
       rle_size_t null_count, const uint8_t* valid_bits, int64_t valid_bits_offset);
 
  private:
+  /// Utility to map a run type to the associate decoder.
+  template <typename Run>
+  struct get_decoder;
+  template <>
+  struct get_decoder<RleRun> {
+    using type = RleRunDecoder<value_type>;
+  };
+  template <>
+  struct get_decoder<BitPackedRun> {
+    using type = BitPackedRunDecoder<value_type>;
+  };
+  template <typename Run>
+  using get_decoder_t = get_decoder<Run>::type;
+
   RleBitPackedParser parser_ = {};
   std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>> decoder_ = {};
   rle_size_t value_bit_width_;
@@ -509,10 +519,6 @@ class RleBitPackedDecoder {
         [&](auto& dec) { return dec.GetBatch(out, batch_size, value_bit_width_); },
         decoder_);
   }
-
-  /// Call the parser with a single callable for all event types.
-  template <typename Callable>
-  void ParseWithCallable(Callable&& func);
 
   /// Utility methods for retrieving spaced values.
   template <typename Converter>
@@ -675,6 +681,17 @@ void RleBitPackedParser::Parse(Handler&& handler) {
   }
 }
 
+template <typename Callable>
+void RleBitPackedParser::ParseWithCallable(Callable&& func) {
+  struct {
+    Callable func;
+    auto OnBitPackedRun(BitPackedRun run) { return func(std::move(run)); }
+    auto OnRleRun(RleRun run) { return func(std::move(run)); }
+  } handler{std::move(func)};
+
+  return Parse(std::move(handler));
+}
+
 namespace internal {
 /// The maximal unsigned size that a variable can fit.
 template <typename T>
@@ -764,18 +781,6 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
  *************************/
 
 template <typename T>
-template <typename Callable>
-void RleBitPackedDecoder<T>::ParseWithCallable(Callable&& func) {
-  struct {
-    Callable func;
-    auto OnBitPackedRun(BitPackedRun run) { return func(std::move(run)); }
-    auto OnRleRun(RleRun run) { return func(std::move(run)); }
-  } handler{std::move(func)};
-
-  parser_.Parse(std::move(handler));
-}
-
-template <typename T>
 bool RleBitPackedDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
 }
@@ -800,8 +805,8 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
     ARROW_DCHECK(run_remaining() == 0);
   }
 
-  ParseWithCallable([&](auto run) {
-    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+  parser_.ParseWithCallable([&](auto run) {
+    using RunDecoder = get_decoder_t<decltype(run)>;
 
     ARROW_DCHECK_LT(values_read, batch_size);
     RunDecoder decoder(run, value_bit_width_);
@@ -1113,8 +1118,8 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
     ARROW_DCHECK(run_remaining() == 0);
   }
 
-  ParseWithCallable([&](auto run) {
-    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+  parser_.ParseWithCallable([&](auto run) {
+    using RunDecoder = get_decoder_t<decltype(run)>;
 
     RunDecoder decoder(run, value_bit_width_);
 
@@ -1295,8 +1300,8 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
     ARROW_DCHECK(run_remaining() == 0);
   }
 
-  ParseWithCallable([&](auto run) {
-    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+  parser_.ParseWithCallable([&](auto run) {
+    using RunDecoder = get_decoder_t<decltype(run)>;
 
     RunDecoder decoder(run, value_bit_width_);
 
