@@ -44,6 +44,7 @@
 #include "parquet/geospatial/statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
 #include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
@@ -252,7 +253,7 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
-// Selects which thrift Statistics min/max fields should populate EncodedStatistics.
+// Selects how thrift Statistics min/max fields should populate EncodedStatistics.
 enum class StatisticsMinMaxField {
   // Do not populate min/max, because the ordering is undefined or unsupported.
   kInvalid,
@@ -261,6 +262,24 @@ enum class StatisticsMinMaxField {
   // Populate min/max from the legacy min/max fields.
   kLegacyMinMax,
 };
+
+// Keep this field-selection logic consistent with ColumnDescriptor::can_use_min_max().
+static inline StatisticsMinMaxField GetStatisticsMinMaxField(
+    const ColumnDescriptor& descr) {
+  switch (descr.column_order().get_order()) {
+    case ColumnOrder::TYPE_DEFINED_ORDER:
+      return descr.sort_order() != SortOrder::UNKNOWN
+                 ? StatisticsMinMaxField::kMinValueMaxValue
+                 : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::UNDEFINED:
+      return descr.sort_order() == SortOrder::SIGNED
+                 ? StatisticsMinMaxField::kLegacyMinMax
+                 : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::UNKNOWN:
+      return StatisticsMinMaxField::kInvalid;
+  }
+  return StatisticsMinMaxField::kInvalid;
+}
 
 static inline EncodedStatistics FromThrift(const format::Statistics& stats,
                                            StatisticsMinMaxField min_max) {
@@ -295,14 +314,6 @@ static inline EncodedStatistics FromThrift(const format::Statistics& stats,
   }
 
   return out;
-}
-
-static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
-  // Use the new V2 min-max statistics over the former one if it is filled.
-  if (stats.__isset.max_value || stats.__isset.min_value) {
-    return FromThrift(stats, StatisticsMinMaxField::kMinValueMaxValue);
-  }
-  return FromThrift(stats, StatisticsMinMaxField::kLegacyMinMax);
 }
 
 static inline geospatial::EncodedGeoStatistics FromThrift(

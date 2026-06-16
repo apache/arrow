@@ -117,11 +117,21 @@ class PARQUET_EXPORT PageReader {
  public:
   virtual ~PageReader() = default;
 
+  static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
+                                          int64_t total_num_values,
+                                          Compression::type codec,
+                                          const ReaderProperties& properties,
+                                          const ColumnDescriptor& descr,
+                                          bool always_compressed = false,
+                                          const CryptoContext* ctx = NULLPTR);
+
+  PARQUET_DEPRECATED("Deprecated in 25.0.0. Use the ColumnDescriptor overload instead.")
   static std::unique_ptr<PageReader> Open(
       std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
       Compression::type codec, bool always_compressed = false,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
+  PARQUET_DEPRECATED("Deprecated in 25.0.0. Use the ColumnDescriptor overload instead.")
   static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
                                           int64_t total_num_values,
                                           Compression::type codec,
