@@ -39,8 +39,10 @@ export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 
 if [ $arch = "arm64" ]; then
   export CMAKE_OSX_ARCHITECTURES="arm64"
+  : ${ARROW_SIMD_LEVEL:="NEON"}
 elif [ $arch = "x86_64" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64"
+  : ${ARROW_SIMD_LEVEL:="SSE4_2"}
 else
   echo "Unexpected architecture: $arch"
   exit 1
@@ -68,7 +70,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${PARQUET_REQUIRE_ENCRYPTION:=ON}
 : ${ARROW_SUBSTRAIT:=ON}
 : ${ARROW_S3:=ON}
-: ${ARROW_SIMD_LEVEL:="SSE4_2"}
 : ${ARROW_TENSORFLOW:=ON}
 : ${ARROW_WITH_BROTLI:=ON}
 : ${ARROW_WITH_BZ2:=ON}
