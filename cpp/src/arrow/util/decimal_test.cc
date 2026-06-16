@@ -325,7 +325,8 @@ TEST(Decimal128Test, TestStringRoundTrip) {
       for (int32_t scale : kScales) {
         std::string str = decimal.ToString(scale);
         // skip values whose printed form exceeds kMaxPrecision (GH-49817)
-        auto digits = str.size() - (str[0] == '-' ? 1 : 0) - (str.find('.') == std::string::npos ? 0 : 1);
+        auto digits = str.size() - (str[0] == '-' ? 1 : 0) -
+                      (str.find('.') == std::string::npos ? 0 : 1);
         if (static_cast<int>(digits) > Decimal128::kMaxPrecision) continue;
         ASSERT_OK_AND_ASSIGN(Decimal128 result, Decimal128::FromString(str));
         EXPECT_EQ(decimal, result);
