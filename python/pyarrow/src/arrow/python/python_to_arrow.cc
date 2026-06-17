@@ -913,9 +913,10 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       // GH-49644: a fixed-size list (e.g. the storage of a fixed-shape tensor)
       // can be built from a multi-dimensional array by flattening it in C
       // order. The total number of elements must still match the list size,
-      // which the builder validates below. Variable-sized lists remain
-      // restricted to 1-dimensional values to avoid ambiguity.
-      if (this->list_type_->id() != Type::FIXED_SIZE_LIST) {
+      // which the builder validates below. 0-dimensional arrays and
+      // variable-sized lists remain restricted to 1-dimensional values.
+      if (PyArray_NDIM(ndarray) < 2 ||
+          this->list_type_->id() != Type::FIXED_SIZE_LIST) {
         return Status::Invalid("Can only convert 1-dimensional array values");
       }
       flattened.reset(PyArray_Ravel(ndarray, NPY_CORDER));
