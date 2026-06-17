@@ -2925,6 +2925,24 @@ def test_array_from_invalid_dim_raises():
 
 
 @pytest.mark.numpy
+def test_fixed_size_list_from_multidim_ndarray():
+    # GH-49644: a fixed-size list can be built from multi-dimensional ndarray
+    # elements by flattening them in C order.
+    arr = pa.array([np.array([[1, 2, 3]]), np.array([[4, 5, 6]])],
+                   type=pa.list_(pa.int64(), 3))
+    assert arr.type == pa.list_(pa.int64(), 3)
+    assert arr.to_pylist() == [[1, 2, 3], [4, 5, 6]]
+
+    # The flattened length must still match the fixed size
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pa.array([np.array([[1, 2], [3, 4]])], type=pa.list_(pa.int64(), 3))
+
+    # Variable-sized lists still require 1-dimensional values
+    with pytest.raises(pa.lib.ArrowInvalid, match="1-dimensional"):
+        pa.array([np.array([[1, 2, 3]])], type=pa.list_(pa.int64()))
+
+
+@pytest.mark.numpy
 def test_array_from_strided_bool():
     # ARROW-6325
     arr = np.ones((3, 2), dtype=bool)

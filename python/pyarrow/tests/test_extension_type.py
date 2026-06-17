@@ -1731,6 +1731,48 @@ def test_tensor_array_from_numpy(np_type_str):
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_list_of_ndarrays(np_type_str):
+    # GH-49644: build a fixed-shape-tensor array from a list of individual
+    # (multi-dimensional) ndarrays, not only from a single stacked ndarray.
+    np_dtype = np.dtype(np_type_str)
+    tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 3))
+
+    elements = [
+        np.arange(6, dtype=np_dtype).reshape(2, 3),
+        np.arange(6, 12, dtype=np_dtype).reshape(2, 3),
+    ]
+    result = pa.array(elements, type=tensor_type)
+    assert isinstance(result, pa.FixedShapeTensorArray)
+    assert result.type == tensor_type
+    assert len(result) == 2
+
+    # Must match the existing from_numpy_ndarray path on the same data
+    expected = pa.FixedShapeTensorArray.from_numpy_ndarray(np.stack(elements))
+    assert result.storage.equals(expected.storage)
+
+    # Each element round-trips back to the original ndarray (with its shape)
+    for scalar, original in zip(result, elements):
+        np.testing.assert_array_equal(scalar.to_numpy(), original)
+
+    # Higher-dimensional tensors work too
+    tensor_3d = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 2, 3))
+    elements_3d = [np.arange(12, dtype=np_dtype).reshape(2, 2, 3)]
+    result_3d = pa.array(elements_3d, type=tensor_3d)
+    assert result_3d.type == tensor_3d
+    np.testing.assert_array_equal(result_3d[0].to_numpy(), elements_3d[0])
+
+    # None elements are allowed
+    result_with_null = pa.array([elements[0], None], type=tensor_type)
+    assert result_with_null.null_count == 1
+    assert result_with_null[1].as_py() is None
+
+    # A flattened size that doesn't match the tensor shape is rejected
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pa.array([np.arange(8, dtype=np_dtype).reshape(2, 4)], type=tensor_type)
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
