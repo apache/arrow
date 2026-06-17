@@ -482,6 +482,34 @@ TEST_F(S3FileSystemRegionTest, EnvironmentVariable) {
 #endif
 
 ////////////////////////////////////////////////////////////////////////////
+// S3FileSystem make URI test
+
+class S3FileSystemMakeUri : public AwsTestMixin {};
+
+TEST_F(S3FileSystemMakeUri, MakeUriWithCredentials) {
+  S3Options options;
+  options.ConfigureAccessKey("minio", "miniopass");
+  options.region = "us-east-1";
+  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
+  ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
+  EXPECT_EQ(uri,
+            "s3://minio:miniopass@bucket/somedir/subdir/subfile"
+            "?region=us-east-1&scheme=https&endpoint_override="
+            "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+TEST_F(S3FileSystemMakeUri, MakeUriWithoutCredentials) {
+  S3Options options;
+  options.region = "us-east-1";
+  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
+  ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
+  EXPECT_EQ(uri,
+            "s3://bucket/somedir/subdir/subfile"
+            "?region=us-east-1&scheme=https&endpoint_override="
+            "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+////////////////////////////////////////////////////////////////////////////
 // Basic test for the Minio test server.
 
 class TestMinioServer : public S3TestMixin {
@@ -1735,19 +1763,6 @@ TEST(S3GlobalOptions, DefaultsLogLevel) {
     EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "invalid");
     ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
   }
-}
-
-//// Minor validation test
-TEST_F(S3OptionsTest, MakeUri) {
-  S3Options options;
-  options.ConfigureAccessKey("minio", "miniopass");
-  options.region = "us-east-1";
-  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
-  ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
-  EXPECT_EQ(uri,
-            "s3://minio:miniopass@bucket/somedir/subdir/subfile"
-            "?region=us-east-1&scheme=https&endpoint_override="
-            "&allow_bucket_creation=0&allow_bucket_deletion=0");
 }
 
 }  // namespace fs
