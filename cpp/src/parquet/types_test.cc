@@ -193,8 +193,8 @@ TEST(TypePrinter, StatisticsTypesShortValue) {
       FormatStatValue(Type::INT32, std::string("abc"), LogicalType::Decimal(6, 2)));
   ASSERT_NO_THROW(
       FormatStatValue(Type::INT64, std::string("abcdefg"), LogicalType::Decimal(18, 4)));
-  ASSERT_NO_THROW(
-      FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, std::string("a"), LogicalType::Float16()));
+  ASSERT_NO_THROW(FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, std::string("a"),
+                                  LogicalType::Float16()));
 }
 
 TEST(TestInt96Timestamp, Decoding) {
