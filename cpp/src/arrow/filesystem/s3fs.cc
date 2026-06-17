@@ -3053,12 +3053,13 @@ Result<std::string> S3FileSystem::MakeUri(std::string path) const {
     return Status::Invalid("MakeUri requires an absolute, non-root path, got ", path);
   }
   ARROW_ASSIGN_OR_RAISE(auto uri_from_path, util::UriFromAbsolutePath(path));
-  constexpr std::string_view kFileScheme = "file:///";
+  constexpr std::string_view kFileScheme = "file://";
   std::string_view uri_view(uri_from_path);
   if (uri_view.starts_with(kFileScheme)) {
     uri_view.remove_prefix(kFileScheme.size());
-  } else if (uri_view.starts_with("/")) {
-    // MinGW doesn't have `file:///` scheme, we just remove the leading slash
+  }
+  if (uri_view.starts_with("/")) {
+    // Remove leading slash if present
     uri_view.remove_prefix(1);
   }
   std::string uri = "s3://";
