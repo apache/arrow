@@ -2425,8 +2425,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
       } else {                                                                          \
         char err_msg[256];                                                              \
         snprintf(err_msg, sizeof(err_msg),                                              \
-                 "CAST_" #TYPE_NAME                                                     \
-                 "_FROM_HEX: invalid character in hex value '%.*s'",                    \
+                 "CAST_" #TYPE_NAME "_FROM_HEX: invalid character in hex value '%.*s'", \
                  in_len_original, in_original);                                         \
         gdv_fn_context_set_error_msg(context, err_msg);                                 \
         return -1;                                                                      \
