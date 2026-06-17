@@ -569,7 +569,7 @@ void EnsureFinalized();
 /// \brief Create a new FileSystem by URI
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
-/// "gs", "gcs", "abfs" and "abbfs".
+/// "gs", "gcs", "abfs" and "abfss".
 ///
 /// Support for other schemes can be added using RegisterFileSystemFactory.
 ///
@@ -584,7 +584,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// options
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
-/// "gs", "gcs", "abfs" and "abbfs".
+/// "gs", "gcs", "abfs" and "abfss".
 ///
 /// Support for other schemes can be added using RegisterFileSystemFactory.
 ///
@@ -607,7 +607,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
 /// \brief Create a new FileSystem by URI with a custom IO context
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
-/// "gs", "gcs", "abfs" and "abbfs".
+/// "gs", "gcs", "abfs" and "abfss".
 ///
 /// Support for other schemes can be added using RegisterFileSystemFactory.
 ///
@@ -624,7 +624,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// filesystem options
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
-/// "gs", "gcs", "abfs" and "abbfs".
+/// "gs", "gcs", "abfs" and "abfss".
 ///
 /// Support for other schemes can be added using RegisterFileSystemFactory.
 ///
