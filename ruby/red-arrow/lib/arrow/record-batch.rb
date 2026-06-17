@@ -63,6 +63,63 @@ module Arrow
       table
     end
 
+    def merge(other)
+      added_columns = {}
+      removed_columns = {}
+
+      case other
+      when Hash
+        other.each do |name, value|
+          name = name.to_s
+          if value
+            added_columns[name] = ensure_raw_column(name, value)
+          else
+            removed_columns[name] = true
+          end
+        end
+      when RecordBatch
+        other.columns.each do |column|
+          name = column.name
+          added_columns[name] = ensure_raw_column(name, column)
+        end
+      else
+        message = "merge target must be Hash or Arrow::RecordBatch: " +
+          "<#{other.inspect}>: #{inspect}"
+        raise ArgumentError, message
+      end
+
+      new_columns = []
+      columns.each do |column|
+        column_name = column.name
+        new_column = added_columns.delete(column_name)
+        if new_column
+          new_columns << new_column
+          next
+        end
+        next if removed_columns.key?(column_name)
+        new_columns << ensure_raw_column(column_name, column)
+      end
+
+      added_columns.each_value do |new_column|
+        new_columns << new_column
+      end
+
+      new_fields = []
+      new_arrays = []
+      new_columns.each do |new_column|
+        new_fields << new_column[:field]
+        new_arrays << new_column[:data]
+      end
+
+      record_batch = self.class.new(
+        Schema.new(new_fields),
+        n_rows,
+        new_arrays,
+      )
+      share_input(record_batch)
+      record_batch
+    end
+
     def respond_to_missing?(name, include_private)
       return true if find_column(name)
       super
@@ -74,6 +131,27 @@ module Arrow
         return column if column
       end
       super
+    end
+
+    private
+
+    def ensure_raw_column(name, data)
+      case data
+      when Array
+        {
+          field: Field.new(name, data.value_data_type),
+          data: data,
+        }
+      when Column
+        {
+          field: data.field,
+          data: data.data,
+        }
+      else
+        message = "column must be Arrow::Array or Arrow::Column: " +
+          "<#{name}>: <#{data.inspect}>: #{inspect}"
+        raise ArgumentError, message
+      end
     end
   end
 end
