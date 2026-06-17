@@ -205,7 +205,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
 
   if (isTRUE(as_data_frame)) {
     df <- out$to_data_frame()
-    out <- apply_arrow_r_metadata(df, out$metadata$r)
+    out <- apply_arrow_r_metadata(df, out$metadata[["r"]])
   }
   out
 }

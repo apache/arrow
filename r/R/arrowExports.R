@@ -1248,14 +1248,6 @@ Field__Equals <- function(field, other, check_metadata) {
   .Call(`_arrow_Field__Equals`, field, other, check_metadata)
 }
 
-Field__nullable <- function(field) {
-  .Call(`_arrow_Field__nullable`, field)
-}
-
-Field__type <- function(field) {
-  .Call(`_arrow_Field__type`, field)
-}
-
 Field__HasMetadata <- function(field) {
   .Call(`_arrow_Field__HasMetadata`, field)
 }
@@ -1270,6 +1262,14 @@ Field__WithMetadata <- function(field, metadata) {
 
 Field__RemoveMetadata <- function(field) {
   .Call(`_arrow_Field__RemoveMetadata`, field)
+}
+
+Field__nullable <- function(field) {
+  .Call(`_arrow_Field__nullable`, field)
+}
+
+Field__type <- function(field) {
+  .Call(`_arrow_Field__type`, field)
 }
 
 fs___FileInfo__type <- function(x) {

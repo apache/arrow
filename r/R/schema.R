@@ -65,7 +65,7 @@
 #'   schema (column names and types) which is compatible with other Arrow
 #'   clients. The R metadata is only read by R and is ignored by other clients
 #'   (e.g. Pandas has its own custom metadata). This metadata is stored in
-#'   `$metadata$r`.
+#'   `$metadata[["r"]]`.
 #'
 #'   Since Schema metadata keys and values must be strings, this metadata is
 #'   saved by serializing R's attribute list structure to a string. If the
@@ -138,8 +138,8 @@ Schema <- R6Class(
       renamed_schema <- Schema__WithNames(self, names)
 
       # if we have R metadata containing column names, update names there too
-      if (!is.null(existing_metadata$r$columns)) {
-        names(existing_metadata$r$columns) <- names
+      if (!is.null(existing_metadata[["r"]]$columns)) {
+        names(existing_metadata[["r"]]$columns) <- names
       }
       renamed_schema$WithMetadata(existing_metadata)
     }
@@ -176,10 +176,10 @@ Schema <- R6Class(
       # Helper for the R metadata that handles the serialization
       # See also method on ArrowTabular
       if (missing(new)) {
-        self$metadata$r
+        self$metadata[["r"]]
       } else {
         # Set the R metadata
-        self$metadata$r <- new
+        self$metadata[["r"]] <- new
         self
       }
     }

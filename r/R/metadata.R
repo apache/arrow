@@ -48,7 +48,7 @@
     if (getOption("arrow.debug", FALSE)) {
       print(conditionMessage(e))
     }
-    warning("Invalid metadata$r", call. = FALSE)
+    warning('Invalid metadata$[["r"]]', call. = FALSE)
     NULL
   })
 }
@@ -228,7 +228,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       }
     },
     error = function(e) {
-      warning("Invalid metadata$r", call. = FALSE)
+      warning('Invalid metadata$[["r"]]', call. = FALSE)
     }
   )
   x
@@ -323,7 +323,7 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
 get_r_metadata_from_old_schema <- function(new_schema, old_schema) {
   # TODO: do we care about other (non-R) metadata preservation?
   # How would we know if it were meaningful?
-  r_meta <- old_schema$metadata$r
+  r_meta <- old_schema$metadata[["r"]]
   if (!is.null(r_meta)) {
     # Filter r_metadata$columns on columns with name _and_ type match
     common_names <- intersect(names(r_meta$columns), names(new_schema))
