@@ -65,7 +65,7 @@
 #'   schema (column names and types) which is compatible with other Arrow
 #'   clients. The R metadata is only read by R and is ignored by other clients
 #'   (e.g. Pandas has its own custom metadata). This metadata is stored in
-#'   `$metadata$r`.
+#'   `$metadata[["r"]]`.
 #'
 #'   Since Schema metadata keys and values must be strings, this metadata is
 #'   saved by serializing R's attribute list structure to a string. If the

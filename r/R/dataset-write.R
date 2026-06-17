@@ -154,7 +154,7 @@ write_dataset <- function(
     if (inherits(dataset, "grouped_df")) {
       force(partitioning)
       # Drop the grouping metadata before writing; we've already consumed it
-      # now to construct `partitioning` and don't want it in the metadata$r
+      # now to construct `partitioning` and don't want it in the metadata[["r"]]
       dataset <- dplyr::ungroup(dataset)
     }
     dataset <- as_adq(dataset)

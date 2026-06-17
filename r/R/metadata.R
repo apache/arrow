@@ -48,7 +48,7 @@
     if (getOption("arrow.debug", FALSE)) {
       print(conditionMessage(e))
     }
-    warning("Invalid metadata$r", call. = FALSE)
+    warning('Invalid metadata$[["r"]]', call. = FALSE)
     NULL
   })
 }
@@ -228,7 +228,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       }
     },
     error = function(e) {
-      warning("Invalid metadata$r", call. = FALSE)
+      warning('Invalid metadata$[["r"]]', call. = FALSE)
     }
   )
   x
