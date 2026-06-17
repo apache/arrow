@@ -500,6 +500,7 @@ TEST_F(S3FileSystemMakeUri, MakeUriWithCredentials) {
 
 TEST_F(S3FileSystemMakeUri, MakeUriWithoutCredentials) {
   S3Options options;
+  options.ConfigureAnonymousCredentials();
   options.region = "us-east-1";
   ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
   ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
