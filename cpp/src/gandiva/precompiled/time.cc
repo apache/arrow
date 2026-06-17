@@ -270,7 +270,7 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
       }                                                                                  \
     }                                                                                    \
     if (dateSearch == 0) {                                                               \
-      char err_msg[256];                                                                 \
+      char err_msg[128];                                                                 \
       snprintf(err_msg, sizeof(err_msg),                                                 \
                "NEXT_DAY: '%.*s' is not a recognized day of the week", in_len, in);      \
       gdv_fn_context_set_error_msg(context, err_msg);                                    \

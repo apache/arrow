@@ -572,7 +572,7 @@ gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
     if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
   }
   // if no 'true', 'false', '0' or '1' value is found, set an error
-  char err_msg[256];
+  char err_msg[128];
   snprintf(err_msg, sizeof(err_msg),
            "CAST_BIT: Invalid value for boolean: '%.*s'"
            " (expected 0, 1, true, false; case-insensitive)",
@@ -2412,7 +2412,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         OUT_TYPE next = result * 16 - digit;                                            \
                                                                                         \
         if (next > result) {                                                            \
-          char err_msg[256];                                                            \
+          char err_msg[128];                                                            \
           snprintf(err_msg, sizeof(err_msg),                                            \
                    "CAST_" #TYPE_NAME                                                   \
                    "_FROM_HEX: integer overflow while reading hex value '%.*s'",        \
@@ -2423,7 +2423,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         result = next;                                                                  \
         read_index++;                                                                   \
       } else {                                                                          \
-        char err_msg[256];                                                              \
+        char err_msg[128];                                                              \
         snprintf(err_msg, sizeof(err_msg),                                              \
                  "CAST_" #TYPE_NAME "_FROM_HEX: invalid character in hex value '%.*s'", \
                  in_len_original, in_original);                                         \
@@ -2435,7 +2435,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
       result *= -1;                                                                     \
                                                                                         \
       if (result < 0) {                                                                 \
-        char err_msg[256];                                                              \
+        char err_msg[128];                                                              \
         snprintf(err_msg, sizeof(err_msg),                                              \
                  "CAST_" #TYPE_NAME                                                     \
                  "_FROM_HEX: integer overflow while reading hex value '%.*s'",          \
