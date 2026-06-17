@@ -1428,7 +1428,6 @@ class BinaryTask
 
   def available_apt_targets
     [
-      ["debian", "bookworm", "main"],
       ["debian", "trixie", "main"],
       ["debian", "forky", "main"],
       ["ubuntu", "jammy", "main"],
@@ -2324,8 +2323,6 @@ class LocalBinaryTask < BinaryTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-bookworm",
-      # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
       "debian-forky",

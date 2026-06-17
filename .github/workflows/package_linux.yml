@@ -102,8 +102,6 @@ jobs:
           - amazon-linux-2023-arm64
           - centos-9-stream-amd64
           - centos-9-stream-arm64
-          - debian-bookworm-amd64
-          - debian-bookworm-arm64
           - debian-trixie-amd64
           - debian-trixie-arm64
           - debian-forky-amd64

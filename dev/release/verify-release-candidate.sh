@@ -214,8 +214,7 @@ test_apt() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "debian:bookworm" \
-                    "debian:trixie" \
+      for target in "debian:trixie" \
                     "debian:forky" \
                     "ubuntu:jammy" \
                     "ubuntu:noble" \
@@ -235,8 +234,7 @@ test_apt() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/debian:bookworm" \
-                    "arm64v8/debian:trixie" \
+      for target in "arm64v8/debian:trixie" \
                     "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
                     "arm64v8/ubuntu:noble" \
