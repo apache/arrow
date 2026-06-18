@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:bookworm
+FROM debian:trixie
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 ARG DEBUG
 
@@ -45,8 +45,9 @@ RUN locale-gen en_US.UTF-8
 RUN mkdir -p /run/sshd
 RUN echo "StreamLocalBindUnlink yes" >> /etc/ssh/sshd_config
 
-ENV ARROW_USER arrow
-ENV ARROW_UID 10000
+ENV \
+  ARROW_USER=arrow \
+  ARROW_UID=10000
 
 RUN \
   groupadd --gid ${ARROW_UID} ${ARROW_USER} && \
