@@ -20,9 +20,11 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/benchmark_util.h"
 
 namespace arrow {
@@ -62,8 +64,23 @@ static ExecBatch MakeRandomExecBatch(const DataTypeVector& types, int64_t num_ro
   std::vector<Datum> values;
   values.resize(num_types);
   for (int i = 0; i < num_types; ++i) {
-    auto field = ::arrow::field("", types[i], metadata);
-    values[i] = rng.ArrayOf(*field, num_rows, alignment, memory_pool);
+    // The random generator honors the "unique" knob (which controls group
+    // cardinality) for plain int32-offset binary/string but not for view types.
+    // To keep view-key benchmarks comparable to their non-view counterparts,
+    // generate the plain equivalent column and cast it to the view type; the
+    // cast happens outside the timed grouping loop.
+    const auto& type = types[i];
+    const bool is_view = is_binary_view_like(*type);
+    std::shared_ptr<DataType> gen_type = type;
+    if (is_view) {
+      gen_type = type->id() == Type::STRING_VIEW ? utf8() : binary();
+    }
+    auto field = ::arrow::field("", gen_type, metadata);
+    Datum value = rng.ArrayOf(*field, num_rows, alignment, memory_pool);
+    if (is_view) {
+      ASSIGN_OR_ABORT(value, compute::Cast(value, type));
+    }
+    values[i] = std::move(value);
   }
 
   return ExecBatch(std::move(values), num_rows);
@@ -125,6 +142,9 @@ BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{boolean}", {boolean()})->Apply(SetArg
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32}", {int32()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int64}", {int64()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{utf8}", {utf8()})->Apply(SetArgs);
+// View ("German string") keys route through the generic GrouperImpl (the
+// Swiss-table fast path used by {utf8} rejects view keys), like large_utf8.
+BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{utf8_view}", {utf8_view()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{fixed_size_binary(32)}",
                   {fixed_size_binary(32)})
     ->Apply(SetArgs);
@@ -146,6 +166,9 @@ BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, boolean, utf8}",
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, int64, boolean, utf8}",
                   {int32(), int64(), boolean(), utf8()})
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, int64, boolean, utf8_view}",
+                  {int32(), int64(), boolean(), utf8_view()})
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes,
                   "{utf8, int32, int64, fixed_size_binary(32), boolean}",

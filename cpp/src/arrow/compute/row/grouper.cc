@@ -373,6 +373,12 @@ struct GrouperImpl : public Grouper {
         continue;
       }
 
+      if (is_binary_view_like(key_type.id())) {
+        impl->encoders_[i] =
+            std::make_unique<internal::BinaryViewKeyEncoder>(key_type.GetSharedPtr());
+        continue;
+      }
+
       if (key_type.id() == Type::NA) {
         impl->encoders_[i] = std::make_unique<internal::NullKeyEncoder>();
         continue;
@@ -556,7 +562,11 @@ struct GrouperFastImpl : public Grouper {
     }
 #if ARROW_LITTLE_ENDIAN
     for (size_t i = 0; i < key_types.size(); ++i) {
-      if (is_large_binary_like(key_types[i].id())) {
+      // The fast (Swiss-table) row format can't represent variadic view buffers,
+      // so view keys fall back to GrouperImpl, which handles them via
+      // BinaryViewKeyEncoder.
+      if (is_large_binary_like(key_types[i].id()) ||
+          is_binary_view_like(key_types[i].id())) {
         return false;
       }
     }

@@ -252,6 +252,34 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
+// Encodes BinaryView/StringView ("German string") keys using the same
+// variable-length row format as VarLengthKeyEncoder: a leading null byte, a
+// 4-byte length prefix, then the raw key bytes. The encoded row copies the key
+// bytes (it never references the input's variadic data buffers), so Decode
+// builds a fresh view array rather than aliasing shared buffers.
+struct ARROW_COMPUTE_EXPORT BinaryViewKeyEncoder : KeyEncoder {
+  // The on-row length prefix. Group keys are bounded by the int32 row format, so
+  // a 32-bit length matches the binary (int32-offset) encoder's wire format.
+  using Offset = int32_t;
+
+  explicit BinaryViewKeyEncoder(std::shared_ptr<DataType> type)
+      : type_(std::move(type)) {}
+
+  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
+
+  void AddLengthNull(int32_t* length) override;
+
+  Status Encode(const ExecValue& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override;
+
+  void EncodeNull(uint8_t** encoded_bytes) override;
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override;
+
+  std::shared_ptr<DataType> type_;
+};
+
 struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
   void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override {}
 
