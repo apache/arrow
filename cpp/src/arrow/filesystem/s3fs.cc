@@ -3052,13 +3052,21 @@ Result<std::string> S3FileSystem::MakeUri(std::string path) const {
   if (path.length() <= 1 || path[0] != '/') {
     return Status::Invalid("MakeUri requires an absolute, non-root path, got ", path);
   }
-  ARROW_ASSIGN_OR_RAISE(auto uri, util::UriFromAbsolutePath(path));
-  if (!options().GetAccessKey().empty()) {
-    uri = "s3://" + options().GetAccessKey() + ":" + options().GetSecretKey() + "@" +
-          uri.substr("file:///"s.size());
-  } else {
-    uri = "s3" + uri.substr("file"s.size());
+  ARROW_ASSIGN_OR_RAISE(auto uri_from_path, util::UriFromAbsolutePath(path));
+  constexpr std::string_view kFileScheme = "file://";
+  std::string_view uri_view(uri_from_path);
+  if (uri_view.starts_with(kFileScheme)) {
+    uri_view.remove_prefix(kFileScheme.size());
   }
+  if (uri_view.starts_with("/")) {
+    // Remove leading slash if present
+    uri_view.remove_prefix(1);
+  }
+  std::string uri = "s3://";
+  if (!options().GetAccessKey().empty()) {
+    uri += options().GetAccessKey() + ":" + options().GetSecretKey() + "@";
+  }
+  uri += std::string(uri_view);
   uri += "?";
   uri += "region=" + util::UriEscape(options().region);
   uri += "&";
