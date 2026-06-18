@@ -341,7 +341,7 @@ jobs:
           PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
         run: |
           # unstable
-          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="arrow-acero-asof-join-node-test"
           exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
           ctest \
             --exclude-regex "${exclude_tests}" \
