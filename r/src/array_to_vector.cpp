@@ -732,8 +732,7 @@ class Converter_Dictionary : public Converter {
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING &&
         dictionary_->type_id() != Type::LARGE_STRING &&
-        dictionary_->type_id() != Type::STRING_VIEW
-      ) {
+        dictionary_->type_id() != Type::STRING_VIEW) {
       cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
