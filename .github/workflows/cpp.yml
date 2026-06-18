@@ -33,7 +33,7 @@ on:
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
-      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/install_seaweedfs.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -50,7 +50,7 @@ on:
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
-      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/install_seaweedfs.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -243,10 +243,10 @@ jobs:
           # Remove once the runner ships a newer Homebrew.
           brew update
           brew bundle --file=cpp/Brewfile
-      - name: Install MinIO
+      - name: Install SeaweedFS
         run: |
           $(brew --prefix bash)/bin/bash \
-            ci/scripts/install_minio.sh latest ${ARROW_HOME}
+            ci/scripts/install_seaweedfs.sh 4.31 ${ARROW_HOME}
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -401,6 +401,7 @@ jobs:
           # https://github.com/apache/arrow/issues/48593
           ci/scripts/download_tz_database.sh
       - name: Download MinIO
+        # TODO: Install seaweedfs
         # Match the version pinned in ci/scripts/install_minio.sh.
         shell: msys2 {0}
         run: |

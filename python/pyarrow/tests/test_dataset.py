@@ -5126,7 +5126,7 @@ def test_write_dataset_s3(s3_example_simple):
     assert result.equals(table)
 
 
-_minio_put_only_policy = """{
+_put_only_policy = """{
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -5157,7 +5157,7 @@ def test_write_dataset_s3_put_only(s3_server):
     # write dataset with s3 filesystem
     host, port, _, _ = s3_server['connection']
 
-    _configure_s3_limited_user(s3_server, _minio_put_only_policy,
+    _configure_s3_limited_user(s3_server, _put_only_policy,
                                'test_dataset_limited_user', 'limited123')
     fs = S3FileSystem(
         access_key='test_dataset_limited_user',
@@ -5206,7 +5206,7 @@ def test_write_dataset_s3_put_only(s3_server):
             existing_data_behavior='overwrite_or_ignore'
         )
 
-    # Error enforced by minio / S3 service
+    # Error enforced by S3 service (seaweedfs)
     fs = S3FileSystem(
         access_key='limited',
         secret_key='limited123',

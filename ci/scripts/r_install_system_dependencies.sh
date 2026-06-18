@@ -53,8 +53,8 @@ esac
 
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   # The Dockerfile should have put this file here
-  if [ "$ARROW_S3" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
-    "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" latest /usr/local
+  if [ "$ARROW_S3" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_seaweedfs.sh" ] && [ "`which wget`" ]; then
+    "${ARROW_SOURCE_HOME}/ci/scripts/install_seaweedfs.sh" 4.31 /usr/local
   fi
 
   if [ "$ARROW_GCS" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh" ]; then

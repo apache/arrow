@@ -200,7 +200,7 @@ def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
 def s3_server(s3_connection, tmpdir_factory):
     @retry(attempts=5, delay=1, backoff=2)
     def minio_server_health_check(address):
-        resp = urllib.request.urlopen(f"http://{address}/minio/health/live")
+        resp = urllib.request.urlopen(f"http://{address}/status")
         assert resp.getcode() == 200
 
     tmpdir = tmpdir_factory.getbasetemp()
@@ -209,17 +209,18 @@ def s3_server(s3_connection, tmpdir_factory):
     address = f'{host}:{port}'
     env = os.environ.copy()
     env.update({
+        'WEED_FILER_OPTIONS_RECURSIVE_DELETE': 'true',
         'MINIO_ACCESS_KEY': access_key,
         'MINIO_SECRET_KEY': secret_key
     })
-
-    args = ['minio', '--compat', 'server', '--quiet', '--address',
-            address, tmpdir]
+    # '--quiet',
+    args = ['weed', 'server', f'-ip={host}', '-s3', f'-s3.port={port}',
+            f'-dir={tmpdir}', '-volume.max=100', '-volume.minFreeSpacePercent=0']
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)
     except OSError:
-        pytest.skip('`minio` command cannot be located')
+        pytest.skip('`weed` command cannot be located')
     else:
         # Wait for the server to startup before yielding
         minio_server_health_check(address)

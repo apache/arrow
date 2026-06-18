@@ -72,8 +72,8 @@ RUN latest_system_llvm=14 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+COPY ci/scripts/install_seaweedfs.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_seaweedfs.sh 4.31 /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
