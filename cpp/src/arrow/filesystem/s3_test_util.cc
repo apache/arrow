@@ -192,6 +192,15 @@ void MinioTestEnvironment::SetUp() {
       MakeReadaheadGenerator(std::move(impl_->server_generator_), pool->GetCapacity());
 }
 
+bool MinioTestEnvironment::IsAvailable() {
+  if (!checked_) {
+    ::arrow::util::Process process;
+    available_ = process.SetExecutable(kMinioExecutableName).ok();
+    checked_ = true;
+  }
+  return available_;
+}
+
 Result<std::shared_ptr<MinioTestServer>> MinioTestEnvironment::GetOneServer() {
   return impl_->server_generator_().result();
 }

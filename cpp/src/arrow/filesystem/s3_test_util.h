@@ -74,6 +74,12 @@ class MinioTestEnvironment : public ::testing::Environment {
 
   Result<std::shared_ptr<MinioTestServer>> GetOneServer();
 
+  bool IsAvailable();
+
+ private:
+  bool checked_ = false;
+  bool available_ = false;
+
  protected:
   struct Impl;
   std::unique_ptr<Impl> impl_;

@@ -55,6 +55,17 @@ MinioTestEnvironment* GetMinioEnv() {
   return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
 }
 
+class S3ModuleTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    if (!GetMinioEnv()->IsAvailable()) {
+      GTEST_SKIP() << "Minio executable not found, skipping tests";
+    }
+    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+  }
+  std::shared_ptr<MinioTestServer> minio_;
+};
+
 class RegistrationTestEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
@@ -68,12 +79,10 @@ class RegistrationTestEnvironment : public ::testing::Environment {
 
 auto* lib_env = ::testing::AddGlobalTestEnvironment(new RegistrationTestEnvironment);
 
-TEST(S3Test, FromUri) {
-  ASSERT_OK_AND_ASSIGN(auto minio, GetMinioEnv()->GetOneServer());
-
+TEST_F(S3ModuleTest, FromUri) {
   std::string path;
-  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://" + minio->access_key() + ":" +
-                                                      minio->secret_key() +
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://" + minio_->access_key() + ":" +
+                                                      minio_->secret_key() +
                                                       "@bucket/somedir/subdir/subfile",
                                                   &path));
 
@@ -83,12 +92,11 @@ TEST(S3Test, FromUri) {
             "&allow_bucket_creation=0&allow_bucket_deletion=0");
 }
 
-TEST(S3Test, FromUriAndOptionsCredentials) {
-  ASSERT_OK_AND_ASSIGN(auto minio, GetMinioEnv()->GetOneServer());
+TEST_F(S3ModuleTest, FromUriAndOptionsCredentials) {
   std::string path;
   FileSystemFactoryOptions options{
-      {"access_key", std::string(minio->access_key())},
-      {"secret_key", std::string(minio->secret_key())},
+      {"access_key", std::string(minio_->access_key())},
+      {"secret_key", std::string(minio_->secret_key())},
   };
   // Credentials supplied via options, NOT in the URI.
   ASSERT_OK_AND_ASSIGN(
@@ -111,11 +119,10 @@ class NoopRetryStrategy : public S3RetryStrategy {
 };
 }  // namespace
 
-TEST(S3Test, FromUriAndOptionsRetryStrategy) {
-  ASSERT_OK_AND_ASSIGN(auto minio, GetMinioEnv()->GetOneServer());
+TEST_F(S3ModuleTest, FromUriAndOptionsRetryStrategy) {
   FileSystemFactoryOptions options{
-      {"access_key", std::string(minio->access_key())},
-      {"secret_key", std::string(minio->secret_key())},
+      {"access_key", std::string(minio_->access_key())},
+      {"secret_key", std::string(minio_->secret_key())},
       {"retry_strategy",
        std::shared_ptr<S3RetryStrategy>(std::make_shared<NoopRetryStrategy>())},
   };
