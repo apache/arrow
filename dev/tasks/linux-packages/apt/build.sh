@@ -71,16 +71,18 @@ find . -not -path ./ccache -a -not -path "./ccache/*" -delete
 if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPILERCHECK=content
   export CCACHE_COMPRESS=1
-  export CCACHE_COMPRESSLEVEL=6
   export CCACHE_DIR="${PWD}/ccache"
-  export CCACHE_MAXSIZE=500M
+  export CCACHE_LOGFILE="${PWD}/ccache.log"
+  export CCACHE_MAXSIZE=3GiB
+  rm -f "${CCACHE_LOGFILE}"
+  ccache --zero-stats
   ccache --show-stats --verbose || :
   debuild_options+=(-eCCACHE_COMPILERCHECK)
   debuild_options+=(-eCCACHE_COMPRESS)
-  debuild_options+=(-eCCACHE_COMPRESSLEVEL)
   debuild_options+=(-eCCACHE_DIR)
+  debuild_options+=(-eCCACHE_LOGFILE)
   debuild_options+=(-eCCACHE_MAXSIZE)
-  if [ -d /usr/lib/ccache ] ;then
+  if [ -d /usr/lib/ccache ]; then
     debuild_options+=(--prepend-path=/usr/lib/ccache)
   fi
 fi

@@ -62,16 +62,16 @@ test_that("Table R metadata", {
 
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
   tab <- Table$create(example_data[1:6])
-  expect_null(tab$metadata$r)
+  expect_null(tab$metadata[["r"]])
 
-  expect_null(Table$create(example_with_times[1:3])$metadata$r)
+  expect_null(Table$create(example_with_times[1:3])$metadata[["r"]])
 })
 
 test_that("R metadata is not stored for ExtensionType columns", {
   tab <- Table$create(
     x = vctrs::new_vctr(1:5, class = "special_integer")
   )
-  expect_null(tab$metadata$r)
+  expect_null(tab$metadata[["r"]])
 })
 
 test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixed_size_binary (ARROW-14140)", {
@@ -81,13 +81,13 @@ test_that("classes are not stored for arrow_binary/arrow_large_binary/arrow_fixe
   large_binary <- Array$create(list(raws), large_binary())
   fixed_size_binary <- Array$create(list(raws), fixed_size_binary(7L))
 
-  expect_null(RecordBatch$create(b = binary)$metadata$r)
-  expect_null(RecordBatch$create(b = large_binary)$metadata$r)
-  expect_null(RecordBatch$create(b = fixed_size_binary)$metadata$r)
+  expect_null(RecordBatch$create(b = binary)$metadata[["r"]])
+  expect_null(RecordBatch$create(b = large_binary)$metadata[["r"]])
+  expect_null(RecordBatch$create(b = fixed_size_binary)$metadata[["r"]])
 
-  expect_null(Table$create(b = binary)$metadata$r)
-  expect_null(Table$create(b = large_binary)$metadata$r)
-  expect_null(Table$create(b = fixed_size_binary)$metadata$r)
+  expect_null(Table$create(b = binary)$metadata[["r"]])
+  expect_null(Table$create(b = large_binary)$metadata[["r"]])
+  expect_null(Table$create(b = fixed_size_binary)$metadata[["r"]])
 })
 
 test_that("Garbage R metadata doesn't break things", {
@@ -95,7 +95,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab$metadata$r <- "garbage"
   expect_warning(
     as.data.frame(tab),
-    "Invalid metadata$r",
+    'Invalid metadata$[["r"]]',
     fixed = TRUE
   )
   # serialize data like .serialize_arrow_r_metadata does, but don't call that
@@ -104,7 +104,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     as.data.frame(tab),
-    "Invalid metadata$r",
+    'Invalid metadata$[["r"]]',
     fixed = TRUE
   )
 
@@ -113,7 +113,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab$metadata <- list(r = rawToChar(serialize(bad, NULL, ascii = TRUE)))
   expect_warning(
     as.data.frame(tab),
-    "Invalid metadata$r",
+    'Invalid metadata$[["r"]]',
     fixed = TRUE
   )
 
@@ -144,7 +144,7 @@ arbitrary\040code\040was\040just\040executed
   expect_message(
     expect_warning(
       as.data.frame(tab),
-      "Invalid metadata$r",
+      'Invalid metadata$[["r"]]',
       fixed = TRUE
     ),
     NA
@@ -465,7 +465,7 @@ test_that("grouped_df metadata is recorded (efficiently)", {
   expect_s3_class(grouped, "grouped_df")
   grouped_tab <- Table$create(grouped)
   expect_r6_class(grouped_tab, "Table")
-  expect_equal(grouped_tab$metadata$r$attributes$.group_vars, "a")
+  expect_equal(grouped_tab$metadata[["r"]]$attributes$.group_vars, "a")
 })
 
 test_that("grouped_df non-arrow metadata is preserved", {
@@ -496,10 +496,10 @@ test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame 
   plain_df <- data.frame(x = 1:5)
   plain_df_arrow <- arrow_table(plain_df)
 
-  expect_equal(plain_df_arrow$metadata$r$columns, list(x = NULL))
+  expect_equal(plain_df_arrow$metadata[["r"]]$columns, list(x = NULL))
 
   plain_df_no_metadata <- plain_df_arrow$to_data_frame()
-  plain_df_with_metadata <- apply_arrow_r_metadata(plain_df_no_metadata, plain_df_arrow$metadata$r)
+  plain_df_with_metadata <- apply_arrow_r_metadata(plain_df_no_metadata, plain_df_arrow$metadata[["r"]])
 
   expect_identical(plain_df_no_metadata, plain_df_with_metadata)
 
@@ -507,13 +507,21 @@ test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame 
   spicy_df_arrow <- arrow_table(haven_data)
 
   expect_equal(
-    spicy_df_arrow$metadata$r$columns,
+    spicy_df_arrow$metadata[["r"]]$columns,
     list(num = list(attributes = list(format.spss = "F8.2"), columns = NULL), cat_int = NULL, cat_chr = NULL)
   )
 
   spicy_df_no_metadata <- spicy_df_arrow$to_data_frame()
-  spicy_df_with_metadata <- apply_arrow_r_metadata(spicy_df_no_metadata, spicy_df_arrow$metadata$r)
+  spicy_df_with_metadata <- apply_arrow_r_metadata(spicy_df_no_metadata, spicy_df_arrow$metadata[["r"]])
 
   expect_null(attr(spicy_df_no_metadata$num, "format.spss"))
   expect_equal(attr(spicy_df_with_metadata$num, "format.spss"), "F8.2")
+})
+
+test_that("metadata keys starting with 'r' don't cause partial matching - GH-50163", {
+  tbl <- arrow_table(x = 1:3)
+  tbl <- tbl$cast(tbl$schema$WithMetadata(list(rachel = "some_value")))
+
+  expect_no_warning(as.data.frame(tbl))
+  expect_no_warning(collect.ArrowTabular(tbl))
 })

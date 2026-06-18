@@ -1660,6 +1660,13 @@ TEST(TestStatisticsSortOrder, UNKNOWN) {
   ASSERT_EQ(1, enc_stats->null_count);
   ASSERT_FALSE(enc_stats->is_max_value_exact.has_value());
   ASSERT_FALSE(enc_stats->is_min_value_exact.has_value());
+
+  // Unknown sort order should not cause min/max to be set
+  std::shared_ptr<Statistics> stats = column_chunk->statistics();
+  ASSERT_NE(nullptr, stats);
+  ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_TRUE(stats->HasNullCount());
+  ASSERT_EQ(1, stats->null_count());
 }
 
 // Test statistics for binary column with UNSIGNED sort order

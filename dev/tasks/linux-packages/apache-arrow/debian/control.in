@@ -1,7 +1,7 @@
 Source: apache-arrow
 Section: devel
 Priority: optional
-Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
+Maintainer: The Apache Software Foundation <dev@arrow.apache.org>
 Build-Depends:
   cmake,
   debhelper (>= 12),

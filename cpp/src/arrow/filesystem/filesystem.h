@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <any>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -28,6 +29,7 @@
 
 #include "arrow/filesystem/type_fwd.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
@@ -357,12 +359,43 @@ class ARROW_EXPORT FileSystem
   bool default_async_is_sync_ = true;
 };
 
+using FileSystemFactoryOptions = std::vector<std::pair<std::string, std::any>>;
+
 struct FileSystemFactory {
   std::function<Result<std::shared_ptr<FileSystem>>(
-      const Uri& uri, const io::IOContext& io_context, std::string* out_path)>
+      const Uri& uri, const FileSystemFactoryOptions& options,
+      const io::IOContext& io_context, std::string* out_path)>
       function;
   std::string_view file;
   int line;
+
+  /// Construct from an options-aware factory function.
+  FileSystemFactory(std::function<Result<std::shared_ptr<FileSystem>>(
+                        const Uri&, const FileSystemFactoryOptions&, const io::IOContext&,
+                        std::string*)>
+                        fn,
+                    std::string_view file, int line)
+      : function(std::move(fn)), file(file), line(line) {}
+
+  /// Construct from a non-options aware factory function maintaining source compatibility
+  /// with existing factories.
+  FileSystemFactory(std::function<Result<std::shared_ptr<FileSystem>>(
+                        const Uri&, const io::IOContext&, std::string*)>
+                        fn,
+                    std::string_view file, int line)
+      : function([fn = std::move(fn)](
+                     const Uri& uri, const FileSystemFactoryOptions& options,
+                     const io::IOContext& ctx,
+                     std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
+          if (!options.empty()) {
+            return Status::NotImplemented(
+                "Filesystem factory does not support additional options, got ",
+                options.size(), " option(s)");
+          }
+          return fn(uri, ctx, out_path);
+        }),
+        file(file),
+        line(line) {}
 
   bool operator==(const FileSystemFactory& other) const {
     // In the case where libarrow is linked statically both to the executable and to a
@@ -536,7 +569,7 @@ void EnsureFinalized();
 /// \brief Create a new FileSystem by URI
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
-/// "gs" and "gcs".
+/// "gs", "gcs", "abfs" and "abfss".
 ///
 /// Support for other schemes can be added using RegisterFileSystemFactory.
 ///
@@ -547,10 +580,34 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       std::string* out_path = NULLPTR);
 
+/// \brief Create a new FileSystem by URI with extended backend-specific filesystem
+/// options
+///
+/// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
+/// "gs", "gcs", "abfs" and "abfss".
+///
+/// Support for other schemes can be added using RegisterFileSystemFactory.
+///
+/// \param[in] uri the URI to give access to
+/// \param[in] options a list of backend-specific filesystem options
+///            Each option is a (name, value) pair.
+///            The expected type is specific to the backend and
+///            option name.
+///            Options are forwarded to schemes dispatched through a registered
+///            FileSystemFactory. Non-empty options return NotImplemented for a registered
+///            FileSystemFactory that does not support them or for schemes not handled by
+///            a registered factory.
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return out_fs FileSystem instance.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
+    const std::string& uri, const FileSystemFactoryOptions& options,
+    std::string* out_path = NULLPTR);
+
 /// \brief Create a new FileSystem by URI with a custom IO context
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
-/// "gs" and "gcs".
+/// "gs", "gcs", "abfs" and "abfss".
 ///
 /// Support for other schemes can be added using RegisterFileSystemFactory.
 ///
@@ -562,6 +619,31 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       const io::IOContext& io_context,
                                                       std::string* out_path = NULLPTR);
+
+/// \brief Create a new FileSystem by URI with a custom IO context with backend-specific
+/// filesystem options
+///
+/// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
+/// "gs", "gcs", "abfs" and "abfss".
+///
+/// Support for other schemes can be added using RegisterFileSystemFactory.
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[in] options a list of backend-specific filesystem options
+///            Each option is a (name, value) pair.
+///            The expected type is specific to the backend and
+///            option name.
+///            Options are forwarded to schemes dispatched through a registered
+///            FileSystemFactory. Non-empty options return NotImplemented for a registered
+///            FileSystemFactory that does not support them or for schemes not handled by
+///            a registered factory.
+/// \param[in] io_context an IOContext which will be associated with the filesystem
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return out_fs FileSystem instance.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndOptions(
+    const std::string& uri, const FileSystemFactoryOptions& options,
+    const io::IOContext& io_context, std::string* out_path = NULLPTR);
 
 /// \brief Create a new FileSystem by URI
 ///

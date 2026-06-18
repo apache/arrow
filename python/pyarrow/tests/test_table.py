@@ -3516,7 +3516,7 @@ def test_invalid_non_join_column():
 
 @pytest.fixture
 def cuda_context():
-    cuda = pytest.importorskip("pyarrow.cuda")
+    cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     return cuda.Context(0)
 
 

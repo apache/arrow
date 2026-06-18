@@ -16,15 +16,18 @@
 // under the License.
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <span>
 
 #include "arrow/io/memory.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
@@ -37,7 +40,33 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/xxhasher.h"
 
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
+#  include "parquet/bloom_filter_avx2_internal.h"
+#endif
+
+#include "parquet/bloom_filter_block_impl_internal.h"
+
 namespace parquet {
+
+namespace internal {
+namespace {
+
+using ::arrow::internal::DynamicDispatch;
+
+struct FindHashBlockDynamicFunction {
+  using FunctionType = decltype(&FindHashBlockImpl);
+
+  static constexpr auto targets() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&FindHashBlockImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&FindHashBlockAvx2)  //
+    };
+  }
+};
+
+}  // namespace
+}  // namespace internal
+
 namespace {
 
 constexpr int32_t kCiphertextLengthSize = 4;
@@ -434,16 +463,11 @@ bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   const uint32_t bucket_index = static_cast<uint32_t>(((hash >> 32) * NumBlocks()) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
-
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    // Calculate mask for key in the given bitset.
-    const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
-    if (ARROW_PREDICT_FALSE(0 ==
-                            (bitset32[kBitsSetPerBlock * bucket_index + i] & mask))) {
-      return false;
-    }
-  }
-  return true;
+  const uint32_t* block = bitset32 + kBitsSetPerBlock * bucket_index;
+  static ::arrow::internal::DynamicDispatch<internal::FindHashBlockDynamicFunction>
+      dispatch;
+  return dispatch(std::span<const uint32_t, kBitsSetPerBlock>(block, kBitsSetPerBlock),
+                  std::span<const uint32_t, kBitsSetPerBlock>(SALT), key);
 }
 
 void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {

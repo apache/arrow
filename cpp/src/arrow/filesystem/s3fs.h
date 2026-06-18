@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <any>
 #include <memory>
 #include <string>
 #include <vector>
@@ -290,6 +291,23 @@ struct ARROW_EXPORT S3Options {
                                    std::string* out_path = NULLPTR);
   static Result<S3Options> FromUri(const std::string& uri,
                                    std::string* out_path = NULLPTR);
+
+  /// Equivalent to FromUri() with specific backend options that can't be represented
+  /// on the URI or are better kept out of it (such as credentials).
+  /// Each option is a (name, value) pair. Recognized keys:
+  /// - "access_key" (std::string)
+  /// - "secret_key" (std::string)
+  /// - "session_token" (std::string)
+  /// - "retry_strategy" (std::shared_ptr<S3RetryStrategy>)
+  /// - "default_metadata" (std::shared_ptr<const KeyValueMetadata>)
+  /// Options appearing both in the URI and in the options list return Status::Invalid;
+  /// unknown keys or invalid values return Status::Invalid.
+  static Result<S3Options> FromUriAndOptions(const ::arrow::util::Uri& uri,
+                                             const FileSystemFactoryOptions& options,
+                                             std::string* out_path = NULLPTR);
+  static Result<S3Options> FromUriAndOptions(const std::string& uri,
+                                             const FileSystemFactoryOptions& options,
+                                             std::string* out_path = NULLPTR);
 };
 
 /// S3-backed FileSystem implementation.

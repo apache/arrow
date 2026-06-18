@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 # (Docker oddity: ARG needs to be repeated after FROM)
 ARG python=3.10
-RUN mamba install -y "conda-forge/label/python_debug::python=${python}[build=*_cpython]" && \
+RUN mamba install -c conda-forge/label/python_debug cpython "python=${python}[build=*_debug_*]" && \
     mamba clean --all --yes
 # Quick check that we do have a debug mode CPython
 RUN python -c "import sys; sys.gettotalrefcount()"
