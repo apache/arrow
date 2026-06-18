@@ -129,7 +129,7 @@ test_that("to_duckdb then to_arrow", {
     select(-fct)
 
   # alter the class of ds_rt's connection to simulate some other database
-  class(ds_rt$src$con) <- "some_other_connection"
+  class(ds_rt$con) <- "some_other_connection"
 
   expect_error(
     to_arrow(ds_rt),
