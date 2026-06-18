@@ -490,20 +490,6 @@ class RleBitPackedDecoder {
       rle_size_t null_count, const uint8_t* valid_bits, int64_t valid_bits_offset);
 
  private:
-  /// Utility to map a run type to the associate decoder.
-  template <typename Run>
-  struct get_decoder;
-  template <>
-  struct get_decoder<RleRun> {
-    using type = RleRunDecoder<value_type>;
-  };
-  template <>
-  struct get_decoder<BitPackedRun> {
-    using type = BitPackedRunDecoder<value_type>;
-  };
-  template <typename Run>
-  using get_decoder_t = get_decoder<Run>::type;
-
   RleBitPackedParser parser_ = {};
   std::variant<RleRunDecoder<value_type>, BitPackedRunDecoder<value_type>> decoder_ = {};
   rle_size_t value_bit_width_;
@@ -780,6 +766,20 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
  *  RleBitPackedDecoder  *
  *************************/
 
+/// Utility to map a run type to the associate decoder.
+template <typename T, typename Run>
+struct RleBitPackedDecoderGetRunDecoder;
+
+template <typename T>
+struct RleBitPackedDecoderGetRunDecoder<T, RleRun> {
+  using type = RleRunDecoder<T>;
+};
+
+template <typename T>
+struct RleBitPackedDecoderGetRunDecoder<T, BitPackedRun> {
+  using type = BitPackedRunDecoder<T>;
+};
+
 template <typename T>
 bool RleBitPackedDecoder<T>::Get(value_type* val) {
   return GetBatch(val, 1) == 1;
@@ -806,7 +806,7 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = get_decoder_t<decltype(run)>;
+    using RunDecoder = RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     ARROW_DCHECK_LT(values_read, batch_size);
     RunDecoder decoder(run, value_bit_width_);
@@ -1119,7 +1119,7 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = get_decoder_t<decltype(run)>;
+    using RunDecoder = RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     RunDecoder decoder(run, value_bit_width_);
 
@@ -1301,7 +1301,7 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = get_decoder_t<decltype(run)>;
+    using RunDecoder = RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     RunDecoder decoder(run, value_bit_width_);
 

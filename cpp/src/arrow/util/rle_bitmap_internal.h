@@ -359,20 +359,6 @@ class RleBitPackedToBitmapDecoder {
   [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size);
 
  private:
-  /// Utility to map a run type to the associate decoder.
-  template <typename Run>
-  struct get_decoder;
-  template <>
-  struct get_decoder<RleRun> {
-    using type = RleRunToBitmapDecoder;
-  };
-  template <>
-  struct get_decoder<BitPackedRun> {
-    using type = BitPackedRunToBitmapDecoder;
-  };
-  template <typename Run>
-  using get_decoder_t = get_decoder<Run>::type;
-
   RleBitPackedParser parser_ = {};
   std::variant<RleRunToBitmapDecoder, BitPackedRunToBitmapDecoder> decoder_ = {};
 
@@ -390,6 +376,20 @@ class RleBitPackedToBitmapDecoder {
 /************************************************
  *  RleBitPackedToBitmapDecoder implementation  *
  ************************************************/
+
+/// Utility to map a run type to the associate decoder.
+template <typename Run>
+struct RleBitPackedToBitmapDecoderGetDecoder;
+
+template <>
+struct RleBitPackedToBitmapDecoderGetDecoder<RleRun> {
+  using type = RleRunToBitmapDecoder;
+};
+
+template <>
+struct RleBitPackedToBitmapDecoderGetDecoder<BitPackedRun> {
+  using type = BitPackedRunToBitmapDecoder;
+};
 
 inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
                                                   rle_size_t batch_size) -> rle_size_t {
@@ -410,7 +410,7 @@ inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = get_decoder_t<decltype(run)>;
+    using RunDecoder = RleBitPackedToBitmapDecoderGetDecoder<decltype(run)>::type;
 
     ARROW_DCHECK_LT(values_read, batch_size);
     RunDecoder decoder(run);
