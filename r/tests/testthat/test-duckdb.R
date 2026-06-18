@@ -123,6 +123,10 @@ test_that("to_duckdb then to_arrow", {
   )
 
   # Now check errors
+  # dbplyr 2.6.0 added "con" to the allowed $ fields on tbl_lazy;
+  # older versions only allow "src" and "lazy_query"
+  skip_if(packageVersion("dbplyr") < "2.6.0")
+
   ds_rt <- ds |>
     to_duckdb() |>
     # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
