@@ -168,7 +168,7 @@ class RleRunToBitmapDecoder
 
   void Reset(const RunType& run) noexcept {
     values_left_ = run.values_count();
-    if (run.value() == 0) {
+    if (run.value_little_endian() == 0) {
       value_pattern_ = uint8_t{0};
     } else {
       value_pattern_ = uint8_t{0xFF};

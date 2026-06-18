@@ -114,8 +114,11 @@ class RleRun {
     std::copy(data, data + raw_data_size(value_bit_width), data_.begin());
   }
 
-  /// The repeated value in the run
-  uint64_t value() const noexcept { return SafeLoadAs<uint64_t>(data_.data()); }
+  /// The repeated value in the run in little endian form (as stored in the buffer).
+  uint64_t value_little_endian() const noexcept {
+    // Underlying memcpy is required to avoid undefined behavior.
+    return SafeLoadAs<uint64_t>(data_.data());
+  }
 
   /// The number of repeated values in this run.
   constexpr rle_size_t values_count() const noexcept { return values_count_; }
@@ -278,10 +281,8 @@ class RleRunDecoder {
       // if the bool value isn't 0 or 1.
       value_ = *run.raw_data_ptr() & 1;
     } else {
-      // Memcopy is required to avoid undefined behavior.
-      value_ = {};
-      std::memcpy(&value_, run.raw_data_ptr(), run.raw_data_size(value_bit_width));
-      value_ = ::arrow::bit_util::FromLittleEndian(value_);
+      value_ = static_cast<value_type>(
+          ::arrow::bit_util::FromLittleEndian(run.value_little_endian()));
     }
   }
 
