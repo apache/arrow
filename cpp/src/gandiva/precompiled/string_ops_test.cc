@@ -1995,6 +1995,26 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), large_shrink_expected);
   EXPECT_FALSE(ctx.has_error());
 
+  // Edge case: result size of exactly 0 (every byte of text is removed). Takes
+  // the no-scan shrink path (to_str_len <= from_str_len).
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "aaaa", 4, "a", 1, "", 0, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Edge case: result size one past the INT_MAX boundary. 65536 single-char
+  // matches each expanding to 32768 bytes gives max_length = 65536 * 32768 =
+  // 2^31 = INT_MAX + 1, so it is reported cleanly (guard fires before any alloc).
+  std::string boundary_in(65536, 'a');
+  std::string boundary_to(32768, 'b');
+  replace_utf8_utf8_utf8(ctx_ptr, boundary_in.data(),
+                         static_cast<int32_t>(boundary_in.size()), "a", 1,
+                         boundary_to.data(), static_cast<int32_t>(boundary_to.size()),
+                         &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceeds maximum size"));
+  EXPECT_EQ(out_len, 0);
+  ctx.Reset();
+
   // Output that would exceed INT_MAX (2GB) is reported cleanly rather than
   // silently wrapping the int32 size. 50000 matches each expanding to 50000
   // bytes implies max_length = 2.5e9; the guard fires before any large alloc.
