@@ -395,6 +395,10 @@ inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
                                                   rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
+  if (ARROW_PREDICT_FALSE(batch_size == 0 || exhausted())) {
+    return 0;
+  }
+
   rle_size_t values_read = 0;
 
   // Remaining from a previous call that would have left some unread data from a run.
