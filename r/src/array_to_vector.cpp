@@ -293,6 +293,7 @@ struct Converter_String : public Converter {
     // StringViewArray uses a different memory layout (views + data buffers) rather
     // than offsets, so skip the offset-based fast path and fall through to the
     // GetView()-based element loop below.
+    if (array->type_id() != Type::STRING_VIEW) {
       auto p_offset = array->data()->GetValues<int32_t>(1);
       if (!p_offset) {
         return Status::Invalid("Invalid offset buffer");
