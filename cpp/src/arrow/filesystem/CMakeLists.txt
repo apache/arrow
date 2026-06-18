@@ -129,7 +129,7 @@ if(ARROW_S3)
     endif()
   endif()
 
-  if(ARROW_BUILD_TESTS)
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
     add_arrow_test(s3fs_module_test
                    SOURCES
                    s3fs_module_test.cc
@@ -140,10 +140,6 @@ if(ARROW_S3)
                    ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3_shared>"
                    EXTRA_LINK_LIBS
                    Boost::filesystem)
-    target_compile_definitions(arrow-filesystem-test
-                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3_shared>")
-    target_sources(arrow-filesystem-test PUBLIC s3fs_module_test.cc s3_test_util.cc)
-    target_link_libraries(arrow-filesystem-test PUBLIC Boost::filesystem)
   endif()
 endif()
 
