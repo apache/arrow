@@ -63,7 +63,7 @@ void CheckDecodedBits(const std::vector<uint8_t>& out, const std::vector<bool>& 
 ///
 /// `skip` shifts the decoder's read offset relative to the output offset.
 /// A non-zero `skip` makes the two differ, which exercises the bit-unaligned read
-/// path of BitPackedRunToBitMapDecoder. With `skip == 0` they stay in sync and
+/// path of BitPackedRunToBitmapDecoder. With `skip == 0` they stay in sync and
 /// only the aligned path runs.
 template <typename Decoder>
 void CheckChunkedDecode(const typename Decoder::RunType& run,
@@ -103,7 +103,7 @@ void CheckChunkedDecode(const typename Decoder::RunType& run,
 ///
 /// `expected` is the full sequence of booleans the run should decode to.
 template <typename Decoder>
-void CheckBitMapDecoder(const typename Decoder::RunType& run,
+void CheckBitmapDecoder(const typename Decoder::RunType& run,
                         const std::vector<bool>& expected) {
   const auto n_vals = static_cast<rle_size_t>(expected.size());
 
@@ -183,19 +183,19 @@ void CheckBitMapDecoder(const typename Decoder::RunType& run,
 }  // namespace
 
 /***************************
- *  RleRunToBitMapDecoder  *
+ *  RleRunToBitmapDecoder  *
  ***************************/
 
-struct RleBitMapCase {
+struct RleBitmapCase {
   // The repeated boolean value of the run.
   bool value;
   // The number of values in the run.
   rle_size_t count;
 };
 
-class RleRunToBitMapDecoderTest : public ::testing::TestWithParam<RleBitMapCase> {};
+class RleRunToBitmapDecoderTest : public ::testing::TestWithParam<RleBitmapCase> {};
 
-TEST_P(RleRunToBitMapDecoderTest, Decode) {
+TEST_P(RleRunToBitmapDecoderTest, Decode) {
   const auto& param = GetParam();
 
   // A boolean RLE run stores its value in a single (1-bit-wide) byte.
@@ -204,40 +204,40 @@ TEST_P(RleRunToBitMapDecoderTest, Decode) {
 
   // value() reports the repeated boolean.
   {
-    RleRunToBitMapDecoder decoder(run);
+    RleRunToBitmapDecoder decoder(run);
     EXPECT_EQ(decoder.value(), param.value);
   }
 
   const std::vector<bool> expected(param.count, param.value);
-  CheckBitMapDecoder<RleRunToBitMapDecoder>(run, expected);
+  CheckBitmapDecoder<RleRunToBitmapDecoder>(run, expected);
 }
 
 INSTANTIATE_TEST_SUITE_P(  //
-    RleBitmap, RleRunToBitMapDecoderTest,
+    RleBitmap, RleRunToBitmapDecoderTest,
     ::testing::Values(  //
-        RleBitMapCase{.value = false, .count = 0},
-        RleBitMapCase{.value = true, .count = 1},
-        RleBitMapCase{.value = false, .count = 3},
-        RleBitMapCase{.value = true, .count = 8},
-        RleBitMapCase{.value = false, .count = 9},
-        RleBitMapCase{.value = true, .count = 9},
-        RleBitMapCase{.value = false, .count = 13},
-        RleBitMapCase{.value = true, .count = 13},
-        RleBitMapCase{.value = false, .count = 64},
-        RleBitMapCase{.value = true, .count = 64},
-        RleBitMapCase{.value = false, .count = 100},
-        RleBitMapCase{.value = true, .count = 100},
-        RleBitMapCase{.value = true, .count = 1000}),
-    [](const ::testing::TestParamInfo<RleBitMapCase>& info) {
+        RleBitmapCase{.value = false, .count = 0},
+        RleBitmapCase{.value = true, .count = 1},
+        RleBitmapCase{.value = false, .count = 3},
+        RleBitmapCase{.value = true, .count = 8},
+        RleBitmapCase{.value = false, .count = 9},
+        RleBitmapCase{.value = true, .count = 9},
+        RleBitmapCase{.value = false, .count = 13},
+        RleBitmapCase{.value = true, .count = 13},
+        RleBitmapCase{.value = false, .count = 64},
+        RleBitmapCase{.value = true, .count = 64},
+        RleBitmapCase{.value = false, .count = 100},
+        RleBitmapCase{.value = true, .count = 100},
+        RleBitmapCase{.value = true, .count = 1000}),
+    [](const ::testing::TestParamInfo<RleBitmapCase>& info) {
       return std::string(info.param.value ? "true_" : "false_") +
              std::to_string(info.param.count);
     });
 
 /*********************************
- *  BitPackedRunToBitMapDecoder  *
+ *  BitPackedRunToBitmapDecoder  *
  *********************************/
 
-struct BitPackedBitMapCase {
+struct BitPackedBitmapCase {
   std::string name;
   // The raw bit-packed bytes (LSB first). Must hold at least `count` bits.
   std::vector<uint8_t> bytes;
@@ -245,10 +245,10 @@ struct BitPackedBitMapCase {
   rle_size_t count;
 };
 
-class BitPackedRunToBitMapDecoderTest
-    : public ::testing::TestWithParam<BitPackedBitMapCase> {};
+class BitPackedRunToBitmapDecoderTest
+    : public ::testing::TestWithParam<BitPackedBitmapCase> {};
 
-TEST_P(BitPackedRunToBitMapDecoderTest, Decode) {
+TEST_P(BitPackedRunToBitmapDecoderTest, Decode) {
   const auto& param = GetParam();
   ASSERT_GE(param.bytes.size(), static_cast<size_t>(bit_util::BytesForBits(param.count)));
 
@@ -256,35 +256,35 @@ TEST_P(BitPackedRunToBitMapDecoderTest, Decode) {
                                 /*max_read_bytes=*/-1);
 
   const std::vector<bool> expected = BitsFromBytes(param.bytes, param.count);
-  CheckBitMapDecoder<BitPackedRunToBitMapDecoder>(run, expected);
+  CheckBitmapDecoder<BitPackedRunToBitmapDecoder>(run, expected);
 }
 
 INSTANTIATE_TEST_SUITE_P(  //
-    RleBitmap, BitPackedRunToBitMapDecoderTest,
+    RleBitmap, BitPackedRunToBitmapDecoderTest,
     ::testing::Values(  //
-        BitPackedBitMapCase{.name = "empty", .bytes = {0b10110010}, .count = 0},
-        BitPackedBitMapCase{.name = "single", .bytes = {0b00000001}, .count = 1},
-        BitPackedBitMapCase{.name = "three", .bytes = {0b00000101}, .count = 3},
-        BitPackedBitMapCase{.name = "eight", .bytes = {0b11010010}, .count = 8},
-        BitPackedBitMapCase{
+        BitPackedBitmapCase{.name = "empty", .bytes = {0b10110010}, .count = 0},
+        BitPackedBitmapCase{.name = "single", .bytes = {0b00000001}, .count = 1},
+        BitPackedBitmapCase{.name = "three", .bytes = {0b00000101}, .count = 3},
+        BitPackedBitmapCase{.name = "eight", .bytes = {0b11010010}, .count = 8},
+        BitPackedBitmapCase{
             .name = "alternating", .bytes = {0b10101010, 0b10101010}, .count = 13},
-        BitPackedBitMapCase{.name = "all_zeros", .bytes = {0x00, 0x00}, .count = 16},
-        BitPackedBitMapCase{.name = "all_ones", .bytes = {0xFF, 0xFF}, .count = 16},
-        BitPackedBitMapCase{
+        BitPackedBitmapCase{.name = "all_zeros", .bytes = {0x00, 0x00}, .count = 16},
+        BitPackedBitmapCase{.name = "all_ones", .bytes = {0xFF, 0xFF}, .count = 16},
+        BitPackedBitmapCase{
             .name = "mixed", .bytes = {0b11001010, 0b00001111, 0b10110001}, .count = 24},
-        BitPackedBitMapCase{
+        BitPackedBitmapCase{
             .name = "unaligned_count", .bytes = {0b00110101, 0b11100100}, .count = 11},
-        BitPackedBitMapCase{
+        BitPackedBitmapCase{
             .name = "large",
             .bytes = std::vector<uint8_t>(16, 0b01101001),
             .count = 128,
         }),
-    [](const ::testing::TestParamInfo<BitPackedBitMapCase>& info) {
+    [](const ::testing::TestParamInfo<BitPackedBitmapCase>& info) {
       return info.param.name;
     });
 
 /*********************************
- *  RleBitPackedToBitMapDecoder  *
+ *  RleBitPackedToBitmapDecoder  *
  *********************************/
 
 namespace {
@@ -326,7 +326,7 @@ void CheckRleBitPackedDecode(const std::vector<uint8_t>& bytes,
   ARROW_SCOPED_TRACE("chunk = ", chunk, ", out_offset = ", out_offset);
   const auto n_vals = static_cast<rle_size_t>(expected.size());
 
-  RleBitPackedToBitMapDecoder decoder(bytes.data(),
+  RleBitPackedToBitmapDecoder decoder(bytes.data(),
                                       static_cast<rle_size_t>(bytes.size()));
   EXPECT_EQ(decoder.exhausted(), n_vals == 0);
 
@@ -359,7 +359,7 @@ void CheckRleBitPackedDecode(const std::vector<uint8_t>& bytes,
 }
 
 /// Run the decode check over a battery of chunk sizes and output offsets.
-void CheckRleBitPackedToBitMap(const std::vector<uint8_t>& bytes,
+void CheckRleBitPackedToBitmap(const std::vector<uint8_t>& bytes,
                                const std::vector<bool>& expected) {
   const auto n_vals = static_cast<rle_size_t>(expected.size());
   ASSERT_GT(n_vals, 0);
@@ -376,9 +376,9 @@ void CheckRleBitPackedToBitMap(const std::vector<uint8_t>& bytes,
 
 }  // namespace
 
-TEST(RleBitPackedToBitMapDecoder, Empty) {
+TEST(RleBitPackedToBitmapDecoder, Empty) {
   // A default-constructed decoder is already exhausted.
-  RleBitPackedToBitMapDecoder decoder;
+  RleBitPackedToBitmapDecoder decoder;
   EXPECT_TRUE(decoder.exhausted());
   uint8_t out = 0;
   auto got = decoder.GetBatch(BitmapSpanMut(&out), 8);
@@ -391,28 +391,28 @@ TEST(RleBitPackedToBitMapDecoder, Empty) {
   EXPECT_EQ(got, 0);
 }
 
-TEST(RleBitPackedToBitMapDecoder, SingleRleZeros) {
+TEST(RleBitPackedToBitmapDecoder, SingleRleZeros) {
   std::vector<uint8_t> bytes;
   std::vector<bool> expected;
   AppendRleRun(bytes, expected, /*value=*/false, /*count=*/100);
-  CheckRleBitPackedToBitMap(bytes, expected);
+  CheckRleBitPackedToBitmap(bytes, expected);
 }
 
-TEST(RleBitPackedToBitMapDecoder, SingleRleOnes) {
+TEST(RleBitPackedToBitmapDecoder, SingleRleOnes) {
   std::vector<uint8_t> bytes;
   std::vector<bool> expected;
   AppendRleRun(bytes, expected, /*value=*/true, /*count=*/100);
-  CheckRleBitPackedToBitMap(bytes, expected);
+  CheckRleBitPackedToBitmap(bytes, expected);
 }
 
-TEST(RleBitPackedToBitMapDecoder, SingleBitPacked) {
+TEST(RleBitPackedToBitmapDecoder, SingleBitPacked) {
   std::vector<uint8_t> bytes;
   std::vector<bool> expected;
   AppendBitPackedRun(bytes, expected, {0b10101010, 0b11001100, 0b11110000});
-  CheckRleBitPackedToBitMap(bytes, expected);
+  CheckRleBitPackedToBitmap(bytes, expected);
 }
 
-TEST(RleBitPackedToBitMapDecoder, MixedRunsAligned) {
+TEST(RleBitPackedToBitmapDecoder, MixedRunsAligned) {
   // All runs end on a byte boundary, so each run starts byte-aligned in the
   // output.
   std::vector<uint8_t> bytes;
@@ -421,10 +421,10 @@ TEST(RleBitPackedToBitMapDecoder, MixedRunsAligned) {
   AppendBitPackedRun(bytes, expected, {0b10101010, 0b01010101});
   AppendRleRun(bytes, expected, /*value=*/true, /*count=*/64);
   AppendBitPackedRun(bytes, expected, {0b00001111});
-  CheckRleBitPackedToBitMap(bytes, expected);
+  CheckRleBitPackedToBitmap(bytes, expected);
 }
 
-TEST(RleBitPackedToBitMapDecoder, MixedRunsUnaligned) {
+TEST(RleBitPackedToBitmapDecoder, MixedRunsUnaligned) {
   // RLE runs with counts that are not multiples of 8 make each following run
   // start at a non-byte-aligned output position.
   std::vector<uint8_t> bytes;
@@ -436,17 +436,17 @@ TEST(RleBitPackedToBitMapDecoder, MixedRunsUnaligned) {
   AppendBitPackedRun(bytes, expected, {0b11110000});
   AppendRleRun(bytes, expected, /*value=*/false, /*count=*/3);
   AppendBitPackedRun(bytes, expected, {0b10110001, 0b00011101});
-  CheckRleBitPackedToBitMap(bytes, expected);
+  CheckRleBitPackedToBitmap(bytes, expected);
 }
 
-TEST(RleBitPackedToBitMapDecoder, ReadPastEnd) {
+TEST(RleBitPackedToBitmapDecoder, ReadPastEnd) {
   std::vector<uint8_t> bytes;
   std::vector<bool> expected;
   AppendRleRun(bytes, expected, /*value=*/true, /*count=*/10);
   AppendBitPackedRun(bytes, expected, {0b10110010});
   const auto n_vals = static_cast<rle_size_t>(expected.size());
 
-  RleBitPackedToBitMapDecoder decoder(bytes.data(),
+  RleBitPackedToBitmapDecoder decoder(bytes.data(),
                                       static_cast<rle_size_t>(bytes.size()));
   std::vector<uint8_t> out(static_cast<size_t>(bit_util::BytesForBits(n_vals)) + 1, 0);
   // Requesting more values than available produces only the available ones.
@@ -458,7 +458,7 @@ TEST(RleBitPackedToBitMapDecoder, ReadPastEnd) {
   CheckDecodedBits(out, expected, /*count=*/n_vals);
 }
 
-TEST(RleBitPackedToBitMapDecoder, Reset) {
+TEST(RleBitPackedToBitmapDecoder, Reset) {
   std::vector<uint8_t> bytes;
   std::vector<bool> expected;
   AppendRleRun(bytes, expected, /*value=*/true, /*count=*/13);
@@ -467,7 +467,7 @@ TEST(RleBitPackedToBitMapDecoder, Reset) {
   const auto n_vals = static_cast<rle_size_t>(expected.size());
   const auto data_size = static_cast<rle_size_t>(bytes.size());
 
-  RleBitPackedToBitMapDecoder decoder(bytes.data(), data_size);
+  RleBitPackedToBitmapDecoder decoder(bytes.data(), data_size);
   std::vector<uint8_t> out_1(static_cast<size_t>(bit_util::BytesForBits(n_vals)), 0);
   const auto got_1 = decoder.GetBatch(BitmapSpanMut(out_1.data()), n_vals);
   EXPECT_EQ(got_1, n_vals);
@@ -483,7 +483,7 @@ TEST(RleBitPackedToBitMapDecoder, Reset) {
   CheckDecodedBits(out_2, expected, /*count=*/n_vals);
 }
 
-TEST(RleBitPackedToBitMapDecoder, Truncated) {
+TEST(RleBitPackedToBitmapDecoder, Truncated) {
   // Malformed input: a bit-packed run declares more values than the buffer
   // holds. The decoder should return the values it can read and report that it
   // is not exhausted, rather than crash or read out of bounds.
@@ -495,7 +495,7 @@ TEST(RleBitPackedToBitMapDecoder, Truncated) {
   AppendLeb128(bytes, (4u << 1) | 1);
   bytes.push_back(0b10101010);
 
-  RleBitPackedToBitMapDecoder decoder(bytes.data(),
+  RleBitPackedToBitmapDecoder decoder(bytes.data(),
                                       static_cast<rle_size_t>(bytes.size()));
   std::vector<uint8_t> out(16, 0);
   // The RLE run decodes fully; the truncated bit-packed run cannot be parsed.

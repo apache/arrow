@@ -72,7 +72,7 @@ using BitmapSpanConst = BitmapSpan<const uint8_t>;
 
 namespace internal_rle {
 template <typename CRTP>
-class RunToBitMapDecoderMixin {
+class RunToBitmapDecoderMixin {
  public:
   /// Advance by as many values as provided or until exhaustion of the decoder.
   /// Return the number of values skipped.
@@ -156,15 +156,15 @@ class RunToBitMapDecoderMixin {
 };
 }  // namespace internal_rle
 
-class RleRunToBitMapDecoder
-    : public internal_rle::RunToBitMapDecoderMixin<RleRunToBitMapDecoder> {
+class RleRunToBitmapDecoder
+    : public internal_rle::RunToBitmapDecoderMixin<RleRunToBitmapDecoder> {
  public:
   /// The type of run that can be decoded.
   using RunType = RleRun;
 
-  constexpr RleRunToBitMapDecoder() noexcept = default;
+  constexpr RleRunToBitmapDecoder() noexcept = default;
 
-  explicit RleRunToBitMapDecoder(const RunType& run) noexcept { Reset(run); }
+  explicit RleRunToBitmapDecoder(const RunType& run) noexcept { Reset(run); }
 
   void Reset(const RunType& run) noexcept {
     values_left_ = run.values_count();
@@ -182,7 +182,7 @@ class RleRunToBitMapDecoder
   constexpr bool value() const { return value_pattern_ != 0; }
 
  private:
-  friend class internal_rle::RunToBitMapDecoderMixin<RleRunToBitMapDecoder>;
+  friend class internal_rle::RunToBitmapDecoderMixin<RleRunToBitmapDecoder>;
 
   /// The byte pattern for 8 values (full ones or full zeros).
   uint8_t value_pattern_ = {};
@@ -207,15 +207,15 @@ class RleRunToBitMapDecoder
   }
 };
 
-class BitPackedRunToBitMapDecoder
-    : public internal_rle::RunToBitMapDecoderMixin<BitPackedRunToBitMapDecoder> {
+class BitPackedRunToBitmapDecoder
+    : public internal_rle::RunToBitmapDecoderMixin<BitPackedRunToBitmapDecoder> {
  public:
   /// The type of run that can be decoded.
   using RunType = BitPackedRun;
 
-  constexpr BitPackedRunToBitMapDecoder() noexcept = default;
+  constexpr BitPackedRunToBitmapDecoder() noexcept = default;
 
-  explicit BitPackedRunToBitMapDecoder(const RunType& run) noexcept { Reset(run); }
+  explicit BitPackedRunToBitmapDecoder(const RunType& run) noexcept { Reset(run); }
 
   void Reset(const RunType& run) noexcept {
     data_ = run.raw_data_ptr();
@@ -241,8 +241,8 @@ class BitPackedRunToBitMapDecoder
   }
 
  private:
-  using Base = internal_rle::RunToBitMapDecoderMixin<BitPackedRunToBitMapDecoder>;
-  friend class internal_rle::RunToBitMapDecoderMixin<BitPackedRunToBitMapDecoder>;
+  using Base = internal_rle::RunToBitmapDecoderMixin<BitPackedRunToBitmapDecoder>;
+  friend class internal_rle::RunToBitmapDecoderMixin<BitPackedRunToBitmapDecoder>;
 
   /// The pointer to the beginning of the run
   const uint8_t* data_ = nullptr;
@@ -334,14 +334,14 @@ class BitPackedRunToBitMapDecoder
 /// no repetition and no nesting), we know values to be decoded will end up in an
 /// Arrow validity bitmap. In such cases, decoding values to a ``int16`` before
 /// encoding them again in overly wasteful.
-class RleBitPackedToBitMapDecoder {
+class RleBitPackedToBitmapDecoder {
  public:
-  RleBitPackedToBitMapDecoder() noexcept = default;
+  RleBitPackedToBitmapDecoder() noexcept = default;
 
   /// Create a decoder object.
   ///
   /// data and data_size are the raw bytes to decode.
-  RleBitPackedToBitMapDecoder(const uint8_t* data, rle_size_t data_size) noexcept {
+  RleBitPackedToBitmapDecoder(const uint8_t* data, rle_size_t data_size) noexcept {
     Reset(data, data_size);
   }
 
@@ -364,17 +364,17 @@ class RleBitPackedToBitMapDecoder {
   struct get_decoder;
   template <>
   struct get_decoder<RleRun> {
-    using type = RleRunToBitMapDecoder;
+    using type = RleRunToBitmapDecoder;
   };
   template <>
   struct get_decoder<BitPackedRun> {
-    using type = BitPackedRunToBitMapDecoder;
+    using type = BitPackedRunToBitmapDecoder;
   };
   template <typename Run>
   using get_decoder_t = get_decoder<Run>::type;
 
   RleBitPackedParser parser_ = {};
-  std::variant<RleRunToBitMapDecoder, BitPackedRunToBitMapDecoder> decoder_ = {};
+  std::variant<RleRunToBitmapDecoder, BitPackedRunToBitmapDecoder> decoder_ = {};
 
   /// Return the number of values that are remaining in the current run.
   rle_size_t run_remaining() const {
@@ -388,10 +388,10 @@ class RleBitPackedToBitMapDecoder {
 };
 
 /************************************************
- *  RleBitPackedToBitMapDecoder implementation  *
+ *  RleBitPackedToBitmapDecoder implementation  *
  ************************************************/
 
-inline auto RleBitPackedToBitMapDecoder::GetBatch(BitmapSpanMut out,
+inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
                                                   rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
