@@ -84,3 +84,19 @@ add_gandiva_test(precompiled-test
                  GANDIVA_UNIT_TEST=1
                  ARROW_STATIC
                  GANDIVA_STATIC)
+
+# microbenchmark (built as a gandiva test so it links the precompiled sources
+# directly; run on demand via the gandiva-precompiled-benchmark binary)
+add_gandiva_test(precompiled-benchmark
+                 SOURCES
+                 ../context_helper.cc
+                 string_ops_benchmark.cc
+                 string_ops.cc
+                 EXTRA_INCLUDES
+                 ${CMAKE_SOURCE_DIR}/src
+                 EXTRA_LINK_LIBS
+                 Boost::headers
+                 DEFINITIONS
+                 GANDIVA_UNIT_TEST=1
+                 ARROW_STATIC
+                 GANDIVA_STATIC)
