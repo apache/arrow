@@ -194,7 +194,7 @@ struct CopyBitsParams {
 /// Setting ``kAllowFullCopy`` to false is an optimization when the caller can
 /// guarantee that the range of bits to copy does not cover the whole range.
 template <typename Uint, bool kAllowFullCopy = true>
-[[nodiscard]] constexpr Uint CopyBits(const CopyBitsParams<Uint>& params) {
+[[nodiscard]] constexpr Uint CopyBitsInInteger(const CopyBitsParams<Uint>& params) {
   constexpr auto kUintSizeBits = static_cast<Uint>(sizeof(Uint) * 8);
   assert(params.start <= params.end);
   assert(params.start < kUintSizeBits);

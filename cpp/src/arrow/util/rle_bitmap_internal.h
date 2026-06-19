@@ -171,7 +171,7 @@ class RleRunToBitmapDecoder {
     // Try to advance, and get number of bits we had remaining
     const auto n_bits = Advance(desired_bits);
     // Copy relevant bits from the value pattern to the output.
-    *out.data() = bit_util::CopyBits<uint8_t, /* kAllowFullCopy= */ false>({
+    *out.data() = bit_util::CopyBitsInInteger<uint8_t, /* kAllowFullCopy= */ false>({
         .src = value_pattern_,
         .dst = *out.data(),
         .start = static_cast<uint8_t>(out_bit_offset),
