@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -77,8 +78,7 @@ class MinioTestEnvironment : public ::testing::Environment {
   bool IsAvailable();
 
  private:
-  bool checked_ = false;
-  bool available_ = false;
+  std::optional<bool> available_;
 
  protected:
   struct Impl;

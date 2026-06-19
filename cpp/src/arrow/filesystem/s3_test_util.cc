@@ -193,17 +193,16 @@ void MinioTestEnvironment::SetUp() {
 }
 
 bool MinioTestEnvironment::IsAvailable() {
-  if (!checked_) {
+  if (!available_.has_value()) {
     // If external S3-compatible service is configured there's no need to check for Minio
     available_ = std::getenv(kEnvConnectString) && std::getenv(kEnvAccessKey) &&
                  std::getenv(kEnvSecretKey);
-    if (!available_) {
+    if (!available_.value()) {
       ::arrow::util::Process process;
       available_ = process.SetExecutable(kMinioExecutableName).ok();
     }
-    checked_ = true;
   }
-  return available_;
+  return available_.value();
 }
 
 Result<std::shared_ptr<MinioTestServer>> MinioTestEnvironment::GetOneServer() {
