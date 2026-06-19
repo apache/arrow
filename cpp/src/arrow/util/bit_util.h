@@ -179,22 +179,6 @@ static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
   return byte & kBitmask[i];
 }
 
-/// Read 32 bits starting at bit `offset` into a uint32.
-///
-/// The return value in in-memory byte layout matches the source bit-stream
-/// identically on little- and big-endian platforms.
-///
-/// The caller must guarantee that many bytes are readable.
-static inline uint32_t Get32Bits(const uint8_t* bits, uint64_t offset) {
-  uint64_t buffer = {};
-  std::memcpy(&buffer, bits + (offset / 8), BytesForBits(offset % 8 + 32));
-  // Interpret the loaded bytes as little-endian, drop the low `offset % 8` bits
-  // to align LSB-first, then store back in little-endian byte order so the
-  // result's memory representation matches the bit-stream.
-  buffer = FromLittleEndian(buffer);
-  return ToLittleEndian(static_cast<uint32_t>(buffer >> (offset % 8)));
-}
-
 template <typename Uint>
 struct CopyBitsParams {
   Uint src = {};

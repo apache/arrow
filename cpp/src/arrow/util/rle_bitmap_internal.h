@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/rle_encoding_internal.h"
@@ -70,92 +71,7 @@ class BitmapSpan {
 using BitmapSpanMut = BitmapSpan<uint8_t>;
 using BitmapSpanConst = BitmapSpan<const uint8_t>;
 
-namespace internal_rle {
-template <typename CRTP>
-class RunToBitmapDecoderMixin {
- public:
-  /// Advance by as many values as provided or until exhaustion of the decoder.
-  /// Return the number of values skipped.
-  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
-    const auto steps = std::min(batch_size, derived()->remaining());
-    derived()->AdvanceUnsafe(steps);
-    ARROW_DCHECK_GE(derived()->remaining(), 0);
-    return steps;
-  }
-
-  /// Get the next value and return false if there are no more.
-  [[nodiscard]] constexpr bool Get(BitmapSpanMut out) {
-    return derived()->GetBatch(out, 1) == 1;
-  }
-
-  /// Get a batch of values return the number of decoded elements.
-  ///
-  /// May write fewer elements to the output than requested if there are not
-  /// enough values left.
-  [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size) {
-    const auto out_bit_offset = out.bit_start();
-    ARROW_DCHECK_GE(out_bit_offset, 0);
-    ARROW_DCHECK_LT(out_bit_offset, 8);
-
-    if (ARROW_PREDICT_FALSE(derived()->remaining() == 0 || batch_size == 0)) {
-      return 0;
-    }
-
-    rle_size_t n_vals = 0;
-
-    // HEADER: Writing inside the first byte if caller gives a non-aligned input
-    if (out_bit_offset != 0) {
-      n_vals = derived()->GetBatchFirstByte(out, batch_size);
-    }
-
-    // Writing full bytes
-    n_vals +=
-        derived()->GetBatchFullBytes(out.NewStartingAt(n_vals), batch_size - n_vals);
-
-    // TRAILER: Writing inside the last byte if caller asked for non multiple of 8 values
-    const auto n_last_vals = std::min(batch_size - n_vals, derived()->remaining());
-    if (ARROW_PREDICT_FALSE(n_last_vals > 0)) {
-      ARROW_DCHECK_LT(n_last_vals, 8);
-      n_vals += derived()->GetBatchFirstByte(out.NewStartingAt(n_vals), n_last_vals);
-    }
-
-    return n_vals;
-  }
-
- protected:
-  [[nodiscard]] rle_size_t GetBatchFromByte(BitmapSpanMut out, rle_size_t batch_size,
-                                            uint8_t src) {
-    const auto out_bit_offset = out.bit_start();
-    ARROW_DCHECK_GE(out_bit_offset, 0);
-    ARROW_DCHECK_LT(out_bit_offset, 8);
-    ARROW_DCHECK_GT(derived()->remaining(), 0);
-    ARROW_DCHECK_GE(batch_size, 0);
-
-    // Empty bits in first byte that we can fill
-    const auto empty_bits = rle_size_t{8} - out_bit_offset;
-    // Number of bits in first byte that we want to fill
-    const auto desired_bits = std::min(empty_bits, batch_size);
-    // Try to advance, and get number of bits we had remaining
-    const auto n_bits = Advance(desired_bits);
-    // Copy relevant bits from the value pattern to the output.
-    *out.data() = bit_util::CopyBits<uint8_t, /* kAllowFullCopy= */ false>({
-        .src = src,
-        .dst = *out.data(),
-        .start = static_cast<uint8_t>(out_bit_offset),
-        .end = static_cast<uint8_t>(out_bit_offset + n_bits),
-    });
-
-    return n_bits;
-  }
-
- private:
-  CRTP* derived() { return static_cast<CRTP*>(this); }
-  CRTP const* derived() const { return static_cast<CRTP const*>(this); }
-};
-}  // namespace internal_rle
-
-class RleRunToBitmapDecoder
-    : public internal_rle::RunToBitmapDecoderMixin<RleRunToBitmapDecoder> {
+class RleRunToBitmapDecoder {
  public:
   /// The type of run that can be decoded.
   using RunType = RleRun;
@@ -179,9 +95,60 @@ class RleRunToBitmapDecoder
   /// Return the repeated value of this decoder.
   constexpr bool value() const { return value_pattern_ != 0; }
 
- private:
-  friend class internal_rle::RunToBitmapDecoderMixin<RleRunToBitmapDecoder>;
+  /// Return how much the decoder would advance if asked to.
+  ///
+  /// Does not modify input.
+  rle_size_t AdvanceCapacity(rle_size_t batch_size) const noexcept {
+    const auto n_vals = std::min(batch_size, remaining());
+    return n_vals;
+  }
 
+  /// Advance by as many values as provided or until exhaustion of the decoder.
+  /// Return the number of values skipped.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
+    const auto n_vals = AdvanceCapacity(batch_size);
+    values_left_ -= n_vals;
+    ARROW_DCHECK_GE(remaining(), 0);
+    return n_vals;
+  }
+
+  /// Get the next value and return false if there are no more.
+  [[nodiscard]] constexpr bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
+
+  /// Get a batch of values return the number of decoded elements.
+  ///
+  /// May write fewer elements to the output than requested if there are not
+  /// enough values left.
+  [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size) {
+    const auto out_bit_offset = out.bit_start();
+    ARROW_DCHECK_GE(out_bit_offset, 0);
+    ARROW_DCHECK_LT(out_bit_offset, 8);
+
+    if (ARROW_PREDICT_FALSE(remaining() == 0 || batch_size == 0)) {
+      return 0;
+    }
+
+    rle_size_t n_vals = 0;
+
+    // HEADER: Writing inside the first byte if caller gives a non-aligned input
+    if (out_bit_offset != 0) {
+      n_vals = GetBatchInByte(out, batch_size);
+    }
+
+    // Writing full bytes
+    n_vals += GetBatchFullBytes(out.NewStartingAt(n_vals), batch_size - n_vals);
+
+    // TRAILER: Writing inside the last byte if caller asked for non multiple of 8 values
+    const auto n_last_vals = std::min(batch_size - n_vals, remaining());
+    if (ARROW_PREDICT_FALSE(n_last_vals > 0)) {
+      ARROW_DCHECK_LT(n_last_vals, 8);
+      n_vals += GetBatchInByte(out.NewStartingAt(n_vals), n_last_vals);
+    }
+
+    return n_vals;
+  }
+
+ private:
   /// The byte pattern for 8 values (full ones or full zeros).
   uint8_t value_pattern_ = {};
   /// Number of values left to decode.
@@ -190,8 +157,28 @@ class RleRunToBitmapDecoder
   void AdvanceUnsafe(rle_size_t batch_size) { values_left_ -= batch_size; }
 
   /// Get batch values to fill the first incomplete byte of the output.
-  [[nodiscard]] rle_size_t GetBatchFirstByte(BitmapSpanMut out, rle_size_t batch_size) {
-    return GetBatchFromByte(out, batch_size, value_pattern_);
+  [[nodiscard]] rle_size_t GetBatchInByte(BitmapSpanMut out, rle_size_t batch_size) {
+    const auto out_bit_offset = out.bit_start();
+    ARROW_DCHECK_GE(out_bit_offset, 0);
+    ARROW_DCHECK_LT(out_bit_offset, 8);
+    ARROW_DCHECK_GT(remaining(), 0);
+    ARROW_DCHECK_GE(batch_size, 0);
+
+    // Empty bits in first byte that we can fill
+    const auto empty_bits = rle_size_t{8} - out_bit_offset;
+    // Number of bits in first byte that we want to fill
+    const auto desired_bits = std::min(empty_bits, batch_size);
+    // Try to advance, and get number of bits we had remaining
+    const auto n_bits = Advance(desired_bits);
+    // Copy relevant bits from the value pattern to the output.
+    *out.data() = bit_util::CopyBits<uint8_t, /* kAllowFullCopy= */ false>({
+        .src = value_pattern_,
+        .dst = *out.data(),
+        .start = static_cast<uint8_t>(out_bit_offset),
+        .end = static_cast<uint8_t>(out_bit_offset + n_bits),
+    });
+
+    return n_bits;
   }
 
   /// Get batch in full bytes using memset.
@@ -205,8 +192,7 @@ class RleRunToBitmapDecoder
   }
 };
 
-class BitPackedRunToBitmapDecoder
-    : public internal_rle::RunToBitmapDecoderMixin<BitPackedRunToBitmapDecoder> {
+class BitPackedRunToBitmapDecoder {
  public:
   /// The type of run that can be decoded.
   using RunType = BitPackedRun;
@@ -226,22 +212,37 @@ class BitPackedRunToBitmapDecoder
   /// Return the number of values that can be advanced.
   constexpr rle_size_t remaining() const { return values_count_ - values_read_; }
 
+  /// Return how much the decoder would advance if asked to.
+  ///
+  /// Does not modify input.
+  rle_size_t AdvanceCapacity(rle_size_t batch_size) const noexcept {
+    const auto n_vals = std::min(batch_size, remaining());
+    return n_vals;
+  }
+
+  /// Advance by as many values as provided or until exhaustion of the decoder.
+  /// Return the number of values skipped.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
+    const auto n_vals = AdvanceCapacity(batch_size);
+    values_read_ += n_vals;
+    ARROW_DCHECK_GE(remaining(), 0);
+    return n_vals;
+  }
+
+  /// Get the next value and return false if there are no more.
+  [[nodiscard]] constexpr bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
+
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
   /// left.
   [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size) {
-    // WARN: Slow case where bit offsets of input and output are not aligned.
-    // We loose the ability to do memcpy
-    if (ARROW_PREDICT_FALSE(out.bit_start() != unread_values_bit_offset())) {
-      return GetBatchMisaligned(out, batch_size);
-    }
-    return Base::GetBatch(out, batch_size);
+    auto n_vals = AdvanceCapacity(batch_size);
+    arrow::internal::CopyBitmap(unread_values_ptr(), unread_values_bit_offset(), n_vals,
+                                out.data(), out.bit_start());
+    return Advance(n_vals);
   }
 
  private:
-  using Base = internal_rle::RunToBitmapDecoderMixin<BitPackedRunToBitmapDecoder>;
-  friend class internal_rle::RunToBitmapDecoderMixin<BitPackedRunToBitmapDecoder>;
-
   /// The pointer to the beginning of the run
   const uint8_t* data_ = nullptr;
   /// The total number of values in the run
@@ -254,77 +255,6 @@ class BitPackedRunToBitmapDecoder
 
   /// Bit in @ref unread_values_ptr where the unread values start.
   rle_size_t unread_values_bit_offset() const noexcept { return values_read_ % 8; }
-
-  void AdvanceUnsafe(rle_size_t batch_size) { values_read_ += batch_size; }
-
-  /// Get batch values to fill the first incomplete byte of the output.
-  [[nodiscard]] rle_size_t GetBatchFirstByte(BitmapSpanMut out, rle_size_t batch_size) {
-    return GetBatchFromByte(out, batch_size, *unread_values_ptr());
-  }
-
-  /// Get batch in full bytes using memcpy.
-  [[nodiscard]] rle_size_t GetBatchFullBytes(BitmapSpanMut out, rle_size_t batch_size) {
-    ARROW_DCHECK(out.bit_start() == 0 || batch_size == 0);
-    ARROW_DCHECK(unread_values_bit_offset() == 0 || batch_size == 0);
-    const auto n_bytes = std::min(batch_size, remaining()) / 8;
-    std::memcpy(out.data(), unread_values_ptr(), n_bytes);
-    const auto n_vals = 8 * n_bytes;
-    AdvanceUnsafe(n_vals);
-    return n_vals;
-  }
-
-  /// Correct and slow function for reading a batch one bit at a time.
-  [[nodiscard]] rle_size_t GetBatchSlow(BitmapSpanMut out, rle_size_t batch_size) {
-    const rle_size_t to_read = std::min(batch_size, remaining());
-    for (rle_size_t i = 0; i < to_read; ++i) {
-      const bool bit = bit_util::GetBit(data_, values_read_ + i);
-      bit_util::SetBitTo(out.data(), out.bit_start() + i, bit);
-    }
-    AdvanceUnsafe(to_read);
-    return to_read;
-  }
-
-  [[nodiscard]] rle_size_t GetBatchMisaligned(BitmapSpanMut out, rle_size_t batch_size) {
-    const auto out_bit_offset = out.bit_start();
-    ARROW_DCHECK_LT(out_bit_offset, 8);
-    ARROW_DCHECK_GE(out_bit_offset, 0);
-
-    if (ARROW_PREDICT_FALSE(remaining() == 0 || batch_size == 0)) {
-      return 0;
-    }
-
-    const rle_size_t to_read = std::min(batch_size, remaining());
-    rle_size_t read = 0;
-
-    // HEADER: copy bits one by one until the output is byte-aligned
-    const rle_size_t to_read_until_aligned = (8 - out_bit_offset) % 8;
-    const rle_size_t to_read_header = std::min(to_read, to_read_until_aligned);
-    const auto read_header = GetBatchSlow(out, to_read_header);
-    // We ensured there was enough capacity
-    ARROW_DCHECK_EQ(read_header, to_read_header);
-    read += read_header;
-    out = out.NewStartingAt(read_header);
-    // Either we are done or we have aligned the output values on a byte.
-    ARROW_DCHECK(read == to_read || read == to_read_until_aligned);
-
-    // Main loop, copy 32 bits at the time
-    const rle_size_t n_batches = (to_read - read) / 32;
-    for (rle_size_t i = 0; i < n_batches; ++i) {
-      const auto bits = bit_util::Get32Bits(data_, values_read_ + 32 * i);
-      std::memcpy(out.data(), &bits, sizeof(bits));
-      out = out.NewStartingAt(8 * sizeof(bits));
-    }
-    const rle_size_t read_main = n_batches * 32;
-    AdvanceUnsafe(read_main);
-    read += read_main;
-
-    // TRAILER: copy remaining bits one by one
-    const auto read_trailer = GetBatchSlow(out, to_read - read);
-    read += read_trailer;
-    ARROW_DCHECK_EQ(read, to_read);
-
-    return to_read;
-  }
 };
 
 /// A specialized decoder class to extract RLE+bitpacked booleans.

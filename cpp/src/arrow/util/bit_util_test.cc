@@ -726,23 +726,6 @@ TEST(BitUtil, ByteSwap) {
   EXPECT_EQ(bit_util::ByteSwap(srcd64), expectedd64);
 }
 
-TEST(BitUtil, Get32Bits) {
-  const std::array<uint8_t, 12> src = {0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc,
-                                       0xde, 0xf0, 0x11, 0x22, 0x33, 0x44};
-
-  // The result's in-memory bytes must reproduce the source bit-stream slice
-  // so each result bit must match the corresponding source bit.
-  for (uint64_t offset = 0; offset <= 24; ++offset) {
-    ARROW_SCOPED_TRACE("offset = ", offset);
-    const uint32_t result = bit_util::Get32Bits(src.data(), offset);
-    for (uint64_t i = 0; i < 32; ++i) {
-      EXPECT_EQ(bit_util::GetBit(reinterpret_cast<const uint8_t*>(&result), i),
-                bit_util::GetBit(src.data(), offset + i))
-          << "bit " << i;
-    }
-  }
-}
-
 TEST(BitUtil, Log2) {
   EXPECT_EQ(bit_util::Log2(1), 0);
   EXPECT_EQ(bit_util::Log2(2), 1);
