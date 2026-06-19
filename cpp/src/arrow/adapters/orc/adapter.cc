@@ -18,6 +18,7 @@
 #include "arrow/adapters/orc/adapter.h"
 
 #include <algorithm>
+#include <cmath>
 #include <list>
 #include <memory>
 #include <sstream>
@@ -33,6 +34,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/table_builder.h"
@@ -43,6 +45,8 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "orc/Exceptions.hh"
+#include "orc/Statistics.hh"
+#include "orc/Type.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -97,6 +101,114 @@ namespace {
 
 // The following is required by ORC to be uint64_t
 constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
+
+// Max millisecond value that can be safely converted to nanoseconds without
+// overflowing int64_t. Beyond ~292,000 years from epoch, millis * 1,000,000
+// exceeds int64_t range.
+constexpr int64_t kMaxMillisForNanos = std::numeric_limits<int64_t>::max() / 1000000LL;
+constexpr int64_t kMinMillisForNanos = std::numeric_limits<int64_t>::lowest() / 1000000LL;
+
+// Whether a millisecond value can be converted to nanoseconds without overflowing int64_t.
+bool MillisFitInNanos(int64_t millis) {
+  return millis >= kMinMillisForNanos && millis <= kMaxMillisForNanos;
+}
+
+// Convert ORC column statistics to Arrow OrcColumnStatistics
+// Returns a Result with the converted statistics, or an error if conversion fails
+Result<OrcColumnStatistics> ConvertColumnStatistics(
+    const liborc::ColumnStatistics* orc_stats) {
+  OrcColumnStatistics stats;
+
+  stats.has_null = orc_stats->hasNull();
+  stats.num_values = static_cast<int64_t>(orc_stats->getNumberOfValues());
+  stats.has_min_max = false;
+  stats.min = nullptr;
+  stats.max = nullptr;
+
+  // Try to extract min/max based on the ORC column statistics type.
+  if (const auto* int_stats =
+          dynamic_cast<const liborc::IntegerColumnStatistics*>(orc_stats)) {
+    if (int_stats->hasMinimum() && int_stats->hasMaximum()) {
+      stats.has_min_max = true;
+      stats.min = std::make_shared<Int64Scalar>(int_stats->getMinimum());
+      stats.max = std::make_shared<Int64Scalar>(int_stats->getMaximum());
+    }
+  } else if (const auto* double_stats =
+                 dynamic_cast<const liborc::DoubleColumnStatistics*>(orc_stats)) {
+    if (double_stats->hasMinimum() && double_stats->hasMaximum()) {
+      double min_val = double_stats->getMinimum();
+      double max_val = double_stats->getMaximum();
+      if (!std::isnan(min_val) && !std::isnan(max_val)) {
+        stats.has_min_max = true;
+        stats.min = std::make_shared<DoubleScalar>(min_val);
+        stats.max = std::make_shared<DoubleScalar>(max_val);
+      }
+    }
+  } else if (const auto* string_stats =
+                 dynamic_cast<const liborc::StringColumnStatistics*>(orc_stats)) {
+    if (string_stats->hasMinimum() && string_stats->hasMaximum()) {
+      stats.has_min_max = true;
+      stats.min = std::make_shared<StringScalar>(string_stats->getMinimum());
+      stats.max = std::make_shared<StringScalar>(string_stats->getMaximum());
+    }
+  } else if (const auto* date_stats =
+                 dynamic_cast<const liborc::DateColumnStatistics*>(orc_stats)) {
+    if (date_stats->hasMinimum() && date_stats->hasMaximum()) {
+      stats.has_min_max = true;
+      stats.min = std::make_shared<Date32Scalar>(date_stats->getMinimum());
+      stats.max = std::make_shared<Date32Scalar>(date_stats->getMaximum());
+    }
+  } else if (const auto* ts_stats =
+                 dynamic_cast<const liborc::TimestampColumnStatistics*>(orc_stats)) {
+    if (ts_stats->hasMinimum() && ts_stats->hasMaximum()) {
+      // ORC returns millis + sub-millisecond nanos (0-999999).
+      // Convert to total nanoseconds, skipping if millis would overflow.
+      int64_t min_millis = ts_stats->getMinimum();
+      int64_t max_millis = ts_stats->getMaximum();
+      if (MillisFitInNanos(min_millis) && MillisFitInNanos(max_millis)) {
+        stats.has_min_max = true;
+        auto ts_type = timestamp(TimeUnit::NANO);
+        stats.min = std::make_shared<TimestampScalar>(
+            min_millis * 1000000LL + ts_stats->getMinimumNanos(), ts_type);
+        stats.max = std::make_shared<TimestampScalar>(
+            max_millis * 1000000LL + ts_stats->getMaximumNanos(), ts_type);
+      }
+    }
+  } else if (const auto* decimal_stats =
+                 dynamic_cast<const liborc::DecimalColumnStatistics*>(orc_stats)) {
+    if (decimal_stats->hasMinimum() &&
+        decimal_stats->hasMaximum()) {
+      liborc::Decimal min_dec = decimal_stats->getMinimum();
+      liborc::Decimal max_dec = decimal_stats->getMaximum();
+
+      if (min_dec.scale != max_dec.scale) {
+        // Corrupted stats: scales should always match within
+        // a column. has_min_max remains false (conservative).
+      } else {
+        stats.has_min_max = true;
+
+        Decimal128 min_d128(min_dec.value.getHighBits(),
+                            min_dec.value.getLowBits());
+        Decimal128 max_d128(max_dec.value.getHighBits(),
+                            max_dec.value.getLowBits());
+
+        // Precision 38 is max for Decimal128; the dataset
+        // layer will Cast() to the actual column type.
+        auto dec_type = decimal128(38, min_dec.scale);
+
+        stats.min =
+            std::make_shared<Decimal128Scalar>(min_d128,
+                                               dec_type);
+        stats.max =
+            std::make_shared<Decimal128Scalar>(max_d128,
+                                               dec_type);
+      }
+    }
+  }
+  // Other types (Boolean, Binary, Collection, etc.) don't have min/max statistics
+
+  return stats;
+}
 
 using internal::checked_cast;
 
@@ -203,6 +315,57 @@ Status CheckTimeZoneDatabaseAvailability() {
   return Status::OK();
 }
 #endif
+
+// Recursively build OrcSchemaField tree by walking paired ORC and Arrow types
+Status BuildOrcSchemaFieldsRecursive(const liborc::Type* orc_type,
+                                     const std::shared_ptr<Field>& arrow_field,
+                                     OrcSchemaField* out_field) {
+  out_field->field = arrow_field;
+  out_field->orc_column_id = static_cast<int>(orc_type->getColumnId());
+
+  // For struct types, recursively build children
+  if (arrow_field->type()->id() == Type::STRUCT &&
+      orc_type->getKind() == liborc::STRUCT) {
+    const auto& struct_type = checked_cast<const StructType&>(*arrow_field->type());
+    size_t num_children = struct_type.num_fields();
+    out_field->children.resize(num_children);
+
+    for (size_t i = 0; i < num_children; ++i) {
+      const liborc::Type* orc_subtype = orc_type->getSubtype(i);
+      RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(
+          orc_subtype, struct_type.field(static_cast<int>(i)),
+          &out_field->children[i]));
+    }
+  }
+  // For list types, handle the child
+  else if (arrow_field->type()->id() == Type::LIST &&
+           orc_type->getKind() == liborc::LIST) {
+    const auto& list_type = checked_cast<const ListType&>(*arrow_field->type());
+    out_field->children.resize(1);
+    const liborc::Type* orc_subtype = orc_type->getSubtype(0);
+    RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(orc_subtype, list_type.value_field(),
+                                                &out_field->children[0]));
+  }
+  // For map types, handle key and value children
+  else if (arrow_field->type()->id() == Type::MAP &&
+           orc_type->getKind() == liborc::MAP) {
+    const auto& map_type = checked_cast<const MapType&>(*arrow_field->type());
+    out_field->children.resize(2);
+    const liborc::Type* key_type = orc_type->getSubtype(0);
+    const liborc::Type* value_type = orc_type->getSubtype(1);
+    RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(key_type, map_type.key_field(),
+                                                &out_field->children[0]));
+    RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(value_type, map_type.item_field(),
+                                                &out_field->children[1]));
+  }
+  // Union types are intentionally treated as leaves. ORC stores a single set
+  // of column statistics for the union that aggregates across all variants,
+  // so a min/max from one variant is mixed with values from other variants.
+  // This makes per-variant predicate pushdown unsound, and the dataset layer
+  // won't generate filter expressions targeting union children.
+
+  return Status::OK();
+}
 
 }  // namespace
 
@@ -409,6 +572,44 @@ class ORCFileReader::Impl {
     return ReadBatch(opts, schema, stripes_[static_cast<size_t>(stripe)].num_rows);
   }
 
+  Result<std::shared_ptr<Table>> ReadStripes(
+      const std::vector<int64_t>& stripe_indices) {
+    if (stripe_indices.empty()) {
+      ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+      return Table::MakeEmpty(schema);
+    }
+
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    batches.reserve(stripe_indices.size());
+    for (int64_t stripe_index : stripe_indices) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, ReadStripe(stripe_index));
+      batches.push_back(std::move(batch));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+    return Table::FromRecordBatches(schema, std::move(batches));
+  }
+
+  Result<std::shared_ptr<Table>> ReadStripes(const std::vector<int64_t>& stripe_indices,
+                                              const std::vector<int>& include_indices) {
+    if (stripe_indices.empty()) {
+      liborc::RowReaderOptions opts = DefaultRowReaderOptions();
+      RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+      ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+      return Table::MakeEmpty(schema);
+    }
+
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    batches.reserve(stripe_indices.size());
+    for (int64_t stripe_index : stripe_indices) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, ReadStripe(stripe_index, include_indices));
+      batches.push_back(std::move(batch));
+    }
+    liborc::RowReaderOptions opts = DefaultRowReaderOptions();
+    RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return Table::FromRecordBatches(schema, std::move(batches));
+  }
+
   Status SelectStripe(liborc::RowReaderOptions* opts, int64_t stripe) {
     ARROW_RETURN_IF(stripe < 0 || stripe >= NumberOfStripes(),
                     Status::Invalid("Out of bounds stripe: ", stripe));
@@ -548,6 +749,101 @@ class ORCFileReader::Impl {
     return NextStripeReader(batch_size, empty_vec);
   }
 
+  Result<OrcColumnStatistics> GetColumnStatistics(int column_index) {
+    ORC_BEGIN_CATCH_NOT_OK
+    std::unique_ptr<liborc::Statistics> file_stats = reader_->getStatistics();
+    if (column_index < 0 ||
+        static_cast<uint32_t>(column_index) >= file_stats->getNumberOfColumns()) {
+      return Status::Invalid("Column index ", column_index, " out of range [0, ",
+                             file_stats->getNumberOfColumns(), ")");
+    }
+    // NOTE: col_stats is a non-owning pointer into file_stats.
+    // ConvertColumnStatistics copies all values into Arrow scalars synchronously,
+    // so the pointer remains valid for the duration of this call.
+    const liborc::ColumnStatistics* col_stats =
+        file_stats->getColumnStatistics(static_cast<uint32_t>(column_index));
+    return ConvertColumnStatistics(col_stats);
+    ORC_END_CATCH_NOT_OK
+  }
+
+  Result<OrcColumnStatistics> GetStripeColumnStatistics(int64_t stripe_index,
+                                                         int column_index) {
+    ORC_BEGIN_CATCH_NOT_OK
+    if (stripe_index < 0 || stripe_index >= static_cast<int64_t>(stripes_.size())) {
+      return Status::Invalid("Stripe index ", stripe_index, " out of range");
+    }
+    std::unique_ptr<liborc::Statistics> stripe_stats =
+        reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index));
+    if (column_index < 0 ||
+        static_cast<uint32_t>(column_index) >= stripe_stats->getNumberOfColumns()) {
+      return Status::Invalid("Column index ", column_index, " out of range [0, ",
+                             stripe_stats->getNumberOfColumns(), ")");
+    }
+    // NOTE: col_stats is a non-owning pointer into stripe_stats.
+    // ConvertColumnStatistics copies all values into Arrow scalars synchronously,
+    // so the pointer remains valid for the duration of this call.
+    const liborc::ColumnStatistics* col_stats =
+        stripe_stats->getColumnStatistics(static_cast<uint32_t>(column_index));
+    return ConvertColumnStatistics(col_stats);
+    ORC_END_CATCH_NOT_OK
+  }
+
+  Result<std::vector<OrcColumnStatistics>> GetStripeStatistics(
+      int64_t stripe_index, const std::vector<int>& column_indices) {
+    ORC_BEGIN_CATCH_NOT_OK
+    if (stripe_index < 0 || stripe_index >= static_cast<int64_t>(stripes_.size())) {
+      return Status::Invalid("Stripe index ", stripe_index, " out of range");
+    }
+    std::unique_ptr<liborc::Statistics> stripe_stats =
+        reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index));
+    std::vector<OrcColumnStatistics> results;
+    results.reserve(column_indices.size());
+    for (int col_idx : column_indices) {
+      if (col_idx < 0 ||
+          static_cast<uint32_t>(col_idx) >= stripe_stats->getNumberOfColumns()) {
+        return Status::Invalid("Column index ", col_idx, " out of range [0, ",
+                               stripe_stats->getNumberOfColumns(), ")");
+      }
+      // NOTE: col_stats is a non-owning pointer into stripe_stats.
+      // ConvertColumnStatistics copies all values into Arrow scalars synchronously,
+      // so the pointer remains valid for the duration of this call.
+      const liborc::ColumnStatistics* col_stats =
+          stripe_stats->getColumnStatistics(static_cast<uint32_t>(col_idx));
+      ARROW_ASSIGN_OR_RAISE(auto converted, ConvertColumnStatistics(col_stats));
+      results.push_back(std::move(converted));
+    }
+    return results;
+    ORC_END_CATCH_NOT_OK
+  }
+
+  Result<std::shared_ptr<OrcSchemaManifest>> BuildSchemaManifest(
+      const std::shared_ptr<Schema>& arrow_schema) {
+    auto manifest = std::make_shared<OrcSchemaManifest>();
+
+    const liborc::Type& orc_root_type = reader_->getType();
+
+    if (orc_root_type.getKind() != liborc::STRUCT) {
+      return Status::Invalid("ORC root type must be STRUCT");
+    }
+
+    int num_fields = arrow_schema->num_fields();
+    if (static_cast<uint64_t>(num_fields) != orc_root_type.getSubtypeCount()) {
+      return Status::Invalid("Arrow schema field count (", num_fields,
+                             ") does not match ORC type subtype count (",
+                             orc_root_type.getSubtypeCount(), ")");
+    }
+
+    manifest->schema_fields.resize(static_cast<size_t>(num_fields));
+
+    for (int i = 0; i < num_fields; ++i) {
+      const liborc::Type* orc_subtype = orc_root_type.getSubtype(static_cast<uint64_t>(i));
+      RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(
+          orc_subtype, arrow_schema->field(i), &manifest->schema_fields[i]));
+    }
+
+    return manifest;
+  }
+
  private:
   MemoryPool* pool_;
   std::unique_ptr<liborc::Reader> reader_;
@@ -613,6 +909,17 @@ Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(
   return impl_->ReadStripe(stripe, include_names);
 }
 
+Result<std::shared_ptr<Table>> ORCFileReader::ReadStripes(
+    const std::vector<int64_t>& stripe_indices) {
+  return impl_->ReadStripes(stripe_indices);
+}
+
+Result<std::shared_ptr<Table>> ORCFileReader::ReadStripes(
+    const std::vector<int64_t>& stripe_indices,
+    const std::vector<int>& include_indices) {
+  return impl_->ReadStripes(stripe_indices, include_indices);
+}
+
 Status ORCFileReader::Seek(int64_t row_number) { return impl_->Seek(row_number); }
 
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
@@ -676,6 +983,25 @@ int64_t ORCFileReader::GetFileLength() { return impl_->GetFileLength(); }
 
 std::string ORCFileReader::GetSerializedFileTail() {
   return impl_->GetSerializedFileTail();
+}
+
+Result<OrcColumnStatistics> ORCFileReader::GetColumnStatistics(int column_index) {
+  return impl_->GetColumnStatistics(column_index);
+}
+
+Result<OrcColumnStatistics> ORCFileReader::GetStripeColumnStatistics(
+    int64_t stripe_index, int column_index) {
+  return impl_->GetStripeColumnStatistics(stripe_index, column_index);
+}
+
+Result<std::vector<OrcColumnStatistics>> ORCFileReader::GetStripeStatistics(
+    int64_t stripe_index, const std::vector<int>& column_indices) {
+  return impl_->GetStripeStatistics(stripe_index, column_indices);
+}
+
+Result<std::shared_ptr<OrcSchemaManifest>> ORCFileReader::BuildSchemaManifest(
+    const std::shared_ptr<Schema>& arrow_schema) const {
+  return impl_->BuildSchemaManifest(arrow_schema);
 }
 
 namespace {
