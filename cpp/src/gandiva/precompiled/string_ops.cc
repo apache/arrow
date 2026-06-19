@@ -572,10 +572,12 @@ gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
     if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
   }
   // if no 'true', 'false', '0' or '1' value is found, set an error
-  std::string err_msg = "CAST_BIT: Invalid value for boolean: '" +
-                        std::string(data, data_len) +
-                        "' (expected 0, 1, true, false; case-insensitive)";
-  gdv_fn_context_set_error_msg(context, err_msg.c_str());
+  char err_msg[128];
+  snprintf(err_msg, sizeof(err_msg),
+           "CAST_BIT: Invalid value for boolean: '%.*s'"
+           " (expected 0, 1, true, false; case-insensitive)",
+           data_len, data);
+  gdv_fn_context_set_error_msg(context, err_msg);
   return false;
 }
 
@@ -2410,20 +2412,22 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         OUT_TYPE next = result * 16 - digit;                                            \
                                                                                         \
         if (next > result) {                                                            \
-          std::string err_msg =                                                         \
-              "CAST_" #TYPE_NAME                                                        \
-              "_FROM_HEX: integer overflow while reading hex value '" +                 \
-              std::string(in_original, in_len_original) + "'";                          \
-          gdv_fn_context_set_error_msg(context, err_msg.c_str());                       \
+          char err_msg[128];                                                            \
+          snprintf(err_msg, sizeof(err_msg),                                            \
+                   "CAST_" #TYPE_NAME                                                   \
+                   "_FROM_HEX: integer overflow while reading hex value '%.*s'",        \
+                   in_len_original, in_original);                                       \
+          gdv_fn_context_set_error_msg(context, err_msg);                               \
           return -1;                                                                    \
         }                                                                               \
         result = next;                                                                  \
         read_index++;                                                                   \
       } else {                                                                          \
-        std::string err_msg = "CAST_" #TYPE_NAME                                        \
-                              "_FROM_HEX: invalid character in hex value '" +           \
-                              std::string(in_original, in_len_original) + "'";          \
-        gdv_fn_context_set_error_msg(context, err_msg.c_str());                         \
+        char err_msg[128];                                                              \
+        snprintf(err_msg, sizeof(err_msg),                                              \
+                 "CAST_" #TYPE_NAME "_FROM_HEX: invalid character in hex value '%.*s'", \
+                 in_len_original, in_original);                                         \
+        gdv_fn_context_set_error_msg(context, err_msg);                                 \
         return -1;                                                                      \
       }                                                                                 \
     }                                                                                   \
@@ -2431,10 +2435,12 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
       result *= -1;                                                                     \
                                                                                         \
       if (result < 0) {                                                                 \
-        std::string err_msg = "CAST_" #TYPE_NAME                                        \
-                              "_FROM_HEX: integer overflow while reading hex value '" + \
-                              std::string(in_original, in_len_original) + "'";          \
-        gdv_fn_context_set_error_msg(context, err_msg.c_str());                         \
+        char err_msg[128];                                                              \
+        snprintf(err_msg, sizeof(err_msg),                                              \
+                 "CAST_" #TYPE_NAME                                                     \
+                 "_FROM_HEX: integer overflow while reading hex value '%.*s'",          \
+                 in_len_original, in_original);                                         \
+        gdv_fn_context_set_error_msg(context, err_msg);                                 \
         return -1;                                                                      \
       }                                                                                 \
     }                                                                                   \
