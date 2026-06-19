@@ -40,7 +40,7 @@ inline uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
 #if ARROW_LITTLE_ENDIAN
       word |= static_cast<uint64_t>(bytes[i]) << (8 * i);
 #else
-      word |= static_cast<uint64_t>(bytes[i]) << (8 * (num_bytes - 1 - i));
+      word |= static_cast<uint64_t>(bytes[i]) << (8 * (7 - i));
 #endif
     }
     return word;
@@ -56,7 +56,7 @@ inline void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
 #if ARROW_LITTLE_ENDIAN
       bytes[i] = static_cast<uint8_t>(value >> (8 * i));
 #else
-      bytes[i] = static_cast<uint8_t>(value >> (8 * (num_bytes - 1 - i)));
+      bytes[i] = static_cast<uint8_t>(value >> (8 * (7 - i)));
 #endif
     }
   }
@@ -250,6 +250,9 @@ void bits_to_bytes(int64_t hardware_flags, const int num_bits, const uint8_t* bi
     unpacked |= (bits_next & 1);
     unpacked &= 0x0101010101010101ULL;
     unpacked *= 255;
+#if !ARROW_LITTLE_ENDIAN
+    unpacked = ::arrow::bit_util::ByteSwap(unpacked);
+#endif
     util::SafeStore(&reinterpret_cast<uint64_t*>(bytes)[i], unpacked);
   }
   int tail = num_bits % unroll;
@@ -263,6 +266,9 @@ void bits_to_bytes(int64_t hardware_flags, const int num_bits, const uint8_t* bi
     unpacked |= (bits_next & 1);
     unpacked &= 0x0101010101010101ULL;
     unpacked *= 255;
+#if !ARROW_LITTLE_ENDIAN
+    unpacked = ::arrow::bit_util::ByteSwap(unpacked);
+#endif
     SafeStoreUpTo8Bytes(bytes + num_bits - tail, tail, unpacked);
   }
 }
