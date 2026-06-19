@@ -101,24 +101,22 @@ class RunToBitmapDecoderMixin {
       return 0;
     }
 
+    rle_size_t n_vals = 0;
+
     // HEADER: Writing inside the first byte if caller gives a non-aligned input
-    if (ARROW_PREDICT_FALSE(out_bit_offset != 0)) {
-      const auto n_vals = derived()->GetBatchFirstByte(out, batch_size);
-      // If we exhausted the values in this decoder, or we filled what was required,
-      // then the following recursive call will return 0.
-      // If in the opposite case, then we will continue on a byte-aligned boundary.
-      return n_vals + GetBatch(out.NewStartingAt(n_vals), batch_size - n_vals);
+    if (out_bit_offset != 0) {
+      n_vals = derived()->GetBatchFirstByte(out, batch_size);
     }
 
     // Writing full bytes
-    const auto n_vals = derived()->GetBatchFast(out, batch_size);
+    n_vals +=
+        derived()->GetBatchFullBytes(out.NewStartingAt(n_vals), batch_size - n_vals);
 
     // TRAILER: Writing inside the last byte if caller asked for non multiple of 8 values
     const auto n_last_vals = std::min(batch_size - n_vals, derived()->remaining());
     if (ARROW_PREDICT_FALSE(n_last_vals > 0)) {
       ARROW_DCHECK_LT(n_last_vals, 8);
-      out = out.NewStartingAt(n_vals);
-      return n_vals + derived()->GetBatchFirstByte(out, n_last_vals);
+      n_vals += derived()->GetBatchFirstByte(out.NewStartingAt(n_vals), n_last_vals);
     }
 
     return n_vals;
@@ -197,8 +195,8 @@ class RleRunToBitmapDecoder
   }
 
   /// Get batch in full bytes using memset.
-  [[nodiscard]] rle_size_t GetBatchFast(BitmapSpanMut out, rle_size_t batch_size) {
-    ARROW_DCHECK_EQ(out.bit_start(), 0);
+  [[nodiscard]] rle_size_t GetBatchFullBytes(BitmapSpanMut out, rle_size_t batch_size) {
+    ARROW_DCHECK(out.bit_start() == 0 || batch_size == 0);
     const auto n_bytes = std::min(batch_size, remaining()) / 8;
     std::memset(out.data(), value_pattern_, n_bytes);
     const auto n_vals = 8 * n_bytes;
@@ -265,8 +263,9 @@ class BitPackedRunToBitmapDecoder
   }
 
   /// Get batch in full bytes using memcpy.
-  [[nodiscard]] rle_size_t GetBatchFast(BitmapSpanMut out, rle_size_t batch_size) {
-    ARROW_DCHECK_EQ(out.bit_start(), 0);
+  [[nodiscard]] rle_size_t GetBatchFullBytes(BitmapSpanMut out, rle_size_t batch_size) {
+    ARROW_DCHECK(out.bit_start() == 0 || batch_size == 0);
+    ARROW_DCHECK(unread_values_bit_offset() == 0 || batch_size == 0);
     const auto n_bytes = std::min(batch_size, remaining()) / 8;
     std::memcpy(out.data(), unread_values_ptr(), n_bytes);
     const auto n_vals = 8 * n_bytes;
@@ -297,7 +296,7 @@ class BitPackedRunToBitmapDecoder
     const rle_size_t to_read = std::min(batch_size, remaining());
     rle_size_t read = 0;
 
-    // HEADER: copy bits one by one unit the output is byte-aligned
+    // HEADER: copy bits one by one until the output is byte-aligned
     const rle_size_t to_read_until_aligned = (8 - out_bit_offset) % 8;
     const rle_size_t to_read_header = std::min(to_read, to_read_until_aligned);
     const auto read_header = GetBatchSlow(out, to_read_header);
