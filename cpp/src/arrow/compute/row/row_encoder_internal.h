@@ -252,14 +252,11 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
-// Encodes BinaryView/StringView ("German string") keys using the same
-// variable-length row format as VarLengthKeyEncoder: a leading null byte, a
-// 4-byte length prefix, then the raw key bytes. The encoded row copies the key
-// bytes (it never references the input's variadic data buffers), so Decode
-// builds a fresh view array rather than aliasing shared buffers.
+// Encodes BinaryView/StringView keys in the same variable-length row format as
+// VarLengthKeyEncoder. The encoded row copies the key bytes, so Decode builds a
+// fresh view array rather than aliasing the input's variadic buffers.
 struct ARROW_COMPUTE_EXPORT BinaryViewKeyEncoder : KeyEncoder {
-  // The on-row length prefix. Group keys are bounded by the int32 row format, so
-  // a 32-bit length matches the binary (int32-offset) encoder's wire format.
+  // On-row length prefix; matches the binary (int32-offset) encoder's format.
   using Offset = int32_t;
 
   explicit BinaryViewKeyEncoder(std::shared_ptr<DataType> type)

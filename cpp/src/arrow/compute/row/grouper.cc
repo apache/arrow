@@ -562,9 +562,8 @@ struct GrouperFastImpl : public Grouper {
     }
 #if ARROW_LITTLE_ENDIAN
     for (size_t i = 0; i < key_types.size(); ++i) {
-      // The fast (Swiss-table) row format can't represent variadic view buffers,
-      // so view keys fall back to GrouperImpl, which handles them via
-      // BinaryViewKeyEncoder.
+      // View keys fall back to GrouperImpl; the fast row format can't hold
+      // their variadic buffers.
       if (is_large_binary_like(key_types[i].id()) ||
           is_binary_view_like(key_types[i].id())) {
         return false;

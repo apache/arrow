@@ -64,11 +64,8 @@ static ExecBatch MakeRandomExecBatch(const DataTypeVector& types, int64_t num_ro
   std::vector<Datum> values;
   values.resize(num_types);
   for (int i = 0; i < num_types; ++i) {
-    // The random generator honors the "unique" knob (which controls group
-    // cardinality) for plain int32-offset binary/string but not for view types.
-    // To keep view-key benchmarks comparable to their non-view counterparts,
-    // generate the plain equivalent column and cast it to the view type; the
-    // cast happens outside the timed grouping loop.
+    // The "unique" cardinality knob isn't honored for view types, so generate the
+    // plain equivalent and cast it (outside the timed loop) to match {utf8}.
     const auto& type = types[i];
     const bool is_view = is_binary_view_like(*type);
     std::shared_ptr<DataType> gen_type = type;
@@ -142,8 +139,7 @@ BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{boolean}", {boolean()})->Apply(SetArg
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32}", {int32()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int64}", {int64()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{utf8}", {utf8()})->Apply(SetArgs);
-// View ("German string") keys route through the generic GrouperImpl (the
-// Swiss-table fast path used by {utf8} rejects view keys), like large_utf8.
+// View keys use the generic GrouperImpl path (the {utf8} fast path rejects them).
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{utf8_view}", {utf8_view()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{fixed_size_binary(32)}",
                   {fixed_size_binary(32)})

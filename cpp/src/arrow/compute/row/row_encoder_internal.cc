@@ -331,10 +331,8 @@ void BinaryViewKeyEncoder::EncodeNull(uint8_t** encoded_bytes) {
 Result<std::shared_ptr<ArrayData>> BinaryViewKeyEncoder::Decode(uint8_t** encoded_bytes,
                                                                 int32_t length,
                                                                 MemoryPool* pool) {
-  // Build a fresh view array. MakeBuilder yields the type-faithful builder
-  // (BinaryViewBuilder for binary_view, StringViewBuilder for utf8_view), and
-  // Append decides inline vs. out-of-line storage, so we never share buffers
-  // with the encoded input.
+  // Build a fresh view array; MakeBuilder gives the type-faithful builder and
+  // Append handles inline vs. out-of-line storage.
   std::unique_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(pool, type_, &builder));
   auto& view_builder = checked_cast<BinaryViewBuilder&>(*builder);
@@ -350,8 +348,7 @@ Result<std::shared_ptr<ArrayData>> BinaryViewKeyEncoder::Decode(uint8_t** encode
     } else {
       RETURN_NOT_OK(view_builder.AppendNull());
     }
-    // Null rows encode a zero length, so this is a no-op for them.
-    encoded_ptr += key_length;
+    encoded_ptr += key_length;  // zero for null rows
   }
 
   std::shared_ptr<Array> out;

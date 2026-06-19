@@ -757,10 +757,8 @@ struct TestGrouper {
     auto group_ids = id_batch.make_array();
     ValidateOutput(*group_ids);
 
-    // View ("German string") types don't have take kernels yet (GH-43010), so
-    // round-trip the validation through their non-view equivalent. This doesn't
-    // weaken the check: the grouper's output type is verified directly by
-    // ExpectUniques, and the encoded key bytes are identical across the layouts.
+    // Take has no view kernel yet (GH-43010); validate via the non-view cast.
+    // Output type is checked separately by ExpectUniques.
     auto as_takeable = [](std::shared_ptr<Array> arr) -> std::shared_ptr<Array> {
       if (is_binary_view_like(*arr->type())) {
         auto target = arr->type_id() == Type::STRING_VIEW ? utf8() : binary();
@@ -930,10 +928,7 @@ TEST(Grouper, StringKey) {
 }
 
 TEST(Grouper, StringViewKey) {
-  // View ("German string") keys route through GrouperImpl's BinaryViewKeyEncoder
-  // (GrouperFastImpl rejects them). Mix short keys (stored inline in the view
-  // header) with keys longer than 12 bytes (stored out-of-line) to exercise both
-  // view representations.
+  // Mix inline (<=12 byte) and out-of-line view keys.
   for (auto ty : {utf8_view(), binary_view()}) {
     ARROW_SCOPED_TRACE("key type = ", *ty);
     {
@@ -943,8 +938,6 @@ TEST(Grouper, StringViewKey) {
       g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
       g.ExpectConsume(R"([["a long out-of-line view"], ["a long out-of-line view"]])",
                       "[3, 3]");
-      // GetUniques must round-trip back to the original view type, preserving the
-      // inline/out-of-line distinction transparently.
       g.ExpectUniques(R"([["eh"], ["be"], [null], ["a long out-of-line view"]])");
     }
     {
@@ -1132,9 +1125,7 @@ FieldVector AnnotateForRandomGeneration(FieldVector fields) {
       // (note this is unsupported for large binary types)
       field = field->WithMergedMetadata(key_value_metadata({"unique"}, {"100"}));
     } else if (is_binary_view_like(*field->type())) {
-      // View types don't support the "unique" knob; constrain the string length
-      // instead so that group ids repeat (and a mix of inline/out-of-line views
-      // is exercised).
+      // Views don't support the "unique" knob; small lengths keep cardinality low.
       field = field->WithMergedMetadata(
           key_value_metadata({"min_length", "max_length"}, {"0", "5"}));
     }

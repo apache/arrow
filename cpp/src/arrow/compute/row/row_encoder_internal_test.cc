@@ -67,10 +67,8 @@ TEST(TestKeyEncoder, BooleanScalar) {
   }
 }
 
-// Encodes `value` (either an array, or a scalar repeated `length` times) through
-// the key encoder and decodes it back, laying out one contiguous row buffer per
-// value the way RowEncoder does. Encode and Decode advance the per-row pointers,
-// so they are reset between the two calls.
+// Encodes `value` (an array, or a scalar repeated `length` times) and decodes it
+// back, laying out per-row buffers the way RowEncoder does.
 Result<std::shared_ptr<ArrayData>> RoundTripThroughKeyEncoder(KeyEncoder* encoder,
                                                               const ExecValue& value,
                                                               int32_t length) {
@@ -95,10 +93,7 @@ Result<std::shared_ptr<ArrayData>> RoundTripThroughKeyEncoder(KeyEncoder* encode
   return encoder->Decode(payload_ptrs.data(), length, ::arrow::default_memory_pool());
 }
 
-// GH-43733 follow-up: the BinaryViewKeyEncoder must round-trip view ("German
-// string") keys through the variable-length row format and rebuild a view array
-// of the original type. Covers short (inline) and >12-byte (out-of-line) views,
-// empties, and nulls, for both the array and scalar input paths.
+// Round-trip view keys as an array: inline, out-of-line, empty, and null values.
 TEST(TestKeyEncoder, BinaryViewArray) {
   for (const auto& ty : {utf8_view(), binary_view()}) {
     SCOPED_TRACE("type " + ty->ToString());
@@ -120,7 +115,7 @@ TEST(TestKeyEncoder, BinaryViewScalar) {
   constexpr int32_t kBatchLength = 8;
   for (const auto& ty : {utf8_view(), binary_view()}) {
     SCOPED_TRACE("type " + ty->ToString());
-    // A scalar key is encoded once per row; cover inline, out-of-line, and null.
+    // Scalar input path: inline, out-of-line, and null.
     for (const auto& scalar :
          {ScalarFromJSON(ty, R"("short")"),
           ScalarFromJSON(ty, R"("a long out-of-line value")"), MakeNullScalar(ty)}) {
