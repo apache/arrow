@@ -189,8 +189,8 @@ TEST_F(TestFlightSqlServer, TestCommandStatementQuery) {
   const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null, null])");
   const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null, null])");
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      expected_schema, {id_array, keyname_array, value_array, foreignId_array});
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::Make(
+      expected_schema, {id_array, keyname_array, value_array, foreignId_array}}));
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -219,8 +219,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetTables) {
       ArrayFromJSON(utf8(), R"(["foreignTable", "intTable", "sqlite_sequence"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table", "table", "table"])");
 
-  std::shared_ptr<Table> expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::Make(
+      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type}));
   AssertTablesEqual(*expected_table, *table);
 }
 
@@ -247,8 +247,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithTableFilter) {
   const auto table_name = ArrayFromJSON(utf8(), R"(["intTable"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::Make(
+      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type}));
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -300,8 +300,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithUnexistenceTableTypeFilter) 
       ArrayFromJSON(utf8(), R"(["foreignTable", "intTable", "sqlite_sequence"])");
   const auto table_type = ArrayFromJSON(utf8(), R"(["table", "table", "table"])");
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type});
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::Make(
+      SqlSchema::GetTablesSchema(), {catalog_name, schema_name, table_name, table_type}));
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -350,9 +350,9 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
   std::shared_ptr<Array> table_schema;
   ArrayFromVector<BinaryType, std::string>({schema_buffer->ToString()}, &table_schema);
 
-  const std::shared_ptr<Table>& expected_table =
+  ASSERT_OK_AND_ASSIGN(auto expected_table,
       Table::Make(SqlSchema::GetTablesSchemaWithIncludedSchema(),
-                  {catalog_name, schema_name, table_name, table_type, table_schema});
+                  {catalog_name, schema_name, table_name, table_type, table_schema}));
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -419,8 +419,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetTableTypes) {
 
   const auto table_type = ArrayFromJSON(utf8(), R"(["table"])");
 
-  const std::shared_ptr<Table>& expected_table =
-      Table::Make(SqlSchema::GetTableTypesSchema(), {table_type});
+  ASSERT_OK_AND_ASSIGN(auto expected_table,
+      Table::Make(SqlSchema::GetTableTypesSchema(), {table_type}));
   AssertTablesEqual(*expected_table, *table);
 }
 
@@ -478,8 +478,8 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
   const auto value_array = ArrayFromJSON(int64(), R"([1, 0, -1, null, null])");
   const auto foreignId_array = ArrayFromJSON(int64(), R"([1, 1, 1, null, null])");
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
-      expected_schema, {id_array, keyname_array, value_array, foreignId_array});
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::Make(
+      expected_schema, {id_array, keyname_array, value_array, foreignId_array}}));
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -613,9 +613,9 @@ TEST_F(TestFlightSqlServer, TestCommandGetPrimaryKeys) {
   const auto column_name = ArrayFromJSON(utf8(), R"(["id"])");
   const auto key_sequence = ArrayFromJSON(int32(), R"([1])");
 
-  const std::shared_ptr<Table>& expected_table = Table::Make(
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::Make(
       SqlSchema::GetPrimaryKeysSchema(),
-      {catalog_name, schema_name, table_name, column_name, key_sequence, key_name});
+      {catalog_name, schema_name, table_name, column_name, key_sequence, key_name}));
 
   AssertTablesEqual(*expected_table, *table);
 }
@@ -644,11 +644,11 @@ TEST_F(TestFlightSqlServer, TestCommandGetImportedKeys) {
   const auto update_rule = ArrayFromJSON(uint8(), R"([3])");
   const auto delete_rule = ArrayFromJSON(uint8(), R"([3])");
 
-  const std::shared_ptr<Table>& expected_table =
+  const std::shared_ptr<Table> expected_table =
       Table::Make(SqlSchema::GetImportedKeysSchema(),
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
-                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
+                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule}).ValueOrDie();
   AssertTablesEqual(*expected_table, *table);
 }
 
@@ -676,11 +676,11 @@ TEST_F(TestFlightSqlServer, TestCommandGetExportedKeys) {
   const auto update_rule = ArrayFromJSON(uint8(), R"([3])");
   const auto delete_rule = ArrayFromJSON(uint8(), R"([3])");
 
-  const std::shared_ptr<Table>& expected_table =
+  const std::shared_ptr<Table> expected_table =
       Table::Make(SqlSchema::GetExportedKeysSchema(),
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
-                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
+                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule}).ValueOrDie();
   AssertTablesEqual(*expected_table, *table);
 }
 
@@ -710,11 +710,11 @@ TEST_F(TestFlightSqlServer, TestCommandGetCrossReference) {
   const auto update_rule = ArrayFromJSON(uint8(), R"([3])");
   const auto delete_rule = ArrayFromJSON(uint8(), R"([3])");
 
-  const std::shared_ptr<Table>& expected_table =
+  const std::shared_ptr<Table> expected_table =
       Table::Make(SqlSchema::GetCrossReferenceSchema(),
                   {pk_catalog_name, pk_schema_name, pk_table_name, pk_column_name,
                    fk_catalog_name, fk_schema_name, fk_table_name, fk_column_name,
-                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule});
+                   key_sequence, fk_key_name, pk_key_name, update_rule, delete_rule}).ValueOrDie();
   AssertTablesEqual(*expected_table, *table);
 }
 

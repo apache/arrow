@@ -273,7 +273,7 @@ Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
     sort_keys.emplace_back(static_cast<int>(i));
   }
   std::shared_ptr<Schema> key_schema = schema(std::move(key_fields));
-  std::shared_ptr<Table> key_table = Table::Make(std::move(key_schema), key_columns);
+  std::shared_ptr<Table> key_table = Table::Make(std::move(key_schema), key_columns).ValueOrDie();
   SortOptions sort_options(std::move(sort_keys));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> sort_indices,
                         SortIndices(key_table, sort_options));

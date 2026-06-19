@@ -1365,7 +1365,7 @@ TEST_F(TestPrettyPrint, TablePrimitive) {
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
   auto column = std::make_shared<ChunkedArray>(ArrayVector({array}));
   std::shared_ptr<Schema> table_schema = schema({int_field});
-  std::shared_ptr<Table> table = Table::Make(table_schema, {column});
+  std::shared_ptr<Table> table = Table::Make(table_schema, {column}).ValueOrDie();
 
   static const char* expected = R"expected(column: int32
 ----
