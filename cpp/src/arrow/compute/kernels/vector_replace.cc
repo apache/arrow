@@ -322,6 +322,86 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
   }
 };
 
+// Nested types (List, LargeList, ListView, LargeListView, FixedSizeList, Map, Struct,
+// etc.)
+struct ReplaceMaskNested {
+  static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
+                                        const BooleanScalar& mask, ExecValue replacements,
+                                        int64_t replacements_offset, ExecResult* out) {
+    if (!mask.is_valid) {
+      // Output = null
+      ARROW_ASSIGN_OR_RAISE(
+          auto replacement_array,
+          MakeArrayOfNull(array.type->GetSharedPtr(), array.length, ctx->memory_pool()));
+      out->value = std::move(replacement_array->data());
+      return replacements_offset;
+    } else if (mask.value) {
+      // Output = replacement
+      if (replacements.is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto replacement_array,
+            MakeArrayFromScalar(*replacements.scalar, array.length, ctx->memory_pool()));
+        out->value = std::move(replacement_array->data());
+      } else {
+        // Set to be a slice of replacements
+        std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
+        result->offset += replacements_offset;
+        result->length = array.length;
+        result->null_count = kUnknownNullCount;
+        out->value = result;
+      }
+      return replacements_offset + array.length;
+    } else {
+      // Output = input
+      out->value = array.ToArrayData();
+      return replacements_offset;
+    }
+  }
+
+  static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
+                                       const ArraySpan& mask, int64_t mask_offset,
+                                       ExecValue replacements,
+                                       int64_t replacements_offset, ExecResult* out) {
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(
+        MakeBuilderExactIndex(ctx->memory_pool(), array.type->GetSharedPtr(), &builder));
+    RETURN_NOT_OK(builder->Reserve(array.length));
+
+    int64_t source_offset = 0;
+    ArraySpan adjusted_mask = mask;
+    adjusted_mask.offset += mask_offset;
+    adjusted_mask.length = std::min(adjusted_mask.length - mask_offset, array.length);
+
+    RETURN_NOT_OK(VisitArraySpanInline<BooleanType>(
+        adjusted_mask,
+        [&](bool replace) {
+          if (replace) {
+            if (replacements.is_scalar()) {
+              RETURN_NOT_OK(builder->AppendScalar(*replacements.scalar));
+            } else {
+              RETURN_NOT_OK(
+                  builder->AppendArraySlice(replacements.array, replacements_offset, 1));
+              replacements_offset++;
+            }
+          } else {
+            RETURN_NOT_OK(builder->AppendArraySlice(array, source_offset, 1));
+          }
+          source_offset++;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(builder->AppendNull());
+          source_offset++;
+          return Status::OK();
+        }));
+
+    std::shared_ptr<ArrayData> temp_output;
+    RETURN_NOT_OK(builder->FinishInternal(&temp_output));
+    out->value = std::move(temp_output);
+    return replacements_offset;
+  }
+};
+
 Status CheckReplaceMaskInputs(const DataType& value_type, int64_t arr_length,
                               const ExecValue& mask_box,
                               const DataType& replacements_type,
@@ -439,6 +519,80 @@ struct ReplaceMaskChunked {
       } else {
         ARROW_ASSIGN_OR_RAISE(replacements_offset,
                               ReplaceMaskImpl<Type>::ExecArrayMask(
+                                  ctx, *chunk->data(), *batch[1].array(), mask_offset,
+                                  replacements_val, replacements_offset, &chunk_result));
+      }
+      output_chunks.push_back(MakeArray(chunk_result.array_data()));
+      mask_offset += chunk->length();
+    }
+
+    return ChunkedArray::Make(std::move(output_chunks), out->type()).Value(out);
+  }
+};
+
+// Execution wrappers for nested types
+struct ReplaceMaskNestedExec {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& arr = batch[0].array;
+    const ExecValue& mask = batch[1];
+    const ExecValue& replacements = batch[2];
+    RETURN_NOT_OK(CheckReplaceMaskInputs(*arr.type, arr.length, mask,
+                                         *replacements.type(), replacements.length(),
+                                         replacements.is_array()));
+    if (mask.is_scalar()) {
+      return ReplaceMaskNested::ExecScalarMask(ctx, arr, mask.scalar_as<BooleanScalar>(),
+                                               replacements,
+                                               /*replacements_offset=*/0, out)
+          .status();
+    } else {
+      return ReplaceMaskNested::ExecArrayMask(ctx, arr, mask.array,
+                                              /*mask_offset=*/0, replacements,
+                                              /*replacements_offset=*/0, out)
+          .status();
+    }
+  }
+};
+
+struct ReplaceMaskNestedChunked {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& mask = batch[1];
+    const Datum& replacements = batch[2];
+
+    if (!mask.is_array() && !mask.is_scalar()) {
+      return Status::Invalid("Mask must be array or scalar, not ", batch[1].ToString());
+    }
+
+    if (!replacements.is_array() && !replacements.is_scalar()) {
+      return Status::Invalid("Replacements must be array or scalar, not ",
+                             replacements.ToString());
+    }
+
+    const ChunkedArray& arr = *batch[0].chunked_array();
+
+    RETURN_NOT_OK(CheckReplaceMaskInputs(*arr.type(), arr.length(), GetExecValue(mask),
+                                         *replacements.type(), replacements.length(),
+                                         replacements.is_arraylike()));
+
+    ExecValue replacements_val = GetExecValue(replacements);
+
+    ArrayVector output_chunks;
+    output_chunks.reserve(arr.num_chunks());
+
+    int64_t mask_offset = 0;
+    int64_t replacements_offset = 0;
+    for (const std::shared_ptr<Array>& chunk : arr.chunks()) {
+      if (chunk->length() == 0) continue;
+
+      ExecResult chunk_result;
+      if (batch[1].is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(
+            replacements_offset,
+            ReplaceMaskNested::ExecScalarMask(
+                ctx, *chunk->data(), batch[1].scalar_as<BooleanScalar>(),
+                replacements_val, replacements_offset, &chunk_result));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(replacements_offset,
+                              ReplaceMaskNested::ExecArrayMask(
                                   ctx, *chunk->data(), *batch[1].array(), mask_offset,
                                   replacements_val, replacements_offset, &chunk_result));
       }
@@ -639,6 +793,89 @@ struct FillNullImpl<Type, enable_if_null<Type>> {
   }
 };
 
+// FillNull implementation for nested types using ArrayBuilder
+struct FillNullNestedImpl {
+  static Status Exec(KernelContext* ctx, const ArraySpan& array,
+                     const uint8_t* reversed_bitmap, ExecResult* out, int8_t direction,
+                     const ArraySpan& last_valid_value_chunk,
+                     int64_t* last_valid_value_offset) {
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(
+        MakeBuilderExactIndex(ctx->memory_pool(), array.type->GetSharedPtr(), &builder));
+    RETURN_NOT_OK(builder->Reserve(array.length));
+
+    bool has_fill_value = *last_valid_value_offset != -1;
+
+    if (direction == 1) {
+      // Forward fill: iterate forward
+      for (int64_t i = 0; i < array.length; ++i) {
+        const bool is_null =
+            reversed_bitmap && !bit_util::GetBit(reversed_bitmap, array.offset + i);
+
+        if (!is_null) {
+          // Valid value: append it and update last valid
+          RETURN_NOT_OK(builder->AppendArraySlice(array, i, 1));
+          *last_valid_value_offset = i;
+          has_fill_value = true;
+        } else if (has_fill_value) {
+          // Null value but we have a fill value: use it
+          RETURN_NOT_OK(builder->AppendArraySlice(last_valid_value_chunk,
+                                                  *last_valid_value_offset, 1));
+        } else {
+          // Null value and no fill value yet: keep null
+          RETURN_NOT_OK(builder->AppendNull());
+        }
+      }
+    } else {
+      // Backward fill: iterate backward, build results, then append in forward order
+      // Note: reversed_bitmap is already reversed, so we read it forward
+      struct FillResult {
+        bool is_null;
+        bool use_last_valid;
+        int64_t source_offset;
+      };
+      std::vector<FillResult> results(array.length);
+
+      int64_t bitmap_idx = 0;
+      for (int64_t i = array.length - 1; i >= 0; --i, ++bitmap_idx) {
+        const bool is_null =
+            reversed_bitmap &&
+            !bit_util::GetBit(reversed_bitmap, array.offset + bitmap_idx);
+
+        if (!is_null) {
+          // Valid value
+          results[i] = {false, false, i};
+          *last_valid_value_offset = i;
+          has_fill_value = true;
+        } else if (has_fill_value) {
+          // Null value but we have a fill value: use it
+          results[i] = {false, true, *last_valid_value_offset};
+        } else {
+          // Null value and no fill value yet: keep null
+          results[i] = {true, false, 0};
+        }
+      }
+
+      // Now append in forward order
+      for (int64_t i = 0; i < array.length; ++i) {
+        if (results[i].is_null) {
+          RETURN_NOT_OK(builder->AppendNull());
+        } else if (results[i].use_last_valid) {
+          RETURN_NOT_OK(builder->AppendArraySlice(last_valid_value_chunk,
+                                                  results[i].source_offset, 1));
+        } else {
+          RETURN_NOT_OK(builder->AppendArraySlice(array, results[i].source_offset, 1));
+        }
+      }
+    }
+
+    std::shared_ptr<ArrayData> temp_output;
+    RETURN_NOT_OK(builder->FinishInternal(&temp_output));
+    out->value = std::move(temp_output);
+    return Status::OK();
+  }
+};
+
 template <typename Type>
 struct FillNullForward {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -802,6 +1039,136 @@ struct FillNullBackwardChunked {
   }
 };
 
+// Nested type wrappers for FillNull operations
+struct FillNullForwardNested {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& array_input = batch[0].array;
+    int64_t last_valid_offset = -1;
+    return ExecChunk(ctx, array_input, out, array_input, &last_valid_offset);
+  }
+
+  static Status ExecChunk(KernelContext* ctx, const ArraySpan& array, ExecResult* out,
+                          const ArraySpan& last_valid_value_chunk,
+                          int64_t* last_valid_value_offset) {
+    int8_t direction = 1;
+    if (array.MayHaveNulls()) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto null_bitmap,
+          arrow::internal::CopyBitmap(ctx->memory_pool(), array.buffers[0].data,
+                                      array.offset, array.length));
+      return FillNullNestedImpl::Exec(ctx, array, null_bitmap->data(), out, direction,
+                                      last_valid_value_chunk, last_valid_value_offset);
+    } else {
+      if (array.length > 0) {
+        *last_valid_value_offset = array.length - 1;
+      }
+      out->value = array.ToArrayData();
+    }
+    return Status::OK();
+  }
+};
+
+struct FillNullForwardNestedChunked {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ChunkedArray& values = *batch[0].chunked_array();
+
+    if (values.null_count() == 0) {
+      *out = batch[0];
+      return Status::OK();
+    }
+    if (values.null_count() == values.length()) {
+      *out = batch[0];
+      return Status::OK();
+    }
+
+    ArrayVector new_chunks;
+    if (values.length() > 0) {
+      ArrayData* array_with_current = values.chunk(/*first_chunk=*/0)->data().get();
+      int64_t last_valid_value_offset = -1;
+      for (const std::shared_ptr<Array>& chunk : values.chunks()) {
+        ExecResult chunk_result;
+        RETURN_NOT_OK(FillNullForwardNested::ExecChunk(ctx, *chunk->data(), &chunk_result,
+                                                       *array_with_current,
+                                                       &last_valid_value_offset));
+        if (chunk->null_count() != chunk->length()) {
+          array_with_current = chunk->data().get();
+        }
+        new_chunks.push_back(MakeArray(chunk_result.array_data()));
+      }
+    }
+
+    *out = std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
+    return Status::OK();
+  }
+};
+
+struct FillNullBackwardNested {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    int64_t last_offset = -1;
+    return ExecChunk(ctx, batch[0].array, out, batch[0].array, &last_offset);
+  }
+
+  static Status ExecChunk(KernelContext* ctx, const ArraySpan& array, ExecResult* out,
+                          const ArraySpan& last_valid_value_chunk,
+                          int64_t* last_valid_value_offset) {
+    int8_t direction = -1;
+
+    if (array.MayHaveNulls()) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto reversed_bitmap,
+          arrow::internal::ReverseBitmap(ctx->memory_pool(), array.buffers[0].data,
+                                         array.offset, array.length));
+      return FillNullNestedImpl::Exec(ctx, array, reversed_bitmap->data(), out, direction,
+                                      last_valid_value_chunk, last_valid_value_offset);
+    } else {
+      if (array.length > 0) {
+        *last_valid_value_offset = 0;
+      }
+      out->value = array.ToArrayData();
+    }
+    return Status::OK();
+  }
+};
+
+struct FillNullBackwardNestedChunked {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK_EQ(Datum::CHUNKED_ARRAY, batch[0].kind());
+    const ChunkedArray& values = *batch[0].chunked_array();
+    if (values.null_count() == 0) {
+      *out = Datum(values);
+      return Status::OK();
+    }
+    if (values.null_count() == values.length()) {
+      *out = Datum(values);
+      return Status::OK();
+    }
+    std::vector<std::shared_ptr<Array>> new_chunks;
+
+    if (values.length() > 0) {
+      auto chunks_length = static_cast<int>(values.chunks().size());
+      ArrayData* array_with_current =
+          values.chunk(/*first_chunk=*/chunks_length - 1)->data().get();
+      int64_t last_valid_value_offset = -1;
+      auto chunks = values.chunks();
+      for (int i = chunks_length - 1; i >= 0; --i) {
+        const auto& chunk = chunks[i];
+        ExecResult chunk_result;
+        RETURN_NOT_OK(FillNullBackwardNested::ExecChunk(
+            ctx, *chunk->data(), &chunk_result, *array_with_current,
+            &last_valid_value_offset));
+        if (chunk->null_count() != chunk->length()) {
+          array_with_current = chunk->data().get();
+        }
+        new_chunks.push_back(MakeArray(chunk_result.array_data()));
+      }
+    }
+
+    std::reverse(new_chunks.begin(), new_chunks.end());
+    *out = std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
+    return Status::OK();
+  }
+};
+
 void AddKernel(Type::type type_id, std::shared_ptr<KernelSignature> signature,
                ArrayKernelExec exec, VectorKernel::ChunkedExec exec_chunked,
                FunctionRegistry* registry, VectorFunction* func) {
@@ -863,7 +1230,6 @@ void RegisterVectorFunction(FunctionRegistry* registry,
         GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor, VectorKernel::ChunkedExec>(*ty),
         registry, func.get());
   }
-  // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // TODO(ARROW-9431): "replace_with_indices"
@@ -898,16 +1264,62 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
     auto func = std::make_shared<VectorFunction>("replace_with_mask", Arity::Ternary(),
                                                  replace_with_mask_doc);
     RegisterVectorFunction<ReplaceMask, ReplaceMaskChunked>(registry, func);
+
+    // Add nested type support (List, LargeList, ListView, LargeListView, FixedSizeList)
+    for (const auto type_id :
+         {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW, Type::LARGE_LIST_VIEW,
+          Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT}) {
+      VectorKernel kernel;
+      kernel.can_execute_chunkwise = false;
+      kernel.can_write_into_slices = false;
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::PREALLOCATE;
+      kernel.signature = KernelSignature::Make(
+          {InputType(type_id), boolean(), InputType(type_id)}, FirstType);
+      kernel.exec = ReplaceMaskNestedExec::Exec;
+      kernel.exec_chunked = ReplaceMaskNestedChunked::Exec;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_forward", Arity::Unary(),
                                                  fill_null_forward_doc);
     RegisterVectorFunction<FillNullForward, FillNullForwardChunked>(registry, func);
+
+    // Add nested type support
+    for (const auto type_id :
+         {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW, Type::LARGE_LIST_VIEW,
+          Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT}) {
+      VectorKernel kernel;
+      kernel.can_execute_chunkwise = false;
+      kernel.can_write_into_slices = false;
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::PREALLOCATE;
+      kernel.signature = KernelSignature::Make({InputType(type_id)}, FirstType);
+      kernel.exec = FillNullForwardNested::Exec;
+      kernel.exec_chunked = FillNullForwardNestedChunked::Exec;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_backward", Arity::Unary(),
                                                  fill_null_backward_doc);
     RegisterVectorFunction<FillNullBackward, FillNullBackwardChunked>(registry, func);
+
+    // Add nested type support
+    for (const auto type_id :
+         {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW, Type::LARGE_LIST_VIEW,
+          Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT}) {
+      VectorKernel kernel;
+      kernel.can_execute_chunkwise = false;
+      kernel.can_write_into_slices = false;
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::PREALLOCATE;
+      kernel.signature = KernelSignature::Make({InputType(type_id)}, FirstType);
+      kernel.exec = FillNullBackwardNested::Exec;
+      kernel.exec_chunked = FillNullBackwardNestedChunked::Exec;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
+    }
   }
 }
 }  // namespace internal
