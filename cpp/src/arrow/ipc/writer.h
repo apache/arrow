@@ -377,6 +377,24 @@ Status GetDictionaryPayload(int64_t id, bool is_delta,
                             const std::shared_ptr<Array>& dictionary,
                             const IpcWriteOptions& options, IpcPayload* payload);
 
+/// \brief Collect and serialize dictionary messages for a RecordBatch
+///
+/// For each dictionary-encoded field in the batch, checks the memo to determine
+/// whether serialization is needed. If the memo has no dictionary for a given id,
+/// the dictionary is serialized and added. If the memo already has a dictionary
+/// for that id, the ArrayData pointers are compared: if they are the same object
+/// the dictionary is skipped (deduplicated), otherwise a replacement dictionary
+/// message is serialized and the memo is updated.
+///
+/// \param[in] batch the RecordBatch to collect dictionaries from
+/// \param[in,out] dictionary_memo tracks which dictionaries have been serialized
+/// \param[in] options IPC write options
+/// \return vector of serialized dictionary IPC message buffers
+ARROW_EXPORT
+Result<std::vector<std::shared_ptr<Buffer>>> CollectAndSerializeDictionaries(
+    const RecordBatch& batch, DictionaryMemo* dictionary_memo,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized
 /// \param[in] options options for serialization

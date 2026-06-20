@@ -1102,6 +1102,15 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
             raise ValueError("Operation on closed reader")
         return _wrap_read_stats(self.stream_reader.stats())
 
+    @property
+    def dictionary_memo(self):
+        """
+        The DictionaryMemo associated with this reader.
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return DictionaryMemo.wrap(self.stream_reader.dictionary_memo(), self)
+
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
@@ -1292,6 +1301,15 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         """
         wrapped = pyarrow_wrap_metadata(self.reader.get().metadata())
         return wrapped.to_dict() if wrapped is not None else None
+
+    @property
+    def dictionary_memo(self):
+        """
+        The DictionaryMemo associated with this reader.
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return DictionaryMemo.wrap(self.reader.get().dictionary_memo(), self)
 
 
 def get_tensor_size(Tensor tensor):
@@ -1502,3 +1520,72 @@ def read_record_batch(obj, Schema schema,
                             CIpcReadOptions.Defaults()))
 
     return pyarrow_wrap_batch(result)
+
+
+def read_dictionary_message(obj, DictionaryMemo dictionary_memo):
+    """
+    Read a dictionary message into a DictionaryMemo.
+
+    If the memo already contains a dictionary with the same id, it is
+    replaced. The memo must already have dictionary types registered,
+    typically from a prior read_schema call with the same memo.
+
+    Parameters
+    ----------
+    obj : Message or Buffer-like
+        A message of type DICTIONARY_BATCH.
+    dictionary_memo : DictionaryMemo
+        Memo to populate with the dictionary data.
+    """
+    cdef Message message
+
+    if isinstance(obj, Message):
+        message = obj
+    else:
+        message = read_message(obj)
+
+    with nogil:
+        check_status(ReadDictionary(deref(message.message.get()),
+                                    dictionary_memo.memo,
+                                    CIpcReadOptions.Defaults()))
+
+
+def serialize_dictionaries(RecordBatch batch,
+                           DictionaryMemo dictionary_memo,
+                           memory_pool=None):
+    """
+    Serialize IPC dictionary messages needed for a RecordBatch.
+
+    For each dictionary-encoded column, checks the memo to determine
+    whether serialization is needed. Dictionaries are deduplicated by
+    pointer identity: if the memo already contains the same dictionary
+    object, it is skipped. If a different dictionary object exists for
+    the same field, a replacement message is emitted and the memo is
+    updated.
+
+    Parameters
+    ----------
+    batch : RecordBatch
+        The record batch whose dictionaries should be serialized.
+    dictionary_memo : DictionaryMemo
+        Tracks which dictionaries have already been serialized.
+        Updated in place with newly serialized dictionaries.
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified.
+
+    Returns
+    -------
+    list of Buffer
+        Serialized dictionary IPC messages, in dependency order.
+    """
+    batch._assert_cpu()
+    cdef:
+        vector[shared_ptr[CBuffer]] c_buffers
+        CIpcWriteOptions options = CIpcWriteOptions.Defaults()
+    options.memory_pool = maybe_unbox_memory_pool(memory_pool)
+
+    with nogil:
+        c_buffers = GetResultValue(
+            CollectAndSerializeDictionaries(
+                deref(batch.batch), dictionary_memo.memo, options))
+    return [pyarrow_wrap_buffer(buf) for buf in c_buffers]
