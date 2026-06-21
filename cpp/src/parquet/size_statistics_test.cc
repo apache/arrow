@@ -60,6 +60,43 @@ TEST(SizeStatistics, UpdateLevelHistogram) {
     UpdateLevelHistogram(std::vector<int16_t>{}, histogram);
     EXPECT_THAT(histogram, ::testing::ElementsAre(3, 3, 2));
   }
+  {
+    // Empty span should be a no-op.
+    std::vector<int64_t> histogram(2, 0);
+    UpdateLevelHistogram(std::span<const int16_t>{}, histogram);
+    EXPECT_THAT(histogram, ::testing::ElementsAre(0, 0));
+  }
+}
+
+// Regression test for GH-49928: WriteBatch(0, nullptr, ...) on a nullable column
+// must not crash or DCHECK-fail, even though max_definition_level > 0.
+TEST(SizeStatistics, NullLevelsInColumnWriter) {
+  auto node = schema::Int32("a", Repetition::OPTIONAL);
+  auto schema_node = schema::GroupNode::Make("schema", Repetition::REQUIRED, {node});
+
+  auto props = WriterProperties::Builder()
+                   .enable_write_page_index()
+                   ->enable_statistics()
+                   ->set_size_statistics_level(SizeStatisticsLevel::PageAndColumnChunk)
+                   ->build();
+
+  auto sink = CreateOutputStream();
+  auto writer = ParquetFileWriter::Open(sink, std::dynamic_pointer_cast<schema::GroupNode>(schema_node), props);
+  auto rg = writer->AppendRowGroup();
+  auto col = static_cast<Int32Writer*>(rg->NextColumn());
+
+  // Empty write: num_values=0 with nullptr levels — must not crash.
+  col->WriteBatch(/*num_values=*/0, /*def_levels=*/nullptr,
+                  /*rep_levels=*/nullptr, /*values=*/nullptr);
+
+  // Follow up with a real write so the file is valid.
+  std::vector<int32_t> values = {42};
+  std::vector<int16_t> def_levels = {1};
+  col->WriteBatch(1, def_levels.data(), nullptr, values.data());
+
+  col->Close();
+  rg->Close();
+  writer->Close();
 }
 
 TEST(SizeStatistics, ThriftSerDe) {

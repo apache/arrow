@@ -1809,7 +1809,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
     auto add_levels = [](std::vector<int64_t>& level_histogram, const int16_t* levels,
                          int64_t num_levels, int16_t max_level) {
-      if (max_level == 0) {
+      ARROW_DCHECK(levels != nullptr || num_levels == 0 || max_level == 0);
+      if (max_level == 0 || levels == nullptr) {
         return;
       }
       ARROW_DCHECK_EQ(static_cast<size_t>(max_level) + 1, level_histogram.size());
