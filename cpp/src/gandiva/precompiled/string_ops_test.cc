@@ -1971,6 +1971,14 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
+  // No match on the large-expansion (counting) path: from "z" to "zzz" expands
+  // by more than from_len, so this exercises the count branch's zero-match
+  // early return.
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "z", 1, "zzz", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
   // Large output (>64 KB) must not overflow: buffer is sized to the exact result.
   std::string large_in(35000, 'X');
   std::string large_expected(70000, '\0');

@@ -1863,7 +1863,11 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
 
   for (; text_index <= text_len - from_str_len;) {
     if (memcmp(text + text_index, from_str, from_str_len) == 0) {
-      if (out_index + text_index - last_match_index + to_str_len > max_length) {
+      // Subtract first: out_index and text_index can both approach INT_MAX now
+      // that the wrapper may pass a large max_length, so out_index + text_index
+      // could overflow gdv_int32 before the subtraction. (text_index -
+      // last_match_index) is a bounded non-negative span, keeping the sum legal.
+      if (out_index + (text_index - last_match_index) + to_str_len > max_length) {
         gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
         *out_len = 0;
         return "";
@@ -1898,7 +1902,7 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
     return text;
   }
 
-  if (out_index + text_len - last_match_index > max_length) {
+  if (out_index + (text_len - last_match_index) > max_length) {
     gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
     *out_len = 0;
     return "";
@@ -1941,6 +1945,12 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
         } else {
           i++;
         }
+      }
+      // No matches: the result is the input unchanged; return it without calling
+      // the helper (which would otherwise scan the text a second time).
+      if (num_matches == 0) {
+        *out_len = text_len;
+        return text;
       }
       max_length = static_cast<gdv_int64>(text_len) + num_matches * delta;
     }
