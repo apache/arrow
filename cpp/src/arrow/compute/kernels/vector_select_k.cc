@@ -274,7 +274,7 @@ template <typename ArrayType>
 struct TypedHeapItem {
   uint64_t index;
   uint64_t offset;
-  ArrayType* array;
+  const ArrayType* array;
 };
 
 class ChunkedArraySelector : public TypeVisitor {
@@ -336,7 +336,7 @@ class ChunkedArraySelector : public TypeVisitor {
     for (const auto& chunk : physical_chunks_) {
       if (chunk->length() == 0) continue;
       chunks_holder.emplace_back(std::make_shared<ArrayType>(chunk->data()));
-      ArrayType& arr = *chunks_holder.back();
+      const ArrayType& arr = *chunks_holder.back();
 
       auto& indices = indices_by_chunk.emplace_back();
       indices.resize(arr.length());
@@ -379,7 +379,7 @@ class ChunkedArraySelector : public TypeVisitor {
     DCHECK_EQ(chunks_holder.size(), partitions_by_chunk.size());
     uint64_t offset = 0;
     for (size_t chunk_id = 0; chunk_id < chunks_holder.size(); ++chunk_id) {
-      ArrayType& arr = *chunks_holder[chunk_id];
+      const ArrayType& arr = *chunks_holder[chunk_id];
       const auto& p = partitions_by_chunk[chunk_id];
 
       // Nulls
