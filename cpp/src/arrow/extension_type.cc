@@ -31,6 +31,7 @@
 #ifdef ARROW_JSON
 #  include "arrow/extension/fixed_shape_tensor.h"
 #  include "arrow/extension/opaque.h"
+#  include "arrow/extension/range.h"
 #  include "arrow/extension/variable_shape_tensor.h"
 #endif
 #include "arrow/extension/json.h"
@@ -156,6 +157,8 @@ static void CreateGlobalRegistry() {
 #ifdef ARROW_JSON
   ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
   ext_types.push_back(extension::opaque(null(), "", ""));
+  ext_types.push_back(extension::range(int32()));
+  ext_types.push_back(extension::range_inc(int32()));
   ext_types.push_back(extension::variable_shape_tensor(int64(), 0));
 #endif
 

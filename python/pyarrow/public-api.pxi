@@ -131,6 +131,10 @@ cdef api object pyarrow_wrap_data_type(
             out = Bool8Type.__new__(Bool8Type)
         elif extension_name == b"arrow.fixed_shape_tensor":
             out = FixedShapeTensorType.__new__(FixedShapeTensorType)
+        elif extension_name == b"arrow.range":
+            out = RangeType.__new__(RangeType)
+        elif extension_name == b"arrow.range_inc":
+            out = RangeIncType.__new__(RangeIncType)
         elif extension_name == b"arrow.opaque":
             out = OpaqueType.__new__(OpaqueType)
         elif extension_name == b"arrow.uuid":
