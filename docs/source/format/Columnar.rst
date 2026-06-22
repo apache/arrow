@@ -864,6 +864,12 @@ A union is defined by an ordered sequence of types; each slot in the
 union can have a value chosen from these types. The types are named
 like a struct's fields, and the names are part of the type metadata.
 
+Each child type in a union has a type id (an 8-bit signed integer)
+that identifies it. These type ids are not necessarily the same as the
+index of the corresponding child array. For example, a union of two types
+might assign type ids 5 and 7 rather than 0 and 1. The mapping from type
+ids to child arrays is part of the union type definition.
+
 Unlike other data types, unions do not have their own validity bitmap. Instead,
 the nullness of each slot is determined exclusively by the child arrays which
 are composed to create the union.
@@ -878,10 +884,10 @@ Dense union represents a mixed-type array with 5 bytes of overhead for
 each value. Its physical layout is as follows:
 
 * One child array for each type
-* Types buffer: A buffer of 8-bit signed integers. Each type in the
-  union has a corresponding type id whose values are found in this
-  buffer. A union with more than 128 possible types can be modeled as
-  a union of unions.
+* Types buffer: A buffer of 8-bit signed integers, indicating the type
+  id of each slot. Note that these type ids are not necessarily the
+  same as the child array index (see above). A union with more than 128
+  possible types can be modeled as a union of unions.
 * Offsets buffer: A buffer of signed Int32 values indicating the
   relative offset into the respective child array for the type in a
   given slot. The respective offsets for each child value array must
