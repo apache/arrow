@@ -4352,7 +4352,7 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
 
 
 def test_non_cpu_array():
-    cuda = pytest.importorskip("pyarrow.cuda")
+    cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)

@@ -293,6 +293,8 @@ jobs:
       - name: Test
         shell: bash
         run: |
+          # MinIO is installed on ${ARROW_HOME}/bin
+          export PATH="${ARROW_HOME}/bin:${PATH}"
           sudo sysctl -w kern.coredump=1
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell

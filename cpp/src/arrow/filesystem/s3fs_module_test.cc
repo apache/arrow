@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <any>
 #include <exception>
 #include <memory>
 #include <sstream>
@@ -54,6 +55,17 @@ MinioTestEnvironment* GetMinioEnv() {
   return ::arrow::internal::checked_cast<MinioTestEnvironment*>(minio_env);
 }
 
+class S3ModuleTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    if (!GetMinioEnv()->IsAvailable()) {
+      GTEST_SKIP() << "Minio executable not found, skipping tests";
+    }
+    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+  }
+  std::shared_ptr<MinioTestServer> minio_;
+};
+
 class RegistrationTestEnvironment : public ::testing::Environment {
  public:
   void SetUp() override {
@@ -67,12 +79,10 @@ class RegistrationTestEnvironment : public ::testing::Environment {
 
 auto* lib_env = ::testing::AddGlobalTestEnvironment(new RegistrationTestEnvironment);
 
-TEST(S3Test, FromUri) {
-  ASSERT_OK_AND_ASSIGN(auto minio, GetMinioEnv()->GetOneServer());
-
+TEST_F(S3ModuleTest, FromUri) {
   std::string path;
-  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://" + minio->access_key() + ":" +
-                                                      minio->secret_key() +
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://" + minio_->access_key() + ":" +
+                                                      minio_->secret_key() +
                                                       "@bucket/somedir/subdir/subfile",
                                                   &path));
 
@@ -80,6 +90,54 @@ TEST(S3Test, FromUri) {
             "s3://minio:miniopass@bucket/somedir/subdir/subfile"
             "?region=us-east-1&scheme=https&endpoint_override="
             "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+TEST_F(S3ModuleTest, FromUriAndOptionsCredentials) {
+  std::string path;
+  FileSystemFactoryOptions options{
+      {"access_key", std::string(minio_->access_key())},
+      {"secret_key", std::string(minio_->secret_key())},
+  };
+  // Credentials supplied via options, NOT in the URI.
+  ASSERT_OK_AND_ASSIGN(
+      auto fs,
+      FileSystemFromUriAndOptions("s3://bucket/somedir/subdir/subfile", options, &path));
+  // They crossed the module boundary and were applied -> reflected in MakeUri.
+  EXPECT_EQ(fs->MakeUri("/" + path),
+            "s3://minio:miniopass@bucket/somedir/subdir/subfile"
+            "?region=us-east-1&scheme=https&endpoint_override="
+            "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+namespace {
+class NoopRetryStrategy : public S3RetryStrategy {
+ public:
+  bool ShouldRetry(const AWSErrorDetail&, int64_t) override { return false; }
+  int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail&, int64_t) override {
+    return 0;
+  }
+};
+}  // namespace
+
+TEST_F(S3ModuleTest, FromUriAndOptionsRetryStrategy) {
+  FileSystemFactoryOptions options{
+      {"access_key", std::string(minio_->access_key())},
+      {"secret_key", std::string(minio_->secret_key())},
+      {"retry_strategy",
+       std::shared_ptr<S3RetryStrategy>(std::make_shared<NoopRetryStrategy>())},
+  };
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(
+      auto fs,
+      FileSystemFromUriAndOptions("s3://bucket/somedir/subdir/subfile", options, &path));
+  ASSERT_NE(fs, nullptr);
+}
+
+TEST(S3Test, FromUriRejectsUnknownOptions) {
+  FileSystemFactoryOptions options{{"some_option", 1}};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Unexpected option"),
+      FileSystemFromUriAndOptions("s3://bucket/key", options));
 }
 
 }  // namespace arrow::fs

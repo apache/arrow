@@ -26,6 +26,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     gdb \
     libc6-dbg \
     tzdata \
+    tzdata-legacy \
     wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

@@ -81,6 +81,7 @@ add_arrow_test(utility-test
                tracing_test.cc
                trie_test.cc
                uri_test.cc
+               ulp_distance_test.cc
                utf8_util_test.cc
                value_parsing_test.cc
                EXTRA_LINK_LIBS

@@ -76,8 +76,10 @@ jobs:
 
   package:
     permissions:
-      # Upload to GitHub Release
+      # Upload artifacts to GitHub Release
       contents: write
+      # Upload cached Docker images to GitHub Packages
+      packages: write
     name: ${{ matrix.id }}
     runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     needs: check-labels
@@ -100,8 +102,6 @@ jobs:
           - amazon-linux-2023-arm64
           - centos-9-stream-amd64
           - centos-9-stream-arm64
-          - debian-bookworm-amd64
-          - debian-bookworm-arm64
           - debian-trixie-amd64
           - debian-trixie-arm64
           - debian-forky-amd64
@@ -186,12 +186,11 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: ${{ env.BUILD_DIR }}/ccache
-          key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
-          restore-keys: package-linux-${{ matrix.id }}-
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-linux-${{ matrix.id }}
       - name: Install dependencies
         run: |
           sudo apt update
@@ -249,8 +248,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rake -C dev/tasks/linux-packages docker:pull || :
+          rake -C dev/tasks/linux-packages/apache-arrow docker:pull:${TARGET} || :
           rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
+      - name: Save ccache
+        if: >-
+          !cancelled()
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-linux-${{ matrix.id }}
+          include-hidden-files: true
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -258,7 +266,7 @@ jobs:
           github.event_name == 'push' &&
           github.ref_name == 'main'
         run: |
-          rake -C dev/tasks/linux-packages docker:push
+          rake -C dev/tasks/linux-packages/apache-arrow docker:push:${TARGET}
       - name: Build artifact tarball
         run: |
           mkdir -p "${DISTRIBUTION}"
@@ -339,7 +347,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rake -C dev/tasks/linux-packages docker:pull || :
           # Validate reproducibility. Reprotest runs the build twice
           # inside its own tempdir and doesn't copy artifacts back,
           # so this is purely a verification step.

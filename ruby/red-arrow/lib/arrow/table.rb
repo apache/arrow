@@ -354,60 +354,6 @@ module Arrow
       sliced_table
     end
 
-    # TODO
-    #
-    # @return [Arrow::Table]
-    def merge(other)
-      added_columns = {}
-      removed_columns = {}
-
-      case other
-      when Hash
-        other.each do |name, value|
-          name = name.to_s
-          if value
-            added_columns[name] = ensure_raw_column(name, value)
-          else
-            removed_columns[name] = true
-          end
-        end
-      when Table
-        added_columns = {}
-        other.columns.each do |column|
-          name = column.name
-          added_columns[name] = ensure_raw_column(name, column)
-        end
-      else
-        message = "merge target must be Hash or Arrow::Table: " +
-          "<#{other.inspect}>: #{inspect}"
-        raise ArgumentError, message
-      end
-
-      new_columns = []
-      columns.each do |column|
-        column_name = column.name
-        new_column = added_columns.delete(column_name)
-        if new_column
-          new_columns << new_column
-          next
-        end
-        next if removed_columns.key?(column_name)
-        new_columns << ensure_raw_column(column_name, column)
-      end
-      added_columns.each do |name, new_column|
-        new_columns << new_column
-      end
-      new_fields = []
-      new_arrays = []
-      new_columns.each do |new_column|
-        new_fields << new_column[:field]
-        new_arrays << new_column[:data]
-      end
-      table = self.class.new(new_fields, new_arrays)
-      share_input(table)
-      table
-    end
-
     alias_method :remove_column_raw, :remove_column
     def remove_column(name_or_index)
       case name_or_index

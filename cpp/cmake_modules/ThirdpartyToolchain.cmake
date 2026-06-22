@@ -2791,6 +2791,7 @@ function(build_rapidjson)
                        URL ${RAPIDJSON_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
+  set(CCACHE_FOUND OFF)
   set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib")
   set(RAPIDJSON_BUILD_DOC OFF)
   set(RAPIDJSON_BUILD_EXAMPLES OFF)
