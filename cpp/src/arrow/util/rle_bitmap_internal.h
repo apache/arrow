@@ -113,7 +113,7 @@ class RleRunToBitmapDecoder {
   }
 
   /// Get the next value and return false if there are no more.
-  [[nodiscard]] constexpr bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
+  [[nodiscard]] bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
 
   /// Get a batch of values return the number of decoded elements.
   ///
@@ -230,7 +230,7 @@ class BitPackedRunToBitmapDecoder {
   }
 
   /// Get the next value and return false if there are no more.
-  [[nodiscard]] constexpr bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
+  [[nodiscard]] bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
 
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values

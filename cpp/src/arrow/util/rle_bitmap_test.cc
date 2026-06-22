@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cstdint>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,17 @@ namespace arrow::util {
 
 namespace {
 
+/// Make a vector of `size` pseudo-random bytes, deterministic for a given `seed`.
+std::vector<uint8_t> MakeRandomBytes(size_t size, uint32_t seed = 56) {
+  std::vector<uint8_t> bytes(size);
+  std::minstd_rand gen(seed);
+  std::uniform_int_distribution<uint8_t> dist(0, 255);
+  for (auto& byte : bytes) {
+    byte = dist(gen);
+  }
+  return bytes;
+}
+
 /// Read the first `count` bits of `bytes` (LSB first) into a vector of booleans.
 std::vector<bool> BitsFromBytes(const std::vector<uint8_t>& bytes, rle_size_t count) {
   std::vector<bool> bits(count);
@@ -40,20 +52,41 @@ std::vector<bool> BitsFromBytes(const std::vector<uint8_t>& bytes, rle_size_t co
   return bits;
 }
 
+struct CheckDecodedBitsParams {
+  const std::vector<uint8_t>& actual;
+  const std::vector<bool>& expected;
+  rle_size_t count;
+  rle_size_t actual_start_bit = 0;
+  rle_size_t expected_start_idx = 0;
+};
+
 /// Check the decoded output in `out` against `expected`.
-/// Bits `out[out_offset..out_offset + count]` must equal
-/// `expected[expected_skip..expected_skip + count]`. The `out_offset` bits before them
-/// must still be zero.
-void CheckDecodedBits(const std::vector<uint8_t>& out, const std::vector<bool>& expected,
-                      rle_size_t count, rle_size_t out_offset = 0,
-                      rle_size_t expected_skip = 0) {
-  ARROW_SCOPED_TRACE("out_offset = ", out_offset, ", expected_skip = ", expected_skip);
-  for (rle_size_t i = 0; i < out_offset; ++i) {
-    EXPECT_FALSE(bit_util::GetBit(out.data(), i)) << "clobbered bit " << i;
+void CheckDecodedBits(const CheckDecodedBitsParams& params) {
+  ARROW_SCOPED_TRACE("out_start_bit = ", params.actual_start_bit,
+                     ", expected_start_idx = ", params.expected_start_idx);
+  for (rle_size_t i = 0; i < params.count; ++i) {
+    ASSERT_EQ(bit_util::GetBit(params.actual.data(), params.actual_start_bit + i),
+              params.expected[params.expected_start_idx + i])
+        << "first difference at bit " << i;
   }
-  for (rle_size_t i = 0; i < count; ++i) {
-    EXPECT_EQ(bit_util::GetBit(out.data(), out_offset + i), expected[expected_skip + i])
-        << "at bit " << i;
+}
+
+struct CheckBitsEqualParams {
+  const std::vector<uint8_t>& actual;
+  const std::vector<uint8_t>& expected;
+  rle_size_t count;
+  rle_size_t actual_start_bit = 0;
+  rle_size_t expected_start_bit = 0;
+};
+
+/// Check that two bit ranges, stored in `actual` and `expected`, are equal.
+void CheckBitsEqual(const CheckBitsEqualParams& params) {
+  ARROW_SCOPED_TRACE("actual_start_bit = ", params.actual_start_bit,
+                     ", expected_start_bit = ", params.expected_start_bit);
+  for (rle_size_t i = 0; i < params.count; ++i) {
+    ASSERT_EQ(bit_util::GetBit(params.actual.data(), params.actual_start_bit + i),
+              bit_util::GetBit(params.expected.data(), params.expected_start_bit + i))
+        << "first difference at bit " << i;
   }
 }
 
@@ -68,37 +101,103 @@ void CheckDecodedBits(const std::vector<uint8_t>& out, const std::vector<bool>& 
 /// read path of BitPackedRunToBitmapDecoder. With `expected_skip == 0` they stay in sync
 /// and only the aligned path runs.
 template <typename Decoder>
-void CheckChunkedDecode(const typename Decoder::RunType& run,
-                        const std::vector<bool>& expected, rle_size_t chunk_size = 1,
-                        rle_size_t expected_skip = 0) {
+void CheckDecoderValuesChunked(const typename Decoder::RunType& run,
+                               const std::vector<bool>& expected,
+                               rle_size_t chunk_size = 1, rle_size_t expected_skip = 0) {
   ARROW_SCOPED_TRACE("chunk_size = ", chunk_size, ", expected_skip = ", expected_skip);
+
   const auto n_vals = static_cast<rle_size_t>(expected.size());
   ASSERT_LE(expected_skip, n_vals);
 
   Decoder decoder(run);
   const auto advanced = decoder.Advance(expected_skip);
   ASSERT_EQ(advanced, expected_skip);
-  const auto rest = n_vals - expected_skip;
+  const auto n_vals_to_decode = n_vals - expected_skip;
 
-  // Output buffer with one guard byte to catch out-of-bounds writes.
-  std::vector<uint8_t> out(static_cast<size_t>(bit_util::BytesForBits(rest)) + 1, 0);
-  const uint8_t guard = 0xA5;
-  out.back() = guard;
+  // Output buffer
+  const auto n_bytes = static_cast<size_t>(bit_util::BytesForBits(n_vals_to_decode));
+  std::vector<uint8_t> out(n_bytes, 0);
 
-  rle_size_t read = 0;
-  while (read < rest) {
-    const auto want = std::min(chunk_size, rest - read);
+  rle_size_t n_val_read = 0;
+  while (n_val_read < n_vals_to_decode) {
+    const auto want = std::min(chunk_size, n_vals_to_decode - n_val_read);
     const auto got =
-        decoder.GetBatch(BitmapSpanMut(out.data(), /*bit_start=*/read), want);
-    EXPECT_EQ(got, want) << "at pos " << read;
-    ASSERT_GT(got, 0) << "at pos " << read;  // break on failure
-    read += got;
-    EXPECT_EQ(decoder.remaining(), rest - read);
+        decoder.GetBatch(BitmapSpanMut(out.data(), /*bit_start=*/n_val_read), want);
+    EXPECT_EQ(got, want) << "at pos " << n_val_read;
+    ASSERT_GT(got, 0) << "at pos " << n_val_read;  // break on failure
+    n_val_read += got;
+    EXPECT_EQ(decoder.remaining(), n_vals_to_decode - n_val_read);
   }
 
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(out.back(), guard) << "decoder wrote past the end of the output";
-  CheckDecodedBits(out, expected, /*count=*/rest, /*out_offset=*/0, expected_skip);
+  CheckDecodedBits({
+      .actual = out,
+      .expected = expected,
+      .count = n_vals_to_decode,
+      .actual_start_bit = 0,
+      .expected_start_idx = expected_skip,
+  });
+}
+
+/// Decode a chunk of data into a known output to check for out of bounds write.
+///
+/// @see CheckDecoderValuesChunked
+template <typename Decoder>
+void CheckDecoderClobber(const typename Decoder::RunType& run,
+                         const std::vector<bool>& expected, rle_size_t chunk_size = 1,
+                         rle_size_t expected_skip = 0) {
+  ARROW_SCOPED_TRACE("chunk_size = ", chunk_size, ", expected_skip = ", expected_skip);
+
+  const auto n_vals = static_cast<rle_size_t>(expected.size());
+  ASSERT_LE(expected_skip, n_vals);
+
+  Decoder decoder(run);
+  const auto advanced = decoder.Advance(expected_skip);
+  ASSERT_EQ(advanced, expected_skip);
+  const auto n_vals_to_decode = n_vals - expected_skip;
+
+  // Output buffer with enough capacity to store a full chunk plus extra bytes as
+  // clobbers/guard to check for out of bounds write.
+  const auto n_bytes = static_cast<size_t>(bit_util::BytesForBits(chunk_size) +
+                                           bit_util::CeilDiv(n_vals, chunk_size) + 2);
+  // This seed is arbitrary and of little importance. We are simply trying to avoid an
+  // unlikely case where guards have the same pattern in all invocations.
+  const auto out_pattern =
+      MakeRandomBytes(n_bytes, /* seed= */ (chunk_size << 16) ^ expected_skip);
+  auto out = out_pattern;
+
+  rle_size_t n_val_read = 0;
+  rle_size_t out_bit_start = 0;
+  while (n_val_read < n_vals_to_decode) {
+    // Clean output buffer
+    out = out_pattern;
+    const auto want = std::min(chunk_size, n_vals_to_decode - n_val_read);
+    const auto got = decoder.GetBatch(BitmapSpanMut(out.data(), out_bit_start), want);
+    ASSERT_GT(got, 0) << "at pos " << n_val_read;  // break on failure
+    EXPECT_EQ(got, want) << "at pos " << n_val_read;
+    // Check that the leading bits have not been modified
+    CheckBitsEqual({.actual = out, .expected = out_pattern, .count = out_bit_start});
+    // Check that the trailing bits have not been modified
+    CheckBitsEqual({
+        .actual = out,
+        .expected = out_pattern,
+        .count = static_cast<rle_size_t>(8 * n_bytes) - (out_bit_start + want),
+        .actual_start_bit = out_bit_start + want,
+        .expected_start_bit = out_bit_start + want,
+    });
+    // Check decoded bits are also correct
+    CheckDecodedBits({
+        .actual = out,
+        .expected = expected,
+        .count = want,
+        .actual_start_bit = out_bit_start,
+        .expected_start_idx = expected_skip + n_val_read,
+    });
+
+    n_val_read += got;
+    ++out_bit_start;
+    EXPECT_EQ(decoder.remaining(), n_vals_to_decode - n_val_read);
+  }
 }
 
 /// All the checks shared by both decoder types.
@@ -127,7 +226,7 @@ void CheckBitmapDecoder(const typename Decoder::RunType& run,
   // Decode the whole run in several chunks.
   for (const rle_size_t chunk_size : {rle_size_t{1}, rle_size_t{3}, rle_size_t{7},
                                       rle_size_t{8}, rle_size_t{9}, n_vals, n_vals + 1}) {
-    CheckChunkedDecode<Decoder>(run, expected, chunk_size);
+    CheckDecoderValuesChunked<Decoder>(run, expected, chunk_size);
   }
 
   // Decode the whole run in several chunks, after an initial Advance that shifts
@@ -136,7 +235,10 @@ void CheckBitmapDecoder(const typename Decoder::RunType& run,
                                       rle_size_t{8}, rle_size_t{9}, n_vals, n_vals + 1}) {
     for (rle_size_t expected_skip = 1; expected_skip < 8 && expected_skip < n_vals;
          ++expected_skip) {
-      CheckChunkedDecode<Decoder>(run, expected, chunk_size, expected_skip);
+      // Check the decoding happens as expected
+      CheckDecoderValuesChunked<Decoder>(run, expected, chunk_size, expected_skip);
+      // Check the decoding does not write out of bounds
+      CheckDecoderClobber<Decoder>(run, expected, chunk_size, expected_skip);
     }
   }
 
@@ -155,7 +257,7 @@ void CheckBitmapDecoder(const typename Decoder::RunType& run,
     const auto advanced = decoder.Advance(1);
     EXPECT_EQ(advanced, 0);
     EXPECT_EQ(decoder.remaining(), 0);
-    CheckDecodedBits(out, expected, /*count=*/n_vals);
+    CheckDecodedBits({.actual = out, .expected = expected, .count = n_vals});
   }
 
   // Advancing more than available stops at the run boundary.
@@ -179,7 +281,7 @@ void CheckBitmapDecoder(const typename Decoder::RunType& run,
     std::vector<uint8_t> out_2(static_cast<size_t>(bit_util::BytesForBits(n_vals)), 0);
     const auto got = decoder.GetBatch(BitmapSpanMut(out_2.data()), n_vals);
     EXPECT_EQ(got, n_vals);
-    CheckDecodedBits(out_2, expected, /*count=*/n_vals);
+    CheckDecodedBits({.actual = out_2, .expected = expected, .count = n_vals});
   }
 }
 
@@ -337,7 +439,12 @@ void CheckRleBitPackedDecode(const std::vector<uint8_t>& bytes,
   EXPECT_TRUE(decoder.exhausted());
 
   EXPECT_EQ(out.back(), guard) << "decoder wrote past the end of the output";
-  CheckDecodedBits(out, expected, /*count=*/n_vals, out_offset);
+  CheckDecodedBits({
+      .actual = out,
+      .expected = expected,
+      .count = n_vals,
+      .actual_start_bit = out_offset,
+  });
 }
 
 /// Run the decode check over a battery of chunk sizes and output offsets.
@@ -438,7 +545,7 @@ TEST(RleBitPackedToBitmapDecoder, ReadPastEnd) {
   EXPECT_TRUE(decoder.exhausted());
   got = decoder.GetBatch(BitmapSpanMut(out.data()), 10);
   EXPECT_EQ(got, 0);
-  CheckDecodedBits(out, expected, /*count=*/n_vals);
+  CheckDecodedBits({.actual = out, .expected = expected, .count = n_vals});
 }
 
 TEST(RleBitPackedToBitmapDecoder, Reset) {
@@ -463,7 +570,7 @@ TEST(RleBitPackedToBitmapDecoder, Reset) {
   const auto got_2 = decoder.GetBatch(BitmapSpanMut(out_2.data()), n_vals);
   EXPECT_EQ(got_2, n_vals);
   EXPECT_TRUE(decoder.exhausted());
-  CheckDecodedBits(out_2, expected, /*count=*/n_vals);
+  CheckDecodedBits({.actual = out_2, .expected = expected, .count = n_vals});
 }
 
 TEST(RleBitPackedToBitmapDecoder, Truncated) {
@@ -485,7 +592,7 @@ TEST(RleBitPackedToBitmapDecoder, Truncated) {
   const auto got = decoder.GetBatch(BitmapSpanMut(out.data()), 1000);
   EXPECT_EQ(got, 10);
   EXPECT_FALSE(decoder.exhausted());
-  CheckDecodedBits(out, expected, /*count=*/10);
+  CheckDecodedBits({.actual = out, .expected = expected, .count = 10});
 }
 
 }  // namespace arrow::util
