@@ -162,6 +162,10 @@ def _is_primitive(Type type):
     return is_primitive(type)
 
 
+def _is_nested(data_type):
+    return is_nested(data_type.id)
+
+
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
     cdef dict pandas_type_map = _get_pandas_type_map()
