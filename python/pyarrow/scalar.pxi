@@ -822,7 +822,16 @@ cdef class TimestampScalar(Scalar):
             return None
 
         if not dtype.timezone().empty():
-            tzinfo = string_to_tzinfo(frombytes(dtype.timezone()))
+            # for datetime.datetime output, always prefer zoneinfo over pytz
+            prefer_zoneinfo = True
+            if _pandas_api.have_pandas and dtype.unit() == TimeUnit_NANO:
+                # but if this method returns a pandas.Timestamp (i.e. pandas installed
+                # and nano unit) -> adjust preference based on the pandas version
+                # (i.e. keep returning pytz for older pandas)
+                prefer_zoneinfo = _pandas_api.is_ge_v3()
+            tzinfo = string_to_tzinfo(
+                frombytes(dtype.timezone()), prefer_zoneinfo=prefer_zoneinfo
+            )
         else:
             tzinfo = None
 

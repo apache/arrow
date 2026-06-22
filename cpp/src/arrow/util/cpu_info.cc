@@ -17,7 +17,26 @@
 
 // From Apache Impala (incubating) as of 2016-01-29.
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cerrno>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <thread>
+
+#include <xsimd/xsimd.hpp>
+
+#include "arrow/result.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
+
+#ifdef __linux__
+#  include <fstream>
+#endif
 
 #ifdef __APPLE__
 #  include <sys/sysctl.h>
@@ -33,48 +52,72 @@
 #  include "arrow/util/windows_compatibility.h"
 #endif
 
-#include <algorithm>
-#include <array>
-#include <bitset>
-#include <cctype>
-#include <cerrno>
-#include <cstdint>
-#include <fstream>
-#include <memory>
-#include <optional>
-#include <string>
-#include <thread>
-
-#include "arrow/result.h"
-#include "arrow/util/io_util.h"
-#include "arrow/util/logging_internal.h"
-#include "arrow/util/string.h"
-
-#undef CPUINFO_ARCH_X86
-#undef CPUINFO_ARCH_ARM
-#undef CPUINFO_ARCH_PPC
-
-#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-#  define CPUINFO_ARCH_X86
-#elif defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__)
-#  define CPUINFO_ARCH_ARM
-#elif defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) || \
-    defined(__powerpc64__)
-#  define CPUINFO_ARCH_PPC
-#endif
-
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
-constexpr int kCacheLevels = static_cast<int>(CpuInfo::CacheLevel::Last) + 1;
+void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor) {
+  const auto cpu = xsimd::cpu_features();
+
+  *hardware_flags |= cpu.popcnt() ? CpuInfo::POPCNT : 0;
+  *hardware_flags |= cpu.bmi1() ? CpuInfo::BMI1 : 0;
+  *hardware_flags |= cpu.bmi2() ? CpuInfo::BMI2 : 0;
+
+  // SSE
+  *hardware_flags |= cpu.ssse3() ? CpuInfo::SSSE3 : 0;
+  *hardware_flags |= cpu.sse4_1() ? CpuInfo::SSE4_1 : 0;
+  *hardware_flags |= cpu.sse4_2() ? CpuInfo::SSE4_2 : 0;
+  // AVX
+  *hardware_flags |= cpu.avx() ? CpuInfo::AVX : 0;
+  *hardware_flags |= cpu.avx2() ? CpuInfo::AVX2 : 0;
+  // AVX 512
+  const bool avx512f = cpu.avx512f();
+  *hardware_flags |= cpu.avx512f() ? CpuInfo::AVX512F : 0;
+  *hardware_flags |= cpu.avx512cd() ? CpuInfo::AVX512CD : 0;
+  *hardware_flags |= cpu.avx512dq() ? CpuInfo::AVX512DQ : 0;
+  *hardware_flags |= cpu.avx512bw() ? CpuInfo::AVX512BW : 0;
+  // TODO(xsimd): Missing in xsimd 14.2.0 but fixed afterwards.
+  // Can be replaced with the following (no `if(avx512f)` required).
+  // *hardware_flags |= cpu.avx512vl() ? CpuInfo::AVX512VL : 0;
+  if (avx512f) {
+    const auto cpu_x86 = xsimd::x86_cpu_features_backend_default();
+    auto constexpr avx512vl = static_cast<xsimd::x86_cpuid_leaf7::ebx>(31);
+    *hardware_flags |= cpu_x86.leaf7().all_bits_set<avx512vl>() ? CpuInfo::AVX512VL : 0;
+  }
+
+  // Neon
+  *hardware_flags |= cpu.neon64() ? CpuInfo::ASIMD : 0;
+  // SVE and length
+  // Running SVE128 on a SVE256 machine is more tricky than the x86 equivalent of
+  // running SSE code on an AVX machine and requires to explicitly change the
+  // vector length using `prctl` (per thread setting).
+  const bool sve = cpu.sve();
+  const auto sve_size = cpu.sve_size_bytes();
+  *hardware_flags |= sve ? CpuInfo::SVE : 0;
+  *hardware_flags |= (sve && sve_size == 16) ? CpuInfo::SVE128 : 0;
+  *hardware_flags |= (sve && sve_size == 32) ? CpuInfo::SVE256 : 0;
+  *hardware_flags |= (sve && sve_size == 64) ? CpuInfo::SVE512 : 0;
+
+  // x86 only
+  switch (cpu.known_manufacturer()) {
+    case (xsimd::x86_manufacturer::intel):
+      *vendor = CpuInfo::Vendor::Intel;
+      break;
+    case (xsimd::x86_manufacturer::amd):
+      *vendor = CpuInfo::Vendor::AMD;
+      break;
+    default: {
+    }
+  }
+}
 
 //============================== OS Dependent ==============================//
 
 #if defined(_WIN32)
 //------------------------------ WINDOWS ------------------------------//
-void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
+template <std::size_t N>
+void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
+  static_assert(N >= 3);
   PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
   PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer_position = nullptr;
   DWORD buffer_size = 0;
@@ -110,7 +153,8 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   while (offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= buffer_size) {
     if (RelationCache == buffer_position->Relationship) {
       PCACHE_DESCRIPTOR cache = &buffer_position->Cache;
-      if (cache->Level >= 1 && cache->Level <= kCacheLevels) {
+      using level_t = decltype(cache->Level);
+      if (cache->Level >= 1 && cache->Level <= static_cast<level_t>(N)) {
         const int64_t current = (*cache_sizes)[cache->Level - 1];
         (*cache_sizes)[cache->Level - 1] = std::max<int64_t>(current, cache->Size);
       }
@@ -121,111 +165,6 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
 
   free(buffer);
 }
-
-#  if defined(CPUINFO_ARCH_X86)
-// On x86, get CPU features by cpuid, https://en.wikipedia.org/wiki/CPUID
-
-#    if defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 5
-void __cpuidex(int CPUInfo[4], int function_id, int subfunction_id) {
-  __asm__ __volatile__("cpuid"
-                       : "=a"(CPUInfo[0]), "=b"(CPUInfo[1]), "=c"(CPUInfo[2]),
-                         "=d"(CPUInfo[3])
-                       : "a"(function_id), "c"(subfunction_id));
-}
-
-int64_t _xgetbv(int xcr) {
-  int out = 0;
-  __asm__ __volatile__("xgetbv" : "=a"(out) : "c"(xcr) : "%edx");
-  return out;
-}
-#    endif  // MINGW
-
-void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
-                       std::string* model_name) {
-  int register_EAX_id = 1;
-  int highest_valid_id = 0;
-  int highest_extended_valid_id = 0;
-  std::bitset<32> features_ECX;
-  std::array<int, 4> cpu_info = {};
-
-  // Get highest valid id
-  __cpuid(cpu_info.data(), 0);
-  highest_valid_id = cpu_info[0];
-  // HEX of "GenuineIntel": 47656E75 696E6549 6E74656C
-  // HEX of "AuthenticAMD": 41757468 656E7469 63414D44
-  if (cpu_info[1] == 0x756e6547 && cpu_info[3] == 0x49656e69 &&
-      cpu_info[2] == 0x6c65746e) {
-    *vendor = CpuInfo::Vendor::Intel;
-  } else if (cpu_info[1] == 0x68747541 && cpu_info[3] == 0x69746e65 &&
-             cpu_info[2] == 0x444d4163) {
-    *vendor = CpuInfo::Vendor::AMD;
-  }
-
-  if (highest_valid_id <= register_EAX_id) {
-    return;
-  }
-
-  // EAX=1: Processor Info and Feature Bits
-  __cpuidex(cpu_info.data(), register_EAX_id, 0);
-  features_ECX = cpu_info[2];
-
-  // Get highest extended id
-  __cpuid(cpu_info.data(), 0x80000000);
-  highest_extended_valid_id = cpu_info[0];
-
-  // Retrieve CPU model name
-  if (highest_extended_valid_id >= static_cast<int>(0x80000004)) {
-    model_name->clear();
-    for (int i = 0x80000002; i <= static_cast<int>(0x80000004); ++i) {
-      __cpuidex(cpu_info.data(), i, 0);
-      *model_name +=
-          std::string(reinterpret_cast<char*>(cpu_info.data()), sizeof(cpu_info));
-    }
-  }
-
-  bool zmm_enabled = false;
-  bool ymm_enabled = false;
-  if (features_ECX[27]) {  // OSXSAVE
-    // Query if the OS supports saving YMM and ZMM registers when switching contexts
-    int64_t xcr0 = _xgetbv(0);
-    zmm_enabled = (xcr0 & 0xE0) == 0xE0;
-    ymm_enabled = (xcr0 & 0b110) == 0b110;
-  }
-
-  if (features_ECX[9]) *hardware_flags |= CpuInfo::SSSE3;
-  if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
-  if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
-  if (features_ECX[23]) *hardware_flags |= CpuInfo::POPCNT;
-  if (ymm_enabled && features_ECX[28]) *hardware_flags |= CpuInfo::AVX;
-
-  // cpuid with EAX=7, ECX=0: Extended Features
-  register_EAX_id = 7;
-  if (highest_valid_id > register_EAX_id) {
-    __cpuidex(cpu_info.data(), register_EAX_id, 0);
-    std::bitset<32> features_EBX = cpu_info[1];
-
-    if (features_EBX[3]) *hardware_flags |= CpuInfo::BMI1;
-    if (features_EBX[8]) *hardware_flags |= CpuInfo::BMI2;
-    // Only use AVX/AVX2 if enabled by the OS
-    if (ymm_enabled && features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
-    // ARROW-11427: only use AVX512 if enabled by the OS
-    if (ymm_enabled && zmm_enabled) {
-      if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
-      if (features_EBX[17]) *hardware_flags |= CpuInfo::AVX512DQ;
-      if (features_EBX[28]) *hardware_flags |= CpuInfo::AVX512CD;
-      if (features_EBX[30]) *hardware_flags |= CpuInfo::AVX512BW;
-      if (features_EBX[31]) *hardware_flags |= CpuInfo::AVX512VL;
-    }
-  }
-}
-#  elif defined(CPUINFO_ARCH_ARM)
-// Windows on Arm
-void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
-                       std::string* model_name) {
-  *hardware_flags |= CpuInfo::ASIMD;
-  // TODO: vendor, model_name
-}
-#  endif
 
 #elif defined(__APPLE__)
 //------------------------------ MACOS ------------------------------//
@@ -244,8 +183,9 @@ std::optional<int64_t> IntegerSysCtlByName(const char* name) {
   return std::nullopt;
 }
 
-void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
-  static_assert(kCacheLevels >= 3, "");
+template <std::size_t N>
+void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
+  static_assert(N >= 3);
   auto c = IntegerSysCtlByName("hw.l1dcachesize");
   if (c.has_value()) {
     (*cache_sizes)[0] = *c;
@@ -260,61 +200,21 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   }
 }
 
-void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
-                       std::string* model_name) {
-  // hardware_flags
-  struct SysCtlCpuFeature {
-    const char* name;
-    int64_t flag;
-  };
-  std::vector<SysCtlCpuFeature> features = {
-#  if defined(CPUINFO_ARCH_X86)
-      {"hw.optional.sse4_2",
-       CpuInfo::SSSE3 | CpuInfo::SSE4_1 | CpuInfo::SSE4_2 | CpuInfo::POPCNT},
-      {"hw.optional.avx1_0", CpuInfo::AVX},
-      {"hw.optional.avx2_0", CpuInfo::AVX2},
-      {"hw.optional.bmi1", CpuInfo::BMI1},
-      {"hw.optional.bmi2", CpuInfo::BMI2},
-      {"hw.optional.avx512f", CpuInfo::AVX512F},
-      {"hw.optional.avx512cd", CpuInfo::AVX512CD},
-      {"hw.optional.avx512dq", CpuInfo::AVX512DQ},
-      {"hw.optional.avx512bw", CpuInfo::AVX512BW},
-      {"hw.optional.avx512vl", CpuInfo::AVX512VL},
-#  elif defined(CPUINFO_ARCH_ARM)
-      // ARM64 (note that this is exposed under Rosetta as well)
-      {"hw.optional.neon", CpuInfo::ASIMD},
-#  endif
-  };
-  for (const auto& feature : features) {
-    auto v = IntegerSysCtlByName(feature.name);
-    if (v.value_or(0)) {
-      *hardware_flags |= feature.flag;
-    }
-  }
-
-  // TODO: vendor, model_name
-}
-
-#else
+#elif defined(__linux__)
 //------------------------------ LINUX ------------------------------//
-#  if defined(CPUINFO_ARCH_ARM)
-#    include <asm/hwcap.h>
-#    include <sys/auxv.h>
-#    include <sys/prctl.h>
-#  endif
 
 // Get cache size, return 0 on error
 int64_t LinuxGetCacheSize(int level) {
   // get cache size by sysconf()
 #  ifdef _SC_LEVEL1_DCACHE_SIZE
-  const int kCacheSizeConf[] = {
+  constexpr auto kCacheSizeConf = std::array<int, 3>{
       _SC_LEVEL1_DCACHE_SIZE,
       _SC_LEVEL2_CACHE_SIZE,
       _SC_LEVEL3_CACHE_SIZE,
   };
-  static_assert(sizeof(kCacheSizeConf) / sizeof(kCacheSizeConf[0]) == kCacheLevels, "");
 
   errno = 0;
+  DCHECK(0 <= level && static_cast<std::size_t>(level) < kCacheSizeConf.size());
   const int64_t cache_size = sysconf(kCacheSizeConf[level]);
   if (errno == 0 && cache_size > 0) {
     return cache_size;
@@ -322,13 +222,13 @@ int64_t LinuxGetCacheSize(int level) {
 #  endif
 
   // get cache size from sysfs if sysconf() fails or not supported
-  const char* kCacheSizeSysfs[] = {
+  constexpr auto kCacheSizeSysfs = std::array<const char*, 3>{
       "/sys/devices/system/cpu/cpu0/cache/index0/size",  // l1d (index1 is l1i)
       "/sys/devices/system/cpu/cpu0/cache/index2/size",  // l2
       "/sys/devices/system/cpu/cpu0/cache/index3/size",  // l3
   };
-  static_assert(sizeof(kCacheSizeSysfs) / sizeof(kCacheSizeSysfs[0]) == kCacheLevels, "");
 
+  DCHECK(0 <= level && static_cast<std::size_t>(level) < kCacheSizeSysfs.size());
   std::ifstream cacheinfo(kCacheSizeSysfs[level], std::ios::in);
   if (!cacheinfo) {
     return 0;
@@ -349,44 +249,10 @@ int64_t LinuxGetCacheSize(int level) {
   return static_cast<int64_t>(size);
 }
 
-// Helper function to parse for hardware flags from /proc/cpuinfo
-// values contains a list of space-separated flags.  check to see if the flags we
-// care about are present.
-// Returns a bitmap of flags.
-int64_t LinuxParseCpuFlags(const std::string& values) {
-#  if defined(CPUINFO_ARCH_X86) || defined(CPUINFO_ARCH_ARM)
-  const struct {
-    std::string name;
-    int64_t flag;
-  } flag_mappings[] = {
-#    if defined(CPUINFO_ARCH_X86)
-      {"ssse3", CpuInfo::SSSE3},       {"sse4_1", CpuInfo::SSE4_1},
-      {"sse4_2", CpuInfo::SSE4_2},     {"popcnt", CpuInfo::POPCNT},
-      {"avx", CpuInfo::AVX},           {"avx2", CpuInfo::AVX2},
-      {"avx512f", CpuInfo::AVX512F},   {"avx512cd", CpuInfo::AVX512CD},
-      {"avx512vl", CpuInfo::AVX512VL}, {"avx512dq", CpuInfo::AVX512DQ},
-      {"avx512bw", CpuInfo::AVX512BW}, {"bmi1", CpuInfo::BMI1},
-      {"bmi2", CpuInfo::BMI2},
-#    elif defined(CPUINFO_ARCH_ARM)
-      {"asimd", CpuInfo::ASIMD},
-#    endif
-  };
-  const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
-
-  int64_t flags = 0;
-  for (int i = 0; i < num_flags; ++i) {
-    if (values.find(flag_mappings[i].name) != std::string::npos) {
-      flags |= flag_mappings[i].flag;
-    }
-  }
-  return flags;
-#  else
-  return 0;
-#  endif
-}
-
-void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
-  for (int i = 0; i < kCacheLevels; ++i) {
+template <std::size_t N>
+void OsRetrieveCacheSize(std::array<int64_t, N>* cache_sizes) {
+  static_assert(N <= 3);
+  for (int i = 0; i < static_cast<int>(N); ++i) {
     const int64_t cache_size = LinuxGetCacheSize(i);
     if (cache_size > 0) {
       (*cache_sizes)[i] = cache_size;
@@ -394,59 +260,18 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
   }
 }
 
-// Read from /proc/cpuinfo
-// TODO: vendor, model_name for Arm
-void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
-                       std::string* model_name) {
-  std::ifstream cpuinfo("/proc/cpuinfo", std::ios::in);
-  while (cpuinfo) {
-    std::string line;
-    std::getline(cpuinfo, line);
-    const size_t colon = line.find(':');
-    if (colon != std::string::npos) {
-      const std::string name = TrimString(line.substr(0, colon - 1));
-      const std::string value = TrimString(line.substr(colon + 1, std::string::npos));
-      if (name.compare("flags") == 0 || name.compare("Features") == 0) {
-        *hardware_flags |= LinuxParseCpuFlags(value);
-      } else if (name.compare("model name") == 0) {
-        *model_name = value;
-      } else if (name.compare("vendor_id") == 0) {
-        if (value.compare("GenuineIntel") == 0) {
-          *vendor = CpuInfo::Vendor::Intel;
-        } else if (value.compare("AuthenticAMD") == 0) {
-          *vendor = CpuInfo::Vendor::AMD;
-        }
-      }
-    }
-  }
+#else
 
-#  if defined(CPUINFO_ARCH_ARM)
-  // Detect SVE and vector length via getauxval/prctl (more reliable than /proc/cpuinfo)
-#    ifdef HWCAP_SVE
-  const auto hwcap = getauxval(AT_HWCAP);
-  if (hwcap & HWCAP_SVE) {
-    *hardware_flags |= CpuInfo::SVE;
-#      ifdef PR_SVE_GET_VL
-    const int vl = prctl(PR_SVE_GET_VL);
-    assert(vl >= 0);
-    // prctl returns vector length in bytes; mask off status flags
-    const int vl_bytes = vl & PR_SVE_VL_LEN_MASK;
-    // Running SVE128 on a SVE256 machine is more tricky than the x86 equivalent of
-    // running SSE code on an AVX machine and requires to explicitly change the
-    // vector length using `prctl` (per thread setting).
-    if (vl_bytes == 16) *hardware_flags |= CpuInfo::SVE128;  // 128 bits
-    if (vl_bytes == 32) *hardware_flags |= CpuInfo::SVE256;  // 256 bits
-    if (vl_bytes == 64) *hardware_flags |= CpuInfo::SVE512;  // 512 bits
-#      endif  // PR_SVE_GET_VL
-  }
-#    endif    // HWCAP_SVE
-#  endif      // CPUINFO_ARCH_ARM
+template <std::size_t N>
+void OsRetrieveCacheSize(std::array<int64_t, N>* /* cache_sizes */) {
+  // NoOp, will be defaulted by CpuInfo::CacheSize
 }
-#endif        // WINDOWS, MACOS, LINUX
+
+#endif  // WINDOWS, MACOS, LINUX
 
 //============================== Arch Dependent ==============================//
 
-#if defined(CPUINFO_ARCH_X86)
+#if XSIMD_TARGET_X86
 //------------------------------ X86_64 ------------------------------//
 bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
   enum {
@@ -498,7 +323,7 @@ void ArchVerifyCpuRequirements(const CpuInfo* ci) {
 #  endif
 }
 
-#elif defined(CPUINFO_ARCH_ARM)
+#elif XSIMD_TARGET_ARM64
 //------------------------------ AARCH64 ------------------------------//
 bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
   enum {
@@ -550,95 +375,64 @@ void ArchVerifyCpuRequirements(const CpuInfo* ci) {}
 
 }  // namespace
 
-struct CpuInfo::Impl {
-  int64_t hardware_flags = 0;
-  int num_cores = 0;
-  int64_t original_hardware_flags = 0;
-  Vendor vendor = Vendor::Unknown;
-  std::string model_name = "Unknown";
-  std::array<int64_t, kCacheLevels> cache_sizes{};
+CpuInfo::CpuInfo() {
+  OsRetrieveCacheSize(&cache_sizes_);
+  OsRetrieveCpuInfo(&hardware_flags_, &vendor_);
+  original_hardware_flags_ = hardware_flags_;
+  num_cores_ = std::max(static_cast<int>(std::thread::hardware_concurrency()), 1);
 
-  Impl() {
-    OsRetrieveCacheSize(&cache_sizes);
-    OsRetrieveCpuInfo(&hardware_flags, &vendor, &model_name);
-    original_hardware_flags = hardware_flags;
-    num_cores = std::max(static_cast<int>(std::thread::hardware_concurrency()), 1);
-
-    // parse user simd level
-    auto maybe_env_var = GetEnvVar("ARROW_USER_SIMD_LEVEL");
-    if (!maybe_env_var.ok()) {
-      return;
-    }
-    std::string s = *std::move(maybe_env_var);
-    std::transform(s.begin(), s.end(), s.begin(),
-                   [](unsigned char c) { return std::toupper(c); });
-    if (!ArchParseUserSimdLevel(s, &hardware_flags)) {
-      ARROW_LOG(WARNING) << "Invalid value for ARROW_USER_SIMD_LEVEL: " << s;
-    }
+  // parse user simd level
+  auto maybe_env_var = GetEnvVar("ARROW_USER_SIMD_LEVEL");
+  if (!maybe_env_var.ok()) {
+    return;
   }
-
-  void EnableFeature(int64_t flag, bool enable) {
-    if (!enable) {
-      hardware_flags &= ~flag;
-    } else {
-      // Can't turn something on that can't be supported
-      DCHECK_EQ((~original_hardware_flags) & flag, 0);
-      hardware_flags |= (flag & original_hardware_flags);
-    }
+  std::string s = *std::move(maybe_env_var);
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::toupper(c); });
+  if (!ArchParseUserSimdLevel(s, &hardware_flags_)) {
+    ARROW_LOG(WARNING) << "Invalid value for ARROW_USER_SIMD_LEVEL: " << s;
   }
-};
-
-CpuInfo::~CpuInfo() = default;
-
-CpuInfo::CpuInfo() : impl_(new Impl) {}
+}
 
 const CpuInfo* CpuInfo::GetInstance() {
-  static CpuInfo cpu_info;
+  static const CpuInfo cpu_info;
   return &cpu_info;
 }
 
-int64_t CpuInfo::hardware_flags() const { return impl_->hardware_flags; }
-
-int CpuInfo::num_cores() const { return impl_->num_cores <= 0 ? 1 : impl_->num_cores; }
-
-CpuInfo::Vendor CpuInfo::vendor() const { return impl_->vendor; }
-
-const std::string& CpuInfo::model_name() const { return impl_->model_name; }
-
 int64_t CpuInfo::CacheSize(CacheLevel level) const {
-  constexpr int64_t kDefaultCacheSizes[] = {
+  constexpr auto kDefaultCacheSizes = std::array<int64_t, 3>{
       32 * 1024,    // Level 1: 32K
       256 * 1024,   // Level 2: 256K
       3072 * 1024,  // Level 3: 3M
   };
-  static_assert(
-      sizeof(kDefaultCacheSizes) / sizeof(kDefaultCacheSizes[0]) == kCacheLevels, "");
+  static_assert(kDefaultCacheSizes.size() == kCacheLevels);
 
-  static_assert(static_cast<int>(CacheLevel::L1) == 0, "");
+  static_assert(static_cast<int>(CacheLevel::L1) == 0);
   const int i = static_cast<int>(level);
-  if (impl_->cache_sizes[i] > 0) return impl_->cache_sizes[i];
+  if (cache_sizes_[i] > 0) return cache_sizes_[i];
   if (i == 0) return kDefaultCacheSizes[0];
   // l3 may be not available, return maximum of l2 or default size
-  return std::max(kDefaultCacheSizes[i], impl_->cache_sizes[i - 1]);
+  return std::max(kDefaultCacheSizes[i], cache_sizes_[i - 1]);
 }
 
 bool CpuInfo::IsSupported(int64_t flags) const {
-  return (impl_->hardware_flags & flags) == flags;
+  return (hardware_flags_ & flags) == flags;
 }
 
 bool CpuInfo::IsDetected(int64_t flags) const {
-  return (impl_->original_hardware_flags & flags) == flags;
+  return (original_hardware_flags_ & flags) == flags;
 }
 
 void CpuInfo::VerifyCpuRequirements() const { return ArchVerifyCpuRequirements(this); }
 
 void CpuInfo::EnableFeature(int64_t flag, bool enable) {
-  impl_->EnableFeature(flag, enable);
+  if (!enable) {
+    hardware_flags_ &= ~flag;
+  } else {
+    // Can't turn something on that can't be supported
+    DCHECK_EQ((~original_hardware_flags_) & flag, 0);
+    hardware_flags_ |= (flag & original_hardware_flags_);
+  }
 }
 
-}  // namespace internal
-}  // namespace arrow
-
-#undef CPUINFO_ARCH_X86
-#undef CPUINFO_ARCH_ARM
-#undef CPUINFO_ARCH_PPC
+}  // namespace arrow::internal

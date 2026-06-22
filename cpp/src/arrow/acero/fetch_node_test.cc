@@ -80,6 +80,28 @@ TEST(FetchNode, Basic) {
   CheckFetch({0, 0});
 }
 
+TEST(FetchNode, RecordBatchReaderSource) {
+  constexpr random::SeedType kSeed = 42;
+  constexpr int kJitterMod = 4;
+  FetchNodeOptions options{20, 50};
+  RegisterTestNodes();
+  std::shared_ptr<Table> input = TestTable();
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "threaded" : "serial");
+    auto reader = std::make_shared<TableBatchReader>(input);
+    Declaration plan = Declaration::Sequence(
+        {{"record_batch_reader_source", RecordBatchReaderSourceNodeOptions{reader}},
+         {"jitter", JitterNodeOptions(kSeed, kJitterMod)},
+         {"fetch", options}});
+    QueryOptions query_options;
+    query_options.use_threads = use_threads;
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> actual,
+                         DeclarationToTable(plan, query_options));
+    std::shared_ptr<Table> expected = input->Slice(options.offset, options.count);
+    AssertTablesEqual(*expected, *actual);
+  }
+}
+
 TEST(FetchNode, Invalid) {
   CheckFetchInvalid({-1, 10}, "`offset` must be non-negative");
   CheckFetchInvalid({10, -1}, "`count` must be non-negative");

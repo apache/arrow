@@ -1550,6 +1550,11 @@ message ActionCreatePreparedStatementResult {
   // If the query provided contained parameters, parameter_schema contains the
   // schema of the expected parameters.  It should be an IPC-encapsulated Schema, as described in Schema.fbs.
   bytes parameter_schema = 3;
+
+  // When set to true, the query should be executed with CommandPreparedStatementUpdate,
+  // when set to false, the query should be executed with CommandPreparedStatementQuery.
+  // If not set, the client can choose how to execute the query.
+  optional bool is_update = 4;
 }
 
 /*

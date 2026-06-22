@@ -105,4 +105,20 @@ extern FileSystemGlobalOptions global_options;
 ARROW_EXPORT
 Status UnregisterFileSystemFactory(const std::string& scheme);
 
+template <typename T>
+Result<T> GetOption(const std::string& key, const std::any& value) {
+  if (const auto* v = std::any_cast<T>(&value)) {
+    return *v;
+  }
+  return Status::Invalid("Filesystem option '", key, "' has the wrong type");
+}
+
+template <typename T>
+Result<std::shared_ptr<const T>> GetConstSharedPtrOption(const std::string& key,
+                                                         const std::any& value) {
+  if (const auto* v = std::any_cast<std::shared_ptr<const T>>(&value)) return *v;
+  if (const auto* v = std::any_cast<std::shared_ptr<T>>(&value)) return *v;
+  return Status::Invalid("Filesystem option '", key, "' has the wrong type");
+}
+
 }  // namespace arrow::fs::internal

@@ -91,9 +91,9 @@ TEST(BloomFilterBuilder, BasicRoundTrip) {
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
   schema.Init(root);
 
-  BloomFilterOptions bloom_filter_options{100, 0.05};
+  BloomFilterOptions bloom_filter_options{.ndv = 100, .fpp = 0.05};
   const auto bitset_size = BlockSplitBloomFilter::OptimalNumOfBytes(
-      bloom_filter_options.ndv, bloom_filter_options.fpp);
+      bloom_filter_options.ndv.value(), bloom_filter_options.fpp);
   WriterProperties::Builder properties_builder;
   properties_builder.enable_bloom_filter("c1", bloom_filter_options);
   auto writer_properties = properties_builder.build();
@@ -150,6 +150,121 @@ TEST(BloomFilterBuilder, BasicRoundTrip) {
   }
 }
 
+namespace {
+
+struct BloomFilterBuilderFoldingTestCase {
+  int64_t ndv;
+  bool fold;
+  int32_t inserted_count;
+  int64_t expected_bitset_ndv;
+};
+
+void PrintTo(const BloomFilterBuilderFoldingTestCase& test_case, std::ostream* os) {
+  *os << "{ndv=" << test_case.ndv << ", fold=" << test_case.fold
+      << ", inserted_count=" << test_case.inserted_count
+      << ", expected_bitset_ndv=" << test_case.expected_bitset_ndv << "}";
+}
+
+class BloomFilterBuilderFoldingTest
+    : public ::testing::TestWithParam<BloomFilterBuilderFoldingTestCase> {};
+
+}  // namespace
+
+TEST_P(BloomFilterBuilderFoldingTest, RespectsOption) {
+  const auto& test_case = GetParam();
+
+  SchemaDescriptor schema;
+  schema::NodePtr root =
+      schema::GroupNode::Make("schema", Repetition::REPEATED, {schema::ByteArray("c1")});
+  schema.Init(root);
+
+  constexpr double kFpp = 0.05;
+  BloomFilterOptions bloom_filter_options{
+      .ndv = test_case.ndv, .fpp = kFpp, .fold = test_case.fold};
+  const auto initial_bitset_size = BlockSplitBloomFilter::OptimalNumOfBytes(
+      bloom_filter_options.ndv.value(), bloom_filter_options.fpp);
+  WriterProperties::Builder properties_builder;
+  properties_builder.enable_bloom_filter("c1", bloom_filter_options);
+  auto writer_properties = properties_builder.build();
+  auto bloom_filter_builder = BloomFilterBuilder::Make(&schema, writer_properties.get());
+
+  bloom_filter_builder->AppendRowGroup();
+  auto bloom_filter = bloom_filter_builder->CreateBloomFilter(/*column_ordinal=*/0);
+  ASSERT_NE(bloom_filter, nullptr);
+  ASSERT_EQ(initial_bitset_size, bloom_filter->GetBitsetSize());
+
+  std::vector<uint64_t> hashes;
+  hashes.reserve(test_case.inserted_count);
+  for (int32_t i = 0; i < test_case.inserted_count; ++i) {
+    const auto hash = bloom_filter->Hash(i);
+    hashes.push_back(hash);
+    bloom_filter->InsertHash(hash);
+  }
+
+  auto sink = CreateOutputStream();
+  auto locations = bloom_filter_builder->WriteTo(sink.get());
+  ASSERT_EQ(locations.size(), 1);
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  const auto& location = locations.front().second;
+  ReaderProperties reader_properties;
+  ::arrow::io::BufferReader reader(
+      ::arrow::SliceBuffer(buffer, location.offset, location.length));
+  auto filter = parquet::BlockSplitBloomFilter::Deserialize(reader_properties, &reader);
+
+  const auto actual_bitset_size = filter.GetBitsetSize();
+  EXPECT_EQ(BlockSplitBloomFilter::OptimalNumOfBytes(test_case.expected_bitset_ndv, kFpp),
+            actual_bitset_size);
+
+  if (test_case.fold) {
+    EXPECT_LE(actual_bitset_size, initial_bitset_size);
+  } else {
+    EXPECT_EQ(actual_bitset_size, initial_bitset_size);
+  }
+
+  for (uint64_t hash : hashes) {
+    EXPECT_TRUE(filter.FindHash(hash));
+  }
+
+  int32_t false_positives = 0;
+  constexpr int32_t kNonInsertedCount = 10'000;
+  for (int32_t i = test_case.inserted_count;
+       i < test_case.inserted_count + kNonInsertedCount; ++i) {
+    false_positives += filter.FindHash(filter.Hash(i));
+  }
+  const auto sample_fpp = static_cast<double>(false_positives) / kNonInsertedCount;
+  EXPECT_LT(sample_fpp, kFpp);
+
+  if (test_case.fold && test_case.inserted_count > 0) {
+    // If the actual fpp, as computed on this sample, is significantly below kFpp / 2,
+    // then we could have folded the bloom filter at least once more.
+    EXPECT_GT(sample_fpp, kFpp / 2.1);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BloomFilterBuilder, BloomFilterBuilderFoldingTest,
+    ::testing::Values(BloomFilterBuilderFoldingTestCase{.ndv = 1'000'000,
+                                                        .fold = true,
+                                                        .inserted_count = 1000,
+                                                        .expected_bitset_ndv = 1000},
+                      BloomFilterBuilderFoldingTestCase{.ndv = 1'000'000,
+                                                        .fold = false,
+                                                        .inserted_count = 1000,
+                                                        .expected_bitset_ndv = 1'000'000},
+                      BloomFilterBuilderFoldingTestCase{.ndv = 1024,
+                                                        .fold = true,
+                                                        .inserted_count = 1024,
+                                                        .expected_bitset_ndv = 1024},
+                      BloomFilterBuilderFoldingTestCase{.ndv = 1024,
+                                                        .fold = true,
+                                                        .inserted_count = 0,
+                                                        .expected_bitset_ndv = 0},
+                      BloomFilterBuilderFoldingTestCase{.ndv = 1024,
+                                                        .fold = false,
+                                                        .inserted_count = 0,
+                                                        .expected_bitset_ndv = 1024}));
+
 TEST(BloomFilterBuilder, InvalidOperations) {
   SchemaDescriptor schema;
   schema::NodePtr root = schema::GroupNode::Make(
@@ -158,7 +273,7 @@ TEST(BloomFilterBuilder, InvalidOperations) {
   schema.Init(root);
 
   WriterProperties::Builder properties_builder;
-  BloomFilterOptions bloom_filter_options{100, 0.05};
+  BloomFilterOptions bloom_filter_options{.ndv = 100, .fpp = 0.05};
   properties_builder.enable_bloom_filter("c1", bloom_filter_options);
   properties_builder.enable_bloom_filter("c2", bloom_filter_options);
   auto properties = properties_builder.build();

@@ -64,6 +64,11 @@ publicly on the [arrow-dev mailing-list](https://mail-archives.apache.org/mod_mb
 
 You can also ask on the mailing-list, see above.
 
+## Are you using AI coding tools?
+
+Please review our [AI-generated code guidance](https://arrow.apache.org/docs/dev/developers/overview.html#ai-generated-code)
+before submitting AI-assisted contributions.
+
 ## Further information
 
 Please read our [development documentation](https://arrow.apache.org/docs/developers/index.html)

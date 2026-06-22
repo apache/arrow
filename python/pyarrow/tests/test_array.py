@@ -1532,6 +1532,41 @@ def test_union_array_to_pylist_with_nulls():
     assert arr.to_pylist() == [0.0, True, 1.1, None, 3.3, None, False]
 
 
+def test_sparse_union_array_slice_with_nulls():
+    # GH-50105: Sliced sparse union element access can return incorrect values.
+    type_ids = pa.array([0, 1, 0, 1, 0], type=pa.int8())
+    arr = pa.UnionArray.from_sparse(
+        type_ids,
+        [
+            pa.array([None, 20, 30, 40, 50]),
+            pa.array(["a", "b", "c", None, "e"]),
+        ],
+    )
+
+    # arr == [None, "b", 30, None, 50].
+    def check_values(array, expected):
+        assert [array[i].as_py() for i in range(len(array))] == expected
+        assert array.to_pylist() == expected
+
+    check_values(arr, [None, "b", 30, None, 50])
+
+    # arr.slice(1, 4) == ["b", 30, None, 50].
+    check_values(arr.slice(1, 4), ["b", 30, None, 50])
+
+    ints_with_offset = pa.array([999, None, 20, 30, 40, 50],
+                                type=pa.int64())[1:]
+    strs_with_offset = pa.array(["z", "a", "b", "c", None, "e"])[1:]
+    arr_with_sliced_children = pa.UnionArray.from_sparse(
+        type_ids, [ints_with_offset, strs_with_offset]
+    )
+
+    # arr_with_sliced_children == [None, "b", 30, None, 50].
+    check_values(arr_with_sliced_children, [None, "b", 30, None, 50])
+
+    # arr_with_sliced_children.slice(1, 4) == ["b", 30, None, 50].
+    check_values(arr_with_sliced_children.slice(1, 4), ["b", 30, None, 50])
+
+
 def test_union_array_slice():
     # ARROW-2314
     arr = pa.UnionArray.from_sparse(pa.array([0, 0, 1, 1], type=pa.int8()),
@@ -4317,7 +4352,7 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
 
 
 def test_non_cpu_array():
-    cuda = pytest.importorskip("pyarrow.cuda")
+    cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)

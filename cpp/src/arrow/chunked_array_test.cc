@@ -202,7 +202,11 @@ TEST_F(TestChunkedArray, ApproxEquals) {
   auto options = EqualOptions::Defaults().atol(1e-3);
 
   ASSERT_FALSE(chunked_array_1->Equals(chunked_array_2));
+  ASSERT_TRUE(chunked_array_1->Equals(chunked_array_2, options));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(chunked_array_1->Equals(chunked_array_2, options.use_atol(true)));
+  ASSERT_FALSE(chunked_array_1->Equals(chunked_array_2, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   ASSERT_TRUE(chunked_array_1->ApproxEquals(*chunked_array_2, options));
 }
 

@@ -237,7 +237,11 @@ const char* ExtractHolder::operator()(ExecutionContext* ctx, const char* user_in
                                       int32_t user_input_len, int32_t extract_index,
                                       int32_t* out_length) {
   if (extract_index < 0 || extract_index >= num_groups_pattern_) {
-    ctx->set_error_msg("Index to extract out of range");
+    std::string err_msg = "REGEXP_EXTRACT: invalid group_index '" +
+                          std::to_string(extract_index) + "'; must be between 0 and " +
+                          std::to_string(num_groups_pattern_ - 1) +
+                          " (the number of capture groups in the pattern)";
+    ctx->set_error_msg(err_msg.c_str());
     *out_length = 0;
     return "";
   }

@@ -44,6 +44,7 @@
 #include "parquet/geospatial/statistics.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
 #include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
@@ -252,12 +253,39 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
-static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
+// Selects how thrift Statistics min/max fields should populate EncodedStatistics.
+enum class StatisticsMinMaxField {
+  // Do not populate min/max, because the ordering is undefined or unsupported.
+  kInvalid,
+  // Populate min/max from the min_value/max_value fields.
+  kMinValueMaxValue,
+  // Populate min/max from the legacy min/max fields.
+  kLegacyMinMax,
+};
+
+// Keep this field-selection logic consistent with ColumnDescriptor::can_use_min_max().
+static inline StatisticsMinMaxField GetStatisticsMinMaxField(
+    const ColumnDescriptor& descr) {
+  switch (descr.column_order().get_order()) {
+    case ColumnOrder::TYPE_DEFINED_ORDER:
+      return descr.sort_order() != SortOrder::UNKNOWN
+                 ? StatisticsMinMaxField::kMinValueMaxValue
+                 : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::UNDEFINED:
+      return descr.sort_order() == SortOrder::SIGNED
+                 ? StatisticsMinMaxField::kLegacyMinMax
+                 : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::UNKNOWN:
+      return StatisticsMinMaxField::kInvalid;
+  }
+  return StatisticsMinMaxField::kInvalid;
+}
+
+static inline EncodedStatistics FromThrift(const format::Statistics& stats,
+                                           StatisticsMinMaxField min_max) {
   EncodedStatistics out;
 
-  // Use the new V2 min-max statistics over the former one if it is filled
-  if (stats.__isset.max_value || stats.__isset.min_value) {
-    // TODO: check if the column_order is TYPE_DEFINED_ORDER.
+  if (min_max == StatisticsMinMaxField::kMinValueMaxValue) {
     if (stats.__isset.max_value) {
       out.set_max(stats.max_value);
       if (stats.__isset.is_max_value_exact) {
@@ -270,9 +298,7 @@ static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
         out.is_min_value_exact = stats.is_min_value_exact;
       }
     }
-  } else if (stats.__isset.max || stats.__isset.min) {
-    // TODO: check created_by to see if it is corrupted for some types.
-    // TODO: check if the sort_order is SIGNED.
+  } else if (min_max == StatisticsMinMaxField::kLegacyMinMax) {
     if (stats.__isset.max) {
       out.set_max(stats.max);
     }

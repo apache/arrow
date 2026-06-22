@@ -76,8 +76,10 @@ jobs:
 
   package:
     permissions:
-      # Upload to GitHub Release
+      # Upload artifacts to GitHub Release
       contents: write
+      # Upload cached Docker images to GitHub Packages
+      packages: write
     name: ${{ matrix.id }}
     runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     needs: check-labels
@@ -85,7 +87,7 @@ jobs:
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
-    timeout-minutes: 120
+    timeout-minutes: 160
     strategy:
       fail-fast: false
       matrix:
@@ -100,8 +102,6 @@ jobs:
           - amazon-linux-2023-arm64
           - centos-9-stream-amd64
           - centos-9-stream-arm64
-          - debian-bookworm-amd64
-          - debian-bookworm-arm64
           - debian-trixie-amd64
           - debian-trixie-arm64
           - debian-forky-amd64
@@ -113,7 +113,7 @@ jobs:
           - ubuntu-resolute-amd64
           - ubuntu-resolute-arm64
     env:
-      DOCKER_VOLUME_PREFIX: ".docker/"
+      BUILD_DIR: "${{ github.workspace }}/packages.build"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
@@ -186,19 +186,28 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: .docker
-          key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
-          restore-keys: package-linux-${{ matrix.id }}-
-      - name: Set up Ruby
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-linux-${{ matrix.id }}
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y \
             rake \
+            reprotest \
             ruby \
             ruby-dev
+      - name: Allow unprivileged user namespaces
+        if: env.TASK_NAMESPACE == 'apt'
+        # Reprotest's domain_host variation uses `unshare -r --uts`,
+        # which writes to /proc/self/uid_map. Ubuntu 24.04 restricts
+        # unprivileged user namespaces via AppArmor by default, so
+        # the call fails. Try to lift the restriction so reprotest
+        # can run the full set of variations.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Prepare apache-arrow-apt-source for arm64
         if: env.ARCHITECTURE == 'arm64'
         run: |
@@ -222,7 +231,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -239,10 +248,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pushd dev/tasks/linux-packages
-          rake docker:pull || :
-          rake --trace ${TASK_NAMESPACE}:build BUILD_DIR=build
-          popd
+          rake -C dev/tasks/linux-packages/apache-arrow docker:pull:${TARGET} || :
+          rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
+      - name: Save ccache
+        if: >-
+          !cancelled()
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-linux-${{ matrix.id }}
+          include-hidden-files: true
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -250,9 +266,7 @@ jobs:
           github.event_name == 'push' &&
           github.ref_name == 'main'
         run: |
-          pushd dev/tasks/linux-packages
-          rake docker:push
-          popd
+          rake -C dev/tasks/linux-packages/apache-arrow docker:push:${TARGET}
       - name: Build artifact tarball
         run: |
           mkdir -p "${DISTRIBUTION}"
@@ -328,6 +342,20 @@ jobs:
           pushd dev/tasks/linux-packages
           rake --trace ${TASK_NAMESPACE}:test
           popd
+      - name: Verify Reproducibility
+        if: env.TASK_NAMESPACE == 'apt'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Validate reproducibility. Reprotest runs the build twice
+          # inside its own tempdir and doesn't copy artifacts back,
+          # so this is purely a verification step.
+          reprotest \
+            --vary=-fileordering \
+            --build-command \
+              "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+            "${PWD}" \
+            "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
 
   report-package-linux:
     if: github.event_name == 'schedule' && always()

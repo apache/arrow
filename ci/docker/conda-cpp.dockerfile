@@ -17,7 +17,8 @@
 
 ARG repo
 ARG arch
-FROM ${repo}:${arch}-conda
+ARG arch_short
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda

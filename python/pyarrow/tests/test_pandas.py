@@ -21,6 +21,7 @@ import json
 import multiprocessing as mp
 import sys
 import warnings
+import zoneinfo
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
@@ -403,13 +404,49 @@ class TestConvertMetadata:
         assert col3['name'] == col3['field_name']
 
         idx0_descr, foo_descr = js['index_columns']
-        assert idx0_descr == '__index_level_0__'
+        # __index_level_0__ exists, unnamed bumped to __index_level_1__
+        assert idx0_descr == '__index_level_1__'
         assert idx0['field_name'] == idx0_descr
         assert idx0['name'] is None
 
         assert foo_descr == 'foo'
         assert foo['field_name'] == foo_descr
         assert foo['name'] == foo_descr
+
+    def test_index_level_name_bump(self):
+        # GH-46179
+        df = pd.DataFrame(
+            {"col": [1, 2, 3], "__index_level_0__": [4, 5, 6]},
+            index=[10, 20, 30],
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # Explicit test
+        t = pa.table(df)
+        expected_schema = pa.schema([
+            ("col", pa.int64()),
+            ("__index_level_0__", pa.int64()),
+            ("__index_level_1__", pa.int64())
+        ])
+        assert t.schema.equals(expected_schema)
+
+        df2 = t.to_pandas()
+        assert df2.index.equals(pd.Index([10, 20, 30]))
+        assert df2.ndim == df.ndim == 2
+
+    def test_index_level_name_bump_multiindex(self):
+        # GH-46179
+        df = pd.DataFrame(
+            {"col": [1, 2], "__index_level_0__": [3, 4]},
+            index=pd.MultiIndex.from_arrays(
+                [[10, 20], [100, 200]], names=[None, None]
+            ),
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        assert t.schema.names == ['col', '__index_level_0__',
+                                  '__index_level_1__', '__index_level_2__']
 
     def test_categorical_column_index(self):
         df = pd.DataFrame(
@@ -1168,10 +1205,23 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_pytz_tzinfo(self):
         pytz = pytest.importorskip("pytz")
 
-        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
-            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+        timezones_pytz = [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]
+        timezones_zoneinfo = [
+            zoneinfo.ZoneInfo('UTC'),
+            zoneinfo.ZoneInfo('US/Eastern'),
+            timezone(timedelta(minutes=1))
+        ]
+
+        for tz, tz_zoneinfo in zip(timezones_pytz, timezones_zoneinfo):
+            values = [tz.localize(datetime(2018, 1, 1, 12, 23, 45))]
             df = pd.DataFrame({'datetime': values})
-            _check_pandas_roundtrip(df)
+            if Version(pd.__version__) >= Version("3.0.0"):
+                df_expected = pd.DataFrame(
+                    {'datetime': [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_zoneinfo)]}
+                )
+            else:
+                df_expected = None
+            _check_pandas_roundtrip(df, expected=df_expected)
 
     @h.given(st.none() | past.timezones)
     @h.settings(deadline=None)
@@ -1183,7 +1233,6 @@ class TestConvertDateTimeLikeTypes:
         _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_python_datetime_with_timezone_tzinfo(self):
-        pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
@@ -1191,14 +1240,19 @@ class TestConvertDateTimeLikeTypes:
         df = pd.DataFrame({'datetime': values}, index=values)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-        # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
         tz_timezone = timezone(timedelta(hours=hours))
-        tz_pytz = pytz.FixedOffset(hours * 60)
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
-        values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
         df = pd.DataFrame({'datetime': values}, index=values)
-        df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        if Version(pd.__version__) < Version("3.0.0"):
+            # datetime.timezone is going to be pytz.FixedOffset
+            pytz = pytest.importorskip("pytz")
+            tz_pytz = pytz.FixedOffset(hours * 60)
+            values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
+            df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        else:
+            df_exp = None
+
         _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
 
     def test_python_datetime_subclass(self):
@@ -3883,6 +3937,7 @@ def test_singleton_blocks_zero_copy():
 
 
 def _check_to_pandas_memory_unchanged(obj, **kwargs):
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = obj.to_pandas(**kwargs)  # noqa
 
@@ -3948,6 +4003,7 @@ def test_table_uses_memory_pool():
     arr = pa.array(np.arange(N, dtype=np.int64))
     t = pa.table([arr, arr, arr], ['f0', 'f1', 'f2'])
 
+    gc.collect()
     prior_allocation = pa.total_allocated_bytes()
     x = t.to_pandas()
 

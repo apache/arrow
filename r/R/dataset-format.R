@@ -427,7 +427,11 @@ csv_file_format_parse_opts <- function(...) {
     # Catch cases when the user specifies a mix of Arrow C++ options and
     # readr-style options
     if (!all(is_readr_opt)) {
-      stop("Use either Arrow parse options or readr parse options, not both", call. = FALSE)
+      abort(c(
+        "CSV parse options must be either Arrow-style or readr-style, not both.",
+        i = sprintf("Arrow options used: %s.", oxford_paste(opt_names[is_arrow_opt])),
+        i = sprintf("readr options used: %s.", oxford_paste(opt_names[is_readr_opt]))
+      ))
     }
     do.call(readr_to_csv_parse_options, opts) # all options have readr-style names
   } else {

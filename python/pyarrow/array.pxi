@@ -401,7 +401,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
-        result = ExtensionArray.from_storage(extension_type, result)
+        result = extension_type.wrap_array(result)
     return result
 
 
@@ -1148,7 +1148,6 @@ cdef class Array(_PandasConvertible):
         >>> left = pa.array(["one", "two", "three"])
         >>> right = pa.array(["two", None, "two-and-a-half", "three"])
         >>> print(left.diff(right)) # doctest: +SKIP
-
         @@ -0, +0 @@
         -"one"
         @@ -2, +1 @@
@@ -1707,7 +1706,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def sort(self, order="ascending", **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", **kwargs):
         """
         Sort the Array
 
@@ -1716,6 +1715,9 @@ cdef class Array(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -1727,7 +1729,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            options=_pc().SortOptions(sort_keys=[("", order, null_placement)], **kwargs)
         )
         return self.take(indices)
 
@@ -4387,7 +4389,7 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", by=None, **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", by=None, **kwargs):
         """
         Sort the StructArray
 
@@ -4396,6 +4398,9 @@ cdef class StructArray(Array):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         by : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
@@ -4408,9 +4413,10 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort, sort_keys = self._flattened_field(by), [("", order)]
+            tosort, sort_keys = self._flattened_field(by), [("", order, null_placement)]
         else:
-            tosort, sort_keys = self, [(field.name, order) for field in self.type]
+            tosort, sort_keys = self, [
+                (field.name, order, null_placement) for field in self.type]
         indices = _pc().sort_indices(
             tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )

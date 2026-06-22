@@ -275,6 +275,104 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_TRUE(f_accessor_1->Equals(*f_accessor->Subset({2, 0})));
 }
 
+namespace {
+
+std::string EncodeInt32(int32_t value) {
+  return std::string(reinterpret_cast<const char*>(&value), sizeof(value));
+}
+
+constexpr int32_t kLegacyMin = 100, kLegacyMax = 200;
+
+std::string SerializeMetadata(const format::FileMetaData& thrift_metadata) {
+  std::string out;
+  ThriftSerializer{}.SerializeToString(&thrift_metadata, &out);
+  return out;
+}
+
+std::shared_ptr<FileMetaData> ParseMetadata(std::string serialized_metadata) {
+  uint32_t decoded_len = static_cast<uint32_t>(serialized_metadata.size());
+  return FileMetaData::Make(serialized_metadata.data(), &decoded_len);
+}
+
+format::FileMetaData SingleInt32MetadataWithStats() {
+  format::FileMetaData metadata;
+  format::SchemaElement root, leaf;
+  schema::NodeVector fields = {schema::Int32("int_col", Repetition::REQUIRED)};
+  schema::GroupNode::Make("schema", Repetition::REPEATED, fields)->ToParquet(&root);
+  fields.back()->ToParquet(&leaf);
+  metadata.schema = {std::move(root), std::move(leaf)};
+
+  auto& column = metadata.row_groups.emplace_back().columns.emplace_back();
+  column.__isset.meta_data = true;
+  auto& column_metadata = column.meta_data;
+  column_metadata.__set_type(format::Type::INT32);
+  column_metadata.__isset.statistics = true;
+  auto& statistics = column_metadata.statistics;
+  statistics.__set_min(EncodeInt32(kLegacyMin));
+  statistics.__set_max(EncodeInt32(kLegacyMax));
+  statistics.__set_min_value(EncodeInt32(kLegacyMin));
+  statistics.__set_max_value(EncodeInt32(kLegacyMax));
+  metadata.column_orders.emplace_back().__set_TYPE_ORDER(format::TypeDefinedOrder{});
+  metadata.__isset.column_orders = true;
+  return metadata;
+}
+
+std::unique_ptr<ColumnChunkMetaData> GetOnlyColumnChunk(
+    const FileMetaData& metadata, ColumnOrder::type expected_order) {
+  EXPECT_EQ(expected_order, metadata.schema()->Column(0)->column_order().get_order());
+  return metadata.RowGroup(0)->ColumnChunk(0);
+}
+
+void AssertColumnChunkHasNoMinMax(const FileMetaData& metadata,
+                                  ColumnOrder::type expected_order) {
+  auto column = GetOnlyColumnChunk(metadata, expected_order);
+  ASSERT_NE(nullptr, column->encoded_statistics());
+  EXPECT_FALSE(column->encoded_statistics()->has_min);
+  EXPECT_FALSE(column->encoded_statistics()->has_max);
+  ASSERT_NE(nullptr, column->statistics());
+  EXPECT_FALSE(column->statistics()->HasMinMax());
+}
+
+void AssertColumnChunkMinMax(const FileMetaData& metadata,
+                             ColumnOrder::type expected_order, int32_t min, int32_t max) {
+  auto column = GetOnlyColumnChunk(metadata, expected_order);
+  const std::string encoded_min = EncodeInt32(min);
+  const std::string encoded_max = EncodeInt32(max);
+
+  ASSERT_NE(nullptr, column->encoded_statistics());
+  EXPECT_EQ(encoded_min, column->encoded_statistics()->min());
+  EXPECT_EQ(encoded_max, column->encoded_statistics()->max());
+  ASSERT_NE(nullptr, column->statistics());
+  EXPECT_EQ(encoded_min, column->statistics()->EncodeMin());
+  EXPECT_EQ(encoded_max, column->statistics()->EncodeMax());
+}
+
+}  // namespace
+
+TEST(Metadata, UnknownColumnOrderIgnoresMinMax) {
+  format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
+  // Simulate an unsupported ColumnOrder value: unknown union fields are skipped by
+  // Thrift, leaving an entry with no known field set.
+  thrift_metadata.column_orders.clear();
+  thrift_metadata.column_orders.emplace_back();
+  thrift_metadata.__isset.column_orders = true;
+
+  auto metadata = ParseMetadata(SerializeMetadata(thrift_metadata));
+  AssertColumnChunkHasNoMinMax(*metadata, ColumnOrder::UNKNOWN);
+}
+
+TEST(Metadata, MissingColumnOrderUsesLegacyMinMax) {
+  format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
+  thrift_metadata.column_orders.clear();
+  thrift_metadata.__isset.column_orders = false;
+  auto& statistics = thrift_metadata.row_groups.at(0).columns.at(0).meta_data.statistics;
+  statistics.__set_min_value(EncodeInt32(kLegacyMin - 100));
+  statistics.__set_max_value(EncodeInt32(kLegacyMax + 100));
+
+  auto metadata = ParseMetadata(SerializeMetadata(thrift_metadata));
+  AssertColumnChunkMinMax(*metadata, ColumnOrder::UNDEFINED, kLegacyMin, kLegacyMax);
+}
+
 TEST(Metadata, TestV1Version) {
   // PARQUET-839
   parquet::schema::NodeVector fields;

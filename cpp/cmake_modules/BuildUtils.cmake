@@ -117,6 +117,7 @@ function(arrow_create_merged_static_lib output_target)
     if(CMAKE_LIBTOOL)
       set(LIBTOOL_MACOS ${CMAKE_LIBTOOL})
       # Validate that CMAKE_LIBTOOL is Apple's libtool
+      set(is_apple_libtool TRUE)
       validate_apple_libtool(is_apple_libtool "${LIBTOOL_MACOS}")
       if(NOT is_apple_libtool)
         get_libtool_version("${LIBTOOL_MACOS}" _libtool_version_output)

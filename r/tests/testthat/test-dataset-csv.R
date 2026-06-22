@@ -231,7 +231,7 @@ test_that("readr parse options", {
   )
 
   # With both Arrow and readr parse options (disallowed)
-  expect_error(
+  err <- expect_error(
     open_dataset(
       tsv_dir,
       partitioning = "part",
@@ -239,8 +239,10 @@ test_that("readr parse options", {
       quote = "\"",
       quoting = TRUE
     ),
-    "either"
+    "Arrow-style or readr-style"
   )
+  expect_match(conditionMessage(err), "Arrow options used:.*quoting")
+  expect_match(conditionMessage(err), "readr options used:.*quote")
 
   # With ambiguous partial option names (disallowed)
   expect_error(

@@ -142,7 +142,6 @@ tasks:
                                                ("3.11", "cp311", "cp311"),
                                                ("3.12", "cp312", "cp312"),
                                                ("3.13", "cp313", "cp313"),
-                                               ("3.13", "cp313", "cp313t"),
                                                ("3.14", "cp314", "cp314"),
                                                ("3.14", "cp314", "cp314t")] %}
 
@@ -509,12 +508,12 @@ tasks:
       image: conda-python
 {% endfor %}
 
-  test-conda-python-3.12-cpython-debug:
+  test-conda-python-3.14-cpython-debug:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.12
+        PYTHON: 3.14
       image: conda-python-cpython-debug
 
   test-conda-python-emscripten:
@@ -537,14 +536,6 @@ tasks:
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
-
-  test-ubuntu-22.04-python-313-freethreading:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 22.04
-      image: ubuntu-python-313-freethreading
 
 {% for debian_version in ["13"] %}
   test-debian-{{ debian_version }}-python-3-amd64:
@@ -650,6 +641,10 @@ tasks:
     params:
       env:
         CMAKE_BUILD_TYPE: MinSizeRel
+
+  test-r-wasm:
+    ci: github
+    template: r/github.linux.r-wasm.yml
 
   test-r-devdocs:
     ci: github
