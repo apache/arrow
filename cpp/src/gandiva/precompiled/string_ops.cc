@@ -1419,10 +1419,10 @@ FORCE_INLINE
 const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
   if (in < 0 || in > 0x10FFFF || (in >= 0xD800 && in <= 0xDFFF)) {
     const char* fmt =
-        "Input %lld is not a valid Unicode code point in the range 0 to 1114111";
+        "Input %" PRId64 " is not a valid Unicode code point in the range 0 to 1114111";
     int size = static_cast<int>(strlen(fmt)) + 32;
     char* error = reinterpret_cast<char*>(malloc(size));
-    snprintf(error, size, fmt, static_cast<long long>(in));
+    snprintf(error, size, fmt, static_cast<int64_t>(in));
     gdv_fn_context_set_error_msg(context, error);
     free(error);
     *out_len = 0;
