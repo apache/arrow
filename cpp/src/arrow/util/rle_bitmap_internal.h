@@ -183,8 +183,8 @@ class RleRunToBitmapDecoder {
 
   /// Get batch in full bytes using memset.
   [[nodiscard]] rle_size_t GetBatchFullBytes(BitmapSpanMut out, rle_size_t batch_size) {
-    ARROW_DCHECK(out.bit_start() == 0 || batch_size == 0);
     const auto n_bytes = std::min(batch_size, remaining()) / 8;
+    ARROW_DCHECK(out.bit_start() == 0 || n_bytes == 0);
     std::memset(out.data(), value_pattern_, n_bytes);
     const auto n_vals = 8 * n_bytes;
     AdvanceUnsafe(n_vals);
