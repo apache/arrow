@@ -3419,7 +3419,7 @@ def test_table_sort_by(cls):
         "values": [1, 2, 3, 4, 5]
     }
 
-    assert table.sort_by([("values", "descending")]).to_pydict() == {
+    assert table.sort_by([("values", "descending", "at_end")]).to_pydict() == {
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
@@ -3429,15 +3429,47 @@ def test_table_sort_by(cls):
         pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"])
 
-    sorted_tab = tab.sort_by([("a", "descending")])
+    sorted_tab = tab.sort_by([("a", "descending", "at_end")])
     sorted_tab_dict = sorted_tab.to_pydict()
     assert sorted_tab_dict["a"] == [35, 7, 7, 5]
     assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
 
-    sorted_tab = tab.sort_by([("a", "ascending")])
+    sorted_tab = tab.sort_by([("a", "ascending", "at_end")])
     sorted_tab_dict = sorted_tab.to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def test_record_batch_sort():
+    rb = pa.RecordBatch.from_arrays([
+        pa.array([7, 35, 7, 5, None, None, 6, 5], type=pa.int64()),
+        pa.array([4, 1, 3, 2, None, 1, None, 8], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar", "dar", "ear", "far", "gar"])
+    ], names=["a", "b", "c"])
+
+    sorted_rb = rb.sort_by([("a", "descending", "at_end"),
+                           ("b", "descending", "at_start")])
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [35, 7, 7, 6, 5, 5, None, None]
+    assert sorted_rb_dict["b"] == [1, 4, 3, None, 8, 2, None, 1]
+    assert sorted_rb_dict["c"] == ["car", "foo",
+                                   "bar", "far", "gar", "foobar", "dar", "ear"]
+
+    sorted_rb = rb.sort_by([("a", "ascending", "at_start"),
+                           ("b", "ascending", "at_end")])
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [None, None, 5, 5, 6, 7, 7, 35]
+    assert sorted_rb_dict["b"] == [1, None, 2, 8, None, 3, 4, 1]
+    assert sorted_rb_dict["c"] == ["ear", "dar",
+                                   "foobar", "gar", "far", "bar", "foo", "car"]
+
+    sorted_rb = rb.sort_by([("a", "ascending", "at_start"),
+                           ("b", "descending", "at_end")])
+    sorted_rb_dict = sorted_rb.to_pydict()
+    assert sorted_rb_dict["a"] == [None, None, 5, 5, 6, 7, 7, 35]
+    assert sorted_rb_dict["b"] == [1, None, 8, 2, None, 4, 3, 1]
+    assert sorted_rb_dict["c"] == ["ear", "dar",
+                                   "gar", "foobar", "far", "foo", "bar", "car"]
 
 
 @pytest.mark.numpy
