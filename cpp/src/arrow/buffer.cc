@@ -87,7 +87,7 @@ Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(std::shared_ptr<Buffer> b
   return SliceMutableBuffer(std::move(buffer), offset, length);
 }
 
-std::string Buffer::ToHexString() {
+std::string Buffer::ToHexString() const {
   return HexEncode(data(), static_cast<size_t>(size()));
 }
 
