@@ -47,7 +47,7 @@ jobs:
     steps:
       - name: Checkout Arrow
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check
