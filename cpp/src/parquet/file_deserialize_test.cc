@@ -46,6 +46,14 @@ namespace parquet {
 using ::arrow::io::BufferReader;
 using ::parquet::DataPageStats;
 
+// Make a column descriptor with an undefined column order.
+ColumnDescriptor MakeColumnDescriptor() {
+  auto node = schema::Int32("int_col", Repetition::REQUIRED);
+  static_cast<schema::PrimitiveNode*>(node.get())
+      ->SetColumnOrder(ColumnOrder::undefined_);
+  return ColumnDescriptor(node, /*max_definition_level=*/0, /*max_repetition_level=*/0);
+}
+
 // Adds page statistics occupying a certain amount of bytes (for testing very
 // large page headers)
 template <typename H>
@@ -110,6 +118,8 @@ static std::vector<Compression::type> GetSupportedCodecTypes() {
 
 class TestPageSerde : public ::testing::Test {
  public:
+  TestPageSerde() : descr_(MakeColumnDescriptor()) {}
+
   void SetUp() {
     data_page_header_.encoding = format::Encoding::PLAIN;
     data_page_header_.definition_level_encoding = format::Encoding::RLE;
@@ -124,7 +134,7 @@ class TestPageSerde : public ::testing::Test {
     EndStream();
 
     auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-    page_reader_ = PageReader::Open(stream, num_rows, codec, properties);
+    page_reader_ = PageReader::Open(stream, num_rows, codec, properties, descr_);
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
@@ -204,6 +214,7 @@ class TestPageSerde : public ::testing::Test {
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
   std::shared_ptr<Buffer> out_buffer_;
 
+  ColumnDescriptor descr_;
   std::unique_ptr<PageReader> page_reader_;
   format::PageHeader page_header_;
   format::DataPageHeader data_page_header_;
@@ -466,7 +477,8 @@ TYPED_TEST(PageFilterTest, TestPageWithoutStatistics) {
 
   auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
   this->page_reader_ =
-      PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+      PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED,
+                       ReaderProperties(), this->descr_);
 
   int num_pages = 0;
   bool is_stats_null = false;
@@ -492,7 +504,8 @@ TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
      // are right.
     auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
     this->page_reader_ =
-        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED,
+                         ReaderProperties(), this->descr_);
 
     std::vector<EncodedStatistics> read_stats;
     std::vector<int64_t> read_num_values;
@@ -526,7 +539,8 @@ TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
   {  // Skip all pages.
     auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
     this->page_reader_ =
-        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED,
+                         ReaderProperties(), this->descr_);
 
     auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
 
@@ -538,7 +552,8 @@ TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
   {  // Skip every other page.
     auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
     this->page_reader_ =
-        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+        PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED,
+                         ReaderProperties(), this->descr_);
 
     // Skip pages with even number of values.
     auto skip_even_pages = [](const DataPageStats& stats) -> bool {
@@ -569,7 +584,8 @@ TYPED_TEST(PageFilterTest, TestChangingPageFilter) {
 
   auto stream = std::make_shared<::arrow::io::BufferReader>(this->out_buffer_);
   this->page_reader_ =
-      PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED);
+      PageReader::Open(stream, this->total_rows_, Compression::UNCOMPRESSED,
+                       ReaderProperties(), this->descr_);
 
   // This callback will always return false.
   auto read_all_pages = [](const DataPageStats& stats) -> bool { return false; };
@@ -604,7 +620,8 @@ TEST_F(TestPageSerde, DoesNotFilterDictionaryPages) {
 
   // Try to read it back while asking for all data pages to be skipped.
   auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-  page_reader_ = PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED);
+  page_reader_ = PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED,
+                                  ReaderProperties(), descr_);
 
   auto skip_all_pages = [](const DataPageStats& stats) -> bool { return true; };
 
@@ -641,7 +658,8 @@ TEST_F(TestPageSerde, SkipsNonDataPages) {
   EndStream();
 
   auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-  page_reader_ = PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED);
+  page_reader_ = PageReader::Open(stream, /*num_rows=*/100, Compression::UNCOMPRESSED,
+                                  ReaderProperties(), descr_);
 
   // Only the two data pages are returned.
   std::shared_ptr<Page> current_page = page_reader_->NextPage();

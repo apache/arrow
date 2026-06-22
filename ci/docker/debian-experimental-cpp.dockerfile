@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:experimental
-ARG arch
+FROM --platform=linux/${arch} debian:experimental
 
 ENV DEBIAN_FRONTEND noninteractive
 

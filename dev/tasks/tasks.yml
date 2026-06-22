@@ -508,12 +508,12 @@ tasks:
       image: conda-python
 {% endfor %}
 
-  test-conda-python-3.12-cpython-debug:
+  test-conda-python-3.14-cpython-debug:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.12
+        PYTHON: 3.14
       image: conda-python-cpython-debug
 
   test-conda-python-emscripten:

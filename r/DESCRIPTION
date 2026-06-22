@@ -44,7 +44,6 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.3.3
 Config/testthat/edition: 3
 Config/build/bootstrap: TRUE
 Suggests:
@@ -151,3 +150,4 @@ Collate:
     'schema.R'
     'udf.R'
     'util.R'
+Config/roxygen2/version: 8.0.0

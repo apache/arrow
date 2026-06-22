@@ -459,7 +459,24 @@ if(ARROW_JEMALLOC)
   set_source_files_properties(memory_pool_jemalloc.cc
                               PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
+if(ARROW_MIMALLOC)
+  list(APPEND ARROW_MEMORY_POOL_SRCS memory_pool_mimalloc.cc)
+  set_source_files_properties(memory_pool_mimalloc.cc
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+  # GH-50083: make sure some allocation-related public symbols are interposable,
+  # for the benefit of memory profilers and other runtime analyzers.
+  # Ideally we would scope a specific subset of symbols, but it doesn't seem
+  # easily doable. See `memory_pool_internal.h`.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set_source_files_properties(${ARROW_MEMORY_POOL_SRCS}
+                                PROPERTIES COMPILE_OPTIONS "-fsemantic-interposition")
+  endif()
+endif()
+
 arrow_add_object_library(ARROW_MEMORY_POOL ${ARROW_MEMORY_POOL_SRCS})
+
 if(ARROW_JEMALLOC)
   foreach(ARROW_MEMORY_POOL_TARGET ${ARROW_MEMORY_POOL_TARGETS})
     target_link_libraries(${ARROW_MEMORY_POOL_TARGET} PRIVATE jemalloc::jemalloc)
@@ -559,6 +576,7 @@ set(ARROW_UTIL_SRCS
     util/time.cc
     util/tracing.cc
     util/trie.cc
+    util/ulp_distance.cc
     util/union_util.cc
     util/unreachable.cc
     util/uri.cc
@@ -601,6 +619,9 @@ arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
   target_compile_definitions(${ARROW_UTIL_TARGET} PRIVATE URI_STATIC_BUILD)
 endforeach()
+foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
+endforeach()
 
 if(ARROW_USE_BOOST)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
@@ -615,11 +636,6 @@ endif()
 if(ARROW_USE_OPENSSL)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
     target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_OPENSSL_LIBS})
-  endforeach()
-endif()
-if(ARROW_USE_XSIMD)
-  foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
-    target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
   endforeach()
 endif()
 if(ARROW_WITH_BROTLI)
@@ -734,11 +750,9 @@ if(ARROW_CSV)
                            csv/parser.cc
                            csv/reader.cc
                            csv/writer.cc)
-  if(ARROW_USE_XSIMD)
-    foreach(ARROW_CSV_TARGET ${ARROW_CSV_TARGETS})
-      target_link_libraries(${ARROW_CSV_TARGET} PRIVATE ${ARROW_XSIMD})
-    endforeach()
-  endif()
+  foreach(ARROW_CSV_TARGET ${ARROW_CSV_TARGETS})
+    target_link_libraries(${ARROW_CSV_TARGET} PRIVATE ${ARROW_XSIMD})
+  endforeach()
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 else()
@@ -855,14 +869,12 @@ if(ARROW_COMPUTE)
   list(APPEND ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
   list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS arrow_static)
   list(APPEND ARROW_COMPUTE_SHARED_LINK_LIBS arrow_shared)
+  list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
 
   if(ARROW_USE_BOOST)
     list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS Boost::headers)
     list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS Boost::headers)
-  endif()
-  if(ARROW_USE_XSIMD)
-    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_XSIMD})
-    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
   endif()
   if(ARROW_WITH_OPENTELEMETRY)
     list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
@@ -910,11 +922,9 @@ endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
 
-if(ARROW_USE_XSIMD)
-  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
-  endforeach()
-endif()
+foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+  target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
+endforeach()
 if(ARROW_WITH_OPENTELEMETRY)
   foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
     target_link_libraries(${ARROW_COMPUTE_CORE_TARGET}

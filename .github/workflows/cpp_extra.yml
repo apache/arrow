@@ -221,7 +221,7 @@ jobs:
         platform:
           - arch: "amd64"
             runs-on: ubuntu-latest
-          - arch: "arm64v8"
+          - arch: "arm64/v8"
             runs-on: ubuntu-24.04-arm
     env:
       ARCH: ${{ matrix.platform.arch }}
@@ -340,10 +340,8 @@ jobs:
           ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
           PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
         run: |
-          # MinIO is required
-          exclude_tests="arrow-s3fs-test"
           # unstable
-          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="arrow-acero-asof-join-node-test"
           exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
           ctest \
             --exclude-regex "${exclude_tests}" \
@@ -394,17 +392,21 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
-        with:
-          path: .docker
-          key: ubuntu-cpp-odbc
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
+      - name: Set Up Dremio Instance
+        run: |
+          docker compose up -d dremio
+          cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: ubuntu-cpp-odbc
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -584,7 +586,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
@@ -605,87 +607,16 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
       VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
     steps:
-      - name: Disable Crash Dialogs
-        run: |
-          reg add `
-            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
-            /v DontShowUI `
-            /t REG_DWORD `
-            /d 1 `
-            /f
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
-      - name: Install ccache
-        shell: bash
-        run: |
-          ci/scripts/install_ccache.sh 4.12.1 /usr
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
         with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64
-      - name: Checkout vcpkg
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          path: vcpkg
-          repository: microsoft/vcpkg
-      - name: Bootstrap vcpkg
-        run: |
-          vcpkg\bootstrap-vcpkg.bat
-          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
-          Write-Output ${VCPKG_ROOT} | `
-            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
-          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
-            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
-      - name: Setup NuGet credentials for vcpkg caching
-        shell: bash
-        run: |
-          $(vcpkg fetch nuget | tail -n 1) \
-            sources add \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
-            -storepasswordincleartext \
-            -name "GitHub" \
-            -username "$GITHUB_REPOSITORY_OWNER" \
-            -password "${{ secrets.GITHUB_TOKEN }}"
-          $(vcpkg fetch nuget | tail -n 1) \
-            setapikey "${{ secrets.GITHUB_TOKEN }}" \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Build
-        shell: cmd
-        run: |
-          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - name: Save ccache
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64
-      - name: Register Flight SQL ODBC Driver
-        shell: cmd
-        run: |
-          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         shell: cmd
         run: |
@@ -708,7 +639,7 @@ jobs:
           wix --version
           cd build/cpp
           cpack
-      - name: Upload the artifacts to the job
+      - name: Upload ODBC MSI to the job
         uses: actions/upload-artifact@v7
         with:
           name: flight-sql-odbc-msi-installer
@@ -796,40 +727,6 @@ jobs:
           remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
-
-  odbc-release:
-    needs: odbc-msvc
-    name: ODBC release
-    runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref_name, 'apache-arrow-') && contains(github.ref_name, '-rc') }}
-    permissions:
-      # Upload to GitHub Release
-      contents: write
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Download the artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-msi-installer
-      - name: Wait for creating GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          dev/release/utils-watch-gh-workflow.sh \
-            ${GITHUB_REF_NAME} \
-            release_candidate.yml
-      - name: Upload the artifacts to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload ${GITHUB_REF_NAME} \
-            --clobber \
-            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()

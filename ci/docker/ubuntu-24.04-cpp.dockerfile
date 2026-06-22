@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:24.04
-FROM ${base}
+ARG arch=amd64
+ARG base=ubuntu:24.04
+FROM --platform=linux/${arch} ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -163,9 +164,6 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_azurite.sh
-
-COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_ceph.sh
 
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin

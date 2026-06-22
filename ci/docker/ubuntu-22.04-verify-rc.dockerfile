@@ -16,7 +16,8 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:22.04
+ARG base=ubuntu:22.04
+FROM --platform=linux/${arch} ${base}
 
 ENV DEBIAN_FRONTEND=noninteractive
 COPY dev/release/setup-ubuntu.sh /

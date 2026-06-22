@@ -531,13 +531,13 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                 return False
 
             if need_download():
-                import github3
+                from github import GithubException
                 max_n_retries = 5
                 n_retries = 0
                 while True:
                     try:
-                        asset.download(path)
-                    except github3.exceptions.GitHubException as error:
+                        asset.download_asset(str(path))
+                    except GithubException as error:
                         n_retries += 1
                         if n_retries == max_n_retries:
                             raise
@@ -565,12 +565,11 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
 @click.argument('patterns', nargs=-1, required=True)
 @click.option('--sha', required=True, help='Target committish')
 @click.option('--tag', required=True, help='Target tag')
-@click.option('--method', default='curl', help='Use cURL to upload')
 @click.pass_obj
-def upload_artifacts(obj, tag, sha, patterns, method):
+def upload_artifacts(obj, tag, sha, patterns):
     queue = obj['queue']
     queue.github_overwrite_release_assets(
-        tag_name=tag, target_commitish=sha, method=method, patterns=patterns
+        tag_name=tag, target_commitish=sha, patterns=patterns
     )
 
 

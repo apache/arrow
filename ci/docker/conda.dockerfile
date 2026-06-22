@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:22.04
+FROM --platform=linux/${arch} ubuntu:24.04
 
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -26,6 +26,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     gdb \
     libc6-dbg \
     tzdata \
+    tzdata-legacy \
     wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

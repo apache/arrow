@@ -16,8 +16,9 @@
 # under the License.
 
 # depends on a C GLib image
+ARG arch
 ARG base
-FROM ${base}
+FROM --platform=linux/${arch} ${base}
 
 COPY ruby/ /arrow/ruby/
 RUN bundle install --gemfile /arrow/ruby/Gemfile

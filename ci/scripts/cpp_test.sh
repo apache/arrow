@@ -50,18 +50,12 @@ fi
 if ! type storage-testbench >/dev/null 2>&1; then
   exclude_tests+=("arrow-gcsfs-test")
 fi
-if ! type minio >/dev/null 2>&1; then
-  exclude_tests+=("arrow-s3fs-test")
-fi
 case "$(uname)" in
   Linux)
-    exclude_tests+=("arrow-flight-sql-odbc-test")
     n_jobs=$(nproc)
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
-    # TODO: https://github.com/apache/arrow/issues/40410
-    exclude_tests+=("arrow-s3fs-test")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}

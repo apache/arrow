@@ -96,7 +96,7 @@ jobs:
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu 24.04 C++ ASAN UBSAN
             ubuntu: 24.04
-          - arch: arm64v8
+          - arch: arm64/v8
             clang-tools: 18
             image: ubuntu-cpp
             llvm: 18
@@ -293,6 +293,8 @@ jobs:
       - name: Test
         shell: bash
         run: |
+          # MinIO is installed on ${ARROW_HOME}/bin
+          export PATH="${ARROW_HOME}/bin:${PATH}"
           sudo sysctl -w kern.coredump=1
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell

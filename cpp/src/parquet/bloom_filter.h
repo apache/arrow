@@ -223,6 +223,9 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// Minimum Bloom filter size, it sets to 32 bytes to fit a tiny Bloom filter.
   static constexpr uint32_t kMinimumBloomFilterBytes = 32;
 
+  /// The number of bits set in each tiny (256-bit) Bloom filter block.
+  static constexpr int kBitsSetPerBlock = 8;
+
   /// Calculate optimal size according to the number of distinct values and false
   /// positive probability.
   ///
@@ -230,7 +233,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @param fpp The false positive probability.
   /// @return it always return a value between kMinimumBloomFilterBytes and
   /// kMaximumBloomFilterBytes, and the return value is always a power of 2
-  static uint32_t OptimalNumOfBytes(uint32_t ndv, double fpp) {
+  static uint32_t OptimalNumOfBytes(uint64_t ndv, double fpp) {
     uint32_t optimal_num_of_bits = OptimalNumOfBits(ndv, fpp);
     ARROW_DCHECK(::arrow::bit_util::IsMultipleOf8(optimal_num_of_bits));
     return optimal_num_of_bits >> 3;
@@ -243,7 +246,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @param fpp The false positive probability.
   /// @return it always return a value between kMinimumBloomFilterBytes * 8 and
   /// kMaximumBloomFilterBytes * 8, and the return value is always a power of 16
-  static uint32_t OptimalNumOfBits(uint32_t ndv, double fpp) {
+  static uint32_t OptimalNumOfBits(uint64_t ndv, double fpp) {
     ARROW_DCHECK(fpp > 0.0 && fpp < 1.0);
     const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));
     uint32_t num_bits;
@@ -276,6 +279,9 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   bool FindHash(uint64_t hash) const override;
   void InsertHash(uint64_t hash) override;
   void InsertHashes(const uint64_t* hashes, int num_values) override;
+  /// Fold the bloom filter down to the smallest size that still meets the target FPP
+  /// (False Positive Probability).
+  void FoldToTargetFpp(double target_fpp);
   void WriteTo(ArrowOutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
@@ -350,12 +356,15 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
  private:
   inline void InsertHashImpl(uint64_t hash);
+  uint32_t NumBlocks() const {
+    ARROW_DCHECK_EQ(num_bytes_ % kBytesPerFilterBlock, 0);
+    return num_bytes_ / kBytesPerFilterBlock;
+  }
+  uint32_t NumFoldsForTargetFpp(double target_fpp, double avg_fill) const;
+  void Fold(uint32_t num_folds);
 
   // Bytes in a tiny Bloom filter block.
   static constexpr int kBytesPerFilterBlock = 32;
-
-  // The number of bits to be set in each tiny Bloom filter
-  static constexpr int kBitsSetPerBlock = 8;
 
   // A mask structure used to set bits in each tiny Bloom filter.
   struct BlockMask {

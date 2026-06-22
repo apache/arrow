@@ -57,6 +57,21 @@ struct EnumTraits<compute::SortOrder>
     return "<INVALID>";
   }
 };
+template <>
+struct EnumTraits<compute::NullPlacement>
+    : BasicEnumTraits<compute::NullPlacement, compute::NullPlacement::AtStart,
+                      compute::NullPlacement::AtEnd> {
+  static std::string name() { return "NullPlacement"; }
+  static std::string value_name(compute::NullPlacement value) {
+    switch (value) {
+      case compute::NullPlacement::AtStart:
+        return "AtStart";
+      case compute::NullPlacement::AtEnd:
+        return "AtEnd";
+    }
+    return "<INVALID>";
+  }
+};
 }  // namespace internal
 
 namespace compute {
@@ -274,6 +289,7 @@ GenericTypeSingleton() {
   std::vector<std::shared_ptr<Field>> fields;
   fields.emplace_back(new Field("target", GenericTypeSingleton<std::string>()));
   fields.emplace_back(new Field("order", GenericTypeSingleton<SortOrder>()));
+  fields.emplace_back(new Field("null_placement", GenericTypeSingleton<NullPlacement>()));
   return std::make_shared<StructType>(std::move(fields));
 }
 
@@ -303,7 +319,9 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const SortKey& key) {
   ARROW_ASSIGN_OR_RAISE(auto target, GenericToScalar(key.target));
   ARROW_ASSIGN_OR_RAISE(auto order, GenericToScalar(key.order));
-  return StructScalar::Make({target, order}, {"target", "order"});
+  ARROW_ASSIGN_OR_RAISE(auto null_placement, GenericToScalar(key.null_placement));
+  return StructScalar::Make({target, order, null_placement},
+                            {"target", "order", "null_placement"});
 }
 
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
@@ -441,9 +459,12 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
   const auto& holder = checked_cast<const StructScalar&>(*value);
   ARROW_ASSIGN_OR_RAISE(auto target_holder, holder.field("target"));
   ARROW_ASSIGN_OR_RAISE(auto order_holder, holder.field("order"));
+  ARROW_ASSIGN_OR_RAISE(auto null_placement_holder, holder.field("null_placement"));
   ARROW_ASSIGN_OR_RAISE(auto target, GenericFromScalar<FieldRef>(target_holder));
   ARROW_ASSIGN_OR_RAISE(auto order, GenericFromScalar<SortOrder>(order_holder));
-  return SortKey{std::move(target), order};
+  ARROW_ASSIGN_OR_RAISE(auto null_placement,
+                        GenericFromScalar<NullPlacement>(null_placement_holder));
+  return SortKey{std::move(target), order, null_placement};
 }
 
 template <typename T>

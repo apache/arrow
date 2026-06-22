@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:13
-ARG arch
+FROM --platform=linux/${arch} debian:13
 
 ENV DEBIAN_FRONTEND noninteractive
 

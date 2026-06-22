@@ -404,13 +404,49 @@ class TestConvertMetadata:
         assert col3['name'] == col3['field_name']
 
         idx0_descr, foo_descr = js['index_columns']
-        assert idx0_descr == '__index_level_0__'
+        # __index_level_0__ exists, unnamed bumped to __index_level_1__
+        assert idx0_descr == '__index_level_1__'
         assert idx0['field_name'] == idx0_descr
         assert idx0['name'] is None
 
         assert foo_descr == 'foo'
         assert foo['field_name'] == foo_descr
         assert foo['name'] == foo_descr
+
+    def test_index_level_name_bump(self):
+        # GH-46179
+        df = pd.DataFrame(
+            {"col": [1, 2, 3], "__index_level_0__": [4, 5, 6]},
+            index=[10, 20, 30],
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # Explicit test
+        t = pa.table(df)
+        expected_schema = pa.schema([
+            ("col", pa.int64()),
+            ("__index_level_0__", pa.int64()),
+            ("__index_level_1__", pa.int64())
+        ])
+        assert t.schema.equals(expected_schema)
+
+        df2 = t.to_pandas()
+        assert df2.index.equals(pd.Index([10, 20, 30]))
+        assert df2.ndim == df.ndim == 2
+
+    def test_index_level_name_bump_multiindex(self):
+        # GH-46179
+        df = pd.DataFrame(
+            {"col": [1, 2], "__index_level_0__": [3, 4]},
+            index=pd.MultiIndex.from_arrays(
+                [[10, 20], [100, 200]], names=[None, None]
+            ),
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        assert t.schema.names == ['col', '__index_level_0__',
+                                  '__index_level_1__', '__index_level_2__']
 
     def test_categorical_column_index(self):
         df = pd.DataFrame(

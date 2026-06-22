@@ -154,26 +154,28 @@ class DictionaryBuilderBase : public ArrayBuilder {
                                     const std::shared_ptr<DataType>&>
                             value_type,
                         MemoryPool* pool = default_memory_pool(),
-                        int64_t alignment = kDefaultBufferAlignment)
+                        int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(start_int_size, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(ordered) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
       enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
           value_type,
       MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+      int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(ordered) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -181,13 +183,14 @@ class DictionaryBuilderBase : public ArrayBuilder {
       enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
           value_type,
       MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+      int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(index_type, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(ordered) {}
 
   template <typename B = BuilderType, typename T1 = T>
   DictionaryBuilderBase(uint8_t start_int_size,
@@ -196,38 +199,41 @@ class DictionaryBuilderBase : public ArrayBuilder {
                                     const std::shared_ptr<DataType>&>
                             value_type,
                         MemoryPool* pool = default_memory_pool(),
-                        int64_t alignment = kDefaultBufferAlignment)
+                        int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(start_int_size, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(ordered) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
       enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
       MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+      int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(ordered) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
       const std::shared_ptr<DataType>& index_type,
       enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
       MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+      int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(static_cast<const T1&>(*value_type).byte_width()),
         indices_builder_(index_type, pool, alignment),
-        value_type_(value_type) {}
+        value_type_(value_type),
+        ordered_(ordered) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -237,13 +243,15 @@ class DictionaryBuilderBase : public ArrayBuilder {
   // This constructor doesn't check for errors. Use InsertMemoValues instead.
   explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                                  MemoryPool* pool = default_memory_pool(),
-                                 int64_t alignment = kDefaultBufferAlignment)
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 bool ordered = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, dictionary)),
         delta_offset_(0),
         byte_width_(-1),
         indices_builder_(pool, alignment),
-        value_type_(dictionary->type()) {}
+        value_type_(dictionary->type()),
+        ordered_(ordered) {}
 
   ~DictionaryBuilderBase() override = default;
 
@@ -490,7 +498,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override {
-    return ::arrow::dictionary(indices_builder_.type(), value_type_);
+    return ::arrow::dictionary(indices_builder_.type(), value_type_, ordered_);
   }
 
  protected:
@@ -561,6 +569,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   BuilderType indices_builder_;
   std::shared_ptr<DataType> value_type_;
+  bool ordered_ = false;
 };
 
 template <typename BuilderType>
@@ -571,31 +580,53 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
       enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value, uint8_t>
           start_int_size,
       const std::shared_ptr<DataType>& value_type,
-      MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
+      MemoryPool* pool = default_memory_pool(),
+      int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
+      : ArrayBuilder(pool, alignment),
+        indices_builder_(start_int_size, pool, alignment),
+        ordered_(ordered) {}
 
   explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
-                                 MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), indices_builder_(pool) {}
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 bool ordered = false)
+      : ArrayBuilder(pool, alignment),
+        indices_builder_(pool, alignment),
+        ordered_(ordered) {}
 
   explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& index_type,
                                  const std::shared_ptr<DataType>& value_type,
-                                 MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), indices_builder_(index_type, pool) {}
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 bool ordered = false)
+      : ArrayBuilder(pool, alignment),
+        indices_builder_(index_type, pool, alignment),
+        ordered_(ordered) {}
 
   template <typename B = BuilderType>
   explicit DictionaryBuilderBase(
       enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value, uint8_t>
           start_int_size,
-      MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
+      MemoryPool* pool = default_memory_pool(),
+      int64_t alignment = kDefaultBufferAlignment, bool ordered = false)
+      : ArrayBuilder(pool, alignment),
+        indices_builder_(start_int_size, pool, alignment),
+        ordered_(ordered) {}
 
-  explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), indices_builder_(pool) {}
+  explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 bool ordered = false)
+      : ArrayBuilder(pool, alignment),
+        indices_builder_(pool, alignment),
+        ordered_(ordered) {}
 
   explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                                 MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), indices_builder_(pool) {}
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 bool ordered = false)
+      : ArrayBuilder(pool, alignment),
+        indices_builder_(pool, alignment),
+        ordered_(ordered) {}
 
   /// \brief Append a scalar null value
   Status AppendNull() final {
@@ -647,7 +678,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
-    (*out)->type = dictionary((*out)->type, null());
+    (*out)->type = dictionary((*out)->type, null(), ordered_);
     (*out)->dictionary = NullArray(0).data();
     return Status::OK();
   }
@@ -659,11 +690,12 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override {
-    return ::arrow::dictionary(indices_builder_.type(), null());
+    return ::arrow::dictionary(indices_builder_.type(), null(), ordered_);
   }
 
  protected:
   BuilderType indices_builder_;
+  bool ordered_ = false;
 };
 
 }  // namespace internal

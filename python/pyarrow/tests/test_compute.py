@@ -173,9 +173,9 @@ def test_option_class_equality(request):
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
-                       null_placement="at_start", tiebreaker="max"),
+                       null_placement="at_end", tiebreaker="max"),
         pc.RankQuantileOptions(sort_keys="ascending",
-                               null_placement="at_start"),
+                               null_placement="at_end"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -183,11 +183,11 @@ def test_option_class_equality(request):
         pc.RoundTemporalOptions(1, "second", week_starts_monday=True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
-        pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
+        pc.SelectKOptions(0, sort_keys=[("b", "ascending", "at_end")]),
         pc.SetLookupOptions(pa.array([1])),
         pc.SkewOptions(min_count=2),
         pc.SliceOptions(0, 1, 1),
-        pc.SortOptions([("dummy", "descending")], null_placement="at_start"),
+        pc.SortOptions([("dummy", "descending", "at_end")]),
         pc.SplitOptions(),
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
@@ -1295,6 +1295,124 @@ def test_replace_with_mask_null_type():
     assert result.type == pa.null()
     result.validate(full=True)
     assert result.to_pylist() == [None]
+
+
+def test_replace_with_mask_basic():
+    """Test basic replacement with array mask."""
+    arr = pa.array([1, 2, 3, 4, 5])
+    mask = pa.array([True, False, True, False, True])
+    replacements = pa.array([10, 20, 30])
+    expected = pa.array([10, 2, 20, 4, 30])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_scalar_mask_true():
+    """Test replacement with scalar mask True."""
+    arr = pa.array([1, 2, 3])
+    mask = True
+    replacements = pa.array([10, 20, 30])
+    expected = pa.array([10, 20, 30])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_scalar_mask_false():
+    """Test replacement with scalar mask False."""
+    arr = pa.array([1, 2, 3])
+    mask = False
+    replacements = pa.array([], type=pa.int64())
+    expected = pa.array([1, 2, 3])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_scalar_replacement():
+    """Test replacement with scalar replacement value."""
+    arr = pa.array([1, 2, 3, 4])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.scalar(99)
+    expected = pa.array([99, 2, 99, 4])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_null_in_array():
+    """Test null handling in input array."""
+    arr = pa.array([1, None, 3, None, 5])
+    mask = pa.array([False, True, False, True, True])
+    replacements = pa.array([10, 20, 30])
+    expected = pa.array([1, 10, 3, 20, 30])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_null_in_mask():
+    """Test null handling in mask."""
+    arr = pa.array([1, 2, 3, 4, 5, 6])
+    mask = pa.array([False, False, None, None, True, True])
+    replacements = pa.array([10, None])
+    expected = pa.array([1, 2, None, None, 10, None])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_string_type():
+    """Test replacement with string type."""
+    arr = pa.array(['a', 'b', 'c', 'd'])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array(['x', 'y'])
+    expected = pa.array(['x', 'b', 'y', 'd'])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_float_type():
+    """Test replacement with float type."""
+    arr = pa.array([1.1, 2.2, 3.3, 4.4])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array([10.5, 20.5])
+    expected = pa.array([10.5, 2.2, 20.5, 4.4])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_chunked_array_multiple_chunks():
+    """Test replace_with_mask with ChunkedArray with multiple chunks."""
+    arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+    mask = pa.array([True, False, False, False, True, False])
+    replacements = pa.array([10, 20])
+    expected = pa.chunked_array([[10, 2, 3], [4, 20, 6]])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_chunked_array_empty_chunks():
+    """Test replace_with_mask with ChunkedArray with empty chunks."""
+    arr = pa.chunked_array([[1, 2], [], [3, 4]])
+    mask = pa.array([True, False, True, False])
+    replacements = pa.array([10, 20])
+    expected = pa.chunked_array([[10, 2], [20, 4]])
+    result = pc.replace_with_mask(arr, mask, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_mask_error_replacement_count_mismatch():
+    """Replacement count does not match true values in mask."""
+    arr = pa.array([1, 2, 3])
+    mask = pa.array([True, True, False])
+    replacements = pa.array([10])
+    with pytest.raises(pa.ArrowInvalid, match="expected 2.*but got 1"):
+        pc.replace_with_mask(arr, mask, replacements)
+
+
+def test_replace_with_mask_error_mask_length_mismatch():
+    """Mask length does not match input array length."""
+    arr = pa.array([1, 2, 3])
+    mask = pa.array([True, False])
+    replacements = pa.array([10])
+    with pytest.raises(pa.ArrowInvalid):
+        pc.replace_with_mask(arr, mask, replacements)
 
 
 def test_binary_join():
@@ -2889,6 +3007,45 @@ def test_count_run_end_encoded_nulls():
     assert pc.count(arr.slice(3, 6), mode="only_null").as_py() == 3
 
 
+def test_count_sparse_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        [
+            pa.array([0.5, 99.0, None, 3.0, 88.0, 77.0]),
+            pa.array([False, None, True, False, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
+def test_count_dense_union_sliced_nulls():
+    # GH-50113: Sliced unions can report incorrect null counts in count.
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.5, None, 3.0]),
+            pa.array([None, True, False]),
+        ]
+    )
+
+    # Logical array: [0.5, None, None, 3.0, True, False].
+    assert pc.count(arr, mode="only_valid").as_py() == 4
+    assert pc.count(arr, mode="only_null").as_py() == 2
+    assert pc.count(arr, mode="all").as_py() == 6
+    # Logical slice: [None, None, 3.0, True].
+    assert pc.count(arr.slice(1, 4), mode="only_valid").as_py() == 2
+    assert pc.count(arr.slice(1, 4), mode="only_null").as_py() == 2
+
+
 def test_index():
     arr = pa.array([0, 1, None, 3, 4], type=pa.int64())
     assert pc.index(arr, pa.scalar(0)).as_py() == 0
@@ -2951,8 +3108,10 @@ def test_partition_nth_null_placement():
 
 
 def test_select_k_array():
-    def validate_select_k(select_k_indices, arr, order, stable_sort=False):
-        sorted_indices = pc.sort_indices(arr, sort_keys=[("dummy", order)])
+    def validate_select_k(select_k_indices, arr, order, null_placement="at_end",
+                          stable_sort=False):
+        sorted_indices = pc.sort_indices(
+            arr, sort_keys=[("dummy", order, null_placement)])
         head_k_indices = sorted_indices.slice(0, len(select_k_indices))
         if stable_sort:
             assert select_k_indices == head_k_indices
@@ -2965,8 +3124,8 @@ def test_select_k_array():
     for k in [0, 2, 4]:
         for order in ["descending", "ascending"]:
             result = pc.select_k_unstable(
-                arr, k=k, sort_keys=[("dummy", order)])
-            validate_select_k(result, arr, order)
+                arr, k=k, sort_keys=[("dummy", order, "at_end")])
+            validate_select_k(result, arr, order, "at_end")
 
         result = pc.top_k_unstable(arr, k=k)
         validate_select_k(result, arr, "descending")
@@ -2976,19 +3135,20 @@ def test_select_k_array():
 
     result = pc.select_k_unstable(
         arr, options=pc.SelectKOptions(
-            k=2, sort_keys=[("dummy", "descending")])
+            k=2, sort_keys=[("dummy", "descending", "at_end")])
     )
     validate_select_k(result, arr, "descending")
 
     result = pc.select_k_unstable(
-        arr, options=pc.SelectKOptions(k=2, sort_keys=[("dummy", "ascending")])
+        arr, options=pc.SelectKOptions(
+            k=2, sort_keys=[("dummy", "ascending", "at_end")])
     )
     validate_select_k(result, arr, "ascending")
 
     # Position options
     assert pc.select_k_unstable(arr, 2,
-                                sort_keys=[("dummy", "ascending")]) == result
-    assert pc.select_k_unstable(arr, 2, [("dummy", "ascending")]) == result
+                                sort_keys=[("dummy", "ascending", "at_end")]) == result
+    assert pc.select_k_unstable(arr, 2, [("dummy", "ascending", "at_end")]) == result
 
 
 def test_select_k_table():
@@ -3005,20 +3165,25 @@ def test_select_k_table():
     table = pa.table({"a": [1, 2, 0], "b": [1, 0, 1]})
     for k in [0, 2, 4]:
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[("a", "ascending")])
-        validate_select_k(result, table, sort_keys=[("a", "ascending")])
+            table, k=k, sort_keys=[("a", "ascending", "at_end")])
+        validate_select_k(result, table, sort_keys=[("a", "ascending", "at_end")])
 
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[(pc.field("a"), "ascending"), ("b", "ascending")])
+            table, k=k, sort_keys=[(pc.field("a"), "ascending", "at_end"),
+                                   ("b", "ascending", "at_end")])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
+            result, table, sort_keys=[("a", "ascending", "at_end"),
+                                      ("b", "ascending", "at_end")])
 
-        result = pc.top_k_unstable(table, k=k, sort_keys=["a"])
-        validate_select_k(result, table, sort_keys=[("a", "descending")])
+        result = pc.top_k_unstable(table, k=k, sort_keys=[
+                                   "a"], null_placements=["at_end"])
+        validate_select_k(result, table, sort_keys=[("a", "descending", "at_end")])
 
-        result = pc.bottom_k_unstable(table, k=k, sort_keys=["a", "b"])
+        result = pc.bottom_k_unstable(
+            table, k=k, sort_keys=["a", "b"], null_placements=["at_end", "at_start"])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
+            result, table, sort_keys=[("a", "ascending", "at_end"), ("b", "ascending",
+                                                                     "at_start")])
 
     with pytest.raises(
             ValueError,
@@ -3027,7 +3192,7 @@ def test_select_k_table():
 
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a nonnegative `k`"):
-        pc.select_k_unstable(table, k=-1, sort_keys=[("a", "ascending")])
+        pc.select_k_unstable(table, k=-1, sort_keys=[("a", "ascending", "at_end")])
 
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a "
@@ -3035,11 +3200,11 @@ def test_select_k_table():
         pc.select_k_unstable(table, k=2, sort_keys=[])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
+        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending", "at_end")])
 
     with pytest.raises(ValueError,
                        match="Invalid sort key column: No match for.*unknown"):
-        pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
+        pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending", "at_end")])
 
 
 def test_array_sort_indices():
@@ -3065,25 +3230,22 @@ def test_sort_indices_array():
     arr = pa.array([1, 2, None, 0])
     result = pc.sort_indices(arr)
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending")])
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending", "at_end")])
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending", "at_end")])
     assert result.to_pylist() == [1, 0, 3, 2]
-    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")],
-                             null_placement="at_start")
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending", "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Positional `sort_keys`
-    result = pc.sort_indices(arr, [("dummy", "descending")],
-                             null_placement="at_start")
+    result = pc.sort_indices(arr, [("dummy", "descending", "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Using SortOptions
     result = pc.sort_indices(
-        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")])
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending", "at_end")])
     )
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(
-        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")],
-                                    null_placement="at_start")
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending", "at_start")])
     )
     assert result.to_pylist() == [2, 1, 0, 3]
 
@@ -3091,26 +3253,23 @@ def test_sort_indices_array():
 def test_sort_indices_table():
     table = pa.table({"a": [1, 1, None, 0], "b": [1, 0, 0, 1]})
 
-    result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
+    result = pc.sort_indices(table, sort_keys=[("a", "ascending", "at_end")])
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(table, sort_keys=[(pc.field("a"), "ascending")],
-                             null_placement="at_start")
+    result = pc.sort_indices(
+        table, sort_keys=[(pc.field("a"), "ascending", "at_start")])
     assert result.to_pylist() == [2, 3, 0, 1]
 
     result = pc.sort_indices(
-        table, sort_keys=[("a", "descending"), ("b", "ascending")]
+        table, sort_keys=[("a", "descending", "at_end"), ("b", "ascending", "at_end")]
     )
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(
-        table, sort_keys=[("a", "descending"), ("b", "ascending")],
-        null_placement="at_start"
-    )
+        table, sort_keys=[("a", "descending", "at_start"), ("b", "ascending",
+                                                            "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Positional `sort_keys`
     result = pc.sort_indices(
-        table, [("a", "descending"), ("b", "ascending")],
-        null_placement="at_start"
-    )
+        table, [("a", "descending", "at_start"), ("b", "ascending", "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
 
     with pytest.raises(ValueError, match="Must specify one or more sort keys"):
@@ -3118,10 +3277,10 @@ def test_sort_indices_table():
 
     with pytest.raises(ValueError,
                        match="Invalid sort key column: No match for.*unknown"):
-        pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
+        pc.sort_indices(table, sort_keys=[("unknown", "ascending", "at_end")])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+        pc.sort_indices(table, sort_keys=[("a", "nonscending", "at_end")])
 
 
 def test_is_in():
@@ -3673,7 +3832,7 @@ def test_rank_options():
 
     # Ensure sort_keys tuple usage
     result = pc.rank(arr, options=pc.RankOptions(
-        sort_keys=[("b", "ascending")])
+        sort_keys=[("b", "ascending", "at_end")])
     )
     assert result.equals(expected)
 

@@ -30,6 +30,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -37,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace compute {
@@ -128,6 +130,22 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new SortOptions({SortKey("key", SortOrder::Ascending)}));
   options.emplace_back(new SortOptions(
       {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
+  options.emplace_back(
+      new SortOptions({SortKey("key", SortOrder::Ascending, NullPlacement::AtStart)}));
+  options.emplace_back(
+      new SortOptions({SortKey("other", SortOrder::Ascending, NullPlacement::AtStart)}));
+  options.emplace_back(
+      new SortOptions({SortKey("other", SortOrder::Descending, NullPlacement::AtStart)}));
+  options.emplace_back(
+      new SortOptions({SortKey("other", SortOrder::Descending, NullPlacement::AtEnd)}));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  options.emplace_back(
+      new SortOptions({SortKey("other", SortOrder::Descending, NullPlacement::AtEnd)},
+                      NullPlacement::AtStart));
+  options.emplace_back(
+      new SortOptions({SortKey("other", SortOrder::Descending, NullPlacement::AtStart)},
+                      NullPlacement::AtEnd));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
   options.emplace_back(new SelectKOptions(0, {}));
