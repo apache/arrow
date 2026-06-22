@@ -83,7 +83,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

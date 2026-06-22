@@ -115,7 +115,7 @@ jobs:
           free -h
           lscpu
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -176,7 +176,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -232,7 +232,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -365,7 +365,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

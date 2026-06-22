@@ -67,7 +67,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -97,7 +97,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -133,7 +133,7 @@ jobs:
     env: *odbc_msvc_env
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

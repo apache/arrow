@@ -51,7 +51,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -100,7 +100,7 @@ jobs:
             macos-version: "14"
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -142,7 +142,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
