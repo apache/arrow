@@ -3024,6 +3024,47 @@ TEST_F(TestProjector, TestRegexpExtract) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_extract, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestRegexpExtractTwoArg) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_extract = field("extract", arrow::utf8());
+
+  // The two-arg overload defaults to extracting the first capture group (index 1).
+  std::string pattern(R"((\w+) (\w+))");
+  auto literal = TreeExprBuilder::MakeStringLiteral(pattern);
+  auto node0 = TreeExprBuilder::MakeField(field0);
+
+  // Build expression with the two-arg overload: regexp_extract(string, pattern)
+  auto regexp_extract_func =
+      TreeExprBuilder::MakeFunction("regexp_extract", {node0, literal}, arrow::utf8());
+  auto extract_expr = TreeExprBuilder::MakeExpression(regexp_extract_func, field_extract);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {extract_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"John Doe", "Ringo Beast", "stringthatdonotmatch"},
+                                   {true, true, true});
+  // expected output: first capture group, empty string when the pattern does not match
+  auto exp_extract = MakeArrowArrayUtf8({"John", "Ringo", ""}, {true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_extract, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestCastVarbinary) {
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int64());
