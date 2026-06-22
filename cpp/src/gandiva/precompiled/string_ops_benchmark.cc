@@ -92,6 +92,10 @@ TEST(StringOpsBenchmark, Replace) {
       {"medium/sparse expand a->ab", kMedium, 64, "a", "ab", 4000},
       {"large/dense  expand a->ab", kLarge, 1, "a", "ab", 80},
       {"large/sparse expand a->ab", kLarge, 64, "a", "ab", 80},
+      // Big-expansion cases (to_len - from_len > from_len) -- these fall back to
+      // the exact match-counting scan, so new should still show the scan delta.
+      {"large/dense  bigexp a->abcd", kLarge, 1, "a", "abcd", 80},
+      {"large/sparse bigexp a->abcd", kLarge, 64, "a", "abcd", 80},
       // Shrink case (to no longer than from) -- new skips the scan entirely.
       {"large/dense  shrink ab->a", kLarge, 2, "ab", "a", 80},
   };
