@@ -1974,8 +1974,7 @@ TEST(TestStringOps, TestReplace) {
   // No match on the large-expansion (counting) path: from "z" to "zzz" expands
   // by more than from_len, so this exercises the count branch's zero-match
   // early return.
-  out_str =
-      replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "z", 1, "zzz", 3, &out_len);
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "z", 1, "zzz", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
@@ -2015,10 +2014,9 @@ TEST(TestStringOps, TestReplace) {
   // 2^31 = INT_MAX + 1, so it is reported cleanly (guard fires before any alloc).
   std::string boundary_in(65536, 'a');
   std::string boundary_to(32768, 'b');
-  replace_utf8_utf8_utf8(ctx_ptr, boundary_in.data(),
-                         static_cast<int32_t>(boundary_in.size()), "a", 1,
-                         boundary_to.data(), static_cast<int32_t>(boundary_to.size()),
-                         &out_len);
+  replace_utf8_utf8_utf8(
+      ctx_ptr, boundary_in.data(), static_cast<int32_t>(boundary_in.size()), "a", 1,
+      boundary_to.data(), static_cast<int32_t>(boundary_to.size()), &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceeds maximum size"));
   EXPECT_EQ(out_len, 0);
   ctx.Reset();
