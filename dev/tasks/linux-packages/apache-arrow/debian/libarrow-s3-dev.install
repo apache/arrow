@@ -1,0 +1,4 @@
+usr/lib/*/cmake/ArrowS3/
+usr/lib/*/libarrow_s3.a
+usr/lib/*/libarrow_s3.so
+usr/lib/*/pkgconfig/arrow-s3.pc
