@@ -49,9 +49,9 @@ Result<ExtensionSet> GetExtensionSetFromMessage(
     registry = default_extension_id_registry();
   }
   std::unordered_map<uint32_t, std::string_view> uris;
-  uris.reserve(message.extension_uris_size());
-  for (const auto& uri : message.extension_uris()) {
-    uris[uri.extension_uri_anchor()] = uri.uri();
+  uris.reserve(message.extension_urns_size());
+  for (const auto& uri : message.extension_urns()) {
+    uris[uri.extension_urn_anchor()] = uri.urn();
   }
 
   // NOTE: it's acceptable to use views to memory owned by message; ExtensionSet::Make
@@ -66,14 +66,14 @@ Result<ExtensionSet> GetExtensionSetFromMessage(
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
         const auto& type = ext.extension_type();
-        std::string_view uri = uris[type.extension_uri_reference()];
+        std::string_view uri = uris[type.extension_urn_reference()];
         type_ids[type.type_anchor()] = Id{uri, type.name()};
         break;
       }
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         const auto& fn = ext.extension_function();
-        std::string_view uri = uris[fn.extension_uri_reference()];
+        std::string_view uri = uris[fn.extension_urn_reference()];
         function_ids[fn.function_anchor()] = Id{uri, fn.name()};
         break;
       }
@@ -89,19 +89,19 @@ Result<ExtensionSet> GetExtensionSetFromMessage(
 
 template <typename Message>
 Status AddExtensionSetToMessage(const ExtensionSet& ext_set, Message* message) {
-  message->clear_extension_uris();
+  message->clear_extension_urns();
 
   std::unordered_map<std::string_view, int, ::arrow::internal::StringViewHash> map;
 
-  auto uris = message->mutable_extension_uris();
+  auto uris = message->mutable_extension_urns();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));
   for (uint32_t anchor = 0; anchor < ext_set.uris().size(); ++anchor) {
     auto uri = ext_set.uris().at(anchor);
     if (uri.empty()) continue;
 
-    auto ext_uri = std::make_unique<substrait::extensions::SimpleExtensionURI>();
-    ext_uri->set_uri(std::string(uri));
-    ext_uri->set_extension_uri_anchor(anchor);
+    auto ext_uri = std::make_unique<substrait::extensions::SimpleExtensionURN>();
+    ext_uri->set_urn(std::string(uri));
+    ext_uri->set_extension_urn_anchor(anchor);
     uris->AddAllocated(ext_uri.release());
 
     map[uri] = anchor;
@@ -119,7 +119,7 @@ Status AddExtensionSetToMessage(const ExtensionSet& ext_set, Message* message) {
     auto ext_decl = std::make_unique<ExtDecl>();
 
     auto type = std::make_unique<ExtDecl::ExtensionType>();
-    type->set_extension_uri_reference(map[type_record.id.uri]);
+    type->set_extension_urn_reference(map[type_record.id.uri]);
     type->set_type_anchor(anchor);
     type->set_name(std::string(type_record.id.name));
     ext_decl->set_allocated_extension_type(type.release());
@@ -130,7 +130,7 @@ Status AddExtensionSetToMessage(const ExtensionSet& ext_set, Message* message) {
     ARROW_ASSIGN_OR_RAISE(Id function_id, ext_set.DecodeFunction(anchor));
 
     auto fn = std::make_unique<ExtDecl::ExtensionFunction>();
-    fn->set_extension_uri_reference(map[function_id.uri]);
+    fn->set_extension_urn_reference(map[function_id.uri]);
     fn->set_function_anchor(anchor);
     fn->set_name(std::string(function_id.name));
 

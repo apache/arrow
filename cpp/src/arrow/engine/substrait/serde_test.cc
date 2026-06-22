@@ -267,10 +267,11 @@ TEST(Substrait, SupportedTypes) {
   ExpectEq(R"({"string": {}})", utf8());
   ExpectEq(R"({"binary": {}})", binary());
 
-  ExpectEq(R"({"timestamp": {}})", timestamp(TimeUnit::MICRO));
+  ExpectEq(R"({"precision_timestamp": {"precision": 6}})", timestamp(TimeUnit::MICRO));
   ExpectEq(R"({"date": {}})", date32());
-  ExpectEq(R"({"time": {}})", time64(TimeUnit::MICRO));
-  ExpectEq(R"({"timestamp_tz": {}})", timestamp(TimeUnit::MICRO, "UTC"));
+  ExpectEq(R"({"precision_time": {"precision": 6}})", time64(TimeUnit::MICRO));
+  ExpectEq(R"({"precision_timestamp_tz": {"precision": 6}})",
+           timestamp(TimeUnit::MICRO, "UTC"));
   ExpectEq(R"({"interval_year": {}})", interval_year());
   ExpectEq(R"({"interval_day": {}})", interval_day());
 
@@ -532,11 +533,13 @@ TEST(Substrait, SupportedLiterals) {
 
   ExpectEq(R"({"binary": "enp6"})", BinaryScalar(Buffer::FromString("zzz")));
 
-  ExpectEq(R"({"timestamp": "579"})", TimestampScalar(579, TimeUnit::MICRO));
+  ExpectEq(R"({"precision_timestamp": {"precision": 6, "value": "579"}})",
+           TimestampScalar(579, TimeUnit::MICRO));
 
   ExpectEq(R"({"date": "5"})", Date32Scalar(5));
 
-  ExpectEq(R"({"time": "64"})", Time64Scalar(64, TimeUnit::MICRO));
+  ExpectEq(R"({"precision_time": {"precision": 6, "value": "64"}})",
+           Time64Scalar(64, TimeUnit::MICRO));
 
   ExpectEq(R"({"interval_year_to_month": {"years": 34, "months": 3}})",
            ExtensionScalar(FixedSizeListScalar(ArrayFromJSON(int32(), "[34, 3]")),
@@ -561,7 +564,8 @@ TEST(Substrait, SupportedLiterals) {
       R"({"decimal": {"value": "0gKWSQAAAAAAAAAAAAAAAA==", "precision": 27, "scale": 5}})",
       Decimal128Scalar(Decimal128("123456789.0"), decimal128(27, 5)));
 
-  ExpectEq(R"({"timestamp_tz": "579"})", TimestampScalar(579, TimeUnit::MICRO, "UTC"));
+  ExpectEq(R"({"precision_timestamp_tz": {"precision": 6, "value": "579"}})",
+           TimestampScalar(579, TimeUnit::MICRO, "UTC"));
 
   // special case for empty lists
   ExpectEq(R"({"empty_list": {"type": {"i32": {}}}})",
@@ -1197,26 +1201,26 @@ TEST(Substrait, ExtensionSetFromPlan) {
         }
       }}
     ],
-    "extension_uris": [
+    "extensionUrns": [
       {
-        "extension_uri_anchor": 7,
-        "uri": ")" + default_extension_types_uri() +
+        "extensionUrnAnchor": 7,
+        "urn": ")" + default_extension_types_uri() +
                                R"("
       },
       {
-        "extension_uri_anchor": 18,
-        "uri": ")" + kSubstraitArithmeticFunctionsUri +
+        "extensionUrnAnchor": 18,
+        "urn": ")" + kSubstraitArithmeticFunctionsUri +
                                R"("
       }
     ],
     "extensions": [
       {"extension_type": {
-        "extension_uri_reference": 7,
+        "extensionUrnReference": 7,
         "type_anchor": 42,
         "name": "null"
       }},
       {"extension_function": {
-        "extension_uri_reference": 18,
+        "extensionUrnReference": 18,
         "function_anchor": 42,
         "name": "add"
       }}
@@ -1247,16 +1251,16 @@ TEST(Substrait, ExtensionSetFromPlan) {
 TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   std::string substrait_json = R"({
     "relations": [],
-    "extension_uris": [
+    "extensionUrns": [
       {
-        "extension_uri_anchor": 7,
-        "uri": ")" + default_extension_types_uri() +
+        "extensionUrnAnchor": 7,
+        "urn": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 7,
+        "extensionUrnReference": 7,
         "function_anchor": 42,
         "name": "does_not_exist"
       }}
@@ -1295,16 +1299,16 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
         }
       }}
     ],
-    "extension_uris": [
+    "extensionUrns": [
       {
-        "extension_uri_anchor": 7,
-        "uri": ")" + default_extension_types_uri() +
+        "extensionUrnAnchor": 7,
+        "urn": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 7,
+        "extensionUrnReference": 7,
         "function_anchor": 42,
         "name": "add"
       }}
@@ -1335,16 +1339,16 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   std::string substrait_json = R"({
     "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
     "relations": [],
-    "extension_uris": [
+    "extensionUrns": [
       {
-        "extension_uri_anchor": 7,
-        "uri": ")" + default_extension_types_uri() +
+        "extensionUrnAnchor": 7,
+        "urn": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 7,
+        "extensionUrnReference": 7,
         "function_anchor": 42,
         "name": "new_func"
       }}
@@ -1545,7 +1549,7 @@ TEST(Substrait, InvalidMinimumVersion) {
         }
       }
     }],
-    "extensionUris": [],
+    "extensionUrns": [],
     "extensions": [],
   })"));
 
@@ -1643,16 +1647,16 @@ TEST(Substrait, JoinPlanBasic) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -1789,16 +1793,16 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "add"
       }}
@@ -1992,8 +1996,7 @@ TEST(Substrait, AggregateBasic) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -2001,7 +2004,9 @@ TEST(Substrait, AggregateBasic) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -2027,13 +2032,13 @@ TEST(Substrait, AggregateBasic) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -2066,13 +2071,13 @@ TEST(Substrait, AggregateInvalidRel) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -2114,8 +2119,7 @@ TEST(Substrait, AggregateInvalidFunction) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -2123,20 +2127,22 @@ TEST(Substrait, AggregateInvalidFunction) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
           }]
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -2178,8 +2184,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -2187,7 +2192,9 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -2204,13 +2211,13 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -2252,8 +2259,7 @@ TEST(Substrait, AggregateWithFilter) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -2261,7 +2267,9 @@ TEST(Substrait, AggregateWithFilter) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -2278,13 +2286,13 @@ TEST(Substrait, AggregateWithFilter) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }
@@ -2326,8 +2334,7 @@ TEST(Substrait, AggregateBadPhase) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -2335,7 +2342,9 @@ TEST(Substrait, AggregateBadPhase) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -2352,13 +2361,13 @@ TEST(Substrait, AggregateBadPhase) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }
@@ -2719,16 +2728,16 @@ TEST(SubstraitRoundTrip, ProjectRel) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -2838,16 +2847,16 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -3020,16 +3029,16 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
          }
       }
    ],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -3200,16 +3209,16 @@ TEST(SubstraitRoundTrip, FilterRelWithEmit) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -3329,16 +3338,16 @@ TEST(SubstraitRoundTrip, JoinRel) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -3483,16 +3492,16 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 0,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {"extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "equal"
       }}
@@ -3574,8 +3583,7 @@ TEST(SubstraitRoundTrip, AggregateRel) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -3583,7 +3591,9 @@ TEST(SubstraitRoundTrip, AggregateRel) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -3610,13 +3620,13 @@ TEST(SubstraitRoundTrip, AggregateRel) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -3681,8 +3691,7 @@ TEST(SubstraitRoundTrip, AggregateRelOptions) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -3690,7 +3699,9 @@ TEST(SubstraitRoundTrip, AggregateRelOptions) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -3723,13 +3734,13 @@ TEST(SubstraitRoundTrip, AggregateRelOptions) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "variance"
       }
@@ -3800,8 +3811,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
               }
             }
           },
-          "groupings": [{
-            "groupingExpressions": [{
+          "groupingExpressions": [{
               "selection": {
                 "directReference": {
                   "structField": {
@@ -3809,7 +3819,9 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
                   }
                 }
               }
-            }]
+            }],
+          "groupings": [{
+            "expressionReferences": [0]
           }],
           "measures": [{
             "measure": {
@@ -3836,13 +3848,13 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
         }
       }
     }],
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -3874,14 +3886,14 @@ TEST(Substrait, IsthmusPlan) {
   // isthmus -c "CREATE TABLE T1(foo int)" "SELECT foo + 1 FROM T1"
   std::string substrait_json = R"({
     "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
-    "extensionUris": [{
-      "extensionUriAnchor": 1,
-      "uri": "/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extension_urn_anchor": 1,
+      "urn": "/functions_arithmetic.yaml"
     }],
     "extensions": [{
-      "extensionFunction": {
-        "extensionUriReference": 1,
-        "functionAnchor": 0,
+      "extension_function": {
+        "extension_urn_reference": 1,
+        "function_anchor": 0,
         "name": "add:i32_i32"
       }
     }],
@@ -3996,13 +4008,13 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
   ])"});
 
   const std::string substrait_json = R"({
-    "extensionUris": [{
-        "extensionUriAnchor": 1,
-        "uri": "/functions_arithmetic.yaml"
+    "extensionUrns": [{
+        "extensionUrnAnchor": 1,
+        "urn": "/functions_arithmetic.yaml"
     }],
       "extensions": [{
         "extensionFunction": {
-          "extensionUriReference": 1,
+          "extensionUrnReference": 1,
           "functionAnchor": 0,
           "name": "add:i32_i32"
         }
@@ -4148,16 +4160,16 @@ TEST(Substrait, NestedProjectWithMultiFieldExpressions) {
   ])"});
 
   const std::string substrait_json = R"({
-  "extensionUris": [
+  "extensionUrns": [
     {
-      "extensionUriAnchor": 1,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+      "extensionUrnAnchor": 1,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }
   ],
   "extensions": [
     {
       "extensionFunction": {
-        "extensionUriReference": 1,
+        "extensionUrnReference": 1,
         "functionAnchor": 2,
         "name": "add"
       }
@@ -4234,16 +4246,16 @@ TEST(Substrait, NestedEmitProjectWithMultiFieldExpressions) {
   ])"});
 
   const std::string substrait_json = R"({
-  "extensionUris": [
+  "extensionUrns": [
     {
-      "extensionUriAnchor": 1,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+      "extensionUrnAnchor": 1,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }
   ],
   "extensions": [
     {
       "extensionFunction": {
-        "extensionUriReference": 1,
+        "extensionUrnReference": 1,
         "functionAnchor": 2,
         "name": "add"
       }
@@ -4640,7 +4652,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
 #endif
   // This demos an extension relation
   std::string substrait_json = R"({
-    "extensionUris": [],
+    "extensionUrns": [],
     "extensions": [],
     "relations": [{
       "root": {
@@ -5038,29 +5050,29 @@ TEST(Substrait, CompoundEmitFilterless) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 42,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 42,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       },
       {
-        "extension_uri_anchor": 72,
-        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+        "extensionUrnAnchor": 72,
+        "urn": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {
         "extension_function": {
-          "extension_uri_reference": 42,
+          "extensionUrnReference": 42,
           "function_anchor": 14,
           "name": "equal"
         }
       },
       {
         "extension_function": {
-          "extension_uri_reference": 72,
+          "extensionUrnReference": 72,
           "function_anchor": 32,
           "name": "add"
         }
@@ -5363,36 +5375,36 @@ TEST(Substrait, CompoundEmitWithFilter) {
       }
     }
   }],
-  "extension_uris": [
+  "extensionUrns": [
       {
-        "extension_uri_anchor": 42,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "extensionUrnAnchor": 42,
+        "urn": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       },
       {
-        "extension_uri_anchor": 72,
-        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+        "extensionUrnAnchor": 72,
+        "urn": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
                                R"("
       }
     ],
     "extensions": [
       {
         "extension_function": {
-          "extension_uri_reference": 42,
+          "extensionUrnReference": 42,
           "function_anchor": 14,
           "name": "equal"
         }
       },
       {
         "extension_function": {
-          "extension_uri_reference": 42,
+          "extensionUrnReference": 42,
           "function_anchor": 25,
           "name": "lt"
         }
       },
       {
         "extension_function": {
-          "extension_uri_reference": 72,
+          "extensionUrnReference": 72,
           "function_anchor": 32,
           "name": "add"
         }
@@ -5518,7 +5530,7 @@ TEST(Substrait, SortAndFetch) {
             }
         }
     ],
-    "extension_uris": [],
+    "extensionUrns": [],
     "extensions": []
 })";
 
@@ -5621,7 +5633,7 @@ TEST(Substrait, MixedSort) {
       }
     }
   ],
-  "extension_uris": [],
+  "extensionUrns": [],
   "extensions": []
 })";
 
@@ -5670,7 +5682,7 @@ TEST(Substrait, PlanWithExtension) {
 
   // This demos an extension relation
   std::string substrait_json = R"({
-    "extensionUris": [],
+    "extensionUrns": [],
     "extensions": [],
     "relations": [{
       "root": {
@@ -5860,7 +5872,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
   GTEST_SKIP() << "ASOF join requires threading";
 #endif
   std::string substrait_json = R"({
-    "extensionUris": [],
+    "extensionUrns": [],
     "extensions": [],
     "relations": [{
       "root": {
@@ -6042,7 +6054,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
 TEST(Substrait, PlanWithNamedTapExtension) {
   // This demos an extension relation
   std::string substrait_json = R"({
-    "extensionUris": [],
+    "extensionUrns": [],
     "extensions": [],
     "relations": [{
       "root": {
@@ -6129,13 +6141,13 @@ TEST(Substrait, PlanWithNamedTapExtension) {
 TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   // This demos an extension relation
   std::string substrait_json = R"({
-    "extensionUris": [{
-      "extension_uri_anchor": 0,
-      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    "extensionUrns": [{
+      "extensionUrnAnchor": 0,
+      "urn": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
-        "extension_uri_reference": 0,
+        "extensionUrnReference": 0,
         "function_anchor": 0,
         "name": "sum"
       }
@@ -6346,6 +6358,165 @@ TEST(Substrait, ExtendedExpressionInvalidPlans) {
 
   ASSERT_THAT(DeserializeExpressions(*buf),
               Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
+}
+
+TEST(Substrait, ExtendedExpressionDeserializeUnboundWithSchema) {
+  constexpr std::string_view kUnboundNamedAdd = R"(
+    {
+      "version": {"majorNumber": 9999},
+      "extensionUrns": [
+        {
+          "extensionUrnAnchor": 1,
+          "urn": "extension:io.substrait:unknown"
+        }
+      ],
+      "extensions": [
+        {
+          "extensionFunction": {
+            "extensionUrnReference": 1,
+            "functionAnchor": 1,
+            "name": "add:unknown_unknown"
+          }
+        }
+      ],
+      "referredExpr": [
+        {
+          "expression": {
+            "scalarFunction": {
+              "functionReference": 1,
+              "arguments": [
+                {
+                  "value": {
+                    "namedExpression": {
+                      "names": ["a"]
+                    }
+                  }
+                },
+                {
+                  "value": {
+                    "namedExpression": {
+                      "names": ["b"]
+                    }
+                  }
+                }
+              ],
+              "outputType": {
+                "unknown": {}
+              }
+            }
+          },
+          "outputNames": ["sum"]
+        }
+      ],
+      "baseSchema": {
+        "names": ["a", "b"],
+        "struct": {
+          "types": [
+            {
+              "unknown": {}
+            },
+            {
+              "unknown": {}
+            }
+          ]
+        }
+      }
+    }
+  )";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("ExtendedExpression", kUnboundNamedAdd,
+                                                   /*ignore_unknown_fields=*/false));
+
+  auto binding_schema = schema({field("a", int32()), field("b", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_expression,
+      compute::call("add", {compute::field_ref("a"), compute::field_ref("b")})
+          .Bind(*binding_schema));
+
+  ASSERT_OK_AND_ASSIGN(auto bound_expressions,
+                       DeserializeExpressions(*buf, *binding_schema));
+  AssertSchemaEqual(*binding_schema, *bound_expressions.schema);
+  ASSERT_EQ(1, bound_expressions.named_expressions.size());
+  EXPECT_EQ("sum", bound_expressions.named_expressions[0].name);
+  EXPECT_EQ(expected_expression, bound_expressions.named_expressions[0].expression);
+
+  ASSERT_THAT(DeserializeExpressions(*buf),
+              Raises(StatusCode::Invalid, testing::HasSubstr("unknown")));
+}
+
+TEST(Substrait, ExtendedExpressionDeserializeUnboundSchemaMismatch) {
+  constexpr std::string_view kUnboundNamedAdd = R"(
+    {
+      "version": {"majorNumber": 9999},
+      "extensionUrns": [
+        {
+          "extensionUrnAnchor": 1,
+          "urn": "extension:io.substrait:unknown"
+        }
+      ],
+      "extensions": [
+        {
+          "extensionFunction": {
+            "extensionUrnReference": 1,
+            "functionAnchor": 1,
+            "name": "add:unknown_unknown"
+          }
+        }
+      ],
+      "referredExpr": [
+        {
+          "expression": {
+            "scalarFunction": {
+              "functionReference": 1,
+              "arguments": [
+                {
+                  "value": {
+                    "namedExpression": {
+                      "names": ["a"]
+                    }
+                  }
+                },
+                {
+                  "value": {
+                    "namedExpression": {
+                      "names": ["b"]
+                    }
+                  }
+                }
+              ],
+              "outputType": {
+                "unknown": {}
+              }
+            }
+          },
+          "outputNames": ["sum"]
+        }
+      ],
+      "baseSchema": {
+        "names": ["a", "b"],
+        "struct": {
+          "types": [
+            {
+              "unknown": {}
+            },
+            {
+              "unknown": {}
+            }
+          ]
+        }
+      }
+    }
+  )";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("ExtendedExpression", kUnboundNamedAdd,
+                                                   /*ignore_unknown_fields=*/false));
+
+  auto mismatched_schema = schema({field("x", int32()), field("b", int32())});
+  ASSERT_THAT(DeserializeExpressions(*buf, *mismatched_schema),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("did not match the ExtendedExpression")));
 }
 
 }  // namespace engine
