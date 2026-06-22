@@ -295,6 +295,7 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] nbytes The number of bytes to read
   /// \param[out] out The buffer to read bytes into
   /// \return The number of bytes read, or an error
+  ARROW_DEPRECATED("Deprecated in 25.0.0 Use signature with allow_short_read instead")
   virtual Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out);
 
   /// \brief Read data from given file position.
@@ -318,18 +319,21 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] position Where to read bytes from
   /// \param[in] nbytes The number of bytes to read
   /// \return A buffer containing the bytes read, or an error
+  ARROW_DEPRECATED("Deprecated in 25.0.0 Use signature with allow_short_read instead")
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
 
   /// EXPERIMENTAL: Read data asynchronously.
   virtual Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                                     int64_t nbytes,
                                                     bool allow_short_read);
+  ARROW_DEPRECATED("Deprecated in 25.0.0 Use signature with allow_short_read instead")
   virtual Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                                     int64_t nbytes);
 
   /// EXPERIMENTAL: Read data asynchronously, using the file's IOContext.
   Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes,
                                             bool allow_short_read);
+  ARROW_DEPRECATED("Deprecated in 25.0.0 Use signature with allow_short_read instead")
   Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
   /// EXPERIMENTAL: Explicit multi-read.

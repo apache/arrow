@@ -305,7 +305,7 @@ Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
   RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
   const auto& read_ranges = io_recorded_random_access_file.GetReadRanges();
   for (const auto& range : read_ranges) {
-    auto read_result = file->ReadAt(offset + metadata_length + range.offset, range.length,
+    auto read_result = file->ReadAt(offset + metadata_length + range.offset, range.length, /*allow_short_read=*/true,
                                     body->mutable_data() + range.offset);
     if (!read_result.ok()) {
       return Status::IOError("Failed to read message body, error ",

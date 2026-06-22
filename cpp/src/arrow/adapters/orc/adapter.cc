@@ -113,7 +113,7 @@ class ArrowInputFile : public liborc::InputStream {
   uint64_t getNaturalReadSize() const override { return 128 * 1024; }
 
   void read(void* buf, uint64_t length, uint64_t offset) override {
-    ORC_ASSIGN_OR_THROW(int64_t bytes_read, file_->ReadAt(offset, length, buf));
+    ORC_ASSIGN_OR_THROW(int64_t bytes_read, file_->ReadAt(offset, length, /*allow_short_read=*/true, buf));
 
     if (static_cast<uint64_t>(bytes_read) != length) {
       throw liborc::ParseError("Short read from arrow input file");

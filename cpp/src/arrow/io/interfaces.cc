@@ -151,7 +151,9 @@ RandomAccessFile::RandomAccessFile() : interface_impl_(new Impl()) {}
 
 Result<int64_t> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
                                          bool allow_short_read, void* out) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ARROW_ASSIGN_OR_RAISE(auto real_nbytes, ReadAt(position, nbytes, out));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   if (!allow_short_read && real_nbytes != nbytes) {
     return Status::IOError("File too short: expected to be able to read ", nbytes,
                            " bytes, got ", real_nbytes);
@@ -167,7 +169,9 @@ Result<int64_t> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, void*
 
 Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
                                                          bool allow_short_read) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(position, nbytes));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   // XXX the internal `IoRecordedRandomAccessFile` can return a null buffer
   if (!allow_short_read && buffer && buffer->size() != nbytes) {
     return Status::IOError("File too short: expected to be able to read ", nbytes,
@@ -277,7 +281,7 @@ class FileSegmentReader
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
-                          file_->ReadAt(file_offset_ + position_, bytes_to_read, out));
+                          file_->ReadAt(file_offset_ + position_, bytes_to_read, /*allow_short_read=*/true, out));
     position_ += bytes_read;
     return bytes_read;
   }
@@ -286,7 +290,7 @@ class FileSegmentReader
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          file_->ReadAt(file_offset_ + position_, bytes_to_read));
+                          file_->ReadAt(file_offset_ + position_, bytes_to_read , /*allow_short_read=*/true));
     position_ += buffer->size();
     return buffer;
   }
