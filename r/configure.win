@@ -82,12 +82,13 @@ function configure_binaries() {
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DARROW_COMPUTE_STATIC -DPARQUET_STATIC \
-              -DARROW_DS_STATIC -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET \
+              -DARROW_DS_STATIC -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET -DARROW_S3_STATIC \
               -DARROW_R_WITH_COMPUTE -DARROW_R_WITH_ACERO \
-              -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
+              -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON \
+              -DARROW_R_WITH_S3"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
-  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow -larrow_bundled_dependencies \
+  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow_s3 -larrow -larrow_bundled_dependencies \
             -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
@@ -186,6 +187,10 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_S3; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_S3"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-s3"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_s3 $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_s3 is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_GCS; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
@@ -286,6 +291,7 @@ function configure_dev() {
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-s3"
   fi
 
   if [ $(cmake_option ARROW_GCS) -eq 1 ]; then
