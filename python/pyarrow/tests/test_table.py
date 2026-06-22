@@ -943,9 +943,7 @@ def test_table_from_struct_array_chunked_array():
 
 
 def test_table_from_struct_array_for_empty_chunked_array():
-    # GH-48344: round-trip Table.to_struct_array -> Table.from_struct_array
-    # for an empty table produces a ChunkedArray with zero chunks, which
-    # previously raised "Must pass schema, or at least one RecordBatch".
+    # GH-48344
     struct_type = pa.struct([("ints", pa.int32()), ("floats", pa.float32())])
     empty_chunked_struct_array = pa.chunked_array([], type=struct_type)
     result = pa.Table.from_struct_array(empty_chunked_struct_array)
