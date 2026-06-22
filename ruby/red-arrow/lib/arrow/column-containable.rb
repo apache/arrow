@@ -152,5 +152,70 @@ module Arrow
     def column_names
       @column_names ||= columns.collect(&:name)
     end
+
+    # Merges columns from the given container or Hash and creates
+    # a new container.
+    #
+    # @param other [Hash, self]
+    #   The columns to be merged.
+    #
+    # @return [self]
+    def merge(other)
+      added_columns = {}
+      removed_columns = {}
+
+      case other
+      when Hash
+        other.each do |name, value|
+          name = name.to_s
+          if value
+            added_columns[name] = ensure_raw_column(name, value)
+          else
+            removed_columns[name] = true
+          end
+        end
+      when self.class
+        other.columns.each do |column|
+          name = column.name
+          added_columns[name] = ensure_raw_column(name, column)
+        end
+      else
+        message = "merge target must be Hash or #{self.class}: " +
+          "<#{other.inspect}>: #{inspect}"
+        raise ArgumentError, message
+      end
+
+      new_columns = []
+
+      columns.each do |column|
+        column_name = column.name
+        new_column = added_columns.delete(column_name)
+
+        if new_column
+          new_columns << new_column
+          next
+        end
+
+        next if removed_columns.key?(column_name)
+
+        new_columns << ensure_raw_column(column_name, column)
+      end
+
+      added_columns.each_value do |new_column|
+        new_columns << new_column
+      end
+
+      new_fields = []
+      new_arrays = []
+
+      new_columns.each do |new_column|
+        new_fields << new_column[:field]
+        new_arrays << new_column[:data]
+      end
+
+      merged = self.class.new(new_fields, new_arrays)
+      share_input(merged)
+      merged
+    end
   end
 end
