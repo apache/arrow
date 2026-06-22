@@ -3319,7 +3319,6 @@ uint32_t ColumnMetaData::read(Protocol_* iprot) {
 
   bool isset_type = false;
   bool isset_encodings = false;
-  bool isset_path_in_schema = false;
   bool isset_codec = false;
   bool isset_num_values = false;
   bool isset_total_uncompressed_size = false;
@@ -3381,7 +3380,7 @@ uint32_t ColumnMetaData::read(Protocol_* iprot) {
             }
             xfer += iprot->readListEnd();
           }
-          isset_path_in_schema = true;
+          this->__isset.path_in_schema = true;
         } else {
           xfer += iprot->skip(ftype);
         }
@@ -3537,8 +3536,6 @@ uint32_t ColumnMetaData::read(Protocol_* iprot) {
     throw TProtocolException(TProtocolException::INVALID_DATA);
   if (!isset_encodings)
     throw TProtocolException(TProtocolException::INVALID_DATA);
-  if (!isset_path_in_schema)
-    throw TProtocolException(TProtocolException::INVALID_DATA);
   if (!isset_codec)
     throw TProtocolException(TProtocolException::INVALID_DATA);
   if (!isset_num_values)
@@ -3574,18 +3571,19 @@ uint32_t ColumnMetaData::write(Protocol_* oprot) const {
   }
   xfer += oprot->writeFieldEnd();
 
-  xfer += oprot->writeFieldBegin("path_in_schema", ::apache::thrift::protocol::T_LIST, 3);
-  {
-    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING, static_cast<uint32_t>(this->path_in_schema.size()));
-    std::vector<std::string> ::const_iterator _iter222;
-    for (_iter222 = this->path_in_schema.begin(); _iter222 != this->path_in_schema.end(); ++_iter222)
+  if (this->__isset.path_in_schema) {
+    xfer += oprot->writeFieldBegin("path_in_schema", ::apache::thrift::protocol::T_LIST, 3);
     {
-      xfer += oprot->writeString((*_iter222));
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING, static_cast<uint32_t>(this->path_in_schema.size()));
+      std::vector<std::string> ::const_iterator _iter222;
+      for (_iter222 = this->path_in_schema.begin(); _iter222 != this->path_in_schema.end(); ++_iter222)
+      {
+        xfer += oprot->writeString((*_iter222));
+      }
+      xfer += oprot->writeListEnd();
     }
-    xfer += oprot->writeListEnd();
+    xfer += oprot->writeFieldEnd();
   }
-  xfer += oprot->writeFieldEnd();
-
   xfer += oprot->writeFieldBegin("codec", ::apache::thrift::protocol::T_I32, 4);
   xfer += oprot->writeI32(static_cast<int32_t>(this->codec));
   xfer += oprot->writeFieldEnd();
