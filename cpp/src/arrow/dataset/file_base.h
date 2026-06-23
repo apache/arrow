@@ -451,12 +451,14 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 
   /// Callback to be invoked against all FileWriters before
   /// they are finalized with FileWriter::Finish().
+  /// \hideinitializer
   std::function<Status(FileWriter*)> writer_pre_finish = [](FileWriter*) {
     return Status::OK();
   };
 
   /// Callback to be invoked against all FileWriters after they have
   /// called FileWriter::Finish().
+  /// \hideinitializer
   std::function<Status(FileWriter*)> writer_post_finish = [](FileWriter*) {
     return Status::OK();
   };
