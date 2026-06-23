@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import glob
 import json
 import os
@@ -265,12 +266,17 @@ class CppBenchmarkRunner(BenchmarkRunner):
             else:
                 src_rev, _ = src.at_revision(rev_or_path, clone_dir)
             cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
-            run_root = os.path.join(root_rev, "build", "run")
+            run_root = os.path.join(root_rev, "build")
             os.makedirs(run_root, exist_ok=True)
-            run_id = f"{random.randrange(16**8):08x}"
+            # run_id is a path-safe ISO-8601 UTC timestamp down to the second
+            # so users get a brief idea of what run they are looking at, plus a
+            # random suffix to avoid collisions between runs in the same second.
+            now = datetime.datetime.now(datetime.timezone.utc)
+            run_id = now.strftime("%Y-%m-%dT%H-%M-%SZ") + \
+                f"-{random.randrange(16**8):08x}"
             build_dir = os.path.join(run_root, run_id)
             build = cmake_def.build(build_dir)
-            results_dir = os.path.join(root_rev, "bench", "run", run_id)
+            results_dir = os.path.join(root_rev, "bench", run_id)
             os.makedirs(results_dir, exist_ok=True)
             return CppBenchmarkRunner(
                 build, run_id=run_id, results_dir=results_dir, **kwargs
