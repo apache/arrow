@@ -30,15 +30,7 @@ test_that("Table cast (ARROW-3741)", {
 
 test_that("Table S3 methods", {
   tab <- Table$create(example_data)
-  for (f in c(
-    "dim",
-    "nrow",
-    "ncol",
-    "dimnames",
-    "colnames",
-    "row.names",
-    "as.list"
-  )) {
+  for (f in c("dim", "nrow", "ncol", "dimnames", "colnames", "row.names", "as.list")) {
     fun <- get(f)
     expect_identical(fun(tab), fun(example_data), info = f)
   }
@@ -82,10 +74,7 @@ test_that("[, [[, $ for Table", {
   expect_as_vector(tab[, "chr", drop = TRUE], tbl$chr)
   # Take within a single chunk
   expect_equal_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
-  expect_equal_data_frame(
-    tab[rep(c(FALSE, TRUE), 5), ],
-    tbl[c(2, 4, 6, 8, 10), ]
-  )
+  expect_equal_data_frame(tab[rep(c(FALSE, TRUE), 5), ], tbl[c(2, 4, 6, 8, 10), ])
   # bool ChunkedArray (with one chunk)
   expect_equal_data_frame(tab[tab$lgl, ], tbl[tbl$lgl, ])
   # ChunkedArray with multiple chunks
@@ -113,11 +102,7 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(
-    tab[[c("asdf", "jkl;")]],
-    "length(name) not equal to 1",
-    fixed = TRUE
-  )
+  expect_error(tab[[c("asdf", "jkl;")]], "length(name) not equal to 1", fixed = TRUE)
   expect_error(tab[-3:3], "Invalid column index")
   expect_error(tab[1000], "Invalid column index")
   expect_error(tab[1:1000], "Invalid column index")
@@ -182,34 +167,12 @@ test_that("[[<- assignment", {
   expect_as_vector(tab$chunked, 1:10)
 
   # nonsense indexes
-  expect_error(
-    tab[[NA]] <- letters[10:1],
-    "'i' must be character or numeric, not logical"
-  )
-  expect_error(
-    tab[[NULL]] <- letters[10:1],
-    "'i' must be character or numeric, not NULL"
-  )
-  expect_error(
-    tab[[NA_integer_]] <- letters[10:1],
-    "!is.na(i) is not TRUE",
-    fixed = TRUE
-  )
-  expect_error(
-    tab[[NA_real_]] <- letters[10:1],
-    "!is.na(i) is not TRUE",
-    fixed = TRUE
-  )
-  expect_error(
-    tab[[NA_character_]] <- letters[10:1],
-    "!is.na(i) is not TRUE",
-    fixed = TRUE
-  )
-  expect_error(
-    tab[[c(1, 4)]] <- letters[10:1],
-    "length(i) not equal to 1",
-    fixed = TRUE
-  )
+  expect_error(tab[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
+  expect_error(tab[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
+  expect_error(tab[[NA_integer_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[NA_real_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[NA_character_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(tab[[c(1, 4)]] <- letters[10:1], "length(i) not equal to 1", fixed = TRUE)
 })
 
 test_that("Table$Slice", {
@@ -225,10 +188,7 @@ test_that("Table$Slice", {
   expect_error(tab$Slice(NA), "Slice 'offset' cannot be NA")
   expect_error(tab$Slice(10, "ten"))
   expect_error(tab$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
-  expect_error(
-    tab$Slice(NA_integer_, NA_integer_),
-    "Slice 'offset' cannot be NA"
-  )
+  expect_error(tab$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(tab$Slice(c(10, 10)))
   expect_error(tab$Slice(10, c(10, 10)))
   expect_error(tab$Slice(1000), "Slice 'offset' greater than array length")
@@ -281,11 +241,7 @@ test_that("table() handles record batches with splicing", {
   expect_equal(tab$num_rows, 6L)
   expect_equal(
     as.data.frame(tab),
-    vctrs::vec_rbind(
-      as.data.frame(batch),
-      as.data.frame(batch),
-      as.data.frame(batch)
-    )
+    vctrs::vec_rbind(as.data.frame(batch), as.data.frame(batch), as.data.frame(batch))
   )
 
   batches <- list(batch, batch, batch)
@@ -401,16 +357,7 @@ test_that("Table handles null type (ARROW-7064)", {
 
 test_that("Can create table with specific dictionary types", {
   fact <- example_data[, "fct"]
-  index_types <- c(
-    int8(),
-    int16(),
-    int32(),
-    int64(),
-    uint8(),
-    uint16(),
-    uint32(),
-    uint64()
-  )
+  index_types <- c(int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64())
   for (i in index_types) {
     sch <- schema(fct = dictionary(i, utf8()))
     tab <- Table$create(fact, schema = sch)
@@ -419,24 +366,14 @@ test_that("Can create table with specific dictionary types", {
   }
 
   # large_utf8 values exercise the non-ALTREP conversion path
-  tab_large <- Table$create(
-    fact,
-    schema = schema(fct = dictionary(uint32(), large_utf8()))
-  )
-  expect_equal(
-    tab_large$schema,
-    schema(fct = dictionary(uint32(), large_utf8()))
-  )
+  tab_large <- Table$create(fact, schema = schema(fct = dictionary(uint32(), large_utf8())))
+  expect_equal(tab_large$schema, schema(fct = dictionary(uint32(), large_utf8())))
   expect_equal_data_frame(tab_large, fact)
 })
 
-
 test_that("Table converts dictionary arrays with string_view values", {
   expected <- data.frame(foo = factor(c("x", NA, "x")))
-  tab <- Table$create(
-    expected,
-    schema = schema(foo = dictionary(uint32(), string_view()))
-  )
+  tab <- Table$create(expected, schema = schema(foo = dictionary(uint32(), string_view())))
   expect_equal_data_frame(tab, expected)
 })
 
@@ -452,9 +389,7 @@ test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
   b3 <- record_batch(f = factor(NA, levels = "a"))
   b4 <- record_batch(f = factor())
 
-  res <- tibble::tibble(
-    f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d"))
-  )
+  res <- tibble::tibble(f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d")))
   tab <- Table$create(b1, b2, b3, b4)
 
   expect_equal_data_frame(tab, res)
@@ -530,20 +465,12 @@ test_that("Table$create() no recycling with tibbles", {
 
 test_that("Tables can be combined with concat_tables()", {
   expect_error(
-    concat_tables(
-      arrow_table(a = 1:10),
-      arrow_table(a = c("a", "b")),
-      unify_schemas = FALSE
-    ),
+    concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = FALSE),
     regexp = "Schema at index 2 does not match the first schema"
   )
 
   expect_error(
-    concat_tables(
-      arrow_table(a = 1:10),
-      arrow_table(a = c("a", "b")),
-      unify_schemas = TRUE
-    ),
+    concat_tables(arrow_table(a = 1:10), arrow_table(a = c("a", "b")), unify_schemas = TRUE),
     regexp = "Unable to merge: Field a has incompatible types: int32 vs string"
   )
   expect_error(
@@ -665,11 +592,7 @@ test_that("Table supports cbind", {
 
   # Handles zero rows
   expect_equal(
-    cbind(
-      arrow_table(a = character(0)),
-      b = Array$create(numeric(0)),
-      c = integer(0)
-    ),
+    cbind(arrow_table(a = character(0)), b = Array$create(numeric(0)), c = integer(0)),
     arrow_table(a = character(0), b = numeric(0), c = integer(0)),
   )
 
