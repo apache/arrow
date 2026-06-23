@@ -375,7 +375,7 @@ namespace {
 
 /// Append the LEB128 (unsigned, little-endian base-128) encoding of `value`.
 void AppendLeb128(std::vector<uint8_t>& out, uint32_t value) {
-  std::array<uint8_t, bit_util::kMaxLEB128ByteLenFor<uint32_t>> buf;
+  std::array<uint8_t, bit_util::kMaxLEB128ByteLenFor<uint32_t>> buf = {};
   const auto n_bytes =
       bit_util::WriteLEB128(value, buf.data(), static_cast<int32_t>(buf.size()));
   ASSERT_GT(n_bytes, 0);
