@@ -900,8 +900,8 @@ Utf8__initialize <- function() {
   .Call(`_arrow_Utf8__initialize`)
 }
 
-StringView__initialize <- function() {
-  .Call(`_arrow_StringView__initialize`)
+Utf8View__initialize <- function() {
+  .Call(`_arrow_Utf8View__initialize`)
 }
 
 LargeUtf8__initialize <- function() {

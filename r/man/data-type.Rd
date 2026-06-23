@@ -18,10 +18,12 @@
 \alias{boolean}
 \alias{bool}
 \alias{utf8}
+\alias{utf8_view}
 \alias{string_view}
 \alias{large_utf8}
 \alias{binary}
 \alias{large_binary}
+\alias{binary_view}
 \alias{fixed_size_binary}
 \alias{string}
 \alias{date32}
@@ -77,6 +79,8 @@ bool()
 
 utf8()
 
+utf8_view()
+
 string_view()
 
 large_utf8()
@@ -84,6 +88,8 @@ large_utf8()
 binary()
 
 large_binary()
+
+binary_view()
 
 fixed_size_binary(byte_width)
 
