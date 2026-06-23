@@ -224,6 +224,8 @@ We can similarly write a Parquet file with multiple row groups by using
    >>> pf2.num_row_groups
    3
 
+.. _inspecting_parquet_file_metadata:
+
 Inspecting the Parquet File Metadata
 ------------------------------------
 
@@ -300,6 +302,119 @@ such as the row groups and column chunk metadata and statistics:
      bloom_filter_offset: None
      bloom_filter_length: None
 
+.. _parquet_filtering:
+
+Filtering / Predicate Pushdown
+------------------------------
+
+The ``filters`` parameter of :func:`~pyarrow.parquet.read_table` pushes
+predicates into the reader, skipping entire row groups based on their
+column statistics (min/max values stored in the row group metadata).
+For large files with many row groups this can dramatically reduce the
+data read.
+
+Predicates can be expressed as a :class:`~pyarrow.compute.Expression`:
+
+.. code-block:: python
+
+   >>> import pyarrow.compute as pc
+   >>> pq.read_table('example.parquet', filters=pc.field('three') == True)
+   pyarrow.Table
+   one: double
+   two: large_string
+   three: bool
+   __index_level_0__: large_string
+   ----
+   one: [[-1,2.5]]
+   two: [["foo","baz"]]
+   three: [[true,true]]
+   __index_level_0__: [["a","c"]]
+
+Or in disjunctive normal form (DNF) as a list of ``(column, operator,
+value)`` tuples:
+
+.. code-block:: python
+
+   >>> pq.read_table('example.parquet', filters=[('three', '==', True)])
+   pyarrow.Table
+   one: double
+   two: large_string
+   three: bool
+   __index_level_0__: large_string
+   ----
+   one: [[-1,2.5]]
+   two: [["foo","baz"]]
+   three: [[true,true]]
+   __index_level_0__: [["a","c"]]
+
+Supported operators are ``=`` / ``==``, ``!=``, ``<``, ``>``, ``<=``,
+``>=``, ``in``, and ``not in``. Multiple predicates in the inner list are
+combined as AND; the outer list combines predicate groups as OR:
+
+.. code-block:: python
+
+   >>> filters = [
+   ...     [('one', '>', 0), ('three', '==', True)],
+   ...     [('two', 'in', ['foo', 'bar'])],
+   ... ]
+   >>> pq.read_table('example.parquet', filters=filters)
+   pyarrow.Table
+   one: double
+   two: large_string
+   three: bool
+   __index_level_0__: large_string
+   ----
+   one: [[-1,null,2.5]]
+   two: [["foo","bar","baz"]]
+   three: [[true,false,true]]
+   __index_level_0__: [["a","b","c"]]
+
+Row group skipping based on column statistics is automatic when filters are
+applied.
+
+.. _parquet_bloom_filters:
+
+Bloom Filters
+-------------
+
+Bloom filters are a probabilistic data structure stored per column per row
+group that can answer, for a given value, either that value is
+“definitely not present” or “probably present”. This makes them useful for
+readers that support Bloom filter-based row group skipping.
+
+The probability of false positives is configurable.
+
+.. note::
+
+   PyArrow reader does not currently use Bloom filters during
+   filtering on read.
+
+Bloom filters are enabled per column via the ``bloom_filter_options`` parameter:
+
+.. code-block:: python
+
+   >>> pq.write_table(table, 'bloom.parquet',
+   ...                bloom_filter_options={'two': True})
+
+Passing ``True`` uses the defaults: ``ndv=1048576`` (number of distinct values)
+and ``fpp=0.05`` (false-positive probability).
+
+Both can also be configured explicitly via a dictionary:
+
+.. code-block:: python
+
+   >>> pq.write_table(table, 'bloom.parquet',
+   ...                bloom_filter_options={
+   ...                    'two': {'ndv': 100, 'fpp': 0.01},
+   ...                })
+
+Recommnded value for ``ndv`` is the number of rows. Lower values of ``fpp``
+reduce false positives but require more space (space grows roughly proportional
+to ``log(1/FPP)``). Recommended values are 0.1, 0.05, or 0.01.
+
+Whether a Bloom filter was written can be confirmed with observing column chunk
+metadata, see: :ref:`inspecting_parquet_file_metadata`.
+
 Multithreaded Reads
 -------------------
 
@@ -314,7 +429,6 @@ This can be disabled by specifying ``use_threads=False``.
 .. note::
    The number of threads to use concurrently is automatically inferred by Arrow
    and can be inspected using the :func:`~pyarrow.cpu_count()` function.
-
 
 Compression, Encoding, and File Compatibility
 ---------------------------------------------
@@ -355,15 +469,12 @@ These settings can also be set on a per-column basis:
    >>> pq.write_table(table, 'example.parquet', compression={'one': 'snappy', 'two': 'gzip'},
    ...                use_dictionary=['one', 'two'])
 
-
 Using with Spark
 ----------------
 
 Spark places some constraints on the types of Parquet files it will read. The
 option ``flavor='spark'`` will set these options automatically and also
 sanitize field characters unsupported by Spark SQL.
-
-
 
 Reading from cloud storage
 --------------------------
