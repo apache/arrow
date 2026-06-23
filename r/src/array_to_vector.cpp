@@ -290,10 +290,10 @@ struct Converter_String : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    // StringViewArray uses a different memory layout (views + data buffers) rather
-    // than offsets, so skip the offset-based fast path and fall through to the
+    // BinaryView/StringView arrays use a different memory layout (views + data buffers)
+    // rather than offsets, so skip the offset-based fast path and fall through to the
     // GetView()-based element loop below.
-    if (array->type_id() != Type::STRING_VIEW) {
+    if (!is_binary_view_like(array->type_id())) {
       auto p_offset = array->data()->GetValues<int32_t>(1);
       if (!p_offset) {
         return Status::Invalid("Invalid offset buffer");
@@ -1272,6 +1272,10 @@ std::shared_ptr<Converter> Converter::Make(
 
     case Type::STRING_VIEW:
       return std::make_shared<arrow::r::Converter_String<arrow::StringViewArray>>(
+          chunked_array);
+
+    case Type::BINARY_VIEW:
+      return std::make_shared<arrow::r::Converter_String<arrow::BinaryViewArray>>(
           chunked_array);
 
     case Type::DICTIONARY:

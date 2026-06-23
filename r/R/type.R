@@ -46,13 +46,16 @@ DataType <- R6Class(
       DataType__ToString(self)
     },
     Equals = function(other, check_metadata = FALSE, ...) {
-      inherits(other, "DataType") && DataType__Equals(self, other, isTRUE(check_metadata))
+      inherits(other, "DataType") &&
+        DataType__Equals(self, other, isTRUE(check_metadata))
     },
     fields = function() {
       DataType__fields(self)
     },
     export_to_c = function(ptr) ExportType(self, ptr),
-    code = function(namespace = FALSE) call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
+    code = function(namespace = FALSE) {
+      call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
+    }
   ),
   active = list(
     id = function() DataType__id(self),
@@ -65,7 +68,14 @@ DataType <- R6Class(
 DataType$import_from_c <- ImportType
 
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
-FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
+FLOAT_TYPES <- c(
+  "float16",
+  "float32",
+  "float64",
+  "halffloat",
+  "float",
+  "double"
+)
 
 #' Infer the arrow Array type from an R object
 #'
@@ -171,7 +181,9 @@ FixedWidthType <- R6Class(
   "FixedWidthType",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2(tolower(self$name), .ns = if (namespace) "arrow")
+    }
   ),
   active = list(
     bit_width = function() FixedWidthType__bit_width(self)
@@ -192,7 +204,9 @@ Float64 <- R6Class(
   "Float64",
   inherit = FixedWidthType,
   public = list(
-    code = function(namespace = FALSE) call2("float64", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("float64", .ns = if (namespace) "arrow")
+    }
   )
 )
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
@@ -200,35 +214,54 @@ Utf8 <- R6Class(
   "Utf8",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("utf8", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("utf8", .ns = if (namespace) "arrow")
+    }
   )
 )
-StringView <- R6Class(
-  "StringView",
+Utf8View <- R6Class(
+  "Utf8View",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("string_view", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("utf8_view", .ns = if (namespace) "arrow")
+    }
   )
 )
 LargeUtf8 <- R6Class(
   "LargeUtf8",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("large_utf8", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("large_utf8", .ns = if (namespace) "arrow")
+    }
   )
 )
 Binary <- R6Class(
   "Binary",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("binary", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("binary", .ns = if (namespace) "arrow")
+    }
   )
 )
 LargeBinary <- R6Class(
   "LargeBinary",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("large_binary", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("large_binary", .ns = if (namespace) "arrow")
+    }
+  )
+)
+BinaryView <- R6Class(
+  "BinaryView",
+  inherit = DataType,
+  public = list(
+    code = function(namespace = FALSE) {
+      call2("binary_view", .ns = if (namespace) "arrow")
+    }
   )
 )
 FixedSizeBinary <- R6Class(
@@ -237,7 +270,11 @@ FixedSizeBinary <- R6Class(
   public = list(
     byte_width = function() FixedSizeBinary__byte_width(self),
     code = function(namespace = FALSE) {
-      call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if (namespace) "arrow")
+      call2(
+        "fixed_size_binary",
+        byte_width = self$byte_width(),
+        .ns = if (namespace) "arrow"
+      )
     }
   )
 )
@@ -246,7 +283,9 @@ DateType <- R6Class(
   "DateType",
   inherit = FixedWidthType,
   public = list(
-    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow"),
+    code = function(namespace = FALSE) {
+      call2(tolower(self$name), .ns = if (namespace) "arrow")
+    },
     unit = function() DateType__unit(self)
   )
 )
@@ -301,7 +340,9 @@ Null <- R6Class(
   "Null",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("null", .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("null", .ns = if (namespace) "arrow")
+    }
   )
 )
 
@@ -315,7 +356,12 @@ Timestamp <- R6Class(
       if (identical(tz, "")) {
         call2("timestamp", unit = unit, .ns = if (namespace) "arrow")
       } else {
-        call2("timestamp", unit = unit, timezone = tz, .ns = if (namespace) "arrow")
+        call2(
+          "timestamp",
+          unit = unit,
+          timezone = tz,
+          .ns = if (namespace) "arrow"
+        )
       }
     },
     timezone = function() TimestampType__timezone(self),
@@ -328,7 +374,12 @@ DecimalType <- R6Class(
   inherit = FixedWidthType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("decimal", precision = self$precision(), scale = self$scale(), .ns = if (namespace) "arrow")
+      call2(
+        "decimal",
+        precision = self$precision(),
+        scale = self$scale(),
+        .ns = if (namespace) "arrow"
+      )
     },
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
@@ -514,7 +565,11 @@ utf8 <- function() Utf8__initialize()
 
 #' @rdname data-type
 #' @export
-string_view <- function() StringView__initialize()
+utf8_view <- function() Utf8View__initialize()
+
+#' @rdname data-type
+#' @export
+string_view <- utf8_view
 
 #' @rdname data-type
 #' @export
@@ -530,7 +585,13 @@ large_binary <- function() LargeBinary__initialize()
 
 #' @rdname data-type
 #' @export
-fixed_size_binary <- function(byte_width) FixedSizeBinary__initialize(byte_width)
+binary_view <- function() BinaryView__initialize()
+
+#' @rdname data-type
+#' @export
+fixed_size_binary <- function(byte_width) {
+  FixedSizeBinary__initialize(byte_width)
+}
 
 #' @rdname data-type
 #' @export
@@ -579,10 +640,18 @@ make_valid_time_unit <- function(unit, valid_units) {
     # Allow non-integer input for convenience
     unit <- as.integer(unit)
   } else {
-    stop('"unit" should be one of ', oxford_paste(names(valid_units), "or"), call. = FALSE)
+    stop(
+      '"unit" should be one of ',
+      oxford_paste(names(valid_units), "or"),
+      call. = FALSE
+    )
   }
   if (!(unit %in% valid_units)) {
-    stop('"unit" should be one of ', oxford_paste(valid_units, "or"), call. = FALSE)
+    stop(
+      '"unit" should be one of ',
+      oxford_paste(valid_units, "or"),
+      call. = FALSE
+    )
   }
   unit
 }
@@ -705,7 +774,11 @@ ListType <- R6Class(
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("list_of", self$value_type$code(namespace), .ns = if (namespace) "arrow")
+      call2(
+        "list_of",
+        self$value_type$code(namespace),
+        .ns = if (namespace) "arrow"
+      )
     }
   ),
   active = list(
@@ -723,7 +796,11 @@ LargeListType <- R6Class(
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("large_list_of", self$value_type$code(namespace), .ns = if (namespace) "arrow")
+      call2(
+        "large_list_of",
+        self$value_type$code(namespace),
+        .ns = if (namespace) "arrow"
+      )
     }
   ),
   active = list(
@@ -760,7 +837,9 @@ FixedSizeListType <- R6Class(
 
 #' @rdname data-type
 #' @export
-fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
+fixed_size_list_of <- function(type, list_size) {
+  fixed_size_list__(type, list_size)
+}
 
 #' @rdname data-type
 #' @export
@@ -778,7 +857,9 @@ MapType <- R6Class(
 
 #' @rdname data-type
 #' @export
-map_of <- function(key_type, item_type, .keys_sorted = FALSE) map__(key_type, item_type, .keys_sorted)
+map_of <- function(key_type, item_type, .keys_sorted = FALSE) {
+  map__(key_type, item_type, .keys_sorted)
+}
 
 as_type <- function(type, name = "type") {
   # magic so we don't have to mask base::double()
@@ -796,7 +877,10 @@ canonical_type_str <- function(type_str) {
   # aliases to match the strings returned by DataType$ToString()
   assert_that(is.string(type_str))
   if (grepl("[([<]", type_str)) {
-    stop("Cannot interpret string representations of data types that have parameters", call. = FALSE)
+    stop(
+      "Cannot interpret string representations of data types that have parameters",
+      call. = FALSE
+    )
   }
   switch(
     type_str,
@@ -822,6 +906,7 @@ canonical_type_str <- function(type_str) {
     large_utf8 = "large_string",
     large_string = "large_string",
     binary = "binary",
+    binary_view = "binary_view",
     large_binary = "large_binary",
     fixed_size_binary = "fixed_size_binary",
     string = "string",

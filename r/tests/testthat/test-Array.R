@@ -198,14 +198,30 @@ test_that("Array supports logical vectors (ARROW-3341)", {
 test_that("Array supports character vectors (ARROW-3339)", {
   # without NA
   expect_array_roundtrip(c("itsy", "bitsy", "spider"), utf8())
-  expect_array_roundtrip(c("itsy", "bitsy", "spider"), large_utf8(), as = large_utf8())
+  expect_array_roundtrip(
+    c("itsy", "bitsy", "spider"),
+    large_utf8(),
+    as = large_utf8()
+  )
 
   # with NA
   expect_array_roundtrip(c("itsy", NA, "spider"), utf8())
-  expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8(), as = large_utf8())
+  expect_array_roundtrip(
+    c("itsy", NA, "spider"),
+    large_utf8(),
+    as = large_utf8()
+  )
 
-  expect_array_roundtrip(c("itsy", NA, "", "spider"), string_view(), as = string_view())
-  expect_array_roundtrip(c("itsy", NA, "", "a long non-inlined string", "another long string"), string_view(), as = string_view())
+  expect_array_roundtrip(
+    c("itsy", NA, "", "spider"),
+    string_view(),
+    as = string_view()
+  )
+  expect_array_roundtrip(
+    c("itsy", NA, "", "a long non-inlined string", "another long string"),
+    string_view(),
+    as = string_view()
+  )
 })
 
 test_that("Character vectors > 2GB become large_utf8", {
@@ -263,7 +279,10 @@ test_that("Array supports unordered factors (ARROW-3355)", {
 test_that("Array supports ordered factors (ARROW-3355)", {
   # without NA
   f <- ordered(c("itsy", "bitsy", "spider", "spider"))
-  arr_fac <- expect_array_roundtrip(f, dictionary(int8(), utf8(), ordered = TRUE))
+  arr_fac <- expect_array_roundtrip(
+    f,
+    dictionary(int8(), utf8(), ordered = TRUE)
+  )
   expect_true(arr_fac$ordered)
 
   # with NA
@@ -286,13 +305,15 @@ test_that("array supports POSIXct (ARROW-3340)", {
   times[5] <- NA
   expect_array_roundtrip(times, timestamp("us", "UTC"))
 
-  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10
+  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") +
+    1:10
   expect_array_roundtrip(times2, timestamp("us", "America/New_York"))
 })
 
 test_that("array uses local timezone for POSIXct without timezone", {
   withr::with_envvar(c(TZ = ""), {
-    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") +
+      1:10
     expect_equal(attr(times, "tzone"), NULL)
     expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
 
@@ -305,7 +326,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
 
   # If there is a timezone set, we record that
   withr::with_timezone("Pacific/Marquesas", {
-    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") +
+      1:10
     expect_equal(attr(times, "tzone"), "Pacific/Marquesas")
     expect_array_roundtrip(times, timestamp("us", "Pacific/Marquesas"))
 
@@ -321,7 +343,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
 
   # and although the TZ is NULL in R, we set it to the Sys.timezone()
   withr::with_timezone(NA, {
-    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") +
+      1:10
     expect_equal(attr(times, "tzone"), NULL)
     expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
   })
@@ -342,7 +365,11 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(
     no_tz = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
-    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas") + 1:10
+    yes_tz = lubridate::ymd_hms(
+      "2018-10-07 19:04:05",
+      tz = "Pacific/Marquesas"
+    ) +
+      1:10
   )
   if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
@@ -447,7 +474,9 @@ test_that("float types casts (ARROW-3741)", {
 })
 
 test_that("cast to half float works", {
-  skip("Need halffloat support: https://issues.apache.org/jira/browse/ARROW-3802")
+  skip(
+    "Need halffloat support: https://issues.apache.org/jira/browse/ARROW-3802"
+  )
   a <- arrow_array(1:4)
   a_f16 <- a$cast(float16())
   expect_type_equal(a_16$type, float16())
@@ -582,7 +611,10 @@ test_that("StructArray creation", {
   expect_r6_class(a, "StructArray")
 
   # from Arrays
-  str_array <- StructArray$create(a = arrow_array(1:2), b = arrow_array(c("a", "b")))
+  str_array <- StructArray$create(
+    a = arrow_array(1:2),
+    b = arrow_array(c("a", "b"))
+  )
   expect_equal(str_array[[1]], arrow_array(1:2))
   expect_equal(str_array[[2]], arrow_array(c("a", "b")))
   expect_r6_class(str_array, "StructArray")
@@ -621,30 +653,54 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
   # logical
   expect_array_roundtrip(list(NA), list_of(bool()))
   expect_array_roundtrip(list(logical(0)), list_of(bool()))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), list_of(bool()))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)), list_of(bool()))
+  expect_array_roundtrip(
+    list(c(TRUE), c(FALSE), c(FALSE, TRUE)),
+    list_of(bool())
+  )
+  expect_array_roundtrip(
+    list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)),
+    list_of(bool())
+  )
 
   # integer
   expect_array_roundtrip(list(NA_integer_), list_of(int32()))
   expect_array_roundtrip(list(integer(0)), list_of(int32()))
   expect_array_roundtrip(list(1:2, 3:4, 12:18), list_of(int32()))
-  expect_array_roundtrip(list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)), list_of(int32()))
+  expect_array_roundtrip(
+    list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)),
+    list_of(int32())
+  )
 
   # numeric
   expect_array_roundtrip(list(NA_real_), list_of(float64()))
   expect_array_roundtrip(list(numeric(0)), list_of(float64()))
   expect_array_roundtrip(list(1, c(2, 3), 4), list_of(float64()))
-  expect_array_roundtrip(list(1, numeric(0), c(2, 3, NA_real_), 4), list_of(float64()))
+  expect_array_roundtrip(
+    list(1, numeric(0), c(2, 3, NA_real_), 4),
+    list_of(float64())
+  )
 
   # character
   expect_array_roundtrip(list(NA_character_), list_of(utf8()))
   expect_array_roundtrip(list(character(0)), list_of(utf8()))
-  expect_array_roundtrip(list("itsy", c("bitsy", "spider"), c("is")), list_of(utf8()))
-  expect_array_roundtrip(list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")), list_of(utf8()))
+  expect_array_roundtrip(
+    list("itsy", c("bitsy", "spider"), c("is")),
+    list_of(utf8())
+  )
+  expect_array_roundtrip(
+    list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")),
+    list_of(utf8())
+  )
 
   # factor
-  expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
-  expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
+  expect_array_roundtrip(
+    list(factor(c("b", "a"), levels = c("a", "b"))),
+    list_of(dictionary(int8(), utf8()))
+  )
+  expect_array_roundtrip(
+    list(factor(NA, levels = c("a", "b"))),
+    list_of(dictionary(int8(), utf8()))
+  )
 
   # ordered factor (GH-49689)
   expect_array_roundtrip(
@@ -655,7 +711,12 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
 
   # struct
   expect_array_roundtrip(
-    list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
+    list(tibble::tibble(
+      a = integer(0),
+      b = integer(0),
+      c = character(0),
+      d = logical(0)
+    )),
     list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()))
   )
   expect_array_roundtrip(
@@ -669,7 +730,10 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
 
 test_that("arrow_array() handles list of dataframes -> map arrays", {
   # Should be able to create an empty map with a type hint.
-  expect_r6_class(arrow_array(list(), type = map_of(utf8(), boolean())), "MapArray")
+  expect_r6_class(
+    arrow_array(list(), type = map_of(utf8(), boolean())),
+    "MapArray"
+  )
 
   # MapType is alias for List<Struct<keys, values>>
   data <- list(
@@ -688,18 +752,39 @@ test_that("arrow_array() handles list of dataframes -> map arrays", {
 
   expect_equal(arr$keys_nested()$type, list_of(utf8()))
   expect_equal(arr$items_nested()$type, list_of(int32()))
-  expect_equal(arr$keys_nested(), arrow_array(list(c("a", "b"), c("a", "c")), type = list_of(utf8())))
-  expect_equal(arr$items_nested(), arrow_array(list(c(1, 2), c(4, 7)), type = list_of(int32())))
+  expect_equal(
+    arr$keys_nested(),
+    arrow_array(list(c("a", "b"), c("a", "c")), type = list_of(utf8()))
+  )
+  expect_equal(
+    arr$items_nested(),
+    arrow_array(list(c(1, 2), c(4, 7)), type = list_of(int32()))
+  )
 })
 
 test_that("arrow_array() handles vector -> large list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_r6_class(arrow_array(list(), type = large_list_of(bool())), "LargeListArray")
+  expect_r6_class(
+    arrow_array(list(), type = large_list_of(bool())),
+    "LargeListArray"
+  )
 
   # logical
-  expect_array_roundtrip(list(NA), large_list_of(bool()), as = large_list_of(bool()))
-  expect_array_roundtrip(list(logical(0)), large_list_of(bool()), as = large_list_of(bool()))
-  expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), large_list_of(bool()), as = large_list_of(bool()))
+  expect_array_roundtrip(
+    list(NA),
+    large_list_of(bool()),
+    as = large_list_of(bool())
+  )
+  expect_array_roundtrip(
+    list(logical(0)),
+    large_list_of(bool()),
+    as = large_list_of(bool())
+  )
+  expect_array_roundtrip(
+    list(c(TRUE), c(FALSE), c(FALSE, TRUE)),
+    large_list_of(bool()),
+    as = large_list_of(bool())
+  )
   expect_array_roundtrip(
     list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)),
     large_list_of(bool()),
@@ -707,9 +792,21 @@ test_that("arrow_array() handles vector -> large list arrays", {
   )
 
   # integer
-  expect_array_roundtrip(list(NA_integer_), large_list_of(int32()), as = large_list_of(int32()))
-  expect_array_roundtrip(list(integer(0)), large_list_of(int32()), as = large_list_of(int32()))
-  expect_array_roundtrip(list(1:2, 3:4, 12:18), large_list_of(int32()), as = large_list_of(int32()))
+  expect_array_roundtrip(
+    list(NA_integer_),
+    large_list_of(int32()),
+    as = large_list_of(int32())
+  )
+  expect_array_roundtrip(
+    list(integer(0)),
+    large_list_of(int32()),
+    as = large_list_of(int32())
+  )
+  expect_array_roundtrip(
+    list(1:2, 3:4, 12:18),
+    large_list_of(int32()),
+    as = large_list_of(int32())
+  )
   expect_array_roundtrip(
     list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)),
     large_list_of(int32()),
@@ -717,9 +814,21 @@ test_that("arrow_array() handles vector -> large list arrays", {
   )
 
   # numeric
-  expect_array_roundtrip(list(NA_real_), large_list_of(float64()), as = large_list_of(float64()))
-  expect_array_roundtrip(list(numeric(0)), large_list_of(float64()), as = large_list_of(float64()))
-  expect_array_roundtrip(list(1, c(2, 3), 4), large_list_of(float64()), as = large_list_of(float64()))
+  expect_array_roundtrip(
+    list(NA_real_),
+    large_list_of(float64()),
+    as = large_list_of(float64())
+  )
+  expect_array_roundtrip(
+    list(numeric(0)),
+    large_list_of(float64()),
+    as = large_list_of(float64())
+  )
+  expect_array_roundtrip(
+    list(1, c(2, 3), 4),
+    large_list_of(float64()),
+    as = large_list_of(float64())
+  )
   expect_array_roundtrip(
     list(1, numeric(0), c(2, 3, NA_real_), 4),
     large_list_of(float64()),
@@ -727,8 +836,16 @@ test_that("arrow_array() handles vector -> large list arrays", {
   )
 
   # character
-  expect_array_roundtrip(list(NA_character_), large_list_of(utf8()), as = large_list_of(utf8()))
-  expect_array_roundtrip(list(character(0)), large_list_of(utf8()), as = large_list_of(utf8()))
+  expect_array_roundtrip(
+    list(NA_character_),
+    large_list_of(utf8()),
+    as = large_list_of(utf8())
+  )
+  expect_array_roundtrip(
+    list(character(0)),
+    large_list_of(utf8()),
+    as = large_list_of(utf8())
+  )
   expect_array_roundtrip(
     list("itsy", c("bitsy", "spider"), c("is")),
     large_list_of(utf8()),
@@ -761,7 +878,12 @@ test_that("arrow_array() handles vector -> large list arrays", {
 
   # struct
   expect_array_roundtrip(
-    list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
+    list(tibble::tibble(
+      a = integer(0),
+      b = integer(0),
+      c = character(0),
+      d = logical(0)
+    )),
     large_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool())),
     as = large_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()))
   )
@@ -774,10 +896,17 @@ test_that("arrow_array() handles vector -> large list arrays", {
 
 test_that("arrow_array() handles vector -> fixed size list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_r6_class(arrow_array(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
+  expect_r6_class(
+    arrow_array(list(), type = fixed_size_list_of(bool(), 20)),
+    "FixedSizeListArray"
+  )
 
   # logical
-  expect_array_roundtrip(list(NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
+  expect_array_roundtrip(
+    list(NA),
+    fixed_size_list_of(bool(), 1L),
+    as = fixed_size_list_of(bool(), 1L)
+  )
   expect_array_roundtrip(
     list(c(TRUE, FALSE), c(FALSE, TRUE)),
     fixed_size_list_of(bool(), 2L),
@@ -790,8 +919,16 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
   )
 
   # integer
-  expect_array_roundtrip(list(NA_integer_), fixed_size_list_of(int32(), 1L), as = fixed_size_list_of(int32(), 1L))
-  expect_array_roundtrip(list(1:2, 3:4, 11:12), fixed_size_list_of(int32(), 2L), as = fixed_size_list_of(int32(), 2L))
+  expect_array_roundtrip(
+    list(NA_integer_),
+    fixed_size_list_of(int32(), 1L),
+    as = fixed_size_list_of(int32(), 1L)
+  )
+  expect_array_roundtrip(
+    list(1:2, 3:4, 11:12),
+    fixed_size_list_of(int32(), 2L),
+    as = fixed_size_list_of(int32(), 2L)
+  )
   expect_array_roundtrip(
     list(c(1:2), c(NA_integer_, 3L)),
     fixed_size_list_of(int32(), 2L),
@@ -799,7 +936,11 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
   )
 
   # numeric
-  expect_array_roundtrip(list(NA_real_), fixed_size_list_of(float64(), 1L), as = fixed_size_list_of(float64(), 1L))
+  expect_array_roundtrip(
+    list(NA_real_),
+    fixed_size_list_of(float64(), 1L),
+    as = fixed_size_list_of(float64(), 1L)
+  )
   expect_array_roundtrip(
     list(c(1, 2), c(2, 3)),
     fixed_size_list_of(float64(), 2L),
@@ -812,9 +953,18 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
   )
 
   # character
-  expect_array_roundtrip(list(NA_character_), fixed_size_list_of(utf8(), 1L), as = fixed_size_list_of(utf8(), 1L))
   expect_array_roundtrip(
-    list(c("itsy", "bitsy"), c("spider", "is"), c(NA_character_, NA_character_), c("", "")),
+    list(NA_character_),
+    fixed_size_list_of(utf8(), 1L),
+    as = fixed_size_list_of(utf8(), 1L)
+  )
+  expect_array_roundtrip(
+    list(
+      c("itsy", "bitsy"),
+      c("spider", "is"),
+      c(NA_character_, NA_character_),
+      c("", "")
+    ),
     fixed_size_list_of(utf8(), 2L),
     as = fixed_size_list_of(utf8(), 2L)
   )
@@ -836,8 +986,14 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = 1L, b = 1L, c = "", d = TRUE)),
-    fixed_size_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()), 1L),
-    as = fixed_size_list_of(struct(a = int32(), b = int32(), c = utf8(), d = bool()), 1L)
+    fixed_size_list_of(
+      struct(a = int32(), b = int32(), c = utf8(), d = bool()),
+      1L
+    ),
+    as = fixed_size_list_of(
+      struct(a = int32(), b = int32(), c = utf8(), d = bool()),
+      1L
+    )
   )
   expect_array_roundtrip(
     list(tibble::tibble(a = list(1L))),
@@ -923,14 +1079,20 @@ test_that("Handling string data with embedded nuls", {
 })
 
 test_that("arrow_array() should have helpful error", {
-  expect_error(arrow_array(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
+  expect_error(
+    arrow_array(list(numeric(0)), list_of(bool())),
+    "Expecting a logical vector"
+  )
 
   lgl <- logical(0)
   int <- integer(0)
   num <- numeric(0)
   char <- character(0)
   expect_error(arrow_array(list(lgl, lgl, int)), "Expecting a logical vector")
-  expect_error(arrow_array(list(char, num, char)), "Expecting a character vector")
+  expect_error(
+    arrow_array(list(char, num, char)),
+    "Expecting a character vector"
+  )
 
   a <- expect_error(arrow_array("one", int32()))
   b <- expect_error(vec_to_Array("one", int32()))
@@ -977,7 +1139,10 @@ test_that("[ method on Array", {
   expect_as_vector(a[5:9], vec[5:9])
   expect_as_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
   expect_as_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
-  expect_as_vector(a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)], c(11, NA, 15, 16, NA, 20))
+  expect_as_vector(
+    a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)],
+    c(11, NA, 15, 16, NA, 20)
+  )
   expect_as_vector(a[-4], vec[-4])
   expect_as_vector(a[-1], vec[-1])
 })
@@ -1384,8 +1549,14 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
 
   decimal128_from_dbl <- arrow_array(c(1, NA_real_), type = decimal128(12, 2))
   decimal256_from_dbl <- arrow_array(c(1, NA_real_), type = decimal256(12, 2))
-  decimal128_from_int <- arrow_array(c(1L, NA_integer_), type = decimal128(12, 2))
-  decimal256_from_int <- arrow_array(c(1L, NA_integer_), type = decimal256(12, 2))
+  decimal128_from_int <- arrow_array(
+    c(1L, NA_integer_),
+    type = decimal128(12, 2)
+  )
+  decimal256_from_int <- arrow_array(
+    c(1L, NA_integer_),
+    type = decimal256(12, 2)
+  )
 
   # Check ALTREP input
   altrep_dbl <- as.vector(arrow_array(c(1, NA_real_)))
@@ -1455,4 +1626,17 @@ test_that("Array handles negative fractional dates correctly (GH-46873)", {
   d <- as.Date(-0.1, origin = "1970-01-01")
   arr <- arrow_array(d)
   expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
+})
+
+test_that("binary_view Array roundtrips", {
+  bin <- list(as.raw(1:10), as.raw(1:10))
+  expect_array_roundtrip(bin, binary_view(), as = binary_view())
+
+  # with NAs
+  bin_na <- list(as.raw(1:5), NULL, as.raw(11:20))
+  expect_array_roundtrip(bin_na, binary_view(), as = binary_view())
+
+  # with long values (>12 bytes, out-of-line storage)
+  bin_long <- list(as.raw(1:20), NULL, as.raw(1:5))
+  expect_array_roundtrip(bin_long, binary_view(), as = binary_view())
 })

@@ -409,7 +409,10 @@ test_that("map type works as expected", {
   expect_false(x$keys_sorted)
 
   # nullability matters in comparison
-  expect_false(x$Equals(map_of(int32(), field("value", utf8(), nullable = FALSE))))
+  expect_false(x$Equals(map_of(
+    int32(),
+    field("value", utf8(), nullable = FALSE)
+  )))
 
   # field names don't matter by default
   other_name <- map_of(int32(), field("other", utf8()))
@@ -472,7 +475,10 @@ test_that("DictionaryType works as expected (ARROW-3355)", {
   expect_equal(d$index_type, int32())
   expect_equal(d$value_type, utf8())
   ord <- dictionary(ordered = TRUE)
-  expect_equal(ord$ToString(), "dictionary<values=string, indices=int32, ordered>")
+  expect_equal(
+    ord$ToString(),
+    "dictionary<values=string, indices=int32, ordered>"
+  )
 })
 
 test_that("DictionaryType validation", {
@@ -571,6 +577,7 @@ test_that("DataType$code()", {
   expect_code_roundtrip(large_utf8())
 
   expect_code_roundtrip(binary())
+  expect_code_roundtrip(binary_view())
   expect_code_roundtrip(large_binary())
   expect_code_roundtrip(fixed_size_binary(byte_width = 91))
 
@@ -610,7 +617,10 @@ test_that("DataType$code()", {
 
   expect_code_roundtrip(dictionary())
   expect_code_roundtrip(dictionary(index_type = int8()))
-  expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
+  expect_code_roundtrip(dictionary(
+    index_type = int8(),
+    value_type = large_utf8()
+  ))
   expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
 
   skip_if(packageVersion("rlang") < "1")
@@ -631,6 +641,17 @@ test_that("as_data_type() works for DataType", {
 
 test_that("as_data_type() works for Field", {
   expect_equal(as_data_type(field("a field", int32())), int32())
+})
+
+test_that("binary_view type works as expected", {
+  x <- binary_view()
+  expect_equal(x$id, Type$BINARY_VIEW)
+  expect_equal(x$name, "binary_view")
+  expect_equal(x$ToString(), "binary_view")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
 })
 
 test_that("as_data_type() works for Schema", {
