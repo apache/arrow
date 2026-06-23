@@ -37,10 +37,11 @@ keywords:
   - columnar-format
   - in-memory-analytics
   - data-interchange
-  - arrow-ipc
-  - arrow-flight
-  - pyarrow
-  - r
-  - ruby
-  - cpp
+  - columnar-memory-format
+  - record-batch
+  - zero-copy-data-sharing
+  - cross-language-interoperability
+  - arrow-ipc-serialization
+  - arrow-flight-rpc
+  - analytical-data-processing
 license: Apache-2.0
