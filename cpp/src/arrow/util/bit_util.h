@@ -183,8 +183,8 @@ template <typename Uint>
 struct CopyBitsParams {
   Uint src = {};
   Uint dst = {};
-  Uint start = {};
-  Uint end = {};
+  int start = {};
+  int end = {};
 };
 
 /// Copy a contiguous span of bits from src into dst.
@@ -195,19 +195,20 @@ struct CopyBitsParams {
 /// guarantee that the range of bits to copy does not cover the whole range.
 template <typename Uint, bool kAllowFullCopy = true>
 [[nodiscard]] constexpr Uint CopyBitsInInteger(const CopyBitsParams<Uint>& params) {
-  constexpr auto kUintSizeBits = static_cast<Uint>(sizeof(Uint) * 8);
+  constexpr auto kUintSizeBits = static_cast<int>(sizeof(Uint) * 8);
   assert(params.start <= params.end);
   assert(params.start < kUintSizeBits);
   assert(params.end <= kUintSizeBits);
 
-  const auto length = static_cast<Uint>(params.end - params.start);
+  const int length = params.end - params.start;
   if constexpr (kAllowFullCopy) {
     if (length == kUintSizeBits) {
       return params.src;
     }
   }
   assert(length < kUintSizeBits);
-  const Uint mask = LeastSignificantBitMask<Uint, false>(length) << params.start;
+  const Uint mask =
+      static_cast<Uint>(LeastSignificantBitMask<Uint, false>(length) << params.start);
   return (~mask & params.dst) | (mask & params.src);
 }
 

@@ -315,7 +315,7 @@ TEST_P(RleRunToBitmapDecoderTest, Decode) {
 
 INSTANTIATE_TEST_SUITE_P(  //
     RleBitmap, RleRunToBitmapDecoderTest,
-    ::testing::Values(0, 1, 3, 8, 9, 13, 64, 100, 100, 1000));
+    ::testing::Values(0, 1, 3, 8, 9, 13, 64, 100, 177));
 
 /*********************************
  *  BitPackedRunToBitmapDecoder  *
@@ -454,7 +454,7 @@ void CheckRleBitPackedToBitmap(const std::vector<uint8_t>& bytes,
   ASSERT_GT(n_vals, 0);
   for (const rle_size_t chunk_size :
        {rle_size_t{1}, rle_size_t{3}, rle_size_t{7}, rle_size_t{8}, rle_size_t{9},
-        rle_size_t{33}, n_vals}) {
+        rle_size_t{33}, n_vals, n_vals + 1}) {
     CheckRleBitPackedDecode(bytes, expected, chunk_size);
     // A non-zero output offset forces the first run to start at a non-byte
     // aligned output position.

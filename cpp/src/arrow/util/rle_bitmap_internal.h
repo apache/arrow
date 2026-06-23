@@ -98,7 +98,7 @@ class RleRunToBitmapDecoder {
   /// Return how much the decoder would advance if asked to.
   ///
   /// Does not modify input.
-  rle_size_t AdvanceCapacity(rle_size_t batch_size) const noexcept {
+  rle_size_t GetAdvanceCapacity(rle_size_t batch_size) const noexcept {
     const auto n_vals = std::min(batch_size, remaining());
     return n_vals;
   }
@@ -106,16 +106,16 @@ class RleRunToBitmapDecoder {
   /// Advance by as many values as provided or until exhaustion of the decoder.
   /// Return the number of values skipped.
   [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
-    const auto n_vals = AdvanceCapacity(batch_size);
+    const auto n_vals = GetAdvanceCapacity(batch_size);
     values_left_ -= n_vals;
     ARROW_DCHECK_GE(remaining(), 0);
     return n_vals;
   }
 
-  /// Get the next value and return false if there are no more.
+  /// Read the next value into `out` and return false if there are no more.
   [[nodiscard]] bool Get(BitmapSpanMut out) { return GetBatch(out, 1) == 1; }
 
-  /// Get a batch of values return the number of decoded elements.
+  /// Get a batch of values into `out` and return the number of decoded elements.
   ///
   /// May write fewer elements to the output than requested if there are not
   /// enough values left.
@@ -140,7 +140,7 @@ class RleRunToBitmapDecoder {
 
     // TRAILER: Writing inside the last byte if caller asked for non multiple of 8 values
     const auto n_last_vals = std::min(batch_size - n_vals, remaining());
-    if (ARROW_PREDICT_FALSE(n_last_vals > 0)) {
+    if (n_last_vals > 0) {
       ARROW_DCHECK_LT(n_last_vals, 8);
       n_vals += GetBatchInByte(out.NewStartingAt(n_vals), n_last_vals);
     }
@@ -215,7 +215,7 @@ class BitPackedRunToBitmapDecoder {
   /// Return how much the decoder would advance if asked to.
   ///
   /// Does not modify input.
-  rle_size_t AdvanceCapacity(rle_size_t batch_size) const noexcept {
+  rle_size_t GetAdvanceCapacity(rle_size_t batch_size) const noexcept {
     const auto n_vals = std::min(batch_size, remaining());
     return n_vals;
   }
@@ -223,7 +223,7 @@ class BitPackedRunToBitmapDecoder {
   /// Advance by as many values as provided or until exhaustion of the decoder.
   /// Return the number of values skipped.
   [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
-    const auto n_vals = AdvanceCapacity(batch_size);
+    const auto n_vals = GetAdvanceCapacity(batch_size);
     values_read_ += n_vals;
     ARROW_DCHECK_GE(remaining(), 0);
     return n_vals;
@@ -236,7 +236,7 @@ class BitPackedRunToBitmapDecoder {
   /// May write fewer elements to the output than requested if there are not enough values
   /// left.
   [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size) {
-    auto n_vals = AdvanceCapacity(batch_size);
+    auto n_vals = GetAdvanceCapacity(batch_size);
     arrow::internal::CopyBitmap(unread_values_ptr(), unread_values_bit_offset(), n_vals,
                                 out.data(), out.bit_start());
     return Advance(n_vals);
