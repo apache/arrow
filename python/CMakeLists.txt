@@ -1042,15 +1042,14 @@ endif()
 # Type stubs with docstring injection
 #
 # TODO(GH-49831): Temporarily do not install pyarrow-stubs into wheels.
-# The stubs are incomplete, and some type checkers consume .pyi files even
-# without the py.typed marker. Re-enable this when the stubs are complete.
+# Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
+# alongside the package so type checkers can find them (PEP 561).
+# The stubs are currently incomplete, and some type checkers consume .pyi files
+# even without the py.typed marker. Re-enable this when the stubs are complete.
 if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
   message(FATAL_ERROR "PYARROW_REQUIRE_STUB_DOCSTRINGS cannot be used while "
                       "pyarrow-stubs are omitted from wheels (GH-49831).")
 endif()
-#
-# Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
-# alongside the package so type checkers can find them (PEP 561).
 # set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
 # if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
 #   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
