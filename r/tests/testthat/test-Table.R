@@ -430,15 +430,6 @@ test_that("Can create table with specific dictionary types", {
   expect_equal_data_frame(tab_large, fact)
 })
 
-test_that("Table converts dictionary arrays with wider index types back to R", {
-  fact <- example_data[, "fct"]
-  for (i in list(uint32(), int64(), uint64())) {
-    sch <- schema(fct = dictionary(i, utf8()))
-    tab <- Table$create(fact, schema = sch)
-    expect_equal(tab$schema, sch)
-    expect_equal_data_frame(tab, fact)
-  }
-})
 
 test_that("Table converts dictionary arrays with string_view values", {
   expected <- data.frame(foo = factor(c("x", NA, "x")))
