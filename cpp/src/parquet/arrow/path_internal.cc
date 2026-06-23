@@ -405,13 +405,15 @@ class ListPathNode {
         // def_levels entered first.
         break;
       }
-      if constexpr (RangeSelector::kCheckContiguous) {
+      // FillForLast extends child_range by updating only its end. Non-contiguous
+      // selectors must split at gaps.
+      if constexpr (RangeSelector::kContiguous) {
+        DCHECK_EQ(size_check.start, child_range->end)
+            << size_check.start << " != " << child_range->end;
+      } else {
         if (size_check.start != child_range->end) {
           break;
         }
-      } else {
-        DCHECK_EQ(size_check.start, child_range->end)
-            << size_check.start << " != " << child_range->end;
       }
       // This is the start of a new list. We can be sure it only applies
       // to the previous list (and doesn't jump to the start of any list
@@ -439,7 +441,7 @@ class ListPathNode {
 
 template <typename OffsetType>
 struct VarRangeSelector {
-  static constexpr bool kCheckContiguous = false;
+  static constexpr bool kContiguous = true;
 
   ElementRange GetRange(int64_t index) const {
     return ElementRange{.start = offsets[index], .end = offsets[index + 1]};
@@ -451,7 +453,7 @@ struct VarRangeSelector {
 
 template <typename OffsetType>
 struct ListViewRangeSelector {
-  static constexpr bool kCheckContiguous = true;
+  static constexpr bool kContiguous = false;
 
   ElementRange GetRange(int64_t index) const {
     const int64_t start = offsets[index];
@@ -463,7 +465,7 @@ struct ListViewRangeSelector {
 };
 
 struct FixedSizedRangeSelector {
-  static constexpr bool kCheckContiguous = false;
+  static constexpr bool kContiguous = true;
 
   ElementRange GetRange(int64_t index) const {
     int64_t start = index * list_size;
