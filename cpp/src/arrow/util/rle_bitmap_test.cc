@@ -36,9 +36,9 @@ namespace {
 std::vector<uint8_t> MakeRandomBytes(size_t size, uint32_t seed = 56) {
   std::vector<uint8_t> bytes(size);
   std::minstd_rand gen(seed);
-  std::uniform_int_distribution<uint8_t> dist(0, 255);
+  std::uniform_int_distribution<int> dist(0, 255);  // no standard support for uint8_t
   for (auto& byte : bytes) {
-    byte = dist(gen);
+    byte = static_cast<uint8_t>(dist(gen));
   }
   return bytes;
 }
