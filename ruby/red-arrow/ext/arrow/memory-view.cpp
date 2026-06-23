@@ -31,8 +31,8 @@
 #  undef private
 #endif
 
-#include <sstream>
 #include <cstring>
+#include <sstream>
 
 namespace red_arrow {
   namespace memory_view {
