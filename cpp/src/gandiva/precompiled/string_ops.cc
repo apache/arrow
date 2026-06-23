@@ -1896,11 +1896,14 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
 
   for (; text_index <= text_len - from_str_len;) {
     if (memcmp(text + text_index, from_str, from_str_len) == 0) {
-      // Subtract first: out_index and text_index can both approach INT_MAX now
-      // that the wrapper may pass a large max_length, so out_index + text_index
-      // could overflow gdv_int32 before the subtraction. (text_index -
-      // last_match_index) is a bounded non-negative span, keeping the sum legal.
-      if (out_index + (text_index - last_match_index) + to_str_len > max_length) {
+      // Compute the prospective length in gdv_int64: now that the wrapper may
+      // pass a max_length near INT_MAX, out_index can approach INT_MAX and a
+      // 32-bit sum would overflow before this guard runs -- precisely the case
+      // the guard exists to catch. (text_index - last_match_index) is a bounded
+      // non-negative span.
+      gdv_int64 prospective_len = static_cast<gdv_int64>(out_index) +
+                                  (text_index - last_match_index) + to_str_len;
+      if (prospective_len > max_length) {
         gdv_fn_context_set_error_msg(context,
                                      "REPLACE: Buffer overflow for output string");
         *out_len = 0;
@@ -1936,7 +1939,8 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
     return text;
   }
 
-  if (out_index + (text_len - last_match_index) > max_length) {
+  gdv_int64 final_len = static_cast<gdv_int64>(out_index) + (text_len - last_match_index);
+  if (final_len > max_length) {
     gdv_fn_context_set_error_msg(context, "REPLACE: Buffer overflow for output string");
     *out_len = 0;
     return "";
