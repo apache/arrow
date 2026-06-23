@@ -224,10 +224,10 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   if (ret == nullptr) {
     std::string err_msg = "Could not allocate memory for string: " + dec_str;
     gdv_fn_context_set_error_msg(context, err_msg.data());
-    // Report zero length so callers don't memcpy from the returned buffer using a
-    // stale, positive length (which would corrupt native memory / SIGSEGV).
+    // Report zero length so a caller can never combine a positive length with the
+    // null buffer (the original bug: memcpy(dst, nullptr, positive_len) -> SIGSEGV).
     *dec_str_len = 0;
-    return const_cast<char*>("");
+    return nullptr;
   }
   *dec_str_len = dec_str_length;
   memcpy(ret, dec_str.data(), dec_str_length);
