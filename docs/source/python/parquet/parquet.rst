@@ -224,6 +224,22 @@ We can similarly write a Parquet file with multiple row groups by using
    >>> pf2.num_row_groups
    3
 
+For memory-efficient reads of large files, :meth:`~.ParquetFile.iter_batches`
+streams the file as a sequence of :class:`~pyarrow.RecordBatch` objects rather
+than loading the entire file into a single table:
+
+.. code-block:: python
+
+   >>> parquet_file = pq.ParquetFile('example.parquet')
+   >>> for batch in parquet_file.iter_batches(batch_size=2):
+   ...     print(batch.num_rows)
+   2
+   1
+
+The ``batch_size`` parameter controls the maximum number of rows per
+batch. The ``row_groups`` and ``columns`` parameters allow limiting
+which row groups and columns are read.
+
 .. _inspecting_parquet_file_metadata:
 
 Inspecting the Parquet File Metadata
