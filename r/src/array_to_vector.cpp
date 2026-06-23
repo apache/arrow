@@ -503,6 +503,44 @@ class Converter_Binary : public Converter {
   virtual bool Parallel() const { return false; }
 };
 
+class Converter_BinaryView : public Converter {
+ public:
+  explicit Converter_BinaryView(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
+    Rf_classgets(res, data::classes_arrow_binary);
+    UNPROTECT(1);
+    return res;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    const BinaryViewArray* binary_array =
+        checked_cast<const BinaryViewArray*>(array.get());
+
+    auto ingest_one = [&](R_xlen_t i) {
+      auto value = binary_array->GetView(i);
+      SEXP raw = PROTECT(Rf_allocVector(RAWSXP, value.size()));
+      std::copy(value.data(), value.data() + value.size(), RAW(raw));
+
+      SET_VECTOR_ELT(data, i + start, raw);
+      UNPROTECT(1);
+
+      return Status::OK();
+    };
+
+    return IngestSome(array, n, ingest_one);
+  }
+
+  virtual bool Parallel() const { return false; }
+};
+
 class Converter_FixedSizeBinary : public Converter {
  public:
   explicit Converter_FixedSizeBinary(const std::shared_ptr<ChunkedArray>& chunked_array,
@@ -1275,8 +1313,7 @@ std::shared_ptr<Converter> Converter::Make(
           chunked_array);
 
     case Type::BINARY_VIEW:
-      return std::make_shared<arrow::r::Converter_String<arrow::BinaryViewArray>>(
-          chunked_array);
+      return std::make_shared<arrow::r::Converter_BinaryView>(chunked_array);
 
     case Type::DICTIONARY:
       return std::make_shared<arrow::r::Converter_Dictionary>(chunked_array);
