@@ -1761,12 +1761,15 @@ TEST(ExecPlanExecution, UnalignedInput) {
   Declaration plan = Declaration::Sequence({
       {"exec_batch_source", ExecBatchSourceNodeOptions(data.schema, data.batches)},
   });
-
+#ifdef ENABLE_MEMORY_POOL_STATS
   int64_t initial_bytes_allocated = default_memory_pool()->total_bytes_allocated();
+#endif
 
   // By default we should warn and so the plan should finish ok
   ASSERT_OK(DeclarationToStatus(plan));
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+#endif
 
   QueryOptions query_options;
 
@@ -1774,18 +1777,24 @@ TEST(ExecPlanExecution, UnalignedInput) {
   // Nothing should happen if we ignore alignment
   query_options.unaligned_buffer_handling = UnalignedBufferHandling::kIgnore;
   ASSERT_OK(DeclarationToStatus(plan, query_options));
+#  ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+#  endif
 #endif
 
   query_options.unaligned_buffer_handling = UnalignedBufferHandling::kError;
   ASSERT_THAT(DeclarationToStatus(plan, query_options),
               Raises(StatusCode::Invalid,
                      testing::HasSubstr("An input buffer was poorly aligned")));
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+#endif
 
   query_options.unaligned_buffer_handling = UnalignedBufferHandling::kReallocate;
   ASSERT_OK(DeclarationToStatus(plan, query_options));
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_LT(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+#endif
 }
 
 }  // namespace acero
