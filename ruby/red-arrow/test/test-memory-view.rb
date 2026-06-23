@@ -456,7 +456,9 @@ class MemoryViewTest < Test::Unit::TestCase
     end
 
     def assert_release(target)
-      size = 256 # We should use sizeof(rb_memory_view_t) but it isn't available from Ruby.
+      # We should use sizeof(rb_memory_view_t) but it isn't available from Ruby.
+      # 256 must be larger than sizeof(rb_memory_view_t).
+      size = 256
       Fiddle::Pointer.malloc(size, Fiddle::RUBY_FREE) do |view|
         size.times do |i|
           view[i] = 0xAA
