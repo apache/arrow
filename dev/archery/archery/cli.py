@@ -48,7 +48,7 @@ def _run_metadata(ctx):
     return {
         "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "cmd": {
-            "full": " ".join(sys.argv),
+            "argv": sys.argv,
             "params": ctx.params,
         },
         "machine_info": {
@@ -332,7 +332,7 @@ def benchmark_common_options(cmd):
                      type=click.Path(file_okay=False, resolve_path=True),
                      default=None,
                      help="Parent directory in which to create the preserved "
-                     "workspace. Has no effect without --preserve."),
+                     "workspace. Implies --preserve."),
         click.option("--output", metavar="<output>",
                      type=click.File("w", encoding="utf8"), default=None,
                      help="Capture output result into file."),
@@ -380,6 +380,8 @@ def benchmark_list(ctx, rev_or_path, src, preserve, preserve_dir, output,
                    benchmark_extras, cpp_benchmark_extras, language, **kwargs):
     """ List benchmark suite.
     """
+    # A preserve_dir implies preserving the workspace.
+    preserve = preserve or preserve_dir is not None
     with tmpdir(preserve=preserve, preserve_dir=preserve_dir) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
@@ -462,6 +464,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, preserve_dir, output,
     \b
     archery benchmark run --output=run.json
     """
+    # A preserve_dir implies preserving the workspace.
+    preserve = preserve or preserve_dir is not None
     with tmpdir(preserve=preserve, preserve_dir=preserve_dir) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
@@ -499,6 +503,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, preserve_dir, output,
                                         "benchmark.json")
             with open(results_path, "w") as f:
                 f.write(json_out)
+            # Store some run metadata to make it hard to confuse runs, for instance
+            # remembering what was the SIMD level set on this run.
             metadata_path = os.path.join(runner_base.results_dir,
                                          "metadata.json")
             with open(metadata_path, "w") as f:
@@ -602,6 +608,8 @@ def benchmark_diff(ctx, src, preserve, preserve_dir, output, language,
     # This should not recompute the benchmark from run.json
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
+    # A preserve_dir implies preserving the workspace.
+    preserve = preserve or preserve_dir is not None
     with tmpdir(preserve=preserve, preserve_dir=preserve_dir) as root:
         logger.debug(f"Comparing {contender} (contender) with {baseline} (baseline)")
 
