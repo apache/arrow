@@ -916,6 +916,10 @@ LargeBinary__initialize <- function() {
   .Call(`_arrow_LargeBinary__initialize`)
 }
 
+BinaryView__initialize <- function() {
+  .Call(`_arrow_BinaryView__initialize`)
+}
+
 Date32__initialize <- function() {
   .Call(`_arrow_Date32__initialize`)
 }
@@ -2203,3 +2207,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

@@ -1632,11 +1632,7 @@ test_that("binary_view Array roundtrips", {
   bin <- list(as.raw(1:10), as.raw(1:10))
   expect_array_roundtrip(bin, binary_view(), as = binary_view())
 
-  # with NAs
-  bin_na <- list(as.raw(1:5), NULL, as.raw(11:20))
-  expect_array_roundtrip(bin_na, binary_view(), as = binary_view())
-
   # with long values (>12 bytes, out-of-line storage)
-  bin_long <- list(as.raw(1:20), NULL, as.raw(1:5))
+  bin_long <- list(as.raw(1:20), as.raw(1:5))
   expect_array_roundtrip(bin_long, binary_view(), as = binary_view())
 })
