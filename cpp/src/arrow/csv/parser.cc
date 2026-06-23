@@ -204,8 +204,8 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
   // however we allow for one extraneous write in case of excessive columns,
   // hence `2 + num_rows * num_cols` (see explanation in PushValue below).
   PresizedValueDescWriter(MemoryPool* pool, int32_t num_rows, int32_t num_cols)
-      : ValueDescWriter(pool, /*values_capacity=*/2 +
-                                  static_cast<int64_t>(num_rows) * num_cols) {}
+      : ValueDescWriter(
+            pool, /*values_capacity=*/2 + static_cast<int64_t>(num_rows) * num_cols) {}
 
   void PushValue(ParsedValueDesc v) {
     DCHECK_LT(values_size_, values_capacity_);
@@ -536,9 +536,8 @@ class BlockParserImpl {
       // Use bulk filter only if average value length is >= 10 bytes,
       // as the bulk filter has a fixed cost that isn't compensated
       // when values are too short.
-      const int64_t bulk_filter_threshold =
-          static_cast<int64_t>(batch_.num_cols_) * (batch_.num_rows_ - start_num_rows) *
-          10;
+      const int64_t bulk_filter_threshold = static_cast<int64_t>(batch_.num_cols_) *
+                                            (batch_.num_rows_ - start_num_rows) * 10;
       use_bulk_filter_ = (data - *out_data) > bulk_filter_threshold;
     }
 
