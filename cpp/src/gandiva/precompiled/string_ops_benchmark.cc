@@ -31,6 +31,7 @@
 // (it cancels out in the delta), mirroring per-call arena reuse.
 
 #include <chrono>
+#include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
@@ -150,9 +151,8 @@ TEST(StringOpsBenchmark, Replace) {
     double old_ns = TimeNsPerCall(run_old, c.iters);
     double delta = old_ns > 0 ? (new_ns - old_ns) / old_ns * 100.0 : 0.0;
 
-    printf("%-28s %10lld %9lld %12.1f %12.1f %+8.1f%%\n", c.name.c_str(),
-           static_cast<long long>(c.text_len), static_cast<long long>(matches), new_ns,
-           old_ns, delta);
+    printf("%-28s %10" PRId64 " %9" PRId64 " %12.1f %12.1f %+8.1f%%\n", c.name.c_str(),
+           c.text_len, matches, new_ns, old_ns, delta);
   }
   printf("\n");
 }
