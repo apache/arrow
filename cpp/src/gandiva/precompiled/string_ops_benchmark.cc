@@ -141,11 +141,18 @@ TEST(StringOpsBenchmark, Replace) {
       ctx.Reset();
     };
 
-    // Warm up (and verify both produce the same length / no error).
-    run_new();
-    ASSERT_FALSE(ctx.has_error());
-    run_old();
-    ASSERT_FALSE(ctx.has_error());
+    // Warm up and verify correctness. Check has_error()/out_len BEFORE Reset(),
+    // since Reset() clears the error and the timed lambdas reset internally.
+    int32_t new_len = 0;
+    replace_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen, &new_len);
+    ASSERT_FALSE(ctx.has_error()) << c.name << ": " << ctx.get_error();
+    ctx.Reset();
+    int32_t old_len = 0;
+    replace_with_max_len_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen,
+                                        out_capacity, &old_len);
+    ASSERT_FALSE(ctx.has_error()) << c.name << ": " << ctx.get_error();
+    ctx.Reset();
+    ASSERT_EQ(new_len, old_len) << c.name << ": new/old output lengths differ";
 
     double new_ns = TimeNsPerCall(run_new, c.iters);
     double old_ns = TimeNsPerCall(run_old, c.iters);
