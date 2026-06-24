@@ -71,22 +71,25 @@ struct PartitionNthToIndices {
       return Status::IndexError("NthToIndices index out of bound");
     }
     ArrayData* out_arr = out->array_data().get();
-    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
-    uint64_t* out_end = out_begin + arr.length();
-    std::iota(out_begin, out_end, 0);
+    std::span<uint64_t> out_span{out_arr->GetMutableValues<uint64_t>(1),
+                                 static_cast<size_t>(arr.length())};
+    std::iota(out_span.begin(), out_span.end(), 0);
     if (pivot == arr.length()) {
       return Status::OK();
     }
-    const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
-        out_begin, out_end, arr, 0, options.null_placement);
-    auto nth_begin = out_begin + pivot;
-    if (nth_begin >= p.non_nulls_begin && nth_begin < p.non_nulls_end) {
-      std::nth_element(p.non_nulls_begin, nth_begin, p.non_nulls_end,
-                       [&arr](uint64_t left, uint64_t right) {
-                         const auto lval = GetView::LogicalValue(arr.GetView(left));
-                         const auto rval = GetView::LogicalValue(arr.GetView(right));
-                         return lval < rval;
-                       });
+    const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
+        out_span.data(), out_span.data() + out_span.size(), arr, 0,
+        options.null_placement);
+    auto nth_begin = out_span.begin() + pivot;
+    if (nth_begin >= p.non_null_like_range.begin() &&
+        nth_begin < p.non_null_like_range.end()) {
+      std::ranges::nth_element(
+          p.non_null_like_range.begin(), nth_begin, p.non_null_like_range.end(),
+          [&arr](uint64_t left, uint64_t right) {
+            const auto lval = GetView::LogicalValue(arr.GetView(left));
+            const auto rval = GetView::LogicalValue(arr.GetView(right));
+            return lval < rval;
+          });
     }
     return Status::OK();
   }
@@ -150,11 +153,11 @@ class ArrayCompareSorter {
                                          const ArraySortOptions& options, ExecContext*) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
-    const auto p = PartitionNulls<ArrayType, StablePartitioner>(
+    const auto p = PartitionNullsAndNans<ArrayType, StablePartitioner>(
         indices_begin, indices_end, values, offset, options.null_placement);
     if (options.order == SortOrder::Ascending) {
       std::stable_sort(
-          p.non_nulls_begin, p.non_nulls_end,
+          p.non_null_like_range.begin(), p.non_null_like_range.end(),
           [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
@@ -162,7 +165,7 @@ class ArrayCompareSorter {
           });
     } else {
       std::stable_sort(
-          p.non_nulls_begin, p.non_nulls_end,
+          p.non_null_like_range.begin(), p.non_null_like_range.end(),
           [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
@@ -171,7 +174,12 @@ class ArrayCompareSorter {
             return rhs < lhs;
           });
     }
-    return p;
+    return NullPartitionResult{
+        p.non_null_like_range.data(),
+        p.non_null_like_range.data() + p.non_null_like_range.size(),
+        std::min(p.null_range.data(), p.nan_range.data()),
+        std::max(p.null_range.data() + p.null_range.size(),
+                 p.nan_range.data() + p.nan_range.size())};
   }
 };
 

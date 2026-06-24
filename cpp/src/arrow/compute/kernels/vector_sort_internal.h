@@ -224,23 +224,6 @@ NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indice
   }
 }
 
-// Move nulls to end of array.
-//
-// `offset` is used when this is called on a chunk of a chunked array
-template <typename ArrayType, typename Partitioner>
-NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-                                   const ArrayType& values, int64_t offset,
-                                   NullPlacement null_placement) {
-  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
-                                                          values, offset, null_placement);
-  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
-      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
-  return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
-                             std::min(q.nulls_begin, p.nulls_begin),
-                             std::max(q.nulls_end, p.nulls_end)};
-}
-
 //
 // Null partitioning on chunked arrays, in two flavors:
 // 1) with uint64_t indices and ChunkedArrayResolver
@@ -327,18 +310,27 @@ NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indice
   }
 }
 
+struct PartitionResultByNullLikeness {
+  std::span<uint64_t> non_null_like_range;
+  std::span<uint64_t> null_range;
+  std::span<uint64_t> nan_range;
+};
+
 template <typename ArrayType, typename Partitioner>
-NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-                                   const ChunkedArrayResolver& resolver,
-                                   int64_t null_count, NullPlacement null_placement) {
+PartitionResultByNullLikeness PartitionNullsAndNans(uint64_t* indices_begin,
+                                                    uint64_t* indices_end,
+                                                    const ArrayType& values,
+                                                    int64_t offset,
+                                                    NullPlacement null_placement) {
   // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(
-      indices_begin, indices_end, resolver, null_count, null_placement);
+  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
+                                                          values, offset, null_placement);
   NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
-      p.non_nulls_begin, p.non_nulls_end, resolver, null_placement);
-  return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
-                             std::min(q.nulls_begin, p.nulls_begin),
-                             std::max(q.nulls_end, p.nulls_end)};
+      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
+  return PartitionResultByNullLikeness{
+      .non_null_like_range = {q.non_nulls_begin, q.non_nulls_end},
+      .null_range = {p.nulls_begin, p.nulls_end},
+      .nan_range = {q.nulls_begin, q.nulls_end}};
 }
 
 template <typename IndexType, typename NullPartitionResultType>

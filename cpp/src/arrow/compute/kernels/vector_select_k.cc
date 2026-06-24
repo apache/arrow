@@ -166,29 +166,6 @@ void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range,
   }
 }
 
-struct PartitionResultByNullLikeness {
-  std::span<uint64_t> non_null_like_range;
-  std::span<uint64_t> null_range;
-  std::span<uint64_t> nan_range;
-};
-
-template <typename ArrayType, typename Partitioner>
-PartitionResultByNullLikeness PartitionNullsAndNans(uint64_t* indices_begin,
-                                                    uint64_t* indices_end,
-                                                    const ArrayType& values,
-                                                    int64_t offset,
-                                                    NullPlacement null_placement) {
-  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
-                                                          values, offset, null_placement);
-  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
-      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
-  return PartitionResultByNullLikeness{
-      .non_null_like_range = {q.non_nulls_begin, q.non_nulls_end},
-      .null_range = {p.nulls_begin, p.nulls_end},
-      .nan_range = {q.nulls_begin, q.nulls_end}};
-}
-
 class ArraySelector : public TypeVisitor {
  public:
   ArraySelector(ExecContext* ctx, const Array& array, const SelectKOptions& options,
