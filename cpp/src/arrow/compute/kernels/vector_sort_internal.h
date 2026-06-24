@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -167,9 +168,48 @@ struct GenericNullPartitionResult {
     };
   }
 };
-
 using NullPartitionResult = GenericNullPartitionResult<uint64_t>;
 using ChunkedNullPartitionResult = GenericNullPartitionResult<CompressedChunkLocation>;
+
+template <typename IndexType>
+struct GenericPartitionResultByNullLikeness {
+  std::span<IndexType> non_null_like_range;
+  std::span<IndexType> null_range;
+  std::span<IndexType> nan_range;
+
+  IndexType* overall_begin() const {
+    return std::min(non_null_like_range.begin(), null_range.begin(), nan_range.begin());
+  }
+
+  IndexType* overall_end() const {
+    return std::max(non_null_like_range.end(), null_range.end(), nan_range.end());
+  }
+
+  GenericNullPartitionResult<IndexType> toLegacyNullPartitionResult() const {
+    return GenericNullPartitionResult<IndexType>{
+        non_null_like_range.data(),
+        non_null_like_range.data() + non_null_like_range.size(),
+        std::min(null_range.data(), nan_range.data()),
+        std::max(null_range.data() + null_range.size(),
+                 nan_range.data() + nan_range.size())};
+  }
+
+  template <typename TargetIndexType>
+  GenericPartitionResultByNullLikeness<TargetIndexType> TranslateTo(
+      IndexType* indices_begin, TargetIndexType* target_indices_begin) const {
+    return {.non_null_like_range = {(non_null_like_range.data() - indices_begin) +
+                                        target_indices_begin,
+                                    non_null_like_range.size()},
+            .null_range = {(null_range.data() - indices_begin) + target_indices_begin,
+                           null_range.size()},
+            .nan_range = {(nan_range.data() - indices_begin) + target_indices_begin,
+                          nan_range.size()}};
+  }
+};
+
+using PartitionResultByNullLikeness = GenericPartitionResultByNullLikeness<uint64_t>;
+using ChunkedPartitionResultByNullLikeness =
+    GenericPartitionResultByNullLikeness<CompressedChunkLocation>;
 
 // Move nulls (not null-like values) to end of array.
 //
@@ -310,12 +350,6 @@ NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indice
   }
 }
 
-struct PartitionResultByNullLikeness {
-  std::span<uint64_t> non_null_like_range;
-  std::span<uint64_t> null_range;
-  std::span<uint64_t> nan_range;
-};
-
 template <typename ArrayType, typename Partitioner>
 PartitionResultByNullLikeness PartitionNullsAndNans(uint64_t* indices_begin,
                                                     uint64_t* indices_end,
@@ -445,7 +479,6 @@ struct GenericMergeImpl {
   IndexType* temp_indices_ = nullptr;
 };
 
-using MergeImpl = GenericMergeImpl<uint64_t, NullPartitionResult>;
 using ChunkedMergeImpl =
     GenericMergeImpl<CompressedChunkLocation, ChunkedNullPartitionResult>;
 

@@ -174,12 +174,7 @@ class ArrayCompareSorter {
             return rhs < lhs;
           });
     }
-    return NullPartitionResult{
-        p.non_null_like_range.data(),
-        p.non_null_like_range.data() + p.non_null_like_range.size(),
-        std::min(p.null_range.data(), p.nan_range.data()),
-        std::max(p.null_range.data() + p.null_range.size(),
-                 p.nan_range.data() + p.nan_range.size())};
+    return p.toLegacyNullPartitionResult();
   }
 };
 
