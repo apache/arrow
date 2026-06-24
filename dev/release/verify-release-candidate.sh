@@ -456,11 +456,6 @@ test_and_install_cpp() {
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
     CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
-    # Ensure conda's LLVM tools (llvm-link, llvm-ranlib) find libLLVM.*.dylib.
-    # Otherwise @rpath resolution is flaky and the C++ build aborts on macOS.
-    if [ "$(uname)" = "Darwin" ] && [ -n "${CONDA_PREFIX:-}" ]; then
-      export DYLD_LIBRARY_PATH="${CONDA_PREFIX}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
-    fi
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -563,7 +558,13 @@ test_and_install_cpp() {
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
-  cmake --build . --target install
+  # Expose conda's lib so LLVM tools (llvm-link, llvm-ranlib) find libLLVM.*.dylib via
+  # @rpath else build flakily fails on macOS (Scoped here so libiconv can't leak into tests)
+  if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
+    DYLD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${DYLD_LIBRARY_PATH:-}" cmake --build . --target install
+  else
+    cmake --build . --target install
+  fi
 
   if [ ${TEST_CPP} -gt 0 ]; then
     LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
