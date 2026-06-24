@@ -456,6 +456,11 @@ test_and_install_cpp() {
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
     CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+    # Ensure conda's LLVM tools (llvm-link, llvm-ranlib) find libLLVM.*.dylib.
+    # Otherwise @rpath resolution is flaky and the C++ build aborts on macOS.
+    if [ "$(uname)" = "Darwin" ] && [ -n "${CONDA_PREFIX:-}" ]; then
+      export DYLD_LIBRARY_PATH="${CONDA_PREFIX}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+    fi
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -779,10 +784,10 @@ test_source_distribution() {
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
-    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
   else
     NPROC=$(nproc)
-    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
   fi
 
   pushd $ARROW_SOURCE_DIR

@@ -15,7 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Exclude LLVM 22.1.8: its conda-forge macOS llvm-tools package cannot load
-# @rpath/libLLVM.22.1.dylib, breaking the C++ build (mimalloc, Gandiva IR) for verify-rc.
 clang>=11
-llvmdev>=11,<22
+llvmdev>=11
