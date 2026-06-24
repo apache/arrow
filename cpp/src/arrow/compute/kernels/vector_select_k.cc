@@ -205,16 +205,14 @@ class ArraySelector : public TypeVisitor {
 
     std::vector<uint64_t> indices(arr.length());
 
-    uint64_t* indices_begin = indices.data();
-    uint64_t* indices_end = indices_begin + indices.size();
-    std::iota(indices_begin, indices_end, 0);
+    std::iota(indices.begin(), indices.end(), 0);
 
     ARROW_ASSIGN_OR_RAISE(auto take_indices,
                           MakeMutableUInt64Array(k_, ctx_->memory_pool()));
     auto* output_begin = take_indices->template GetMutableValues<uint64_t>(1);
 
     const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-        indices_begin, indices_end, arr, 0, null_placement_);
+        indices, arr, 0, null_placement_);
 
     // From k, calculate
     //   l = non_null_like elements to take from PartitionResult
@@ -317,13 +315,11 @@ class ChunkedArraySelector : public TypeVisitor {
 
       auto& indices = indices_by_chunk.emplace_back();
       indices.resize(arr.length());
-      uint64_t* indices_begin = indices.data();
-      uint64_t* indices_end = indices_begin + indices.size();
-      std::iota(indices_begin, indices_end, 0);
+      std::iota(indices.begin(), indices.end(), 0);
 
       partitions_by_chunk.emplace_back(
-          PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-              indices_begin, indices_end, arr, 0, null_placement_));
+          PartitionNullsAndNans<ArrayType, NonStablePartitioner>(indices, arr, 0,
+                                                                 null_placement_));
 
       null_count += partitions_by_chunk.back().null_range.size();
       nan_count += partitions_by_chunk.back().nan_range.size();
@@ -472,12 +468,8 @@ class RecordBatchSelector {
       const auto& first_remaining_sort_key = selector_->sort_keys_[start_sort_key_index_];
       const auto& arr = checked_cast<const ArrayType&>(first_remaining_sort_key.array);
 
-      uint64_t* input_indices_begin = input_indices_.data();
-      uint64_t* input_indices_end = input_indices_.data() + input_indices_.size();
-
       const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-          input_indices_begin, input_indices_end, arr, 0,
-          first_remaining_sort_key.null_placement);
+          input_indices_, arr, 0, first_remaining_sort_key.null_placement);
 
       // From k = output_indices_.size(), calculate
       //   l = non_null_like elements to take from PartitionResult

@@ -133,8 +133,9 @@ class ChunkedArraySorter : public TypeVisitor {
       auto merge_non_nulls =
           [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
               CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
-            MergeNonNulls<ArrayType>(range_begin, range_middle, range_end, arrays,
-                                     temp_indices);
+            MergeNonNulls<ArrayType>(
+                {range_begin, range_middle}, {range_middle, range_end}, arrays,
+                {temp_indices, static_cast<size_t>(range_end - range_begin)});
           };
 
       ChunkedMergeImpl merge_impl{null_placement_, std::move(merge_nulls),
@@ -177,31 +178,33 @@ class ChunkedArraySorter : public TypeVisitor {
   }
 
   template <typename ArrayType>
-  void MergeNonNulls(CompressedChunkLocation* range_begin,
-                     CompressedChunkLocation* range_middle,
-                     CompressedChunkLocation* range_end,
+  void MergeNonNulls(std::span<CompressedChunkLocation> left,
+                     std::span<CompressedChunkLocation> right,
                      std::span<const Array* const> arrays,
-                     CompressedChunkLocation* temp_indices) {
+                     std::span<CompressedChunkLocation> temp_indices) {
     using ArrowType = typename ArrayType::TypeClass;
 
     if (order_ == SortOrder::Ascending) {
-      std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                   return ChunkValue<ArrowType>(arrays, left) <
-                          ChunkValue<ArrowType>(arrays, right);
-                 });
+      std::ranges::merge(
+          left, right, temp_indices.begin(),
+          [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+            return ChunkValue<ArrowType>(arrays, left) <
+                   ChunkValue<ArrowType>(arrays, right);
+          });
     } else {
-      std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                   // We don't use 'left > right' here to reduce required
-                   // operator. If we use 'right < left' here, '<' is only
-                   // required.
-                   return ChunkValue<ArrowType>(arrays, right) <
-                          ChunkValue<ArrowType>(arrays, left);
-                 });
+      std::ranges::merge(
+          left, right, temp_indices.begin(),
+          [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+            // We don't use 'left > right' here to reduce required
+            // operator. If we use 'right < left' here, '<' is only
+            // required.
+            return ChunkValue<ArrowType>(arrays, right) <
+                   ChunkValue<ArrowType>(arrays, left);
+          });
     }
     // Copy back temp area into main buffer
-    std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
+    std::ranges::copy(temp_indices.begin(),
+                      temp_indices.begin() + left.size() + right.size(), left.begin());
   }
 
   template <typename ArrowType>
@@ -283,34 +286,32 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
   NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) override {
     using GetView = GetViewType<Type>;
 
-    NullPartitionResult p;
+    PartitionResultByNullLikeness partitions;
     if (null_count_ == 0) {
-      p = NullPartitionResult::NoNulls(indices.data(), indices.data() + indices.size(),
-                                       null_placement_);
+      partitions = PartitionNansOnly<ArrayType, StablePartitioner>(
+          indices, array_, offset, null_placement_);
+
     } else {
       // NOTE that null_count_ is merely an upper bound on the number of nulls
       // in this particular range.
-      p = PartitionNullsOnly<StablePartitioner>(indices.data(),
-                                                indices.data() + indices.size(), array_,
-                                                offset, null_placement_);
-      DCHECK_LE(p.nulls_end - p.nulls_begin, null_count_);
+      partitions = PartitionNullsAndNans<ArrayType, StablePartitioner>(
+          indices, array_, offset, null_placement_);
+      DCHECK_LE(static_cast<int64_t>(partitions.null_range.size()), null_count_);
     }
-    const NullPartitionResult q = PartitionNullLikes<ArrayType, StablePartitioner>(
-        p.non_nulls_begin, p.non_nulls_end, array_, offset, null_placement_);
 
     // TODO This is roughly the same as ArrayCompareSorter.
     // Also, we would like to use a counting sort if possible.  This requires
     // a counting sort compatible with indirect indexing.
     if (order_ == SortOrder::Ascending) {
-      std::stable_sort(
-          q.non_nulls_begin, q.non_nulls_end, [&](uint64_t left, uint64_t right) {
+      std::ranges::stable_sort(
+          partitions.non_null_like_range, [&](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
             return lhs < rhs;
           });
     } else {
-      std::stable_sort(
-          q.non_nulls_begin, q.non_nulls_end, [&](uint64_t left, uint64_t right) {
+      std::ranges::stable_sort(
+          partitions.non_null_like_range, [&](uint64_t left, uint64_t right) {
             // We don't use 'left > right' here to reduce required operator.
             // If we use 'right < left' here, '<' is only required.
             const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
@@ -322,15 +323,13 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     if (next_column_ != nullptr) {
       // Visit all ranges of equal values in this column and sort them on
       // the next column.
-      SortNextColumn({q.nulls_begin, q.nulls_end}, offset);
-      SortNextColumn({p.nulls_begin, p.nulls_end}, offset);
+      SortNextColumn(partitions.null_range, offset);
+      SortNextColumn(partitions.nan_range, offset);
       VisitConstantRanges(
-          array_, {q.non_nulls_begin, q.non_nulls_end}, offset,
+          array_, partitions.non_null_like_range, offset,
           [&](std::span<uint64_t> indices) { SortNextColumn(indices, offset); });
     }
-    return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
-                               std::min(q.nulls_begin, p.nulls_begin),
-                               std::max(q.nulls_end, p.nulls_end)};
+    return partitions.toLegacyNullPartitionResult();
   }
 
   void SortNextColumn(std::span<uint64_t> indices, int64_t offset) {

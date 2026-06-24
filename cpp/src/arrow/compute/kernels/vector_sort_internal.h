@@ -351,14 +351,28 @@ NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indice
 }
 
 template <typename ArrayType, typename Partitioner>
-PartitionResultByNullLikeness PartitionNullsAndNans(uint64_t* indices_begin,
-                                                    uint64_t* indices_end,
+PartitionResultByNullLikeness PartitionNullsAndNans(std::span<uint64_t> indices,
                                                     const ArrayType& values,
                                                     int64_t offset,
                                                     NullPlacement null_placement) {
   // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
-                                                          values, offset, null_placement);
+  NullPartitionResult p = PartitionNullsOnly<Partitioner>(
+      indices.data(), indices.data() + indices.size(), values, offset, null_placement);
+  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
+      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
+  return PartitionResultByNullLikeness{
+      .non_null_like_range = {q.non_nulls_begin, q.non_nulls_end},
+      .null_range = {p.nulls_begin, p.nulls_end},
+      .nan_range = {q.nulls_begin, q.nulls_end}};
+}
+
+template <typename ArrayType, typename Partitioner>
+PartitionResultByNullLikeness PartitionNansOnly(std::span<uint64_t> indices,
+                                                const ArrayType& values, int64_t offset,
+                                                NullPlacement null_placement) {
+  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
+  NullPartitionResult p = NullPartitionResult::NoNulls(
+      indices.data(), indices.data() + indices.size(), null_placement);
   NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
       p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
   return PartitionResultByNullLikeness{
