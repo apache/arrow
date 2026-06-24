@@ -1778,6 +1778,11 @@ def test_tensor_array_from_list_of_ndarrays(np_type_str):
     with pytest.raises(NotImplementedError, match="permutation"):
         pa.array(elements, type=permuted_type)
 
+    # The validation also applies to non-list sequences (e.g. a deque)
+    from collections import deque
+    with pytest.raises(NotImplementedError, match="permutation"):
+        pa.array(deque(elements), type=permuted_type)
+
 
 @pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (

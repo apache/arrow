@@ -270,7 +270,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         # the converter only sees the flat storage type, so validate the
         # tensor-specific constraints here where the type is still known.
         if (isinstance(extension_type, FixedShapeTensorType)
-                and isinstance(obj, (list, tuple))):
+                and isinstance(obj, Sequence)
+                and not _is_array_like(obj)
+                and not isinstance(obj, (str, bytes, bytearray))):
             if extension_type.permutation is not None:
                 raise NotImplementedError(
                     "Converting a sequence of arrays to a fixed_shape_tensor with "
