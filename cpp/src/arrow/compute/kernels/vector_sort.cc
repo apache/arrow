@@ -231,26 +231,26 @@ class ChunkedArraySorter : public TypeVisitor {
 // Visit contiguous ranges of equal values.  All entries are assumed
 // to be non-null.
 template <typename ArrayType, typename Visitor>
-void VisitConstantRanges(const ArrayType& array, uint64_t* indices_begin,
-                         uint64_t* indices_end, int64_t offset, Visitor&& visit) {
+void VisitConstantRanges(const ArrayType& array, std::span<uint64_t> indices,
+                         int64_t offset, Visitor&& visit) {
   using GetView = GetViewType<typename ArrayType::TypeClass>;
 
-  if (indices_begin == indices_end) {
+  if (indices.empty()) {
     return;
   }
-  auto range_start = indices_begin;
+  auto range_start = indices.begin();
   auto range_cur = range_start;
   auto last_value = GetView::LogicalValue(array.GetView(*range_cur - offset));
-  while (++range_cur != indices_end) {
+  while (++range_cur != indices.end()) {
     auto v = GetView::LogicalValue(array.GetView(*range_cur - offset));
     if (v != last_value) {
-      visit(range_start, range_cur);
+      visit(std::span<uint64_t>{range_start, range_cur});
       range_start = range_cur;
       last_value = v;
     }
   }
-  if (range_start != range_cur) {
-    visit(range_start, range_cur);
+  if (range_start != indices.end()) {
+    visit({range_start, indices.end()});
   }
 }
 
@@ -262,8 +262,7 @@ class RecordBatchColumnSorter {
       : next_column_(next_column) {}
   virtual ~RecordBatchColumnSorter() {}
 
-  virtual NullPartitionResult SortRange(uint64_t* indices_begin, uint64_t* indices_end,
-                                        int64_t offset) = 0;
+  virtual NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) = 0;
 
  protected:
   RecordBatchColumnSorter* next_column_;
@@ -284,17 +283,18 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
         null_placement_(null_placement),
         null_count_(array_.null_count()) {}
 
-  NullPartitionResult SortRange(uint64_t* indices_begin, uint64_t* indices_end,
-                                int64_t offset) override {
+  NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) override {
     using GetView = GetViewType<Type>;
 
     NullPartitionResult p;
     if (null_count_ == 0) {
-      p = NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement_);
+      p = NullPartitionResult::NoNulls(indices.data(), indices.data() + indices.size(),
+                                       null_placement_);
     } else {
       // NOTE that null_count_ is merely an upper bound on the number of nulls
       // in this particular range.
-      p = PartitionNullsOnly<StablePartitioner>(indices_begin, indices_end, array_,
+      p = PartitionNullsOnly<StablePartitioner>(indices.data(),
+                                                indices.data() + indices.size(), array_,
                                                 offset, null_placement_);
       DCHECK_LE(p.nulls_end - p.nulls_begin, null_count_);
     }
@@ -325,22 +325,21 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     if (next_column_ != nullptr) {
       // Visit all ranges of equal values in this column and sort them on
       // the next column.
-      SortNextColumn(q.nulls_begin, q.nulls_end, offset);
-      SortNextColumn(p.nulls_begin, p.nulls_end, offset);
-      VisitConstantRanges(array_, q.non_nulls_begin, q.non_nulls_end, offset,
-                          [&](uint64_t* range_start, uint64_t* range_end) {
-                            SortNextColumn(range_start, range_end, offset);
-                          });
+      SortNextColumn({q.nulls_begin, q.nulls_end}, offset);
+      SortNextColumn({p.nulls_begin, p.nulls_end}, offset);
+      VisitConstantRanges(
+          array_, {q.non_nulls_begin, q.non_nulls_end}, offset,
+          [&](std::span<uint64_t> indices) { SortNextColumn(indices, offset); });
     }
     return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
                                std::min(q.nulls_begin, p.nulls_begin),
                                std::max(q.nulls_end, p.nulls_end)};
   }
 
-  void SortNextColumn(uint64_t* indices_begin, uint64_t* indices_end, int64_t offset) {
+  void SortNextColumn(std::span<uint64_t> indices, int64_t offset) {
     // Avoid the cost of a virtual method call in trivial cases
-    if (indices_end - indices_begin > 1) {
-      next_column_->SortRange(indices_begin, indices_end, offset);
+    if (indices.size() > 1) {
+      next_column_->SortRange(indices, offset);
     }
   }
 
@@ -360,12 +359,12 @@ class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter
                                   RecordBatchColumnSorter* next_column = nullptr)
       : RecordBatchColumnSorter(next_column), null_placement_(null_placement) {}
 
-  NullPartitionResult SortRange(uint64_t* indices_begin, uint64_t* indices_end,
-                                int64_t offset) {
+  NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) {
     if (next_column_ != nullptr) {
-      next_column_->SortRange(indices_begin, indices_end, offset);
+      next_column_->SortRange(indices, offset);
     }
-    return NullPartitionResult::NullsOnly(indices_begin, indices_end, null_placement_);
+    return NullPartitionResult::NullsOnly(indices.data(), indices.data() + indices.size(),
+                                          null_placement_);
   }
 
  protected:
@@ -421,8 +420,7 @@ class RadixRecordBatchSorter {
     }
 
     // Sort from left to right
-    return column_sorts.front()->SortRange(indices_.data(),
-                                           indices_.data() + indices_.size(), offset);
+    return column_sorts.front()->SortRange(indices_, offset);
   }
 
  protected:
