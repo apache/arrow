@@ -2875,7 +2875,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
     }
   }
 
-  if (maybe_read_result.has_value()) {
+  if (final_status.ok()) {
     // IPC file read successful: compare results with IPC stream reader,
     // if possible.
     // NOTE: some valid IPC files may not be readable as IPC streams,
