@@ -32,19 +32,6 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
-namespace arrow {
-
-namespace bit_util {
-class BitReader;
-}  // namespace bit_util
-
-namespace util {
-template <typename T>
-class RleBitPackedDecoder;
-}  // namespace util
-
-}  // namespace arrow
-
 namespace parquet {
 
 class Decryptor;
@@ -79,25 +66,29 @@ struct PARQUET_EXPORT DataPageStats {
 class PARQUET_EXPORT LevelDecoder {
  public:
   LevelDecoder();
+
   ~LevelDecoder();
 
-  // Initialize the LevelDecoder state with new data
-  // and return the number of bytes consumed
+  /// Initialize the LevelDecoder state with new data from a legacy (V1) page.
+  ///
+  /// @return the number of bytes consumed
   int SetData(Encoding::type encoding, int16_t max_level, int num_buffered_values,
               const uint8_t* data, int32_t data_size);
 
+  /// Initialize the LevelDecoder state with new data from a V2 page.
+  ///
+  /// Encoding of the level in the
   void SetDataV2(int32_t num_bytes, int16_t max_level, int num_buffered_values,
                  const uint8_t* data);
 
-  // Decodes a batch of levels into an array and returns the number of levels decoded
+  /// Decode a batch of levels into an array and returns the number of levels decoded
   int Decode(int batch_size, int16_t* levels);
 
  private:
-  int bit_width_;
-  int num_values_remaining_;
-  Encoding::type encoding_;
-  std::unique_ptr<::arrow::util::RleBitPackedDecoder<int16_t>> rle_decoder_;
-  std::unique_ptr<::arrow::bit_util::BitReader> bit_packed_decoder_;
+  struct Impl;
+
+  std::unique_ptr<Impl> decoder_;
+  int num_values_remaining_ = 0;
   int16_t max_level_;
 };
 

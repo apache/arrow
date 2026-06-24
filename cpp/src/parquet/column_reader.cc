@@ -27,6 +27,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array.h"
@@ -95,7 +96,77 @@ constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
 
 }  // namespace
 
-LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
+/******************
+ *  LevelDecoder  *
+ ******************/
+
+namespace {
+
+/// Adapter around ``BitReader`` that mimics the API of ``RleBitPackedDecoder``.
+///
+/// Best would be to make this a first class citizen, possibly reusing
+/// ``BitPackedRunDecoder`` but the preconditions on the possible number of values
+/// that the run can represent differ.
+template <typename T>
+class BitPackedDecoderWrapper : private ::arrow::bit_util::BitReader {
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+  using rle_size_t = ::arrow::util::rle_size_t;
+
+  BitPackedDecoderWrapper() noexcept = default;
+
+  BitPackedDecoderWrapper(const uint8_t* data, rle_size_t data_size,
+                          rle_size_t value_bit_width) noexcept {
+    Reset(data, data_size, value_bit_width);
+  }
+
+  void Reset(const uint8_t* data, rle_size_t data_size,
+             rle_size_t value_bit_width) noexcept {
+    value_bit_width_ = value_bit_width;
+    return Base::Reset(data, data_size);
+  }
+
+  /// Whether there is still values to iterate over.
+  bool exhausted() const { return Base::bytes_left() >= value_bit_width_; }
+
+  /// Gets the next value or returns false if there are no more or an error occurred.
+  [[nodiscard]] bool Get(value_type* val) {
+    return Base::GetValue(value_bit_width_, val);
+  }
+
+  /// Get a batch of values return the number of decoded elements.
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
+    return Base::GetBatch(value_bit_width_, out, batch_size);
+  }
+
+ private:
+  using Base = ::arrow::bit_util::BitReader;
+
+  rle_size_t value_bit_width_ = {};
+};
+}  // namespace
+
+struct LevelDecoder::Impl {
+  using RleBitPackedDecoder = ::arrow::util::RleBitPackedDecoder<int16_t>;
+  using BitPackedDecoder = BitPackedDecoderWrapper<int16_t>;
+
+  std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder = {};
+
+  constexpr bool is_rle_bit_packed() const {
+    return std::holds_alternative<RleBitPackedDecoder>(decoder);
+  }
+
+  constexpr bool is_bit_packed() const {
+    return std::holds_alternative<BitPackedDecoder>(decoder);
+  }
+
+  [[nodiscard]] int GetBatch(int16_t* out, int batch_size) {
+    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder);
+  }
+};
+
+LevelDecoder::LevelDecoder() : decoder_(std::make_unique<Impl>()) {}
 
 LevelDecoder::~LevelDecoder() = default;
 
@@ -103,44 +174,38 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
                           int num_buffered_values, const uint8_t* data,
                           int32_t data_size) {
   max_level_ = max_level;
-  int32_t num_bytes = 0;
-  encoding_ = encoding;
   num_values_remaining_ = num_buffered_values;
-  bit_width_ = bit_util::Log2(max_level + 1);
+  const int value_bit_width = bit_util::Log2(max_level + 1);
+
   switch (encoding) {
     case Encoding::RLE: {
       if (data_size < 4) {
         throw ParquetException("Received invalid levels (corrupt data page?)");
       }
-      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      const auto num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
-      const uint8_t* decoder_data = data + 4;
-      if (!rle_decoder_) {
-        rle_decoder_ = std::make_unique<::arrow::util::RleBitPackedDecoder<int16_t>>(
-            decoder_data, num_bytes, bit_width_);
-      } else {
-        rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
-      }
+      this->decoder_->decoder = Impl::RleBitPackedDecoder(  //
+          /* data= */ data + 4,
+          /* data_size =*/num_bytes,
+          /* value_bit_width= */ value_bit_width);
       return 4 + num_bytes;
     }
     case Encoding::BIT_PACKED: {
       int num_bits = 0;
-      if (MultiplyWithOverflow(num_buffered_values, bit_width_, &num_bits)) {
+      if (MultiplyWithOverflow(num_buffered_values, value_bit_width, &num_bits)) {
         throw ParquetException(
             "Number of buffered values too large (corrupt data page?)");
       }
-      num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
+      const auto num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
       if (num_bytes < 0 || num_bytes > data_size) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
-      if (!bit_packed_decoder_) {
-        bit_packed_decoder_ =
-            std::make_unique<::arrow::bit_util::BitReader>(data, num_bytes);
-      } else {
-        bit_packed_decoder_->Reset(data, num_bytes);
-      }
+      this->decoder_->decoder = Impl::BitPackedDecoder(  //
+          /* data= */ data,
+          /* data_size =*/num_bytes,
+          /* value_bit_width= */ value_bit_width);
       return num_bytes;
     }
     default:
@@ -157,27 +222,17 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   if (num_bytes < 0) {
     throw ParquetException("Invalid page header (corrupt data page?)");
   }
-  encoding_ = Encoding::RLE;
   num_values_remaining_ = num_buffered_values;
-  bit_width_ = bit_util::Log2(max_level + 1);
 
-  if (!rle_decoder_) {
-    rle_decoder_ = std::make_unique<::arrow::util::RleBitPackedDecoder<int16_t>>(
-        data, num_bytes, bit_width_);
-  } else {
-    rle_decoder_->Reset(data, num_bytes, bit_width_);
-  }
+  this->decoder_->decoder = Impl::RleBitPackedDecoder(  //
+      /* data= */ data,
+      /* data_size =*/num_bytes,
+      /* value_bit_width= */ bit_util::Log2(max_level + 1));
 }
 
 int LevelDecoder::Decode(int batch_size, int16_t* levels) {
-  int num_decoded = 0;
-
-  int num_values = std::min(num_values_remaining_, batch_size);
-  if (encoding_ == Encoding::RLE) {
-    num_decoded = rle_decoder_->GetBatch(levels, num_values);
-  } else {
-    num_decoded = bit_packed_decoder_->GetBatch(bit_width_, levels, num_values);
-  }
+  const int num_values = std::min(num_values_remaining_, batch_size);
+  const int num_decoded = decoder_->GetBatch(levels, num_values);
   if (num_decoded > 0) {
     internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
     if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
