@@ -866,7 +866,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   std::shared_ptr<DataType> type;
 
   std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(internal::GetKeyValueMetadata(field->custom_metadata(), &metadata));
+  ARROW_ASSIGN_OR_RAISE(metadata,
+                        internal::GetKeyValueMetadata(field->custom_metadata()));
 
   // Reconstruct the data type
   // 1. Data type children
@@ -1279,11 +1280,10 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 
 }  // namespace
 
-Status GetKeyValueMetadata(const KVVector* fb_metadata,
-                           std::shared_ptr<KeyValueMetadata>* out) {
+Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
+    const KVVector* fb_metadata) {
   if (fb_metadata == nullptr) {
-    *out = nullptr;
-    return Status::OK();
+    return nullptr;
   }
 
   auto metadata = std::make_shared<KeyValueMetadata>();
@@ -1295,36 +1295,33 @@ Status GetKeyValueMetadata(const KVVector* fb_metadata,
     metadata->Append(pair->key()->str(), pair->value()->str());
   }
 
-  *out = std::move(metadata);
-  return Status::OK();
+  return metadata;
 }
 
-Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& mapper,
-                          const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> WriteSchemaMessage(const Schema& schema,
+                                                   const DictionaryFieldMapper& mapper,
+                                                   const IpcWriteOptions& options) {
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, mapper, &fb_schema));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_Schema,
                         fb_schema.Union(),
                         /*body_length=*/0, options.metadata_version,
-                        /*custom_metadata=*/nullptr, options.memory_pool)
-      .Value(out);
+                        /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
-Status WriteRecordBatchMessage(
+Result<std::shared_ptr<Buffer>> WriteRecordBatchMessage(
     int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
-    std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
                                 variadic_buffer_counts, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_RecordBatch,
                         record_batch.Union(), body_length, options.metadata_version,
-                        custom_metadata, options.memory_pool)
-      .Value(out);
+                        custom_metadata, options.memory_pool);
 }
 
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
@@ -1373,12 +1370,11 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
                         /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
-Status WriteDictionaryMessage(
+Result<std::shared_ptr<Buffer>> WriteDictionaryMessage(
     int64_t id, bool is_delta, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
-    std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
@@ -1387,8 +1383,7 @@ Status WriteDictionaryMessage(
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_DictionaryBatch,
                         dictionary_batch, body_length, options.metadata_version,
-                        custom_metadata, options.memory_pool)
-      .Value(out);
+                        custom_metadata, options.memory_pool);
 }
 
 static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
@@ -1462,7 +1457,8 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
   }
 
   std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
+  ARROW_ASSIGN_OR_RAISE(metadata,
+                        internal::GetKeyValueMetadata(schema->custom_metadata()));
   // set endianness using the value in flatbuf schema
   auto endianness = schema->endianness() == flatbuf::Endianness::Endianness_Little
                         ? Endianness::Little

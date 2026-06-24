@@ -102,9 +102,8 @@ class Message::MessageImpl {
 
     if (message_->custom_metadata() != nullptr) {
       // Deserialize from Flatbuffers if first time called
-      std::shared_ptr<KeyValueMetadata> md;
-      RETURN_NOT_OK(internal::GetKeyValueMetadata(message_->custom_metadata(), &md));
-      custom_metadata_ = std::move(md);  // const-ify
+      ARROW_ASSIGN_OR_RAISE(custom_metadata_,
+                            internal::GetKeyValueMetadata(message_->custom_metadata()));
     }
 
     return Status::OK();

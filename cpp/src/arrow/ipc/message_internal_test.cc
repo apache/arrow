@@ -62,9 +62,8 @@ TEST(TestMessageInternal, TestByteIdentical) {
   auto schema = ::arrow::schema({f0}, Endianness::Little, metadata);
 
   // Serialize the Schema to a Buffer
-  std::shared_ptr<Buffer> out_buffer;
-  ASSERT_OK(
-      WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults(), &out_buffer));
+  ASSERT_OK_AND_ASSIGN(auto out_buffer,
+                       WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults()));
 
   // This is example output from macOS+ARM+LLVM
   const uint8_t expected[] = {
@@ -104,9 +103,9 @@ TEST(TestMessageInternal, TestEndiannessRoundtrip) {
     auto schema = ::arrow::schema({f0}, endianness, metadata);
 
     // Serialize the Schema to a Buffer
-    std::shared_ptr<Buffer> out_buffer;
-    ASSERT_OK(
-        WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults(), &out_buffer));
+    ASSERT_OK_AND_ASSIGN(
+        auto out_buffer,
+        WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults()));
 
     // Re-open to a new Message and parse Schema
     ASSERT_OK_AND_ASSIGN(auto message, Message::Open(out_buffer, /*body=*/nullptr));
@@ -183,9 +182,10 @@ class MessageDecodingTest : public ::testing::Test {
     auto buffer_md = std::vector{BufferMetadata{.offset = 64, .length = 1},
                                  BufferMetadata{.offset = 72, .length = 10}};
     std::shared_ptr<Buffer> out;
-    RETURN_NOT_OK(WriteRecordBatchMessage(/*length=*/kNumRows, params.body_length,
-                                          params.custom_metadata, field_md, buffer_md,
-                                          /*variadic_counts=*/{}, params.options, &out));
+    ARROW_ASSIGN_OR_RAISE(
+        out, WriteRecordBatchMessage(/*length=*/kNumRows, params.body_length,
+                                     params.custom_metadata, field_md, buffer_md,
+                                     /*variadic_counts=*/{}, params.options));
     ARROW_ASSIGN_OR_RAISE(out, EncapsulateMetadata(out, params.options));
     // Generate a dummy body of the advertised length
     ARROW_ASSIGN_OR_RAISE(auto body_bytes, AllocateBuffer(params.body_length));
