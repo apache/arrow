@@ -33,19 +33,79 @@ and improved performance for columns with many repeated string values.
 
 .. code-block:: python
 
+   >>> import pyarrow as pa
+   >>> import pyarrow.parquet as pq
+
+   >>> table = pa.table({'one': [-1, None, 2.5],
+   ...                   'two': ['foo', 'bar', 'baz'],
+   ...                   'three': [True, False, True]})
+   ... 
+   >>> pq.write_table(table, 'example.parquet')
+
    >>> pq.read_table('example.parquet', read_dictionary=['two'])
    pyarrow.Table
    one: double
    two: dictionary<values=string, indices=int32, ordered=0>
    three: bool
-   __index_level_0__: large_string
    ----
    one: [[-1,null,2.5]]
    two: [  -- dictionary:
    ["foo","bar","baz"]  -- indices:
    [0,1,2]]
    three: [[true,false,true]]
-   __index_level_0__: [["a","b","c"]]
+
+Reading binary and list columns
+-------------------------------
+
+By default, Parquet ``BYTE_ARRAY`` columns are read as Arrow ``binary`` type
+and Parquet ``LIST`` columns are read as Arrow ``list`` type, both of which use
+32-bit offsets. For very large datasets this can overflow. The ``binary_type``
+and ``list_type`` parameters let you choose a different Arrow type on read.
+
+``binary_type`` accepts ``pa.binary()`` (default), ``pa.large_binary()``, or
+``pa.binary_view()``:
+
+.. code-block:: python
+
+   >>> import pyarrow as pa
+   >>> table = pa.table({'data': pa.array([b'hello', b'world'], pa.binary())})
+   >>> pq.write_table(table, 'binary.parquet', store_schema=False)
+   >>> pq.read_table('binary.parquet', binary_type=pa.large_binary()).schema
+   data: large_binary
+
+``list_type`` accepts ``pa.ListType`` or ``pa.LargeListType``:
+
+.. code-block:: python
+
+   >>> table = pa.table({'lists': pa.array([[1, 2], [3]], pa.list_(pa.int32()))})
+   >>> pq.write_table(table, 'lists.parquet', store_schema=False)
+   >>> pq.read_table('lists.parquet', list_type=pa.LargeListType).schema
+   lists: large_list<element: int32>
+     child 0, element: int32
+
+.. note::
+   Both settings are ignored when a serialized Arrow schema is present in the
+   Parquet file metadata (i.e. when the parquet file was written with
+   ``store_schema=True``).
+
+Read in Arrow Extension Types
+-----------------------------
+
+Certain Parquet logical types (JSON, UUID, Geometry, Geography) are supported
+and read as Arrow extension types by default (``arrow.json``, ``arrow.uuid``
+and ``geoarrow.wkb`` respectively). This support is enabled via the
+``arrow_extensions_enabled`` parameter and is used in :func:`~pyarrow.parquet.read_table`,
+:class:`~pyarrow.parquet.ParquetFile`, and :class:`~pyarrow.parquet.ParquetDataset`.
+
+To read these Parquet logical types as storage types (default behavior
+until PyArrow version ``21.0.0``), set ``arrow_extensions_enabled=False``.
+
+.. note::
+   Reading GEOMETRY/GEOGRAPHY columns as ``geoarrow.wkb`` additionally
+   requires the ``geoarrow.wkb`` extension type to be registered. For that
+   you can install Python bindings for GeoArrow
+   (`geoarrow-pyarrow <https://geoarrow.org/geoarrow-python/main/index.html#installation>`_)
+   and import ``geoarrow.pyarrow`` module.
 
 Storing timestamps
 ------------------
