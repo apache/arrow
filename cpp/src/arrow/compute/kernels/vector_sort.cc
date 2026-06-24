@@ -45,13 +45,12 @@ Result<RecordBatchVector> BatchesFromTable(const Table& table) {
 // then merging the sorted chunks recursively.
 class ChunkedArraySorter : public TypeVisitor {
  public:
-  ChunkedArraySorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+  ChunkedArraySorter(ExecContext* ctx, std::span<uint64_t> indices,
                      const std::shared_ptr<DataType>& physical_type,
                      const ArrayVector& physical_chunks, const SortOrder order,
                      const NullPlacement null_placement, NullPartitionResult* output)
       : TypeVisitor(),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end),
+        indices_(indices),
         physical_type_(physical_type),
         physical_chunks_(physical_chunks),
         order_(order),
@@ -72,7 +71,7 @@ class ChunkedArraySorter : public TypeVisitor {
 #undef VISIT
 
   Status Visit(const NullType&) override {
-    std::iota(indices_begin_, indices_end_, 0);
+    std::iota(indices_.begin(), indices_.end(), 0);
     return Status::OK();
   }
 
@@ -83,10 +82,13 @@ class ChunkedArraySorter : public TypeVisitor {
     ArraySortOptions options(order_, null_placement_);
     const auto num_chunks = static_cast<int>(physical_chunks_.size());
     if (num_chunks == 0) {
-      *output_ = {indices_end_, indices_end_, indices_end_, indices_end_};
+      *output_ = {.non_nulls_begin = indices_.data() + indices_.size(),
+                  .non_nulls_end = indices_.data() + indices_.size(),
+                  .nulls_begin = indices_.data() + indices_.size(),
+                  .nulls_end = indices_.data() + indices_.size()};
       return Status::OK();
     }
-    const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
+    const int64_t num_indices = static_cast<int64_t>(indices_.size());
     const auto arrays = GetArrayPointers(physical_chunks_);
 
     // Sort each chunk independently and merge to sorted indices.
@@ -101,23 +103,22 @@ class ChunkedArraySorter : public TypeVisitor {
       const auto array = checked_cast<const ArrayType*>(arrays[i]);
       end_offset += array->length();
       null_count += array->null_count();
-      ARROW_ASSIGN_OR_RAISE(sorted[i], array_sorter_(indices_begin_ + begin_offset,
-                                                     indices_begin_ + end_offset, *array,
-                                                     begin_offset, options, ctx_));
+      ARROW_ASSIGN_OR_RAISE(sorted[i],
+                            array_sorter_(indices_.data(), indices_.data() + indices_.size(), *array, begin_offset, options, ctx_));
       begin_offset = end_offset;
     }
     DCHECK_EQ(end_offset, num_indices);
 
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
-      ChunkedIndexMapper chunked_mapper(arrays, indices_begin_, indices_end_);
+      ChunkedIndexMapper chunked_mapper(arrays, indices_.data(), indices_.data() + indices_.size());
       ARROW_ASSIGN_OR_RAISE(auto chunked_indices_pair,
                             chunked_mapper.LogicalToPhysical());
       auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
 
       std::vector<ChunkedNullPartitionResult> chunk_sorted(num_chunks);
       for (int i = 0; i < num_chunks; ++i) {
-        chunk_sorted[i] = sorted[i].TranslateTo(indices_begin_, chunked_indices_begin);
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices_begin);
       }
 
       auto merge_nulls = [&](CompressedChunkLocation* nulls_begin,
@@ -160,14 +161,14 @@ class ChunkedArraySorter : public TypeVisitor {
 
       // Reverse everything
       sorted.resize(1);
-      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices_begin, indices_begin_);
+      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices_begin, indices_.data());
 
       RETURN_NOT_OK(chunked_mapper.PhysicalToLogical());
     }
 
     DCHECK_EQ(sorted.size(), 1);
-    DCHECK_EQ(sorted[0].overall_begin(), indices_begin_);
-    DCHECK_EQ(sorted[0].overall_end(), indices_end_);
+    DCHECK_EQ(sorted[0].overall_begin(), indices_.data());
+    DCHECK_EQ(sorted[0].overall_end(), indices_.data() + indices_.size());
     // Note that "nulls" can also include NaNs, hence the >= check
     DCHECK_GE(sorted[0].null_count(), null_count);
 
@@ -211,8 +212,7 @@ class ChunkedArraySorter : public TypeVisitor {
         .template Value<ArrowType>();
   }
 
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
+  std::span<uint64_t> indices_;
   const std::shared_ptr<DataType>& physical_type_;
   const ArrayVector& physical_chunks_;
   const SortOrder order_;
@@ -395,17 +395,14 @@ class RadixRecordBatchSorter {
  public:
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
 
-  RadixRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
+  RadixRecordBatchSorter(std::span<uint64_t> indices,
                          std::vector<ResolvedSortKey> sort_keys)
-      : sort_keys_(std::move(sort_keys)),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end) {}
+      : sort_keys_(std::move(sort_keys)), indices_(indices) {}
 
-  RadixRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
-                         const RecordBatch& batch, const SortOptions& options)
+  RadixRecordBatchSorter(std::span<uint64_t> indices, const RecordBatch& batch,
+                         const SortOptions& options)
       : sort_keys_(ResolveRecordBatchSortKeys(batch, options.GetSortKeys(), &status_)),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end) {}
+        indices_(indices) {}
 
   // Offset is for table sorting
   Result<NullPartitionResult> Sort(int64_t offset = 0) {
@@ -421,7 +418,8 @@ class RadixRecordBatchSorter {
     }
 
     // Sort from left to right
-    return column_sorts.front()->SortRange(indices_begin_, indices_end_, offset);
+    return column_sorts.front()->SortRange(indices_.data(),
+                                           indices_.data() + indices_.size(), offset);
   }
 
  protected:
@@ -474,8 +472,7 @@ class RadixRecordBatchSorter {
   }
 
   const std::vector<ResolvedSortKey> sort_keys_;
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
+  std::span<uint64_t> indices_;
   Status status_;
 };
 
@@ -484,17 +481,13 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
  public:
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
 
-  MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
+  MultipleKeyRecordBatchSorter(std::span<uint64_t> indices,
                                std::vector<ResolvedSortKey> sort_keys)
-      : indices_begin_(indices_begin),
-        indices_end_(indices_end),
-        sort_keys_(std::move(sort_keys)),
-        comparator_(sort_keys_) {}
+      : indices_(indices), sort_keys_(std::move(sort_keys)), comparator_(sort_keys_) {}
 
-  MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
-                               const RecordBatch& batch, const SortOptions& options)
-      : indices_begin_(indices_begin),
-        indices_end_(indices_end),
+  MultipleKeyRecordBatchSorter(std::span<uint64_t> indices, const RecordBatch& batch,
+                               const SortOptions& options)
+      : indices_(indices),
         sort_keys_(ResolveSortKeys(batch, options.GetSortKeys(), &status_)),
         comparator_(sort_keys_) {}
 
@@ -564,7 +557,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 
   template <typename Type>
   enable_if_null<Type, Status> SortInternal() {
-    std::stable_sort(indices_begin_, indices_end_, [&](uint64_t left, uint64_t right) {
+    std::ranges::stable_sort(indices_, [&](uint64_t left, uint64_t right) {
       return comparator_.Compare(left, right, 1);
     });
     return comparator_.status();
@@ -578,7 +571,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
         ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
 
     const auto p = PartitionNullsOnly<StablePartitioner>(
-        indices_begin_, indices_end_, array, 0, first_sort_key.null_placement);
+        indices_.data(), indices_.data() + indices_.size(), array, 0,
+        first_sort_key.null_placement);
     const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
         p.non_nulls_begin, p.non_nulls_end, array, 0, first_sort_key.null_placement);
 
@@ -604,8 +598,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     return q;
   }
 
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
+  std::span<uint64_t> indices_;
   Status status_;
   std::vector<ResolvedSortKey> sort_keys_;
   Comparator comparator_;
@@ -625,15 +618,14 @@ class TableSorter {
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
-  TableSorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-              const Table& table, const SortOptions& options)
+  TableSorter(ExecContext* ctx, std::span<uint64_t> indices, const Table& table,
+              const SortOptions& options)
       : ctx_(ctx),
         table_(table),
         batches_(MakeBatches(table, &status_)),
         options_(options),
         sort_keys_(ResolveSortKeys(table, batches_, options.GetSortKeys(), &status_)),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end),
+        indices_(indices),
         comparator_(sort_keys_) {}
 
   // This is optimized for null partitioning and merging along the first sort key.
@@ -679,28 +671,29 @@ class TableSorter {
     for (int64_t i = 0; i < num_batches; ++i) {
       const auto& batch = *batches_[i];
       end_offset += batch.num_rows();
-      RadixRecordBatchSorter sorter(indices_begin_ + begin_offset,
-                                    indices_begin_ + end_offset, batch, options_);
+      RadixRecordBatchSorter sorter(
+          {indices_.data() + begin_offset, indices_.data() + end_offset}, batch,
+          options_);
       ARROW_ASSIGN_OR_RAISE(sorted[i], sorter.Sort(begin_offset));
-      DCHECK_EQ(sorted[i].overall_begin(), indices_begin_ + begin_offset);
-      DCHECK_EQ(sorted[i].overall_end(), indices_begin_ + end_offset);
+      DCHECK_EQ(sorted[i].overall_begin(), indices_.data() + begin_offset);
+      DCHECK_EQ(sorted[i].overall_end(), indices_.data() + end_offset);
       DCHECK_EQ(sorted[i].non_null_count() + sorted[i].null_count(), batch.num_rows());
       begin_offset = end_offset;
       // XXX this is an upper bound on the true null count
       null_count += sorted[i].null_count();
     }
-    DCHECK_EQ(end_offset, indices_end_ - indices_begin_);
+    DCHECK_EQ(end_offset, static_cast<int64_t>(indices_.size()));
 
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
-      ChunkedIndexMapper chunked_mapper(batches_, indices_begin_, indices_end_);
+      ChunkedIndexMapper chunked_mapper(batches_, indices_.data(), indices_.data() + indices_.size());
       ARROW_ASSIGN_OR_RAISE(auto chunked_indices_pair,
                             chunked_mapper.LogicalToPhysical());
       auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
 
       std::vector<ChunkedNullPartitionResult> chunk_sorted(num_batches);
       for (int64_t i = 0; i < num_batches; ++i) {
-        chunk_sorted[i] = sorted[i].TranslateTo(indices_begin_, chunked_indices_begin);
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices_begin);
       }
 
       struct Visitor {
@@ -877,8 +870,7 @@ class TableSorter {
   const RecordBatchVector batches_;
   const SortOptions& options_;
   const std::vector<ResolvedSortKey> sort_keys_;
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
+  std::span<uint64_t> indices_;
   Comparator comparator_;
 };
 
@@ -999,12 +991,11 @@ class SortIndicesMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(buffers[1],
                           AllocateResizableBuffer(buffer_size, ctx->memory_pool()));
     auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
-    auto out_begin = out->GetMutableValues<uint64_t>(1);
-    auto out_end = out_begin + length;
-    std::iota(out_begin, out_end, 0);
+    std::span<uint64_t> out_span{out->GetMutableValues<uint64_t>(1),
+                                 static_cast<size_t>(length)};
+    std::iota(out_span.begin(), out_span.end(), 0);
 
-    RETURN_NOT_OK(
-        SortChunkedArray(ctx, out_begin, out_end, chunked_array, order, null_placement));
+    RETURN_NOT_OK(SortChunkedArray(ctx, out_span, chunked_array, order, null_placement));
     return Datum(out);
   }
 
@@ -1029,15 +1020,15 @@ class SortIndicesMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(buffers[1],
                           AllocateResizableBuffer(buffer_size, ctx->memory_pool()));
     auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
-    auto out_begin = out->GetMutableValues<uint64_t>(1);
-    auto out_end = out_begin + length;
-    std::iota(out_begin, out_end, 0);
+    std::span<uint64_t> out_span{out->GetMutableValues<uint64_t>(1),
+                                 static_cast<size_t>(length)};
+    std::iota(out_span.begin(), out_span.end(), 0);
 
     if (n_sort_keys <= kMaxRadixSortKeys) {
-      RadixRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys));
+      RadixRecordBatchSorter sorter(out_span, std::move(sort_keys));
       ARROW_RETURN_NOT_OK(sorter.Sort());
     } else {
-      MultipleKeyRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys));
+      MultipleKeyRecordBatchSorter sorter(out_span, std::move(sort_keys));
       ARROW_RETURN_NOT_OK(sorter.Sort());
     }
     return Datum(out);
@@ -1069,11 +1060,11 @@ class SortIndicesMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(buffers[1],
                           AllocateResizableBuffer(buffer_size, ctx->memory_pool()));
     auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
-    auto out_begin = out->GetMutableValues<uint64_t>(1);
-    auto out_end = out_begin + length;
-    std::iota(out_begin, out_end, 0);
+    std::span<uint64_t> out_span{out->GetMutableValues<uint64_t>(1),
+                                 static_cast<size_t>(length)};
+    std::iota(out_span.begin(), out_span.end(), 0);
 
-    TableSorter sorter(ctx, out_begin, out_end, table, options);
+    TableSorter sorter(ctx, out_span, table, options);
     RETURN_NOT_OK(sorter.Sort());
 
     return Datum(out);
@@ -1145,30 +1136,29 @@ Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
   return SortFieldPopulator{}.FindSortKeys(schema, sort_keys);
 }
 
-Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
-                                             uint64_t* indices_end,
+Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx,
+                                             std::span<uint64_t> indices,
                                              const ChunkedArray& chunked_array,
                                              SortOrder sort_order,
                                              NullPlacement null_placement) {
   auto physical_type = GetPhysicalType(chunked_array.type());
   auto physical_chunks = GetPhysicalChunks(chunked_array, physical_type);
-  return SortChunkedArray(ctx, indices_begin, indices_end, physical_type, physical_chunks,
-                          sort_order, null_placement);
+  return SortChunkedArray(ctx, indices, physical_type, physical_chunks, sort_order,
+                          null_placement);
 }
 
 Result<NullPartitionResult> SortChunkedArray(
-    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+    ExecContext* ctx, std::span<uint64_t> indices,
     const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
     SortOrder sort_order, NullPlacement null_placement) {
   NullPartitionResult output;
-  ChunkedArraySorter sorter(ctx, indices_begin, indices_end, physical_type,
-                            physical_chunks, sort_order, null_placement, &output);
+  ChunkedArraySorter sorter(ctx, indices, physical_type, physical_chunks, sort_order,
+                            null_placement, &output);
   RETURN_NOT_OK(sorter.Sort());
   return output;
 }
 
-Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_begin,
-                                            uint64_t* indices_end,
+Result<NullPartitionResult> SortStructArray(ExecContext* ctx, std::span<uint64_t> indices,
                                             const StructArray& array,
                                             SortOrder sort_order,
                                             NullPlacement null_placement) {
@@ -1185,10 +1175,10 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
   ARROW_ASSIGN_OR_RAISE(auto sort_keys,
                         ResolveRecordBatchSortKeys(*batch, options.GetSortKeys()));
   if (sort_keys.size() <= kMaxRadixSortKeys) {
-    RadixRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys));
+    RadixRecordBatchSorter sorter(indices, std::move(sort_keys));
     return sorter.Sort();
   } else {
-    MultipleKeyRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys));
+    MultipleKeyRecordBatchSorter sorter(indices, std::move(sort_keys));
     return sorter.Sort();
   }
 }
