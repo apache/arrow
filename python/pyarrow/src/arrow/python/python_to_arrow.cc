@@ -914,9 +914,12 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     }
     OwnedRef flattened;
     if (PyArray_NDIM(ndarray) != 1) {
-      // GH-49644: 0-dimensional arrays and variable-sized lists only accept
-      // 1-dimensional values.
-      if (PyArray_NDIM(ndarray) < 2 || this->list_type_->id() != Type::FIXED_SIZE_LIST) {
+      // GH-49644: variable-sized lists only accept 1-dimensional values, and
+      // 0-dimensional arrays are still rejected.
+      if (PyArray_NDIM(ndarray) < 2) {
+        return Status::Invalid("Can only convert 1-dimensional array values");
+      }
+      if (this->list_type_->id() != Type::FIXED_SIZE_LIST) {
         return Status::Invalid(
             "Can only convert 1-dimensional array values to a variable-sized list");
       }
