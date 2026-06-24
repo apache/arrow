@@ -58,6 +58,14 @@ added is to use the local filesystem.
 
 .. code-block:: python
 
+   >>> import pyarrow as pa
+   >>> import pyarrow.parquet as pq
+
+   >>> table = pa.table({'one': [-1, None, 2.5],
+   ...                   'two': ['foo', 'bar', 'baz'],
+   ...                   'three': [True, False, True]})
+   ... 
+
    >>> # Local dataset write
    >>> pq.write_to_dataset(table, root_path='dataset_name',
    ...                     partition_cols=['one', 'two'])
@@ -166,7 +174,7 @@ the same:
      serialized_size: ...
 
 Reading from Partitioned Datasets
-------------------------------------------------
+---------------------------------
 
 The :class:`~.ParquetDataset` class accepts either a directory name or a list
 of file paths, and can discover and infer some common partition structures,
@@ -222,8 +230,22 @@ Other features:
   "/year=2019/month=11/day=15/"), and the ability to specify a schema for
   the partition keys.
 
-Note:
+.. note::
+    The partition keys need to be explicitly included in the ``columns``
+    keyword when you want to include them in the result while reading a
+    subset of the columns.
 
-- The partition keys need to be explicitly included in the ``columns``
-  keyword when you want to include them in the result while reading a
-  subset of the columns
+.. note::
+
+   When passing a single file path to :func:`~pyarrow.parquet.read_table`
+   or :class:`~pyarrow.parquet.ParquetDataset`, partition columns are not
+   inferred from the file path, even if the path contains Hive-like segments.
+   To get partition columns, pass the parent directory instead:
+
+   .. code-block:: python
+
+      >>> # Doesn't include 'year' as a column
+      >>> pq.read_table('dataset_name/year=2017/data1.parquet')  # doctest: +SKIP
+
+      >>> # Includes 'year' as a partition column
+      >>> pq.read_table('dataset_name/')  # doctest: +SKIP
