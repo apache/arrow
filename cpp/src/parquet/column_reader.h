@@ -65,7 +65,7 @@ struct PARQUET_EXPORT DataPageStats {
 
 class PARQUET_EXPORT LevelDecoder {
  public:
-  LevelDecoder();
+  explicit LevelDecoder(int16_t max_level = 0);
 
   ~LevelDecoder();
 
@@ -83,6 +83,9 @@ class PARQUET_EXPORT LevelDecoder {
 
   /// Decode a batch of levels into an array and returns the number of levels decoded
   int Decode(int batch_size, int16_t* levels);
+
+  /// Return the max level used in this decoder.
+  int max_level() const { return max_level_; }
 
  private:
   struct Impl;

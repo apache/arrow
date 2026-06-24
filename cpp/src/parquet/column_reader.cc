@@ -166,7 +166,8 @@ struct LevelDecoder::Impl {
   }
 };
 
-LevelDecoder::LevelDecoder() : decoder_(std::make_unique<Impl>()) {}
+LevelDecoder::LevelDecoder(int16_t max_level)
+    : decoder_(std::make_unique<Impl>()), max_level_(max_level) {}
 
 LevelDecoder::~LevelDecoder() = default;
 
@@ -693,7 +694,10 @@ class ColumnReaderImplBase {
   using T = typename DType::c_type;
 
   ColumnReaderImplBase(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-      : descr_(descr), pool_(pool) {}
+      : descr_(descr),
+        definition_level_decoder_(descr->max_definition_level()),
+        repetition_level_decoder_(descr->max_repetition_level()),
+        pool_(pool) {}
 
   virtual ~ColumnReaderImplBase() = default;
 
@@ -950,19 +954,25 @@ class ColumnReaderImplBase {
     return num_buffered_values_ - num_decoded_values_;
   }
 
-  int16_t max_def_level() const { return descr_->max_definition_level(); }
+  int16_t max_def_level() const {
+    // max level indirectly part of this object storage
+    return definition_level_decoder_.max_level();
+  }
 
-  int16_t max_rep_level() const { return descr_->max_repetition_level(); }
+  int16_t max_rep_level() const {
+    // max level indirectly part of this object storage
+    return repetition_level_decoder_.max_level();
+  }
 
   const ColumnDescriptor* descr_;
 
   std::unique_ptr<PageReader> pager_;
   std::shared_ptr<Page> current_page_;
 
-  // Not set if full schema for this field has no optional or repeated elements
+  // No data set if full schema for this field has no optional or repeated elements
   LevelDecoder definition_level_decoder_;
 
-  // Not set for flat schemas.
+  // No data set for flat schemas.
   LevelDecoder repetition_level_decoder_;
 
   // The total number of values stored in the data page. This is the maximum of
