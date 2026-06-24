@@ -409,10 +409,16 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
         raise TypeError("Unsupported output type")
 
 
-def _group_by(table, aggregates, keys, use_threads=True):
+def _group_by(table_or_dataset, aggregates, keys, use_threads=True):
 
-    decl = Declaration.from_sequence([
-        Declaration("table_source", TableSourceNodeOptions(table)),
-        Declaration("aggregate", AggregateNodeOptions(aggregates, keys=keys))
-    ])
+    if isinstance(table_or_dataset, ds.Dataset):
+        data_source = _dataset_to_decl(table_or_dataset, use_threads=True)
+    else:
+        data_source = Declaration(
+            "table_source", TableSourceNodeOptions(table_or_dataset)
+        )
+
+    aggregate = Declaration("aggregate", AggregateNodeOptions(aggregates, keys=keys))
+
+    decl = Declaration.from_sequence([data_source, aggregate])
     return decl.to_table(use_threads=use_threads)
