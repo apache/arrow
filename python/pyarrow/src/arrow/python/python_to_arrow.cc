@@ -914,15 +914,13 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     }
     OwnedRef flattened;
     if (PyArray_NDIM(ndarray) != 1) {
-      // GH-49644: a fixed-size list (e.g. fixed-shape-tensor storage) can be
-      // built from a multi-dimensional array, always flattened in C order
-      // regardless of the input's memory layout.
+      // GH-49644: 0-dimensional arrays and variable-sized lists only accept
+      // 1-dimensional values.
       if (PyArray_NDIM(ndarray) < 2 || this->list_type_->id() != Type::FIXED_SIZE_LIST) {
         return Status::Invalid(
             "Can only convert 1-dimensional array values to a variable-sized list");
       }
-      // Get an aligned, C-contiguous array (copying only if needed), then view
-      // it as 1-D so its values can be read directly in C order.
+      // Get an aligned, C-contiguous array (copying only if needed).
       PyObject* contiguous =
           PyArray_CheckFromAny(value, nullptr, /*min_depth=*/0, /*max_depth=*/0,
                                NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, nullptr);

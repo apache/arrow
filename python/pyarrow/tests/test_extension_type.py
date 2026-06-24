@@ -1733,8 +1733,7 @@ def test_tensor_array_from_numpy(np_type_str):
 @pytest.mark.numpy
 @pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
 def test_tensor_array_from_list_of_ndarrays(np_type_str):
-    # GH-49644: build a fixed-shape-tensor array from a list of individual
-    # (multi-dimensional) ndarrays, not only from a single stacked ndarray.
+    # GH-49644
     np_dtype = np.dtype(np_type_str)
     tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 3))
 
