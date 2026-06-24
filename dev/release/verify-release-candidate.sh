@@ -465,6 +465,45 @@ test_and_install_cpp() {
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
 
+  # TEMP - remove before merge: VERIFY_RC_DEBUG=1 probes the libLLVM @rpath cause.
+  # set +e: this is expected to abort (exit 134) and must not kill the script
+  if [ "${VERIFY_RC_DEBUG:-0}" -gt 0 ] && [ "$(uname)" = "Darwin" ] && [ -n "${CONDA_PREFIX:-}" ]; then
+    set +e
+    echo "===== VERIFY_RC_DEBUG: libLLVM @rpath probe ====="
+    echo "CONDA_PREFIX=${CONDA_PREFIX}"
+    echo "ARROW_HOME=${ARROW_HOME:-<unset>}"
+
+    envlib=$(ls -d "${CONDA_PREFIX}"/lib/libLLVM.*.dylib 2>/dev/null | head -1)
+    echo "env libLLVM           : ${envlib:-MISSING}"
+    if [ -n "${envlib}" ]; then
+      otool -L "${envlib}" >/dev/null 2>&1 && echo "env libLLVM loadable  : yes"
+    fi
+
+    # env binary resolving into the env = hardlinked (safe) vs. into pkgs = vulnerable
+    for tool in llvm-link llvm-ranlib; do
+      envln="${CONDA_PREFIX}/bin/${tool}"
+      [ -e "${envln}" ] || continue
+      real=$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "${envln}" 2>/dev/null)
+      echo "env ${tool} realpath: ${real}"
+      case "${real}" in
+        "${CONDA_PREFIX}"/*) echo "  -> INTO env (safe)" ;;
+        *)                   echo "  -> pkgs cache (VULNERABLE)" ;;
+      esac
+    done
+
+    # controlled comparison on the pkgs binary (its @loader_path is always the pkgs cache)
+    pkgbin=$(ls -d "${CONDA_PREFIX}"/../../pkgs/llvm-tools-*/bin/llvm-link-* 2>/dev/null | head -1)
+    echo "pkgs llvm-link        : ${pkgbin:-MISSING}"
+    if [ -n "${pkgbin}" ]; then
+      DYLD_LIBRARY_PATH="${ARROW_HOME}/lib" "${pkgbin}" --version >/dev/null 2>&1
+      echo "A) DYLD=ARROW_HOME/lib only          : exit=$?  (expect 134 = bug)"
+      DYLD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${ARROW_HOME}/lib" "${pkgbin}" --version >/dev/null 2>&1
+      echo "B) DYLD=CONDA_PREFIX/lib + above      : exit=$?  (expect 0 = fixed)"
+    fi
+    echo "===== end VERIFY_RC_DEBUG ====="
+    set -e
+  fi
+
   mkdir -p $ARROW_TMPDIR/cpp-build
   pushd $ARROW_TMPDIR/cpp-build
 
