@@ -298,9 +298,6 @@ tasks:
     ci: github
     template: verify-rc/github.macos.yml
     params:
-      # TEMP - remove before merge: enable the libLLVM @rpath probe
-      env:
-        VERIFY_RC_DEBUG: 1
       target: {{ target }}
       use_conda: True
       github_runner: "macos-15-intel"
