@@ -431,4 +431,57 @@ class MemoryViewTest < Test::Unit::TestCase
                    ])
     end
   end
+
+  sub_test_case("uninitialized rb_memory_view_t") do
+    def setup
+      libruby = Fiddle.dlopen(nil)
+
+      @rb_memory_view_get = Fiddle::Function.new(
+        libruby["rb_memory_view_get"],
+        [
+          Fiddle::TYPE_UINTPTR_T,
+          Fiddle::TYPE_VOIDP,
+          Fiddle::TYPE_INT,
+        ],
+        Fiddle::TYPE_BOOL
+      )
+
+      @rb_memory_view_release = Fiddle::Function.new(
+        libruby["rb_memory_view_release"],
+        [
+          Fiddle::TYPE_VOIDP,
+        ],
+        Fiddle::TYPE_BOOL
+      )
+    end
+
+    def assert_release(target)
+      # We should use sizeof(rb_memory_view_t) but it isn't available from Ruby.
+      # 256 must be larger than sizeof(rb_memory_view_t).
+      size = 256
+      Fiddle::Pointer.malloc(size, Fiddle::RUBY_FREE) do |view|
+        size.times do |i|
+          view[i] = 0xAA
+        end
+
+        assert do
+          @rb_memory_view_get.call(Fiddle.dlwrap(target), view, 0)
+        end
+
+        assert do
+          @rb_memory_view_release.call(view)
+        end
+      end
+    end
+
+    test("Int32Array") do
+      array = Arrow::Int32Array.new([1, 2, 3, 4, 5])
+      assert_release(array)
+    end
+
+    test("Buffer") do
+      buffer = Arrow::Buffer.new("hello")
+      assert_release(buffer)
+    end
+  end
 end
