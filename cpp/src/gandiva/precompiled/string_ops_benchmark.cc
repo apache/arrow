@@ -129,29 +129,27 @@ TEST(StringOpsBenchmark, Replace) {
     }
     auto out_capacity = static_cast<int32_t>(tlen + matches * (olen - flen));
 
+    // Reset at the start of each lambda (not the end) so the arena is recycled
+    // every iteration while any error set by the call persists for inspection
+    // afterwards. Reset is in both timed paths, so it cancels in the delta.
+    int32_t new_len = 0;
+    int32_t old_len = 0;
     auto run_new = [&]() {
-      int32_t out_len = 0;
-      replace_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen, &out_len);
       ctx.Reset();
+      replace_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen, &new_len);
     };
     auto run_old = [&]() {
-      int32_t out_len = 0;
-      replace_with_max_len_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen,
-                                          out_capacity, &out_len);
       ctx.Reset();
+      replace_with_max_len_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen,
+                                          out_capacity, &old_len);
     };
 
-    // Warm up and verify correctness. Check has_error()/out_len BEFORE Reset(),
-    // since Reset() clears the error and the timed lambdas reset internally.
-    int32_t new_len = 0;
-    replace_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen, &new_len);
+    // Warm up and verify correctness: no error from either, and both agree on
+    // the output length.
+    run_new();
     ASSERT_FALSE(ctx.has_error()) << c.name << ": " << ctx.get_error();
-    ctx.Reset();
-    int32_t old_len = 0;
-    replace_with_max_len_utf8_utf8_utf8(ctx_ptr, tp, tlen, fp, flen, op, olen,
-                                        out_capacity, &old_len);
+    run_old();
     ASSERT_FALSE(ctx.has_error()) << c.name << ": " << ctx.get_error();
-    ctx.Reset();
     ASSERT_EQ(new_len, old_len) << c.name << ": new/old output lengths differ";
 
     double new_ns = TimeNsPerCall(run_new, c.iters);
