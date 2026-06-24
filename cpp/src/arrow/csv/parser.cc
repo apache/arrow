@@ -605,6 +605,17 @@ class BlockParserImpl {
           rows_in_chunk = std::min(kTargetChunkSize, max_num_rows_ - batch_.num_rows_);
         }
 
+        // The values array holds one ParsedValueDesc per cell and those offsets
+        // are 31-bit, so the number of values in a chunk must fit in an int32.
+        // A first line with millions of fields can drive `num_cols_` high enough
+        // to overflow that, so error out rather than presize past the limit.
+        if (static_cast<int64_t>(rows_in_chunk) * batch_.num_cols_ >
+            std::numeric_limits<int32_t>::max()) {
+          return Status::Invalid("CSV parser: row group of ", rows_in_chunk, " rows x ",
+                                 batch_.num_cols_,
+                                 " columns exceeds the maximum number of values");
+        }
+
         ARROW_ASSIGN_OR_RAISE(
             auto values_writer,
             PresizedValueDescWriter::Make(pool_, rows_in_chunk, batch_.num_cols_));
