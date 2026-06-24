@@ -127,19 +127,12 @@ ARROW_EXPORT std::vector<const Array*> GetArrayPointers(const ArrayVector& array
 // and vice-versa.
 class ARROW_EXPORT ChunkedIndexMapper {
  public:
-  ChunkedIndexMapper(const std::vector<const Array*>& chunks, uint64_t* indices_begin,
-                     uint64_t* indices_end)
-      : ChunkedIndexMapper(std::span(chunks), indices_begin, indices_end) {}
-  ChunkedIndexMapper(std::span<const Array* const> chunks, uint64_t* indices_begin,
-                     uint64_t* indices_end)
-      : chunk_lengths_(GetChunkLengths(chunks)),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end) {}
-  ChunkedIndexMapper(const RecordBatchVector& chunks, uint64_t* indices_begin,
-                     uint64_t* indices_end)
-      : chunk_lengths_(GetChunkLengths(chunks)),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end) {}
+  ChunkedIndexMapper(const std::vector<const Array*>& chunks, std::span<uint64_t> indices)
+      : ChunkedIndexMapper(std::span(chunks), indices) {}
+  ChunkedIndexMapper(std::span<const Array* const> chunks, std::span<uint64_t> indices)
+      : chunk_lengths_(GetChunkLengths(chunks)), indices_(indices) {}
+  ChunkedIndexMapper(const RecordBatchVector& chunks, std::span<uint64_t> indices)
+      : chunk_lengths_(GetChunkLengths(chunks)), indices_(indices) {}
 
   // Turn the original uint64_t logical indices into physical. This reuses the
   // same memory area, so the logical indices cannot be used anymore until
@@ -158,8 +151,7 @@ class ARROW_EXPORT ChunkedIndexMapper {
   static std::vector<int64_t> GetChunkLengths(const RecordBatchVector& chunks);
 
   std::vector<int64_t> chunk_lengths_;
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
+  std::span<uint64_t> indices_;
 };
 
 }  // namespace arrow::compute::internal

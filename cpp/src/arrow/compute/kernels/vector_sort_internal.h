@@ -367,33 +367,34 @@ PartitionResultByNullLikeness PartitionNullsAndNans(uint64_t* indices_begin,
       .nan_range = {q.nulls_begin, q.nulls_end}};
 }
 
-template <typename IndexType, typename NullPartitionResultType>
-struct GenericMergeImpl {
-  using MergeNullsFunc = std::function<void(IndexType* nulls_begin,
-                                            IndexType* nulls_middle, IndexType* nulls_end,
-                                            IndexType* temp_indices, int64_t null_count)>;
+struct ChunkedMergeImpl {
+  using MergeNullsFunc = std::function<void(
+      CompressedChunkLocation* nulls_begin, CompressedChunkLocation* nulls_middle,
+      CompressedChunkLocation* nulls_end, CompressedChunkLocation* temp_indices,
+      int64_t null_count)>;
 
-  using MergeNonNullsFunc =
-      std::function<void(IndexType* range_begin, IndexType* range_middle,
-                         IndexType* range_end, IndexType* temp_indices)>;
+  using MergeNonNullsFunc = std::function<void(
+      CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
+      CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices)>;
 
-  GenericMergeImpl(NullPlacement null_placement, MergeNullsFunc&& merge_nulls,
+  ChunkedMergeImpl(NullPlacement null_placement, MergeNullsFunc&& merge_nulls,
                    MergeNonNullsFunc&& merge_non_nulls)
       : null_placement_(null_placement),
         merge_nulls_(std::move(merge_nulls)),
         merge_non_nulls_(std::move(merge_non_nulls)) {}
 
   Status Init(ExecContext* ctx, int64_t temp_indices_length) {
-    ARROW_ASSIGN_OR_RAISE(
-        temp_buffer_,
-        AllocateBuffer(sizeof(IndexType) * temp_indices_length, ctx->memory_pool()));
-    temp_indices_ = reinterpret_cast<IndexType*>(temp_buffer_->mutable_data());
+    ARROW_ASSIGN_OR_RAISE(temp_buffer_, AllocateBuffer(sizeof(CompressedChunkLocation) *
+                                                           temp_indices_length,
+                                                       ctx->memory_pool()));
+    temp_indices_ =
+        reinterpret_cast<CompressedChunkLocation*>(temp_buffer_->mutable_data());
     return Status::OK();
   }
 
-  NullPartitionResultType Merge(const NullPartitionResultType& left,
-                                const NullPartitionResultType& right,
-                                int64_t null_count) const {
+  ChunkedNullPartitionResult Merge(const ChunkedNullPartitionResult& left,
+                                   const ChunkedNullPartitionResult& right,
+                                   int64_t null_count) const {
     if (null_placement_ == NullPlacement::AtStart) {
       return MergeNullsAtStart(left, right, null_count);
     } else {
@@ -401,9 +402,9 @@ struct GenericMergeImpl {
     }
   }
 
-  NullPartitionResultType MergeNullsAtStart(const NullPartitionResultType& left,
-                                            const NullPartitionResultType& right,
-                                            int64_t null_count) const {
+  ChunkedNullPartitionResult MergeNullsAtStart(const ChunkedNullPartitionResult& left,
+                                               const ChunkedNullPartitionResult& right,
+                                               int64_t null_count) const {
     // Input layout:
     // [left nulls .... left non-nulls .... right nulls .... right non-nulls]
     ARROW_DCHECK_EQ(left.nulls_end, left.non_nulls_begin);
@@ -414,7 +415,7 @@ struct GenericMergeImpl {
     // [left nulls .... right nulls .... left non-nulls .... right non-nulls]
     std::rotate(left.non_nulls_begin, right.nulls_begin, right.nulls_end);
 
-    const auto p = NullPartitionResultType::NullsAtStart(
+    const auto p = ChunkedNullPartitionResult::NullsAtStart(
         left.nulls_begin, right.non_nulls_end,
         left.nulls_begin + left.null_count() + right.null_count());
 
@@ -436,9 +437,9 @@ struct GenericMergeImpl {
     return p;
   }
 
-  NullPartitionResultType MergeNullsAtEnd(const NullPartitionResultType& left,
-                                          const NullPartitionResultType& right,
-                                          int64_t null_count) const {
+  ChunkedNullPartitionResult MergeNullsAtEnd(const ChunkedNullPartitionResult& left,
+                                             const ChunkedNullPartitionResult& right,
+                                             int64_t null_count) const {
     // Input layout:
     // [left non-nulls .... left nulls .... right non-nulls .... right nulls]
     ARROW_DCHECK_EQ(left.non_nulls_end, left.nulls_begin);
@@ -449,7 +450,7 @@ struct GenericMergeImpl {
     // [left non-nulls .... right non-nulls .... left nulls .... right nulls]
     std::rotate(left.nulls_begin, right.non_nulls_begin, right.non_nulls_end);
 
-    const auto p = NullPartitionResultType::NullsAtEnd(
+    const auto p = ChunkedNullPartitionResult::NullsAtEnd(
         left.non_nulls_begin, right.nulls_end,
         left.non_nulls_begin + left.non_null_count() + right.non_null_count());
 
@@ -476,34 +477,30 @@ struct GenericMergeImpl {
   MergeNullsFunc merge_nulls_;
   MergeNonNullsFunc merge_non_nulls_;
   std::unique_ptr<Buffer> temp_buffer_;
-  IndexType* temp_indices_ = nullptr;
+  CompressedChunkLocation* temp_indices_ = nullptr;
 };
-
-using ChunkedMergeImpl =
-    GenericMergeImpl<CompressedChunkLocation, ChunkedNullPartitionResult>;
 
 // TODO make this usable if indices are non trivial on input
 // (see ConcreteRecordBatchColumnSorter)
 // `offset` is used when this is called on a chunk of a chunked array
 using ArraySortFunc = std::function<Result<NullPartitionResult>(
-    uint64_t* indices_begin, uint64_t* indices_end, const Array& values, int64_t offset,
+    std::span<uint64_t> indices, const Array& values, int64_t offset,
     const ArraySortOptions& options, ExecContext* ctx)>;
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
-Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
-                                             uint64_t* indices_end,
+Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx,
+                                             std::span<uint64_t> indices,
                                              const ChunkedArray& chunked_array,
                                              SortOrder sort_order,
                                              NullPlacement null_placement);
 
 Result<NullPartitionResult> SortChunkedArray(
-    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+    ExecContext* ctx, std::span<uint64_t> indices,
     const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
     SortOrder sort_order, NullPlacement null_placement);
 
-Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_begin,
-                                            uint64_t* indices_end,
+Result<NullPartitionResult> SortStructArray(ExecContext* ctx, std::span<uint64_t> indices,
                                             const StructArray& array,
                                             SortOrder sort_order,
                                             NullPlacement null_placement);

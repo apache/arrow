@@ -67,13 +67,13 @@ ChunkedIndexMapper::LogicalToPhysical() {
     }
   }
 
-  const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
+  const int64_t num_indices = static_cast<int64_t>(indices_.size());
   DCHECK_EQ(num_indices, std::accumulate(chunk_lengths_.begin(), chunk_lengths_.end(),
                                          static_cast<int64_t>(0)));
   CompressedChunkLocation* physical_begin =
-      reinterpret_cast<CompressedChunkLocation*>(indices_begin_);
-  DCHECK_EQ(physical_begin + num_indices,
-            reinterpret_cast<CompressedChunkLocation*>(indices_end_));
+      reinterpret_cast<CompressedChunkLocation*>(indices_.data());
+  DCHECK_EQ(physical_begin + num_indices, reinterpret_cast<CompressedChunkLocation*>(
+                                              indices_.data() + indices_.size()));
 
   int64_t chunk_offset = 0;
   for (int64_t chunk_index = 0; chunk_index < static_cast<int64_t>(chunk_lengths_.size());
@@ -82,12 +82,12 @@ ChunkedIndexMapper::LogicalToPhysical() {
     for (int64_t i = 0; i < chunk_length; ++i) {
       // Logical indices are expected to be chunk-partitioned, which avoids costly
       // chunked index resolution.
-      DCHECK_GE(indices_begin_[chunk_offset + i], static_cast<uint64_t>(chunk_offset));
-      DCHECK_LT(indices_begin_[chunk_offset + i],
+      DCHECK_GE(indices_[chunk_offset + i], static_cast<uint64_t>(chunk_offset));
+      DCHECK_LT(indices_[chunk_offset + i],
                 static_cast<uint64_t>(chunk_offset + chunk_length));
       physical_begin[chunk_offset + i] = CompressedChunkLocation{
           static_cast<uint64_t>(chunk_index),
-          indices_begin_[chunk_offset + i] - static_cast<uint64_t>(chunk_offset)};
+          indices_[chunk_offset + i] - static_cast<uint64_t>(chunk_offset)};
     }
     chunk_offset += chunk_length;
   }
@@ -105,15 +105,15 @@ Status ChunkedIndexMapper::PhysicalToLogical() {
     }
   }
 
-  const int64_t num_indices = static_cast<int64_t>(indices_end_ - indices_begin_);
+  const int64_t num_indices = static_cast<int64_t>(indices_.size());
   CompressedChunkLocation* physical_begin =
-      reinterpret_cast<CompressedChunkLocation*>(indices_begin_);
+      reinterpret_cast<CompressedChunkLocation*>(indices_.data());
   for (int64_t i = 0; i < num_indices; ++i) {
     const auto loc = physical_begin[i];
     DCHECK_LT(loc.chunk_index(), chunk_offsets.size());
     DCHECK_LT(loc.index_in_chunk(),
               static_cast<uint64_t>(chunk_lengths_[loc.chunk_index()]));
-    indices_begin_[i] =
+    indices_[i] =
         chunk_offsets[loc.chunk_index()] + static_cast<int64_t>(loc.index_in_chunk());
   }
 

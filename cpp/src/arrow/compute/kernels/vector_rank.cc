@@ -71,7 +71,7 @@ void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_sel
 
 template <typename ArrowType>
 Result<NullPartitionResult> DoSortAndMarkDuplicate(
-    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end, const Array& input,
+    ExecContext* ctx, std::span<uint64_t> indices, const Array& input,
     const std::shared_ptr<DataType>& physical_type, const SortOrder order,
     const NullPlacement null_placement, bool needs_duplicates) {
   using GetView = GetViewType<ArrowType>;
@@ -80,9 +80,9 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
   ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type));
 
   ArrayType array(input.data());
-  ARROW_ASSIGN_OR_RAISE(auto sorted,
-                        array_sorter(indices_begin, indices_end, array, 0,
-                                     ArraySortOptions(order, null_placement), ctx));
+  ARROW_ASSIGN_OR_RAISE(
+      auto sorted,
+      array_sorter(indices, array, 0, ArraySortOptions(order, null_placement), ctx));
 
   if (needs_duplicates) {
     auto value_selector = [&array](int64_t index) {
@@ -100,16 +100,16 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
 
 template <typename ArrowType>
 Result<NullPartitionResult> DoSortAndMarkDuplicate(
-    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-    const ChunkedArray& input, const std::shared_ptr<DataType>& physical_type,
-    const SortOrder order, const NullPlacement null_placement, bool needs_duplicates) {
+    ExecContext* ctx, std::span<uint64_t> indices, const ChunkedArray& input,
+    const std::shared_ptr<DataType>& physical_type, const SortOrder order,
+    const NullPlacement null_placement, bool needs_duplicates) {
   auto physical_chunks = GetPhysicalChunks(input, physical_type);
   if (physical_chunks.empty()) {
     return NullPartitionResult{};
   }
-  ARROW_ASSIGN_OR_RAISE(auto sorted,
-                        SortChunkedArray(ctx, indices_begin, indices_end, physical_type,
-                                         physical_chunks, order, null_placement));
+  ARROW_ASSIGN_OR_RAISE(
+      auto sorted, SortChunkedArray(ctx, indices, physical_type, physical_chunks, order,
+                                    null_placement));
   if (needs_duplicates) {
     const auto arrays = GetArrayPointers(physical_chunks);
     auto value_selector = [resolver =
@@ -132,13 +132,12 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
 template <typename InputType>
 class SortAndMarkDuplicate : public TypeVisitor {
  public:
-  SortAndMarkDuplicate(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+  SortAndMarkDuplicate(ExecContext* ctx, std::span<uint64_t> indices,
                        const InputType& input, const SortOrder order,
                        const NullPlacement null_placement, const bool needs_duplicate)
       : TypeVisitor(),
         ctx_(ctx),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end),
+        indices_(indices),
         input_(input),
         order_(order),
         null_placement_(null_placement),
@@ -150,13 +149,12 @@ class SortAndMarkDuplicate : public TypeVisitor {
     return sorted_;
   }
 
-#define VISIT(TYPE)                                                                 \
-  Status Visit(const TYPE& type) {                                                  \
-    ARROW_ASSIGN_OR_RAISE(                                                          \
-        sorted_, DoSortAndMarkDuplicate<TYPE>(ctx_, indices_begin_, indices_end_,   \
-                                              input_, physical_type_, order_,       \
-                                              null_placement_, needs_duplicates_)); \
-    return Status::OK();                                                            \
+#define VISIT(TYPE)                                                                    \
+  Status Visit(const TYPE& type) {                                                     \
+    ARROW_ASSIGN_OR_RAISE(sorted_, DoSortAndMarkDuplicate<TYPE>(                       \
+                                       ctx_, indices_, input_, physical_type_, order_, \
+                                       null_placement_, needs_duplicates_));           \
+    return Status::OK();                                                               \
   }
 
   VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
@@ -165,8 +163,7 @@ class SortAndMarkDuplicate : public TypeVisitor {
 
  private:
   ExecContext* ctx_;
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
+  std::span<uint64_t> indices_;
   const InputType& input_;
   const SortOrder order_;
   const NullPlacement null_placement_;
@@ -379,13 +376,13 @@ class RankMetaFunctionBase : public MetaFunction {
     int64_t length = input.length();
     ARROW_ASSIGN_OR_RAISE(auto indices,
                           MakeMutableUInt64Array(length, ctx->memory_pool()));
-    auto* indices_begin = indices->GetMutableValues<uint64_t>(1);
-    auto* indices_end = indices_begin + length;
-    std::iota(indices_begin, indices_end, 0);
+    std::span<uint64_t> indices_span{indices->GetMutableValues<uint64_t>(1),
+                                     static_cast<size_t>(length)};
+    std::iota(indices_span.begin(), indices_span.end(), 0);
     auto needs_duplicates = Derived::NeedsDuplicates(options);
     ARROW_ASSIGN_OR_RAISE(
-        auto sorted, SortAndMarkDuplicate(ctx, indices_begin, indices_end, input, order,
-                                          null_placement, needs_duplicates)
+        auto sorted, SortAndMarkDuplicate(ctx, indices_span, input, order, null_placement,
+                                          needs_duplicates)
                          .Run());
 
     auto ranker = Derived::GetRanker(options);

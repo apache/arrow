@@ -103,15 +103,18 @@ class ChunkedArraySorter : public TypeVisitor {
       const auto array = checked_cast<const ArrayType*>(arrays[i]);
       end_offset += array->length();
       null_count += array->null_count();
-      ARROW_ASSIGN_OR_RAISE(sorted[i],
-                            array_sorter_(indices_.data(), indices_.data() + indices_.size(), *array, begin_offset, options, ctx_));
+      // TODO.TAE
+      ARROW_ASSIGN_OR_RAISE(
+          sorted[i], array_sorter_(std::span<uint64_t>(indices_.data() + begin_offset,
+                                                       indices_.data() + end_offset),
+                                   *array, begin_offset, options, ctx_));
       begin_offset = end_offset;
     }
     DCHECK_EQ(end_offset, num_indices);
 
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
-      ChunkedIndexMapper chunked_mapper(arrays, indices_.data(), indices_.data() + indices_.size());
+      ChunkedIndexMapper chunked_mapper(arrays, indices_);
       ARROW_ASSIGN_OR_RAISE(auto chunked_indices_pair,
                             chunked_mapper.LogicalToPhysical());
       auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
@@ -686,7 +689,7 @@ class TableSorter {
 
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
-      ChunkedIndexMapper chunked_mapper(batches_, indices_.data(), indices_.data() + indices_.size());
+      ChunkedIndexMapper chunked_mapper(batches_, indices_);
       ARROW_ASSIGN_OR_RAISE(auto chunked_indices_pair,
                             chunked_mapper.LogicalToPhysical());
       auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
