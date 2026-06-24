@@ -491,9 +491,11 @@ test_and_install_cpp() {
     echo "pkgs llvm-link        : ${pkgbin:-MISSING}"
     if [ -n "${pkgbin}" ]; then
       DYLD_LIBRARY_PATH="${ARROW_HOME}/lib" "${pkgbin}" --version >/dev/null 2>&1
-      echo "A) DYLD=ARROW_HOME/lib only          : exit=$?  (expect 134 = bug)"
+      echo "A) no conda lib                      : exit=$?  (134 or 0, pkgs binary varies by run)"
       DYLD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${ARROW_HOME}/lib" "${pkgbin}" --version >/dev/null 2>&1
-      echo "B) DYLD=CONDA_PREFIX/lib + above      : exit=$?  (expect 0 = fixed)"
+      echo "B) conda lib via DYLD_LIBRARY_PATH   : exit=$?  (expect 0)"
+      DYLD_LIBRARY_PATH="${ARROW_HOME}/lib" DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib" "${pkgbin}" --version >/dev/null 2>&1
+      echo "C) conda lib via DYLD_FALLBACK (fix) : exit=$?  (expect 0)"
     fi
     echo "===== end VERIFY_RC_DEBUG ====="
     set -e
@@ -558,10 +560,11 @@ test_and_install_cpp() {
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
-  # Expose conda's lib so LLVM tools (llvm-link, llvm-ranlib) find libLLVM.*.dylib via
-  # @rpath else build flakily fails on macOS (Scoped here so libiconv can't leak into tests)
+  # Expose conda's lib on the *fallback* path so the LLVM tools (llvm-link,
+  # llvm-ranlib) find libLLVM.*.dylib on flaky @rpath miss on macOS. (Fallback is searched last,
+  # so it doesn't shadow system libs like libiconv during the build or leak into tests.)
   if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
-    DYLD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${DYLD_LIBRARY_PATH:-}" cmake --build . --target install
+    DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib:${DYLD_FALLBACK_LIBRARY_PATH:-/usr/local/lib:/usr/lib}" cmake --build . --target install
   else
     cmake --build . --target install
   fi
