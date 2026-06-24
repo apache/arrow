@@ -37,16 +37,16 @@ namespace {
 // is the same as the value at the previous sort index.
 constexpr uint64_t kDuplicateMask = 1ULL << 63;
 
-template <typename ValueSelector, typename IsNullSelector>
-void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_selector,
-                    IsNullSelector&& is_null_selector) {
+template <typename ValueSelector>
+void MarkDuplicates(const PartitionResultByNullLikeness& sorted,
+                    ValueSelector&& value_selector) {
   using T = decltype(value_selector(int64_t{}));
 
   // Process non-nulls
-  if (sorted.non_nulls_end != sorted.non_nulls_begin) {
-    auto it = sorted.non_nulls_begin;
+  if (!sorted.non_null_like_range.empty()) {
+    auto it = sorted.non_null_like_range.begin();
     T prev_value = value_selector(*it);
-    while (++it < sorted.non_nulls_end) {
+    while (++it < sorted.non_null_like_range.end()) {
       T curr_value = value_selector(*it);
       if (curr_value == prev_value) {
         *it |= kDuplicateMask;
@@ -55,22 +55,23 @@ void MarkDuplicates(const NullPartitionResult& sorted, ValueSelector&& value_sel
     }
   }
 
+  // Process nans
+  if (!sorted.nan_range.empty()) {
+    for (auto& index : sorted.nan_range.subspan(1)) {
+      index |= kDuplicateMask;
+    }
+  }
+
   // Process nulls
-  if (sorted.nulls_end != sorted.nulls_begin) {
-    auto it = sorted.nulls_begin;
-    bool prev_is_null = is_null_selector(*it);
-    while (++it < sorted.nulls_end) {
-      bool curr_is_null = is_null_selector(*it);
-      if (curr_is_null == prev_is_null) {
-        *it |= kDuplicateMask;
-      }
-      prev_is_null = curr_is_null;
+  if (!sorted.null_range.empty()) {
+    for (auto& index : sorted.null_range.subspan(1)) {
+      index |= kDuplicateMask;
     }
   }
 }
 
 template <typename ArrowType>
-Result<NullPartitionResult> DoSortAndMarkDuplicate(
+Result<PartitionResultByNullLikeness> DoSortAndMarkDuplicate(
     ExecContext* ctx, std::span<uint64_t> indices, const Array& input,
     const std::shared_ptr<DataType>& physical_type, const SortOrder order,
     const NullPlacement null_placement, bool needs_duplicates) {
@@ -88,24 +89,19 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
     auto value_selector = [&array](int64_t index) {
       return GetView::LogicalValue(array.GetView(index));
     };
-    if constexpr (has_null_like_values<ArrowType>()) {
-      auto is_null_selector = [&array](int64_t index) { return array.IsNull(index); };
-      MarkDuplicates(sorted, value_selector, is_null_selector);
-    } else {
-      MarkDuplicates(sorted, value_selector, [](int64_t) { return true; });
-    }
+    MarkDuplicates(sorted, value_selector);
   }
   return sorted;
 }
 
 template <typename ArrowType>
-Result<NullPartitionResult> DoSortAndMarkDuplicate(
+Result<PartitionResultByNullLikeness> DoSortAndMarkDuplicate(
     ExecContext* ctx, std::span<uint64_t> indices, const ChunkedArray& input,
     const std::shared_ptr<DataType>& physical_type, const SortOrder order,
     const NullPlacement null_placement, bool needs_duplicates) {
   auto physical_chunks = GetPhysicalChunks(input, physical_type);
   if (physical_chunks.empty()) {
-    return NullPartitionResult{};
+    return PartitionResultByNullLikeness::fromCounts(indices, 0, 0, 0, null_placement);
   }
   ARROW_ASSIGN_OR_RAISE(
       auto sorted, SortChunkedArray(ctx, indices, physical_type, physical_chunks, order,
@@ -116,15 +112,7 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
                                ChunkedArrayResolver(std::span(arrays))](int64_t index) {
       return resolver.Resolve(index).Value<ArrowType>();
     };
-    if constexpr (has_null_like_values<ArrowType>()) {
-      auto is_null_selector =
-          [resolver = ChunkedArrayResolver(std::span(arrays))](int64_t index) {
-            return resolver.Resolve(index).IsNull();
-          };
-      MarkDuplicates(sorted, value_selector, is_null_selector);
-    } else {
-      MarkDuplicates(sorted, value_selector, [](int64_t) { return true; });
-    }
+    MarkDuplicates(sorted, value_selector);
   }
   return sorted;
 }
@@ -144,7 +132,7 @@ class SortAndMarkDuplicate : public TypeVisitor {
         needs_duplicates_(needs_duplicate),
         physical_type_(GetPhysicalType(input.type())) {}
 
-  Result<NullPartitionResult> Run() {
+  Result<PartitionResultByNullLikeness> Run() {
     RETURN_NOT_OK(physical_type_->Accept(this));
     return sorted_;
   }
@@ -169,13 +157,14 @@ class SortAndMarkDuplicate : public TypeVisitor {
   const NullPlacement null_placement_;
   const bool needs_duplicates_;
   const std::shared_ptr<DataType> physical_type_;
-  NullPartitionResult sorted_{};
+  PartitionResultByNullLikeness sorted_{};
 };
 
 // A CRTP-based helper class for "rank_normal" and "rank_quantile"
 template <typename Derived>
 struct BaseQuantileRanker {
-  Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted) {
+  Result<Datum> CreateRankings(ExecContext* ctx,
+                               const PartitionResultByNullLikeness& sorted) {
     const int64_t length = sorted.overall_end() - sorted.overall_begin();
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableFloat64Array(length, ctx->memory_pool()));
@@ -225,7 +214,8 @@ struct NormalRanker : public BaseQuantileRanker<NormalRanker> {
 struct OrdinalRanker {
   explicit OrdinalRanker(RankOptions::Tiebreaker tiebreaker) : tiebreaker_(tiebreaker) {}
 
-  Result<Datum> CreateRankings(ExecContext* ctx, const NullPartitionResult& sorted) {
+  Result<Datum> CreateRankings(ExecContext* ctx,
+                               const PartitionResultByNullLikeness& sorted) {
     const int64_t length = sorted.overall_end() - sorted.overall_begin();
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableUInt64Array(length, ctx->memory_pool()));

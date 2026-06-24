@@ -147,9 +147,10 @@ class ArrayCompareSorter {
   using GetView = GetViewType<ArrowType>;
 
  public:
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& array,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext*) {
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& array, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext*) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     const auto p = PartitionNullsAndNans<ArrayType, StablePartitioner>(
@@ -173,16 +174,17 @@ class ArrayCompareSorter {
             return rhs < lhs;
           });
     }
-    return p.toLegacyNullPartitionResult();
+    return p;
   }
 };
 
 template <>
 class ArrayCompareSorter<DictionaryType> {
  public:
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& array,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext* ctx) {
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& array, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext* ctx) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
     const auto& dict_values = dict_array.dictionary();
     const auto& dict_indices = dict_array.indices();
@@ -265,9 +267,10 @@ class ArrayCompareSorter<DictionaryType> {
 template <>
 class ArrayCompareSorter<StructType> {
  public:
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& array,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext* ctx) {
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& array, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext* ctx) {
     const auto& struct_array = checked_cast<const StructArray&>(array);
     return SortStructArray(ctx, indices, struct_array, options.order,
                            options.null_placement);
@@ -290,9 +293,10 @@ class ArrayCountSorter {
     value_range_ = static_cast<uint32_t>(max - min) + 1;
   }
 
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& array,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext*) const {
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& array, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext*) const {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     // 32bit counter performs much better than 64bit one
@@ -308,14 +312,14 @@ class ArrayCountSorter {
   uint32_t value_range_{0};
 
   template <typename CounterType>
-  NullPartitionResult SortInternal(std::span<uint64_t> indices, const ArrayType& values,
-                                   int64_t offset,
-                                   const ArraySortOptions& options) const {
+  PartitionResultByNullLikeness SortInternal(std::span<uint64_t> indices,
+                                             const ArrayType& values, int64_t offset,
+                                             const ArraySortOptions& options) const {
     const uint32_t value_range = value_range_;
 
     // first and last slot reserved for prefix sum (depending on sort order)
     std::vector<CounterType> counts(2 + value_range);
-    NullPartitionResult p;
+    PartitionResultByNullLikeness p;
 
     if (options.order == SortOrder::Ascending) {
       // counts will be increasing, starting with 0 and ending with (length - null_count)
@@ -324,15 +328,10 @@ class ArrayCountSorter {
         counts[i] += counts[i - 1];
       }
 
-      if (options.null_placement == NullPlacement::AtStart) {
-        p = NullPartitionResult::NullsAtStart(
-            indices.data(), indices.data() + indices.size(),
-            indices.data() + indices.size() - counts[value_range]);
-      } else {
-        p = NullPartitionResult::NullsAtEnd(indices.data(),
-                                            indices.data() + indices.size(),
-                                            indices.data() + counts[value_range]);
-      }
+      p = PartitionResultByNullLikeness::fromCounts(indices, counts[value_range], 0,
+                                                    indices.size() - counts[value_range],
+                                                    options.null_placement);
+
       EmitIndices(p, values, offset, &counts[0]);
     } else {
       // counts will be decreasing, starting with (length - null_count) and ending with 0
@@ -341,14 +340,8 @@ class ArrayCountSorter {
         counts[i - 1] += counts[i];
       }
 
-      if (options.null_placement == NullPlacement::AtStart) {
-        p = NullPartitionResult::NullsAtStart(
-            indices.data(), indices.data() + indices.size(),
-            indices.data() + indices.size() - counts[0]);
-      } else {
-        p = NullPartitionResult::NullsAtEnd(
-            indices.data(), indices.data() + indices.size(), indices.data() + counts[0]);
-      }
+      p = PartitionResultByNullLikeness::fromCounts(
+          indices, counts[0], 0, indices.size() - counts[0], options.null_placement);
       EmitIndices(p, values, offset, &counts[1]);
     }
     return p;
@@ -361,14 +354,14 @@ class ArrayCountSorter {
   }
 
   template <typename CounterType>
-  void EmitIndices(const NullPartitionResult& p, const ArrayType& values, int64_t offset,
-                   CounterType* counts) const {
+  void EmitIndices(const PartitionResultByNullLikeness& p, const ArrayType& values,
+                   int64_t offset, CounterType* counts) const {
     int64_t index = offset;
     CounterType count_nulls = 0;
     VisitRawValuesInline<c_type>(
         *values.data(),
-        [&](c_type v) { p.non_nulls_begin[counts[v - min_]++] = index++; },
-        [&]() { p.nulls_begin[count_nulls++] = index++; });
+        [&](c_type v) { p.non_null_like_range[counts[v - min_]++] = index++; },
+        [&]() { p.null_range[count_nulls++] = index++; });
   }
 };
 
@@ -377,25 +370,22 @@ class ArrayCountSorter<BooleanType> {
  public:
   ArrayCountSorter() = default;
 
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& array,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext*) {
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& array, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext*) {
     const auto& values = checked_cast<const BooleanArray&>(array);
 
     std::array<int64_t, 3> counts{0, 0, 0};  // false, true, null
 
     const int64_t nulls = values.null_count();
-    const int64_t ones = values.true_count();
-    const int64_t zeros = values.length() - ones - nulls;
+    const int64_t non_nulls = values.length() - nulls;
 
-    NullPartitionResult p;
-    if (options.null_placement == NullPlacement::AtStart) {
-      p = NullPartitionResult::NullsAtStart(
-          indices.data(), indices.data() + indices.size(), indices.data() + nulls);
-    } else {
-      p = NullPartitionResult::NullsAtEnd(indices.data(), indices.data() + indices.size(),
-                                          indices.data() + indices.size() - nulls);
-    }
+    const int64_t ones = values.true_count();
+    const int64_t zeros = non_nulls - ones;
+
+    PartitionResultByNullLikeness p = PartitionResultByNullLikeness::fromCounts(
+        indices, non_nulls, 0, nulls, options.null_placement);
 
     if (options.order == SortOrder::Ascending) {
       // ones start after zeros
@@ -407,8 +397,8 @@ class ArrayCountSorter<BooleanType> {
 
     int64_t index = offset;
     VisitRawValuesInline(
-        *values.data(), [&](bool v) { p.non_nulls_begin[counts[v]++] = index++; },
-        [&]() { p.nulls_begin[counts[2]++] = index++; });
+        *values.data(), [&](bool v) { p.non_null_like_range[counts[v]++] = index++; },
+        [&]() { p.null_range[counts[2]++] = index++; });
     return p;
   }
 };
@@ -422,9 +412,10 @@ class ArrayCountOrCompareSorter {
   using c_type = typename ArrowType::c_type;
 
  public:
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& array,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext* ctx) {
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& array, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext* ctx) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
@@ -462,11 +453,12 @@ class ArrayCountOrCompareSorter {
 
 class ArrayNullSorter {
  public:
-  Result<NullPartitionResult> operator()(std::span<uint64_t> indices, const Array& values,
-                                         int64_t offset, const ArraySortOptions& options,
-                                         ExecContext*) {
-    return NullPartitionResult::NullsOnly(indices.data(), indices.data() + indices.size(),
-                                          options.null_placement);
+  Result<PartitionResultByNullLikeness> operator()(std::span<uint64_t> indices,
+                                                   const Array& values, int64_t offset,
+                                                   const ArraySortOptions& options,
+                                                   ExecContext*) {
+    return PartitionResultByNullLikeness::fromCounts(indices, 0, 0, indices.size(),
+                                                     options.null_placement);
   }
 };
 

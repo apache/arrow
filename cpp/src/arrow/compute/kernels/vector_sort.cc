@@ -48,7 +48,8 @@ class ChunkedArraySorter : public TypeVisitor {
   ChunkedArraySorter(ExecContext* ctx, std::span<uint64_t> indices,
                      const std::shared_ptr<DataType>& physical_type,
                      const ArrayVector& physical_chunks, const SortOrder order,
-                     const NullPlacement null_placement, NullPartitionResult* output)
+                     const NullPlacement null_placement,
+                     PartitionResultByNullLikeness* output)
       : TypeVisitor(),
         indices_(indices),
         physical_type_(physical_type),
@@ -82,10 +83,9 @@ class ChunkedArraySorter : public TypeVisitor {
     ArraySortOptions options(order_, null_placement_);
     const auto num_chunks = static_cast<int>(physical_chunks_.size());
     if (num_chunks == 0) {
-      *output_ = {.non_nulls_begin = indices_.data() + indices_.size(),
-                  .non_nulls_end = indices_.data() + indices_.size(),
-                  .nulls_begin = indices_.data() + indices_.size(),
-                  .nulls_end = indices_.data() + indices_.size()};
+      DCHECK_EQ(static_cast<int64_t>(indices_.size()), 0);
+      *output_ =
+          PartitionResultByNullLikeness::fromCounts(indices_, 0, 0, 0, null_placement_);
       return Status::OK();
     }
     const int64_t num_indices = static_cast<int64_t>(indices_.size());
@@ -93,7 +93,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
     // Sort each chunk independently and merge to sorted indices.
     // This is a serial implementation.
-    std::vector<NullPartitionResult> sorted(num_chunks);
+    std::vector<PartitionResultByNullLikeness> sorted(num_chunks);
 
     // First sort all individual chunks
     int64_t begin_offset = 0;
@@ -116,20 +116,11 @@ class ChunkedArraySorter : public TypeVisitor {
                             chunked_mapper.LogicalToPhysical());
       auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
 
-      std::vector<ChunkedNullPartitionResult> chunk_sorted(num_chunks);
+      std::vector<ChunkedPartitionResultByNullLikeness> chunk_sorted(num_chunks);
       for (int i = 0; i < num_chunks; ++i) {
         chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices_begin);
       }
 
-      auto merge_nulls = [&](CompressedChunkLocation* nulls_begin,
-                             CompressedChunkLocation* nulls_middle,
-                             CompressedChunkLocation* nulls_end,
-                             CompressedChunkLocation* temp_indices, int64_t null_count) {
-        if (has_null_like_values<typename ArrayType::TypeClass>()) {
-          PartitionNullsOnly<StablePartitioner>(nulls_begin, nulls_end, arrays,
-                                                null_count, null_placement_);
-        }
-      };
       auto merge_non_nulls =
           [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
               CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
@@ -138,8 +129,7 @@ class ChunkedArraySorter : public TypeVisitor {
                 {temp_indices, static_cast<size_t>(range_end - range_begin)});
           };
 
-      ChunkedMergeImpl merge_impl{null_placement_, std::move(merge_nulls),
-                                  std::move(merge_non_nulls)};
+      ChunkedMergeImpl merge_impl{null_placement_, std::move(merge_non_nulls)};
       // std::merge is only called on non-null values, so size temp indices accordingly
       RETURN_NOT_OK(merge_impl.Init(ctx_, num_indices - null_count));
 
@@ -168,10 +158,11 @@ class ChunkedArraySorter : public TypeVisitor {
     }
 
     DCHECK_EQ(sorted.size(), 1);
-    DCHECK_EQ(sorted[0].overall_begin(), indices_.data());
-    DCHECK_EQ(sorted[0].overall_end(), indices_.data() + indices_.size());
+    DCHECK_EQ(sorted[0].toLegacyNullPartitionResult().overall_begin(), indices_.data());
+    DCHECK_EQ(sorted[0].toLegacyNullPartitionResult().overall_end(),
+              indices_.data() + indices_.size());
     // Note that "nulls" can also include NaNs, hence the >= check
-    DCHECK_GE(sorted[0].null_count(), null_count);
+    DCHECK_GE(sorted[0].toLegacyNullPartitionResult().null_count(), null_count);
 
     *output_ = sorted[0];
     return Status::OK();
@@ -222,7 +213,7 @@ class ChunkedArraySorter : public TypeVisitor {
   const NullPlacement null_placement_;
   ArraySortFunc array_sorter_;
   ExecContext* ctx_;
-  NullPartitionResult* output_;
+  PartitionResultByNullLikeness* output_;
 };
 
 // ----------------------------------------------------------------------
@@ -262,7 +253,8 @@ class RecordBatchColumnSorter {
       : next_column_(next_column) {}
   virtual ~RecordBatchColumnSorter() {}
 
-  virtual NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) = 0;
+  virtual PartitionResultByNullLikeness SortRange(std::span<uint64_t> indices,
+                                                  int64_t offset) = 0;
 
  protected:
   RecordBatchColumnSorter* next_column_;
@@ -283,7 +275,8 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
         null_placement_(null_placement),
         null_count_(array_.null_count()) {}
 
-  NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) override {
+  PartitionResultByNullLikeness SortRange(std::span<uint64_t> indices,
+                                          int64_t offset) override {
     using GetView = GetViewType<Type>;
 
     PartitionResultByNullLikeness partitions;
@@ -329,7 +322,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
           array_, partitions.non_null_like_range, offset,
           [&](std::span<uint64_t> indices) { SortNextColumn(indices, offset); });
     }
-    return partitions.toLegacyNullPartitionResult();
+    return partitions;
   }
 
   void SortNextColumn(std::span<uint64_t> indices, int64_t offset) {
@@ -355,12 +348,12 @@ class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter
                                   RecordBatchColumnSorter* next_column = nullptr)
       : RecordBatchColumnSorter(next_column), null_placement_(null_placement) {}
 
-  NullPartitionResult SortRange(std::span<uint64_t> indices, int64_t offset) {
+  PartitionResultByNullLikeness SortRange(std::span<uint64_t> indices, int64_t offset) {
     if (next_column_ != nullptr) {
       next_column_->SortRange(indices, offset);
     }
-    return NullPartitionResult::NullsOnly(indices.data(), indices.data() + indices.size(),
-                                          null_placement_);
+    return PartitionResultByNullLikeness::fromCounts(indices, 0, 0, indices.size(),
+                                                     null_placement_);
   }
 
  protected:
@@ -403,7 +396,7 @@ class RadixRecordBatchSorter {
         indices_(indices) {}
 
   // Offset is for table sorting
-  Result<NullPartitionResult> Sort(int64_t offset = 0) {
+  Result<PartitionResultByNullLikeness> Sort(int64_t offset = 0) {
     ARROW_RETURN_NOT_OK(status_);
 
     // Create column sorters from right to left
@@ -659,7 +652,7 @@ class TableSorter {
     if (num_batches == 0) {
       return Status::OK();
     }
-    std::vector<NullPartitionResult> sorted(num_batches);
+    std::vector<PartitionResultByNullLikeness> sorted(num_batches);
 
     // First sort all individual batches
     int64_t begin_offset = 0;
@@ -674,10 +667,12 @@ class TableSorter {
       ARROW_ASSIGN_OR_RAISE(sorted[i], sorter.Sort(begin_offset));
       DCHECK_EQ(sorted[i].overall_begin(), indices_.data() + begin_offset);
       DCHECK_EQ(sorted[i].overall_end(), indices_.data() + end_offset);
-      DCHECK_EQ(sorted[i].non_null_count() + sorted[i].null_count(), batch.num_rows());
+      DCHECK_EQ(static_cast<int64_t>(sorted[i].non_null_like_range.size() +
+                                     sorted[i].null_range.size()),
+                batch.num_rows());
       begin_offset = end_offset;
       // XXX this is an upper bound on the true null count
-      null_count += sorted[i].null_count();
+      null_count += sorted[i].null_range.size();
     }
     DCHECK_EQ(end_offset, static_cast<int64_t>(indices_.size()));
 
@@ -688,14 +683,14 @@ class TableSorter {
                             chunked_mapper.LogicalToPhysical());
       auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
 
-      std::vector<ChunkedNullPartitionResult> chunk_sorted(num_batches);
+      std::vector<ChunkedPartitionResultByNullLikeness> chunk_sorted(num_batches);
       for (int64_t i = 0; i < num_batches; ++i) {
         chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices_begin);
       }
 
       struct Visitor {
         TableSorter* sorter;
-        std::vector<ChunkedNullPartitionResult>* chunk_sorted;
+        std::vector<ChunkedPartitionResultByNullLikeness>* chunk_sorted;
         int64_t null_count;
 
 #define VISIT(TYPE)                                               \
@@ -726,23 +721,15 @@ class TableSorter {
 
   // Recursive merge routine, typed on the first sort key
   template <typename ArrowType>
-  Status MergeInternal(std::vector<ChunkedNullPartitionResult>* sorted,
+  Status MergeInternal(std::vector<ChunkedPartitionResultByNullLikeness>* sorted,
                        int64_t null_count) {
-    auto merge_nulls = [&](CompressedChunkLocation* nulls_begin,
-                           CompressedChunkLocation* nulls_middle,
-                           CompressedChunkLocation* nulls_end,
-                           CompressedChunkLocation* temp_indices, int64_t null_count) {
-      MergeNulls<ArrowType>(nulls_begin, nulls_middle, nulls_end, temp_indices,
-                            null_count);
-    };
     auto merge_non_nulls =
         [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
             CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
           MergeNonNulls<ArrowType>(range_begin, range_middle, range_end, temp_indices);
         };
 
-    ChunkedMergeImpl merge_impl(sort_keys_[0].null_placement, std::move(merge_nulls),
-                                std::move(merge_non_nulls));
+    ChunkedMergeImpl merge_impl(sort_keys_[0].null_placement, std::move(merge_non_nulls));
     RETURN_NOT_OK(merge_impl.Init(ctx_, table_.num_rows()));
 
     while (sorted->size() > 1) {
@@ -1133,32 +1120,33 @@ Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
   return SortFieldPopulator{}.FindSortKeys(schema, sort_keys);
 }
 
-Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx,
-                                             std::span<uint64_t> indices,
-                                             const ChunkedArray& chunked_array,
-                                             SortOrder sort_order,
-                                             NullPlacement null_placement) {
+Result<PartitionResultByNullLikeness> SortChunkedArray(ExecContext* ctx,
+                                                       std::span<uint64_t> indices,
+                                                       const ChunkedArray& chunked_array,
+                                                       SortOrder sort_order,
+                                                       NullPlacement null_placement) {
   auto physical_type = GetPhysicalType(chunked_array.type());
   auto physical_chunks = GetPhysicalChunks(chunked_array, physical_type);
   return SortChunkedArray(ctx, indices, physical_type, physical_chunks, sort_order,
                           null_placement);
 }
 
-Result<NullPartitionResult> SortChunkedArray(
+Result<PartitionResultByNullLikeness> SortChunkedArray(
     ExecContext* ctx, std::span<uint64_t> indices,
     const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
     SortOrder sort_order, NullPlacement null_placement) {
-  NullPartitionResult output;
+  PartitionResultByNullLikeness output;
   ChunkedArraySorter sorter(ctx, indices, physical_type, physical_chunks, sort_order,
                             null_placement, &output);
   RETURN_NOT_OK(sorter.Sort());
   return output;
 }
 
-Result<NullPartitionResult> SortStructArray(ExecContext* ctx, std::span<uint64_t> indices,
-                                            const StructArray& array,
-                                            SortOrder sort_order,
-                                            NullPlacement null_placement) {
+Result<PartitionResultByNullLikeness> SortStructArray(ExecContext* ctx,
+                                                      std::span<uint64_t> indices,
+                                                      const StructArray& array,
+                                                      SortOrder sort_order,
+                                                      NullPlacement null_placement) {
   ARROW_ASSIGN_OR_RAISE(auto columns, array.Flatten());
   auto batch = RecordBatch::Make(schema(array.type()->fields()), array.length(),
                                  std::move(columns));
