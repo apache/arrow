@@ -97,20 +97,17 @@ class ChunkedArraySorter : public TypeVisitor {
 
     // First sort all individual chunks
     int64_t begin_offset = 0;
-    int64_t end_offset = 0;
     int64_t null_count = 0;
     for (int i = 0; i < num_chunks; ++i) {
       const auto array = checked_cast<const ArrayType*>(arrays[i]);
-      end_offset += array->length();
+      const auto array_length = array->length();
       null_count += array->null_count();
-      // TODO.TAE
       ARROW_ASSIGN_OR_RAISE(
-          sorted[i], array_sorter_(std::span<uint64_t>(indices_.data() + begin_offset,
-                                                       indices_.data() + end_offset),
-                                   *array, begin_offset, options, ctx_));
-      begin_offset = end_offset;
+          sorted[i], array_sorter_(indices_.subspan(begin_offset, array_length), *array,
+                                   begin_offset, options, ctx_));
+      begin_offset += array_length;
     }
-    DCHECK_EQ(end_offset, num_indices);
+    DCHECK_EQ(begin_offset, num_indices);
 
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
