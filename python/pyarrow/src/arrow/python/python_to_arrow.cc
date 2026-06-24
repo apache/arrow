@@ -908,24 +908,31 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendNdarray(PyObject* value) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(value);
-    OwnedRef flattened;
-    if (PyArray_NDIM(ndarray) != 1) {
-      // GH-49644: a fixed-size list (e.g. the storage of a fixed-shape tensor)
-      // can be built from a multi-dimensional array by flattening it in C
-      // order. The total number of elements must still match the list size,
-      // which the builder validates below. 0-dimensional arrays and
-      // variable-sized lists remain restricted to 1-dimensional values.
-      if (PyArray_NDIM(ndarray) < 2 || this->list_type_->id() != Type::FIXED_SIZE_LIST) {
-        return Status::Invalid("Can only convert 1-dimensional array values");
-      }
-      flattened.reset(PyArray_Ravel(ndarray, NPY_CORDER));
-      RETURN_IF_PYERROR();
-      value = flattened.obj();
-      ndarray = reinterpret_cast<PyArrayObject*>(value);
-    }
     if (PyArray_ISBYTESWAPPED(ndarray)) {
       // TODO
       return Status::NotImplemented("Byte-swapped arrays not supported");
+    }
+    OwnedRef flattened;
+    if (PyArray_NDIM(ndarray) != 1) {
+      // GH-49644: a fixed-size list (e.g. fixed-shape-tensor storage) can be
+      // built from a multi-dimensional array, always flattened in C order
+      // regardless of the input's memory layout.
+      if (PyArray_NDIM(ndarray) < 2 || this->list_type_->id() != Type::FIXED_SIZE_LIST) {
+        return Status::Invalid(
+            "Can only convert 1-dimensional array values to a variable-sized list");
+      }
+      // Get an aligned, C-contiguous array (copying only if needed), then view
+      // it as 1-D so its values can be read directly in C order.
+      PyObject* contiguous =
+          PyArray_CheckFromAny(value, nullptr, /*min_depth=*/0, /*max_depth=*/0,
+                               NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, nullptr);
+      RETURN_IF_PYERROR();
+      flattened.reset(
+          PyArray_Ravel(reinterpret_cast<PyArrayObject*>(contiguous), NPY_CORDER));
+      Py_DECREF(contiguous);
+      RETURN_IF_PYERROR();
+      value = flattened.obj();
+      ndarray = reinterpret_cast<PyArrayObject*>(value);
     }
     const int64_t size = PyArray_SIZE(ndarray);
     RETURN_NOT_OK(AppendTo(this->list_type_, size));

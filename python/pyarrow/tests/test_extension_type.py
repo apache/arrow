@@ -1767,9 +1767,17 @@ def test_tensor_array_from_list_of_ndarrays(np_type_str):
     assert result_with_null.null_count == 1
     assert result_with_null[1].as_py() is None
 
-    # A flattened size that doesn't match the tensor shape is rejected
-    with pytest.raises(pa.lib.ArrowInvalid):
-        pa.array([np.arange(8, dtype=np_dtype).reshape(2, 4)], type=tensor_type)
+    # A multi-dimensional element whose shape doesn't match the tensor shape is
+    # rejected, even when the total number of elements is the same (GH-49644).
+    with pytest.raises(ValueError, match="shape"):
+        pa.array([np.arange(6, dtype=np_dtype).reshape(3, 2)], type=tensor_type)
+
+    # Permuted tensor types can't be built from a sequence (the flatten would
+    # store the wrong layout), so they're rejected for now.
+    permuted_type = pa.fixed_shape_tensor(
+        pa.from_numpy_dtype(np_dtype), (2, 3), permutation=[1, 0])
+    with pytest.raises(NotImplementedError, match="permutation"):
+        pa.array(elements, type=permuted_type)
 
 
 @pytest.mark.numpy
