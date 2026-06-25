@@ -19,9 +19,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_set>
-#include <mutex>
 #include <vector>
 
 #include "arrow/flight/platform.h"

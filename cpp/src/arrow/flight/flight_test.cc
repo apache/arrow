@@ -620,7 +620,8 @@ void ParseBasicHeader(const CallHeaders& incoming_headers, std::string& username
                       std::string& password) {
   std::string encoded_credentials =
       FindKeyValPrefixInCallHeaders(incoming_headers, kAuthHeader, kBasicPrefix);
-  std::stringstream decoded_stream(arrow::util::base64_decode(encoded_credentials));
+  ASSERT_OK_AND_ASSIGN(auto decoded, arrow::util::base64_decode(encoded_credentials));
+  std::stringstream decoded_stream(decoded);
   std::getline(decoded_stream, username, ':');
   std::getline(decoded_stream, password, ':');
 }
