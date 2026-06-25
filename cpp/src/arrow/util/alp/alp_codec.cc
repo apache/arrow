@@ -201,8 +201,8 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(
 }
 
 template <typename T>
-auto AlpCodec<T>::CreateSamplingPreset(const T* input, int64_t num_elements)
-    -> AlpSamplerResult {
+typename AlpCodec<T>::AlpSamplerResult AlpCodec<T>::CreateSamplingPreset(
+    const T* input, int64_t num_elements) {
   ARROW_CHECK(num_elements >= 0)
       << "alp_encode_num_elements_must_be_non_negative";
 
@@ -316,10 +316,10 @@ int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
 }
 
 template <typename T>
-auto AlpCodec<T>::EncodeAlp(const T* input, int64_t element_count, uint8_t* output,
-                              int64_t output_size, const AlpEncodingParameters& combinations,
-                              int32_t vector_size)
-    -> CompressionProgress {
+typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
+    const T* input, int64_t element_count, uint8_t* output,
+    int64_t output_size, const AlpEncodingParameters& combinations,
+    int32_t vector_size) {
   // OFFSET-BASED LAYOUT
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
   // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
@@ -406,12 +406,12 @@ auto AlpCodec<T>::EncodeAlp(const T* input, int64_t element_count, uint8_t* outp
 
 template <typename T>
 template <typename TargetType>
-auto AlpCodec<T>::DecodeAlp(int64_t num_elements,
-                              const uint8_t* input, int64_t input_size,
-                              AlpIntegerEncoding integer_encoding,
-                              int32_t vector_size, int32_t total_elements,
-                              TargetType* output)
-    -> Result<DecompressionProgress> {
+Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
+    int64_t num_elements,
+    const uint8_t* input, int64_t input_size,
+    AlpIntegerEncoding integer_encoding,
+    int32_t vector_size, int32_t total_elements,
+    TargetType* output) {
   // OFFSET-BASED LAYOUT:
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
   // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
