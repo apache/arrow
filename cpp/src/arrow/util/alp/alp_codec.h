@@ -58,6 +58,7 @@ class AlpCodec {
   /// \param[in] input pointer to the input data to sample
   /// \param[in] num_elements number of elements to sample
   /// \return the sampling result containing the encoding preset
+  /// \note `ARROW_CHECK` aborts the process if `num_elements < 0`.
   static AlpSamplerResult CreateSamplingPreset(const T* input, int64_t num_elements);
 
   /// \brief Encode floating point values using a pre-computed preset
@@ -71,10 +72,17 @@ class AlpCodec {
   /// \param[in] vector_size number of elements per vector (must be a power of 2,
   ///            at most 2^kMaxLogVectorSize)
   /// \param[out] output pointer to the memory region we will encode into.
-  ///             Must be at least GetMaxCompressedSize(num_elements) bytes.
-  /// \param[in,out] output_size the actual size of the encoded data in bytes,
-  ///                expects the size of output as input. If this is too small,
-  ///                this is set to 0 and we bail out.
+  ///             Must be at least GetMaxCompressedSize(num_elements, vector_size) bytes.
+  ///             Behavior is undefined if `output` is smaller.
+  /// \param[in,out] output_size on input, the size of `output` in bytes; on output,
+  ///                the actual size of the encoded data. Must satisfy
+  ///                `*output_size >= GetMaxCompressedSize(num_elements, vector_size)`;
+  ///                undersizing leads to undefined behavior (a partial write to
+  ///                `output` and an out-of-bounds write of the header).
+  /// \note Preconditions are enforced via `ARROW_CHECK`, which aborts the
+  ///       process on violation: `num_elements >= 0`,
+  ///       `num_elements <= INT32_MAX`, and `vector_size` a positive power of
+  ///       two no larger than `2^kMaxLogVectorSize`.
   static void EncodeWithPreset(const T* input, int64_t num_elements,
                                const AlpSamplerResult& preset,
                                int32_t vector_size,
@@ -87,15 +95,23 @@ class AlpCodec {
   /// \param[in] vector_size number of elements per vector (must be a power of 2,
   ///            at most 2^kMaxLogVectorSize)
   /// \param[out] output pointer to the memory region we will encode into.
-  ///             Must be at least GetMaxCompressedSize(num_elements) bytes.
-  /// \param[in,out] output_size the actual size of the encoded data in bytes,
-  ///                expects the size of output as input. If this is too small,
-  ///                this is set to 0 and we bail out.
+  ///             Must be at least GetMaxCompressedSize(num_elements, vector_size) bytes.
+  ///             Behavior is undefined if `output` is smaller.
+  /// \param[in,out] output_size on input, the size of `output` in bytes; on output,
+  ///                the actual size of the encoded data. Must satisfy
+  ///                `*output_size >= GetMaxCompressedSize(num_elements, vector_size)`;
+  ///                undersizing leads to undefined behavior (a partial write to
+  ///                `output` and an out-of-bounds write of the header).
+  /// \note Preconditions are enforced via `ARROW_CHECK`, which aborts the
+  ///       process on violation: `num_elements >= 0`,
+  ///       `num_elements <= INT32_MAX`, and `vector_size` a positive power of
+  ///       two no larger than `2^kMaxLogVectorSize`.
   static void Encode(const T* input, int64_t num_elements,
                      int32_t vector_size,
                      uint8_t* output, int64_t* output_size);
 
-  /// Convenience overload with default vector_size = kAlpVectorSize
+  /// \brief Convenience overload with default vector_size = kAlpVectorSize.
+  ///        Same preconditions and abort behavior as the four-argument overload.
   static void Encode(const T* input, int64_t num_elements,
                      uint8_t* output, int64_t* output_size);
 
@@ -119,6 +135,7 @@ class AlpCodec {
   /// \param[in] num_elements number of elements to compress
   /// \param[in] vector_size number of elements per vector (must be a power of 2)
   /// \return the maximum size of the compressed buffer in bytes
+  /// \note `ARROW_CHECK` aborts the process if `num_elements < 0`.
   static int64_t GetMaxCompressedSize(int64_t num_elements,
                                       int32_t vector_size = AlpConstants::kAlpVectorSize);
 
