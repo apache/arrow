@@ -100,66 +100,11 @@ constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
  *  LevelDecoder  *
  ******************/
 
-namespace {
-
-/// Adapter around ``BitReader`` that mimics the API of ``RleBitPackedDecoder``.
-///
-/// Best would be to make this a first class citizen, possibly reusing
-/// ``BitPackedRunDecoder`` but the preconditions on the possible number of values
-/// that the run can represent differ.
-template <typename T>
-class BitPackedDecoderWrapper : private ::arrow::bit_util::BitReader {
- public:
-  /// The type in which the data should be decoded.
-  using value_type = T;
-  using rle_size_t = ::arrow::util::rle_size_t;
-
-  BitPackedDecoderWrapper() noexcept = default;
-
-  BitPackedDecoderWrapper(const uint8_t* data, rle_size_t data_size,
-                          rle_size_t value_bit_width) noexcept {
-    Reset(data, data_size, value_bit_width);
-  }
-
-  void Reset(const uint8_t* data, rle_size_t data_size,
-             rle_size_t value_bit_width) noexcept {
-    value_bit_width_ = value_bit_width;
-    return Base::Reset(data, data_size);
-  }
-
-  /// Whether there is still values to iterate over.
-  bool exhausted() const { return Base::bytes_left() >= value_bit_width_; }
-
-  /// Gets the next value or returns false if there are no more or an error occurred.
-  [[nodiscard]] bool Get(value_type* val) {
-    return Base::GetValue(value_bit_width_, val);
-  }
-
-  /// Get a batch of values return the number of decoded elements.
-  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
-    return Base::GetBatch(value_bit_width_, out, batch_size);
-  }
-
- private:
-  using Base = ::arrow::bit_util::BitReader;
-
-  rle_size_t value_bit_width_ = {};
-};
-}  // namespace
-
 struct LevelDecoder::Impl {
   using RleBitPackedDecoder = ::arrow::util::RleBitPackedDecoder<int16_t>;
-  using BitPackedDecoder = BitPackedDecoderWrapper<int16_t>;
+  using BitPackedDecoder = ::arrow::util::BitPackedDecoder<int16_t>;
 
   std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder = {};
-
-  constexpr bool is_rle_bit_packed() const {
-    return std::holds_alternative<RleBitPackedDecoder>(decoder);
-  }
-
-  constexpr bool is_bit_packed() const {
-    return std::holds_alternative<BitPackedDecoder>(decoder);
-  }
 
   [[nodiscard]] int GetBatch(int16_t* out, int batch_size) {
     return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder);
