@@ -17,8 +17,8 @@
 
 #include "arrow/flight/transport_server.h"
 
-#include "arrow/flight/transport_server_internal.h"
 #include "arrow/flight/server.h"
+#include "arrow/flight/transport_server_internal.h"
 
 namespace arrow {
 namespace flight {

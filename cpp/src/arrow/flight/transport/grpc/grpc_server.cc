@@ -110,7 +110,7 @@ class GrpcServerAuthSender : public ServerAuthSender {
   }
 
  private:
- ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
+  ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
 };
 
 using GrpcServerCallContext = transport::grpc::GrpcServerCallContext<ServerContext>;
@@ -349,7 +349,8 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                        ServerWriter<pb::FlightData>* writer) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(helper_.CheckAuth(FlightMethod::DoGet, context, &flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(
+        helper_.CheckAuth(FlightMethod::DoGet, context, &flight_context));
     helper_.AddMiddlewareHeaders(context, &flight_context);
 
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
@@ -366,7 +367,8 @@ class GrpcServiceHandler final : public FlightService::Service {
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(helper_.CheckAuth(FlightMethod::DoPut, context, &flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(
+        helper_.CheckAuth(FlightMethod::DoPut, context, &flight_context));
     helper_.AddMiddlewareHeaders(context, &flight_context);
 
     PutDataStream stream(reader);
@@ -456,8 +458,7 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     ::grpc::ServerBuilder builder;
     int port = 0;
-    RETURN_NOT_OK(
-        AddServerListeningPort(options, uri, &builder, &location_, &port));
+    RETURN_NOT_OK(AddServerListeningPort(options, uri, &builder, &location_, &port));
 
     builder.RegisterService(grpc_service_.get());
     ConfigureServerBuilderOptions(options, &builder);
