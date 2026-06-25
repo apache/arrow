@@ -145,7 +145,7 @@ class GrpcServerCallContextHelper {
     }
     // TODO factor this out after fixing all streaming and non-streaming handlers
     if (!skip_headers) {
-      addMiddlewareHeaders(context, flight_context);
+      AddMiddlewareHeaders(context, flight_context);
     }
 
     return ::grpc::Status::OK;
