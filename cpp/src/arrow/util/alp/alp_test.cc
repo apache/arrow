@@ -35,6 +35,41 @@ namespace util {
 namespace alp {
 
 // ============================================================================
+// Test helpers
+// ============================================================================
+
+// Compares two floating-point ranges by bit pattern, not by operator==.
+// ALP is a lossless codec, so its tests must verify bit-exact recovery:
+// `0.0 == -0.0` (different bits) and `NaN != NaN` (identical bits) make
+// `EXPECT_THAT(out, ElementsAreArray(in))` the wrong check here. On
+// mismatch the failure message names the index and prints both the
+// value and the underlying hex bits.
+template <typename T>
+::testing::AssertionResult IsBitwiseEqual(const std::vector<T>& actual,
+                                          const std::vector<T>& expected) {
+  static_assert(std::is_floating_point<T>::value,
+                "IsBitwiseEqual is for float/double only");
+  using Bits = typename std::conditional<sizeof(T) == 4, uint32_t, uint64_t>::type;
+  if (actual.size() != expected.size()) {
+    return ::testing::AssertionFailure()
+        << "size mismatch: actual=" << actual.size()
+        << " expected=" << expected.size();
+  }
+  for (size_t i = 0; i < actual.size(); ++i) {
+    Bits a_bits = 0, e_bits = 0;
+    std::memcpy(&a_bits, &actual[i], sizeof(T));
+    std::memcpy(&e_bits, &expected[i], sizeof(T));
+    if (a_bits != e_bits) {
+      return ::testing::AssertionFailure()
+          << "bit-mismatch at index " << i << ": actual=" << actual[i]
+          << " (bits 0x" << std::hex << a_bits << "), expected=" << std::dec
+          << expected[i] << " (bits 0x" << std::hex << e_bits << ")";
+    }
+  }
+  return ::testing::AssertionSuccess();
+}
+
+// ============================================================================
 // ALP Constants Tests
 // ============================================================================
 
@@ -308,9 +343,8 @@ class AlpEdgeCaseTest : public ::testing::Test {
     compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
     ASSERT_EQ(output.size(), input.size());
-    // Use memcmp for bit-exact comparison (important for -0.0, NaN)
-    EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(T)),
-              0);
+    // Verify bit-exact recovery (important for -0.0, NaN; see IsBitwiseEqual).
+    EXPECT_TRUE(IsBitwiseEqual(output, input));
   }
 };
 
@@ -390,14 +424,15 @@ TYPED_TEST(AlpEdgeCaseTest, JustOverVectorSize) {
   std::vector<TypeParam> output2(1);
   compressor.DecompressVector(encoded2, AlpIntegerEncoding::kForBitPack, output2.data());
 
-  // Verify
-  EXPECT_EQ(std::memcmp(output1.data(), input.data(),
-                        AlpConstants::kAlpVectorSize * sizeof(TypeParam)),
-            0);
-  EXPECT_EQ(std::memcmp(output2.data(),
-                        input.data() + AlpConstants::kAlpVectorSize,
-                        sizeof(TypeParam)),
-            0);
+  // Verify (first vector covers input[0:kAlpVectorSize], second covers the
+  // trailing element).
+  EXPECT_TRUE(IsBitwiseEqual(
+      output1,
+      std::vector<TypeParam>(input.begin(),
+                             input.begin() + AlpConstants::kAlpVectorSize)));
+  EXPECT_TRUE(IsBitwiseEqual(
+      output2,
+      std::vector<TypeParam>{input[AlpConstants::kAlpVectorSize]}));
 }
 
 // ============================================================================
@@ -578,8 +613,7 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVector(loaded, AlpIntegerEncoding::kForBitPack, output.data());
 
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-            0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
@@ -660,8 +694,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
   // Verify bit-exact reconstruction
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-            0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 // Test specifically designed to create misaligned buffer offsets.
@@ -732,8 +765,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-            0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 // Test with buffer allocated at intentionally odd offset to maximize
@@ -777,8 +809,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
     compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
     // Verify
-    EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-              0)
+    EXPECT_TRUE(IsBitwiseEqual(output, input))
         << "Failed at buffer offset " << offset;
   }
 }
@@ -812,8 +843,7 @@ class AlpCodecTest : public ::testing::Test {
         comp_size, output.data()));
 
     // Verify
-    EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(T)),
-              0);
+    EXPECT_TRUE(IsBitwiseEqual(output, input));
   }
 };
 
@@ -926,8 +956,7 @@ TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
   // Verify round-trip
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-            0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
@@ -948,8 +977,7 @@ TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
     std::vector<TypeParam> output(input.size());
     compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
-    EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-              0)
+    EXPECT_TRUE(IsBitwiseEqual(output, input))
         << "Failed for bit_range=" << bit_range;
   }
 }
@@ -969,8 +997,7 @@ TYPED_TEST(AlpEdgeCaseTest, LargeBitWidths) {
   std::vector<TypeParam> output(input.size());
   compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
-            0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 // ============================================================================
@@ -1043,7 +1070,7 @@ TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
       static_cast<int32_t>(input.size()), comp_buffer2.data(), comp_size2,
       output.data()));
 
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)), 0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
@@ -1088,8 +1115,8 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
       static_cast<int32_t>(kBatchSize), comp2.data(), comp_size2, output2.data()));
 
-  EXPECT_EQ(std::memcmp(output1.data(), batch1.data(), kBatchSize * sizeof(TypeParam)), 0);
-  EXPECT_EQ(std::memcmp(output2.data(), batch2.data(), kBatchSize * sizeof(TypeParam)), 0);
+  EXPECT_TRUE(IsBitwiseEqual(output1, batch1));
+  EXPECT_TRUE(IsBitwiseEqual(output2, batch2));
 }
 
 // ============================================================================
@@ -1128,8 +1155,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
   std::vector<TypeParam> output(std::min(data.size(), size_t(1024)));
   compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
-  EXPECT_EQ(std::memcmp(output.data(), data.data(), output.size() * sizeof(TypeParam)),
-            0);
+  EXPECT_TRUE(IsBitwiseEqual(output, data));
 }
 
 TYPED_TEST(AlpSamplerTest, PresetGenerationMixedData) {
@@ -1246,7 +1272,7 @@ TEST(AlpRobustnessTest, TruncatedData) {
                                     comp_size, output.data()));
 
   // Verify successful decode
-  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(double)), 0);
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 // ============================================================================
@@ -1309,12 +1335,10 @@ TYPED_TEST(AlpEdgeCaseTest, DecompressionDeterminism) {
                                           buffer.data(), comp_size, output2.data()));
 
   // Outputs should be identical
-  EXPECT_EQ(std::memcmp(output1.data(), output2.data(),
-                        input.size() * sizeof(TypeParam)), 0);
+  EXPECT_TRUE(IsBitwiseEqual(output1, output2));
 
   // And match input
-  EXPECT_EQ(std::memcmp(output1.data(), input.data(),
-                        input.size() * sizeof(TypeParam)), 0);
+  EXPECT_TRUE(IsBitwiseEqual(output1, input));
 }
 
 // ============================================================================
@@ -1359,7 +1383,9 @@ TYPED_TEST(AlpCodecTest, RoundTripAtMultipleVectorSizes) {
       ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
           static_cast<int32_t>(n), comp_buffer.data(), comp_size, output.data()));
 
-      EXPECT_EQ(std::memcmp(output.data(), input.data(), n * sizeof(TypeParam)), 0);
+      EXPECT_TRUE(IsBitwiseEqual(
+          std::vector<TypeParam>(output.begin(), output.begin() + n),
+          std::vector<TypeParam>(input.begin(), input.begin() + n)));
     }
   }
 }
@@ -1395,7 +1421,9 @@ TYPED_TEST(AlpCodecTest, EncodeWithPresetAtDifferentVectorSizes) {
     ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
         static_cast<int32_t>(n), comp_buffer.data(), comp_size, output.data()));
 
-    EXPECT_EQ(std::memcmp(output.data(), input.data(), n * sizeof(TypeParam)), 0);
+    EXPECT_TRUE(IsBitwiseEqual(
+        std::vector<TypeParam>(output.begin(), output.begin() + n),
+        std::vector<TypeParam>(input.begin(), input.begin() + n)));
   }
 }
 
