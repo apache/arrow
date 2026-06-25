@@ -162,7 +162,7 @@ struct AlpExponentAndFactor {
 // ----------------------------------------------------------------------
 // AlpEncodedVectorInfo (non-templated, ALP core metadata)
 
-/// \brief ALP-specific metadata for an encoded vector (non-templated)
+/// \brief ALP-specific metadata for an encoded vector
 ///
 /// Contains the metadata specific to ALP's float-to-integer conversion:
 ///   - exponent/factor: parameters for decimal encoding
@@ -199,7 +199,7 @@ class AlpEncodedVectorInfo {
 
   /// Size of the serialized portion (4 bytes, fixed)
   static constexpr int64_t kStoredSize =
-      sizeof(uint8_t) + sizeof(uint8_t) + sizeof(int16_t);
+      sizeof(exponent_) + sizeof(factor_) + sizeof(num_exceptions_);
   static_assert(kStoredSize == 4, "AlpEncodedVectorInfo stored size must be 4 bytes");
 
   /// \brief Store the ALP metadata into an output buffer
@@ -291,7 +291,7 @@ class AlpEncodedForVectorInfo {
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
 
   /// Size of the serialized portion (5 bytes for float, 9 for double)
-  static constexpr int64_t kStoredSize = sizeof(ExactType) + 1;
+  static constexpr int64_t kStoredSize = sizeof(frame_of_reference_) + sizeof(bit_width_);
 
   /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
   ///
