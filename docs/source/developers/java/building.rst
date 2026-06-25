@@ -193,7 +193,7 @@ CMake
   .. code-block:: text
 
       $ cd arrow
-      $ brew bundle --file=cpp/Brewfile
+      $ brew bundle --file=cpp/Brewfile --jobs 1
       # Homebrew Bundle complete! 25 Brewfile dependencies now installed.
       $ brew uninstall aws-sdk-cpp
       #  (We can't use aws-sdk-cpp installed by Homebrew because it has

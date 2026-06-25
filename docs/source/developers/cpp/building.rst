@@ -94,7 +94,7 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
    git clone https://github.com/apache/arrow.git
    cd arrow
-   brew update && brew bundle --file=cpp/Brewfile
+   brew update && brew bundle --file=cpp/Brewfile --jobs 1
 
 With `vcpkg <https://github.com/Microsoft/vcpkg>`_:
 

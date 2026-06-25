@@ -115,8 +115,8 @@ macOS ARM
 
    # From the arrow clone
    brew install gpg
-   brew bundle --file=cpp/Brewfile
-   brew bundle --file=c_glib/Brewfile
+   brew bundle --file=cpp/Brewfile --jobs 1
+   brew bundle --file=c_glib/Brewfile --jobs 1
    brew uninstall node
    # You might need to add node, ruby java and maven to the PATH, follow
    # instructions from brew after installing.

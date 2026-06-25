@@ -295,7 +295,7 @@ jobs:
           submodules: recursive
       - name: Install dependencies
         run: |
-          brew bundle --file=cpp/Brewfile
+          brew bundle --file=cpp/Brewfile --jobs 1
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
           # Homebrew's aws-sdk-cpp, our build mix Homebrew's
@@ -471,7 +471,7 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
-          brew bundle --file=cpp/Brewfile
+          brew bundle --file=cpp/Brewfile --jobs 1
 
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.

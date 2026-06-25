@@ -163,8 +163,8 @@ jobs:
           # We can remove this once GitHub hosted runners include
           # Meson 1.8.4 or later by default.
           brew update
-          brew bundle --file=cpp/Brewfile
-          brew bundle --file=c_glib/Brewfile
+          brew bundle --file=cpp/Brewfile --jobs 1
+          brew bundle --file=c_glib/Brewfile --jobs 1
           # For Meson.
           # See also: https://github.com/mesonbuild/meson/issues/7701
           echo "PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf" >> $GITHUB_ENV

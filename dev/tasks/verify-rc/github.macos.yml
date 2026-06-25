@@ -46,8 +46,8 @@ jobs:
           # Remove once the runner ships a newer Homebrew.
           brew update
 
-          brew bundle --file=arrow/cpp/Brewfile
-          brew bundle --file=arrow/c_glib/Brewfile
+          brew bundle --file=arrow/cpp/Brewfile --jobs 1
+          brew bundle --file=arrow/c_glib/Brewfile --jobs 1
 
           # For Meson.
           # See also: https://github.com/mesonbuild/meson/issues/7701
