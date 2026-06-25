@@ -32,7 +32,7 @@
 
 using namespace arrow::util::alp;
 
-static void printHex(const std::string& name, const uint8_t* data, size_t len) {
+static void PrintHex(const std::string& name, const uint8_t* data, size_t len) {
   std::cout << "  // " << name << " (" << len << " bytes)" << std::endl;
   std::cout << "  private static final byte[] " << name << " = {" << std::endl;
   for (size_t i = 0; i < len; i++) {
@@ -83,7 +83,7 @@ static void generateBlob(const std::string& prefix, const T* input, size_t count
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
   AlpCodec<T>::Encode(input, decomp_size, compressed.data(), &comp_size);
-  printHex(prefix + "_COMPRESSED", compressed.data(), comp_size);
+  PrintHex(prefix + "_COMPRESSED", compressed.data(), comp_size);
 }
 
 int main() {
