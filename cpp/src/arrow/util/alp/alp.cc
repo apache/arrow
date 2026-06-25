@@ -477,11 +477,17 @@ struct AlpCombination {
 
 /// \brief Compare two ALP combinations to determine which is better
 ///
-/// Return true if c1 is a better combination than c2.
-/// First criteria is number of times it appears as best combination.
-/// Second criteria is the estimated compression size.
-/// Third criteria is bigger exponent.
-/// Fourth criteria is bigger factor.
+/// Return true if c1 is a better combination than c2. Criteria, in order:
+///   1. Higher number of appearances as the best combination across sampled vectors.
+///   2. Smaller estimated compression size.
+///   3. Larger exponent.
+///   4. Larger factor.
+///
+/// Criteria 3 and 4 are deterministic tie-breaks taken verbatim from the ALP
+/// paper (Afroozeh et al., SIGMOD 2023, §3.1.2): "If two combinations appeared
+/// the same amount of times, we prioritize combinations with higher exponents
+/// and higher factors." The paper does not justify this preference further;
+/// it is preserved here so the encoder's output matches the reference algorithm.
 bool CompareAlpCombinations(const AlpCombination& c1, const AlpCombination& c2) {
   return (c1.num_appearances > c2.num_appearances) ||
          (c1.num_appearances == c2.num_appearances &&
