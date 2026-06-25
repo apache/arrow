@@ -32,6 +32,7 @@
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -275,6 +276,27 @@ std::shared_ptr<TypeMatcher> LargeBinaryLike() {
 std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
   return std::make_shared<FixedSizeBinaryLikeMatcher>();
 }
+
+class REEValueMatcher : public TypeMatcher {
+ public:
+  REEValueMatcher() {}
+
+  bool Matches(const DataType& type) const override {
+    return ree_util::internal::IsValueTypeSupported(type);
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const REEValueMatcher*>(&other);
+    return casted != nullptr;
+  }
+
+  std::string ToString() const override { return "ree-value"; }
+};
+
+std::shared_ptr<TypeMatcher> REEValue() { return std::make_shared<REEValueMatcher>(); }
 
 class RunEndIntegerMatcher : public TypeMatcher {
  public:

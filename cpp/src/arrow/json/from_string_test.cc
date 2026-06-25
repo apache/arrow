@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_run_end.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
@@ -1509,6 +1510,50 @@ TEST(TestDictArrayFromJSONString, Errors) {
                 DictArrayFromJSONString(type, "[\"not a valid index\"]", "[\"\"]"));
   ASSERT_RAISES(Invalid, DictArrayFromJSONString(type, "[0, 1]",
                                                  "[1]"));  // dict value isn't string
+}
+
+TEST(TestREEArrayFromJSONString, Basics) {
+  // Test basic REE array creation from JSON
+  auto ree_type = run_end_encoded(int32(), int8());
+  ASSERT_OK_AND_ASSIGN(
+      auto ree_array, ArrayFromJSONString(ree_type, "[1, 2, 2, 3, null, null, null, 4]"));
+  ASSERT_OK(ree_array->ValidateFull());
+  ASSERT_EQ(ree_array->type()->id(), Type::RUN_END_ENCODED);
+  ASSERT_EQ(ree_array->length(), 8);
+
+  // Verify the encoding
+  const auto& ree_data = checked_cast<const RunEndEncodedArray&>(*ree_array);
+  ASSERT_EQ(ree_data.values()->length(), 5);  // 5 distinct runs
+}
+
+TEST(TestREEArrayFromJSONString, DifferentRunEndTypes) {
+  // Test with int16 run ends
+  auto ree_type16 = run_end_encoded(int16(), utf8());
+  ASSERT_OK_AND_ASSIGN(
+      auto array16, ArrayFromJSONString(ree_type16, R"(["a", "a", "b", "c", "c", "c"])"));
+  ASSERT_OK(array16->ValidateFull());
+  ASSERT_EQ(array16->length(), 6);
+
+  // Test with int64 run ends
+  auto ree_type64 = run_end_encoded(int64(), float64());
+  ASSERT_OK_AND_ASSIGN(auto array64,
+                       ArrayFromJSONString(ree_type64, "[1.5, 1.5, 2.5, null, null]"));
+  ASSERT_OK(array64->ValidateFull());
+  ASSERT_EQ(array64->length(), 5);
+}
+
+TEST(TestREEArrayFromJSONString, EmptyAndSingleValue) {
+  auto ree_type = run_end_encoded(int32(), int32());
+
+  // Empty array
+  ASSERT_OK_AND_ASSIGN(auto empty_array, ArrayFromJSONString(ree_type, "[]"));
+  ASSERT_OK(empty_array->ValidateFull());
+  ASSERT_EQ(empty_array->length(), 0);
+
+  // Single value
+  ASSERT_OK_AND_ASSIGN(auto single_array, ArrayFromJSONString(ree_type, "[42]"));
+  ASSERT_OK(single_array->ValidateFull());
+  ASSERT_EQ(single_array->length(), 1);
 }
 
 TEST(TestChunkedArrayFromJSONString, Basics) {
