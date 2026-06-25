@@ -106,7 +106,7 @@ int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
 }
 
 template <typename IndexType>
-struct GenericPartitionResultByNullLikeness {
+struct GenericNullLikePartition {
   std::span<IndexType> non_null_like_range;
   std::span<IndexType> nan_range;
   std::span<IndexType> null_range;
@@ -121,7 +121,7 @@ struct GenericPartitionResultByNullLikeness {
   }
 
   template <typename TargetIndexType>
-  GenericPartitionResultByNullLikeness<TargetIndexType> TranslateTo(
+  GenericNullLikePartition<TargetIndexType> TranslateTo(
       IndexType* indices_begin, TargetIndexType* target_indices_begin) const {
     return {.non_null_like_range = {(non_null_like_range.data() - indices_begin) +
                                         target_indices_begin,
@@ -132,12 +132,12 @@ struct GenericPartitionResultByNullLikeness {
                            null_range.size()}};
   }
 
-  static GenericPartitionResultByNullLikeness fromCounts(std::span<IndexType> indices,
+  static GenericNullLikePartition fromCounts(std::span<IndexType> indices,
                                                          int64_t non_null_like_count,
                                                          int64_t nan_count,
                                                          int64_t null_count,
                                                          NullPlacement null_placement) {
-    GenericPartitionResultByNullLikeness p;
+    GenericNullLikePartition p;
     DCHECK_EQ(non_null_like_count + nan_count + null_count,
               static_cast<int64_t>(indices.size()));
     if (null_placement == NullPlacement::AtEnd) {
@@ -154,9 +154,9 @@ struct GenericPartitionResultByNullLikeness {
   }
 };
 
-using PartitionResultByNullLikeness = GenericPartitionResultByNullLikeness<uint64_t>;
-using ChunkedPartitionResultByNullLikeness =
-    GenericPartitionResultByNullLikeness<CompressedChunkLocation>;
+using NullLikePartition = GenericNullLikePartition<uint64_t>;
+using ChunkedNullLikePartition =
+    GenericNullLikePartition<CompressedChunkLocation>;
 
 struct NullPartition {
   std::span<uint64_t> non_nulls;
@@ -248,7 +248,7 @@ NanPartition PartitionNans(std::span<uint64_t> indices, const ArrayType& values,
 }
 
 template <typename ArrayType, typename Partitioner>
-PartitionResultByNullLikeness PartitionNullsAndNans(std::span<uint64_t> indices,
+NullLikePartition PartitionNullsAndNans(std::span<uint64_t> indices,
                                                     const ArrayType& values,
                                                     int64_t offset,
                                                     NullPlacement null_placement) {
@@ -257,20 +257,20 @@ PartitionResultByNullLikeness PartitionNullsAndNans(std::span<uint64_t> indices,
       PartitionNullsOnly<Partitioner>(indices, values, offset, null_placement);
   auto q =
       PartitionNans<ArrayType, Partitioner>(p.non_nulls, values, offset, null_placement);
-  return PartitionResultByNullLikeness{.non_null_like_range = q.non_null_like_range,
+  return NullLikePartition{.non_null_like_range = q.non_null_like_range,
                                        .nan_range = q.nan_range,
                                        .null_range = p.nulls};
 }
 
 template <typename ArrayType, typename Partitioner>
-PartitionResultByNullLikeness PartitionNansOnly(std::span<uint64_t> indices,
+NullLikePartition PartitionNansOnly(std::span<uint64_t> indices,
                                                 const ArrayType& values, int64_t offset,
                                                 NullPlacement null_placement) {
   // Partition nulls at start (resp. end), and null-like values just before (resp. after)
   NullPartition p = NullPartition::NoNulls(indices, null_placement);
   auto q =
       PartitionNans<ArrayType, Partitioner>(p.non_nulls, values, offset, null_placement);
-  return PartitionResultByNullLikeness{.non_null_like_range = q.non_null_like_range,
+  return NullLikePartition{.non_null_like_range = q.non_null_like_range,
                                        .nan_range = q.nan_range,
                                        .null_range = p.nulls};
 }
@@ -292,9 +292,9 @@ struct ChunkedMergeImpl {
     return Status::OK();
   }
 
-  ChunkedPartitionResultByNullLikeness Merge(
-      const ChunkedPartitionResultByNullLikeness& left,
-      const ChunkedPartitionResultByNullLikeness& right, int64_t null_count) const {
+  ChunkedNullLikePartition Merge(
+      const ChunkedNullLikePartition& left,
+      const ChunkedNullLikePartition& right, int64_t null_count) const {
     if (null_placement_ == NullPlacement::AtStart) {
       return MergeNullsAtStart(left, right, null_count);
     } else {
@@ -302,9 +302,9 @@ struct ChunkedMergeImpl {
     }
   }
 
-  ChunkedPartitionResultByNullLikeness MergeNullsAtStart(
-      const ChunkedPartitionResultByNullLikeness& left,
-      const ChunkedPartitionResultByNullLikeness& right, int64_t null_count) const {
+  ChunkedNullLikePartition MergeNullsAtStart(
+      const ChunkedNullLikePartition& left,
+      const ChunkedNullLikePartition& right, int64_t null_count) const {
     // Input layout:
     // [left nul .. left nan .. left non-nul .. right nul .. right nan .. right non-nul]
     ARROW_DCHECK_EQ(left.null_range.end(), left.nan_range.begin());
@@ -326,7 +326,7 @@ struct ChunkedMergeImpl {
 
     std::span<CompressedChunkLocation> full_span{left.overall_begin(),
                                                  right.overall_end()};
-    const auto p = ChunkedPartitionResultByNullLikeness::fromCounts(
+    const auto p = ChunkedNullLikePartition::fromCounts(
         full_span, left.non_null_like_range.size() + right.non_null_like_range.size(),
         left.nan_range.size() + right.nan_range.size(),
         left.null_range.size() + right.null_range.size(), NullPlacement::AtStart);
@@ -340,9 +340,9 @@ struct ChunkedMergeImpl {
     return p;
   }
 
-  ChunkedPartitionResultByNullLikeness MergeNullsAtEnd(
-      const ChunkedPartitionResultByNullLikeness& left,
-      const ChunkedPartitionResultByNullLikeness& right, int64_t null_count) const {
+  ChunkedNullLikePartition MergeNullsAtEnd(
+      const ChunkedNullLikePartition& left,
+      const ChunkedNullLikePartition& right, int64_t null_count) const {
     // Input layout:
     // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nulls]
     ARROW_DCHECK_EQ(left.non_null_like_range.end(), left.nan_range.begin());
@@ -368,7 +368,7 @@ struct ChunkedMergeImpl {
 
     std::span<CompressedChunkLocation> full_span{left.overall_begin(),
                                                  right.overall_end()};
-    const auto p = ChunkedPartitionResultByNullLikeness::fromCounts(
+    const auto p = ChunkedNullLikePartition::fromCounts(
         full_span, left.non_null_like_range.size() + right.non_null_like_range.size(),
         left.nan_range.size() + right.nan_range.size(),
         left.null_range.size() + right.null_range.size(), NullPlacement::AtEnd);
@@ -393,24 +393,24 @@ struct ChunkedMergeImpl {
 // TODO make this usable if indices are non trivial on input
 // (see ConcreteRecordBatchColumnSorter)
 // `offset` is used when this is called on a chunk of a chunked array
-using ArraySortFunc = std::function<Result<PartitionResultByNullLikeness>(
+using ArraySortFunc = std::function<Result<NullLikePartition>(
     std::span<uint64_t> indices, const Array& values, int64_t offset,
     const ArraySortOptions& options, ExecContext* ctx)>;
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
-Result<PartitionResultByNullLikeness> SortChunkedArray(ExecContext* ctx,
+Result<NullLikePartition> SortChunkedArray(ExecContext* ctx,
                                                        std::span<uint64_t> indices,
                                                        const ChunkedArray& chunked_array,
                                                        SortOrder sort_order,
                                                        NullPlacement null_placement);
 
-Result<PartitionResultByNullLikeness> SortChunkedArray(
+Result<NullLikePartition> SortChunkedArray(
     ExecContext* ctx, std::span<uint64_t> indices,
     const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
     SortOrder sort_order, NullPlacement null_placement);
 
-Result<PartitionResultByNullLikeness> SortStructArray(ExecContext* ctx,
+Result<NullLikePartition> SortStructArray(ExecContext* ctx,
                                                       std::span<uint64_t> indices,
                                                       const StructArray& array,
                                                       SortOrder sort_order,

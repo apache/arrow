@@ -299,7 +299,7 @@ class ChunkedArraySelector : public TypeVisitor {
 
     std::vector<std::shared_ptr<ArrayType>> chunks_holder;
     chunks_holder.reserve(num_chunks);
-    std::vector<PartitionResultByNullLikeness> partitions_by_chunk;
+    std::vector<NullLikePartition> partitions_by_chunk;
     partitions_by_chunk.reserve(num_chunks);
     std::vector<std::vector<uint64_t>> indices_by_chunk;
     indices_by_chunk.reserve(num_chunks);
