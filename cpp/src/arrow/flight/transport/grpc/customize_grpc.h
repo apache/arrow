@@ -88,7 +88,8 @@ ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
     ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
 
 ARROW_FLIGHT_EXPORT
-bool IsRegisteredGrpcFlightDataMessage(const arrow::flight::protocol::FlightData* message);
+bool IsRegisteredGrpcFlightDataMessage(
+    const arrow::flight::protocol::FlightData* message);
 
 ARROW_FLIGHT_EXPORT
 void RegisterGrpcFlightDataMessage(const arrow::flight::protocol::FlightData* message);
@@ -116,10 +117,9 @@ class SerializationTraits<arrow::flight::protocol::FlightData> {
   static Status Serialize(const MessageType& msg, ByteBuffer* bb, bool* own_buffer) {
     const auto* flight_data =
         reinterpret_cast<const arrow::flight::protocol::FlightData*>(&msg);
-    if (arrow::flight::transport::grpc::IsRegisteredGrpcFlightDataMessage(
-            flight_data)) {
-      return GenericSerialize<ProtoBufferWriter,
-                              arrow::flight::protocol::FlightData>(msg, bb, own_buffer);
+    if (arrow::flight::transport::grpc::IsRegisteredGrpcFlightDataMessage(flight_data)) {
+      return GenericSerialize<ProtoBufferWriter, arrow::flight::protocol::FlightData>(
+          msg, bb, own_buffer);
     }
     return arrow::flight::transport::grpc::FlightDataSerialize(
         *reinterpret_cast<const arrow::flight::FlightPayload*>(&msg), bb, own_buffer);
@@ -127,10 +127,9 @@ class SerializationTraits<arrow::flight::protocol::FlightData> {
 
   static Status Deserialize(ByteBuffer* buffer, MessageType* msg) {
     auto* flight_data = reinterpret_cast<arrow::flight::protocol::FlightData*>(msg);
-    if (arrow::flight::transport::grpc::IsRegisteredGrpcFlightDataMessage(
-            flight_data)) {
-      return GenericDeserialize<ProtoBufferReader,
-                                arrow::flight::protocol::FlightData>(buffer, msg);
+    if (arrow::flight::transport::grpc::IsRegisteredGrpcFlightDataMessage(flight_data)) {
+      return GenericDeserialize<ProtoBufferReader, arrow::flight::protocol::FlightData>(
+          buffer, msg);
     }
     return arrow::flight::transport::grpc::FlightDataDeserialize(
         buffer, reinterpret_cast<arrow::flight::internal::FlightData*>(msg));

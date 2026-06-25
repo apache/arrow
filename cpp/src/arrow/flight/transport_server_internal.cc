@@ -364,10 +364,10 @@ Status ServerTransportBase::WriteDataStream(std::unique_ptr<FlightDataStream> da
     return Status::OK();
   }
 
-   // Consume data stream and write out payloads
+  // Consume data stream and write out payloads
   while (true) {
     ARROW_ASSIGN_OR_RAISE(FlightPayload payload, data_stream->Next());
-     // End of stream
+    // End of stream
     if (payload.ipc_message.metadata == nullptr) {
       break;
     }

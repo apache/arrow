@@ -57,7 +57,8 @@ class ARROW_FLIGHT_EXPORT ServerTransportBase {
   /// \brief Create a FlightMetadataWriter that writes to a transport-level stream.
   ///
   /// \param[in] stream The transport-specific data stream to write to.
-  std::unique_ptr<FlightMetadataWriter> MakeMetadataWriter(ServerDataStream* stream) const;
+  std::unique_ptr<FlightMetadataWriter> MakeMetadataWriter(
+      ServerDataStream* stream) const;
   /// \brief Create a FlightMessageWriter that writes to a transport-level stream.
   ///
   /// \param[in] stream The transport-specific data stream to write to.
@@ -93,7 +94,8 @@ class ServerSignalHandler {
   /// \return The SelfPipe, which can be used to signal the handler thread.
   template <typename Fn>
   arrow::Result<std::shared_ptr<::arrow::internal::SelfPipe>> Init(Fn handler) {
-    ARROW_ASSIGN_OR_RAISE(self_pipe_, ::arrow::internal::SelfPipe::Make(/*signal_safe=*/true));
+    ARROW_ASSIGN_OR_RAISE(self_pipe_,
+                          ::arrow::internal::SelfPipe::Make(/*signal_safe=*/true));
     handle_signals_ = std::thread(handler, self_pipe_);
     return self_pipe_;
   }
@@ -137,8 +139,8 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
   ///
   /// \param[in] wait A callable that blocks until the server stops.
   /// \param[in] shutdown A callable invoked on signal receipt to stop the server.
-  /// \param[in] not_started_message Logged if shutdown is called before the server starts.
-  /// \param[in] shutdown_warning Logged if shutdown itself fails.
+  /// \param[in] not_started_message Logged if shutdown is called before the server
+  /// starts. \param[in] shutdown_warning Logged if shutdown itself fails.
   template <typename WaitFn, typename ShutdownFn>
   Status Serve(WaitFn&& wait, ShutdownFn&& shutdown, const char* not_started_message,
                const char* shutdown_warning) {
@@ -147,13 +149,14 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
     running_instance_ = this;
 
     ServerSignalHandler signal_handler;
-    ARROW_ASSIGN_OR_RAISE(self_pipe_, signal_handler.Init(&ServerSignalState::WaitForSignals));
+    ARROW_ASSIGN_OR_RAISE(self_pipe_,
+                          signal_handler.Init(&ServerSignalState::WaitForSignals));
     for (size_t i = 0; i < signals_.size(); ++i) {
       int signum = signals_[i];
       ::arrow::internal::SignalHandler new_handler(&ServerSignalState::HandleSignal),
           old_handler;
-      ARROW_ASSIGN_OR_RAISE(
-          old_handler, ::arrow::internal::SetSignalHandler(signum, new_handler));
+      ARROW_ASSIGN_OR_RAISE(old_handler,
+                            ::arrow::internal::SetSignalHandler(signum, new_handler));
       old_signal_handlers_.push_back(std::move(old_handler));
     }
 
@@ -173,8 +176,9 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
     shutdown_warning_ = nullptr;
 
     for (size_t i = 0; i < signals_.size(); ++i) {
-      RETURN_NOT_OK(::arrow::internal::SetSignalHandler(signals_[i], old_signal_handlers_[i])
-                        .status());
+      RETURN_NOT_OK(
+          ::arrow::internal::SetSignalHandler(signals_[i], old_signal_handlers_[i])
+              .status());
     }
     return Status::OK();
   }

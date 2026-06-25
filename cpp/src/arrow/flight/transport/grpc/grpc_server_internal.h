@@ -74,14 +74,13 @@ class GrpcServerCallContext : public ServerCallContext {
   bool is_cancelled() const override { return context_->IsCancelled(); }
   const CallHeaders& incoming_headers() const override { return incoming_headers_; }
 
-    // Helper method that runs interceptors given the result of an RPC,
+  // Helper method that runs interceptors given the result of an RPC,
   // then returns the final gRPC status to send to the client
   ::grpc::Status FinishRequest(const ::grpc::Status& status) {
-     // Don't double-convert status - return the original one here
+    // Don't double-convert status - return the original one here
     FinishRequest(FromGrpcStatus(status));
     return status;
   }
-
 
   ::grpc::Status FinishRequest(const Status& status) {
     for (const auto& instance : middleware_) {
@@ -127,7 +126,8 @@ class GrpcServerCallContextHelper {
 
   // Authenticate the client (if applicable) and construct the call context
   ::grpc::Status MakeCallContext(FlightMethod method, GrpcContext* context,
-                                 GrpcServerCallContext<GrpcContext>* flight_context, bool skip_headers = false) const {
+                                 GrpcServerCallContext<GrpcContext>* flight_context,
+                                 bool skip_headers = false) const {
     // Run server middleware
     const CallInfo info{method};
     for (const auto& factory : middleware_) {
@@ -147,7 +147,7 @@ class GrpcServerCallContextHelper {
     if (!skip_headers) {
       addMiddlewareHeaders(context, flight_context);
     }
-    
+
     return ::grpc::Status::OK;
   }
 
@@ -207,6 +207,7 @@ void ConfigureServerBuilderOptions(const FlightServerOptions& options,
                                    ::grpc::ServerBuilder* builder);
 
 ARROW_FLIGHT_EXPORT
-Status SetServerLocationFromUri(const arrow::util::Uri& uri, int port, Location* location);
+Status SetServerLocationFromUri(const arrow::util::Uri& uri, int port,
+                                Location* location);
 
 }  // namespace arrow::flight::transport::grpc

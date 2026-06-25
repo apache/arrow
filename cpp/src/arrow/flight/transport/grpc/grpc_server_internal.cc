@@ -83,14 +83,15 @@ void ConfigureServerBuilderOptions(const FlightServerOptions& options,
   }
 }
 
-Status SetServerLocationFromUri(const arrow::util::Uri& uri, int port, Location* location) {
+Status SetServerLocationFromUri(const arrow::util::Uri& uri, int port,
+                                Location* location) {
   const std::string scheme = uri.scheme();
   if (scheme == kSchemeGrpcTls) {
-    ARROW_ASSIGN_OR_RAISE(*location,
-                          Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
+    ARROW_ASSIGN_OR_RAISE(
+        *location, Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
   } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-    ARROW_ASSIGN_OR_RAISE(*location,
-                          Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
+    ARROW_ASSIGN_OR_RAISE(
+        *location, Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
   }
   return Status::OK();
 }
