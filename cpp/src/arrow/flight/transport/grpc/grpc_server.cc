@@ -34,6 +34,7 @@
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport/grpc/grpc_server_internal.h"
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/transport_server.h"
@@ -109,81 +110,11 @@ class GrpcServerAuthSender : public ServerAuthSender {
   }
 
  private:
-  ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
+ ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
 };
 
-class GrpcServerCallContext : public ServerCallContext {
- public:
-  explicit GrpcServerCallContext(::grpc::ServerContext* context)
-      : context_(context), peer_(context_->peer()) {
-    for (const auto& entry : context->client_metadata()) {
-      incoming_headers_.insert(
-          {std::string_view(entry.first.data(), entry.first.length()),
-           std::string_view(entry.second.data(), entry.second.length())});
-    }
-  }
-
-  const std::string& peer_identity() const override { return peer_identity_; }
-  const std::string& peer() const override { return peer_; }
-  bool is_cancelled() const override { return context_->IsCancelled(); }
-  const CallHeaders& incoming_headers() const override { return incoming_headers_; }
-
-  // Helper method that runs interceptors given the result of an RPC,
-  // then returns the final gRPC status to send to the client
-  ::grpc::Status FinishRequest(const ::grpc::Status& status) {
-    // Don't double-convert status - return the original one here
-    FinishRequest(FromGrpcStatus(status));
-    return status;
-  }
-
-  ::grpc::Status FinishRequest(const arrow::Status& status) {
-    for (const auto& instance : middleware_) {
-      instance->CallCompleted(status);
-    }
-
-    // Set custom headers to map the exact Arrow status for clients
-    // who want it.
-    return ToGrpcStatus(status, context_);
-  }
-
-  void AddHeader(const std::string& key, const std::string& value) const override {
-    context_->AddInitialMetadata(key, value);
-  }
-
-  void AddTrailer(const std::string& key, const std::string& value) const override {
-    context_->AddTrailingMetadata(key, value);
-  }
-
-  ServerMiddleware* GetMiddleware(const std::string& key) const override {
-    const auto& instance = middleware_map_.find(key);
-    if (instance == middleware_map_.end()) {
-      return nullptr;
-    }
-    return instance->second.get();
-  }
-
- private:
-  friend class GrpcServiceHandler;
-  ServerContext* context_;
-  std::string peer_;
-  std::string peer_identity_;
-  std::vector<std::shared_ptr<ServerMiddleware>> middleware_;
-  std::unordered_map<std::string, std::shared_ptr<ServerMiddleware>> middleware_map_;
-  CallHeaders incoming_headers_;
-};
-
-class GrpcAddServerHeaders : public AddCallHeaders {
- public:
-  explicit GrpcAddServerHeaders(::grpc::ServerContext* context) : context_(context) {}
-  ~GrpcAddServerHeaders() override = default;
-
-  void AddHeader(const std::string& key, const std::string& value) override {
-    context_->AddInitialMetadata(key, value);
-  }
-
- private:
-  ::grpc::ServerContext* context_;
-};
+using GrpcServerCallContext = transport::grpc::GrpcServerCallContext<ServerContext>;
+using GrpcContextHelper = transport::grpc::GrpcServerCallContextHelper<ServerContext>;
 
 // A ServerDataStream for streaming data to the client.
 class GetDataStream : public internal::ServerDataStream {
@@ -248,7 +179,7 @@ class GrpcServiceHandler final : public FlightService::Service {
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,
       internal::ServerTransport* impl)
-      : auth_handler_(auth_handler), middleware_(middleware), impl_(impl) {}
+      : helper_(std::move(auth_handler), std::move(middleware)), impl_(impl) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
   ::grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
@@ -290,83 +221,15 @@ class GrpcServiceHandler final : public FlightService::Service {
     return ::grpc::Status::OK;
   }
 
-  // Authenticate the client (if applicable) and construct the call context
-  ::grpc::Status CheckAuth(const FlightMethod& method, ServerContext* context,
-                           GrpcServerCallContext& flight_context,
-                           bool skip_headers = false) {
-    if (!auth_handler_) {
-      const auto auth_context = context->auth_context();
-      if (auth_context && auth_context->IsPeerAuthenticated()) {
-        auto peer_identity = auth_context->GetPeerIdentity();
-        flight_context.peer_identity_ =
-            peer_identity.empty()
-                ? ""
-                : std::string(peer_identity.front().begin(), peer_identity.front().end());
-      } else {
-        flight_context.peer_identity_ = "";
-      }
-    } else {
-      const auto client_metadata = context->client_metadata();
-      const auto [auth_header, auth_header_end] =
-          client_metadata.equal_range(kGrpcAuthHeader);
-      std::string token;
-      if (auth_header == auth_header_end) {
-        token = "";
-      } else {
-        token = std::string(auth_header->second.data(), auth_header->second.length());
-      }
-      GRPC_RETURN_NOT_OK(
-          auth_handler_->IsValid(flight_context, token, &flight_context.peer_identity_));
-    }
-
-    return MakeCallContext(method, context, flight_context);
-  }
-
-  // Authenticate the client (if applicable) and construct the call context
-  ::grpc::Status MakeCallContext(const FlightMethod& method, ServerContext* context,
-                                 GrpcServerCallContext& flight_context,
-                                 bool skip_headers = false) {
-    // Run server middleware
-    const CallInfo info{method};
-
-    for (const auto& factory : middleware_) {
-      std::shared_ptr<ServerMiddleware> instance;
-      Status result = factory.second->StartCall(info, flight_context, &instance);
-      if (!result.ok()) {
-        // Interceptor rejected call, end the request on all existing
-        // interceptors
-        return flight_context.FinishRequest(result);
-      }
-      if (instance != nullptr) {
-        flight_context.middleware_.push_back(instance);
-        flight_context.middleware_map_.insert({factory.first, instance});
-      }
-    }
-
-    // TODO factor this out after fixing all streaming and non-streaming handlers
-    if (!skip_headers) {
-      addMiddlewareHeaders(context, flight_context);
-    }
-
-    return ::grpc::Status::OK;
-  }
-
-  void addMiddlewareHeaders(ServerContext* context,
-                            GrpcServerCallContext& flight_context) {
-    GrpcAddServerHeaders outgoing_headers(context);
-    for (const std::shared_ptr<ServerMiddleware>& instance : flight_context.middleware_) {
-      instance->SendingHeaders(&outgoing_headers);
-    }
-  }
-
   ::grpc::Status Handshake(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
-        MakeCallContext(FlightMethod::Handshake, context, flight_context));
+        helper_.MakeCallContext(FlightMethod::Handshake, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
 
-    if (!auth_handler_) {
+    if (!helper_.auth_handler()) {
       RETURN_WITH_MIDDLEWARE(
           flight_context,
           ::grpc::Status(
@@ -375,7 +238,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     }
     GrpcServerAuthSender outgoing{stream};
     GrpcServerAuthReader incoming{stream};
-    RETURN_WITH_MIDDLEWARE(flight_context, auth_handler_->Authenticate(
+    RETURN_WITH_MIDDLEWARE(flight_context, helper_.auth_handler()->Authenticate(
                                                flight_context, &outgoing, &incoming));
   }
 
@@ -383,7 +246,8 @@ class GrpcServiceHandler final : public FlightService::Service {
                              ServerWriter<pb::FlightInfo>* writer) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
-        CheckAuth(FlightMethod::ListFlights, context, flight_context));
+        helper_.CheckAuth(FlightMethod::ListFlights, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
 
     // Retrieve the listing from the implementation
     std::unique_ptr<FlightListing> listing;
@@ -407,7 +271,7 @@ class GrpcServiceHandler final : public FlightService::Service {
                                pb::FlightInfo* response) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
-        CheckAuth(FlightMethod::GetFlightInfo, context, flight_context));
+        helper_.CheckAuth(FlightMethod::GetFlightInfo, context, &flight_context));
 
     CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
 
@@ -415,8 +279,8 @@ class GrpcServiceHandler final : public FlightService::Service {
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
     std::unique_ptr<FlightInfo> info;
+    helper_.AddMiddlewareHeaders(context, &flight_context);
     auto res = impl_->base()->GetFlightInfo(flight_context, descr, &info);
-    addMiddlewareHeaders(context, flight_context);
     SERVICE_RETURN_NOT_OK(flight_context, res);
 
     if (!info) {
@@ -434,13 +298,14 @@ class GrpcServiceHandler final : public FlightService::Service {
                                 pb::PollInfo* response) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
-        CheckAuth(FlightMethod::PollFlightInfo, context, flight_context));
+        helper_.CheckAuth(FlightMethod::PollFlightInfo, context, &flight_context));
 
     CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
 
     FlightDescriptor descr;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
+    helper_.AddMiddlewareHeaders(context, &flight_context);
     std::unique_ptr<PollInfo> info;
     SERVICE_RETURN_NOT_OK(flight_context,
                           impl_->base()->PollFlightInfo(flight_context, descr, &info));
@@ -458,13 +323,15 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
                            pb::SchemaResult* response) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::GetSchema, context, flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(
+        helper_.CheckAuth(FlightMethod::GetSchema, context, &flight_context));
 
     CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
 
     FlightDescriptor descr;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
+    helper_.AddMiddlewareHeaders(context, &flight_context);
     std::unique_ptr<SchemaResult> result;
     SERVICE_RETURN_NOT_OK(flight_context,
                           impl_->base()->GetSchema(flight_context, descr, &result));
@@ -482,7 +349,8 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                        ServerWriter<pb::FlightData>* writer) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoGet, context, flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(helper_.CheckAuth(FlightMethod::DoGet, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
 
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
 
@@ -498,7 +366,8 @@ class GrpcServiceHandler final : public FlightService::Service {
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoPut, context, flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(helper_.CheckAuth(FlightMethod::DoPut, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
 
     PutDataStream stream(reader);
     RETURN_WITH_MIDDLEWARE(flight_context, impl_->DoPut(flight_context, &stream));
@@ -508,7 +377,9 @@ class GrpcServiceHandler final : public FlightService::Service {
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoExchange, context, flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(
+        helper_.CheckAuth(FlightMethod::DoExchange, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
 
     ExchangeDataStream data_stream(stream);
     RETURN_WITH_MIDDLEWARE(flight_context,
@@ -519,7 +390,8 @@ class GrpcServiceHandler final : public FlightService::Service {
                              ServerWriter<pb::ActionType>* writer) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
-        CheckAuth(FlightMethod::ListActions, context, flight_context));
+        helper_.CheckAuth(FlightMethod::ListActions, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
     // Retrieve the listing from the implementation
     std::vector<ActionType> types;
     SERVICE_RETURN_NOT_OK(flight_context,
@@ -530,7 +402,9 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoAction(ServerContext* context, const pb::Action* request,
                           ServerWriter<pb::Result>* writer) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoAction, context, flight_context));
+    GRPC_RETURN_NOT_GRPC_OK(
+        helper_.CheckAuth(FlightMethod::DoAction, context, &flight_context));
+    helper_.AddMiddlewareHeaders(context, &flight_context);
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
     Action action;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &action));
@@ -561,9 +435,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   }
 
  private:
-  std::shared_ptr<ServerAuthHandler> auth_handler_;
-  std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
-      middleware_;
+  GrpcContextHelper helper_;
   internal::ServerTransport* impl_;
 };
 
@@ -583,66 +455,18 @@ class GrpcServerTransport : public internal::ServerTransport {
         new GrpcServiceHandler(options.auth_handler, options.middleware, this));
 
     ::grpc::ServerBuilder builder;
-    // Allow uploading messages of any length
-    builder.SetMaxReceiveMessageSize(-1);
-
-    const std::string scheme = uri.scheme();
     int port = 0;
-    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
-      std::stringstream address;
-      address << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
-
-      std::shared_ptr<::grpc::ServerCredentials> creds;
-      if (scheme == kSchemeGrpcTls) {
-        ::grpc::SslServerCredentialsOptions ssl_options;
-        for (const auto& pair : options.tls_certificates) {
-          ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
-        }
-        if (options.verify_client) {
-          ssl_options.client_certificate_request =
-              GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY;
-        }
-        if (!options.root_certificates.empty()) {
-          ssl_options.pem_root_certs = options.root_certificates;
-        }
-        creds = ::grpc::SslServerCredentials(ssl_options);
-      } else {
-        creds = ::grpc::InsecureServerCredentials();
-      }
-
-      builder.AddListeningPort(address.str(), creds, &port);
-    } else if (scheme == kSchemeGrpcUnix) {
-      std::stringstream address;
-      address << "unix:" << uri.path();
-      builder.AddListeningPort(address.str(), ::grpc::InsecureServerCredentials());
-      location_ = options.location;
-    } else {
-      return Status::NotImplemented("Scheme is not supported: " + scheme);
-    }
+    RETURN_NOT_OK(
+        AddServerListeningPort(options, uri, &builder, &location_, &port));
 
     builder.RegisterService(grpc_service_.get());
-
-    // Disable SO_REUSEPORT - it makes debugging/testing a pain as
-    // leftover processes can handle requests on accident
-    builder.AddChannelArgument(GRPC_ARG_ALLOW_REUSEPORT, 0);
-
-    if (options.builder_hook) {
-      options.builder_hook(&builder);
-    }
+    ConfigureServerBuilderOptions(options, &builder);
 
     grpc_server_ = builder.BuildAndStart();
     if (!grpc_server_) {
       return Status::UnknownError("Server did not start properly");
     }
-
-    if (scheme == kSchemeGrpcTls) {
-      ARROW_ASSIGN_OR_RAISE(
-          location_, Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
-    } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-      ARROW_ASSIGN_OR_RAISE(
-          location_, Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
-    }
-    return Status::OK();
+    return SetServerLocationFromUri(uri, port, &location_);
   }
   Status Shutdown() override {
     grpc_server_->Shutdown();

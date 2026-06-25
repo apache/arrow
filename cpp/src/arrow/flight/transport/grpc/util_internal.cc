@@ -312,7 +312,8 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
 
 /// Convert an Arrow status to a gRPC status, and add extra headers to
 /// the response to encode the original Arrow status.
-::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
+template <typename GrpcContext>
+::grpc::Status ToGrpcStatusImpl(const Status& arrow_status, GrpcContext* ctx) {
   ::grpc::Status status = ToRawGrpcStatus(arrow_status);
   if (!status.ok() && ctx) {
     const std::string code = ToChars(static_cast<int>(arrow_status.code()));
@@ -328,6 +329,19 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
     }
   }
 
+  return status;
+}
+
+::grpc::Status ToGrpcStatus(const Status& arrow_status, ::grpc::ServerContext* ctx) {
+  return ToGrpcStatusImpl(arrow_status, ctx);
+}
+
+::grpc::Status ToGrpcStatus(const Status& arrow_status,
+                            ::grpc::CallbackServerContext* ctx) {
+  ::grpc::Status status = ToGrpcStatusImpl(arrow_status, ctx);
+  if (status.error_code() == ::grpc::StatusCode::UNKNOWN && arrow_status.IsIOError()) {
+    status = ::grpc::Status(::grpc::StatusCode::INTERNAL, arrow_status.message());
+  }
   return status;
 }
 
