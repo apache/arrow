@@ -5999,11 +5999,8 @@ TEST(TestArrowReadWrite, AllNulls) {
   auto schema = ::arrow::schema({::arrow::field("all_nulls", ::arrow::int8())});
 
   constexpr int64_t length = 3;
-  ASSERT_OK_AND_ASSIGN(auto null_bitmap, ::arrow::AllocateEmptyBitmap(length));
-  auto array_data = ::arrow::ArrayData::Make(
-      ::arrow::int8(), length, {null_bitmap, /*values=*/nullptr}, /*null_count=*/length);
-  auto array = ::arrow::MakeArray(array_data);
-  auto record_batch = ::arrow::RecordBatch::Make(schema, length, {array});
+  ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(::arrow::int8(), length));
+  auto record_batch = ::arrow::RecordBatch::Make(schema, length, {std::move(array)});
 
   auto sink = CreateOutputStream();
   ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
