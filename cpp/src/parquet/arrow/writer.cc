@@ -18,14 +18,12 @@
 #include "parquet/arrow/writer.h"
 
 #include <algorithm>
-#include <deque>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/array/concatenate.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/writer.h"
@@ -46,6 +44,7 @@
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/variant/validate.h"
 
 using arrow::Array;
 using arrow::BinaryArray;
@@ -62,7 +61,6 @@ using arrow::MemoryPool;
 using arrow::NumericArray;
 using arrow::PrimitiveArray;
 using arrow::RecordBatch;
-using arrow::ResizableBuffer;
 using arrow::Result;
 using arrow::Status;
 using arrow::Table;
@@ -323,6 +321,7 @@ class FileWriterImpl : public FileWriter {
                  std::unique_ptr<ParquetFileWriter> writer,
                  std::shared_ptr<ArrowWriterProperties> arrow_properties)
       : schema_(std::move(schema)),
+        pool_(pool),
         writer_(std::move(writer)),
         row_group_writer_(nullptr),
         column_write_context_(pool, arrow_properties.get()),
@@ -382,6 +381,9 @@ class FileWriterImpl : public FileWriter {
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
     RETURN_NOT_OK(CheckClosed());
+    if (arrow_properties_->variant_validation_enabled()) {
+      RETURN_NOT_OK(variant::ValidateVariants(*data->Slice(offset, size), pool_));
+    }
     if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
         arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
       if (row_group_writer_->buffered()) {
@@ -450,6 +452,9 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
     RETURN_NOT_OK(CheckClosed());
+    if (arrow_properties_->variant_validation_enabled()) {
+      RETURN_NOT_OK(batch.Validate());
+    }
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
@@ -469,6 +474,10 @@ class FileWriterImpl : public FileWriter {
 
       for (int i = 0; i < batch.num_columns(); i++) {
         ChunkedArray chunked_array{batch.column(i)};
+        if (arrow_properties_->variant_validation_enabled()) {
+          RETURN_NOT_OK(
+              variant::ValidateVariants(*chunked_array.Slice(offset, size), pool_));
+        }
         ARROW_ASSIGN_OR_RAISE(
             std::unique_ptr<ArrowColumnWriterV2> writer,
             ArrowColumnWriterV2::Make(chunked_array, offset, size, schema_manifest_,
@@ -532,6 +541,7 @@ class FileWriterImpl : public FileWriter {
   friend class FileWriter;
 
   std::shared_ptr<::arrow::Schema> schema_;
+  MemoryPool* pool_;
 
   SchemaManifest schema_manifest_;
 
