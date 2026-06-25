@@ -433,7 +433,7 @@ class AlpInlines {
   }
 
   /// \brief Round a float to the nearest integer using the magic-number technique
-  static inline auto FastRound(T n) -> SignedExactType {
+  static inline SignedExactType FastRound(T n) {
     if (n >= 0) {
       n = n + Constants::kMagicNumber - Constants::kMagicNumber;
     } else {
@@ -443,7 +443,7 @@ class AlpInlines {
   }
 
   /// \brief Fast way to round float to nearest integer
-  static inline auto NumberToInt(T n) -> SignedExactType {
+  static inline SignedExactType NumberToInt(T n) {
     if (IsImpossibleToEncode(n)) {
       return static_cast<SignedExactType>(Constants::kEncodingUpperLimit);
     }
@@ -716,9 +716,9 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
 }
 
 template <typename T>
-auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
-                                     AlpExponentAndFactor exponent_and_factor)
-    -> EncodingResult {
+typename AlpCompression<T>::EncodingResult AlpCompression<T>::EncodeVector(
+    arrow::util::span<const T> input_vector,
+    AlpExponentAndFactor exponent_and_factor) {
   if (input_vector.empty()) {
     return EncodingResult{{}, {}, {}, 0, 0};
   }
@@ -781,9 +781,8 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
 }
 
 template <typename T>
-auto AlpCompression<T>::BitPackIntegers(
-    arrow::util::span<const SignedExactType> integers, const uint64_t min_max_diff)
-    -> BitPackingResult {
+typename AlpCompression<T>::BitPackingResult AlpCompression<T>::BitPackIntegers(
+    arrow::util::span<const SignedExactType> integers, const uint64_t min_max_diff) {
   uint8_t bit_width = 0;
 
   if (min_max_diff > 0) {
@@ -837,10 +836,9 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
 }
 
 template <typename T>
-auto AlpCompression<T>::BitUnpackIntegers(
+std::vector<typename AlpCompression<T>::ExactType> AlpCompression<T>::BitUnpackIntegers(
     arrow::util::span<const uint8_t> packed_integers,
-    const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements)
-    -> std::vector<ExactType> {
+    const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements) {
   std::vector<ExactType> encoded_integers(num_elements);
 
   if (for_info.bit_width() > 0) {
