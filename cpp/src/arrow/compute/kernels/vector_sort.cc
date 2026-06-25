@@ -158,11 +158,10 @@ class ChunkedArraySorter : public TypeVisitor {
     }
 
     DCHECK_EQ(sorted.size(), 1);
-    DCHECK_EQ(sorted[0].toLegacyNullPartitionResult().overall_begin(), indices_.data());
-    DCHECK_EQ(sorted[0].toLegacyNullPartitionResult().overall_end(),
-              indices_.data() + indices_.size());
+    DCHECK_EQ(sorted[0].overall_begin(), indices_.data());
+    DCHECK_EQ(sorted[0].overall_end(), indices_.data() + indices_.size());
     // Note that "nulls" can also include NaNs, hence the >= check
-    DCHECK_GE(sorted[0].toLegacyNullPartitionResult().null_count(), null_count);
+    DCHECK_GE(static_cast<int64_t>(sorted[0].null_range.size()), null_count);
 
     *output_ = sorted[0];
     return Status::OK();
@@ -523,25 +522,24 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     const auto p = PartitionNullsInternal<Type>(first_sort_key);
 
     // Sort first-key non-nulls
-    std::stable_sort(
-        p.non_nulls_begin, p.non_nulls_end, [&](uint64_t left, uint64_t right) {
-          // Both values are never null nor NaN
-          // (otherwise they've been partitioned away above).
-          const auto value_left = GetView::LogicalValue(array.GetView(left));
-          const auto value_right = GetView::LogicalValue(array.GetView(right));
-          if (value_left != value_right) {
-            bool compared = value_left < value_right;
-            if (first_sort_key.order == SortOrder::Ascending) {
-              return compared;
-            } else {
-              return !compared;
-            }
-          }
-          // If the left value equals to the right value,
-          // we need to compare the second and following
-          // sort keys.
-          return comparator.Compare(left, right, 1);
-        });
+    std::ranges::stable_sort(p.non_null_like_range, [&](uint64_t left, uint64_t right) {
+      // Both values are never null nor NaN
+      // (otherwise they've been partitioned away above).
+      const auto value_left = GetView::LogicalValue(array.GetView(left));
+      const auto value_right = GetView::LogicalValue(array.GetView(right));
+      if (value_left != value_right) {
+        bool compared = value_left < value_right;
+        if (first_sort_key.order == SortOrder::Ascending) {
+          return compared;
+        } else {
+          return !compared;
+        }
+      }
+      // If the left value equals to the right value,
+      // we need to compare the second and following
+      // sort keys.
+      return comparator.Compare(left, right, 1);
+    });
     return comparator_.status();
   }
 
@@ -555,37 +553,34 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 
   // Behaves like PartitionNulls() but this supports multiple sort keys.
   template <typename Type>
-  NullPartitionResult PartitionNullsInternal(const ResolvedSortKey& first_sort_key) {
+  PartitionResultByNullLikeness PartitionNullsInternal(
+      const ResolvedSortKey& first_sort_key) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     const ArrayType& array =
         ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
 
-    const auto p = PartitionNullsOnly<StablePartitioner>(
-        indices_.data(), indices_.data() + indices_.size(), array, 0,
-        first_sort_key.null_placement);
-    const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
-        p.non_nulls_begin, p.non_nulls_end, array, 0, first_sort_key.null_placement);
+    const auto p = PartitionNullsAndNans<ArrayType, StablePartitioner>(
+        indices_, array, 0, first_sort_key.null_placement);
 
     auto& comparator = comparator_;
-    if (q.nulls_begin != q.nulls_end) {
+    if (!p.nan_range.empty()) {
       // Sort all NaNs by the second and following sort keys.
       // TODO: could we instead run an independent sort from the second key on
       // this slice?
-      std::stable_sort(q.nulls_begin, q.nulls_end,
-                       [&comparator](uint64_t left, uint64_t right) {
-                         return comparator.Compare(left, right, 1);
-                       });
+      std::ranges::stable_sort(p.nan_range, [&comparator](uint64_t left, uint64_t right) {
+        return comparator.Compare(left, right, 1);
+      });
     }
-    if (p.nulls_begin != p.nulls_end) {
+    if (!p.null_range.empty()) {
       // Sort all nulls by the second and following sort keys.
       // TODO: could we instead run an independent sort from the second key on
       // this slice?
-      std::stable_sort(p.nulls_begin, p.nulls_end,
-                       [&comparator](uint64_t left, uint64_t right) {
-                         return comparator.Compare(left, right, 1);
-                       });
+      std::ranges::stable_sort(p.null_range,
+                               [&comparator](uint64_t left, uint64_t right) {
+                                 return comparator.Compare(left, right, 1);
+                               });
     }
-    return q;
+    return p;
   }
 
   std::span<uint64_t> indices_;
