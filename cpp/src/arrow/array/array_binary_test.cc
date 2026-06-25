@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
@@ -29,6 +30,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/validate.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -47,6 +49,35 @@
 namespace arrow {
 
 using internal::checked_cast;
+
+class BinaryExtensionType : public ExtensionType {
+ public:
+  BinaryExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name)
+      : ExtensionType(std::move(storage_type)),
+        extension_name_(std::move(extension_name)) {}
+
+  std::string extension_name() const override { return extension_name_; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == this->extension_name() &&
+           storage_type()->Equals(*other.storage_type());
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<ExtensionArray>(std::move(data));
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
+    return Status::NotImplemented("BinaryExtensionType::Deserialize");
+  }
+
+  std::string Serialize() const override { return ""; }
+
+ private:
+  std::string extension_name_;
+};
 
 // ----------------------------------------------------------------------
 // String / Binary tests
@@ -801,6 +832,77 @@ TYPED_TEST(TestStringBuilder, TestCapacityReserve) { this->TestCapacityReserve()
 TYPED_TEST(TestStringBuilder, TestZeroLength) { this->TestZeroLength(); }
 
 TYPED_TEST(TestStringBuilder, TestOverflowCheck) { this->TestOverflowCheck(); }
+
+TEST(BinaryBuilder, PreservesDataType) {
+  auto type = std::make_shared<BinaryExtensionType>(binary(), "test.binary");
+  BinaryBuilder builder(type, default_memory_pool());
+
+  AssertTypeEqual(*type, *builder.type());
+  ASSERT_OK(builder.Append("abc"));
+  ASSERT_OK(builder.AppendNull());
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  AssertTypeEqual(*type, *array->type());
+  ASSERT_EQ(Type::EXTENSION, array->type_id());
+
+  auto extension_array = std::static_pointer_cast<ExtensionArray>(array);
+  auto storage = std::static_pointer_cast<BinaryArray>(extension_array->storage());
+  AssertTypeEqual(*binary(), *storage->type());
+  ASSERT_EQ("abc", storage->GetString(0));
+  ASSERT_TRUE(storage->IsNull(1));
+}
+
+TEST(BinaryBuilder, TypedFinishRejectsExtensionType) {
+  auto type = std::make_shared<BinaryExtensionType>(binary(), "test.binary");
+  BinaryBuilder builder(type, default_memory_pool());
+  ASSERT_OK(builder.Append("abc"));
+
+  std::shared_ptr<BinaryArray> binary_array;
+  ASSERT_RAISES(TypeError, builder.Finish(&binary_array));
+  ASSERT_EQ(nullptr, binary_array);
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  AssertTypeEqual(*type, *array->type());
+  ASSERT_EQ(1, array->length());
+}
+
+TEST(LargeBinaryBuilder, PreservesDataType) {
+  auto type =
+      std::make_shared<BinaryExtensionType>(large_binary(), "test.large_binary");
+  LargeBinaryBuilder builder(type, default_memory_pool());
+
+  AssertTypeEqual(*type, *builder.type());
+  ASSERT_OK(builder.Append("abc"));
+  ASSERT_OK(builder.AppendNull());
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  AssertTypeEqual(*type, *array->type());
+  ASSERT_EQ(Type::EXTENSION, array->type_id());
+
+  auto extension_array = std::static_pointer_cast<ExtensionArray>(array);
+  auto storage =
+      std::static_pointer_cast<LargeBinaryArray>(extension_array->storage());
+  AssertTypeEqual(*large_binary(), *storage->type());
+  ASSERT_EQ("abc", storage->GetString(0));
+  ASSERT_TRUE(storage->IsNull(1));
+}
+
+TEST(LargeBinaryBuilder, TypedFinishRejectsExtensionType) {
+  auto type =
+      std::make_shared<BinaryExtensionType>(large_binary(), "test.large_binary");
+  LargeBinaryBuilder builder(type, default_memory_pool());
+  ASSERT_OK(builder.Append("abc"));
+
+  std::shared_ptr<LargeBinaryArray> large_binary_array;
+  ASSERT_RAISES(TypeError, builder.Finish(&large_binary_array));
+  ASSERT_EQ(nullptr, large_binary_array);
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  AssertTypeEqual(*type, *array->type());
+  ASSERT_EQ(1, array->length());
+}
 
 // ----------------------------------------------------------------------
 // ChunkedBinaryBuilder tests
