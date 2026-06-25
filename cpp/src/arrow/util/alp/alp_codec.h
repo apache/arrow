@@ -145,7 +145,7 @@ class AlpCodec {
     int64_t num_compressed_bytes_taken = 0;
   };
 
-  /// \brief Compress a buffer using the ALP variant
+  /// \brief Compress a buffer using ALP
   ///
   /// \param[in] input array of floating point numbers to compress
   /// \param[in] element_count the number of floating point numbers
@@ -158,7 +158,7 @@ class AlpCodec {
                                        const AlpEncodingParameters& combinations,
                                        int32_t vector_size);
 
-  /// \brief Decompress a buffer using the ALP variant
+  /// \brief Decompress a buffer using ALP
   ///
   /// \param[in] num_elements the number of elements to decompress
   /// \param[in] input the compressed buffer
