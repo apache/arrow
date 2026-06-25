@@ -42,38 +42,40 @@ AlpSampler<T>::AlpSampler()
 
 template <typename T>
 void AlpSampler<T>::AddSample(arrow::util::span<const T> input) {
-  for (uint64_t i = 0; i < input.size(); i += sample_vector_size_) {
-    const uint64_t elements = std::min(input.size() - i, sample_vector_size_);
-    AddSampleVector({input.data() + i, elements});
+  const int64_t input_size = static_cast<int64_t>(input.size());
+  for (int64_t i = 0; i < input_size; i += sample_vector_size_) {
+    const int64_t elements = std::min(input_size - i, sample_vector_size_);
+    AddSampleVector({input.data() + i, static_cast<size_t>(elements)});
   }
 }
 
 template <typename T>
 void AlpSampler<T>::AddSampleVector(arrow::util::span<const T> input) {
+  const int64_t input_size = static_cast<int64_t>(input.size());
   const bool must_skip_current_vector =
       MustSkipSamplingFromCurrentVector(vectors_count_, vectors_sampled_count_,
-                                        input.size());
+                                        input_size);
 
   vectors_count_ += 1;
-  total_values_count_ += input.size();
+  total_values_count_ += input_size;
   if (must_skip_current_vector) {
     return;
   }
 
-  const AlpSamplingParameters sampling_params = GetAlpSamplingParameters(input.size());
+  const AlpSamplingParameters sampling_params = GetAlpSamplingParameters(input_size);
 
   // Slice: take first num_lookup_value elements.
   std::vector<T> current_vector_values(
       input.begin(),
-      input.begin() + std::min<size_t>(sampling_params.num_lookup_value, input.size()));
+      input.begin() + std::min<int64_t>(sampling_params.num_lookup_value, input_size));
 
   // Stride: take every num_sampled_increments-th element.
   std::vector<T> current_vector_sample;
-  for (size_t i = 0; i < current_vector_values.size();
-       i += sampling_params.num_sampled_increments) {
+  const int64_t lookup_size = static_cast<int64_t>(current_vector_values.size());
+  for (int64_t i = 0; i < lookup_size; i += sampling_params.num_sampled_increments) {
     current_vector_sample.push_back(current_vector_values[i]);
   }
-  sample_stored_ += current_vector_sample.size();
+  sample_stored_ += static_cast<int64_t>(current_vector_sample.size());
 
   complete_vectors_sampled_.push_back(std::move(current_vector_values));
   rowgroup_sample_.push_back(std::move(current_vector_sample));
@@ -100,17 +102,17 @@ typename AlpSampler<T>::AlpSamplerResult AlpSampler<T>::Finalize() {
 
 template <typename T>
 typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParameters(
-    uint64_t num_current_vector_values) {
-  const uint64_t num_lookup_values =
+    int64_t num_current_vector_values) {
+  const int64_t num_lookup_values =
       std::min(num_current_vector_values,
-               static_cast<uint64_t>(AlpConstants::kAlpVectorSize));
+               static_cast<int64_t>(AlpConstants::kAlpVectorSize));
   // Sample equidistant values within a vector; jump a fixed number of values.
-  const uint64_t num_sampled_increments =
-      std::max(uint64_t{1}, static_cast<uint64_t>(std::ceil(
-                                static_cast<double>(num_lookup_values) /
-                                samples_per_vector_)));
-  const uint64_t num_sampled_values =
-      std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments);
+  const int64_t num_sampled_increments =
+      std::max(int64_t{1}, static_cast<int64_t>(std::ceil(
+                               static_cast<double>(num_lookup_values) /
+                               samples_per_vector_)));
+  const int64_t num_sampled_values = static_cast<int64_t>(
+      std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments));
 
   // Safety: num_lookup_values is capped at kAlpVectorSize (line 105-106), and
   // num_sampled_increments >= 1 (line 109), so num_sampled_values =
@@ -124,8 +126,8 @@ typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParam
 
 template <typename T>
 bool AlpSampler<T>::MustSkipSamplingFromCurrentVector(
-    const uint64_t vectors_count, const uint64_t vectors_sampled_count,
-    const uint64_t current_vector_n_values) {
+    const int64_t vectors_count, const int64_t vectors_sampled_count,
+    const int64_t current_vector_n_values) {
   // Sample equidistant vectors; skip a fixed number of vectors.
   const bool must_select_rowgroup_samples = (vectors_count % rowgroup_sample_jump_) == 0;
 
