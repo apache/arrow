@@ -2336,6 +2336,10 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   using Base = TypedDecoderImpl<DType>;
   using T = typename DType::c_type;
 
+  // TODO(GH-48701): support incremental decode. Partial reads currently decode
+  // the entire page into `decoded_buffer_` on first call and copy out the
+  // requested range; a future revision should decode only the requested
+  // values, with state tracking for cross-call resumption.
   explicit AlpDecoder(const ColumnDescriptor* descr)
       : Base(descr, Encoding::ALP), current_offset_{0}, needs_decode_{false} {
     static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
