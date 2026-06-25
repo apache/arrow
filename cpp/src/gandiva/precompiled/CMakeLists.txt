@@ -84,29 +84,3 @@ add_gandiva_test(precompiled-test
                  GANDIVA_UNIT_TEST=1
                  ARROW_STATIC
                  GANDIVA_STATIC)
-
-# REPLACE microbenchmark. Built on demand only -- it is a plain executable, NOT
-# registered as a ctest test, so it never runs in check-in/ctest runs. Build and
-# run it explicitly via the gandiva-precompiled-benchmark binary. It compiles the
-# precompiled sources locally (with GANDIVA_UNIT_TEST=1) so the functions are
-# directly callable, mirroring how the precompiled-test target links.
-if(ARROW_BUILD_TESTS)
-  if(ARROW_TEST_LINKAGE STREQUAL "static")
-    set(GANDIVA_BENCHMARK_LINK_LIBS ${GANDIVA_STATIC_TEST_LINK_LIBS})
-  else()
-    set(GANDIVA_BENCHMARK_LINK_LIBS ${GANDIVA_SHARED_TEST_LINK_LIBS})
-  endif()
-  add_executable(gandiva-precompiled-benchmark string_ops_benchmark.cc string_ops.cc
-                                               ../context_helper.cc)
-  target_link_libraries(gandiva-precompiled-benchmark
-                        PRIVATE ${ARROW_GTEST_GTEST_HEADERS}
-                                ${GANDIVA_BENCHMARK_LINK_LIBS} Boost::headers)
-  target_include_directories(gandiva-precompiled-benchmark SYSTEM
-                             PUBLIC ${CMAKE_SOURCE_DIR}/src)
-  target_compile_definitions(gandiva-precompiled-benchmark
-                             PRIVATE GANDIVA_UNIT_TEST=1 ARROW_STATIC GANDIVA_STATIC)
-  if(ARROW_TEST_LINKAGE STREQUAL "static")
-    # libLLVM*.a needs the executable to export the ORC EH-frame wrappers.
-    set_target_properties(gandiva-precompiled-benchmark PROPERTIES ENABLE_EXPORTS TRUE)
-  endif()
-endif()
