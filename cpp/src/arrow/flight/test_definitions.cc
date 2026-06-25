@@ -314,11 +314,10 @@ void DataTest::TestOverflowServerBatch() {
     // DoExchange: check for overflow on large batch from server
     auto descr = FlightDescriptor::Command("large_batch");
     ASSERT_OK_AND_ASSIGN(auto do_exchange_result, client_->DoExchange(descr));
-    RecordBatchVector batches;
+    ASSERT_OK(do_exchange_result.writer->DoneWriting());
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
-        do_exchange_result.reader->ToRecordBatches().Value(&batches));
-    ARROW_UNUSED(do_exchange_result.writer->Close());
+        do_exchange_result.writer->Close());
   }
 }
 void DataTest::TestOverflowClientBatch() {

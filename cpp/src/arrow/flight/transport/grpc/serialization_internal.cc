@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_set>
+#include <mutex>
 #include <vector>
 
 #include "arrow/flight/platform.h"
@@ -55,6 +57,16 @@ namespace pb = arrow::flight::protocol;
 using ::grpc::ByteBuffer;
 
 namespace {
+
+std::mutex& FlightDataRegistryMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::unordered_set<const pb::FlightData*>& FlightDataRegistry() {
+  static auto* registry = new std::unordered_set<const pb::FlightData*>();
+  return *registry;
+}
 
 // Internal wrapper for gRPC ByteBuffer so its memory can be exposed to Arrow
 // consumers with zero-copy
@@ -150,6 +162,21 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
 }
 
 }  // namespace
+
+bool IsRegisteredGrpcFlightDataMessage(const pb::FlightData* message) {
+  std::lock_guard<std::mutex> guard(FlightDataRegistryMutex());
+  return FlightDataRegistry().find(message) != FlightDataRegistry().end();
+}
+
+void RegisterGrpcFlightDataMessage(const pb::FlightData* message) {
+  std::lock_guard<std::mutex> guard(FlightDataRegistryMutex());
+  FlightDataRegistry().insert(message);
+}
+
+void UnregisterGrpcFlightDataMessage(const pb::FlightData* message) {
+  std::lock_guard<std::mutex> guard(FlightDataRegistryMutex());
+  FlightDataRegistry().erase(message);
+}
 
 ::grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
                                    bool* own_buffer) {
