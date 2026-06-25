@@ -2949,9 +2949,9 @@ def test_fixed_size_list_from_multidim_ndarray():
         pa.array([np.array([[1, 2, 3]], dtype=np.int64)],
                  type=pa.list_(pa.int64()))
 
-    # 0-dimensional arrays are still rejected (not flattened to length 1)
-    with pytest.raises(pa.lib.ArrowInvalid, match="1-dimensional"):
-        pa.array([np.array(1, dtype=np.int64)], type=pa.list_(pa.int64(), 1))
+    # 0-dimensional arrays are flattened into a length-1 fixed-size list (GH-49644)
+    arr = pa.array([np.array(1, dtype=np.int64)], type=pa.list_(pa.int64(), 1))
+    assert arr.to_pylist() == [[1]]
 
 
 @pytest.mark.numpy

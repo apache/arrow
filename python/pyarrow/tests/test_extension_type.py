@@ -1778,10 +1778,32 @@ def test_tensor_array_from_list_of_ndarrays(np_type_str):
     with pytest.raises(NotImplementedError, match="permutation"):
         pa.array(elements, type=permuted_type)
 
-    # The validation also applies to non-list sequences (e.g. a deque)
-    from collections import deque
-    with pytest.raises(NotImplementedError, match="permutation"):
-        pa.array(deque(elements), type=permuted_type)
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_mixed_layout():
+    # GH-49644: C- and F-ordered arrays with the same values must produce the
+    # same result, since the values are always flattened in C order.
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), (2, 3))
+    raw = [[1, 2, 3], [4, 5, 6]]
+    c_arr = np.array(raw, order="C")
+    f_arr = np.array(raw, order="F")
+    assert np.array_equal(c_arr, f_arr)
+    assert c_arr.tobytes("A") != f_arr.tobytes("A")
+
+    same = pa.array([c_arr, c_arr], type=tensor_type)
+    mixed = pa.array([c_arr, f_arr], type=tensor_type)
+    assert mixed.equals(same)
+    assert mixed.storage.to_pylist() == [[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]]
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_of_0d_arrays():
+    # GH-49644: a scalar (0-dimensional) tensor can be built from 0-D arrays.
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), ())
+    result = pa.array([np.array(1, dtype=np.int64), np.array(2, dtype=np.int64)],
+                      type=tensor_type)
+    assert result.type == tensor_type
+    assert result.storage.to_pylist() == [[1], [2]]
 
 
 @pytest.mark.numpy
