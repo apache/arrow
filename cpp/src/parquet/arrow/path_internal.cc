@@ -398,8 +398,8 @@ class ListPathNode {
     // Given these preconditions it is safe to fill runs on contiguous non-empty
     // lists here and expand the range in the child node accordingly.
     while (!range->Empty()) {
-      ElementRange size_check = selector_.GetRange(range->start);
-      if (size_check.Empty()) {
+      ElementRange next_child_range = selector_.GetRange(range->start);
+      if (next_child_range.Empty()) {
         // The empty range will need to be handled after we pass down the accumulated
         // range because it affects def_level placement and we need to get the children
         // def_levels entered first.
@@ -408,10 +408,10 @@ class ListPathNode {
       // FillForLast extends child_range by updating only its end. Non-contiguous
       // selectors must split at gaps.
       if constexpr (RangeSelector::kContiguous) {
-        DCHECK_EQ(size_check.start, child_range->end)
-            << size_check.start << " != " << child_range->end;
+        DCHECK_EQ(next_child_range.start, child_range->end)
+            << next_child_range.start << " != " << child_range->end;
       } else {
-        if (size_check.start != child_range->end) {
+        if (next_child_range.start != child_range->end) {
           break;
         }
       }
@@ -420,8 +420,8 @@ class ListPathNode {
       // further up in nesting due to the constraints mentioned at the start
       // of the function).
       RETURN_IF_ERROR(context->AppendRepLevel(prev_rep_level_));
-      RETURN_IF_ERROR(context->AppendRepLevels(size_check.Size() - 1, rep_level_));
-      child_range->end = size_check.end;
+      RETURN_IF_ERROR(context->AppendRepLevels(next_child_range.Size() - 1, rep_level_));
+      child_range->end = next_child_range.end;
       ++range->start;
     }
 
