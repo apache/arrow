@@ -765,7 +765,8 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
   if (message->custom_metadata() != nullptr) {
     // TODO: Ensure this deserialization only ever happens once
     std::shared_ptr<KeyValueMetadata> metadata;
-    RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(), &metadata));
+    ARROW_ASSIGN_OR_RAISE(metadata,
+                          internal::GetKeyValueMetadata(message->custom_metadata()));
     int index = metadata->FindKey("ARROW:experimental_compression");
     if (index != -1) {
       // Arrow 0.17 stored string in upper case, internal utils now require lower case
@@ -810,8 +811,8 @@ Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
 
   std::shared_ptr<KeyValueMetadata> custom_metadata;
   if (message->custom_metadata() != nullptr) {
-    RETURN_NOT_OK(
-        internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+    ARROW_ASSIGN_OR_RAISE(custom_metadata,
+                          internal::GetKeyValueMetadata(message->custom_metadata()));
   }
   ARROW_ASSIGN_OR_RAISE(auto record_batch,
                         LoadRecordBatch(batch, schema, inclusion_mask, context, file));
@@ -1426,8 +1427,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
       std::shared_ptr<KeyValueMetadata> custom_metadata;
       if (message->custom_metadata() != nullptr) {
-        RETURN_NOT_OK(
-            internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+        ARROW_ASSIGN_OR_RAISE(custom_metadata,
+                              internal::GetKeyValueMetadata(message->custom_metadata()));
       }
       return RecordBatchWithMetadata{std::move(batch), std::move(custom_metadata)};
     }
@@ -1928,8 +1929,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           auto fb_metadata = self->footer_->custom_metadata();
           if (fb_metadata != nullptr) {
             std::shared_ptr<KeyValueMetadata> md;
-            RETURN_NOT_OK(internal::GetKeyValueMetadata(fb_metadata, &md));
-            self->metadata_ = std::move(md);  // const-ify
+            ARROW_ASSIGN_OR_RAISE(self->metadata_,
+                                  internal::GetKeyValueMetadata(fb_metadata));
           }
           return Status::OK();
         });

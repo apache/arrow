@@ -180,9 +180,11 @@ class RecordBatchSerializer {
 
   // Override this for writing dictionary metadata
   virtual Status SerializeMetadata(int64_t num_rows) {
-    return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
-                                   field_nodes_, buffer_meta_, variadic_counts_, options_,
-                                   &out_->metadata);
+    ARROW_ASSIGN_OR_RAISE(
+        out_->metadata,
+        WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
+                                field_nodes_, buffer_meta_, variadic_counts_, options_));
+    return Status::OK();
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
@@ -746,9 +748,12 @@ class DictionarySerializer : public RecordBatchSerializer {
         is_delta_(is_delta) {}
 
   Status SerializeMetadata(int64_t num_rows) override {
-    return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
-                                  custom_metadata_, field_nodes_, buffer_meta_,
-                                  variadic_counts_, options_, &out_->metadata);
+    ARROW_ASSIGN_OR_RAISE(
+        out_->metadata,
+        WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
+                               custom_metadata_, field_nodes_, buffer_meta_,
+                               variadic_counts_, options_));
+    return Status::OK();
   }
 
   Status Assemble(const std::shared_ptr<Array>& dictionary) {
@@ -804,7 +809,9 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
                         const DictionaryFieldMapper& mapper, IpcPayload* out) {
   out->type = MessageType::SCHEMA;
-  return internal::WriteSchemaMessage(schema, mapper, options, &out->metadata);
+  ARROW_ASSIGN_OR_RAISE(out->metadata,
+                        internal::WriteSchemaMessage(schema, mapper, options));
+  return Status::OK();
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
