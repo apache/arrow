@@ -924,7 +924,12 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   std::unique_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
   RETURN_NOT_OK(builder->Resize(0));
-  return builder->Finish();
+  ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+  // Preserve original DictionaryType (including ordered flag)
+  if (type->id() == Type::DICTIONARY) {
+    result->data()->type = type;
+  }
+  return result;
 }
 
 namespace internal {
