@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Placeholder stub - complete annotations in future PR.
+# At runtime, these symbols are provided by the pyarrow.lib C extension.
+
 from typing import Any
 
-# TODO(GH-48970): remove __getattr__ before release as this
-# will annotate non-existing attributes as Any.
-# https://github.com/apache/arrow/issues/48970
+class ExtensionScalar: ...
+
 def __getattr__(name: str) -> Any: ...

@@ -21,13 +21,18 @@ import decimal
 import itertools
 import math
 import re
+from typing import TYPE_CHECKING, cast
 
 import hypothesis as h
 import pytest
-try:
+
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    np = None
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
@@ -66,7 +71,7 @@ class MyInt:
 
 class MyBrokenInt:
     def __int__(self):
-        1/0  # MARKER
+        _ = 1/0  # MARKER
 
 
 def test_iterable_types():
@@ -137,7 +142,7 @@ def test_object_with_getitem():
     # https://github.com/apache/arrow/issues/34944
     # considered as sequence because of __getitem__, but has no length
     with pytest.raises(TypeError, match="has no len()"):
-        pa.array(ObjectWithOnlyGetitem())
+        pa.array(ObjectWithOnlyGetitem())  # type: ignore[arg-type]
 
 
 def _as_list(xs):
@@ -845,7 +850,7 @@ def test_large_binary_value(ty):
     assert isinstance(arr, pa.Array)
     assert arr.type == ty
     assert len(arr) == 4
-    buf = arr[1].as_buffer()
+    buf = cast(pa.FixedSizeBinaryScalar, arr[1]).as_buffer()
     assert len(buf) == len(s) * nrepeats
 
 
@@ -1091,11 +1096,11 @@ def test_sequence_timestamp_with_timezone(timezone, unit):
         ),
     ]
     utcdata = [
-        pytz.utc.localize(data[0]),
+        pytz.utc.localize(cast(datetime.datetime, data[0])),
         data[1],
         None,
-        data[3].astimezone(pytz.utc),
-        data[4].astimezone(pytz.utc),
+        cast(datetime.datetime, data[3]).astimezone(pytz.utc),
+        cast(datetime.datetime, data[4]).astimezone(pytz.utc),
     ]
 
     ty = pa.timestamp(unit, tz=timezone)
@@ -1223,9 +1228,9 @@ def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
         None,
     ]
     utcdata = [
-        data[0].astimezone(pytz.utc),
-        pytz.utc.localize(data[1]),
-        data[2].astimezone(pytz.utc),
+        cast(datetime.datetime, data[0]).astimezone(pytz.utc),
+        pytz.utc.localize(cast(datetime.datetime, data[1])),
+        cast(datetime.datetime, data[2]).astimezone(pytz.utc),
         None,
     ]
 
@@ -2103,8 +2108,8 @@ def test_map_from_dicts():
     assert arr.to_pylist() == expected
 
     # With omitted values
-    data[1] = None
-    expected[1] = None
+    data[1] = None  # type: ignore[call-overload]
+    expected[1] = None  # type: ignore[call-overload]
 
     arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
@@ -2429,6 +2434,7 @@ def test_nested_auto_chunking(ty, char):
     }
 
 
+@pytest.mark.numpy
 @pytest.mark.large_memory
 def test_array_from_pylist_data_overflow():
     # Regression test for ARROW-12983
@@ -2451,6 +2457,7 @@ def test_array_from_pylist_data_overflow():
     assert len(arr.chunks) > 1
 
 
+@pytest.mark.numpy
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_array_from_pylist_offset_overflow():
@@ -2475,6 +2482,7 @@ def test_array_from_pylist_offset_overflow():
     assert len(arr.chunks) > 1
 
 
+@pytest.mark.numpy
 @parametrize_with_collections_types
 @pytest.mark.parametrize(('data', 'scalar_data', 'value_type'), [
     ([True, False, None], [pa.scalar(True), pa.scalar(False), None], pa.bool_()),
@@ -2512,8 +2520,10 @@ def test_array_from_pylist_offset_overflow():
         pa.timestamp('us')
     ),
     (
-        [pa.MonthDayNano([1, -1, -10100])],
-        [pa.scalar(pa.MonthDayNano([1, -1, -10100]))],
+        [pa.MonthDayNano([1, -1, -10100])],  # type: ignore[call-arg, arg-type]
+        [pa.scalar(
+            pa.MonthDayNano([1, -1, -10100])  # type: ignore[call-arg, arg-type]
+        )],
         pa.month_day_nano_interval()
     ),
     (["a", "b"], [pa.scalar("a"), pa.scalar("b")], pa.string()),
