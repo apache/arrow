@@ -99,6 +99,7 @@ add_arrow_test(bit-utility-test
                bit_util_test.cc
                bitmap_test.cc
                bpacking_test.cc
+               rle_bitmap_test.cc
                rle_encoding_test.cc
                test_common.cc)
 

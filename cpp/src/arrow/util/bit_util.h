@@ -18,9 +18,12 @@
 #pragma once
 
 #include <bit>
+#include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -174,6 +177,39 @@ static constexpr bool GetBit(const uint8_t* bits, uint64_t i) {
 // Gets the i-th bit from a byte. Should only be used with i <= 7.
 static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
   return byte & kBitmask[i];
+}
+
+template <typename Uint>
+struct CopyBitsParams {
+  Uint src = {};
+  Uint dst = {};
+  int start = {};
+  int end = {};
+};
+
+/// Copy a contiguous span of bits from src into dst.
+///
+/// Copy bits [start, end[ from src into the position [start, end[ in dst
+/// and return the result (inputs are unmodified).
+/// Setting ``kAllowFullCopy`` to false is an optimization when the caller can
+/// guarantee that the range of bits to copy does not cover the whole range.
+template <typename Uint, bool kAllowFullCopy = true>
+[[nodiscard]] constexpr Uint CopyBitsInInteger(const CopyBitsParams<Uint>& params) {
+  constexpr auto kUintSizeBits = static_cast<int>(sizeof(Uint) * 8);
+  assert(params.start <= params.end);
+  assert(params.start < kUintSizeBits);
+  assert(params.end <= kUintSizeBits);
+
+  const int length = params.end - params.start;
+  if constexpr (kAllowFullCopy) {
+    if (length == kUintSizeBits) {
+      return params.src;
+    }
+  }
+  assert(length < kUintSizeBits);
+  const Uint mask =
+      static_cast<Uint>(LeastSignificantBitMask<Uint, false>(length) << params.start);
+  return (~mask & params.dst) | (mask & params.src);
 }
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {
