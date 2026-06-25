@@ -42,6 +42,7 @@
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/type_traits.h"
 
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/bloom_filter.h"
@@ -673,11 +674,43 @@ class ListReader : public ColumnReaderImpl {
 
   const std::shared_ptr<Field> field() override { return field_; }
 
- private:
+ protected:
   std::shared_ptr<ReaderContext> ctx_;
+
+ private:
   std::shared_ptr<Field> field_;
   ::parquet::internal::LevelInfo level_info_;
   std::unique_ptr<ColumnReaderImpl> item_reader_;
+};
+
+template <typename IndexType>
+class PARQUET_NO_EXPORT ListViewReader : public ListReader<IndexType> {
+ public:
+  using ListReader<IndexType>::ListReader;
+
+  ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
+      std::shared_ptr<ArrayData> data) final {
+    static_assert(::arrow::internal::IsOneOf<IndexType, int32_t, int64_t>::value);
+    constexpr auto expected_type_id = std::is_same_v<IndexType, int32_t>
+                                          ? ::arrow::Type::LIST_VIEW
+                                          : ::arrow::Type::LARGE_LIST_VIEW;
+    DCHECK_EQ(this->field()->type()->id(), expected_type_id);
+    DCHECK_EQ(data->buffers.size(), 2);
+    const auto* offsets = reinterpret_cast<const IndexType*>(data->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(
+        auto sizes_buffer,
+        AllocateResizableBuffer(sizeof(IndexType) * data->length, this->ctx_->pool));
+    auto* sizes = reinterpret_cast<IndexType*>(sizes_buffer->mutable_data());
+    for (int64_t i = 0; i < data->length; ++i) {
+      sizes[i] = offsets[i + 1] - offsets[i];
+    }
+    // ListReader produces length + 1 offsets; ListView stores one offset per slot.
+    data->buffers[1] = ::arrow::SliceBuffer(std::move(data->buffers[1]), /*offset=*/0,
+                                            sizeof(IndexType) * data->length);
+    data->buffers.push_back(std::move(sizes_buffer));
+    std::shared_ptr<Array> result = ::arrow::MakeArray(data);
+    return std::make_shared<ChunkedArray>(std::move(result));
+  }
 };
 
 class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
@@ -888,7 +921,9 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
                                         field.level_info);
   } else if (type_id == ::arrow::Type::LIST || type_id == ::arrow::Type::MAP ||
              type_id == ::arrow::Type::FIXED_SIZE_LIST ||
-             type_id == ::arrow::Type::LARGE_LIST) {
+             type_id == ::arrow::Type::LARGE_LIST ||
+             type_id == ::arrow::Type::LIST_VIEW ||
+             type_id == ::arrow::Type::LARGE_LIST_VIEW) {
     auto list_field = arrow_field;
     auto child = &field.children[0];
     std::unique_ptr<ColumnReaderImpl> child_reader;
@@ -941,6 +976,20 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
 
       *out = std::make_unique<ListReader<int64_t>>(ctx, list_field, field.level_info,
                                                    std::move(child_reader));
+    } else if (type_id == ::arrow::Type::LIST_VIEW) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::list_view(reader_child_type));
+      }
+
+      *out = std::make_unique<ListViewReader<int32_t>>(ctx, list_field, field.level_info,
+                                                       std::move(child_reader));
+    } else if (type_id == ::arrow::Type::LARGE_LIST_VIEW) {
+      if (!reader_child_type->Equals(schema_child_type)) {
+        list_field = list_field->WithType(::arrow::large_list_view(reader_child_type));
+      }
+
+      *out = std::make_unique<ListViewReader<int64_t>>(ctx, list_field, field.level_info,
+                                                       std::move(child_reader));
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
       if (!reader_child_type->Equals(schema_child_type)) {
         auto& fixed_list_type =
