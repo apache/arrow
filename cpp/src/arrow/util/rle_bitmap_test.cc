@@ -329,6 +329,10 @@ struct BitPackedBitmapCase {
   rle_size_t count;
 };
 
+// Gtest representation without which, gtest falls back to dumping
+// the raw object bytes, which reads uninitialised padding and trips valgrind.
+void PrintTo(const BitPackedBitmapCase& param, std::ostream* os) { *os << param.name; }
+
 class BitPackedRunToBitmapDecoderTest
     : public ::testing::TestWithParam<BitPackedBitmapCase> {};
 
