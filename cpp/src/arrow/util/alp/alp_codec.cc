@@ -25,6 +25,7 @@
 #include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/alp/alp_sampler.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
@@ -102,7 +103,7 @@ struct AlpHeader {
   /// \return number of vectors (full + partial if any)
   int32_t GetNumVectors() const {
     const int32_t vector_size = GetVectorSize();
-    return (num_elements + vector_size - 1) / vector_size;
+    return static_cast<int32_t>(::arrow::bit_util::CeilDiv(num_elements, vector_size));
   }
 
   /// \brief Get the size of the offsets section
@@ -294,7 +295,7 @@ int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
   int64_t max_alp_size = AlpHeader::kSize;
 
   const int64_t vectors_count =
-      (num_elements + vector_size - 1) / vector_size;
+      ::arrow::bit_util::CeilDiv(num_elements, vector_size);
 
   // Add offsets section (4 bytes per vector)
   max_alp_size += vectors_count * sizeof(AlpConstants::OffsetType);
@@ -335,7 +336,7 @@ typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
   // Phase 1: Compress all vectors and collect them
   std::vector<AlpEncodedVector<T>> encoded_vectors;
   const int64_t num_vectors =
-      (element_count + vector_size - 1) / vector_size;
+      ::arrow::bit_util::CeilDiv(element_count, vector_size);
   encoded_vectors.reserve(num_vectors);
 
   int64_t input_offset = 0;
@@ -425,7 +426,7 @@ Result<typename AlpCodec<T>::DecompressionProgress> AlpCodec<T>::DecodeAlp(
 
   // Calculate number of vectors
   const int32_t num_vectors =
-      (total_elements + vector_size - 1) / vector_size;
+      static_cast<int32_t>(::arrow::bit_util::CeilDiv(total_elements, vector_size));
 
   if (num_vectors == 0) {
     return DecompressionProgress{0, 0};
