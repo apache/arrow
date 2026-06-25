@@ -112,9 +112,8 @@ void BM_ReplaceNew(benchmark::State& state) {
 
   for (auto _ : state) {
     ctx.Reset();
-    const char* out =
-        replace_utf8_utf8_utf8(ctx_ptr, text.data(), tlen, c.from, flen, c.to, olen,
-                               &out_len);
+    const char* out = replace_utf8_utf8_utf8(ctx_ptr, text.data(), tlen, c.from, flen,
+                                             c.to, olen, &out_len);
     benchmark::DoNotOptimize(out);
     benchmark::DoNotOptimize(out_len);
   }
@@ -142,9 +141,8 @@ void BM_ReplaceOld(benchmark::State& state) {
 
   for (auto _ : state) {
     ctx.Reset();
-    const char* out =
-        replace_with_max_len_utf8_utf8_utf8(ctx_ptr, text.data(), tlen, c.from, flen,
-                                            c.to, olen, capacity, &out_len);
+    const char* out = replace_with_max_len_utf8_utf8_utf8(
+        ctx_ptr, text.data(), tlen, c.from, flen, c.to, olen, capacity, &out_len);
     benchmark::DoNotOptimize(out);
     benchmark::DoNotOptimize(out_len);
   }
