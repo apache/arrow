@@ -42,7 +42,7 @@ static_assert(ARROW_LITTLE_ENDIAN,
               "ALP serialization assumes little-endian byte order");
 
 // ----------------------------------------------------------------------
-// AlpEncodedVectorInfo implementation (non-templated, 4 bytes)
+// AlpEncodedVectorInfo implementation (4 bytes)
 
 void AlpEncodedVectorInfo::Store(arrow::util::span<uint8_t> output_buffer) const {
   ARROW_CHECK(output_buffer.size() >= static_cast<size_t>(GetStoredSize()))
