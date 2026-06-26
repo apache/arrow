@@ -678,8 +678,15 @@ class ARROW_EXPORT VariantBuilder {
   void Reset();
   /// @}
 
+  /// @name Shredding support (GH-45948)
+  /// @{
+  Result<std::vector<uint8_t>> BuildWithoutMeta();
+  void UnsafeAppendEncoded(const uint8_t* data, int64_t size);
+  void SetAllowDuplicates(bool allow);
+  /// @}
+
   /// @name Internal (used by scopes and shredding)
-  /// @name Internal (used by scopes)
+  /// @{
   void Truncate(int64_t offset);
   /// @}
 

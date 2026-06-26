@@ -144,6 +144,7 @@ arrow_components = {
             'extension/parquet_variant.cc',
             'extension/variant.cc',
             'extension/variant_builder.cc',
+            'extension/variant_shredding.cc',
             'extension/uuid.cc',
             'pretty_print.cc',
             'record_batch.cc',
