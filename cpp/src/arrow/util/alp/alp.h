@@ -161,7 +161,7 @@ struct AlpExponentAndFactor {
 };
 
 // ----------------------------------------------------------------------
-// AlpEncodedVectorInfo (non-templated, ALP core metadata)
+// AlpEncodedVectorInfo
 
 /// \brief ALP-specific metadata for an encoded vector
 ///
