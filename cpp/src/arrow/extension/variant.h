@@ -32,9 +32,11 @@
 ///   - O(log n) field lookup always (no threshold heuristics)
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/result.h"
@@ -56,6 +58,17 @@ constexpr int32_t kMaxNestingDepth = 128;
 
 /// UUID values are always 16 bytes (128-bit, big-endian per RFC 4122).
 constexpr int32_t kUUIDByteLength = 16;
+
+/// Maximum length for short-string encoding (6 bits → 0..63).
+/// Strings longer than this use the long-string (4-byte length prefix) format.
+constexpr int32_t kMaxShortStringLength = 63;
+
+/// Maximum supported decimal scale per the variant encoding spec.
+constexpr uint8_t kMaxDecimalScale = 38;
+
+/// Container element count threshold for large encoding.
+/// Objects/arrays with more than 255 elements use 4-byte num_elements fields.
+constexpr int32_t kLargeContainerThreshold = 255;
 
 // ---------------------------------------------------------------------------
 // Enumerations
@@ -578,6 +591,224 @@ class ARROW_EXPORT VariantVisitor {
   virtual Status StartArray(int32_t num_elements) = 0;
   virtual Status EndArray() = 0;
   /// @}
+};
+
+// ---------------------------------------------------------------------------
+// VariantBuilder (encoder)
+// ---------------------------------------------------------------------------
+
+class ObjectScope;
+class ListScope;
+
+/// \brief Builder for constructing Variant binary values.
+///
+/// Provides both low-level (Offset/NextField/FinishObject) and high-level
+/// (StartObject/StartList returning RAII scopes) APIs for encoding.
+class ARROW_EXPORT VariantBuilder {
+ public:
+  VariantBuilder();
+  explicit VariantBuilder(const VariantMetadata& existing_metadata);
+  ~VariantBuilder() = default;
+
+  VariantBuilder(VariantBuilder&&) noexcept = default;
+  VariantBuilder& operator=(VariantBuilder&&) noexcept = default;
+  VariantBuilder(const VariantBuilder&) = delete;
+  VariantBuilder& operator=(const VariantBuilder&) = delete;
+
+  /// @name Primitive value setters
+  /// @{
+  Status Null();
+  Status Bool(bool value);
+  Status Int(int64_t value);  ///< Auto-selects smallest int type
+  Status Int8(int8_t value);
+  Status Int16(int16_t value);
+  Status Int32(int32_t value);
+  Status Int64(int64_t value);
+  Status Float(float value);
+  Status Double(double value);
+  Status Decimal4(uint8_t scale, const uint8_t* value_bytes);
+  Status Decimal8(uint8_t scale, const uint8_t* value_bytes);
+  Status Decimal16(uint8_t scale, const uint8_t* value_bytes);
+  Status Date(int32_t days_since_epoch);
+  Status TimestampMicros(int64_t micros);
+  Status TimestampMicrosNTZ(int64_t micros);
+  Status TimeNTZ(int64_t micros);
+  Status TimestampNanos(int64_t nanos);
+  Status TimestampNanosNTZ(int64_t nanos);
+  Status String(std::string_view value);  ///< Auto short-string for <=63 bytes
+  Status Binary(std::string_view value);
+  Status UUID(const uint8_t* bytes);
+  /// @}
+
+  /// @name Low-level container construction
+  /// @{
+  int64_t Offset() const;
+  int64_t NextElement(int64_t start) const;
+
+  struct FieldEntry {
+    std::string key;
+    uint32_t id;
+    int64_t offset;
+  };
+
+  FieldEntry NextField(int64_t start, std::string_view key);
+  Status FinishArray(int64_t start, const std::vector<int64_t>& offsets);
+  Status FinishObject(int64_t start, std::vector<FieldEntry>& fields);
+  /// @}
+
+  /// @name RAII container construction
+  /// @{
+
+  /// \brief Start building an object. Returns an RAII scope that auto-rolls
+  ///        back if Finish() is not called (e.g., on exception/early return).
+  [[nodiscard]] ObjectScope StartObject();
+
+  /// \brief Start building a list/array. Returns an RAII scope.
+  [[nodiscard]] ListScope StartList();
+  /// @}
+
+  /// @name Output
+  /// @{
+  struct EncodedVariant {
+    std::vector<uint8_t> metadata;
+    std::vector<uint8_t> value;
+  };
+
+  Result<EncodedVariant> Finish();
+  void Reset();
+  /// @}
+
+  /// @name Internal (used by scopes and shredding)
+  /// @name Internal (used by scopes)
+  void Truncate(int64_t offset);
+  /// @}
+
+ private:
+  friend class ObjectScope;
+  friend class ListScope;
+
+  uint32_t AddKey(std::string_view key);
+
+  std::vector<uint8_t> buffer_;
+  /// \brief Dictionary mapping key names to their IDs.
+  /// Uses a custom transparent hasher to allow lookups with string_view
+  /// without constructing a std::string (C++17 heterogeneous lookup).
+  struct StringHash {
+    using is_transparent = void;
+    size_t operator()(std::string_view sv) const noexcept {
+      return std::hash<std::string_view>{}(sv);
+    }
+  };
+  struct StringEqual {
+    using is_transparent = void;
+    bool operator()(std::string_view a, std::string_view b) const noexcept {
+      return a == b;
+    }
+  };
+  std::unordered_map<std::string, uint32_t, StringHash, StringEqual> dict_;
+  std::vector<std::string> dict_keys_;
+  bool allow_duplicates_ = false;
+};
+
+// ---------------------------------------------------------------------------
+// ObjectScope — RAII scoped object builder
+// ---------------------------------------------------------------------------
+
+/// \brief RAII scope for building an object. Destructor rolls back if not committed.
+///
+/// Usage:
+///   auto obj = builder.StartObject();
+///   obj.Insert("name", "Alice");
+///   obj.Insert("age", 30);
+///   obj.Finish();  // commits
+///   // If Finish() not called, destructor truncates buffer to pre-scope state
+class ARROW_EXPORT ObjectScope {
+ public:
+  ~ObjectScope();
+
+  ObjectScope(const ObjectScope&) = delete;
+  ObjectScope& operator=(const ObjectScope&) = delete;
+  ObjectScope(ObjectScope&& other) noexcept;
+  ObjectScope& operator=(ObjectScope&&) = delete;
+
+  /// @name Insert fields (delegates to VariantBuilder primitives)
+  /// @{
+  Status Insert(std::string_view key, std::nullptr_t);
+  Status Insert(std::string_view key, bool value);
+  Status Insert(std::string_view key, int64_t value);
+  Status Insert(std::string_view key, double value);
+  Status Insert(std::string_view key, std::string_view value);
+
+  /// \brief Insert a nested object. Returns an RAII scope for the sub-object.
+  [[nodiscard]] ObjectScope InsertObject(std::string_view key);
+
+  /// \brief Insert a nested list. Returns an RAII scope for the sub-list.
+  [[nodiscard]] ListScope InsertList(std::string_view key);
+  /// @}
+
+  /// \brief Commit the object (sorts fields, writes header).
+  Status Finish();
+
+ private:
+  friend class VariantBuilder;
+  friend class ListScope;
+
+  explicit ObjectScope(VariantBuilder& parent);
+
+  VariantBuilder* parent_;
+  int64_t start_offset_;
+  std::vector<VariantBuilder::FieldEntry> fields_;
+  bool committed_ = false;
+};
+
+// ---------------------------------------------------------------------------
+// ListScope — RAII scoped list/array builder
+// ---------------------------------------------------------------------------
+
+/// \brief RAII scope for building a list. Destructor rolls back if not committed.
+///
+/// Usage:
+///   auto list = builder.StartList();
+///   list.Append(1);
+///   list.Append(2);
+///   list.Finish();
+class ARROW_EXPORT ListScope {
+ public:
+  ~ListScope();
+
+  ListScope(const ListScope&) = delete;
+  ListScope& operator=(const ListScope&) = delete;
+  ListScope(ListScope&& other) noexcept;
+  ListScope& operator=(ListScope&&) = delete;
+
+  /// @name Append elements
+  /// @{
+  Status Append(std::nullptr_t);
+  Status Append(bool value);
+  Status Append(int64_t value);
+  Status Append(double value);
+  Status Append(std::string_view value);
+
+  /// \brief Append a nested object. Returns an RAII scope.
+  [[nodiscard]] ObjectScope AppendObject();
+
+  /// \brief Append a nested list. Returns an RAII scope.
+  [[nodiscard]] ListScope AppendList();
+  /// @}
+
+  /// \brief Commit the list (writes header with offsets).
+  Status Finish();
+
+ private:
+  friend class VariantBuilder;
+  friend class ObjectScope;
+
+  explicit ListScope(VariantBuilder& parent);
+
+  VariantBuilder* parent_;
+  int64_t start_offset_;
+  std::vector<int64_t> offsets_;
+  bool committed_ = false;
 };
 
 }  // namespace arrow::extension::variant

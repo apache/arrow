@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-canonical_extension_tests = ['bool8_test.cc', 'json_test.cc', 'uuid_test.cc', 'variant_test.cc']
+canonical_extension_tests = ['bool8_test.cc', 'json_test.cc', 'uuid_test.cc', 'variant_test.cc', 'variant_builder_test.cc']
 
 if needs_json
     canonical_extension_tests += [

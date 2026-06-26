@@ -2408,5 +2408,195 @@ TEST_F(VariantArrayViewTest, IterateElements) {
   }
   ASSERT_EQ(count, 3);
 }
+// ===========================================================================
+// Widening numeric accessor tests
+// ===========================================================================
+
+class VariantCoercionTest : public ::testing::Test {};
+
+TEST_F(VariantCoercionTest, Int8CoercesToInt64) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int8(42));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_int64_coerced());
+  ASSERT_EQ(val, 42);
+}
+
+TEST_F(VariantCoercionTest, Int16CoercesToInt64) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int16(1000));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_int64_coerced());
+  ASSERT_EQ(val, 1000);
+}
+
+TEST_F(VariantCoercionTest, Int32CoercesToInt64) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int32(100000));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_int64_coerced());
+  ASSERT_EQ(val, 100000);
+}
+
+TEST_F(VariantCoercionTest, Int64CoercesToInt64Identity) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int64(9876543210LL));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_int64_coerced());
+  ASSERT_EQ(val, 9876543210LL);
+}
+
+TEST_F(VariantCoercionTest, NegativeInt8CoercesToInt64) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int8(-42));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_int64_coerced());
+  ASSERT_EQ(val, -42);
+}
+
+TEST_F(VariantCoercionTest, StringDoesNotCoerceToInt64) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.String("hello"));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_NOT_OK(view.as_int64_coerced());
+}
+
+TEST_F(VariantCoercionTest, Int32CoercedRejectsInt64) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int64(9876543210LL));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_NOT_OK(view.as_int32_coerced());
+}
+
+TEST_F(VariantCoercionTest, DoubleCoercedFromFloat) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Float(3.14f));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_double_coerced());
+  ASSERT_NEAR(val, 3.14, 0.001);
+}
+
+TEST_F(VariantCoercionTest, DoubleCoercedFromInt32) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int32(42));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK_AND_ASSIGN(
+      auto view,
+      VariantView::Make(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+  ASSERT_OK_AND_ASSIGN(auto val, view.as_double_coerced());
+  ASSERT_EQ(val, 42.0);
+}
+
+// ===========================================================================
+// ValidateVariant tests
+// ===========================================================================
+
+class VariantValidationTest : public ::testing::Test {};
+
+TEST_F(VariantValidationTest, ValidPrimitive) {
+  VariantBuilder builder;
+  ASSERT_OK(builder.Int(42));
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK(
+      ValidateVariant(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+}
+
+TEST_F(VariantValidationTest, ValidNestedObject) {
+  VariantBuilder builder;
+  auto obj = builder.StartObject();
+  ASSERT_OK(obj.Insert("name", std::string_view("Alice")));
+  ASSERT_OK(obj.Insert("age", static_cast<int64_t>(30)));
+  auto inner = obj.InsertObject("address");
+  ASSERT_OK(inner.Insert("city", std::string_view("NYC")));
+  ASSERT_OK(inner.Finish());
+  ASSERT_OK(obj.Finish());
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK(
+      ValidateVariant(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+}
+
+TEST_F(VariantValidationTest, ValidArray) {
+  VariantBuilder builder;
+  auto list = builder.StartList();
+  ASSERT_OK(list.Append(static_cast<int64_t>(1)));
+  ASSERT_OK(list.Append(static_cast<int64_t>(2)));
+  ASSERT_OK(list.Append(static_cast<int64_t>(3)));
+  ASSERT_OK(list.Finish());
+  ASSERT_OK_AND_ASSIGN(auto enc, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto meta,
+      DecodeMetadata(enc.metadata.data(), static_cast<int64_t>(enc.metadata.size())));
+  ASSERT_OK(
+      ValidateVariant(meta, enc.value.data(), static_cast<int64_t>(enc.value.size())));
+}
+
+TEST_F(VariantValidationTest, NullBuffer) {
+  ASSERT_NOT_OK(ValidateVariant(VariantMetadata{}, nullptr, 0));
+}
+
+TEST_F(VariantValidationTest, TruncatedPrimitive) {
+  // A valid Int32 header (type=5 << 2 | 0 = 20 = 0x14) but no payload
+  uint8_t data[] = {0x14};
+  VariantMetadata meta;
+  meta.version = 1;
+  ASSERT_NOT_OK(ValidateVariant(meta, data, 1));
+}
 
 }  // namespace arrow::extension::variant
