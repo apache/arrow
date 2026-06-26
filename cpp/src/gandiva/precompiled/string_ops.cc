@@ -2895,8 +2895,9 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
 FORCE_INLINE
 const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len) {
   const int64_t hex_long_max_size = 2 * sizeof(int64_t);
-  auto ret =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, hex_long_max_size));
+  // Allocate one extra byte for the null terminator written by snprintf.
+  auto ret = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, hex_long_max_size + 1));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -2912,7 +2913,8 @@ const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len) {
 FORCE_INLINE
 const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len) {
   const int32_t max_size = 2 * sizeof(int32_t);
-  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_size));
+  // Allocate one extra byte for the null terminator written by snprintf.
+  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_size + 1));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
