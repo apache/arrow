@@ -1552,6 +1552,35 @@ TEST(Substrait, InvalidMinimumVersion) {
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
+TEST(Substrait, InvalidEmptyExtensionDeclaration) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+    "relations": [{
+      "rel": {
+        "read": {
+          "base_schema": {
+            "names": ["A"],
+            "struct": {
+              "types": [{
+                "i32": {}
+              }]
+            }
+          },
+          "named_table": {
+            "names": ["x"]
+          }
+        }
+      }
+    }],
+    "extensionUris": [],
+    "extensions": [
+      {}
+    ]
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
 TEST(Substrait, JoinPlanBasic) {
   std::string substrait_json = R"({
   "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
