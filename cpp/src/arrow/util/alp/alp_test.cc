@@ -747,8 +747,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   // Calculate where exceptions start to verify potential misalignment
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t for_info_size = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
-  const uint64_t bit_packed_size = AlpEncodedForVectorInfo<TypeParam>::GetBitPackedSize(
-      static_cast<uint16_t>(input.size()), encoded.for_info().bit_width());
+  const uint64_t bit_packed_size = bit_util::BytesForBits(
+      int64_t{input.size()} * encoded.for_info().bit_width());
   const uint64_t exception_pos_offset = alp_info_size + for_info_size + bit_packed_size;
 
   // Log alignment info for debugging
