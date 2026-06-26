@@ -487,7 +487,7 @@ overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 
 For functions which support decimal inputs (currently ``add``, ``subtract``,
-``multiply``, and ``divide`` and their checked variants), decimals of different
+``multiply``, ``divide``, ``mod``, and ``remainder`` and their checked variants), decimals of different
 precisions/scales will be promoted appropriately. Mixed decimal and
 floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
@@ -516,6 +516,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+-------------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
 +------------------+--------+-------------------------+-------------------------------+-------+
+| mod              | Binary | Numeric                 | Numeric                       | \(3)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| mod_checked      | Binary | Numeric                 | Numeric                       | \(3)  |
++------------------+--------+-------------------------+-------------------------------+-------+
 | negate           | Unary  | Numeric/Duration        | Numeric/Duration              |       |
 +------------------+--------+-------------------------+-------------------------------+-------+
 | negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration       |       |
@@ -523,6 +527,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 | power            | Binary | Numeric                 | Numeric                       |       |
 +------------------+--------+-------------------------+-------------------------------+-------+
 | power_checked    | Binary | Numeric                 | Numeric                       |       |
++------------------+--------+-------------------------+-------------------------------+-------+
+| remainder        | Binary | Numeric                 | Numeric                       | \(4)  |
++------------------+--------+-------------------------+-------------------------------+-------+
+| remainder_checked| Binary | Numeric                 | Numeric                       | \(4)  |
 +------------------+--------+-------------------------+-------------------------------+-------+
 | sign             | Unary  | Numeric/Duration        | Int8/Float16/Float32/Float64  | \(2)  |
 +------------------+--------+-------------------------+-------------------------------+-------+
@@ -559,6 +567,14 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 * \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.  NaN
   values return NaN.  Integral and decimal values return signedness as Int8 and
   floating-point values return it with the same type as the input values.
+
+* \(3) Computes the floored modulo operation where the result has the same sign
+  as the divisor. This is equivalent to Python's ``%`` operator. For decimals,
+  the result uses the same precision/scale promotion as ``add``.
+
+* \(4) Computes the truncated remainder where the result has the same sign
+  as the dividend. This is equivalent to C/C++'s ``%`` operator. For decimals,
+  the result uses the same precision/scale promotion as ``add``.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~
