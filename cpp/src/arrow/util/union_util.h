@@ -31,6 +31,7 @@ int64_t LogicalDenseUnionNullCount(const ArraySpan& span);
 ///
 /// \param set_on_null true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
+ARROW_EXPORT
 void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
                               int64_t out_offset, bool set_on_null);
 
@@ -38,6 +39,7 @@ void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
 ///
 /// \param set_on_null true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
+ARROW_EXPORT
 void SetLogicalNullBitsDense(const ArraySpan& span, uint8_t* out_bitmap,
                              int64_t out_offset, bool set_on_null);
 

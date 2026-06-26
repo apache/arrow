@@ -29,6 +29,7 @@ int64_t LogicalNullCount(const ArraySpan& span);
 ///
 /// \param set_on_null true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
+ARROW_EXPORT
 void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
                         bool set_on_null);
 
