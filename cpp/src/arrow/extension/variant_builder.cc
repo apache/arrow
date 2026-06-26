@@ -632,4 +632,22 @@ Status ListScope::Finish() {
   return Status::OK();
 }
 
+Result<std::vector<uint8_t>> VariantBuilder::BuildWithoutMeta() {
+  if (buffer_.empty()) {
+    return Status::Invalid("VariantBuilder::BuildWithoutMeta: no value written");
+  }
+  std::vector<uint8_t> result = std::move(buffer_);
+  buffer_.clear();
+  return result;
+}
+
+void VariantBuilder::UnsafeAppendEncoded(const uint8_t* data, int64_t size) {
+  DCHECK_NE(data, nullptr);
+  DCHECK_GT(size, 0);
+  if (size <= 0) return;
+  buffer_.insert(buffer_.end(), data, data + size);
+}
+
+void VariantBuilder::SetAllowDuplicates(bool allow) { allow_duplicates_ = allow; }
+
 }  // namespace arrow::extension::variant
