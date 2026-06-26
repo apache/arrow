@@ -278,7 +278,7 @@ TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
 // ============================================================================
 
 TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
-  // Test AlpEncodedVectorInfo (non-templated, 4 bytes)
+  // Test AlpEncodedVectorInfo (4 bytes)
   AlpEncodedVectorInfo info{};
   info.set_exponent(5);
   info.set_factor(3);
@@ -328,7 +328,7 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripDouble) {
 }
 
 TEST(AlpEncodedVectorInfoTest, Size) {
-  // AlpEncodedVectorInfo is non-templated and fixed at 4 bytes
+  // AlpEncodedVectorInfo is fixed at 4 bytes
   EXPECT_EQ(AlpEncodedVectorInfo::kStoredSize, 4);
   EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), 4);
 }
