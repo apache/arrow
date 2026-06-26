@@ -59,6 +59,52 @@ TEST_F(TestBooleanValidityKernels, TrueUnlessNull) {
                    type_singleton(), "[null, true, true, null]");
 }
 
+TEST_F(TestBooleanValidityKernels, LogicalNulls) {
+  auto null_dict =
+      DictArrayFromJSON(dictionary(int8(), int8()), "[0, 2, 1]", "[0, 1, null]");
+  CheckScalarUnary("is_valid", null_dict,
+                   ArrayFromJSON(boolean(), "[true, false, true]"));
+  CheckScalarUnary("is_null", null_dict,
+                   ArrayFromJSON(boolean(), "[false, true, false]"));
+  CheckScalarUnary("true_unless_null", null_dict,
+                   ArrayFromJSON(boolean(), "[true, null, true]"));
+  auto null_index =
+      DictArrayFromJSON(dictionary(int8(), int32()), "[null, 1, 0]", "[8, 2]");
+  CheckScalarUnary("true_unless_null", null_index,
+                   ArrayFromJSON(boolean(), "[null, true, true]"));
+  auto null_dict_and_index = DictArrayFromJSON(dictionary(int8(), boolean()),
+                                               "[1, null, 2, 0]", "[true, false, null]");
+  CheckScalarUnary("true_unless_null", null_dict_and_index,
+                   ArrayFromJSON(boolean(), "[true, null, null, true]"));
+
+  ASSERT_OK_AND_ASSIGN(auto ree,
+                       RunEndEncode(ArrayFromJSON(int64(), "[11, 11, null, null, 12]")));
+  CheckScalarUnary("true_unless_null", ree,
+                   ArrayFromJSON(boolean(), "[true, true, null, null, true]"));
+
+  ArrayVector children{
+      ArrayFromJSON(int64(), "[1, 23, 45, null, null, -2, null]"),
+      ArrayFromJSON(float32(), "[null, 1.1, 2.2, null, -4.0, 1.5, 0.1]"),
+      ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma", "delta", null])"),
+  };
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 2, 2, 0, 2, 1]");
+  auto fields = {field("a", int64()), field("b", float32()), field("c", utf8())};
+  SparseUnionArray sparse(sparse_union(fields), 7, children,
+                          type_ids->data()->buffers[1]);
+  ASSERT_OK(sparse.ValidateFull());
+  CheckScalarUnary(
+      "true_unless_null", sparse,
+      ArrayFromJSON(boolean(), "[true, true, true, null, null, true, true]"));
+
+  auto offsets = ArrayFromJSON(int32(), "[0, 0, 0, 2, 3, 6, 3]");
+  DenseUnionArray dense(dense_union(fields), 7, children, type_ids->data()->buffers[1],
+                        offsets->data()->buffers[1]);
+  ASSERT_OK(dense.ValidateFull());
+  CheckScalarUnary(
+      "true_unless_null", dense,
+      ArrayFromJSON(boolean(), "[true, null, true, true, null, null, null]"));
+}
+
 TEST_F(TestBooleanValidityKernels, IsValidIsNullNullType) {
   CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
                    ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
