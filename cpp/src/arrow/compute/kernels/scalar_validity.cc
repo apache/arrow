@@ -255,6 +255,10 @@ Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
                       true);
 
   // Set the output's validity bitmap based on the nullity of the input array
+  // NOTE: alternatively, we could switch this kernel's null handling back to
+  // NullHandling::INTERSECTION and change the validity checks in exec.cc so that
+  // they correctly handle logical nulls, but that would invove significant changes
+  // in exec.cc which might have more side effects
   return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[0].data,
                             out_span->offset, false);
 }
@@ -302,7 +306,6 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
                registry, NullHandling::OUTPUT_NOT_NULL,
                /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
-  // TODO: switch back to NullHandling::INTERSECTION
   MakeFunction("true_unless_null", true_unless_null_doc, {InputType::Any()}, boolean(),
                TrueUnlessNullExec, registry, NullHandling::COMPUTED_PREALLOCATE,
                /*can_write_into_slices=*/false);
