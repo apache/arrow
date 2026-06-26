@@ -1000,8 +1000,15 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 };
 
 // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // ALP encoder (Adaptive Lossless floating-Point)
 
+// TODO: support incremental encoding. Today `Put` only appends raw input
+// to `sink_`, and `FlushValues` runs the entire ALP pipeline (sample +
+// preset selection + per-vector compression) on the whole buffer in one
+// shot. A future revision should encode complete vectors as `Put` calls
+// fill them, holding only a partial-vector tail across calls, so the
+// encoder can produce output progressively and use bounded memory.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
@@ -1038,22 +1045,22 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     }
 
     // Call AlpCodec::Encode() - it handles sampling, preset selection, and compression
-    const int64_t numElements = sink_.length() / static_cast<int64_t>(sizeof(T));
-    int64_t compSize =
-        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(numElements, vector_size_);
+    const int64_t num_elements = sink_.length() / static_cast<int64_t>(sizeof(T));
+    int64_t comp_size =
+        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(num_elements, vector_size_);
 
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_buffer,
-        ::arrow::AllocateResizableBuffer(compSize, this->memory_pool()));
+        ::arrow::AllocateResizableBuffer(comp_size, this->memory_pool()));
 
     ::arrow::util::alp::AlpCodec<T>::Encode(
         reinterpret_cast<const T*>(sink_.data()),
-        numElements,
+        num_elements,
         vector_size_,
         compressed_buffer->mutable_data(),
-        &compSize);
+        &comp_size);
 
-    PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compSize));
+    PARQUET_THROW_NOT_OK(compressed_buffer->Resize(comp_size));
     sink_.Reset();
 
     return std::shared_ptr<Buffer>(std::move(compressed_buffer));
