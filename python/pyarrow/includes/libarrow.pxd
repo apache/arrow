@@ -3295,3 +3295,7 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
 cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
     CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)
+
+cdef extern from "arrow/array/util.h" namespace "arrow::internal" nogil:
+    CResult[shared_ptr[CArrayData]] TrimArrayDataBuffers(
+        const shared_ptr[CArrayData]& data, CMemoryPool* pool)

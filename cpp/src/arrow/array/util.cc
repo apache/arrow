@@ -1001,5 +1001,21 @@ std::vector<ArrayVector> RechunkArraysConsistently(
   return rechunked_groups;
 }
 
+Result<std::shared_ptr<ArrayData>> TrimArrayDataBuffers(
+    const std::shared_ptr<ArrayData>& data, MemoryPool* pool) {
+  if (data->offset == 0) {
+    // An array with no offset owns its buffers from the start (any excess is
+    // just allocator padding), so there is nothing worth trimming. Returning it
+    // unchanged keeps pickling zero-copy / protocol-5 out-of-band friendly.
+    return data;
+  }
+  // A sliced array (offset != 0) shares its parent's buffers; compact it so only
+  // the referenced range is serialized. Concatenating the single array yields an
+  // equivalent array whose buffers start at offset 0, correctly handling every
+  // nested, variable-length and dictionary type.
+  ARROW_ASSIGN_OR_RAISE(auto trimmed, Concatenate({MakeArray(data)}, pool));
+  return trimmed->data();
+}
+
 }  // namespace internal
 }  // namespace arrow

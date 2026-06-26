@@ -1312,8 +1312,13 @@ cdef class Array(_PandasConvertible):
 
     def __reduce__(self):
         self._assert_cpu()
+        # Trim the buffers to the range this (possibly sliced) array references
+        # so we don't serialize the whole parent buffers (GH-26685).
         return _restore_array, \
-            (_reduce_array_data(self.sp_array.get().data().get()),)
+            (_reduce_array_data(
+                GetResultValue(TrimArrayDataBuffers(
+                    self.sp_array.get().data(),
+                    c_default_memory_pool())).get()),)
 
     @staticmethod
     def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,

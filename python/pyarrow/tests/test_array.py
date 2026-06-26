@@ -21,6 +21,7 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
+import pickle
 import pytest
 import struct
 import subprocess
@@ -4503,3 +4504,52 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+@pytest.mark.parametrize("typ", [
+    pa.int64(),
+    pa.float64(),
+    pa.bool_(),
+    pa.string(),
+    pa.large_string(),
+    pa.list_(pa.int64()),
+])
+def test_pickle_sliced_array_does_not_copy_parent_buffers(typ):
+    # GH-26685: pickling a small slice of a large array must not serialize the
+    # whole parent buffers.
+    n = 100_000
+    if pa.types.is_boolean(typ):
+        arr = pa.array([i % 2 == 0 for i in range(n)])
+    elif pa.types.is_string(typ) or pa.types.is_large_string(typ):
+        arr = pa.array(["x%d" % i for i in range(n)], type=typ)
+    elif pa.types.is_list(typ):
+        arr = pa.array([[i] for i in range(n)], type=typ)
+    else:
+        arr = pa.array(range(n), type=typ)
+
+    sliced = arr.slice(10, 5)
+    for protocol in (4, 5):
+        data = pickle.dumps(sliced, protocol=protocol)
+        # A 5-element slice serializes to a few hundred bytes; copying the
+        # parent buffers would be orders of magnitude larger.
+        assert len(data) < 2000
+        assert pickle.loads(data).equals(sliced)
+
+
+def test_pickle_sliced_array_preserves_out_of_band_buffers():
+    # GH-26685: protocol-5 out-of-band buffers still work and carry only the
+    # referenced bytes, not the whole parent buffer.
+    arr = pa.array(range(100_000), type=pa.int64())
+    sliced = arr.slice(10, 5)
+    collected = []
+    data = pickle.dumps(sliced, protocol=5, buffer_callback=collected.append)
+    oob = sum(memoryview(b.raw()).nbytes for b in collected)
+    assert oob < arr.nbytes / 100
+    restored = pickle.loads(data, buffers=[b.raw() for b in collected])
+    assert restored.equals(sliced)
+
+
+def test_pickle_unsliced_array_roundtrips():
+    # Regression: a non-sliced array is unaffected.
+    arr = pa.array(range(1000), type=pa.int64())
+    assert pickle.loads(pickle.dumps(arr)).equals(arr)
