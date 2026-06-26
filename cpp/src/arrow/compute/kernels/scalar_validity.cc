@@ -23,7 +23,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/dict_util.h"
+#include "arrow/util/dict_util_internal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
@@ -115,13 +115,19 @@ static Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span,
 
     // If nan_is_null, we must also check for nans.
     if (is_floating(t) && NanOptionsState::Get(ctx).nan_is_null) {
-      if (t == Type::FLOAT) {
-        SetNanBits<float>(span, out_bitmap, out_offset);
-      } else if (t == Type::DOUBLE) {
-        SetNanBits<double>(span, out_bitmap, out_offset);
-      } else {
-        return Status::NotImplemented("NaN detection not implemented for type ",
-                                      span.type->ToString());
+      switch (t) {
+        case Type::FLOAT:
+          SetNanBits<float>(span, out_bitmap, out_offset);
+          break;
+        case Type::DOUBLE:
+          SetNanBits<double>(span, out_bitmap, out_offset);
+          break;
+        case Type::HALF_FLOAT:
+          SetNanBits<uint16_t>(span, out_bitmap, out_offset);
+          break;
+        default:
+          return Status::NotImplemented("NaN detection not implemented for type ",
+                                        span.type->ToString());
       }
     }
   }
