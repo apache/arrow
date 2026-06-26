@@ -294,19 +294,6 @@ class AlpEncodedForVectorInfo {
   /// Size of the serialized portion (5 bytes for float, 9 for double)
   static constexpr int64_t kStoredSize = sizeof(frame_of_reference_) + sizeof(bit_width_);
 
-  /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
-  ///
-  /// Convenience wrapper around `arrow::bit_util::BytesForBits` for the
-  /// `num_elements * bit_width` rounding pattern used throughout the ALP
-  /// vector layout.
-  ///
-  /// \param[in] num_elements number of elements in this vector
-  /// \param[in] bw bits per element
-  /// \return the size in bytes of the bitpacked data
-  static int64_t GetBitPackedSize(int32_t num_elements, uint8_t bw) {
-    return arrow::bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bw);
-  }
-
   /// \brief Store the FOR metadata into an output buffer
   ///
   /// \pre output_buffer.size() >= kStoredSize
@@ -327,7 +314,8 @@ class AlpEncodedForVectorInfo {
   /// \param[in] num_exceptions number of exceptions (from AlpEncodedVectorInfo)
   /// \return the size in bytes of packed values + exception positions + exceptions
   int64_t GetDataStoredSize(int32_t num_elements, int32_t num_exceptions) const {
-    const int64_t bit_packed_size = GetBitPackedSize(num_elements, bit_width_);
+    const int64_t bit_packed_size =
+        bit_util::BytesForBits(int64_t{num_elements} * bit_width_);
     return bit_packed_size +
            num_exceptions * static_cast<int64_t>(sizeof(AlpConstants::PositionType) + sizeof(T));
   }
