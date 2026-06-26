@@ -108,6 +108,16 @@ class ARROW_EXPORT ChunkedArray {
   /// \return the total number of nulls among all chunks
   int64_t null_count() const { return null_count_; }
 
+  /// \brief Computes the logical null count across all chunks
+  ///
+  /// This returns the sum of Array::ComputeLogicalNullCount() over the chunks.
+  /// Unlike null_count(), it accounts for types that carry logical nulls
+  /// without a validity bitmap, such as union and run-end encoded arrays; for
+  /// those types the count is recomputed on every call.
+  ///
+  /// \see Array::ComputeLogicalNullCount
+  int64_t ComputeLogicalNullCount() const;
+
   /// \return the total number of chunks in the chunked array
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
