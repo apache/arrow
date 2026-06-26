@@ -21,6 +21,7 @@
 #include <memory>
 #include <stack>
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 #include "gandiva/arrow.h"
@@ -47,6 +48,10 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
       *out = std::move(result_);
     }
     return status;
+  }
+
+  [[nodiscard]] const std::unordered_set<std::string>& UsedFunctions() const {
+    return used_functions_;
   }
 
  private:
@@ -125,6 +130,7 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
   Annotator& annotator_;
   std::stack<std::unique_ptr<IfStackEntry>> if_entries_stack_;
   ValueValidityPairPtr result_;
+  std::unordered_set<std::string> used_functions_;
   bool nested_if_else_;
 };
 

@@ -67,7 +67,21 @@ namespace gandiva {
 Status ExternalCFunctions::AddMappings(Engine* engine) const {
   const auto& c_funcs = function_registry_->GetCFunctions();
   const auto types = engine->types();
+
+  // Build allowed set ONCE before the loop
+  std::unordered_set<std::string> allowed;
+  if (engine->selective_mapping_enabled_) {
+    allowed = engine->internal_functions_;
+    allowed.insert(engine->used_functions_.begin(), engine->used_functions_.end());
+  }
+
   for (auto& [func, func_ptr] : c_funcs) {
+    const std::string& name = func.pc_name();
+
+    if (engine->selective_mapping_enabled_ && !allowed.contains(name)) {
+      continue;
+    }
+
     for (const auto& sig : func.signatures()) {
       ARROW_ASSIGN_OR_RAISE(auto llvm_signature, MapToLLVMSignature(sig, func, types));
       auto& [args, ret_llvm_type] = llvm_signature;
