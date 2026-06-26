@@ -123,7 +123,7 @@ struct AlpHeader {
   /// \param[in] value a power-of-2 value
   /// \return the log base 2 of value
   static uint8_t Log2(int32_t value) {
-    ARROW_CHECK(value > 0 && (value & (value - 1)) == 0)
+    ARROW_CHECK(::arrow::bit_util::IsPowerOf2(value))
         << "value_must_be_power_of_2: " << value;
     return static_cast<uint8_t>(__builtin_ctz(static_cast<unsigned>(value)));
   }
@@ -221,7 +221,7 @@ void AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
       << "alp_encode_num_elements_must_be_non_negative";
   ARROW_CHECK(num_elements <= std::numeric_limits<int32_t>::max())
       << "alp_num_elements_exceeds_int32_max: " << num_elements;
-  ARROW_CHECK(vector_size > 0 && (vector_size & (vector_size - 1)) == 0)
+  ARROW_CHECK(::arrow::bit_util::IsPowerOf2(vector_size))
       << "alp_vector_size_must_be_power_of_2: " << vector_size;
   ARROW_CHECK(vector_size <= (1 << AlpConstants::kMaxLogVectorSize))
       << "alp_vector_size_exceeds_max: " << vector_size;

@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/alp/alp_constants.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/span.h"
 
 namespace arrow {
@@ -295,11 +296,15 @@ class AlpEncodedForVectorInfo {
 
   /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
   ///
+  /// Convenience wrapper around `arrow::bit_util::BytesForBits` for the
+  /// `num_elements * bit_width` rounding pattern used throughout the ALP
+  /// vector layout.
+  ///
   /// \param[in] num_elements number of elements in this vector
   /// \param[in] bw bits per element
   /// \return the size in bytes of the bitpacked data
   static int64_t GetBitPackedSize(int32_t num_elements, uint8_t bw) {
-    return (static_cast<int64_t>(num_elements) * bw + 7) / 8;
+    return arrow::bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bw);
   }
 
   /// \brief Store the FOR metadata into an output buffer
