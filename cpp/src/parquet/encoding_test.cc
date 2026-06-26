@@ -2810,6 +2810,103 @@ TYPED_TEST(TestAlpEncoding, RandomData) {
                            arr->length() * sizeof(c_type)));
 }
 
+TYPED_TEST(TestAlpEncoding, ConstantValues) {
+  // All-same values should compress to bit_width=0.
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data(1024, static_cast<c_type>(123.456));
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), static_cast<int>(data.size()));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(data.size());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
+  ASSERT_EQ(decoded, static_cast<int>(data.size()));
+
+  for (size_t i = 0; i < data.size(); ++i) {
+    ASSERT_EQ(data[i], output[i]) << i;
+  }
+}
+
+TYPED_TEST(TestAlpEncoding, AllExceptions) {
+  // All-NaN forces every value through the ALP exception path.
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data(100, std::numeric_limits<c_type>::quiet_NaN());
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), static_cast<int>(data.size()));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(data.size());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
+  ASSERT_EQ(decoded, static_cast<int>(data.size()));
+
+  // Bit-exact: NaN != NaN under ==, so memcmp on the raw bytes is the
+  // contract being verified.
+  ASSERT_EQ(
+      0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
+}
+
+TYPED_TEST(TestAlpEncoding, SingleElement) {
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data = {static_cast<c_type>(42.5)};
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), 1);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(1, buffer->data(), static_cast<int>(buffer->size()));
+
+  c_type output;
+  int decoded = decoder->Decode(&output, 1);
+  ASSERT_EQ(1, decoded);
+  ASSERT_EQ(data[0], output);
+}
+
+TYPED_TEST(TestAlpEncoding, BoundaryValues) {
+  using c_type = typename TypeParam::c_type;
+  auto descr = ExampleDescr<TypeParam>();
+  std::vector<c_type> data = {
+      std::numeric_limits<c_type>::max(),
+      std::numeric_limits<c_type>::min(),
+      std::numeric_limits<c_type>::lowest(),
+      std::numeric_limits<c_type>::denorm_min(),
+      std::numeric_limits<c_type>::epsilon(),
+      static_cast<c_type>(0.0),
+      static_cast<c_type>(-0.0),
+      static_cast<c_type>(1.0),
+      static_cast<c_type>(-1.0),
+  };
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, descr.get());
+  encoder->Put(data.data(), static_cast<int>(data.size()));
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, descr.get());
+  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  std::vector<c_type> output(data.size());
+  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
+  ASSERT_EQ(decoded, static_cast<int>(data.size()));
+
+  // Bit-exact comparison (handles -0.0 / NaN signatures correctly).
+  ASSERT_EQ(
+      0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
+}
+
 TEST(AlpEncodingAdHoc, InvalidDataTypes) {
   // ALP only supports float and double
   ASSERT_THROW(MakeTypedEncoder<Int32Type>(Encoding::ALP), ParquetException);
@@ -2821,96 +2918,6 @@ TEST(AlpEncodingAdHoc, InvalidDataTypes) {
   ASSERT_THROW(MakeTypedDecoder<Int64Type>(Encoding::ALP), ParquetException);
   ASSERT_THROW(MakeTypedDecoder<BooleanType>(Encoding::ALP), ParquetException);
   ASSERT_THROW(MakeTypedDecoder<ByteArrayType>(Encoding::ALP), ParquetException);
-}
-
-TEST(AlpEncodingAdHoc, ConstantValues) {
-  // Test all same values (should compress to bit_width=0)
-  auto descr = ExampleDescr<DoubleType>();
-  std::vector<double> data(1024, 123.456);
-
-  auto encoder = MakeTypedEncoder<DoubleType>(Encoding::ALP, false, descr.get());
-  encoder->Put(data.data(), static_cast<int>(data.size()));
-  auto buffer = encoder->FlushValues();
-
-  auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
-  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
-                   static_cast<int>(buffer->size()));
-
-  std::vector<double> output(data.size());
-  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
-  ASSERT_EQ(decoded, static_cast<int>(data.size()));
-
-  for (size_t i = 0; i < data.size(); ++i) {
-    ASSERT_EQ(data[i], output[i]) << i;
-  }
-}
-
-TEST(AlpEncodingAdHoc, AllExceptions) {
-  // Test when all values are exceptions (NaN)
-  auto descr = ExampleDescr<FloatType>();
-  std::vector<float> data(100, std::numeric_limits<float>::quiet_NaN());
-
-  auto encoder = MakeTypedEncoder<FloatType>(Encoding::ALP, false, descr.get());
-  encoder->Put(data.data(), static_cast<int>(data.size()));
-  auto buffer = encoder->FlushValues();
-
-  auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP, descr.get());
-  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
-                   static_cast<int>(buffer->size()));
-
-  std::vector<float> output(data.size());
-  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
-  ASSERT_EQ(decoded, static_cast<int>(data.size()));
-
-  // Verify all NaN (bit-exact comparison)
-  ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(float)));
-}
-
-TEST(AlpEncodingAdHoc, SingleElement) {
-  auto descr = ExampleDescr<DoubleType>();
-  std::vector<double> data = {42.5};
-
-  auto encoder = MakeTypedEncoder<DoubleType>(Encoding::ALP, false, descr.get());
-  encoder->Put(data.data(), 1);
-  auto buffer = encoder->FlushValues();
-
-  auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
-  decoder->SetData(1, buffer->data(), static_cast<int>(buffer->size()));
-
-  double output;
-  int decoded = decoder->Decode(&output, 1);
-  ASSERT_EQ(1, decoded);
-  ASSERT_EQ(data[0], output);
-}
-
-TEST(AlpEncodingAdHoc, BoundaryValues) {
-  auto descr = ExampleDescr<DoubleType>();
-  std::vector<double> data = {
-      std::numeric_limits<double>::max(),
-      std::numeric_limits<double>::min(),
-      std::numeric_limits<double>::lowest(),
-      std::numeric_limits<double>::denorm_min(),
-      std::numeric_limits<double>::epsilon(),
-      0.0,
-      -0.0,
-      1.0,
-      -1.0,
-  };
-
-  auto encoder = MakeTypedEncoder<DoubleType>(Encoding::ALP, false, descr.get());
-  encoder->Put(data.data(), static_cast<int>(data.size()));
-  auto buffer = encoder->FlushValues();
-
-  auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
-  decoder->SetData(static_cast<int>(data.size()), buffer->data(),
-                   static_cast<int>(buffer->size()));
-
-  std::vector<double> output(data.size());
-  int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
-  ASSERT_EQ(decoded, static_cast<int>(data.size()));
-
-  // Bit-exact comparison
-  ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(double)));
 }
 
 // Encode with AlpCodec at non-default vector sizes (64, 512, 2048, 4096),
