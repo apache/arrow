@@ -2327,6 +2327,10 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
 // ----------------------------------------------------------------------
 // PFOR Decoder
 
+// TODO: support incremental decode. Partial reads currently decode the
+// entire page into `decoded_values_` on first call and copy out the
+// requested range; a future revision should decode only the requested
+// values, with state tracking for cross-call resumption.
 template <typename DType>
 class PforDecoder : public TypedDecoderImpl<DType> {
  public:
