@@ -216,46 +216,61 @@ TEST_F(AlpCompressionDoubleTest, VerySmallValues) {
 // Integration Tests
 // ============================================================================
 
-TEST(AlpIntegrationTest, LargeFloatDataset) {
-  std::mt19937 rng(12345);
-  std::uniform_real_distribution<float> dist(-1000.0f, 1000.0f);
+// Cover both float and double so we don't drift apart between the two
+// instantiations, and exercise a wide range plus a few extreme values so the
+// test stresses the ALP-encodable / exception fallback boundary, not just the
+// happy path.
+template <typename T>
+class AlpIntegrationTest : public ::testing::Test {};
 
-  std::vector<float> input(1024);
+using IntegrationTestTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(AlpIntegrationTest, IntegrationTestTypes);
+
+TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
+  std::mt19937 rng(12345);
+
+  // Wide uniform spread: 10^-20 .. 10^20. ALP's encoder formula is
+  // `int64(v * 10^e * 10^-f)`, so values outside the range where that fits
+  // in int64 must fall through to the exception path. Lossless recovery
+  // here is exactly the contract being tested.
+  std::uniform_real_distribution<TypeParam> dist(
+      static_cast<TypeParam>(-1e20), static_cast<TypeParam>(1e20));
+
+  std::vector<TypeParam> input(1024);
   for (auto& v : input) {
     v = dist(rng);
   }
 
-  AlpCompression<float> compressor;
+  // Sprinkle in extreme/boundary values that the uniform RNG won't generate.
+  // These should round-trip via the exception path.
+  const std::array<TypeParam, 10> extremes = {
+      std::numeric_limits<TypeParam>::lowest(),
+      std::numeric_limits<TypeParam>::max(),
+      std::numeric_limits<TypeParam>::min(),       // smallest normal
+      std::numeric_limits<TypeParam>::denorm_min(),  // smallest subnormal
+      static_cast<TypeParam>(0.0),
+      static_cast<TypeParam>(-0.0),
+      static_cast<TypeParam>(1e-30),
+      static_cast<TypeParam>(-1e30),
+      static_cast<TypeParam>(1.234567890123456789),
+      static_cast<TypeParam>(0.1) + static_cast<TypeParam>(0.2),  // classic float trap
+  };
+  for (size_t i = 0; i < extremes.size(); ++i) {
+    input[i * 64] = extremes[i];
+  }
+
+  AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), input.size(), preset);
 
-  std::vector<float> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
+  std::vector<TypeParam> output(input.size());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack,
+                              output.data());
 
-  for (size_t i = 0; i < input.size(); ++i) {
-    EXPECT_FLOAT_EQ(output[i], input[i]);
-  }
-}
-
-TEST(AlpIntegrationTest, LargeDoubleDataset) {
-  std::mt19937 rng(12345);
-  std::uniform_real_distribution<double> dist(-1000.0, 1000.0);
-
-  std::vector<double> input(1024);
-  for (auto& v : input) {
-    v = dist(rng);
-  }
-
-  AlpCompression<double> compressor;
-  AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
-
-  std::vector<double> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
-
-  for (size_t i = 0; i < input.size(); ++i) {
-    EXPECT_DOUBLE_EQ(output[i], input[i]);
-  }
+  // Bit-exact: lossless contract holds for everything, including the
+  // extremes that went through the exception path.
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
 // ============================================================================
@@ -1253,7 +1268,9 @@ TEST(AlpRobustnessTest, TruncatedHeader) {
 }
 
 TEST(AlpRobustnessTest, TruncatedData) {
-  // Create valid compressed data, then corrupt the num_elements to cause issues
+  // Encode a valid buffer, then verify that decoding from a buffer truncated
+  // below the full compressed size returns a non-OK status (not a crash or
+  // silent partial decode).
   std::vector<double> input(1024);
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<double>(i) * 0.123;
@@ -1266,13 +1283,24 @@ TEST(AlpRobustnessTest, TruncatedData) {
 
   AlpCodec<double>::Encode(input.data(), num_elements, buffer.data(), &comp_size);
 
-  // Verify that valid data decodes successfully.
+  // Sanity: full buffer round-trips.
   std::vector<double> output(input.size());
   ASSERT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()), buffer.data(),
-                                    comp_size, output.data()));
+                                     comp_size, output.data()));
+  ASSERT_TRUE(IsBitwiseEqual(output, input));
 
-  // Verify successful decode
-  EXPECT_TRUE(IsBitwiseEqual(output, input));
+  // Truncate to just below the compressed size and expect a decode error.
+  // We try several truncation points to exercise different decode-state
+  // boundaries (header, offset table, vector body).
+  for (int64_t truncated_size : {int64_t{0}, int64_t{3}, comp_size / 4,
+                                  comp_size / 2, comp_size - 1}) {
+    if (truncated_size >= comp_size) continue;
+    SCOPED_TRACE("truncated_size=" + std::to_string(truncated_size));
+    std::fill(output.begin(), output.end(), 0.0);
+    EXPECT_NOT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()),
+                                           buffer.data(), truncated_size,
+                                           output.data()));
+  }
 }
 
 // ============================================================================
