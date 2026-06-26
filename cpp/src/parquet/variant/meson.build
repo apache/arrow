@@ -28,4 +28,7 @@ exc = executable(
 )
 test('parquet-variant-test', exc)
 
-install_headers(['builder.h', 'encoding.h', 'validate.h'], subdir: 'parquet/variant')
+install_headers(
+    ['builder.h', 'encoding.h', 'validate.h'],
+    subdir: 'parquet/variant',
+)
