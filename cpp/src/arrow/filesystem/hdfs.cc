@@ -916,3 +916,5 @@ Status HaveLibHdfs() {
 
 }  // namespace fs
 }  // namespace arrow
+
+#undef CHECK_FAILURE
