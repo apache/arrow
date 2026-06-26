@@ -17,12 +17,11 @@
 
 // Core PFOR (Patched Frame of Reference) compression implementation
 //
-// Adapted from the Snowflake PFOR encoder (PforEncoder.{hpp,cpp}).
-// Key differences from the Snowflake implementation:
-//   - Vector size: 1024 (not 2048)
-//   - Max exceptions: int16 (not uint8)
+// Implementation notes:
+//   - Vector size: 1024
+//   - Max exceptions: int16
 //   - Exception values: original integers (not FOR offsets)
-//   - Bit packing: Arrow's BitWriter/unpack (not Snowflake's BitPacker)
+//   - Bit packing: Arrow's BitWriter/unpack
 
 #include "arrow/util/pfor/pfor.h"
 
