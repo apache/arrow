@@ -17,8 +17,8 @@
 
 // PFOR encoding/decoding benchmarks.
 //
-// Data distributions are inspired by Snowflake's NumericComprBenchmark.cpp,
-// covering the key archetypes that exercise PFOR's cost model differently:
+// Data distributions cover the key archetypes that exercise PFOR's cost model
+// differently:
 //   - Constant: bit_width=0, best case
 //   - Sequential: small range, ideal FOR
 //   - SmallRange: clustered random, good FOR compression
