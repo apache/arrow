@@ -171,7 +171,7 @@ void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<uint8_t> output_buffer
 
   // Compute bit_packed_size from num_elements and bit_width
   const int64_t bit_packed_size =
-      AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements_, for_info_.bit_width());
+      bit_util::BytesForBits(int64_t{num_elements_} * for_info_.bit_width());
 
   // Store all successfully compressed values first.
   std::memcpy(output_buffer.data() + offset, packed_values_.data(), bit_packed_size);
@@ -232,7 +232,7 @@ Result<AlpEncodedVector<T>> AlpEncodedVector<T>::Load(
 
   // Compute bit_packed_size from num_elements and bit_width
   const int64_t bit_packed_size =
-      AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width());
+      bit_util::BytesForBits(int64_t{num_elements} * for_info.bit_width());
 
   // TODO: resize() zero-initializes before memcpy overwrites. Consider
   // using uninitialized storage if this shows up in decode-path profiling.
@@ -265,7 +265,7 @@ int64_t AlpEncodedVector<T>::GetStoredSize(const AlpEncodedVectorInfo& alp_info,
                                            const AlpEncodedForVectorInfo<T>& for_info,
                                            int32_t num_elements) {
   const int64_t bit_packed_size =
-      AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width());
+      bit_util::BytesForBits(int64_t{num_elements} * for_info.bit_width());
   return AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize +
          bit_packed_size +
          alp_info.num_exceptions() * (sizeof(AlpConstants::PositionType) + sizeof(T));
@@ -373,7 +373,7 @@ Result<AlpEncodedVectorView<T>> AlpEncodedVectorView<T>::LoadViewDataOnly(
 
   // Compute bit_packed_size from num_elements and bit_width
   const int64_t bit_packed_size =
-      AlpEncodedForVectorInfo<T>::GetBitPackedSize(num_elements, for_info.bit_width());
+      bit_util::BytesForBits(int64_t{num_elements} * for_info.bit_width());
 
   // Zero-copy for packed values (bytes have no alignment requirements)
   result.set_packed_values(
