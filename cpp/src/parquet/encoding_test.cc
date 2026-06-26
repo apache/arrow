@@ -2782,12 +2782,15 @@ TYPED_TEST(TestAlpEncoding, RandomData) {
   using c_type = typename TypeParam::c_type;
   ::arrow::random::RandomArrayGenerator rag(42);
 
-  // Generate random float/double array
+  // Spread the magnitude so values land on both sides of the ALP encodable
+  // window (`int64(v * 10^e * 10^-f)` overflows for large magnitudes and
+  // falls through to the exception path). The previous ±1000 range stayed
+  // entirely in encodable territory and never exercised the fallback.
   std::shared_ptr<::arrow::Array> arr;
   if constexpr (std::is_same_v<c_type, float>) {
-    arr = rag.Float32(10000, -1000.0f, 1000.0f);
+    arr = rag.Float32(10000, -1e30f, 1e30f);
   } else {
-    arr = rag.Float64(10000, -1000.0, 1000.0);
+    arr = rag.Float64(10000, -1e30, 1e30);
   }
 
   auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
