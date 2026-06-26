@@ -48,7 +48,7 @@ std::ostream& operator<<(std::ostream& out, const Type::type& val);
 std::string to_string(const Type::type& val);
 
 /**
- * DEPRECATED: Common types used by frameworks(e.g. hive, pig) using parquet.
+ * DEPRECATED: Common types used by frameworks (e.g. Hive, Pig) using parquet.
  * ConvertedType is superseded by LogicalType.  This enum should not be extended.
  * 
  * See LogicalTypes.md for conversion between ConvertedType and LogicalType.
@@ -250,10 +250,10 @@ struct Encoding {
      */
     PLAIN = 0,
     /**
-     * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
+     * DEPRECATED: Dictionary encoding. The values in the dictionary are encoded in the
      * plain type.
-     * in a data page use RLE_DICTIONARY instead.
-     * in a Dictionary page use PLAIN instead
+     * For a data page use RLE_DICTIONARY instead.
+     * For a Dictionary page use PLAIN instead.
      */
     PLAIN_DICTIONARY = 2,
     /**
@@ -262,8 +262,9 @@ struct Encoding {
      */
     RLE = 3,
     /**
-     * Bit packed encoding.  This can only be used if the data has a known max
+     * DEPRECATED: Bit packed encoding.  This can only be used if the data has a known max
      * width.  Usable for definition/repetition levels encoding.
+     * Superseded by RLE (which is a hybrid of RLE and bit packing); see Encodings.md.
      */
     BIT_PACKED = 4,
     /**
@@ -464,6 +465,8 @@ class ColumnChunk;
 class RowGroup;
 
 class TypeDefinedOrder;
+
+class IEEE754TotalOrder;
 
 class ColumnOrder;
 
@@ -695,7 +698,7 @@ void swap(GeospatialStatistics &a, GeospatialStatistics &b);
 std::ostream& operator<<(std::ostream& out, const GeospatialStatistics& obj);
 
 typedef struct _Statistics__isset {
-  _Statistics__isset() : max(false), min(false), null_count(false), distinct_count(false), max_value(false), min_value(false), is_max_value_exact(false), is_min_value_exact(false) {}
+  _Statistics__isset() : max(false), min(false), null_count(false), distinct_count(false), max_value(false), min_value(false), is_max_value_exact(false), is_min_value_exact(false), nan_count(false) {}
   bool max :1;
   bool min :1;
   bool null_count :1;
@@ -704,6 +707,7 @@ typedef struct _Statistics__isset {
   bool min_value :1;
   bool is_max_value_exact :1;
   bool is_min_value_exact :1;
+  bool nan_count :1;
 } _Statistics__isset;
 
 /**
@@ -770,6 +774,13 @@ class Statistics {
    * If true, min_value is the actual minimum value for a column
    */
   bool is_min_value_exact;
+  /**
+   * Count of NaN values in the column; only present if physical type is FLOAT
+   * or DOUBLE, or logical type is FLOAT16.
+   * If this field is not present, readers MUST assume NaNs may be present
+   * (i.e. MUST assume nan_count > 0 and MAY NOT assume nan_count == 0).
+   */
+  int64_t nan_count;
 
   _Statistics__isset __isset;
 
@@ -788,6 +799,8 @@ class Statistics {
   void __set_is_max_value_exact(const bool val);
 
   void __set_is_min_value_exact(const bool val);
+
+  void __set_nan_count(const int64_t val);
 
   bool operator == (const Statistics & rhs) const;
   bool operator != (const Statistics &rhs) const {
@@ -1509,7 +1522,7 @@ typedef struct _GeometryType__isset {
 /**
  * Embedded Geometry logical type annotation
  * 
- * Geospatial features in the Well-Known Binary (WKB) format and edges interpolation
+ * Geospatial features in the Well-Known Binary (WKB) format and `edges` interpolation
  * is always linear/planar.
  * 
  * A custom CRS can be set by the crs field. If unset, it defaults to "OGC:CRS84",
@@ -1565,13 +1578,13 @@ typedef struct _GeographyType__isset {
  * Embedded Geography logical type annotation
  * 
  * Geospatial features in the WKB format with an explicit (non-linear/non-planar)
- * edges interpolation algorithm.
+ * `edges` interpolation algorithm.
  * 
  * A custom geographic CRS can be set by the crs field, where longitudes are
  * bound by [-180, 180] and latitudes are bound by [-90, 90]. If unset, the CRS
  * defaults to "OGC:CRS84".
  * 
- * An optional algorithm can be set to correctly interpret edges interpolation
+ * An optional algorithm can be set to correctly interpret `edges` interpolation
  * of the geometries. If unset, the algorithm defaults to SPHERICAL.
  * 
  * Allowed for physical type: BYTE_ARRAY.
@@ -1745,7 +1758,7 @@ typedef struct _SchemaElement__isset {
 } _SchemaElement__isset;
 
 /**
- * Represents a element inside a schema definition.
+ * Represents an element inside a schema definition.
  *  - if it is a group (inner node) then type is undefined and num_children is defined
  *  - if it is a primitive type (leaf) then type is defined and num_children is undefined
  * the nodes are listed in depth first traversal order.
@@ -1883,7 +1896,7 @@ class DataPageHeader {
   /**
    * Number of values, including NULLs, in this data page.
    * 
-   * If a OffsetIndex is present, a page must begin at a row
+   * If an OffsetIndex is present, a page must begin at a row
    * boundary (repetition_level = 0). Otherwise, pages may begin
    * within a row (repetition_level > 0).
    * 
@@ -2044,9 +2057,14 @@ typedef struct _DataPageHeaderV2__isset {
 } _DataPageHeaderV2__isset;
 
 /**
- * New page format allowing reading levels without decompressing the data
+ * Alternate page format allowing reading levels without decompressing the data
  * Repetition and definition levels are uncompressed
  * The remaining section containing the data is compressed if is_compressed is true
+ * 
+ * Implementation note - this header is not necessarily a strict improvement over
+ * `DataPageHeader` (in particular the original header might provide better compression
+ * in some scenarios). Page indexes require pages to start and end at row boundaries,
+ * regardless of which page header is used.
  * 
  */
 class DataPageHeaderV2 {
@@ -2092,7 +2110,7 @@ class DataPageHeaderV2 {
   /**
    * Whether the values are compressed.
    * Which means the section of the page between
-   * definition_levels_byte_length + repetition_levels_byte_length + 1 and compressed_page_size (included)
+   * definition_levels_byte_length + repetition_levels_byte_length and compressed_page_size (included)
    * is compressed with the compression_codec.
    * If missing it is considered compressed
    */
@@ -2472,10 +2490,10 @@ class PageHeader {
    */
   int32_t compressed_page_size;
   /**
-   * The 32-bit CRC checksum for the page, to be be calculated as follows:
+   * The 32-bit CRC checksum for the page, to be calculated as follows:
    * 
    * - The standard CRC32 algorithm is used (with polynomial 0x04C11DB7,
-   *   the same as in e.g. GZip).
+   *   the same as in e.g. GZIP).
    * - All page types can have a CRC (v1 and v2 data pages, dictionary pages,
    *   etc.).
    * - The CRC is computed on the serialization binary representation of the page
@@ -3002,10 +3020,25 @@ class ColumnChunk {
    * File where column data is stored.  If not set, assumed to be same file as
    * metadata.  This path is relative to the current file.
    * 
+   * As of December 2025, the only known use-case for this field is writing summary
+   * parquet files (i.e. "_metadata" files).  These files consolidate footers from
+   * multiple parquet files to allow for efficient reading of footers to avoid file
+   * listing costs and prune out files that do not need to be read based on statistics.
+   * 
+   * These files do not appear to have ever been formally specified in the specification.
+   * and are potentially problematic from a correctness perspective [1].
+   * 
+   * [1] https://lists.apache.org/thread/ootf2kmyg3p01b1bvplpvp4ftd1bt72d
+   * 
+   * There is no other known usage of this field. Specifically, there are no known
+   * reference implementations that will read externally stored column data if this field is populated
+   * within a standard parquet file. Making use of the field for this purpose is
+   * not considered part of the Parquet specification.
+   * 
    */
   std::string file_path;
   /**
-   * Deprecated: Byte offset in file_path to the ColumnMetaData
+   * DEPRECATED: Byte offset in file_path to the ColumnMetaData
    * 
    * Past use of this field has been inconsistent, with some implementations
    * using it to point to the ColumnMetaData and some using it to point to
@@ -3208,9 +3241,44 @@ void swap(TypeDefinedOrder &a, TypeDefinedOrder &b);
 
 std::ostream& operator<<(std::ostream& out, const TypeDefinedOrder& obj);
 
+
+/**
+ * Empty struct to signal IEEE 754 total order for floating point types
+ */
+class IEEE754TotalOrder {
+ public:
+
+  IEEE754TotalOrder(const IEEE754TotalOrder&) noexcept;
+  IEEE754TotalOrder(IEEE754TotalOrder&&) noexcept;
+  IEEE754TotalOrder& operator=(const IEEE754TotalOrder&) noexcept;
+  IEEE754TotalOrder& operator=(IEEE754TotalOrder&&) noexcept;
+  IEEE754TotalOrder() noexcept;
+
+  virtual ~IEEE754TotalOrder() noexcept;
+
+  bool operator == (const IEEE754TotalOrder & /* rhs */) const;
+  bool operator != (const IEEE754TotalOrder &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const IEEE754TotalOrder & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(IEEE754TotalOrder &a, IEEE754TotalOrder &b);
+
+std::ostream& operator<<(std::ostream& out, const IEEE754TotalOrder& obj);
+
 typedef struct _ColumnOrder__isset {
-  _ColumnOrder__isset() : TYPE_ORDER(false) {}
+  _ColumnOrder__isset() : TYPE_ORDER(false), IEEE_754_TOTAL_ORDER(false) {}
   bool TYPE_ORDER :1;
+  bool IEEE_754_TOTAL_ORDER :1;
 } _ColumnOrder__isset;
 
 /**
@@ -3221,6 +3289,7 @@ typedef struct _ColumnOrder__isset {
  * Possible values are:
  * * TypeDefinedOrder - the column uses the order defined by its logical or
  *                      physical type (if there is no logical type).
+ * * IEEE754TotalOrder - the floating point column uses IEEE 754 total order.
  * 
  * If the reader does not support the value of this union, min and max stats
  * for this column should be ignored.
@@ -3248,6 +3317,7 @@ class ColumnOrder {
    *   UINT64 - unsigned comparison
    *   DECIMAL - signed comparison of the represented value
    *   DATE - signed comparison
+   *   FLOAT16 - signed comparison of the represented value (*)
    *   TIME_MILLIS - signed comparison
    *   TIME_MICROS - signed comparison
    *   TIMESTAMP_MILLIS - signed comparison
@@ -3266,33 +3336,72 @@ class ColumnOrder {
    *   BOOLEAN - false, true
    *   INT32 - signed comparison
    *   INT64 - signed comparison
-   *   INT96 (only used for legacy timestamps) - undefined
+   *   INT96 (only used for legacy timestamps) - undefined(+)
    *   FLOAT - signed comparison of the represented value (*)
    *   DOUBLE - signed comparison of the represented value (*)
    *   BYTE_ARRAY - unsigned byte-wise comparison
    *   FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
    * 
-   * (*) Because the sorting order is not specified properly for floating
-   *     point values (relations vs. total ordering) the following
+   * (+) While the INT96 type has been deprecated, at the time of writing it is
+   *    still used in many legacy systems. If a Parquet implementation chooses
+   *    to write statistics for INT96 columns, it is recommended to order them
+   *    according to the legacy rules:
+   *    - compare the last 4 bytes (days) as a little-endian 32-bit signed integer
+   *    - if equal last 4 bytes, compare the first 8 bytes as a little-endian
+   *      64-bit signed integer (nanos)
+   *    See https://github.com/apache/parquet-format/issues/502 for more details
+   * 
+   * (*) Because TYPE_ORDER is ambiguous for floating point types due to
+   *     underspecified handling of NaN and -0/+0, it is recommended that writers
+   *     use IEEE_754_TOTAL_ORDER for these types.
+   * 
+   *     If TYPE_ORDER is used for floating point types, then the following
    *     compatibility rules should be applied when reading statistics:
    *     - If the min is a NaN, it should be ignored.
    *     - If the max is a NaN, it should be ignored.
+   *     - If the nan_count field is set, a reader can compute
+   *       nan_count + null_count == num_values to deduce whether all non-null
+   *       values are NaN.
    *     - If the min is +0, the row group may contain -0 values as well.
    *     - If the max is -0, the row group may contain +0 values as well.
    *     - When looking for NaN values, min and max should be ignored.
+   *       If the nan_count field is set, it can be used to check whether
+   *       NaNs are present.
    * 
-   *     When writing statistics the following rules should be followed:
-   *     - NaNs should not be written to min or max statistics fields.
+   *     When writing page or column chunk statistics for columns with
+   *     TYPE_ORDER order, the following rules must be followed:
+   *     - The nan_count field must be set for floating point types, even if
+   *       it is zero.
+   *     - If the nan_count field is set, min and max statistics fields, when
+   *       present, must not contain NaN values and must be computed from
+   *       non-NaN values only. This signals to readers that the min and max
+   *       statistics are reliable for non-NaN values.
+   *     - If all non-null values are NaN, min and max statistics must not be
+   *       written.
    *     - If the computed max value is zero (whether negative or positive),
    *       `+0.0` should be written into the max statistics field.
    *     - If the computed min value is zero (whether negative or positive),
    *       `-0.0` should be written into the min statistics field.
+   * 
+   *     When writing column indexes for columns with TYPE_ORDER order, the
+   *     following rules must be followed:
+   *     - NaNs must not be written to min_values or max_values.
+   *     - If all non-null values of a page are NaN, a column index must not
+   *       be written for this column chunk because min_values and max_values
+   *       are required.
+   *     - If the computed max value is zero (whether negative or positive),
+   *       `+0.0` should be written into the corresponding max_values entry.
+   *     - If the computed min value is zero (whether negative or positive),
+   *       `-0.0` should be written into the corresponding min_values entry.
    */
   TypeDefinedOrder TYPE_ORDER;
+  IEEE754TotalOrder IEEE_754_TOTAL_ORDER;
 
   _ColumnOrder__isset __isset;
 
   void __set_TYPE_ORDER(const TypeDefinedOrder& val);
+
+  void __set_IEEE_754_TOTAL_ORDER(const IEEE754TotalOrder& val);
 
   bool operator == (const ColumnOrder & rhs) const;
   bool operator != (const ColumnOrder &rhs) const {
@@ -3329,8 +3438,8 @@ class PageLocation {
    */
   int64_t offset;
   /**
-   * Size of the page, including header. Sum of compressed_page_size and header
-   * length
+   * Size of the page, including header. Equal to the sum of the page's
+   * PageHeader.compressed_page_size and the size of the serialized PageHeader.
    */
   int32_t compressed_page_size;
   /**
@@ -3395,7 +3504,7 @@ class OffsetIndex {
   /**
    * Unencoded/uncompressed size for BYTE_ARRAY types.
    * 
-   * See documention for unencoded_byte_array_data_bytes in SizeStatistics for
+   * See documentation for unencoded_byte_array_data_bytes in SizeStatistics for
    * more details on this field.
    */
   std::vector<int64_t>  unencoded_byte_array_data_bytes;
@@ -3426,10 +3535,11 @@ void swap(OffsetIndex &a, OffsetIndex &b);
 std::ostream& operator<<(std::ostream& out, const OffsetIndex& obj);
 
 typedef struct _ColumnIndex__isset {
-  _ColumnIndex__isset() : null_counts(false), repetition_level_histograms(false), definition_level_histograms(false) {}
+  _ColumnIndex__isset() : null_counts(false), repetition_level_histograms(false), definition_level_histograms(false), nan_counts(false) {}
   bool null_counts :1;
   bool repetition_level_histograms :1;
   bool definition_level_histograms :1;
+  bool nan_counts :1;
 } _ColumnIndex__isset;
 
 /**
@@ -3464,11 +3574,23 @@ class ColumnIndex {
    * Two lists containing lower and upper bounds for the values of each page
    * determined by the ColumnOrder of the column. These may be the actual
    * minimum and maximum values found on a page, but can also be (more compact)
-   * values that do not exist on a page. For example, instead of storing ""Blart
+   * values that do not exist on a page. For example, instead of storing "Blart
    * Versenwald III", a writer may set min_values[i]="B", max_values[i]="C".
    * Such more compact values must still be valid values within the column's
    * logical type. Readers must make sure that list entries are populated before
    * using them by inspecting null_pages.
+   * 
+   * For columns of physical type FLOAT or DOUBLE, or logical type FLOAT16,
+   * NaN values are not to be included in these bounds. If all non-null values
+   * of a page are NaN, then a writer must do the following:
+   * - If the order of this column is TYPE_ORDER, then a column index must
+   *   not be written for this column chunk. While this is unfortunate for
+   *   performance, it is necessary to avoid conflict with legacy files that
+   *   still included NaN in min_values and max_values even if the page had
+   *   non-NaN values. To mitigate this, IEEE754_TOTAL_ORDER is recommended.
+   * - If the order of this column is IEEE754_TOTAL_ORDER, then min_values[i]
+   *   and max_values[i] of that page must be set to the smallest and largest
+   *   NaN values as defined by IEEE 754 total order.
    */
   std::vector<std::string>  min_values;
   std::vector<std::string>  max_values;
@@ -3511,6 +3633,13 @@ class ColumnIndex {
    * 
    */
   std::vector<int64_t>  definition_level_histograms;
+  /**
+   * A list containing the number of NaN values for each page. Only present
+   * for columns of physical type FLOAT or DOUBLE, or logical type FLOAT16.
+   * If this field is not present, readers MUST assume that there might be
+   * NaN values in any page.
+   */
+  std::vector<int64_t>  nan_counts;
 
   _ColumnIndex__isset __isset;
 
@@ -3527,6 +3656,8 @@ class ColumnIndex {
   void __set_repetition_level_histograms(const std::vector<int64_t> & val);
 
   void __set_definition_level_histograms(const std::vector<int64_t> & val);
+
+  void __set_nan_counts(const std::vector<int64_t> & val);
 
   bool operator == (const ColumnIndex & rhs) const;
   bool operator != (const ColumnIndex &rhs) const {
@@ -3730,7 +3861,13 @@ class FileMetaData {
 
   virtual ~FileMetaData() noexcept;
   /**
-   * Version of this file *
+   * Version of this file
+   * 
+   * As of December 2025, there is no agreed upon consensus of what constitutes
+   * version 2 of the file. For maximum compatibility with readers, writers should
+   * always populate "1" for version. For maximum compatibility with writers,
+   * readers should accept "1" and "2" interchangeably.  All other versions are
+   * reserved for potential future use-cases.
    */
   int32_t version;
   /**
@@ -3765,7 +3902,7 @@ class FileMetaData {
    * Sort order used for the min_value and max_value fields in the Statistics
    * objects and the min_values and max_values fields in the ColumnIndex
    * objects of each column in this file. Sort orders are listed in the order
-   * matching the columns in the schema. The indexes are not necessary the same
+   * matching the columns in the schema. The indexes are not necessarily the same
    * though, because only leaf nodes of the schema are represented in the list
    * of sort orders.
    * 
