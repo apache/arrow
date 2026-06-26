@@ -1767,6 +1767,12 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 // ----------------------------------------------------------------------
 // PFOR Encoder
 
+// TODO: support incremental encoding. Today `Put` only appends raw input
+// to `values_`, and `FlushValues` runs the entire PFOR pipeline on the
+// whole buffer in one shot. A future revision should encode complete
+// vectors as `Put` calls fill them, holding only a partial-vector tail
+// across calls, so the encoder can produce output progressively and use
+// bounded memory.
 template <typename DType>
 class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:

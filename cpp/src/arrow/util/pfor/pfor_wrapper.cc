@@ -94,10 +94,10 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
   ARROW_DCHECK(num_values > 0);
   ARROW_DCHECK(comp != nullptr);
   ARROW_DCHECK(comp_size != nullptr);
-  ARROW_DCHECK((vector_size & (vector_size - 1)) == 0);
+  ARROW_DCHECK(bit_util::IsPowerOf2(vector_size));
 
   const int32_t num_vectors =
-      (num_values + vector_size - 1) / vector_size;
+      static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
 
   // Compute log2(vector_size)
   uint8_t log_vector_size = 0;
@@ -173,7 +173,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
 
   const int32_t vector_size = 1 << header.log_vector_size;
   const int32_t num_vectors =
-      (header.num_elements + vector_size - 1) / vector_size;
+      static_cast<int32_t>(bit_util::CeilDiv(header.num_elements, vector_size));
 
   // Step 2: Read offset array
   const uint8_t* offset_array_start = src + PforConstants::kHeaderSize;
@@ -204,7 +204,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
 template <typename T>
 int64_t PforWrapper<T>::GetMaxCompressedSize(int32_t num_values, int32_t vector_size) {
   const int32_t num_vectors =
-      (num_values + vector_size - 1) / vector_size;
+      static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
 
   // Header + offset array
   int64_t size = PforConstants::kHeaderSize +
