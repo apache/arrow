@@ -519,9 +519,10 @@ test_and_install_cpp() {
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
-  # Expose conda's lib on the *fallback* path so the LLVM tools (llvm-link,
-  # llvm-ranlib) find libLLVM.*.dylib on flaky @rpath miss on macOS. (Fallback is searched last,
-  # so it doesn't shadow system libs like libiconv during the build or leak into tests.)
+  # On macOS, conda package-cache binaries intermittently fail to load their @rpath
+  # dependencies even though the libs are present. Add the env lib dir to the fallback
+  # path (searched last, to not override system libs) so they resolve.
+  # See https://github.com/conda-forge/cmake-feedstock/issues/230
   if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
     DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib:${DYLD_FALLBACK_LIBRARY_PATH:-/usr/local/lib:/usr/lib}" cmake --build . --target install
   else
