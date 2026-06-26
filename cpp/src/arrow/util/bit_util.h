@@ -191,7 +191,7 @@ struct CopyBitsParams {
 ///
 /// Copy bits [start, end[ from src into the position [start, end[ in dst
 /// and return the result (inputs are unmodified).
-/// Setting ``kAllowFullCopy`` to false is an optimization when the caller can
+/// Setting `kAllowFullCopy` to false is an optimization when the caller can
 /// guarantee that the range of bits to copy does not cover the whole range.
 template <typename Uint, bool kAllowFullCopy = true>
 [[nodiscard]] constexpr Uint CopyBitsInInteger(const CopyBitsParams<Uint>& params) {
