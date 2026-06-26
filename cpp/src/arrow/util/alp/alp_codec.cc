@@ -319,7 +319,7 @@ int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
 template <typename T>
 typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
     const T* input, int64_t element_count, uint8_t* output,
-    int64_t output_size, const AlpEncodingParameters& combinations,
+    int64_t output_size, const AlpEncodingParameters& preset,
     int32_t vector_size) {
   // OFFSET-BASED LAYOUT
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
@@ -346,12 +346,12 @@ typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
     const int64_t elements_to_encode =
         std::min(vs, remaining_elements);
     encoded_vectors.push_back(AlpCompression<T>::CompressVector(
-        input + input_offset, static_cast<uint16_t>(elements_to_encode), combinations));
+        input + input_offset, static_cast<uint16_t>(elements_to_encode), preset));
     input_offset += elements_to_encode;
   }
 
   // Phase 2: Calculate sizes and offsets
-  const AlpIntegerEncoding integer_encoding = combinations.integer_encoding;
+  const AlpIntegerEncoding integer_encoding = preset.integer_encoding;
   const int64_t per_vector_metadata_size =
       AlpEncodedVectorInfo::kStoredSize + GetIntegerEncodingMetadataSize<T>(integer_encoding);
 
