@@ -788,7 +788,7 @@ struct ResolvedTableSortKey {
         chunks.push_back(GetPhysicalArray(*child, physical_type));
       }
 
-      return ResolvedTableSortKey(std::move(physical_type), std::move(chunks), f.order,
+      return ResolvedTableSortKey(physical_type, std::move(chunks), f.order,
                                   f.null_placement, null_count);
     };
 
