@@ -126,8 +126,28 @@ control various settings when writing a Parquet file.
   enable more Parquet types and encodings.
 * ``data_page_size``, to control the approximate size of encoded data
   pages within a column chunk. This currently defaults to 1MB.
+* ``max_rows_per_page``, to cap the number of rows per data page within
+  a column chunk (default 20000). Smaller values reduce memory usage
+  during reads at the cost of more page metadata.
 * ``flavor``, to set compatibility options particular to a Parquet
   consumer like ``'spark'`` for Apache Spark.
+* ``store_decimal_as_integer``, to store decimals with precision 1–18
+  as ``int32`` or ``int64`` instead of ``fixed_len_byte_array``.
+  This produces more compact files but may not be supported by all readers.
+* ``write_time_adjusted_to_utc``, to mark ``TIME`` columns as
+  adjusted to UTC (``isAdjustedToUTC=True``). When ``False`` (the default),
+  the time is treated as local/unknown timezone.
+* ``write_page_index``, to write statistics to the page index
+  instead of writing it to each data page header.
+  Note that PyArrow does not yet use the page index on the read side.
+* ``write_page_checksum``, to write a page checksum. Use with
+  ``page_checksum_verification=True`` on read to detect data corruption.
+* ``sorting_columns``, to record the sort order of the data in each
+  row group's metadata. The writer does not sort the data nor does it verify
+  that the data is sorted. Readers can use this metadata to optimize queries.
+
+  Sort order is expressed as a sequence of :class:`~pyarrow.parquet.SortingColumn`
+  objects.
 
 See the :func:`~pyarrow.parquet.write_table()` docstring for more details.
 
