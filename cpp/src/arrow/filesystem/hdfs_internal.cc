@@ -814,3 +814,5 @@ Result<std::shared_ptr<HdfsOutputStream>> HdfsOutputStream::Make(
 
 }  // namespace fs
 }  // namespace arrow
+
+#undef CHECK_FAILURE
