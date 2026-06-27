@@ -524,7 +524,7 @@ test_and_install_cpp() {
   # path (searched last, to not override system libs) so they resolve.
   # See https://github.com/conda-forge/cmake-feedstock/issues/230
   if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
-    DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib:${DYLD_FALLBACK_LIBRARY_PATH:-/usr/local/lib:/usr/lib}" cmake --build . --target install
+    DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib" cmake --build . --target install
   else
     cmake --build . --target install
   fi
