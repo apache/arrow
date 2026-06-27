@@ -75,6 +75,29 @@ jobs:
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "rc=${rc}" >> "${GITHUB_OUTPUT}"
 
+  python-pypi-quota:
+    name: PyPI quota
+    needs: target
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RC: ${{ needs.target.outputs.rc }}
+      VERSION: ${{ needs.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Check PyPI size quota
+        run: |
+          gh release view "apache-arrow-${VERSION}-rc${RC}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json assets \
+            --jq '[.assets[] | select(.name | test("^pyarrow-.*\\.(whl|tar\\.gz)$")) | {name, size}]' \
+          | ci/scripts/python_check_pypi_quota.py \
+              --assets-json - \
+              --project pyarrow
+
   apt:
     name: APT
     needs: target
