@@ -553,7 +553,7 @@ std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list opti
     azure_opts.dfs_storage_scheme =
         cpp11::as_cpp<std::string>(options["dfs_storage_scheme"]);
   }
-
+  // Validation of the different auth paths happens in the R code.
   if (!Rf_isNull(options["client_id"])) {
     if (Rf_isNull(options["tenant_id"]) && Rf_isNull(options["client_secret"])) {
       StopIfNotOk(azure_opts.ConfigureManagedIdentityCredential(
