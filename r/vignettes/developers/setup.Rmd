@@ -348,6 +348,8 @@ wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr '
 sudo apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
 sudo apt update
 sudo apt install -y -V libarrow-dev
+# Unset LD_LIBRARY_PATH to prevent loading mismatched system libarrow
+unset LD_LIBRARY_PATH
 ```
 
 ```{bash, save=run & !sys_install}
