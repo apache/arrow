@@ -575,7 +575,8 @@ std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list opti
   }
 
   if (!Rf_isNull(options["blob_storage_authority"])) {
-    azure_opts.blob_storage_authority = cpp11::as_cpp<std::string>(options["blob_storage_authority"]);
+    azure_opts.blob_storage_authority =
+        cpp11::as_cpp<std::string>(options["blob_storage_authority"]);
   }
   if (!Rf_isNull(options["dfs_storage_authority"])) {
     azure_opts.dfs_storage_authority =
@@ -604,7 +605,8 @@ std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list opti
     StopIfNotOk(azure_opts.ConfigureAccountKeyCredential(
         cpp11::as_cpp<std::string>(options["account_key"])));
   } else if (!Rf_isNull(options["sas_token"])) {
-    StopIfNotOk(azure_opts.ConfigureSASCredential(cpp11::as_cpp<std::string>(options["sas_token"])));
+    StopIfNotOk(azure_opts.ConfigureSASCredential(
+        cpp11::as_cpp<std::string>(options["sas_token"])));
   } else {
     StopIfNotOk(azure_opts.ConfigureDefaultCredential());
   }
