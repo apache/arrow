@@ -70,6 +70,14 @@ update_versions() {
   git add PKGBUILD
   popd
 
+  pushd "${ARROW_DIR}/ci/pixi"
+    sed -i.bak -E -e \
+    "s/^version = \"[0-9].*\"/version = \"${python_version}\"/" \
+    */*/pixi.toml
+  rm -f */*/pixi.toml.bak
+  git add */*/pixi.toml
+  popd
+
   pushd "${ARROW_DIR}/cpp"
   sed -i.bak -E -e \
     "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \

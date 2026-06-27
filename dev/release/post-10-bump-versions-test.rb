@@ -258,6 +258,34 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
+          path: "ci/pixi/asan/cpp/pixi.toml",
+          hunks: [
+            ["-version = \"#{@release_version}a0\"",
+             "+version = \"#{@next_version}a0\""],
+          ],
+        },
+        {
+          path: "ci/pixi/asan/python/pixi.toml",
+          hunks: [
+            ["-version = \"#{@release_version}a0\"",
+             "+version = \"#{@next_version}a0\""],
+          ],
+        },
+        {
+          path: "ci/pixi/default/cpp/pixi.toml",
+          hunks: [
+            ["-version = \"#{@release_version}a0\"",
+             "+version = \"#{@next_version}a0\""],
+          ],
+        },
+        {
+          path: "ci/pixi/default/python/pixi.toml",
+          hunks: [
+            ["-version = \"#{@release_version}a0\"",
+             "+version = \"#{@next_version}a0\""],
+          ],
+        },
+        {
           path: "python/pyproject.toml",
           hunks: [
             ["-fallback_version = '#{@release_version}a0'",
