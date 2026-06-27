@@ -2274,7 +2274,7 @@ class SortOptions(_SortOptions):
         The field name can be a string column name or expression.
     null_placement : str | None, default None
         Where nulls in input should be sorted, overwrites
-         `null_placement` in `sort_keys`.
+        `null_placement` in `sort_keys`.
         Accepted values are "at_start", "at_end".
     """
 
