@@ -748,7 +748,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
   const uint64_t for_info_size = AlpEncodedForVectorInfo<TypeParam>::kStoredSize;
   const uint64_t bit_packed_size = bit_util::BytesForBits(
-      int64_t{input.size()} * encoded.for_info().bit_width());
+      static_cast<int64_t>(input.size()) * encoded.for_info().bit_width());
   const uint64_t exception_pos_offset = alp_info_size + for_info_size + bit_packed_size;
 
   // Log alignment info for debugging
@@ -1297,7 +1297,7 @@ TEST(AlpRobustnessTest, TruncatedData) {
     if (truncated_size >= comp_size) continue;
     SCOPED_TRACE("truncated_size=" + std::to_string(truncated_size));
     std::fill(output.begin(), output.end(), 0.0);
-    EXPECT_NOT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()),
+    ASSERT_NOT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()),
                                            buffer.data(), truncated_size,
                                            output.data()));
   }
