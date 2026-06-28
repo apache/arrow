@@ -116,7 +116,7 @@ popd
 
 echo "=== (%PYTHON%) Building wheel ==="
 set PYARROW_BUNDLE_ARROW_CPP=ON
-rem TODO(GH-49831): Re-enable when pyarrow-stubs are shipped in wheels again.
+rem TODO(GH-32609): Re-enable when pyarrow-stubs are shipped in wheels again.
 rem set PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_AZURE=%ARROW_AZURE%

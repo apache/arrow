@@ -1041,7 +1041,8 @@ endif()
 #
 # Type stubs with docstring injection
 #
-# TODO(GH-49831): Temporarily do not install pyarrow-stubs into wheels.
+# TODO(GH-32609): Reintroduce type stubs into PyArrow wheels.
+# GH-49831: Temporarily do not install pyarrow-stubs into wheels.
 # Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
 # alongside the package so type checkers can find them (PEP 561).
 # The stubs are currently incomplete, and some type checkers consume .pyi files
