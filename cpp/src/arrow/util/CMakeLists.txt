@@ -129,6 +129,11 @@ add_arrow_benchmark(pfor/pfor_benchmark
                     pfor/pfor.cc
                     pfor/pfor_wrapper.cc)
 
+add_arrow_test(fastlanes-for-test
+               SOURCES
+               fastlanes/fastlanes_for_test.cc
+               fastlanes/fastlanes_for.cc)
+
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
