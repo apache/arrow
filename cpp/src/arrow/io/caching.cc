@@ -265,29 +265,19 @@ struct ReadRangeCache::Impl {
     return AllComplete(futures);
   }
 
-  // Evict cache entries whose byte range is fully contained within
-  // [start_offset, start_offset + length).
-  Result<int64_t> EvictEntriesInRange(int64_t start_offset, int64_t length) {
-    if (length <= 0) {
-      return 0;
-    }
-    const int64_t end_offset = start_offset + length;
+  // Evict cache entries that end at or before `end_offset`. `entries` is sorted
+  // by offset, so we stop once an entry starts at/after `end_offset`. An entry
+  // that starts before but extends past `end_offset` (coalesced with a range a
+  // later consumer still needs) is left in place.
+  int64_t EvictEntriesBefore(int64_t end_offset) {
     int64_t n_evicted = 0;
     std::unique_lock<std::mutex> guard(entry_mutex);
-    // entries is sorted by range.offset, so we can fast-forward to the first
-    // entry whose offset is >= start_offset and stop once we pass end_offset.
-    auto it = std::lower_bound(entries.begin(), entries.end(), start_offset,
-                               [](const RangeCacheEntry& entry, int64_t offset) {
-                                 return entry.range.offset < offset;
-                               });
+    auto it = entries.begin();
     while (it != entries.end() && it->range.offset < end_offset) {
       if (it->range.offset + it->range.length <= end_offset) {
         it = entries.erase(it);
         ++n_evicted;
       } else {
-        // Entry extends beyond the requested window (e.g. coalesced with a
-        // neighboring range). Leave it alone and keep scanning in case
-        // smaller siblings follow.
         ++it;
       }
     }
@@ -378,9 +368,8 @@ Future<> ReadRangeCache::WaitFor(std::vector<ReadRange> ranges) {
   return impl_->WaitFor(std::move(ranges));
 }
 
-Result<int64_t> ReadRangeCache::EvictEntriesInRange(int64_t start_offset,
-                                                    int64_t length) {
-  return impl_->EvictEntriesInRange(start_offset, length);
+int64_t ReadRangeCache::EvictEntriesBefore(int64_t end_offset) {
+  return impl_->EvictEntriesBefore(end_offset);
 }
 
 }  // namespace internal

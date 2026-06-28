@@ -919,78 +919,51 @@ TEST(RangeReadCache, LazyWithPrefetching) {
   ASSERT_RAISES(Invalid, cache.Read({25, 2}));
 }
 
-TEST(RangeReadCache, EvictEntriesInRange) {
+TEST(RangeReadCache, EvictEntriesBefore) {
   // GH-39808: entries cached by PreBuffer()-style code need to be evictable so
-  // that memory usage remains bounded while iterating over a large Parquet
-  // file.
+  // memory stays bounded while iterating a large Parquet file.
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
   for (auto lazy : std::vector<bool>{false, true}) {
     SCOPED_TRACE(lazy);
     CacheOptions options = CacheOptions::Defaults();
-    // Disable coalescing so each requested range becomes its own entry.
-    options.hole_size_limit = 0;
+    options.hole_size_limit = 0;  // disable coalescing: one entry per range
     options.range_size_limit = 10;
     options.lazy = lazy;
 
     auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
     internal::ReadRangeCache cache(file, {}, options);
 
-    // Cache three disjoint ranges, each forming its own entry.
+    // Entries: [1,3), [10,14), [20,22).
     ASSERT_OK(cache.Cache({{1, 2}, {10, 4}, {20, 2}}));
-
-    // Sanity: all three ranges are readable.
-    ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({1, 2}));
-    AssertBufferEqual(*buf, "bc");
-    ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
+    ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
     AssertBufferEqual(*buf, "klmn");
-    ASSERT_OK_AND_ASSIGN(buf, cache.Read({20, 2}));
-    AssertBufferEqual(*buf, "uv");
 
-    // A window that doesn't fully contain any entry evicts nothing.
-    ASSERT_OK_AND_ASSIGN(int64_t evicted, cache.EvictEntriesInRange(0, 1));
-    ASSERT_EQ(0, evicted);
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(11, 2));
-    ASSERT_EQ(0, evicted);
+    // An offset that splits no entry frees nothing.
+    ASSERT_EQ(0, cache.EvictEntriesBefore(0));
+    ASSERT_EQ(0, cache.EvictEntriesBefore(2));  // [1,3) extends past 2 -> retained
 
-    // A zero- or negative-length window is a no-op.
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(0, 0));
-    ASSERT_EQ(0, evicted);
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(10, -5));
-    ASSERT_EQ(0, evicted);
-
-    // Windows that partially overlap with an entry but don't fully contain
-    // it must also leave the entry in place.
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(0, 2));
-    ASSERT_EQ(0, evicted);
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(10, 3));
-    ASSERT_EQ(0, evicted);
-
-    // Evicting the exact range of the middle entry removes only that entry.
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(10, 4));
-    ASSERT_EQ(1, evicted);
-    // Other entries are still readable.
-    ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
-    AssertBufferEqual(*buf, "bc");
-    ASSERT_OK_AND_ASSIGN(buf, cache.Read({20, 2}));
-    AssertBufferEqual(*buf, "uv");
-    // Evicted entry is gone.
-    ASSERT_RAISES(Invalid, cache.Read({10, 4}));
-
-    // A wider window evicts every remaining fully-contained entry in one call.
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(0, 100));
-    ASSERT_EQ(2, evicted);
+    // end_offset == an entry's end frees exactly that entry ([1,3) ends at 3).
+    ASSERT_EQ(1, cache.EvictEntriesBefore(3));
     ASSERT_RAISES(Invalid, cache.Read({1, 2}));
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));  // others intact
+    AssertBufferEqual(*buf, "klmn");
+
+    // An offset inside an entry leaves it in place.
+    ASSERT_EQ(0, cache.EvictEntriesBefore(12));  // [10,14) straddles 12
+
+    // A wide offset frees every remaining entry in one call.
+    ASSERT_EQ(2, cache.EvictEntriesBefore(100));
+    ASSERT_RAISES(Invalid, cache.Read({10, 4}));
     ASSERT_RAISES(Invalid, cache.Read({20, 2}));
 
-    // Evicting an already-empty cache is a safe no-op.
-    ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(0, 100));
-    ASSERT_EQ(0, evicted);
+    // Empty cache is a safe no-op.
+    ASSERT_EQ(0, cache.EvictEntriesBefore(100));
   }
 }
 
 TEST(RangeReadCache, ConcurrentReadAndEvict) {
-  // GH-39808: the Parquet dataset scanner calls EvictEntriesInRange from the
+  // GH-39808: the Parquet dataset scanner calls EvictEntriesBefore from the
   // thread-pool continuation that runs after a row group is decoded, while
   // other threads may still be calling Read() for column chunks of other
   // in-flight row groups. Exercise that pattern explicitly by slamming the
@@ -1038,13 +1011,11 @@ TEST(RangeReadCache, ConcurrentReadAndEvict) {
     };
     auto evictor_fn = [&]() {
       for (int iter = 0; iter < kIterations; ++iter) {
-        // Evict every lower-half entry.
-        for (int i = 0; i < kNumRanges / 2; ++i) {
-          auto result = cache.EvictEntriesInRange(ranges[i].offset, ranges[i].length);
-          if (!result.ok()) {
-            failures.fetch_add(1, std::memory_order_relaxed);
-          }
-        }
+        // Evict the entire lower half in one call (entries ending before the
+        // midpoint offset).
+        const int64_t mid_offset =
+            ranges[kNumRanges / 2 - 1].offset + ranges[kNumRanges / 2 - 1].length;
+        cache.EvictEntriesBefore(mid_offset);
         // Re-cache them so the next iteration has something to evict.
         std::vector<ReadRange> lower(ranges.begin(), ranges.begin() + kNumRanges / 2);
         if (!cache.Cache(lower).ok()) {
@@ -1068,33 +1039,29 @@ TEST(RangeReadCache, ConcurrentReadAndEvict) {
   }
 }
 
-TEST(RangeReadCache, EvictEntriesInRangeSpanningEntry) {
-  // Coalesced entries (entries that were merged with a neighboring range at
-  // Cache() time) must not be evicted unless the eviction window fully
-  // contains them, otherwise we would drop bytes the caller still needs.
+TEST(RangeReadCache, EvictEntriesBeforeSpanningEntry) {
+  // A coalesced entry must not be dropped until end_offset passes its end,
+  // otherwise we drop bytes a later consumer still needs.
   std::string data(40, 'x');
 
   CacheOptions options = CacheOptions::Defaults();
-  // Large hole_size_limit forces coalescing of adjacent ranges into one entry.
-  options.hole_size_limit = 100;
+  options.hole_size_limit = 100;  // force coalescing into one entry
   options.range_size_limit = 200;
 
   auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
   internal::ReadRangeCache cache(file, {}, options);
 
-  // These two ranges get coalesced into a single entry [1, 14).
+  // {1,3} and {10,4} coalesce into a single entry [1, 14).
   ASSERT_OK(cache.Cache({{1, 3}, {10, 4}}));
 
-  // Trying to evict only one of the two "logical" ranges must not drop the
-  // coalesced entry - it still holds data the other logical range needs.
-  ASSERT_OK_AND_ASSIGN(int64_t evicted, cache.EvictEntriesInRange(1, 3));
-  ASSERT_EQ(0, evicted);
+  // An offset inside the entry (e.g. just past the first logical range) keeps it.
+  ASSERT_EQ(0, cache.EvictEntriesBefore(4));
+  ASSERT_EQ(0, cache.EvictEntriesBefore(13));
   ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
   ASSERT_EQ(4, buf->size());
 
-  // A wide window that contains the whole coalesced entry evicts it.
-  ASSERT_OK_AND_ASSIGN(evicted, cache.EvictEntriesInRange(0, 20));
-  ASSERT_EQ(1, evicted);
+  // end_offset at/after the entry's end (14) frees it.
+  ASSERT_EQ(1, cache.EvictEntriesBefore(14));
   ASSERT_RAISES(Invalid, cache.Read({1, 3}));
   ASSERT_RAISES(Invalid, cache.Read({10, 4}));
 }
