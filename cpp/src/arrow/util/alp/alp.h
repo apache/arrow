@@ -200,12 +200,13 @@ class AlpEncodedVectorInfo {
 
   /// Size of the serialized portion (4 bytes, fixed)
   static constexpr int64_t kStoredSize =
-      sizeof(exponent_) + sizeof(factor_) + sizeof(num_exceptions_);
+      sizeof(uint8_t) + sizeof(uint8_t) + sizeof(int16_t);
   static_assert(kStoredSize == 4, "AlpEncodedVectorInfo stored size must be 4 bytes");
 
   /// \brief Store the ALP metadata into an output buffer
   ///
-  /// \pre output_buffer.size() >= kStoredSize
+  /// \pre output_buffer.size() >= kStoredSize. The precondition is enforced
+  ///      via `ARROW_CHECK`, which aborts the process on violation.
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Load ALP metadata from an input buffer
@@ -232,6 +233,11 @@ class AlpEncodedVectorInfo {
   uint8_t exponent_ = 0;
   uint8_t factor_ = 0;
   int16_t num_exceptions_ = 0;
+  // Keep kStoredSize in sync with the members above. Asserted here because
+  // `sizeof(exponent_)` isn't a constant expression inside the public
+  // kStoredSize initializer — those members aren't visible yet at that point.
+  static_assert(kStoredSize == sizeof(exponent_) + sizeof(factor_) + sizeof(num_exceptions_),
+                "AlpEncodedVectorInfo::kStoredSize must equal the sum of member sizes");
 };
 
 // ----------------------------------------------------------------------
@@ -292,11 +298,12 @@ class AlpEncodedForVectorInfo {
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
 
   /// Size of the serialized portion (5 bytes for float, 9 for double)
-  static constexpr int64_t kStoredSize = sizeof(frame_of_reference_) + sizeof(bit_width_);
+  static constexpr int64_t kStoredSize = sizeof(ExactType) + sizeof(uint8_t);
 
   /// \brief Store the FOR metadata into an output buffer
   ///
-  /// \pre output_buffer.size() >= kStoredSize
+  /// \pre output_buffer.size() >= kStoredSize. The precondition is enforced
+  ///      via `ARROW_CHECK`, which aborts the process on violation.
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Load FOR metadata from an input buffer
@@ -330,6 +337,11 @@ class AlpEncodedForVectorInfo {
  private:
   ExactType frame_of_reference_ = 0;
   uint8_t bit_width_ = 0;
+  // Keep kStoredSize in sync with the members above. Asserted here because
+  // `sizeof(frame_of_reference_)` isn't a constant expression inside the
+  // public kStoredSize initializer.
+  static_assert(kStoredSize == sizeof(frame_of_reference_) + sizeof(bit_width_),
+                "AlpEncodedForVectorInfo::kStoredSize must equal the sum of member sizes");
 };
 
 // ----------------------------------------------------------------------
@@ -437,6 +449,12 @@ class AlpEncodedVector {
   /// Stores [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues]
   ///
   /// \param[out] output_buffer the buffer to store the compressed data into
+  /// \pre output_buffer.size() must accommodate the full serialized layout
+  ///      (`AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo::kStoredSize
+  ///      + GetDataStoredSize(...)`). The precondition is enforced via
+  ///      `ARROW_CHECK`, which aborts the process on violation; the vector's
+  ///      internal invariant (`alp_info_.num_exceptions() == exceptions_.size()`)
+  ///      is also `ARROW_CHECK`-asserted.
   void Store(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Store only the data section (without metadata) into an output buffer
@@ -445,6 +463,8 @@ class AlpEncodedVector {
   /// Used when metadata (AlpInfo, ForInfo) is written separately.
   ///
   /// \param[out] output_buffer the buffer to store the data section into
+  /// \pre output_buffer.size() >= GetDataStoredSize(...). The precondition is
+  ///      enforced via `ARROW_CHECK`, which aborts the process on violation.
   void StoreDataOnly(arrow::util::span<uint8_t> output_buffer) const;
 
   /// \brief Get the size of the data section only (without metadata)
