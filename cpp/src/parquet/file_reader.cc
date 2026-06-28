@@ -432,9 +432,6 @@ class SerializedFile : public ParquetFileReader::Contents {
     return cached_source_->WaitFor(ranges);
   }
 
-  // Evict cached bytes (from PreBuffer()) that end at or before `end_offset`.
-  // Buffers already handed to a decoder stay alive through shared ownership.
-  // A no-op if PreBuffer() was not called.
   int64_t EvictPreBufferedDataBefore(int64_t end_offset) {
     if (!cached_source_) {
       return 0;

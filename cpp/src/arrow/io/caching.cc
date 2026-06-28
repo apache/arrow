@@ -265,10 +265,9 @@ struct ReadRangeCache::Impl {
     return AllComplete(futures);
   }
 
-  // Evict cache entries that end at or before `end_offset`. `entries` is sorted
-  // by offset, so we stop once an entry starts at/after `end_offset`. An entry
-  // that starts before but extends past `end_offset` (coalesced with a range a
-  // later consumer still needs) is left in place.
+  // `entries` is sorted by offset, so we stop once an entry starts at/after
+  // `end_offset`. An entry that starts before but extends past `end_offset`
+  // (coalesced with a range a later consumer still needs) is left in place.
   int64_t EvictEntriesBefore(int64_t end_offset) {
     int64_t n_evicted = 0;
     std::unique_lock<std::mutex> guard(entry_mutex);
