@@ -67,7 +67,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -82,7 +82,7 @@ jobs:
             -Path build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc.dll `
             -NewName arrow_flight_sql_odbc_unsigned.dll
       - name: Upload ODBC DLL to the job
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: flight-sql-odbc-dll
           path: build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc_unsigned.dll
@@ -97,13 +97,13 @@ jobs:
       contents: write
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Download the artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: flight-sql-odbc-dll
       - name: Wait for creating GitHub Release
@@ -133,7 +133,7 @@ jobs:
     env: *odbc_msvc_env
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
