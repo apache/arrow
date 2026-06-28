@@ -432,4 +432,124 @@ TEST(PforCompressionRatioTest, ClusteredDataCompresses) {
   EXPECT_LT(comp_size, plain_size / 2);
 }
 
+// ============================================================================
+// FastLanes packing-mode tests
+// ============================================================================
+//
+// All round-trips must produce flat output identical to the input — the
+// FastLanes scatter on decode is the inverse of the gather on encode, so the
+// PFOR contract (flat output, no permutation visible to the caller) holds.
+
+TEST(PforPackingModeTest, VectorRoundTripIdentityForBothModes) {
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(7);
+  std::uniform_int_distribution<int32_t> dist(1000, 1500);
+  for (auto& v : values) v = dist(rng);
+  values[123] = 99999;  // outlier — exercises the exception path
+  values[800] = -50;    // another, below FOR
+
+  for (PackingMode mode : {PackingMode::BitPack, PackingMode::FastLanes}) {
+    SCOPED_TRACE(testing::Message() << "mode=" << static_cast<int>(mode));
+    auto encoded =
+        PforCompression<int32_t>::EncodeVector(values.data(), 1024, mode);
+    EXPECT_EQ(encoded.info().packing_mode(), mode);
+
+    int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+    std::vector<uint8_t> buffer(sz);
+    PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+    std::vector<int32_t> decoded(1024);
+    ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024));
+
+    EXPECT_EQ(values, decoded);
+  }
+}
+
+TEST(PforPackingModeTest, FastLanesFallsBackOnPartialTail) {
+  // 700-element vector — smaller than the FastLanes block size. Encoder
+  // must fall back to BitPack regardless of the requested mode so the
+  // legacy bit-packer handles the partial tail.
+  std::vector<int32_t> values(700);
+  std::mt19937 rng(99);
+  std::uniform_int_distribution<int32_t> dist(0, 100);
+  for (auto& v : values) v = dist(rng);
+
+  auto encoded =
+      PforCompression<int32_t>::EncodeVector(values.data(), 700, PackingMode::FastLanes);
+  EXPECT_EQ(encoded.info().packing_mode(), PackingMode::BitPack);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 700);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 700, buffer);
+
+  std::vector<int32_t> decoded(700);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 700));
+  EXPECT_EQ(values, decoded);
+}
+
+TEST(PforPackingModeTest, WrapperRoundTripFastLanes) {
+  // PforWrapper covers multiple vectors plus the offset array.
+  constexpr int32_t kN = 5 * 1024;  // 5 full FastLanes vectors
+  std::vector<int32_t> values(kN);
+  std::mt19937 rng(2026);
+  std::uniform_int_distribution<int32_t> dist(-100, 100);
+  for (auto& v : values) v = dist(rng);
+
+  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(kN);
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size;
+
+  PforWrapper<int32_t>::Encode(values.data(), kN, compressed.data(), &comp_size,
+                                PackingMode::FastLanes);
+
+  std::vector<int32_t> decoded(kN);
+  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), kN, compressed.data(),
+                                          comp_size));
+  EXPECT_EQ(values, decoded);
+}
+
+TEST(PforPackingModeTest, WrapperRoundTripMixedTail) {
+  // 5*1024 + 700 elements: 5 full vectors (FastLanes-packed when requested)
+  // + 1 tail vector (falls back to BitPack inside EncodeVector). Both modes
+  // round-trip via the per-vector flag.
+  constexpr int32_t kN = 5 * 1024 + 700;
+  std::vector<int32_t> values(kN);
+  std::mt19937 rng(123);
+  std::uniform_int_distribution<int32_t> dist(50000, 60000);
+  for (auto& v : values) v = dist(rng);
+
+  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(kN);
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size;
+
+  PforWrapper<int32_t>::Encode(values.data(), kN, compressed.data(), &comp_size,
+                                PackingMode::FastLanes);
+
+  std::vector<int32_t> decoded(kN);
+  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), kN, compressed.data(),
+                                          comp_size));
+  EXPECT_EQ(values, decoded);
+}
+
+TEST(PforPackingModeTest, ConstantVectorBothModes) {
+  // bit_width = 0 path: FOR captures everything, no packed payload. Should
+  // round-trip identically under either mode (the FastLanes kernel is never
+  // entered because bit_width == 0).
+  std::vector<int32_t> values(1024, 42);
+  for (PackingMode mode : {PackingMode::BitPack, PackingMode::FastLanes}) {
+    SCOPED_TRACE(testing::Message() << "mode=" << static_cast<int>(mode));
+    auto encoded =
+        PforCompression<int32_t>::EncodeVector(values.data(), 1024, mode);
+    EXPECT_EQ(encoded.info().bit_width(), 0);
+
+    int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+    std::vector<uint8_t> buffer(sz);
+    PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+    std::vector<int32_t> decoded(1024);
+    ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024));
+    EXPECT_EQ(values, decoded);
+  }
+}
+
 }  // namespace arrow::util::pfor

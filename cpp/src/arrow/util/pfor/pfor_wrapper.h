@@ -50,12 +50,17 @@ class PforWrapper {
   ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
   /// \param[out] comp pointer to output buffer (caller must ensure sufficient size)
   /// \param[in,out] comp_size input: available buffer size; output: bytes written
+  /// \param[in] mode per-vector bit-packing layout. PackingMode::FastLanes is
+  ///            applied only to full-size 32-bit vectors; tails and 64-bit
+  ///            values fall back to PackingMode::BitPack per vector.
   static void Encode(const T* values, int32_t num_values, int32_t vector_size,
-                     uint8_t* comp, int64_t* comp_size);
+                     uint8_t* comp, int64_t* comp_size,
+                     PackingMode mode = PackingMode::BitPack);
 
   /// Convenience overload with default vector_size = kPforVectorSize
   static void Encode(const T* values, int32_t num_values, uint8_t* comp,
-                     int64_t* comp_size);
+                     int64_t* comp_size,
+                     PackingMode mode = PackingMode::BitPack);
 
   /// \brief Decode a PFOR-compressed page
   ///

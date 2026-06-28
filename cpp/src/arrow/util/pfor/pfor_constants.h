@@ -57,6 +57,22 @@ class PforConstants {
   static constexpr int64_t kLoopUnrolls = 4;
 };
 
+/// \brief Per-vector packing mode for PforCompression::EncodeVector.
+///
+/// Stored in the high bit of PforVectorInfo::bit_width (bit 7). BitPack = 0
+/// preserves the prior on-disk layout so existing buffers continue to
+/// round-trip; new values are added with higher numeric codes.
+enum class PackingMode : uint8_t {
+  /// Sequential little-endian bit-packed stream — the original PFOR layout.
+  /// Decoded with arrow::internal::unpack.
+  BitPack = 0,
+
+  /// FastLanes lane-interleaved 1024-bit format (Afroozeh & Boncz, VLDB '23).
+  /// Auto-vectorizable kernel; only valid when num_elements equals the
+  /// FastLanes block size (1024). Falls back to BitPack for shorter vectors.
+  FastLanes = 1,
+};
+
 /// \brief Type traits for PFOR integer types
 template <typename T>
 struct PforTypeTraits {};

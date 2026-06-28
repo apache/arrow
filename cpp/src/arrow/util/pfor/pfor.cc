@@ -34,6 +34,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/fastlanes/fastlanes_kernels.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/span.h"
@@ -91,12 +92,56 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   return {best_bit_width, best_num_exceptions};
 }
 
+namespace {
+
+// Dispatch by runtime bit_width into the templated FastLanes pack/unpack
+// kernels. Only used when use_fastlanes && num_elements == kPforVectorSize
+// (the FastLanes block size matches PFOR's vector size of 1024).
+inline void FastLanesPackBlockDispatch(uint8_t bit_width, const uint32_t* in,
+                                       uint32_t* out) {
+  switch (bit_width) {
+#define CASE_W(N) \
+  case N:         \
+    fastlanes::PackBlock<N>(in, out); \
+    break
+    CASE_W(1);  CASE_W(2);  CASE_W(3);  CASE_W(4);  CASE_W(5);  CASE_W(6);
+    CASE_W(7);  CASE_W(8);  CASE_W(9);  CASE_W(10); CASE_W(11); CASE_W(12);
+    CASE_W(13); CASE_W(14); CASE_W(15); CASE_W(16); CASE_W(17); CASE_W(18);
+    CASE_W(19); CASE_W(20); CASE_W(21); CASE_W(22); CASE_W(23); CASE_W(24);
+    CASE_W(25); CASE_W(26); CASE_W(27); CASE_W(28); CASE_W(29); CASE_W(30);
+    CASE_W(31); CASE_W(32);
+#undef CASE_W
+    default: break;
+  }
+}
+
+inline void FastLanesUnpackBlockDispatch(uint8_t bit_width, const uint32_t* packed,
+                                          uint32_t* out) {
+  switch (bit_width) {
+#define CASE_W(N) \
+  case N:         \
+    fastlanes::UnpackBlock<N>(packed, out); \
+    break
+    CASE_W(1);  CASE_W(2);  CASE_W(3);  CASE_W(4);  CASE_W(5);  CASE_W(6);
+    CASE_W(7);  CASE_W(8);  CASE_W(9);  CASE_W(10); CASE_W(11); CASE_W(12);
+    CASE_W(13); CASE_W(14); CASE_W(15); CASE_W(16); CASE_W(17); CASE_W(18);
+    CASE_W(19); CASE_W(20); CASE_W(21); CASE_W(22); CASE_W(23); CASE_W(24);
+    CASE_W(25); CASE_W(26); CASE_W(27); CASE_W(28); CASE_W(29); CASE_W(30);
+    CASE_W(31); CASE_W(32);
+#undef CASE_W
+    default: break;
+  }
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // EncodeVector
 
 template <typename T>
 PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
-                                                      int32_t num_elements) {
+                                                      int32_t num_elements,
+                                                      PackingMode mode) {
   ARROW_DCHECK(num_elements > 0);
 
   // Step 1: Find min (frame of reference)
@@ -116,9 +161,20 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
   auto [bit_width, num_exceptions] =
       FindOptimalBitWidth(deltas.data(), num_elements);
 
+  // FastLanes only applies when the vector matches the FastLanes block size
+  // (1024) and the type is 32-bit. For shorter tails or 64-bit values, fall
+  // back to PackingMode::BitPack.
+  const PackingMode effective_mode =
+      (mode == PackingMode::FastLanes &&
+       num_elements == static_cast<int32_t>(fastlanes::kBlockSize) &&
+       sizeof(T) == 4)
+          ? PackingMode::FastLanes
+          : PackingMode::BitPack;
+
   // Step 4: Collect exceptions and replace with placeholder (0)
   PforEncodedVector<T> result;
-  result.set_info(PforVectorInfo<T>(min_val, bit_width, num_exceptions));
+  result.set_info(
+      PforVectorInfo<T>(min_val, bit_width, num_exceptions, effective_mode));
 
   if (num_exceptions > 0) {
     result.mutable_exception_positions().reserve(num_exceptions);
@@ -143,12 +199,25 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
         bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bit_width);
     result.mutable_packed_values().resize(static_cast<size_t>(packed_size), 0);
 
-    bit_util::BitWriter writer(result.mutable_packed_values().data(),
-                               static_cast<int>(packed_size));
-    for (int32_t i = 0; i < num_elements; ++i) {
-      writer.PutValue(static_cast<uint64_t>(deltas[i]), bit_width);
+    if (effective_mode == PackingMode::FastLanes) {
+      // Gather deltas via FL_ORDER into transposed scratch, then pack with
+      // FastLanes' lane-interleaved kernel. The packed payload is exactly
+      // 128 * bit_width bytes — same as the BitPack-encoded size.
+      alignas(64) uint32_t transposed[fastlanes::kBlockSize];
+      for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
+        transposed[t] = static_cast<uint32_t>(deltas[fastlanes::fromTransposed32(t)]);
+      }
+      FastLanesPackBlockDispatch(
+          bit_width, transposed,
+          reinterpret_cast<uint32_t*>(result.mutable_packed_values().data()));
+    } else {
+      bit_util::BitWriter writer(result.mutable_packed_values().data(),
+                                 static_cast<int>(packed_size));
+      for (int32_t i = 0; i < num_elements; ++i) {
+        writer.PutValue(static_cast<uint64_t>(deltas[i]), bit_width);
+      }
+      writer.Flush();
     }
-    writer.Flush();
   }
 
   return result;
@@ -173,20 +242,40 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
 
   // Step 3: Unpack bit-packed deltas and add FOR
   if (info.bit_width() > 0) {
-    std::vector<UnsignedT> unsigned_values(num_elements);
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference());
 
-    // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
-    // then unpack_exact for the remainder.
-    arrow::internal::unpack(read_ptr, unsigned_values.data(),
-                            static_cast<int>(num_elements), info.bit_width());
+    if (info.packing_mode() == PackingMode::FastLanes) {
+      // FastLanes-packed payload: 128 * bit_width bytes per 1024-block.
+      // Unpack into transposed scratch then fuse the FL_ORDER inverse
+      // (gather via toTransposed32 — note: NOT fromTransposed32, the two
+      // are mutual inverses, not self-inverse), FOR-add, and SafeCopy
+      // into one sequential write pass over `values`. Saves the
+      // intermediate unsigned_values buffer entirely.
+      ARROW_DCHECK(num_elements ==
+                   static_cast<int32_t>(fastlanes::kBlockSize));
+      alignas(64) uint32_t transposed[fastlanes::kBlockSize];
+      FastLanesUnpackBlockDispatch(
+          info.bit_width(),
+          reinterpret_cast<const uint32_t*>(read_ptr), transposed);
+      for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
+        const UnsignedT v =
+            static_cast<UnsignedT>(transposed[fastlanes::toTransposed32(i)]);
+        values[i] = util::SafeCopy<T>(v + unsigned_for);
+      }
+    } else {
+      std::vector<UnsignedT> unsigned_values(num_elements);
+      // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
+      // then unpack_exact for the remainder.
+      arrow::internal::unpack(read_ptr, unsigned_values.data(),
+                              static_cast<int>(num_elements), info.bit_width());
 
-    // Add FOR and convert to signed output via SafeCopy
+      // Add FOR and convert to signed output via SafeCopy
 #pragma GCC unroll PforConstants::kLoopUnrolls
 #pragma GCC ivdep
-    for (int32_t i = 0; i < num_elements; ++i) {
-      unsigned_values[i] += unsigned_for;
-      values[i] = util::SafeCopy<T>(unsigned_values[i]);
+      for (int32_t i = 0; i < num_elements; ++i) {
+        unsigned_values[i] += unsigned_for;
+        values[i] = util::SafeCopy<T>(unsigned_values[i]);
+      }
     }
 
     int64_t packed_size =

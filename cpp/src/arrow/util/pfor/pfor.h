@@ -46,30 +46,46 @@ namespace pfor {
 ///
 /// For INT32 (7 bytes): [frame_of_reference(4B)] [bit_width(1B)] [num_exceptions(2B)]
 /// For INT64 (11 bytes): [frame_of_reference(8B)] [bit_width(1B)] [num_exceptions(2B)]
+///
+/// The bit_width byte packs two fields:
+///   bits 0..5 — the actual bit width (range 0..32, fits in 6 bits)
+///   bit  7    — packing-mode flag (0 = PackingMode::BitPack, 1 = PackingMode::FastLanes)
+///   bit  6    — reserved (zero)
+/// Legacy encoders (which only wrote the bit width) produce vectors with the
+/// high bits clear, so they round-trip through the new Load as BitPack.
 template <typename T>
 class PforVectorInfo {
  public:
+  static constexpr uint8_t kPackingModeFlagMask = 0x80;
+  static constexpr uint8_t kBitWidthMask = 0x3F;
+
   PforVectorInfo() = default;
-  PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions)
+  PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions,
+                 PackingMode packing_mode = PackingMode::BitPack)
       : frame_of_reference_(frame_of_reference),
         bit_width_(bit_width),
-        num_exceptions_(num_exceptions) {}
+        num_exceptions_(num_exceptions),
+        packing_mode_(packing_mode) {}
 
   T frame_of_reference() const { return frame_of_reference_; }
   uint8_t bit_width() const { return bit_width_; }
   int16_t num_exceptions() const { return num_exceptions_; }
+  PackingMode packing_mode() const { return packing_mode_; }
 
   void set_frame_of_reference(T frame_of_reference) {
     frame_of_reference_ = frame_of_reference;
   }
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
   void set_num_exceptions(int16_t num_exceptions) { num_exceptions_ = num_exceptions; }
+  void set_packing_mode(PackingMode mode) { packing_mode_ = mode; }
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(arrow::util::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, frame_of_reference_);
-    ptr[sizeof(T)] = bit_width_;
+    const uint8_t mode_bit =
+        (packing_mode_ == PackingMode::FastLanes) ? kPackingModeFlagMask : 0;
+    ptr[sizeof(T)] = static_cast<uint8_t>((bit_width_ & kBitWidthMask) | mode_bit);
     util::SafeStore(ptr + sizeof(T) + 1, num_exceptions_);
   }
 
@@ -82,7 +98,11 @@ class PforVectorInfo {
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
     info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
-    info.bit_width_ = ptr[sizeof(T)];
+    const uint8_t packed_bw = ptr[sizeof(T)];
+    info.bit_width_ = static_cast<uint8_t>(packed_bw & kBitWidthMask);
+    info.packing_mode_ = (packed_bw & kPackingModeFlagMask) != 0
+                             ? PackingMode::FastLanes
+                             : PackingMode::BitPack;
     info.num_exceptions_ = util::SafeLoadAs<int16_t>(ptr + sizeof(T) + 1);
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
       return Status::Invalid("PFOR bit_width out of range: ",
@@ -102,6 +122,7 @@ class PforVectorInfo {
   T frame_of_reference_ = 0;
   uint8_t bit_width_ = 0;
   int16_t num_exceptions_ = 0;
+  PackingMode packing_mode_ = PackingMode::BitPack;
 };
 
 // ----------------------------------------------------------------------
@@ -221,8 +242,13 @@ class PforCompression {
   ///
   /// \param[in] values input integer values
   /// \param[in] num_elements number of elements (up to vector_size)
+  /// \param[in] mode bit-packing layout for the payload. PackingMode::FastLanes
+  ///            requires num_elements == kPforVectorSize (1024); otherwise
+  ///            falls back to PackingMode::BitPack for this vector. 64-bit
+  ///            types always fall back to BitPack (FastLanes is u32-only).
   /// \return the encoded vector with all sections
-  static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements);
+  static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements,
+                                           PackingMode mode = PackingMode::BitPack);
 
   /// \brief Decode a single vector from compressed data
   ///

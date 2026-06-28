@@ -314,6 +314,74 @@ static void BM_PforDecode(benchmark::State& state, Gen32 gen) {
 }
 
 // ============================================================================
+// PFOR with FastLanes-mode bit packing (per-vector flag in PFOR header)
+// ============================================================================
+//
+// Same PFOR pipeline (FOR + exceptions) but the bit-packing payload uses
+// FastLanes lane-interleaved layout instead of the legacy sequential bit
+// stream. Output is still flat (PFOR contract preserved); the decoder
+// scatters via FL_ORDER inside DecodeVector.
+
+static void BM_PforFastLanesEncode(benchmark::State& state, Gen32 gen) {
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+
+  int64_t max_size =
+      ::arrow::util::pfor::PforWrapper<int32_t>::GetMaxCompressedSize(
+          static_cast<int32_t>(num_values));
+  std::vector<uint8_t> compressed(max_size);
+
+  int64_t comp_size = max_size;
+  ::arrow::util::pfor::PforWrapper<int32_t>::Encode(
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size,
+      ::arrow::util::pfor::PackingMode::FastLanes);
+
+  for (auto _ : state) {
+    int64_t sz = max_size;
+    ::arrow::util::pfor::PforWrapper<int32_t>::Encode(
+        values.data(), static_cast<int32_t>(num_values), compressed.data(), &sz,
+        ::arrow::util::pfor::PackingMode::FastLanes);
+    benchmark::DoNotOptimize(sz);
+    benchmark::ClobberMemory();
+  }
+
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
+static void BM_PforFastLanesDecode(benchmark::State& state, Gen32 gen) {
+  const int64_t num_values = state.range(0);
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+
+  int64_t max_size =
+      ::arrow::util::pfor::PforWrapper<int32_t>::GetMaxCompressedSize(
+          static_cast<int32_t>(num_values));
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size;
+  ::arrow::util::pfor::PforWrapper<int32_t>::Encode(
+      values.data(), static_cast<int32_t>(num_values), compressed.data(),
+      &comp_size, ::arrow::util::pfor::PackingMode::FastLanes);
+
+  std::vector<int32_t> decoded(num_values);
+  for (auto _ : state) {
+    auto status = ::arrow::util::pfor::PforWrapper<int32_t>::Decode(
+        decoded.data(), static_cast<int32_t>(num_values), compressed.data(),
+        comp_size);
+    ARROW_CHECK_OK(status);
+    benchmark::ClobberMemory();
+  }
+
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
+// ============================================================================
 // DeltaBitPack Encode/Decode
 // ============================================================================
 
@@ -779,6 +847,8 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 #define REGISTER_DATASET(Name, GenFunc)                                          \
   BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);          \
   BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);          \
+  BENCHMARK_CAPTURE(BM_PforFastLanesEncode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PforFastLanesDecode, Name, &GenFunc)->Apply(CustomArgs); \
   BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);  \
   BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);  \
   BENCHMARK_CAPTURE(BM_FastLanesEncode, Name, &GenFunc)->Apply(CustomArgs);     \

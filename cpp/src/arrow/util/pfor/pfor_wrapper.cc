@@ -90,7 +90,7 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
 
 template <typename T>
 void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
-                            uint8_t* comp, int64_t* comp_size) {
+                            uint8_t* comp, int64_t* comp_size, PackingMode mode) {
   ARROW_DCHECK(num_values > 0);
   ARROW_DCHECK(comp != nullptr);
   ARROW_DCHECK(comp_size != nullptr);
@@ -131,9 +131,10 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
     int32_t elements_in_vector =
         std::min(vector_size, num_values - start_idx);
 
-    // Encode vector
+    // Encode vector (EncodeVector itself falls back to BitPack for partial
+    // tails or 64-bit T, so it's safe to pass `mode` unconditionally).
     auto encoded = PforCompression<T>::EncodeVector(
-        values + start_idx, elements_in_vector);
+        values + start_idx, elements_in_vector, mode);
 
     // Serialize to output
     int64_t bytes_written = PforCompression<T>::SerializeVector(
@@ -147,8 +148,8 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
 
 template <typename T>
 void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
-                            int64_t* comp_size) {
-  Encode(values, num_values, kVectorSize, comp, comp_size);
+                            int64_t* comp_size, PackingMode mode) {
+  Encode(values, num_values, kVectorSize, comp, comp_size, mode);
 }
 
 // ----------------------------------------------------------------------
