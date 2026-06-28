@@ -21,7 +21,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <mutex>
 #include <random>
 #include <unordered_set>
 #include <utility>
@@ -1094,48 +1093,6 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
   return std::make_unique<RowGroupRecordBatchReader>(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
 }
-
-// GH-39808: releases pre-buffered cache entries as row groups are decoded.
-// RowGroupDecoded() is called (possibly out of order, from readahead
-// continuations) once a row group's batches are produced. It advances a
-// watermark over the contiguous prefix of completed row groups and evicts every
-// cache entry ending before the lowest byte any not-yet-completed row group
-// still needs. A coalesced entry spanning a row-group boundary is freed once
-// the watermark passes its end.
-class ReadCacheEvictionState {
- public:
-  // evict_before_offsets[i] = lowest byte offset row groups i..n-1 (in
-  // generator order) still need; evict_before_offsets[n] == INT64_MAX.
-  explicit ReadCacheEvictionState(std::vector<int64_t> evict_before_offsets)
-      : evict_before_offsets_(std::move(evict_before_offsets)),
-        completed_(evict_before_offsets_.size() - 1, false) {}
-
-  void RowGroupDecoded(ParquetFileReader* reader, size_t row_group_index) {
-    int64_t evict_before = -1;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      if (row_group_index >= completed_.size() || completed_[row_group_index]) {
-        return;
-      }
-      completed_[row_group_index] = true;
-      const size_t old_prefix = completed_prefix_;
-      while (completed_prefix_ < completed_.size() && completed_[completed_prefix_]) {
-        ++completed_prefix_;
-      }
-      if (completed_prefix_ == old_prefix) {
-        return;
-      }
-      evict_before = evict_before_offsets_[completed_prefix_];
-    }
-    reader->EvictPreBufferedDataBefore(evict_before);
-  }
-
- private:
-  std::mutex mutex_;
-  std::vector<int64_t> evict_before_offsets_;
-  std::vector<bool> completed_;
-  size_t completed_prefix_ = 0;
-};
 
 /// Given a file reader and a list of row groups, this is a generator of record
 /// batch generators (where each sub-generator is the contents of a single row group).

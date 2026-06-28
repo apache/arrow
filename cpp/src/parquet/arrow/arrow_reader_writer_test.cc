@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <utility>
@@ -2825,6 +2826,23 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_OK_AND_ASSIGN(auto actual,
                        ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
   AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
+}
+
+// Readahead completes row groups out of order, so the watermark advance must
+// only evict once the contiguous prefix of completed row groups grows. This
+// drives that logic directly, without a reader, for determinism.
+TEST(TestArrowReadWrite, ReadCacheEvictionStateOutOfOrder) {
+  constexpr int64_t kNoMoreRanges = std::numeric_limits<int64_t>::max();
+  ReadCacheEvictionState state({100, 200, 300, kNoMoreRanges});
+
+  // Index 1 completes first: prefix stays at 0 (index 0 not done), no eviction.
+  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(1), std::nullopt);
+  // Index 0 completes: prefix jumps 0 -> 2, evict before row group 2's offset.
+  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(0), std::optional<int64_t>(300));
+  // Index 2 completes: prefix jumps 2 -> 3, everything is evictable.
+  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(2), std::optional<int64_t>(kNoMoreRanges));
+  // Re-decoding an already-completed index is idempotent: no eviction.
+  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(0), std::nullopt);
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
