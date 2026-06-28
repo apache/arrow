@@ -46,12 +46,27 @@ constexpr size_t kBlockSize = 1024;
 constexpr size_t kLanes = 32;            // 1024 / sizeof(uint32_t) / 8
 constexpr size_t kRowsPerBlock = 32;     // 1024 / kLanes
 
-// Sub-block reorder permutation (3-bit reversal). Used by fromTransposed32.
+// Sub-block reorder permutation (3-bit reversal). Used by toTransposed32 /
+// fromTransposed32. Self-inverse, but note that toTransposed32 and
+// fromTransposed32 themselves are NOT self-inverse — they are mutual
+// inverses (the 8x16 -> 16x8 within-sub-block transpose is not involutive).
 inline constexpr size_t kBlockReorder[8] = {0, 4, 2, 6, 1, 5, 3, 7};
 
+// Convert an original (flat) input index to its position in the transposed
+// (stream) order within a 1024-value block.
+inline size_t toTransposed32(size_t origIdx) {
+  const size_t block = origIdx >> 7;
+  const size_t withinBlock = origIdx & 0x7F;
+  const size_t row = withinBlock >> 4;       // row in 8x16
+  const size_t col = withinBlock & 0xF;      // col in 8x16
+  const size_t transposedWithin = (col << 3) | row;  // col * 8 + row (16x8)
+  const size_t outputBlock = kBlockReorder[block];
+  return (outputBlock << 7) | transposedWithin;
+}
+
 // Convert a transposed (stream) index back to its original input index
-// within a 1024-value block. Self-inverse: fromTransposed32 is also
-// toTransposed32.
+// within a 1024-value block. Inverse of toTransposed32 (the 8x16 -> 16x8
+// transpose is mutual-inverse with the 16x8 -> 8x16 transpose).
 inline size_t fromTransposed32(size_t t) {
   const size_t outputBlock = t >> 7;        // t / 128
   const size_t transposedWithin = t & 0x7F;  // t % 128
