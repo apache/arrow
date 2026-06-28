@@ -99,6 +99,30 @@ TEST(FastLanesForRoundTrip, BoundaryValues) {
   }
 }
 
+// DecodeFlat produces output in ORIGINAL input order (output[i] == input[i]).
+// Confirms the FL_ORDER scatter on decode inverts the FL_ORDER gather on
+// encode.
+TEST(FastLanesForRoundTrip, DecodeFlatIsIdentity) {
+  std::mt19937 rng(12345);
+  std::uniform_int_distribution<int32_t> dist(-1000, 1000);
+  std::vector<int32_t> in(4 * 2048);
+  for (auto& v : in) v = dist(rng);
+
+  std::vector<uint8_t> encoded(FastLanesForCodec::MaxEncodedSize(in.size()));
+  auto encoded_size = FastLanesForCodec::Encode(in.data(), in.size(),
+                                                 encoded.data());
+  ASSERT_TRUE(encoded_size.ok());
+
+  std::vector<int32_t> decoded(in.size(), 0xdeadbeef);
+  auto status = FastLanesForCodec::DecodeFlat(decoded.data(), in.size(),
+                                               encoded.data(), *encoded_size);
+  ASSERT_TRUE(status.ok()) << status.ToString();
+
+  for (size_t i = 0; i < in.size(); ++i) {
+    ASSERT_EQ(decoded[i], in[i]) << "i=" << i;
+  }
+}
+
 }  // namespace fastlanes
 }  // namespace util
 }  // namespace arrow

@@ -184,6 +184,62 @@ Status FastLanesForCodec::Decode(int32_t* output, int64_t num_values,
   return Status::OK();
 }
 
+Status FastLanesForCodec::DecodeFlat(int32_t* output, int64_t num_values,
+                                      const uint8_t* input, int64_t input_size) {
+  if (num_values % kChunkSize != 0) {
+    return Status::Invalid("FastLanesForCodec::DecodeFlat: num_values (",
+                           num_values, ") must be a multiple of ", kChunkSize);
+  }
+  const int64_t num_chunks = num_values / kChunkSize;
+  const uint8_t* in_ptr = input;
+  const uint8_t* in_end = input + input_size;
+
+  alignas(64) uint32_t transposed[kChunkSize];
+
+  for (int64_t chunk = 0; chunk < num_chunks; ++chunk) {
+    if (in_ptr + kChunkHeaderSize > in_end) {
+      return Status::Invalid("FastLanesForCodec::DecodeFlat: truncated header");
+    }
+    int32_t min_val;
+    std::memcpy(&min_val, in_ptr, sizeof(int32_t));
+    const uint8_t bit_width = in_ptr[4];
+    in_ptr += kChunkHeaderSize;
+
+    int32_t* out_chunk = output + chunk * kChunkSize;
+
+    if (bit_width == 0) {
+      for (int64_t i = 0; i < kChunkSize; ++i) out_chunk[i] = min_val;
+      continue;
+    }
+
+    const int64_t bytes_per_block = 128 * bit_width;
+    if (in_ptr + 2 * bytes_per_block > in_end) {
+      return Status::Invalid("FastLanesForCodec::DecodeFlat: truncated body");
+    }
+
+    for (int64_t block = 0; block < 2; ++block) {
+      UnpackBlockDispatch(
+          bit_width,
+          reinterpret_cast<const uint32_t*>(in_ptr + block * bytes_per_block),
+          transposed + block * kBlockSize);
+    }
+    in_ptr += 2 * bytes_per_block;
+
+    // Scatter via fromTransposed32 per 1024-block to restore original
+    // input order: out_chunk[block*1024 + fromTransposed32(t)] = transposed +
+    // min. This is the FL_ORDER inverse of the encode-time gather.
+    for (int64_t block = 0; block < 2; ++block) {
+      const uint32_t* block_t = transposed + block * kBlockSize;
+      int32_t* block_out = out_chunk + block * static_cast<int64_t>(kBlockSize);
+      for (size_t t = 0; t < kBlockSize; ++t) {
+        block_out[fromTransposed32(t)] = static_cast<int32_t>(block_t[t]) + min_val;
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
 }  // namespace fastlanes
 }  // namespace util
 }  // namespace arrow

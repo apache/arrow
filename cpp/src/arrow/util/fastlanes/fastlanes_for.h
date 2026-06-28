@@ -69,6 +69,13 @@ class FastLanesForCodec {
   // transposed order within each 1024-block (see header comment).
   static Status Decode(int32_t* output, int64_t num_values,
                        const uint8_t* input, int64_t input_size);
+
+  // Decode and scatter back to ORIGINAL input order: output[i] == input[i]
+  // for the encoded input. Pays the FL_ORDER scatter cost on top of the
+  // kernel — slower than Decode(), included for apples-to-apples
+  // comparison against codecs that produce flat output.
+  static Status DecodeFlat(int32_t* output, int64_t num_values,
+                           const uint8_t* input, int64_t input_size);
 };
 
 }  // namespace fastlanes

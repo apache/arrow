@@ -431,6 +431,36 @@ static void BM_FastLanesDecode(benchmark::State& state, Gen32 gen) {
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
 
+// Decode + FL_ORDER scatter: produces flat output in original input
+// order (apples-to-apples vs PFOR/DeltaBitPack which also produce flat).
+static void BM_FastLanesDecodeFlat(benchmark::State& state, Gen32 gen) {
+  using ::arrow::util::fastlanes::FastLanesForCodec;
+  int64_t num_values = state.range(0);
+  num_values -= num_values % FastLanesForCodec::kChunkSize;
+  if (num_values == 0) num_values = FastLanesForCodec::kChunkSize;
+
+  auto values = gen(num_values);
+  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+
+  std::vector<uint8_t> compressed(FastLanesForCodec::MaxEncodedSize(num_values));
+  auto comp = FastLanesForCodec::Encode(values.data(), num_values, compressed.data());
+  ARROW_CHECK_OK(comp.status());
+  const int64_t comp_size = *comp;
+
+  std::vector<int32_t> decoded(num_values);
+  for (auto _ : state) {
+    auto status = FastLanesForCodec::DecodeFlat(decoded.data(), num_values,
+                                                 compressed.data(), comp_size);
+    ARROW_CHECK_OK(status);
+    benchmark::ClobberMemory();
+  }
+
+  state.SetBytesProcessed(state.iterations() * uncompressed_size);
+  state.SetItemsProcessed(state.iterations() * num_values);
+  state.counters["compression_ratio"] =
+      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+
 // ============================================================================
 // Plain + ZSTD Encode/Decode
 // ============================================================================
@@ -753,6 +783,7 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
   BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);  \
   BENCHMARK_CAPTURE(BM_FastLanesEncode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_FastLanesDecode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_FastLanesDecodeFlat, Name, &GenFunc)->Apply(CustomArgs); \
   BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);     \
   BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);      \
