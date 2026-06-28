@@ -19,6 +19,7 @@
 #include <unordered_set>
 
 #include "arrow/compute/function.h"
+#include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
@@ -48,8 +49,7 @@ class ChunkedArraySorter : public TypeVisitor {
   ChunkedArraySorter(ExecContext* ctx, std::span<uint64_t> indices,
                      const std::shared_ptr<DataType>& physical_type,
                      const ArrayVector& physical_chunks, const SortOrder order,
-                     const NullPlacement null_placement,
-                     NullLikePartition* output)
+                     const NullPlacement null_placement, NullLikePartition* output)
       : TypeVisitor(),
         indices_(indices),
         physical_type_(physical_type),
@@ -84,8 +84,7 @@ class ChunkedArraySorter : public TypeVisitor {
     const auto num_chunks = static_cast<int>(physical_chunks_.size());
     if (num_chunks == 0) {
       DCHECK_EQ(static_cast<int64_t>(indices_.size()), 0);
-      *output_ =
-          NullLikePartition::fromCounts(indices_, 0, 0, 0, null_placement_);
+      *output_ = NullLikePartition::FromCounts(indices_, 0, 0, 0, null_placement_);
       return Status::OK();
     }
     const int64_t num_indices = static_cast<int64_t>(indices_.size());
@@ -97,14 +96,14 @@ class ChunkedArraySorter : public TypeVisitor {
 
     // First sort all individual chunks
     int64_t begin_offset = 0;
-    int64_t null_count = 0;
+    int64_t non_null_like_count = 0;
     for (int i = 0; i < num_chunks; ++i) {
       const auto array = checked_cast<const ArrayType*>(arrays[i]);
       const auto array_length = array->length();
-      null_count += array->null_count();
       ARROW_ASSIGN_OR_RAISE(
           sorted[i], array_sorter_(indices_.subspan(begin_offset, array_length), *array,
                                    begin_offset, options, ctx_));
+      non_null_like_count += sorted[i].non_null_like_range.size();
       begin_offset += array_length;
     }
     DCHECK_EQ(begin_offset, num_indices);
@@ -112,26 +111,30 @@ class ChunkedArraySorter : public TypeVisitor {
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
       ChunkedIndexMapper chunked_mapper(arrays, indices_);
-      ARROW_ASSIGN_OR_RAISE(auto chunked_indices_pair,
-                            chunked_mapper.LogicalToPhysical());
-      auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
+      ARROW_ASSIGN_OR_RAISE(auto chunked_indices, chunked_mapper.LogicalToPhysical());
 
       std::vector<ChunkedNullLikePartition> chunk_sorted(num_chunks);
       for (int i = 0; i < num_chunks; ++i) {
-        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices_begin);
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices.data());
       }
 
-      auto merge_non_nulls =
-          [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
-              CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
-            MergeNonNulls<ArrayType>(
-                {range_begin, range_middle}, {range_middle, range_end}, arrays,
-                {temp_indices, static_cast<size_t>(range_end - range_begin)});
-          };
+      // merge function for merging ranges where the first sort key is equal
+      // -> no-op because we have only one sort key
+      auto merge_remaining_sort_keys = [&](std::span<CompressedChunkLocation> range,
+                                           size_t middle,
+                                           CompressedChunkLocation* temp_indices) {};
 
-      ChunkedMergeImpl merge_impl{null_placement_, std::move(merge_non_nulls)};
-      // std::merge is only called on non-null values, so size temp indices accordingly
-      RETURN_NOT_OK(merge_impl.Init(ctx_, num_indices - null_count));
+      auto merge_non_nulls = [&](std::span<CompressedChunkLocation> range, size_t middle,
+                                 CompressedChunkLocation* temp_indices) {
+        MergeNonNulls<ArrayType>(range.subspan(0, middle), range.subspan(middle), arrays,
+                                 {temp_indices, range.size()});
+      };
+
+      ChunkedMergeImpl merge_impl{null_placement_, std::move(merge_remaining_sort_keys),
+                                  std::move(merge_non_nulls)};
+      // std::merge is only called on non-null-like values, so size temp indices
+      // accordingly
+      RETURN_NOT_OK(merge_impl.Init(ctx_, non_null_like_count));
 
       while (chunk_sorted.size() > 1) {
         // Merge all pairs of chunks
@@ -141,7 +144,7 @@ class ChunkedArraySorter : public TypeVisitor {
           const auto& left = *it++;
           const auto& right = *it++;
           DCHECK_EQ(left.overall_end(), right.overall_begin());
-          const auto merged = merge_impl.Merge(left, right, null_count);
+          const auto merged = merge_impl.Merge(left, right);
           *out_it++ = merged;
         }
         if (it < chunk_sorted.end()) {
@@ -152,7 +155,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
       // Reverse everything
       sorted.resize(1);
-      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices_begin, indices_.data());
+      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices.data(), indices_.data());
 
       RETURN_NOT_OK(chunked_mapper.PhysicalToLogical());
     }
@@ -160,8 +163,8 @@ class ChunkedArraySorter : public TypeVisitor {
     DCHECK_EQ(sorted.size(), 1);
     DCHECK_EQ(sorted[0].overall_begin(), indices_.data());
     DCHECK_EQ(sorted[0].overall_end(), indices_.data() + indices_.size());
-    // Note that "nulls" can also include NaNs, hence the >= check
-    DCHECK_GE(static_cast<int64_t>(sorted[0].null_range.size()), null_count);
+    DCHECK_EQ(static_cast<int64_t>(sorted[0].non_null_like_range.size()),
+              non_null_like_count);
 
     *output_ = sorted[0];
     return Status::OK();
@@ -252,8 +255,7 @@ class RecordBatchColumnSorter {
       : next_column_(next_column) {}
   virtual ~RecordBatchColumnSorter() {}
 
-  virtual NullLikePartition SortRange(std::span<uint64_t> indices,
-                                                  int64_t offset) = 0;
+  virtual NullLikePartition SortRange(std::span<uint64_t> indices, int64_t offset) = 0;
 
  protected:
   RecordBatchColumnSorter* next_column_;
@@ -274,8 +276,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
         null_placement_(null_placement),
         null_count_(array_.null_count()) {}
 
-  NullLikePartition SortRange(std::span<uint64_t> indices,
-                                          int64_t offset) override {
+  NullLikePartition SortRange(std::span<uint64_t> indices, int64_t offset) override {
     using GetView = GetViewType<Type>;
 
     NullLikePartition partitions;
@@ -351,8 +352,7 @@ class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter
     if (next_column_ != nullptr) {
       next_column_->SortRange(indices, offset);
     }
-    return NullLikePartition::fromCounts(indices, 0, 0, indices.size(),
-                                                     null_placement_);
+    return NullLikePartition::FromCounts(indices, 0, 0, indices.size(), null_placement_);
   }
 
  protected:
@@ -553,8 +553,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 
   // Behaves like PartitionNulls() but this supports multiple sort keys.
   template <typename Type>
-  NullLikePartition PartitionNullsInternal(
-      const ResolvedSortKey& first_sort_key) {
+  NullLikePartition PartitionNullsInternal(const ResolvedSortKey& first_sort_key) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     const ArrayType& array =
         ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
@@ -652,7 +651,6 @@ class TableSorter {
     // First sort all individual batches
     int64_t begin_offset = 0;
     int64_t end_offset = 0;
-    int64_t null_count = 0;
     for (int64_t i = 0; i < num_batches; ++i) {
       const auto& batch = *batches_[i];
       end_offset += batch.num_rows();
@@ -662,36 +660,30 @@ class TableSorter {
       ARROW_ASSIGN_OR_RAISE(sorted[i], sorter.Sort(begin_offset));
       DCHECK_EQ(sorted[i].overall_begin(), indices_.data() + begin_offset);
       DCHECK_EQ(sorted[i].overall_end(), indices_.data() + end_offset);
-      DCHECK_EQ(static_cast<int64_t>(sorted[i].non_null_like_range.size() +
-                                     sorted[i].null_range.size()),
-                batch.num_rows());
+      DCHECK_EQ(
+          static_cast<int64_t>(sorted[i].non_null_like_range.size() +
+                               sorted[i].nan_range.size() + sorted[i].null_range.size()),
+          batch.num_rows());
       begin_offset = end_offset;
-      // XXX this is an upper bound on the true null count
-      null_count += sorted[i].null_range.size();
     }
     DCHECK_EQ(end_offset, static_cast<int64_t>(indices_.size()));
 
     // Then merge them by pairs, recursively
     if (sorted.size() > 1) {
       ChunkedIndexMapper chunked_mapper(batches_, indices_);
-      ARROW_ASSIGN_OR_RAISE(auto chunked_indices_pair,
-                            chunked_mapper.LogicalToPhysical());
-      auto [chunked_indices_begin, chunked_indices_end] = chunked_indices_pair;
+      ARROW_ASSIGN_OR_RAISE(auto chunked_indices, chunked_mapper.LogicalToPhysical());
 
       std::vector<ChunkedNullLikePartition> chunk_sorted(num_batches);
       for (int64_t i = 0; i < num_batches; ++i) {
-        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices_begin);
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices.data());
       }
 
       struct Visitor {
         TableSorter* sorter;
         std::vector<ChunkedNullLikePartition>* chunk_sorted;
-        int64_t null_count;
 
-#define VISIT(TYPE)                                               \
-  Status Visit(const TYPE& type) {                                \
-    return sorter->MergeInternal<TYPE>(chunk_sorted, null_count); \
-  }
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return sorter->MergeInternal<TYPE>(chunk_sorted); }
 
         VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
         VISIT(NullType)
@@ -702,12 +694,13 @@ class TableSorter {
                                         type.ToString());
         }
       };
-      Visitor visitor{this, &chunk_sorted, null_count};
+      Visitor visitor{this, &chunk_sorted};
       RETURN_NOT_OK(VisitTypeInline(*sort_keys_[0].type, &visitor));
 
       DCHECK_EQ(chunk_sorted.size(), 1);
-      DCHECK_EQ(chunk_sorted[0].overall_begin(), chunked_indices_begin);
-      DCHECK_EQ(chunk_sorted[0].overall_end(), chunked_indices_end);
+      DCHECK_EQ(chunk_sorted[0].overall_begin(), chunked_indices.data());
+      DCHECK_EQ(chunk_sorted[0].overall_end(),
+                chunked_indices.data() + chunked_indices.size());
 
       RETURN_NOT_OK(chunked_mapper.PhysicalToLogical());
     }
@@ -716,15 +709,22 @@ class TableSorter {
 
   // Recursive merge routine, typed on the first sort key
   template <typename ArrowType>
-  Status MergeInternal(std::vector<ChunkedNullLikePartition>* sorted,
-                       int64_t null_count) {
-    auto merge_non_nulls =
-        [&](CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
-            CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
-          MergeNonNulls<ArrowType>(range_begin, range_middle, range_end, temp_indices);
-        };
+  Status MergeInternal(std::vector<ChunkedNullLikePartition>* sorted) {
+    // merge function where the ranges compare equal on the first sort-key
+    auto merge_remaining_sort_keys = [&](std::span<CompressedChunkLocation> range,
+                                         size_t middle,
+                                         CompressedChunkLocation* temp_indices) {
+      MergeRemainingSortKeys(range, middle, temp_indices);
+    };
 
-    ChunkedMergeImpl merge_impl(sort_keys_[0].null_placement, std::move(merge_non_nulls));
+    auto merge_non_nulls = [&](std::span<CompressedChunkLocation> range, size_t middle,
+                               CompressedChunkLocation* temp_indices) {
+      MergeNonNulls<ArrowType>(range, middle, temp_indices);
+    };
+
+    ChunkedMergeImpl merge_impl(sort_keys_[0].null_placement,
+                                std::move(merge_remaining_sort_keys),
+                                std::move(merge_non_nulls));
     RETURN_NOT_OK(merge_impl.Init(ctx_, table_.num_rows()));
 
     while (sorted->size() > 1) {
@@ -734,7 +734,7 @@ class TableSorter {
         const auto& left = *it++;
         const auto& right = *it++;
         DCHECK_EQ(left.overall_end(), right.overall_begin());
-        *out_it++ = merge_impl.Merge(left, right, null_count);
+        *out_it++ = merge_impl.Merge(left, right);
       }
       if (it < sorted->end()) {
         *out_it++ = *it++;
@@ -744,54 +744,20 @@ class TableSorter {
     return comparator_.status();
   }
 
-  template <typename ArrowType>
-  void MergeNulls(CompressedChunkLocation* nulls_begin,
-                  CompressedChunkLocation* nulls_middle,
-                  CompressedChunkLocation* nulls_end,
-                  CompressedChunkLocation* temp_indices, int64_t null_count) {
-    if constexpr (has_null_like_values<ArrowType>()) {
-      // Merge rows with a null or a null-like in the first sort key
-      auto& comparator = comparator_;
-      const auto& first_sort_key = sort_keys_[0];
-
-      std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
-                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                   // First column is either null or nan
-                   const auto left_loc = ChunkLocation{left};
-                   const auto right_loc = ChunkLocation{right};
-                   const auto chunk_left = first_sort_key.GetChunk(left_loc);
-                   const auto chunk_right = first_sort_key.GetChunk(right_loc);
-                   const auto left_is_null = chunk_left.IsNull();
-                   const auto right_is_null = chunk_right.IsNull();
-                   if (left_is_null == right_is_null) {
-                     return comparator.Compare(left_loc, right_loc, 1);
-                   } else if (first_sort_key.null_placement == NullPlacement::AtEnd) {
-                     return right_is_null;
-                   } else {
-                     return left_is_null;
-                   }
-                 });
-      // Copy back temp area into main buffer
-      std::copy(temp_indices, temp_indices + (nulls_end - nulls_begin), nulls_begin);
-    } else {
-      MergeNullsOnly(nulls_begin, nulls_middle, nulls_end, temp_indices, null_count);
-    }
-  }
-
-  void MergeNullsOnly(CompressedChunkLocation* nulls_begin,
-                      CompressedChunkLocation* nulls_middle,
-                      CompressedChunkLocation* nulls_end,
-                      CompressedChunkLocation* temp_indices, int64_t null_count) {
+  void MergeRemainingSortKeys(std::span<CompressedChunkLocation> range, size_t middle,
+                              CompressedChunkLocation* temp_indices) {
     // Untyped implementation
     auto& comparator = comparator_;
 
-    std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
-               [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                 // First column is always null
-                 return comparator.Compare(ChunkLocation{left}, ChunkLocation{right}, 1);
-               });
+    std::ranges::merge(range.subspan(0, middle), range.subspan(middle), temp_indices,
+                       [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+                         // All rows are equal on first key so just compare by remaining
+                         // keys
+                         return comparator.Compare(ChunkLocation{left},
+                                                   ChunkLocation{right}, 1);
+                       });
     // Copy back temp area into main buffer
-    std::copy(temp_indices, temp_indices + (nulls_end - nulls_begin), nulls_begin);
+    std::copy(temp_indices, temp_indices + range.size(), range.data());
   }
 
   //
@@ -799,48 +765,46 @@ class TableSorter {
   //
   template <typename ArrowType>
   enable_if_t<!is_null_type<ArrowType>::value> MergeNonNulls(
-      CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
-      CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
+      std::span<CompressedChunkLocation> range, size_t middle,
+      CompressedChunkLocation* temp_indices) {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
-    std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-               [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                 // Both values are never null nor NaN.
-                 const auto left_loc = ChunkLocation{left};
-                 const auto right_loc = ChunkLocation{right};
-                 auto chunk_left = first_sort_key.GetChunk(left_loc);
-                 auto chunk_right = first_sort_key.GetChunk(right_loc);
-                 DCHECK(!chunk_left.IsNull());
-                 DCHECK(!chunk_right.IsNull());
-                 const auto value_left = chunk_left.Value<ArrowType>();
-                 const auto value_right = chunk_right.Value<ArrowType>();
-                 if (value_left == value_right) {
-                   // If the left value equals to the right value,
-                   // we need to compare the second and following
-                   // sort keys.
-                   return comparator.Compare(left_loc, right_loc, 1);
-                 } else {
-                   auto compared = value_left < value_right;
-                   if (first_sort_key.order == SortOrder::Ascending) {
-                     return compared;
-                   } else {
-                     return !compared;
-                   }
-                 }
-               });
+    std::ranges::merge(range.subspan(0, middle), range.subspan(middle), temp_indices,
+                       [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+                         // Both values are never null nor NaN.
+                         const auto left_loc = ChunkLocation{left};
+                         const auto right_loc = ChunkLocation{right};
+                         auto chunk_left = first_sort_key.GetChunk(left_loc);
+                         auto chunk_right = first_sort_key.GetChunk(right_loc);
+                         DCHECK(!chunk_left.IsNull());
+                         DCHECK(!chunk_right.IsNull());
+                         const auto value_left = chunk_left.Value<ArrowType>();
+                         const auto value_right = chunk_right.Value<ArrowType>();
+                         if (value_left == value_right) {
+                           // If the left value equals to the right value,
+                           // we need to compare the second and following
+                           // sort keys.
+                           return comparator.Compare(left_loc, right_loc, 1);
+                         } else {
+                           auto compared = value_left < value_right;
+                           if (first_sort_key.order == SortOrder::Ascending) {
+                             return compared;
+                           } else {
+                             return !compared;
+                           }
+                         }
+                       });
 
     // Copy back temp area into main buffer
-    std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
+    std::copy(temp_indices, temp_indices + range.size(), range.data());
   }
 
   template <typename ArrowType>
-  enable_if_null<ArrowType> MergeNonNulls(CompressedChunkLocation* range_begin,
-                                          CompressedChunkLocation* range_middle,
-                                          CompressedChunkLocation* range_end,
+  enable_if_null<ArrowType> MergeNonNulls(std::span<CompressedChunkLocation> range,
+                                          size_t middle,
                                           CompressedChunkLocation* temp_indices) {
-    const int64_t null_count = range_end - range_begin;
-    MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
+    MergeRemainingSortKeys(range, middle, temp_indices);
   }
 
   Status status_;
@@ -1115,21 +1079,21 @@ Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
   return SortFieldPopulator{}.FindSortKeys(schema, sort_keys);
 }
 
-Result<NullLikePartition> SortChunkedArray(ExecContext* ctx,
-                                                       std::span<uint64_t> indices,
-                                                       const ChunkedArray& chunked_array,
-                                                       SortOrder sort_order,
-                                                       NullPlacement null_placement) {
+Result<NullLikePartition> SortChunkedArray(ExecContext* ctx, std::span<uint64_t> indices,
+                                           const ChunkedArray& chunked_array,
+                                           SortOrder sort_order,
+                                           NullPlacement null_placement) {
   auto physical_type = GetPhysicalType(chunked_array.type());
   auto physical_chunks = GetPhysicalChunks(chunked_array, physical_type);
   return SortChunkedArray(ctx, indices, physical_type, physical_chunks, sort_order,
                           null_placement);
 }
 
-Result<NullLikePartition> SortChunkedArray(
-    ExecContext* ctx, std::span<uint64_t> indices,
-    const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
-    SortOrder sort_order, NullPlacement null_placement) {
+Result<NullLikePartition> SortChunkedArray(ExecContext* ctx, std::span<uint64_t> indices,
+                                           const std::shared_ptr<DataType>& physical_type,
+                                           const ArrayVector& physical_chunks,
+                                           SortOrder sort_order,
+                                           NullPlacement null_placement) {
   NullLikePartition output;
   ChunkedArraySorter sorter(ctx, indices, physical_type, physical_chunks, sort_order,
                             null_placement, &output);
@@ -1137,11 +1101,9 @@ Result<NullLikePartition> SortChunkedArray(
   return output;
 }
 
-Result<NullLikePartition> SortStructArray(ExecContext* ctx,
-                                                      std::span<uint64_t> indices,
-                                                      const StructArray& array,
-                                                      SortOrder sort_order,
-                                                      NullPlacement null_placement) {
+Result<NullLikePartition> SortStructArray(ExecContext* ctx, std::span<uint64_t> indices,
+                                          const StructArray& array, SortOrder sort_order,
+                                          NullPlacement null_placement) {
   ARROW_ASSIGN_OR_RAISE(auto columns, array.Flatten());
   auto batch = RecordBatch::Make(schema(array.type()->fields()), array.length(),
                                  std::move(columns));

@@ -50,8 +50,7 @@ std::vector<int64_t> ChunkedIndexMapper::GetChunkLengths(
   return chunk_lengths;
 }
 
-Result<std::pair<CompressedChunkLocation*, CompressedChunkLocation*>>
-ChunkedIndexMapper::LogicalToPhysical() {
+Result<std::span<CompressedChunkLocation>> ChunkedIndexMapper::LogicalToPhysical() {
   // Check that indices would fall in bounds for CompressedChunkLocation
   if (ARROW_PREDICT_FALSE(chunk_lengths_.size() >
                           CompressedChunkLocation::kMaxChunkIndex + 1)) {
@@ -92,7 +91,7 @@ ChunkedIndexMapper::LogicalToPhysical() {
     chunk_offset += chunk_length;
   }
 
-  return std::pair{physical_begin, physical_begin + num_indices};
+  return std::span<CompressedChunkLocation>{physical_begin, physical_begin + num_indices};
 }
 
 Status ChunkedIndexMapper::PhysicalToLogical() {

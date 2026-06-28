@@ -139,8 +139,7 @@ class ARROW_EXPORT ChunkedIndexMapper {
   // PhysicalToLogical() is called.
   //
   // This assumes that the logical indices are originally chunk-partitioned.
-  Result<std::pair<CompressedChunkLocation*, CompressedChunkLocation*>>
-  LogicalToPhysical();
+  Result<std::span<CompressedChunkLocation>> LogicalToPhysical();
 
   // Turn the physical indices back into logical, making the uint64_t indices
   // usable again.

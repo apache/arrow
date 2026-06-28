@@ -38,8 +38,7 @@ namespace {
 constexpr uint64_t kDuplicateMask = 1ULL << 63;
 
 template <typename ValueSelector>
-void MarkDuplicates(const NullLikePartition& sorted,
-                    ValueSelector&& value_selector) {
+void MarkDuplicates(const NullLikePartition& sorted, ValueSelector&& value_selector) {
   using T = decltype(value_selector(int64_t{}));
 
   // Process non-nulls
@@ -101,7 +100,7 @@ Result<NullLikePartition> DoSortAndMarkDuplicate(
     const NullPlacement null_placement, bool needs_duplicates) {
   auto physical_chunks = GetPhysicalChunks(input, physical_type);
   if (physical_chunks.empty()) {
-    return NullLikePartition::fromCounts(indices, 0, 0, 0, null_placement);
+    return NullLikePartition::FromCounts(indices, 0, 0, 0, null_placement);
   }
   ARROW_ASSIGN_OR_RAISE(
       auto sorted, SortChunkedArray(ctx, indices, physical_type, physical_chunks, order,
@@ -163,8 +162,7 @@ class SortAndMarkDuplicate : public TypeVisitor {
 // A CRTP-based helper class for "rank_normal" and "rank_quantile"
 template <typename Derived>
 struct BaseQuantileRanker {
-  Result<Datum> CreateRankings(ExecContext* ctx,
-                               const NullLikePartition& sorted) {
+  Result<Datum> CreateRankings(ExecContext* ctx, const NullLikePartition& sorted) {
     const int64_t length = sorted.overall_end() - sorted.overall_begin();
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableFloat64Array(length, ctx->memory_pool()));
@@ -214,8 +212,7 @@ struct NormalRanker : public BaseQuantileRanker<NormalRanker> {
 struct OrdinalRanker {
   explicit OrdinalRanker(RankOptions::Tiebreaker tiebreaker) : tiebreaker_(tiebreaker) {}
 
-  Result<Datum> CreateRankings(ExecContext* ctx,
-                               const NullLikePartition& sorted) {
+  Result<Datum> CreateRankings(ExecContext* ctx, const NullLikePartition& sorted) {
     const int64_t length = sorted.overall_end() - sorted.overall_begin();
     ARROW_ASSIGN_OR_RAISE(auto rankings,
                           MakeMutableUInt64Array(length, ctx->memory_pool()));
