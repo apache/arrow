@@ -19,7 +19,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <memory>
+#include <mutex>
 #include <random>
 #include <unordered_set>
 #include <utility>
@@ -1093,6 +1095,48 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
 }
 
+// GH-39808: releases pre-buffered cache entries as row groups are decoded.
+// RowGroupDecoded() is called (possibly out of order, from readahead
+// continuations) once a row group's batches are produced. It advances a
+// watermark over the contiguous prefix of completed row groups and evicts every
+// cache entry ending before the lowest byte any not-yet-completed row group
+// still needs. A coalesced entry spanning a row-group boundary is freed once
+// the watermark passes its end.
+class ReadCacheEvictionState {
+ public:
+  // evict_before_offsets[i] = lowest byte offset row groups i..n-1 (in
+  // generator order) still need; evict_before_offsets[n] == INT64_MAX.
+  explicit ReadCacheEvictionState(std::vector<int64_t> evict_before_offsets)
+      : evict_before_offsets_(std::move(evict_before_offsets)),
+        completed_(evict_before_offsets_.size() - 1, false) {}
+
+  void RowGroupDecoded(ParquetFileReader* reader, size_t row_group_index) {
+    int64_t evict_before = -1;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (row_group_index >= completed_.size() || completed_[row_group_index]) {
+        return;
+      }
+      completed_[row_group_index] = true;
+      const size_t old_prefix = completed_prefix_;
+      while (completed_prefix_ < completed_.size() && completed_[completed_prefix_]) {
+        ++completed_prefix_;
+      }
+      if (completed_prefix_ == old_prefix) {
+        return;
+      }
+      evict_before = evict_before_offsets_[completed_prefix_];
+    }
+    reader->EvictPreBufferedDataBefore(evict_before);
+  }
+
+ private:
+  std::mutex mutex_;
+  std::vector<int64_t> evict_before_offsets_;
+  std::vector<bool> completed_;
+  size_t completed_prefix_ = 0;
+};
+
 /// Given a file reader and a list of row groups, this is a generator of record
 /// batch generators (where each sub-generator is the contents of a single row group).
 class RowGroupGenerator {
@@ -1108,12 +1152,14 @@ class RowGroupGenerator {
   explicit RowGroupGenerator(std::shared_ptr<FileReaderImpl> arrow_reader,
                              ::arrow::internal::Executor* cpu_executor,
                              std::vector<int> row_groups, std::vector<int> column_indices,
-                             int64_t min_rows_in_flight)
+                             int64_t min_rows_in_flight,
+                             std::shared_ptr<ReadCacheEvictionState> eviction_state)
       : arrow_reader_(std::move(arrow_reader)),
         cpu_executor_(cpu_executor),
         row_groups_(std::move(row_groups)),
         column_indices_(std::move(column_indices)),
         min_rows_in_flight_(min_rows_in_flight),
+        eviction_state_(std::move(eviction_state)),
         rows_in_flight_(0),
         index_(0),
         readahead_index_(0) {}
@@ -1159,10 +1205,19 @@ class RowGroupGenerator {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
       row_group_read =
-          ready.Then([cpu_executor = cpu_executor_, reader, row_group,
+          ready.Then([cpu_executor = cpu_executor_, reader, row_group, row_group_index,
+                      eviction_state = eviction_state_,
                       column_indices = std::move(
                           column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
-            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices);
+            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices)
+                .Then([reader, row_group_index, eviction_state](
+                          RecordBatchGenerator generator) -> RecordBatchGenerator {
+                  if (eviction_state) {
+                    eviction_state->RowGroupDecoded(reader->parquet_reader(),
+                                                    row_group_index);
+                  }
+                  return generator;
+                });
           });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
@@ -1189,19 +1244,12 @@ class RowGroupGenerator {
       const int row_group, const std::vector<int>& column_indices) {
     // Skips bound checks/pre-buffering, since we've done that already
     const int64_t batch_size = self->properties().batch_size();
-    const bool pre_buffered = self->properties().pre_buffer();
     return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
-        .Then([batch_size, self, row_group, column_indices = column_indices,
-               pre_buffered](const std::shared_ptr<Table>& table)
+        .Then([batch_size](const std::shared_ptr<Table>& table)
                   -> ::arrow::Result<RecordBatchGenerator> {
           ::arrow::TableBatchReader table_reader(*table);
           table_reader.set_chunksize(batch_size);
           ARROW_ASSIGN_OR_RAISE(auto batches, table_reader.ToRecordBatches());
-          // GH-39808: release this row group's pre-buffered bytes now that it
-          // is decoded, keeping memory bounded while iterating.
-          if (pre_buffered) {
-            self->parquet_reader()->EvictPreBufferedData({row_group}, column_indices);
-          }
           return ::arrow::MakeVectorGenerator(std::move(batches));
         });
   }
@@ -1211,6 +1259,7 @@ class RowGroupGenerator {
   std::vector<int> row_groups_;
   std::vector<int> column_indices_;
   int64_t min_rows_in_flight_;
+  std::shared_ptr<ReadCacheEvictionState> eviction_state_;
   std::queue<ReadRequest> in_flight_reads_;
   int64_t rows_in_flight_;
   size_t index_;
@@ -1233,10 +1282,32 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                        reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
+  // GH-39808: when pre-buffering, release each row group's cached bytes once the
+  // contiguous prefix of decoded row groups no longer needs them, keeping the
+  // memory footprint bounded while iterating. Confined to this read-once path,
+  // so PreBuffer()'s contract for other callers is unchanged.
+  std::shared_ptr<ReadCacheEvictionState> eviction_state;
+  if (reader_properties_.pre_buffer() && !column_indices.empty() &&
+      !row_group_indices.empty()) {
+    const int64_t kNoMoreRanges = std::numeric_limits<int64_t>::max();
+    std::vector<int64_t> evict_before(row_group_indices.size() + 1, kNoMoreRanges);
+    for (int64_t i = static_cast<int64_t>(row_group_indices.size()) - 1; i >= 0; --i) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto ranges, reader_->GetReadRanges({row_group_indices[static_cast<size_t>(i)]},
+                                              column_indices));
+      int64_t rg_min = kNoMoreRanges;
+      for (const auto& range : ranges) {
+        rg_min = std::min(rg_min, range.offset);
+      }
+      evict_before[static_cast<size_t>(i)] =
+          std::min(evict_before[static_cast<size_t>(i + 1)], rg_min);
+    }
+    eviction_state = std::make_shared<ReadCacheEvictionState>(std::move(evict_before));
+  }
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
       RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
                         cpu_executor, row_group_indices, column_indices,
-                        rows_to_readahead);
+                        rows_to_readahead, std::move(eviction_state));
   ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> concatenated =
       ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
   WRAP_ASYNC_GENERATOR(std::move(concatenated));
