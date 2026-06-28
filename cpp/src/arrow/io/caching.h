@@ -142,20 +142,17 @@ class ARROW_EXPORT ReadRangeCache {
   /// \brief Wait until all given ranges have been cached.
   Future<> WaitFor(std::vector<ReadRange> ranges);
 
-  /// \brief Evict cache entries whose byte range is fully contained within
-  ///        [start_offset, start_offset + length).
+  /// \brief Evict cache entries that end at or before `end_offset`.
   ///
-  /// This releases the memory held by those entries, allowing buffers to be
-  /// freed as soon as no other owner retains a reference. Entries that are not
-  /// fully contained in the given window (for example, because I/O range
-  /// coalescing merged them with an adjacent region the caller still needs)
-  /// are not evicted, so this method is safe to call even if some cached
-  /// ranges have been merged across unrelated consumers.
+  /// Releases the memory of entries whose byte range lies entirely before
+  /// `end_offset`. An entry straddling `end_offset` is retained, so this is safe
+  /// even when I/O coalescing merged several requested ranges into one entry.
+  /// Buffers already returned by Read() stay valid through shared ownership.
   ///
-  /// \param[in] start_offset Start of the window (inclusive).
-  /// \param[in] length Length of the window.
-  /// \return Number of cache entries that were evicted.
-  Result<int64_t> EvictEntriesInRange(int64_t start_offset, int64_t length);
+  /// \param[in] end_offset Exclusive byte bound; entries ending at or before it
+  ///     are evicted.
+  /// \return Number of cache entries evicted.
+  int64_t EvictEntriesBefore(int64_t end_offset);
 
  protected:
   struct Impl;
