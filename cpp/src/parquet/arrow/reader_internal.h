@@ -149,8 +149,6 @@ class ReadCacheEvictionState {
  public:
   // evict_before_offsets[i] = lowest byte offset row groups i..n-1 (in
   // generator order) still need; evict_before_offsets[n] == INT64_MAX.
-  // Must be non-empty: it always holds the n row-group offsets plus the
-  // INT64_MAX sentinel.
   explicit ReadCacheEvictionState(std::vector<int64_t> evict_before_offsets)
       : evict_before_offsets_(std::move(evict_before_offsets)),
         completed_(evict_before_offsets_.size() - 1, false) {}
