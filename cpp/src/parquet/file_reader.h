@@ -201,15 +201,14 @@ class PARQUET_EXPORT ParquetFileReader {
                  const ::arrow::io::IOContext& ctx,
                  const ::arrow::io::CacheOptions& options);
 
-  /// \brief Release cached bytes pre-buffered for the given row groups/columns.
+  /// \brief Release cached bytes that end at or before `end_offset`.
   ///
-  /// Call only after the row groups are fully decoded; reads of those row
-  /// groups afterward may fail. An entry coalesced across row groups is freed
-  /// once all the row groups it spans have been evicted. Safe to call
-  /// concurrently for different row groups; a no-op if PreBuffer() was not
-  /// called. Returns the number of cache entries evicted.
-  int64_t EvictPreBufferedData(const std::vector<int>& row_groups,
-                               const std::vector<int>& column_indices);
+  /// Only affects data cached by PreBuffer(). Call once the row groups needing
+  /// those bytes are fully decoded; later reads of evicted ranges may fail.
+  /// Buffers already handed to readers stay valid through shared ownership. A
+  /// no-op (returns 0) if PreBuffer() was not called. Returns the number of
+  /// cache entries evicted.
+  int64_t EvictPreBufferedDataBefore(int64_t end_offset);
 
   /// Retrieve the list of byte ranges that would need to be read to retrieve
   /// the data for the specified row groups and column indices.
