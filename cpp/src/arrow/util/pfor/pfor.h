@@ -255,9 +255,15 @@ class PforCompression {
   /// \param[out] values output buffer for decoded integers
   /// \param[in] data span over the compressed vector data
   /// \param[in] num_elements number of elements in this vector
+  /// \param[in] order output value order. Default OutputOrder::Flat returns
+  ///            values in their original input positions. OutputOrder::
+  ///            Transposed only affects FastLanes-encoded vectors (skips the
+  ///            FL_ORDER gather on decode); BitPack vectors always return
+  ///            flat output regardless of `order`.
   /// \return number of bytes consumed from data, or error
   static Result<int64_t> DecodeVector(T* values, arrow::util::span<const uint8_t> data,
-                                      int32_t num_elements);
+                                      int32_t num_elements,
+                                      OutputOrder order = OutputOrder::Flat);
 
   /// \brief Calculate the serialized size of an encoded vector
   static int64_t SerializedVectorSize(const PforEncodedVector<T>& vec,

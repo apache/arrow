@@ -229,10 +229,18 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 template <typename T>
 Result<int64_t> PforCompression<T>::DecodeVector(T* values,
                                                   arrow::util::span<const uint8_t> data,
-                                                  int32_t num_elements) {
+                                                  int32_t num_elements,
+                                                  OutputOrder order) {
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
+
+  // OutputOrder::Transposed is only meaningful for FastLanes-encoded vectors.
+  // BitPack vectors have no transposition to skip, so they always emit flat
+  // output regardless of `order`.
+  const bool emit_transposed =
+      (order == OutputOrder::Transposed) &&
+      (info.packing_mode() == PackingMode::FastLanes);
 
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width() == 0 && info.num_exceptions() == 0) {
@@ -246,21 +254,32 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
 
     if (info.packing_mode() == PackingMode::FastLanes) {
       // FastLanes-packed payload: 128 * bit_width bytes per 1024-block.
-      // Unpack into transposed scratch then fuse the FL_ORDER inverse
-      // (gather via toTransposed32 — note: NOT fromTransposed32, the two
-      // are mutual inverses, not self-inverse), FOR-add, and SafeCopy
-      // into one sequential write pass over `values`. Saves the
-      // intermediate unsigned_values buffer entirely.
+      // Unpack into transposed scratch.
       ARROW_DCHECK(num_elements ==
                    static_cast<int32_t>(fastlanes::kBlockSize));
       alignas(64) uint32_t transposed[fastlanes::kBlockSize];
       FastLanesUnpackBlockDispatch(
           info.bit_width(),
           reinterpret_cast<const uint32_t*>(read_ptr), transposed);
-      for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
-        const UnsignedT v =
-            static_cast<UnsignedT>(transposed[fastlanes::toTransposed32(i)]);
-        values[i] = util::SafeCopy<T>(v + unsigned_for);
+
+      if (emit_transposed) {
+        // No FL_ORDER inverse: write `values[t] = transposed[t] + FOR`
+        // sequentially. The output is in FastLanes stream order, i.e.
+        // values[t] corresponds to the original input at fromTransposed32(t).
+        // Sequential read + sequential write is auto-vec friendly.
+        for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
+          values[t] = util::SafeCopy<T>(
+              static_cast<UnsignedT>(transposed[t]) + unsigned_for);
+        }
+      } else {
+        // Fused FL_ORDER inverse + FOR-add + SafeCopy. The gather index is
+        // toTransposed32(i) (the inverse of the encode-side fromTransposed32
+        // gather — the two are mutual inverses, not self-inverse).
+        for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
+          const UnsignedT v =
+              static_cast<UnsignedT>(transposed[fastlanes::toTransposed32(i)]);
+          values[i] = util::SafeCopy<T>(v + unsigned_for);
+        }
       }
     } else {
       std::vector<UnsignedT> unsigned_values(num_elements);
@@ -286,7 +305,8 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
     std::fill(values, values + num_elements, info.frame_of_reference());
   }
 
-  // Step 4: Patch exceptions (stored as original values)
+  // Step 4: Patch exceptions (stored as original values at FLAT positions).
+  // When emitting transposed output, redirect each patch to toTransposed32(pos).
   const int16_t num_exceptions = info.num_exceptions();
   if (num_exceptions > 0) {
     const uint8_t* positions_ptr = read_ptr;
@@ -300,7 +320,10 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
     for (int16_t i = 0; i < num_exceptions; ++i) {
       int16_t pos = util::SafeLoadAs<int16_t>(positions_ptr + i * sizeof(int16_t));
       T value = util::SafeLoadAs<T>(values_ptr + i * sizeof(T));
-      values[pos] = value;
+      const size_t out_pos =
+          emit_transposed ? fastlanes::toTransposed32(static_cast<size_t>(pos))
+                          : static_cast<size_t>(pos);
+      values[out_pos] = value;
     }
   }
 

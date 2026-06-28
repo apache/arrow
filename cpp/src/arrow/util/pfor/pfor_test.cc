@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/fastlanes/fastlanes_kernels.h"
 #include "arrow/util/pfor/pfor.h"
 #include "arrow/util/pfor/pfor_wrapper.h"
 #include "arrow/util/span.h"
@@ -549,6 +550,115 @@ TEST(PforPackingModeTest, ConstantVectorBothModes) {
     std::vector<int32_t> decoded(1024);
     ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024));
     EXPECT_EQ(values, decoded);
+  }
+}
+
+// ============================================================================
+// OutputOrder::Transposed tests — verify the transposed-output decode path
+// matches the FL_ORDER permutation of the input for FastLanes vectors.
+// ============================================================================
+
+TEST(PforOutputOrderTest, TransposedMatchesFLOrder) {
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(11);
+  std::uniform_int_distribution<int32_t> dist(1000, 1500);
+  for (auto& v : values) v = dist(rng);
+  values[7]  = 99999;   // outlier — exercises the exception path under transposed
+  values[412] = -50;
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::FastLanes);
+  ASSERT_EQ(encoded.info().packing_mode(), PackingMode::FastLanes);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  std::vector<int32_t> decoded(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024,
+                                                    OutputOrder::Transposed));
+
+  // out[t] == input[fromTransposed32(t)] for every stream position t.
+  for (size_t t = 0; t < 1024; ++t) {
+    ASSERT_EQ(decoded[t],
+              values[fastlanes::fromTransposed32(t)])
+        << "t=" << t;
+  }
+}
+
+TEST(PforOutputOrderTest, TransposedThenInvertEqualsInput) {
+  // Belt-and-suspenders: the user code path is "decode transposed, then
+  // apply fromTransposed32 myself when I need original-order positions".
+  // Confirm that inverting the permutation manually produces the input.
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(31);
+  std::uniform_int_distribution<int32_t> dist(-200, 200);
+  for (auto& v : values) v = dist(rng);
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::FastLanes);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  std::vector<int32_t> transposed(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(transposed.data(), buffer, 1024,
+                                                    OutputOrder::Transposed));
+
+  std::vector<int32_t> flat(1024);
+  for (size_t t = 0; t < 1024; ++t) {
+    flat[fastlanes::fromTransposed32(t)] = transposed[t];
+  }
+  EXPECT_EQ(values, flat);
+}
+
+TEST(PforOutputOrderTest, BitPackIgnoresTransposedRequest) {
+  // BitPack mode has no transposition; OutputOrder::Transposed must be
+  // ignored (output is still flat / identity).
+  std::vector<int32_t> values(1024);
+  std::iota(values.begin(), values.end(), 5000);
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::BitPack);
+  ASSERT_EQ(encoded.info().packing_mode(), PackingMode::BitPack);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  std::vector<int32_t> decoded(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024,
+                                                    OutputOrder::Transposed));
+  EXPECT_EQ(values, decoded);
+}
+
+TEST(PforOutputOrderTest, WrapperTransposedAcrossManyVectors) {
+  constexpr int32_t kN = 5 * 1024;
+  std::vector<int32_t> values(kN);
+  std::mt19937 rng(909);
+  std::uniform_int_distribution<int32_t> dist(-1000, 1000);
+  for (auto& v : values) v = dist(rng);
+
+  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(kN);
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size;
+
+  PforWrapper<int32_t>::Encode(values.data(), kN, compressed.data(), &comp_size,
+                                PackingMode::FastLanes);
+
+  std::vector<int32_t> decoded(kN);
+  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), kN, compressed.data(),
+                                          comp_size, OutputOrder::Transposed));
+
+  // Verify per-block: decoded[block*1024 + t] == values[block*1024 + fromTransposed32(t)]
+  for (int32_t block = 0; block < 5; ++block) {
+    for (size_t t = 0; t < 1024; ++t) {
+      const int32_t base = block * 1024;
+      ASSERT_EQ(decoded[base + t],
+                values[base + fastlanes::fromTransposed32(t)])
+          << "block=" << block << " t=" << t;
+    }
   }
 }
 

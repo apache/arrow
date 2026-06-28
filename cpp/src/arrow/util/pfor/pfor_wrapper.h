@@ -68,9 +68,17 @@ class PforWrapper {
   /// \param[in] num_values number of values to decode (from page context)
   /// \param[in] comp pointer to compressed data
   /// \param[in] comp_size size of compressed data
+  /// \param[in] order output value order. Default OutputOrder::Flat returns
+  ///            values in their original input positions. OutputOrder::
+  ///            Transposed only affects FastLanes-encoded vectors (skips
+  ///            their FL_ORDER gather on decode); BitPack vectors always
+  ///            produce flat output regardless of `order`, so a mixed page
+  ///            will have BitPack tails in flat order and FastLanes vectors
+  ///            in transposed order.
   /// \return Status::OK on success, or an error if the data is malformed
   static Status Decode(T* values, int32_t num_values, const uint8_t* comp,
-                       int64_t comp_size);
+                       int64_t comp_size,
+                       OutputOrder order = OutputOrder::Flat);
 
   /// \brief Get the maximum compressed size for a given number of values
   ///

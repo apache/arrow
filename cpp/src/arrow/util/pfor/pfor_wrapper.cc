@@ -157,7 +157,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
 
 template <typename T>
 Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp,
-                              int64_t comp_size) {
+                              int64_t comp_size, OutputOrder order) {
   if (num_values <= 0) {
     return Status::Invalid("PFOR num_values must be positive: ", num_values);
   }
@@ -193,7 +193,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
     ARROW_RETURN_NOT_OK(PforCompression<T>::DecodeVector(
         values + start_idx,
         arrow::util::span<const uint8_t>(vector_data, src + comp_size - vector_data),
-        elements_in_vector));
+        elements_in_vector, order));
   }
 
   return Status::OK();
