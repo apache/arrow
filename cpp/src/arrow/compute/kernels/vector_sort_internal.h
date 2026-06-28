@@ -307,11 +307,16 @@ struct ChunkedMergeImpl {
       const ChunkedNullLikePartition& left, const ChunkedNullLikePartition& right) const {
     // Input layout:
     // [left nul .. left nan .. left non-nul .. right nul .. right nan .. right non-nul]
-    ARROW_DCHECK_EQ(left.null_range.end(), left.nan_range.begin());
-    ARROW_DCHECK_EQ(left.nan_range.end(), left.non_null_like_range.begin());
-    ARROW_DCHECK_EQ(left.non_null_like_range.end(), right.null_range.begin());
-    ARROW_DCHECK_EQ(right.null_range.end(), right.nan_range.begin());
-    ARROW_DCHECK_EQ(right.nan_range.end(), right.non_null_like_range.begin());
+    ARROW_DCHECK_EQ(left.null_range.data() + left.null_range.size(),
+                    left.nan_range.data());
+    ARROW_DCHECK_EQ(left.nan_range.data() + left.nan_range.size(),
+                    left.non_null_like_range.data());
+    ARROW_DCHECK_EQ(left.non_null_like_range.data() + left.non_null_like_range.size(),
+                    right.null_range.data());
+    ARROW_DCHECK_EQ(right.null_range.data() + right.null_range.size(),
+                    right.nan_range.data());
+    ARROW_DCHECK_EQ(right.nan_range.data() + right.nan_range.size(),
+                    right.non_null_like_range.data());
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
     // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nus]
@@ -348,11 +353,16 @@ struct ChunkedMergeImpl {
                                            const ChunkedNullLikePartition& right) const {
     // Input layout:
     // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nulls]
-    ARROW_DCHECK_EQ(left.non_null_like_range.end(), left.nan_range.begin());
-    ARROW_DCHECK_EQ(left.nan_range.end(), left.null_range.begin());
-    ARROW_DCHECK_EQ(left.null_range.end(), right.non_null_like_range.begin());
-    ARROW_DCHECK_EQ(right.non_null_like_range.end(), right.nan_range.begin());
-    ARROW_DCHECK_EQ(right.nan_range.end(), right.null_range.begin());
+    ARROW_DCHECK_EQ(left.non_null_like_range.data() + left.non_null_like_range.size(),
+                    left.nan_range.data());
+    ARROW_DCHECK_EQ(left.nan_range.data() + left.nan_range.size(),
+                    left.null_range.data());
+    ARROW_DCHECK_EQ(left.null_range.data() + left.null_range.size(),
+                    right.non_null_like_range.data());
+    ARROW_DCHECK_EQ(right.non_null_like_range.data() + right.non_null_like_range.size(),
+                    right.nan_range.data());
+    ARROW_DCHECK_EQ(right.nan_range.data() + right.nan_range.size(),
+                    right.null_range.data());
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
     // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
