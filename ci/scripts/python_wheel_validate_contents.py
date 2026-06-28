@@ -79,6 +79,9 @@ def validate_wheel(path):
             f"Missing in wheel: {sorted(expected_stub_files - wheel_stub_files)}\n"
             f"Unexpected in wheel: {sorted(wheel_stub_files - expected_stub_files)}"
         )
+        assert not wheel_stub_files, (
+            f"Wheel contains unexpected .pyi files: {sorted(wheel_stub_files)}"
+        )
 
         wheel_docstring_count = sum(
             _count_docstrings(wheel_zip.read(wsf).decode("utf-8"))
