@@ -454,11 +454,14 @@ add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(metadata_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
                       benchmark_util.cc)
+if(ARROW_BUILD_BENCHMARKS)
 add_executable(parquet-pfor-comparison-benchmark
                pfor_comparison_benchmark.cc
                ${CMAKE_SOURCE_DIR}/src/arrow/util/pfor/pfor.cc
-               ${CMAKE_SOURCE_DIR}/src/arrow/util/pfor/pfor_wrapper.cc)
+               ${CMAKE_SOURCE_DIR}/src/arrow/util/pfor/pfor_wrapper.cc
+               ${CMAKE_SOURCE_DIR}/src/arrow/util/fastlanes/fastlanes_for.cc)
 target_link_libraries(parquet-pfor-comparison-benchmark
                       PRIVATE parquet_static benchmark::benchmark_main)
+endif()
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 add_parquet_benchmark(arrow/size_stats_benchmark PREFIX "parquet-arrow")
