@@ -83,20 +83,7 @@ struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
     return "<INVALID>";
   }
 };
-template <>
-struct EnumTraits<NullPlacement>
-    : BasicEnumTraits<NullPlacement, NullPlacement::AtStart, NullPlacement::AtEnd> {
-  static std::string name() { return "NullPlacement"; }
-  static std::string value_name(NullPlacement value) {
-    switch (value) {
-      case NullPlacement::AtStart:
-        return "AtStart";
-      case NullPlacement::AtEnd:
-        return "AtEnd";
-    }
-    return "<INVALID>";
-  }
-};
+
 template <>
 struct EnumTraits<SearchSortedOptions::Side>
     : BasicEnumTraits<SearchSortedOptions::Side, SearchSortedOptions::Left,
@@ -218,14 +205,22 @@ SearchSortedOptions::SearchSortedOptions(SearchSortedOptions::Side side)
     : FunctionOptions(internal::kSearchSortedOptionsType), side(side) {}
 constexpr char SearchSortedOptions::kTypeName[];
 
-SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement)
+ARROW_SUPPRESS_DEPRECATION_WARNING
+SortOptions::SortOptions(std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(std::nullopt) {}
+SortOptions::SortOptions(std::vector<SortKey> sort_keys,
+                         std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
 SortOptions::SortOptions(const Ordering& ordering)
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(ordering.sort_keys()),
-      null_placement(ordering.null_placement()) {}
+      null_placement(std::nullopt) {
+  null_placement = ordering.null_placement();
+}
 constexpr char SortOptions::kTypeName[];
 ARROW_UNSUPPRESS_DEPRECATION_WARNING
 

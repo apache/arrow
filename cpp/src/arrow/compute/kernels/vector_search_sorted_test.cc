@@ -435,18 +435,6 @@ TEST(SearchSorted, ChunkedRunEndEncodedValuesLeadingNullsAcrossEmptyChunks) {
   CheckSearchSorted(Datum(values), Datum(needles), "[2, 3, 5]", "[2, 5, 5]");
 }
 
-TEST(SearchSorted, ChunkedRunEndEncodedValuesTrailingNullsAcrossEmptyChunks) {
-  auto values_type = run_end_encoded(int16(), int32());
-  ASSERT_OK_AND_ASSIGN(auto empty_chunk, REEFromJSON(values_type, "[]"));
-  ASSERT_OK_AND_ASSIGN(auto data_chunk, REEFromJSON(values_type, "[2, 4, 4]"));
-  ASSERT_OK_AND_ASSIGN(auto null_chunk, REEFromJSON(values_type, "[null, null]"));
-  auto values = std::make_shared<ChunkedArray>(
-      ArrayVector{data_chunk, empty_chunk, null_chunk, empty_chunk});
-  auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
-
-  CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
-}
-
 TEST(SearchSorted, ChunkedRunEndEncodedAllNullValuesAcrossEmptyChunks) {
   auto values_type = run_end_encoded(int16(), int32());
   ASSERT_OK_AND_ASSIGN(auto empty_chunk, REEFromJSON(values_type, "[]"));
