@@ -911,6 +911,7 @@ with_wasm_support <- function(env_var_list) {
     ARROW_DEPENDENCY_USE_SHARED = "OFF",
     ARROW_ENABLE_THREADING = "OFF",
     ARROW_GCS = "OFF",
+    ARROW_AZURE = "OFF",
     ARROW_JEMALLOC = "OFF",
     ARROW_MIMALLOC = "OFF",
     ARROW_S3 = "OFF",
@@ -960,7 +961,7 @@ with_cloud_support <- function(env_var_list) {
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
       arrow_azure <- FALSE
-    } else if (!cmake_find_package("libxml2", NULL, env_var_list)) {
+    } else if (arrow_azure && !cmake_find_package("libxml2", NULL, env_var_list)) {
       print_warning("requires libxml2-devel (rpm), or libxml2-dev (deb), libxml2 (brew)", "AZURE")
       arrow_azure <- FALSE
     }
