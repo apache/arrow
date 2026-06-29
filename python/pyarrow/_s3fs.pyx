@@ -266,6 +266,11 @@ cdef class S3FileSystem(FileSystem):
     tls_ca_file_path : str, default None
         If set, this should be the path of a file containing TLS certificates
         in PEM format which will be used for TLS verification.
+    part_size : int, default 0
+        The size in bytes of parts to upload or download objects in.
+        If zero, the AWS default is used (typically 8 MiB).
+    network_interface_names : List[str], default None
+        The names of network interfaces to use.
 
     Examples
     --------
@@ -293,7 +298,8 @@ cdef class S3FileSystem(FileSystem):
                  check_directory_existence_before_creation=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
                      max_attempts=3),
-                 force_virtual_addressing=False, tls_ca_file_path=None):
+                 force_virtual_addressing=False, tls_ca_file_path=None,
+                 part_size=0, network_interface_names=None):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -408,6 +414,7 @@ cdef class S3FileSystem(FileSystem):
         options.value().allow_bucket_deletion = allow_bucket_deletion
         options.value().check_directory_existence_before_creation = check_directory_existence_before_creation
         options.value().force_virtual_addressing = force_virtual_addressing
+        options.value().part_size = part_size
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
             options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
@@ -419,6 +426,10 @@ cdef class S3FileSystem(FileSystem):
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
         if tls_ca_file_path is not None:
             options.value().tls_ca_file_path = tobytes(tls_ca_file_path)
+
+        if network_interface_names is not None:
+            options.value().network_interface_names = [
+                tobytes(nin) for nin in network_interface_names]
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
@@ -448,6 +459,12 @@ cdef class S3FileSystem(FileSystem):
             access_key = None
             secret_key = None
             session_token = None
+
+        if len(opts.network_interface_names) > 0:
+            network_interface_names = [frombytes(nin)
+                                       for nin in opts.network_interface_names]
+        else:
+            network_interface_names = None
 
         return (
             S3FileSystem._reconstruct, (dict(
@@ -480,6 +497,8 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.password)},
                 force_virtual_addressing=opts.force_virtual_addressing,
                 tls_ca_file_path=frombytes(opts.tls_ca_file_path),
+                part_size=opts.part_size,
+                network_interface_names=network_interface_names
             ),)
         )
 
