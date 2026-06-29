@@ -170,7 +170,7 @@ Windows tab under the :ref:`pyarrow_build_section` section.
 
       .. code-block::
 
-         $ brew update && brew bundle --file=arrow/cpp/Brewfile --jobs 1
+         $ brew update && brew bundle --file=arrow/cpp/Brewfile
 
       See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
       may need.
