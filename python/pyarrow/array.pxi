@@ -4708,6 +4708,30 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         400
       ]
     ]
+
+    Create an extension array from a list of multi-dimensional NumPy arrays.
+    Each element is flattened in row-major (C) order, and its shape must match
+    the tensor shape.
+
+    >>> import numpy as np
+    >>> pa.array([np.array([[1, 2], [3, 4]], dtype=np.int32),
+    ...           np.array([[10, 20], [30, 40]], dtype=np.int32)],
+    ...          type=tensor_type)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
+      ]
+    ]
     """
 
     def to_numpy_ndarray(self):
