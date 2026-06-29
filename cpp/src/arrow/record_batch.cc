@@ -417,8 +417,8 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
     fields[i] = schema()->field(i)->WithName(names[i]);
   }
 
-  return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
-                           std::move(columns), GetSyncEvent());
+  return RecordBatch::Make(::arrow::schema(std::move(fields), schema()->metadata()),
+                           num_rows(), std::move(columns), GetSyncEvent());
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
