@@ -1760,7 +1760,6 @@ TEST_F(TestTableSortIndices, Timestamp) {
   AssertSortIndices(table, options, "[0, 1, 4, 3, 2]");
   options.sort_keys[1].null_placement = NullPlacement::AtStart;
   AssertSortIndices(table, options, "[0, 1, 3, 4, 2]");
-
 }
 
 TEST_F(TestTableSortIndices, NullType) {
