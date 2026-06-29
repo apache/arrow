@@ -478,8 +478,6 @@ class ChunkedRunEndEncodedValuesAccessor {
   std::pair<size_t, int64_t> ResolveRun(int64_t index) const {
     DCHECK_LT(index, total_run_count_);
     const auto location = run_resolver_->Resolve(index);
-    DCHECK_GE(location.chunk_index, 0);
-    DCHECK_LT(static_cast<size_t>(location.chunk_index), accessors_.size());
     return {static_cast<size_t>(location.chunk_index), location.index_in_chunk};
   }
 
