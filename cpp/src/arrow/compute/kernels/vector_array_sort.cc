@@ -155,16 +155,16 @@ class ArrayCompareSorter {
     const auto p = PartitionNullsAndNans<ArrayType, StablePartitioner>(
         indices, values, offset, options.null_placement);
     if (options.order == SortOrder::Ascending) {
-      std::stable_sort(
-          p.non_null_like_range.begin(), p.non_null_like_range.end(),
+      std::ranges::stable_sort(
+          p.non_null_like_range,
           [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
             return lhs < rhs;
           });
     } else {
-      std::stable_sort(
-          p.non_null_like_range.begin(), p.non_null_like_range.end(),
+      std::ranges::stable_sort(
+          p.non_null_like_range,
           [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
