@@ -66,19 +66,30 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
+    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: cpp_extra
 
-  docker:
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
     needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -170,11 +181,8 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   msvc-arm64:
-    needs: check-labels
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ARM64 Windows 11 MSVC
     uses: ./.github/workflows/cpp_windows.yml
     with:
@@ -183,13 +191,10 @@ jobs:
       simd-level: NONE
 
   jni-linux:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
     runs-on: ${{ matrix.platform.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
       actions: read
@@ -257,13 +262,10 @@ jobs:
         run: archery docker push cpp-jni
 
   jni-macos:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI macOS
     runs-on: macos-14
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
@@ -350,13 +352,10 @@ jobs:
           key: jni-macos
 
   odbc-linux:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC Linux
     runs-on: ubuntu-latest
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -418,13 +417,10 @@ jobs:
         run: archery docker push ubuntu-cpp-odbc
 
   odbc-macos:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -550,13 +546,10 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   odbc-msvc:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC Windows
     runs-on: windows-2022
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
       actions: read

@@ -28,9 +28,6 @@ on:
       ci-extra-labels:
         description: "The extra CI labels"
         value: ${{ jobs.check-labels.outputs.ci-extra-labels }}
-      force:
-        description: "Whether to force running the jobs"
-        value: ${{ jobs.check-labels.outputs.force }}
 
 permissions:
   contents: read
@@ -43,7 +40,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       ci-extra-labels: ${{ steps.check.outputs.ci-extra-labels }}
-      force: ${{ steps.check.outputs.force }}
     steps:
       - name: Checkout Arrow
         if: github.event_name == 'pull_request'
