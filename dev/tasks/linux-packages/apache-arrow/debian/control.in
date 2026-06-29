@@ -30,7 +30,9 @@ Build-Depends:
   meson,
   ninja-build,
   nlohmann-json-dev | nlohmann-json3-dev,
-  nvidia-cuda-toolkit [!arm64],
+# It might be removed from for example Debian-testing.
+# We fallback to base-files if it fails on amd64 or i386.
+  nvidia-cuda-toolkit [!arm64] | base-files,
   pkg-config,
   protobuf-compiler,
   protobuf-compiler-grpc,
