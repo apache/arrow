@@ -79,16 +79,16 @@ struct PartitionNthToIndices {
     }
     const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
         out_span, arr, 0, options.null_placement);
-    auto nth_begin = out_span.begin() + pivot;
-    if (nth_begin >= p.non_null_like_range.begin() &&
-        nth_begin < p.non_null_like_range.end()) {
-      std::ranges::nth_element(
-          p.non_null_like_range.begin(), nth_begin, p.non_null_like_range.end(),
-          [&arr](uint64_t left, uint64_t right) {
-            const auto lval = GetView::LogicalValue(arr.GetView(left));
-            const auto rval = GetView::LogicalValue(arr.GetView(right));
-            return lval < rval;
-          });
+    auto nth_begin = out_span.data() + pivot;
+    auto non_null_begin = p.non_null_like_range.data();
+    auto non_null_end = p.non_null_like_range.data() + p.non_null_like_range.size();
+    if (nth_begin >= non_null_begin && nth_begin < non_null_end) {
+      std::nth_element(non_null_begin, nth_begin, non_null_end,
+                       [&arr](uint64_t left, uint64_t right) {
+                         const auto lval = GetView::LogicalValue(arr.GetView(left));
+                         const auto rval = GetView::LogicalValue(arr.GetView(right));
+                         return lval < rval;
+                       });
     }
     return Status::OK();
   }
@@ -156,16 +156,14 @@ class ArrayCompareSorter {
         indices, values, offset, options.null_placement);
     if (options.order == SortOrder::Ascending) {
       std::ranges::stable_sort(
-          p.non_null_like_range,
-          [&values, &offset](uint64_t left, uint64_t right) {
+          p.non_null_like_range, [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
             return lhs < rhs;
           });
     } else {
       std::ranges::stable_sort(
-          p.non_null_like_range,
-          [&values, &offset](uint64_t left, uint64_t right) {
+          p.non_null_like_range, [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
             // We don't use 'left > right' here to reduce required operator.

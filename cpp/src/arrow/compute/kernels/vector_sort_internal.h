@@ -320,14 +320,14 @@ struct ChunkedMergeImpl {
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
     // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nus]
-    std::rotate(left.non_null_like_range.begin(), right.null_range.begin(),
-                right.nan_range.end());
+    std::rotate(left.non_null_like_range.data(), right.null_range.data(),
+                right.nan_range.data() + right.nan_range.size());
 
     // only use sizes of ranges that are at a different position now
     // [left nul .. right nul .. left nan .. right nan .. left non-nulls .. right
     // non-nulls] this is a no-op if no nan values are present
-    std::rotate(left.nan_range.begin(), left.nan_range.begin() + left.nan_range.size(),
-                left.nan_range.begin() + left.nan_range.size() + right.null_range.size());
+    std::rotate(left.nan_range.data(), left.nan_range.data() + left.nan_range.size(),
+                left.nan_range.data() + left.nan_range.size() + right.null_range.size());
 
     std::span<CompressedChunkLocation> full_span{left.overall_begin(),
                                                  right.overall_end()};
@@ -366,14 +366,14 @@ struct ChunkedMergeImpl {
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
     // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
-    std::rotate(left.nan_range.begin(), right.non_null_like_range.begin(),
-                right.non_null_like_range.end());
+    std::rotate(left.nan_range.data(), right.non_null_like_range.data(),
+                right.non_null_like_range.data() + right.non_null_like_range.size());
 
     // only use sizes of ranges that are at a different position now
     // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
     // this is a no-op if no nan values are present
     auto new_left_null_range_begin =
-        left.non_null_like_range.begin() + left.non_null_like_range.size() +
+        left.non_null_like_range.data() + left.non_null_like_range.size() +
         right.non_null_like_range.size() + left.nan_range.size();
     std::rotate(
         new_left_null_range_begin, new_left_null_range_begin + left.null_range.size(),
