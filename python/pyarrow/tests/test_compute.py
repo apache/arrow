@@ -3907,9 +3907,6 @@ def test_rank_normal_options():
 
 @pytest.mark.numpy
 def test_hypot():
-    # hypot(x, y) = sqrt(x**2 + y**2); compared against numpy.
-    # (hypot has no Substrait mapping, so it is tested here rather than in the
-    # expression-serialization round-trip.)
     x = np.array([3.0, 0.0, -5.0, 1.5, 7.25])
     y = np.array([4.0, 0.0, 12.0, -2.0, 0.0])
     result = pc.hypot(pa.array(x), pa.array(y))
