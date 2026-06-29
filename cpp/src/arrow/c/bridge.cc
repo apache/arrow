@@ -534,7 +534,7 @@ namespace {
 struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> {
   // The buffers are owned by the ArrayData member
   SmallVector<const void*, 3> buffers_;
-  struct ArrowArray dictionary_ {};
+  struct ArrowArray dictionary_{};
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
@@ -2630,6 +2630,10 @@ class AsyncRecordBatchIterator {
 
     private_data->state_->schema_ = maybe_schema.MoveValueUnsafe();
     private_data->fut_iterator_.MarkFinished(private_data->state_);
+    if (self->producer == nullptr) {
+      private_data->fut_iterator_.MarkFinished(Status::Invalid("Missing producer"));
+      return EINVAL;
+    }
     self->producer->request(self->producer,
                             static_cast<int64_t>(private_data->state_->queue_size_));
     return 0;
