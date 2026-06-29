@@ -41,6 +41,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding_internal.h"
@@ -112,7 +113,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       if (data_size < 4) {
         throw ParquetException("Received invalid levels (corrupt data page?)");
       }
-      num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      num_bytes =
+          ::arrow::bit_util::FromLittleEndian(::arrow::util::SafeLoadAs<int32_t>(data));
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
