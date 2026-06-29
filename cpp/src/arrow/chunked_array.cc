@@ -62,6 +62,14 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
   }
 }
 
+int64_t ChunkedArray::ComputeLogicalNullCount() const {
+  int64_t count = 0;
+  for (const auto& chunk : chunks_) {
+    count += chunk->ComputeLogicalNullCount();
+  }
+  return count;
+}
+
 Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
                                                          std::shared_ptr<DataType> type) {
   if (type == nullptr) {
