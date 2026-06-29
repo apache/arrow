@@ -816,6 +816,83 @@ TEST_F(DiffTest, CompareRandomStruct) {
   }
 }
 
+TEST_F(DiffTest, StructFieldComparison) {
+  // test struct field-by-field comparison
+  auto type = struct_(
+      {field("first", int32()), field("second", utf8()), field("third", int64())});
+
+  // first field differs
+  base_ = ArrayFromJSON(type, R"([{"first": 1, "second": "a", "third": 100}])");
+  target_ = ArrayFromJSON(type, R"([{"first": 2, "second": "a", "third": 100}])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 0]");
+
+  // second field differs
+  base_ = ArrayFromJSON(type, R"([{"first": 1, "second": "a", "third": 100}])");
+  target_ = ArrayFromJSON(type, R"([{"first": 1, "second": "b", "third": 100}])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 0]");
+
+  // third field differs
+  base_ = ArrayFromJSON(type, R"([{"first": 1, "second": "a", "third": 100}])");
+  target_ = ArrayFromJSON(type, R"([{"first": 1, "second": "a", "third": 200}])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 0]");
+
+  // all fields equal
+  base_ = ArrayFromJSON(type, R"([{"first": 1, "second": "a", "third": 100}])");
+  target_ = ArrayFromJSON(type, R"([{"first": 1, "second": "a", "third": 100}])");
+  DoDiff();
+  AssertInsertIs("[false]");
+  AssertRunLengthIs("[1]");
+}
+
+TEST_F(DiffTest, NestedStructComparison) {
+  // test nested struct comparison
+  auto inner_type = struct_({field("x", int32()), field("y", int32())});
+  auto outer_type =
+      struct_({field("id", int32()), field("inner", inner_type), field("name", utf8())});
+
+  // outer first field differs
+  base_ = ArrayFromJSON(outer_type,
+                        R"([{"id": 1, "inner": {"x": 10, "y": 20}, "name": "test"}])");
+  target_ = ArrayFromJSON(outer_type,
+                          R"([{"id": 2, "inner": {"x": 10, "y": 20}, "name": "test"}])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 0]");
+
+  // nested struct first field differs
+  base_ = ArrayFromJSON(outer_type,
+                        R"([{"id": 1, "inner": {"x": 10, "y": 20}, "name": "test"}])");
+  target_ = ArrayFromJSON(outer_type,
+                          R"([{"id": 1, "inner": {"x": 99, "y": 20}, "name": "test"}])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 0]");
+
+  // nested struct second field differs
+  base_ = ArrayFromJSON(outer_type,
+                        R"([{"id": 1, "inner": {"x": 10, "y": 20}, "name": "test"}])");
+  target_ = ArrayFromJSON(outer_type,
+                          R"([{"id": 1, "inner": {"x": 10, "y": 99}, "name": "test"}])");
+  DoDiff();
+  AssertInsertIs("[false, false, true]");
+  AssertRunLengthIs("[0, 0, 0]");
+
+  // all equal including nested struct
+  base_ = ArrayFromJSON(outer_type,
+                        R"([{"id": 1, "inner": {"x": 10, "y": 20}, "name": "test"}])");
+  target_ = ArrayFromJSON(outer_type,
+                          R"([{"id": 1, "inner": {"x": 10, "y": 20}, "name": "test"}])");
+  DoDiff();
+  AssertInsertIs("[false]");
+  AssertRunLengthIs("[1]");
+}
+
 TEST_F(DiffTest, CompareHalfFloat) {
   auto first = ArrayFromJSON(float16(), "[1.1, 2.0, 2.5, 3.3]");
   auto second = ArrayFromJSON(float16(), "[1.1, 4.0, 3.5, 3.3]");
