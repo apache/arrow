@@ -154,11 +154,13 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
     set(CPACK_WIX_UI_BANNER
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-wix-banner.bmp")
+    set(ODBC_DOC_INSTALL_DIR "doc")
   else()
+    set(ODBC_UNIX_FILE_NAME
+        "ArrowFlightSQLODBC-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
+    )
     if(APPLE)
-      set(CPACK_PACKAGE_FILE_NAME
-          "ArrowFlightSQLODBC-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
-      )
+      set(CPACK_PACKAGE_FILE_NAME "${ODBC_UNIX_FILE_NAME}")
       set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
 
       set(CPACK_SET_DESTDIR ON)
@@ -174,10 +176,36 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
       set(ODBC_DOC_INSTALL_DIR "arrow-odbc/doc")
     else()
       # Linux
-      # GH-49595: TODO implement DEB installer
-      # GH-47977: TODO implement RPM installer
-      message(STATUS "ODBC_PACKAGE_FORMAT DEB not implemented, see GH-49595")
-      message(STATUS "ODBC_PACKAGE_FORMAT RPM not implemented, see GH-47977")
+      set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
+      if(${ODBC_PACKAGE_FORMAT} STREQUAL "DEB")
+        set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE amd64)
+        set(CPACK_GENERATOR DEB)
+        set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+            "${CMAKE_CURRENT_SOURCE_DIR}/install/linux/postinst")
+        set(CPACK_DEBIAN_FILE_NAME "${ODBC_UNIX_FILE_NAME}.deb")
+        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
+        set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
+        # Exclude Unspecified components
+        set(CPACK_DEB_COMPONENT_INSTALL ON)
+        set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+      elseif(${ODBC_PACKAGE_FORMAT} STREQUAL "RPM")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE x86_64)
+        set(CPACK_GENERATOR RPM)
+        set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE
+            "${CMAKE_CURRENT_SOURCE_DIR}/install/linux/postinst")
+        set(CPACK_RPM_FILE_NAME "${ODBC_UNIX_FILE_NAME}.rpm")
+        # Disable dependency check as ODBC embeds all third party dependencies
+        set(CPACK_RPM_PACKAGE_AUTOREQPROV "no")
+        set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE 1)
+        set(CPACK_RPM_COMPONENT_INSTALL ON)
+      else()
+        message(FATAL_ERROR "ODBC_PACKAGE_FORMAT '${ODBC_PACKAGE_FORMAT}' must be DEB or RPM for Linux installer."
+        )
+      endif()
+
+      # By default, Linux installs under /usr
+      set(ODBC_INSTALL_DIR "lib64/arrow-odbc/lib")
+      set(ODBC_DOC_INSTALL_DIR "lib64/arrow-odbc/doc")
     endif()
 
     # Install ODBC
@@ -206,14 +234,14 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
                         GROUP_READ
                         WORLD_EXECUTE
                         WORLD_READ)
-
-    # Install documentation files
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
-                  "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../NOTICE.txt"
-                  "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
-            DESTINATION "${ODBC_DOC_INSTALL_DIR}"
-            COMPONENT Docs)
   endif()
+
+  # Install documentation files
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../NOTICE.txt"
+                "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
+          DESTINATION "${ODBC_DOC_INSTALL_DIR}"
+          COMPONENT Docs)
 
   get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
   set(CPACK_COMPONENTS_ALL "ArrowFlightSQLODBC" "Docs")

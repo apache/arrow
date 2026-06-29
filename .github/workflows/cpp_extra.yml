@@ -370,7 +370,7 @@ jobs:
 
   odbc-linux:
     needs: check-labels
-    name: ODBC Linux
+    name: ODBC ${{ matrix.build-type }} ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -379,6 +379,22 @@ jobs:
     timeout-minutes: 75
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu RPM
+            build-type: release
+            format: rpm
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=RPM
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu DEB
+            build-type: release
+            format: deb
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=DEB
     env:
       ARCH: amd64
       ARCHERY_DEBUG: 1
@@ -406,7 +422,8 @@ jobs:
         uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ubuntu-cpp-odbc
+          key: ${{ matrix.image }}-${{ matrix.format }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-${{ matrix.format }}-
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -415,14 +432,21 @@ jobs:
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ubuntu-cpp-odbc
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Upload ODBC ${{ matrix.format }} to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-${{ matrix.format }}-installer
+          path: build/cpp/ArrowFlightSQLODBC-*.${{ matrix.format }}
+          if-no-files-found: error
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
         uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ubuntu-cpp-odbc
+          key: ${{ matrix.image }}-${{ matrix.format }}-${{ hashFiles('cpp/**') }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
@@ -434,7 +458,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ubuntu-cpp-odbc
+        run: archery docker push ${{ matrix.image }}
 
   odbc-macos:
     needs: check-labels

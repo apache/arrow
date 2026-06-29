@@ -71,6 +71,7 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        file \
         gdb \
         git \
         libbenchmark-dev \
@@ -119,7 +120,9 @@ RUN apt-get update -y -q && \
         python3-venv \
         rados-objclass-dev \
         rapidjson-dev \
+        rpm \
         rsync \
+        sudo \
         tzdata \
         tzdata-legacy \
         unixodbc-dev \
