@@ -68,6 +68,7 @@ These should be used to create Arrow data types and schemas.
    dictionary
    run_end_encoded
    fixed_shape_tensor
+   variable_shape_tensor
    union
    dense_union
    sparse_union
@@ -142,6 +143,7 @@ implemented by PyArrow.
    :toctree: ../generated/
 
    FixedShapeTensorType
+   VariableShapeTensorType
    OpaqueType
    JsonType
    UuidType
