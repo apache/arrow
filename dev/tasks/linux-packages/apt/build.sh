@@ -119,6 +119,15 @@ fi
 : ${DEB_BUILD_OPTIONS:="parallel=$(nproc)"}
 # DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
 export DEB_BUILD_OPTIONS
+# nvidia-cuda-toolkit may be unavailable (e.g. it was removed from Debian
+# forky). Disable the CUDA packages via the pkg.apache-arrow.nocuda build
+# profile when it isn't installed. debian/rules disables ARROW_CUDA the
+# same way. See GH-50090.
+if ! dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then
+  DEB_BUILD_PROFILES="${DEB_BUILD_PROFILES:-} pkg.apache-arrow.nocuda"
+  export DEB_BUILD_PROFILES
+  debuild_options+=(-eDEB_BUILD_PROFILES)
+fi
 df -h
 if [ "${DEBUG:-no}" = "yes" ]; then
   run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}"

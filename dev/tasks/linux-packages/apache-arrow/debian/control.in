@@ -30,9 +30,10 @@ Build-Depends:
   meson,
   ninja-build,
   nlohmann-json-dev | nlohmann-json3-dev,
-# It might be removed from for example Debian-testing.
-# We fallback to base-files if it fails on amd64 or i386.
-  nvidia-cuda-toolkit [!arm64] | base-files,
+# nvidia-cuda-toolkit may be unavailable (e.g. removed from Debian forky).
+# apt/build.sh enables the pkg.apache-arrow.nocuda profile in that case so
+# this build dependency and the CUDA packages below are skipped.
+  nvidia-cuda-toolkit [!arm64] <!pkg.apache-arrow.nocuda>,
   pkg-config,
   protobuf-compiler,
   protobuf-compiler-grpc,
@@ -84,6 +85,7 @@ Description: Apache Arrow is a data processing library for analysis
 Package: libarrow-cuda2500
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
+Build-Profiles: <!pkg.apache-arrow.nocuda>
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -192,6 +194,7 @@ Description: Apache Arrow is a data processing library for analysis
 Package: libarrow-cuda-dev
 Section: libdevel
 Architecture: @CUDA_ARCHITECTURE@
+Build-Profiles: <!pkg.apache-arrow.nocuda>
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -371,6 +374,7 @@ Description: Apache Arrow is a data processing library for analysis
 Package: libarrow-cuda-glib2500
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
+Build-Profiles: <!pkg.apache-arrow.nocuda>
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -385,6 +389,7 @@ Description: Apache Arrow is a data processing library for analysis
 Package: libarrow-cuda-glib-doc
 Section: doc
 Architecture: @CUDA_ARCHITECTURE@
+Build-Profiles: <!pkg.apache-arrow.nocuda>
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}
@@ -396,6 +401,7 @@ Description: Apache Arrow is a data processing library for analysis
 Package: gir1.2-arrow-cuda-25.0
 Section: introspection
 Architecture: @CUDA_ARCHITECTURE@
+Build-Profiles: <!pkg.apache-arrow.nocuda>
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -409,6 +415,7 @@ Description: Apache Arrow is a data processing library for analysis
 Package: libarrow-cuda-glib-dev
 Section: libdevel
 Architecture: @CUDA_ARCHITECTURE@
+Build-Profiles: <!pkg.apache-arrow.nocuda>
 Multi-Arch: same
 Depends:
   ${misc:Depends},

@@ -85,16 +85,14 @@ class ApacheArrowPackageTask < PackageTask
     end
   end
 
+  def apt_arm64_cuda_available_target?(target)
+    false
+  end
+
   def apt_prepare_debian_control_cuda_architecture(control, target)
-    _distribution, code_name, _architecture = split_target(target)
-    if code_name == "forky"
-      # nvidia-cuda-toolkit was removed from Debian's repositories so we
-      # can't build CUDA related packages on Debian forky for now.
-      #   https://tracker.debian.org/news/1758597/nvidia-cuda-toolkit-removed-from-testing/
-      # See: GH-50090
-      cuda_architecture = "i386"
+    if apt_arm64_cuda_available_target?(target)
+      cuda_architecture = "any"
     else
-      # We never build CUDA related packages for arm64
       cuda_architecture = "i386 amd64"
     end
     control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
