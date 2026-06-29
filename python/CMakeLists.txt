@@ -1041,32 +1041,40 @@ endif()
 #
 # Type stubs with docstring injection
 #
+# TODO(GH-32609): Reintroduce type stubs into PyArrow wheels.
+# GH-49831: Temporarily do not install pyarrow-stubs into wheels.
 # Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
 # alongside the package so type checkers can find them (PEP 561).
-set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
-if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
-  install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
-          DESTINATION "."
-          FILES_MATCHING
-          PATTERN "*.pyi")
-
-  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
-    install(CODE "
-      execute_process(
-        COMMAND \"${Python3_EXECUTABLE}\"
-                \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
-                \"${CMAKE_INSTALL_PREFIX}\"
-                \"${CMAKE_CURRENT_SOURCE_DIR}\"
-        RESULT_VARIABLE _pyarrow_stub_docstrings_result
-      )
-      if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
-        message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
-      endif()
-    ")
-  endif()
-else()
-  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
-    message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
-                        "cannot build wheel without .pyi files.")
-  endif()
+# The stubs are currently incomplete, and some type checkers consume .pyi files
+# even without the py.typed marker. Re-enable this when the stubs are complete.
+if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+  message(FATAL_ERROR "PYARROW_REQUIRE_STUB_DOCSTRINGS cannot be used while "
+                      "pyarrow-stubs are omitted from wheels (GH-49831).")
 endif()
+# set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+# if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+#   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
+#           DESTINATION "."
+#           FILES_MATCHING
+#           PATTERN "*.pyi")
+#
+#   if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+#     install(CODE "
+#       execute_process(
+#         COMMAND \"${Python3_EXECUTABLE}\"
+#                 \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+#                 \"${CMAKE_INSTALL_PREFIX}\"
+#                 \"${CMAKE_CURRENT_SOURCE_DIR}\"
+#         RESULT_VARIABLE _pyarrow_stub_docstrings_result
+#       )
+#       if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
+#         message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+#       endif()
+#     ")
+#   endif()
+# else()
+#   if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+#     message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
+#                         "cannot build wheel without .pyi files.")
+#   endif()
+# endif()
