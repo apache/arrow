@@ -266,6 +266,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     if type is not None and type.id == _Type_EXTENSION:
         extension_type = type
         type = type.storage_type
+        # GH-49644: when building a fixed_shape_tensor from a sequence of arrays,
+        # the converter only sees the flat storage type, so validate the
+        # tensor-specific constraints here where the type is still known.
+        if (isinstance(extension_type, FixedShapeTensorType)
+                and isinstance(obj, (list, tuple))):
+            if extension_type.permutation is not None:
+                raise NotImplementedError(
+                    "Converting a sequence of arrays to a fixed_shape_tensor "
+                    "with a permutation is not supported")
+            expected_shape = tuple(extension_type.shape)
+            for element in obj:
+                shape = getattr(element, "shape", None)
+                if (shape is not None and len(shape) >= 2
+                        and tuple(shape) != expected_shape):
+                    raise ValueError(
+                        f"Cannot convert array of shape {tuple(shape)} to a "
+                        f"fixed_shape_tensor of shape {expected_shape}")
 
     if from_pandas is None:
         c_from_pandas = False
@@ -4696,6 +4713,30 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         200,
         300,
         400
+      ]
+    ]
+
+    Create an extension array from a list of multi-dimensional NumPy arrays.
+    Each element is flattened in row-major (C) order, and its shape must match
+    the tensor shape.
+
+    >>> import numpy as np
+    >>> pa.array([np.array([[1, 2], [3, 4]], dtype=np.int32),
+    ...           np.array([[10, 20], [30, 40]], dtype=np.int32)],
+    ...          type=tensor_type)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
       ]
     ]
     """
