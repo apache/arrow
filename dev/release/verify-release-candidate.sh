@@ -519,7 +519,15 @@ test_and_install_cpp() {
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
-  cmake --build . --target install
+  # On macOS, conda package-cache binaries intermittently fail to load their @rpath
+  # dependencies even though the libs are present. Add the env lib dir to the fallback
+  # path (searched last, to not override system libs) so they resolve.
+  # See https://github.com/conda-forge/cmake-feedstock/issues/230
+  if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
+    DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib" cmake --build . --target install
+  else
+    cmake --build . --target install
+  fi
 
   if [ ${TEST_CPP} -gt 0 ]; then
     LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
@@ -779,10 +787,10 @@ test_source_distribution() {
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
-    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
   else
     NPROC=$(nproc)
-    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
   fi
 
   pushd $ARROW_SOURCE_DIR
