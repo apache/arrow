@@ -1739,6 +1739,29 @@ TEST_F(TestTableSortIndices, Decimal) {
   AssertSortIndices(table, options, "[3, 4, 0, 2, 1]");
 }
 
+TEST_F(TestTableSortIndices, Timestamp) {
+  auto schema = ::arrow::schema({
+      {field("a", timestamp(TimeUnit::MICRO))},
+      {field("b", timestamp(TimeUnit::MICRO))},
+  });
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                 SortKey("b", SortOrder::Descending)};
+
+  auto table = TableFromJSON(schema, {R"([{"a": 1, "b": 2},
+                                          {"a": 3, "b": 4},
+                                          {"a": 8, "b": 6}
+                                          ])",
+                                      R"([{"a": 6, "b": null},
+                                          {"a": 6, "b": 7}
+                                          ])"});
+  SortOptions options(sort_keys);
+  AssertSortIndices(table, options, "[0, 1, 4, 3, 2]");
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[0, 1, 4, 3, 2]");
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  AssertSortIndices(table, options, "[0, 1, 3, 4, 2]");
+}
+
 TEST_F(TestTableSortIndices, NullType) {
   auto schema = arrow::schema({
       field("a", null()),

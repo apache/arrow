@@ -780,14 +780,15 @@ struct ResolvedTableSortKey {
       // so we can't simply access the column from the table directly.
       ArrayVector chunks;
       chunks.reserve(batches.size());
+      auto physical_type = GetPhysicalType(f.type->GetSharedPtr());
       int64_t null_count = 0;
       for (const auto& batch : batches) {
         ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(*batch));
         null_count += child->null_count();
-        chunks.push_back(std::move(child));
+        chunks.push_back(GetPhysicalArray(*child, physical_type));
       }
 
-      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order,
+      return ResolvedTableSortKey(physical_type, std::move(chunks), f.order,
                                   f.null_placement, null_count);
     };
 
