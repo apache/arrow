@@ -242,7 +242,8 @@ jobs:
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
-          brew bundle --file=cpp/Brewfile --jobs 1
+          brew install aws-sdk-cpp
+          brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
