@@ -1995,7 +1995,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Ruby'),
 
         generate_run_end_encoded_case()
-        .skip_tester('.NET')
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
@@ -2008,7 +2007,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Ruby'),
 
         generate_list_view_case()
-        .skip_tester('.NET')     # Doesn't support large list views
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
