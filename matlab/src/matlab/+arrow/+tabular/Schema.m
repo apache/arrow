@@ -100,14 +100,19 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
     methods (Access=protected)
 
         function header = getHeader(obj)
-            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            import arrow.internal.display.getClassNameForDisplay
+            import arrow.internal.display.getNumString
+
+            fullClassName = string(class(obj));
+            className = getClassNameForDisplay(fullClassName);
             numFields = obj.NumFields;
+            numFieldsString = getNumString(numFields);
             if numFields == 0
-                header = compose("  Arrow %s with 0 fields" + newline, name);
+                header = compose("  Arrow %s with %s fields" + newline, className, numFieldsString);
             elseif numFields == 1
-                header = compose("  Arrow %s with %d field:" + newline, name, numFields);
+                header = compose("  Arrow %s with %s field:" + newline, className, numFieldsString);
             else
-                header = compose("  Arrow %s with %d fields:" + newline, name, numFields);
+                header = compose("  Arrow %s with %s fields:" + newline, className, numFieldsString);
             end
         end
 
