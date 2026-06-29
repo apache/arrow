@@ -38,18 +38,7 @@ on:
     tags:
       - "apache-arrow-*-rc*"
   pull_request:
-    paths:
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/package_linux.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'cpp/**'
-      - 'c_glib/**'
-      - 'dev/archery/archery/**'
-      - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.sh'
-      - 'dev/release/verify-yum.sh'
-      - 'dev/tasks/linux-packages/**'
-      - 'format/Flight.proto'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened

@@ -19,9 +19,16 @@ name: CUDA Extra
 
 on:
   push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '**/*cuda*'
+      - '**/*gpu*'
     tags:
       - '**'
   pull_request:
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened

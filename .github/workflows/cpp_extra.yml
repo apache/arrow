@@ -45,26 +45,7 @@ on:
     tags:
       - '**'
   pull_request:
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/cpp_extra.yml'
-      - '.github/workflows/cpp_windows.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/conda_env_*'
-      - 'ci/docker/**'
-      - 'ci/scripts/ccache_setup.sh'
-      - 'ci/scripts/cpp_*'
-      - 'ci/scripts/install_azurite.sh'
-      - 'ci/scripts/install_gcs_testbench.sh'
-      - 'ci/scripts/install_minio.sh'
-      - 'ci/scripts/msys2_*'
-      - 'ci/scripts/util_*'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'dev/archery/archery/**'
-      - 'format/Flight.proto'
-      - 'testing'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened

@@ -40,21 +40,7 @@ on:
     tags:
       - '**'
   pull_request:
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/r_extra.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/docker/**'
-      - 'ci/etc/rprofile'
-      - 'ci/scripts/PKGBUILD'
-      - 'ci/scripts/cpp_*.sh'
-      - 'ci/scripts/install_minio.sh'
-      - 'ci/scripts/r_*.sh'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'dev/archery/archery/**'
-      - 'r/**'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
