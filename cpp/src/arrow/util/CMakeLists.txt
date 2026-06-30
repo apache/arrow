@@ -118,7 +118,7 @@ add_arrow_test(threading-utility-test
                test_common.cc
                thread_pool_test.cc)
 
-add_arrow_benchmark(bit_block_counter_benchmark)
+add_arrow_benchmark(bitmap_traversal_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
 add_arrow_benchmark(bpacking_benchmark)
@@ -128,6 +128,7 @@ add_arrow_benchmark(decimal_benchmark)
 add_arrow_benchmark(hashing_benchmark)
 add_arrow_benchmark(int_util_benchmark)
 add_arrow_benchmark(machine_benchmark)
+add_arrow_benchmark(nested_bitmap_traversal_benchmark)
 add_arrow_benchmark(queue_benchmark)
 add_arrow_benchmark(range_benchmark)
 add_arrow_benchmark(small_vector_benchmark)
