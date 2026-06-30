@@ -717,10 +717,12 @@ static void BM_AlpDecodingDouble(benchmark::State& state) {
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
   auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP);
+  std::vector<double> output(values.size());
   for (auto _ : state) {
+    state.PauseTiming();
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
-    std::vector<double> output(values.size());
+    state.ResumeTiming();
     decoder->Decode(output.data(), static_cast<int>(values.size()));
     benchmark::ClobberMemory();
   }
