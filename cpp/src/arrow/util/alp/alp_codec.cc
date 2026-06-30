@@ -202,10 +202,12 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(
 }
 
 template <typename T>
-typename AlpCodec<T>::AlpSamplerResult AlpCodec<T>::CreateSamplingPreset(
+Result<typename AlpCodec<T>::AlpSamplerResult> AlpCodec<T>::CreateSamplingPreset(
     const T* input, int64_t num_elements) {
-  ARROW_CHECK(num_elements >= 0)
-      << "alp_encode_num_elements_must_be_non_negative";
+  if (num_elements < 0) {
+    return Status::Invalid("ALP num_elements must be non-negative, got ",
+                           num_elements);
+  }
 
   AlpSampler<T> sampler;
   sampler.AddSample({input, static_cast<size_t>(num_elements)});
@@ -213,18 +215,28 @@ typename AlpCodec<T>::AlpSamplerResult AlpCodec<T>::CreateSamplingPreset(
 }
 
 template <typename T>
-void AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
+Status AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
                                      const AlpSamplerResult& preset,
                                      int32_t vector_size,
                                      uint8_t* output, int64_t* output_size) {
-  ARROW_CHECK(num_elements >= 0)
-      << "alp_encode_num_elements_must_be_non_negative";
-  ARROW_CHECK(num_elements <= std::numeric_limits<int32_t>::max())
-      << "alp_num_elements_exceeds_int32_max: " << num_elements;
-  ARROW_CHECK(::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size)))
-      << "alp_vector_size_must_be_power_of_2: " << vector_size;
-  ARROW_CHECK(vector_size <= (1 << AlpConstants::kMaxLogVectorSize))
-      << "alp_vector_size_exceeds_max: " << vector_size;
+  if (num_elements < 0) {
+    return Status::Invalid("ALP num_elements must be non-negative, got ",
+                           num_elements);
+  }
+  if (num_elements > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("ALP num_elements exceeds INT32_MAX, got ",
+                           num_elements);
+  }
+  if (vector_size <= 0 ||
+      !::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size))) {
+    return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
+                           vector_size);
+  }
+  if (vector_size > (1 << AlpConstants::kMaxLogVectorSize)) {
+    return Status::Invalid("ALP vector_size exceeds maximum ",
+                           (1 << AlpConstants::kMaxLogVectorSize), ", got ",
+                           vector_size);
+  }
 
   // Make room to store header afterwards.
   uint8_t* encoded_header = output;
@@ -247,20 +259,24 @@ void AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
   util::SafeStore(encoded_header + 3, header.num_elements);
   *output_size = static_cast<int64_t>(AlpHeader::kSize) +
                  compression_progress.num_compressed_bytes_produced;
+  return Status::OK();
 }
 
 template <typename T>
-void AlpCodec<T>::Encode(const T* input, int64_t num_elements,
+Status AlpCodec<T>::Encode(const T* input, int64_t num_elements,
                            int32_t vector_size,
                            uint8_t* output, int64_t* output_size) {
-  auto sampling_result = CreateSamplingPreset(input, num_elements);
-  EncodeWithPreset(input, num_elements, sampling_result, vector_size, output, output_size);
+  ARROW_ASSIGN_OR_RAISE(auto sampling_result,
+                        CreateSamplingPreset(input, num_elements));
+  return EncodeWithPreset(input, num_elements, sampling_result, vector_size,
+                          output, output_size);
 }
 
 template <typename T>
-void AlpCodec<T>::Encode(const T* input, int64_t num_elements,
+Status AlpCodec<T>::Encode(const T* input, int64_t num_elements,
                            uint8_t* output, int64_t* output_size) {
-  Encode(input, num_elements, AlpConstants::kAlpVectorSize, output, output_size);
+  return Encode(input, num_elements, AlpConstants::kAlpVectorSize, output,
+                output_size);
 }
 
 template <typename T>
@@ -289,9 +305,22 @@ template Status AlpCodec<double>::Decode(int32_t num_elements, const uint8_t* in
                                            int64_t input_size, double* output);
 
 template <typename T>
-int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
-                                           int32_t vector_size) {
-  ARROW_CHECK(num_elements >= 0) << "alp_num_elements_must_be_non_negative";
+Result<int64_t> AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
+                                                 int32_t vector_size) {
+  if (num_elements < 0) {
+    return Status::Invalid("ALP num_elements must be non-negative, got ",
+                           num_elements);
+  }
+  if (vector_size <= 0 ||
+      !::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size))) {
+    return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
+                           vector_size);
+  }
+  if (vector_size > (1 << AlpConstants::kMaxLogVectorSize)) {
+    return Status::Invalid("ALP vector_size exceeds maximum ",
+                           (1 << AlpConstants::kMaxLogVectorSize), ", got ",
+                           vector_size);
+  }
   int64_t max_alp_size = AlpHeader::kSize;
 
   const int64_t vectors_count =

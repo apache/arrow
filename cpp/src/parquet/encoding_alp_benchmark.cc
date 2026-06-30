@@ -38,7 +38,7 @@
 #include "parquet/types.h"
 
 // This file benchmarks multiple encoding schemes for floating point values in
-// Parquet. Structure mirrors Snowflake's FloatComprBenchmark.cpp
+// Parquet.
 //
 // It evaluates:
 // 1) Compression Ratio
@@ -84,7 +84,7 @@ namespace parquet {
 
 using schema::PrimitiveNode;
 
-// Helper function matching Snowflake's pow10
+// Compile-time pow10 helper used by decimal generators.
 constexpr uint64_t Pow10(uint64_t exp) {
   uint64_t result = 1;
   for (uint64_t i = 0; i < exp; ++i) {
@@ -93,7 +93,7 @@ constexpr uint64_t Pow10(uint64_t exp) {
   return result;
 }
 
-// Encoding type enum (matching Snowflake's ComprEngine pattern)
+// Encoding type enum
 enum class EncodingType {
   kALP,
   kByteStreamSplit,
@@ -113,7 +113,7 @@ std::shared_ptr<ColumnDescriptor> MakeColumnDescriptor() {
 
 /// \brief Helper class to set up encoding benchmark data.
 ///
-/// Matches Snowflake's RealComprBenchmarkData<T> structure with encoding parameter.
+/// Benchmark data wrapper parameterized by encoding.
 template <typename T>
 struct RealComprBenchmarkData {
   std::vector<T> input_uncompressed;
@@ -858,13 +858,13 @@ template <typename T>
 using MsgSweep3dData = FpcDataset<T, LoadMsgSweep3dData>;
 
 // ============================================================================
-// Benchmark Fixture (matching Snowflake's DoubleBenchmark structure)
+// Benchmark Fixture
 // ============================================================================
 
 template <typename T>
 class DoubleBenchmark : public benchmark::Fixture {
  public:
-  static constexpr uint64_t kElementCount = 50000;  // Matches Snowflake exactly
+  static constexpr uint64_t kElementCount = 50000;
 
   void Setup(std::unique_ptr<RealComprBenchmarkData<T>> bd, uint64_t element_count,
              EncodingType encoding_type) {
@@ -1046,7 +1046,7 @@ class DoubleBenchmark : public benchmark::Fixture {
 };
 
 // ============================================================================
-// Column Lists (matching Snowflake's pattern)
+// Column Lists
 // ============================================================================
 
 #define COLUMN_LIST                      \
@@ -1090,14 +1090,14 @@ class DoubleBenchmark : public benchmark::Fixture {
   X(Value3, "value3")       \
   X(Value4, "value4")
 
-// Algorithm list for all benchmarks (matching Snowflake's pattern)
+// Algorithm list for all benchmarks
 #define ALGORITHM_LIST                  \
   X(ALP, kALP)                          \
   X(BYTESTREAMSPLIT, kByteStreamSplit)  \
   X(ZSTD, kZSTD)
 
 // ============================================================================
-// Benchmark Generation Macros (matching Snowflake's pattern)
+// Benchmark Generation Macros
 // ============================================================================
 
 // Synthetic data benchmark macros
