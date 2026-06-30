@@ -242,6 +242,11 @@ jobs:
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
