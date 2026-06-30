@@ -1474,6 +1474,99 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayRowCount) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
+TEST_F(TestRecordBatch, MakeStatisticsArrayForArray) {
+  auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
+  int32_array_data->statistics = std::make_shared<ArrayStatistics>();
+  int32_array_data->statistics->null_count = int64_t{1};
+  int32_array_data->statistics->distinct_count = int64_t{2};
+  int32_array_data->statistics->max = int64_t{1};
+  int32_array_data->statistics->is_max_exact = true;
+  int32_array_data->statistics->min = int64_t{-1};
+  int32_array_data->statistics->is_min_exact = true;
+  auto int32_array = MakeArray(std::move(int32_array_data));
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, int32_array->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
+                       MakeStatisticsArray("[0]",
+                                           {{
+                                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                                               ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                               ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT,
+                                               ARROW_STATISTICS_KEY_MIN_VALUE_EXACT,
+                                               ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
+                                           }},
+                                           {{
+                                               ArrayStatistics::ValueType{int64_t{3}},
+                                               ArrayStatistics::ValueType{int64_t{1}},
+                                               ArrayStatistics::ValueType{int64_t{2}},
+                                               ArrayStatistics::ValueType{int64_t{-1}},
+                                               ArrayStatistics::ValueType{int64_t{1}},
+                                           }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayNestedFields) {
+  auto struct_type = struct_({field("a", int32()), field("b", float64())});
+  auto struct_data =
+      ArrayFromJSON(struct_type,
+                    R"([{"a": 1, "b": 1.5}, {"a": 2, "b": null}, {"a": 3, "b": 3.5}])")
+          ->data()
+          ->Copy();
+  struct_data->statistics = std::make_shared<ArrayStatistics>();
+  struct_data->statistics->null_count = int64_t{0};
+  struct_data->child_data[0] = struct_data->child_data[0]->Copy();
+  struct_data->child_data[0]->statistics = std::make_shared<ArrayStatistics>();
+  struct_data->child_data[0]->statistics->null_count = int64_t{0};
+  struct_data->child_data[0]->statistics->distinct_count = int64_t{3};
+  struct_data->child_data[1] = struct_data->child_data[1]->Copy();
+  struct_data->child_data[1]->statistics = std::make_shared<ArrayStatistics>();
+  struct_data->child_data[1]->statistics->null_count = int64_t{1};
+  struct_data->child_data[1]->statistics->max = 3.5;
+  struct_data->child_data[1]->statistics->is_max_exact = true;
+  struct_data->child_data[1]->statistics->min = 1.5;
+  struct_data->child_data[1]->statistics->is_min_exact = true;
+  auto struct_array = MakeArray(std::move(struct_data));
+  auto batch = RecordBatch::Make(::arrow::schema({field("col1", struct_type)}),
+                                 struct_array->length(), {struct_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(auto expected_statistics_array,
+                       MakeStatisticsArray("[null, 0, 1, 2]",
+                                           {{
+                                                ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                                            },
+                                            {
+                                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                            },
+                                            {
+                                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                                ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT,
+                                            },
+                                            {
+                                                ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                                                ARROW_STATISTICS_KEY_MIN_VALUE_EXACT,
+                                                ARROW_STATISTICS_KEY_MAX_VALUE_EXACT,
+                                            }},
+                                           {{
+                                                ArrayStatistics::ValueType{int64_t{3}},
+                                            },
+                                            {
+                                                ArrayStatistics::ValueType{int64_t{0}},
+                                            },
+                                            {
+                                                ArrayStatistics::ValueType{int64_t{0}},
+                                                ArrayStatistics::ValueType{int64_t{3}},
+                                            },
+                                            {
+                                                ArrayStatistics::ValueType{int64_t{1}},
+                                                ArrayStatistics::ValueType{1.5},
+                                                ArrayStatistics::ValueType{3.5},
+                                            }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
 TEST_F(TestRecordBatch, MakeStatisticsArrayNullCountExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});

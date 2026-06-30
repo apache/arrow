@@ -512,115 +512,117 @@ struct EnumeratedStatistics {
 };
 using OnStatistics =
     std::function<Status(const EnumeratedStatistics& enumerated_statistics)>;
-Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_statistics) {
-  EnumeratedStatistics statistics;
-  statistics.nth_statistics = 0;
-  statistics.start_new_column = true;
-  statistics.nth_column = std::nullopt;
 
-  statistics.key = ARROW_STATISTICS_KEY_ROW_COUNT_EXACT;
-  statistics.type = int64();
-  statistics.value = record_batch.num_rows();
-  RETURN_NOT_OK(on_statistics(statistics));
-  statistics.start_new_column = false;
-
-  const auto& schema = record_batch.schema();
-  const auto num_fields = schema->num_fields();
-  for (int nth_column = 0; nth_column < num_fields; ++nth_column) {
-    const auto& field = schema->field(nth_column);
-    auto column_statistics = record_batch.column(nth_column)->statistics();
-    if (!column_statistics) {
-      continue;
-    }
-
-    statistics.start_new_column = true;
+Status EnumerateOneStatistics(std::optional<int32_t> nth_column,
+                              const std::shared_ptr<DataType>& array_type,
+                              const std::shared_ptr<ArrayStatistics>& column_statistics,
+                              int* nth_statistics, const OnStatistics& on_statistics,
+                              std::optional<int64_t> exact_row_count = std::nullopt) {
+  bool start_new_column = true;
+  auto emit = [&](const char* key, const std::shared_ptr<DataType>& type,
+                  ArrayStatistics::ValueType value) {
+    EnumeratedStatistics statistics;
+    statistics.nth_statistics = (*nth_statistics)++;
+    statistics.start_new_column = start_new_column;
     statistics.nth_column = nth_column;
-    if (column_statistics->null_count.has_value()) {
-      statistics.nth_statistics++;
-      if (std::holds_alternative<int64_t>(column_statistics->null_count.value())) {
-        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
-        statistics.type = int64();
-        statistics.value = std::get<int64_t>(column_statistics->null_count.value());
-        RETURN_NOT_OK(on_statistics(statistics));
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE;
-        statistics.type = float64();
-        statistics.value = std::get<double>(column_statistics->null_count.value());
-        RETURN_NOT_OK(on_statistics(statistics));
-      }
-      statistics.start_new_column = false;
+    statistics.key = key;
+    statistics.type = type;
+    statistics.value = std::move(value);
+    RETURN_NOT_OK(on_statistics(statistics));
+    start_new_column = false;
+    return Status::OK();
+  };
+  auto emit_count = [&](const ArrayStatistics::CountType& value, const char* exact_key,
+                        const char* approximate_key) {
+    if (std::holds_alternative<int64_t>(value)) {
+      return emit(exact_key, int64(), std::get<int64_t>(value));
     }
+    return emit(approximate_key, float64(), std::get<double>(value));
+  };
 
-    if (column_statistics->distinct_count.has_value()) {
-      statistics.nth_statistics++;
-      if (std::holds_alternative<int64_t>(column_statistics->distinct_count.value())) {
-        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT;
-        statistics.type = int64();
-        statistics.value = std::get<int64_t>(column_statistics->distinct_count.value());
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE;
-        statistics.type = float64();
-        statistics.value = std::get<double>(column_statistics->distinct_count.value());
-      }
+  if (exact_row_count.has_value()) {
+    RETURN_NOT_OK(
+        emit(ARROW_STATISTICS_KEY_ROW_COUNT_EXACT, int64(), exact_row_count.value()));
+  }
+  if (!column_statistics) {
+    return Status::OK();
+  }
 
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
+  if (column_statistics->null_count.has_value()) {
+    RETURN_NOT_OK(emit_count(column_statistics->null_count.value(),
+                             ARROW_STATISTICS_KEY_NULL_COUNT_EXACT,
+                             ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE));
+  }
+
+  if (column_statistics->distinct_count.has_value()) {
+    RETURN_NOT_OK(emit_count(column_statistics->distinct_count.value(),
+                             ARROW_STATISTICS_KEY_DISTINCT_COUNT_EXACT,
+                             ARROW_STATISTICS_KEY_DISTINCT_COUNT_APPROXIMATE));
+  }
+
+  if (column_statistics->max_byte_width.has_value()) {
+    RETURN_NOT_OK(emit_count(column_statistics->max_byte_width.value(),
+                             ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT,
+                             ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE));
+  }
+
+  if (column_statistics->average_byte_width.has_value()) {
+    RETURN_NOT_OK(emit(column_statistics->is_average_byte_width_exact
+                           ? ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT
+                           : ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE,
+                       float64(), column_statistics->average_byte_width.value()));
+  }
+
+  if (column_statistics->min.has_value()) {
+    RETURN_NOT_OK(emit(
+        column_statistics->is_min_exact ? ARROW_STATISTICS_KEY_MIN_VALUE_EXACT
+                                        : ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE,
+        column_statistics->MinArrowType(array_type), column_statistics->min.value()));
+  }
+
+  if (column_statistics->max.has_value()) {
+    RETURN_NOT_OK(emit(
+        column_statistics->is_max_exact ? ARROW_STATISTICS_KEY_MAX_VALUE_EXACT
+                                        : ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE,
+        column_statistics->MaxArrowType(array_type), column_statistics->max.value()));
+  }
+
+  return Status::OK();
+}
+
+Status EnumerateArrayStatistics(const std::shared_ptr<ArrayData>& data,
+                                int32_t* nth_column, int* nth_statistics,
+                                const OnStatistics& on_statistics,
+                                bool include_exact_row_count = false) {
+  const auto current_column = (*nth_column)++;
+  RETURN_NOT_OK(EnumerateOneStatistics(
+      current_column, data->type, data->statistics, nth_statistics, on_statistics,
+      include_exact_row_count ? std::optional<int64_t>(data->length) : std::nullopt));
+  for (const auto& child_data : data->child_data) {
+    if (child_data) {
+      RETURN_NOT_OK(EnumerateArrayStatistics(child_data, nth_column, nth_statistics,
+                                             on_statistics));
     }
+  }
+  return Status::OK();
+}
 
-    if (column_statistics->max_byte_width.has_value()) {
-      statistics.nth_statistics++;
-      if (std::holds_alternative<int64_t>(column_statistics->max_byte_width.value())) {
-        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_EXACT;
-        statistics.type = int64();
-        statistics.value = std::get<int64_t>(column_statistics->max_byte_width.value());
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_MAX_BYTE_WIDTH_APPROXIMATE;
-        statistics.type = float64();
-        statistics.value = std::get<double>(column_statistics->max_byte_width.value());
-      }
+Status EnumerateStatistics(const Array& array, OnStatistics on_statistics) {
+  int nth_statistics = 0;
+  int32_t nth_column = 0;
+  return EnumerateArrayStatistics(array.data(), &nth_column, &nth_statistics,
+                                  on_statistics,
+                                  /*include_exact_row_count=*/true);
+}
 
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-
-    if (column_statistics->average_byte_width.has_value()) {
-      statistics.nth_statistics++;
-      if (column_statistics->is_average_byte_width_exact) {
-        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_EXACT;
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_AVERAGE_BYTE_WIDTH_APPROXIMATE;
-      }
-      statistics.type = float64();
-      statistics.value = column_statistics->average_byte_width.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-
-    if (column_statistics->min.has_value()) {
-      statistics.nth_statistics++;
-      if (column_statistics->is_min_exact) {
-        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_EXACT;
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_MIN_VALUE_APPROXIMATE;
-      }
-      statistics.type = column_statistics->MinArrowType(field->type());
-      statistics.value = column_statistics->min.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
-
-    if (column_statistics->max.has_value()) {
-      statistics.nth_statistics++;
-      if (column_statistics->is_max_exact) {
-        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_EXACT;
-      } else {
-        statistics.key = ARROW_STATISTICS_KEY_MAX_VALUE_APPROXIMATE;
-      }
-      statistics.type = column_statistics->MaxArrowType(field->type());
-      statistics.value = column_statistics->max.value();
-      RETURN_NOT_OK(on_statistics(statistics));
-      statistics.start_new_column = false;
-    }
+Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_statistics) {
+  int nth_statistics = 0;
+  RETURN_NOT_OK(EnumerateOneStatistics(std::nullopt, null(), nullptr, &nth_statistics,
+                                       on_statistics, record_batch.num_rows()));
+  int32_t nth_column = 0;
+  for (const auto& column : record_batch.columns()) {
+    RETURN_NOT_OK(EnumerateArrayStatistics(column->data(), &nth_column, &nth_statistics,
+                                           on_statistics));
   }
   return Status::OK();
 }
@@ -639,10 +641,10 @@ struct StringBuilderVisitor {
                            type.ToString());
   }
 };
-}  // namespace
 
-Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
-    MemoryPool* memory_pool) const {
+template <typename EnumerateStatisticsFunction>
+Result<std::shared_ptr<Array>> MakeStatisticsArrayFromEnumerator(
+    EnumerateStatisticsFunction enumerate_statistics, MemoryPool* memory_pool) {
   // Statistics schema:
   // struct<
   //   column: int32,
@@ -660,7 +662,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   // needled value types. The following block collects these types.
   std::vector<std::shared_ptr<Field>> values_types;
   std::vector<int8_t> values_type_indexes;
-  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
+  RETURN_NOT_OK(enumerate_statistics([&](const EnumeratedStatistics& statistics) {
     int8_t i = 0;
     for (const auto& field : values_types) {
       if (field->type()->Equals(statistics.type)) {
@@ -733,7 +735,7 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   StructBuilder builder(statistics_type, memory_pool, std::move(field_builders));
 
   // Append statistics.
-  RETURN_NOT_OK(EnumerateStatistics(*this, [&](const EnumeratedStatistics& statistics) {
+  RETURN_NOT_OK(enumerate_statistics([&](const EnumeratedStatistics& statistics) {
     if (statistics.start_new_column) {
       RETURN_NOT_OK(builder.Append());
       if (statistics.nth_column.has_value()) {
@@ -775,6 +777,25 @@ Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
   }));
 
   return builder.Finish();
+}
+
+}  // namespace
+
+Result<std::shared_ptr<Array>> Array::MakeStatisticsArray(MemoryPool* memory_pool) const {
+  return MakeStatisticsArrayFromEnumerator(
+      [&](OnStatistics on_statistics) {
+        return EnumerateStatistics(*this, std::move(on_statistics));
+      },
+      memory_pool);
+}
+
+Result<std::shared_ptr<Array>> RecordBatch::MakeStatisticsArray(
+    MemoryPool* memory_pool) const {
+  return MakeStatisticsArrayFromEnumerator(
+      [&](OnStatistics on_statistics) {
+        return EnumerateStatistics(*this, std::move(on_statistics));
+      },
+      memory_pool);
 }
 
 Status RecordBatch::Validate() const {
