@@ -24,7 +24,7 @@
 
 #include <gtest/gtest.h>
 
-#include "Message_generated.h"
+#include "generated/Message_generated.h"
 
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
