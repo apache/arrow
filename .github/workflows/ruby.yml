@@ -59,6 +59,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -104,9 +105,15 @@ jobs:
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
-            -e ARROW_FLIGHT=ON \
-            -e ARROW_FLIGHT_SQL=ON \
-            -e ARROW_GCS=ON \
+            -e ARROW_AZURE=OFF \
+            -e ARROW_FLIGHT=OFF \
+            -e ARROW_FLIGHT_SQL=OFF \
+            -e ARROW_GANDIVA=OFF \
+            -e ARROW_GCS=OFF \
+            -e ARROW_ORC=OFF \
+            -e ARROW_S3=OFF \
+            -e ARROW_SUBSTRAIT=OFF \
+            -e ARROW_WITH_OPENTELEMETRY=OFF \
             -e nlohmann_json_SOURCE=BUNDLED \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
@@ -381,7 +388,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      CCACHE_DIR: /ccache
+      CCACHE_DIR: C:/ccache
       CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
