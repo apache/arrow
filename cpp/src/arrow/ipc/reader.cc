@@ -79,6 +79,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::AddWithOverflow;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::MultiplyWithOverflow;
 
 namespace ipc {
 
@@ -2331,6 +2332,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   if (shape.size() != 2) {
     return Status::Invalid("Invalid shape length for a sparse matrix");
   }
+  if (non_zero_length < 0) {
+    return Status::Invalid("Invalid non-zero length for a sparse matrix");
+  }
 
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
 
@@ -2350,16 +2354,24 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
                                      /*allow_short_read=*/false));
 
   std::vector<int64_t> indices_shape({non_zero_length});
-  const auto indices_minimum_bytes = indices_shape[0] * indices_type->byte_width();
-  if (indices_minimum_bytes > indices_buffer->length()) {
+  const auto indices_minimum_bytes =
+      MultiplyWithOverflow<int64_t>({indices_shape[0], indices_type->byte_width()});
+  if (!indices_minimum_bytes.has_value() ||
+      indices_minimum_bytes.value() > indices_buffer->length()) {
     return Status::Invalid("shape is inconsistent to the size of indices buffer");
   }
 
   switch (sparse_index->compressedAxis()) {
     case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Row: {
-      std::vector<int64_t> indptr_shape({shape[0] + 1});
-      const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
-      if (indptr_minimum_bytes > indptr_buffer->length()) {
+      const auto indptr_length = AddWithOverflow<int64_t>({shape[0], 1});
+      if (!indptr_length.has_value()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
+      std::vector<int64_t> indptr_shape({indptr_length.value()});
+      const auto indptr_minimum_bytes =
+          MultiplyWithOverflow<int64_t>({indptr_shape[0], indptr_byte_width});
+      if (!indptr_minimum_bytes.has_value() ||
+          indptr_minimum_bytes.value() > indptr_buffer->length()) {
         return Status::Invalid("shape is inconsistent to the size of indptr buffer");
       }
       return std::make_shared<SparseCSRIndex>(
@@ -2367,9 +2379,15 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
     }
     case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column: {
-      std::vector<int64_t> indptr_shape({shape[1] + 1});
-      const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
-      if (indptr_minimum_bytes > indptr_buffer->length()) {
+      const auto indptr_length = AddWithOverflow<int64_t>({shape[1], 1});
+      if (!indptr_length.has_value()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
+      std::vector<int64_t> indptr_shape({indptr_length.value()});
+      const auto indptr_minimum_bytes =
+          MultiplyWithOverflow<int64_t>({indptr_shape[0], indptr_byte_width});
+      if (!indptr_minimum_bytes.has_value() ||
+          indptr_minimum_bytes.value() > indptr_buffer->length()) {
         return Status::Invalid("shape is inconsistent to the size of indptr buffer");
       }
       return std::make_shared<SparseCSCIndex>(
