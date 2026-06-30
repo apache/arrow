@@ -2293,6 +2293,25 @@ Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message) {
 
 namespace {
 
+Status ValidateSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_index,
+                                      int64_t ndim) {
+  if (sparse_index == nullptr) {
+    return Status::Invalid("Missing CSF sparse index metadata");
+  }
+  auto* indptr_buffers = sparse_index->indptrBuffers();
+  auto* indices_buffers = sparse_index->indicesBuffers();
+  auto* axis_order = sparse_index->axisOrder();
+  if (ndim < 2 || indptr_buffers == nullptr || indices_buffers == nullptr ||
+      axis_order == nullptr || static_cast<int64_t>(indptr_buffers->size()) != ndim - 1 ||
+      static_cast<int64_t>(indices_buffers->size()) != ndim ||
+      static_cast<int64_t>(axis_order->size()) != ndim) {
+    return Status::Invalid(
+        "Inconsistent CSF sparse index: a CSF tensor must have at least 2 dimensions "
+        "with indptr, indices and axis_order counts of ndim - 1, ndim and ndim");
+  }
+  return Status::OK();
+}
+
 Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
     const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
     int64_t non_zero_length, io::RandomAccessFile* file) {
@@ -2338,9 +2357,6 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
     int64_t non_zero_length, io::RandomAccessFile* file) {
   if (shape.size() != 2) {
     return Status::Invalid("Invalid shape length for a sparse matrix");
-  }
-  if (non_zero_length < 0) {
-    return Status::Invalid("Invalid non-zero length for a sparse matrix");
   }
 
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
@@ -2411,15 +2427,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
     io::RandomAccessFile* file) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCSF();
   const auto ndim = static_cast<int64_t>(shape.size());
+  RETURN_NOT_OK(ValidateSparseCSFIndexMetadata(sparse_index, ndim));
   auto* indptr_buffers = sparse_index->indptrBuffers();
   auto* indices_buffers = sparse_index->indicesBuffers();
-  if (ndim < 2 || indptr_buffers == nullptr || indices_buffers == nullptr ||
-      static_cast<int64_t>(indptr_buffers->size()) != ndim - 1 ||
-      static_cast<int64_t>(indices_buffers->size()) != ndim) {
-    return Status::Invalid(
-        "Inconsistent CSF sparse index: a CSF tensor must have at least 2 dimensions "
-        "with indptr and indices buffer counts of ndim - 1 and ndim");
-  }
   std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
   std::vector<std::shared_ptr<Buffer>> indices_data(ndim);
 
@@ -2526,6 +2536,9 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
       return 3;
 
     case SparseTensorFormat::CSF:
+      if (ndim < 2) {
+        return Status::Invalid("Invalid shape length for a sparse CSF tensor");
+      }
       return 2 * ndim;
 
     default:
@@ -2621,9 +2634,11 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       std::shared_ptr<DataType> indptr_type, indices_type;
       std::vector<int64_t> axis_order, indices_size;
 
+      auto fb_sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCSF();
+      RETURN_NOT_OK(ValidateSparseCSFIndexMetadata(fb_sparse_index,
+                                                   static_cast<int64_t>(shape.size())));
       RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
-          sparse_tensor->sparseIndex_as_SparseTensorIndexCSF(), &axis_order,
-          &indices_size, &indptr_type, &indices_type));
+          fb_sparse_index, &axis_order, &indices_size, &indptr_type, &indices_type));
       ARROW_CHECK_EQ(indptr_type, indices_type);
 
       const int64_t ndim = shape.size();

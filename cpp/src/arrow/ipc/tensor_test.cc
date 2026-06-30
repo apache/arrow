@@ -510,17 +510,16 @@ namespace {
 // Build a SparseTensor IPC message carrying a CSF index with caller-controlled
 // buffer counts. This lets us exercise the reader's validation directly, since
 // such inconsistent indices can only be produced by hand-crafted flatbuffers.
-Result<std::shared_ptr<Message>> MakeCSFSparseTensorMessage(int num_dims,
-                                                            int num_indptr_buffers,
-                                                            int num_indices_buffers,
-                                                            int axis_order_size) {
+Result<std::shared_ptr<Message>> MakeCSFSparseTensorMessage(
+    const std::vector<int64_t>& shape, int num_indptr_buffers, int num_indices_buffers,
+    int axis_order_size, int64_t non_zero_length = 0) {
   flatbuffers::FlatBufferBuilder fbb;
 
   auto value_type = flatbuf::CreateInt(fbb, 64, /*is_signed=*/true);
 
   std::vector<flatbuffers::Offset<flatbuf::TensorDim>> dims;
-  for (int i = 0; i < num_dims; ++i) {
-    dims.push_back(flatbuf::CreateTensorDim(fbb, /*size=*/4, /*name=*/0));
+  for (int64_t dim_size : shape) {
+    dims.push_back(flatbuf::CreateTensorDim(fbb, dim_size, /*name=*/0));
   }
   auto fb_shape = fbb.CreateVector(dims);
 
@@ -540,7 +539,7 @@ Result<std::shared_ptr<Message>> MakeCSFSparseTensorMessage(int num_dims,
 
   flatbuf::Buffer data(0, 0);
   auto sparse_tensor = flatbuf::CreateSparseTensor(
-      fbb, flatbuf::Type_Int, value_type.Union(), fb_shape, /*non_zero_length=*/0,
+      fbb, flatbuf::Type_Int, value_type.Union(), fb_shape, non_zero_length,
       flatbuf::SparseTensorIndex::SparseTensorIndex_SparseTensorIndexCSF, csf.Union(),
       &data);
 
@@ -555,30 +554,82 @@ Result<std::shared_ptr<Message>> MakeCSFSparseTensorMessage(int num_dims,
   return std::shared_ptr<Message>(std::move(message));
 }
 
+IpcPayload MakeSparseTensorPayload(const std::shared_ptr<Message>& message,
+                                   int num_body_buffers) {
+  IpcPayload payload;
+  payload.metadata = message->metadata();
+  payload.body_buffers.assign(num_body_buffers, Buffer::FromString(""));
+  return payload;
+}
+
 }  // namespace
 
 TEST(TestSparseCSFIndex, RejectInconsistentBufferCounts) {
   // ndim == 1 is not a valid CSF index (it has no indptr buffers), and used to
   // reach SparseCSFIndex's constructor with an empty indptr vector.
-  ASSERT_OK_AND_ASSIGN(
-      auto message, MakeCSFSparseTensorMessage(/*num_dims=*/1, /*num_indptr_buffers=*/0,
-                                               /*num_indices_buffers=*/1,
-                                               /*axis_order_size=*/1));
+  ASSERT_OK_AND_ASSIGN(auto message,
+                       MakeCSFSparseTensorMessage(/*shape=*/{4}, /*num_indptr_buffers=*/0,
+                                                  /*num_indices_buffers=*/1,
+                                                  /*axis_order_size=*/1));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
 
   // Too many indices buffers for the declared number of dimensions, which used
   // to write past the end of the fixed-size index vectors.
   ASSERT_OK_AND_ASSIGN(
-      message, MakeCSFSparseTensorMessage(/*num_dims=*/2, /*num_indptr_buffers=*/1,
+      message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4}, /*num_indptr_buffers=*/1,
                                           /*num_indices_buffers=*/3,
                                           /*axis_order_size=*/2));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
 
   // axisOrder and indicesBuffers lengths disagree (out-of-bounds read).
   ASSERT_OK_AND_ASSIGN(
-      message, MakeCSFSparseTensorMessage(/*num_dims=*/2, /*num_indptr_buffers=*/1,
+      message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4}, /*num_indptr_buffers=*/1,
                                           /*num_indices_buffers=*/2,
                                           /*axis_order_size=*/3));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+}
+
+TEST(TestSparseCSFIndex, RejectInconsistentPayloadBufferCounts) {
+  ASSERT_OK_AND_ASSIGN(auto message,
+                       MakeCSFSparseTensorMessage(/*shape=*/{4}, /*num_indptr_buffers=*/0,
+                                                  /*num_indices_buffers=*/1,
+                                                  /*axis_order_size=*/1));
+  ASSERT_RAISES(Invalid,
+                internal::ReadSparseTensorPayload(MakeSparseTensorPayload(message, 2)));
+
+  ASSERT_OK_AND_ASSIGN(
+      message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4}, /*num_indptr_buffers=*/1,
+                                          /*num_indices_buffers=*/3,
+                                          /*axis_order_size=*/3));
+  ASSERT_RAISES(Invalid,
+                internal::ReadSparseTensorPayload(MakeSparseTensorPayload(message, 4)));
+}
+
+TEST(TestSparseCSXIndex, RejectIndptrLengthOverflow) {
+  auto empty = Buffer::FromString("");
+  ASSERT_RAISES(Invalid,
+                SparseCSRIndex::Make(int64(), {std::numeric_limits<int64_t>::max(), 1},
+                                     /*non_zero_length=*/0, empty, empty));
+  ASSERT_RAISES(Invalid,
+                SparseCSCIndex::Make(int64(), {1, std::numeric_limits<int64_t>::max()},
+                                     /*non_zero_length=*/0, empty, empty));
+}
+
+TEST(TestSparseTensor, RejectNegativeShapeAndNonZeroLength) {
+  // A negative non_zero_length must be rejected by GetSparseTensorMetadata,
+  // otherwise the negative size product bypasses the index buffer-size guards.
+  ASSERT_OK_AND_ASSIGN(
+      auto message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4}, /*num_indptr_buffers=*/1,
+                                               /*num_indices_buffers=*/2,
+                                               /*axis_order_size=*/2,
+                                               /*non_zero_length=*/-1));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+
+  // A negative dimension size must likewise be rejected.
+  ASSERT_OK_AND_ASSIGN(
+      message, MakeCSFSparseTensorMessage(/*shape=*/{-1, 4}, /*num_indptr_buffers=*/1,
+                                          /*num_indices_buffers=*/2,
+                                          /*axis_order_size=*/2));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
 }
 
