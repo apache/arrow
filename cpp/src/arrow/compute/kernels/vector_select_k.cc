@@ -130,8 +130,8 @@ void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range, Comparat
 
   // fill output in reverse when destructing,
   // as the "worst" (next-to-would-have-been-replaced) element is at heap-top
-  for (int64_t i = output_range.size() - 1; i >= 0; --i) {
-    output_range[i] = heap.front();  // heap-top has the next element
+  for (int64_t i = output_range.size(); i > 0; --i) {
+    output_range[i - 1] = heap.front();  // heap-top has the next element
     std::pop_heap(heap.begin(), heap.end(), cmp);
     // Decrease heap-size by one
     heap = heap.first(heap.size() - 1);
@@ -421,8 +421,8 @@ class ChunkedArraySelector : public TypeVisitor {
     // so the heap must have been completely filled
     DCHECK_EQ(heap.size(), output.non_null_like_range.size());
 
-    for (int64_t i = output.non_null_like_range.size() - 1; i >= 0; --i) {
-      output.non_null_like_range[i] =
+    for (int64_t i = output.non_null_like_range.size(); i > 0; --i) {
+      output.non_null_like_range[i - 1] =
           heap.top().index + heap.top().offset;  // heap-top has the next element
       heap.pop();
     }
