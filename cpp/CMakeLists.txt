@@ -551,9 +551,6 @@ message(STATUS "CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}: ${CMAKE_CXX_FLAGS_${UPP
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
 
-# Compiled flatbuffers files
-include_directories(src/generated)
-
 #
 # Visibility
 #
