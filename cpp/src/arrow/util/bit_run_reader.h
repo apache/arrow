@@ -17,15 +17,18 @@
 
 #pragma once
 
+#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -534,6 +537,96 @@ inline void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t o
                                 int64_t length, Visit&& visit) {
   VisitSetBitRunsVoid(bitmap ? bitmap->data() : NULLPTR, offset, length,
                       std::forward<Visit>(visit));
+}
+
+template <typename Visit>
+inline Status VisitTwoSetBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
+                                 const uint8_t* right_bitmap, int64_t right_offset,
+                                 int64_t length, Visit&& visit) {
+  if (length == 0) {
+    return Status::OK();
+  }
+  if (left_bitmap == NULLPTR) {
+    return VisitSetBitRuns(right_bitmap, right_offset, length,
+                           std::forward<Visit>(visit));
+  }
+  if (right_bitmap == NULLPTR) {
+    return VisitSetBitRuns(left_bitmap, left_offset, length, std::forward<Visit>(visit));
+  }
+
+  SetBitRunReader left_reader(left_bitmap, left_offset, length);
+  SetBitRunReader right_reader(right_bitmap, right_offset, length);
+  auto left_run = left_reader.NextRun();
+  auto right_run = right_reader.NextRun();
+  while (!left_run.AtEnd() && !right_run.AtEnd()) {
+    const int64_t left_end = left_run.position + left_run.length;
+    if (left_end <= right_run.position) {
+      left_run = left_reader.NextRun();
+      continue;
+    }
+
+    const int64_t right_end = right_run.position + right_run.length;
+    if (right_end <= left_run.position) {
+      right_run = right_reader.NextRun();
+      continue;
+    }
+
+    const int64_t start = std::max(left_run.position, right_run.position);
+    const int64_t end = std::min(left_end, right_end);
+    ARROW_RETURN_NOT_OK(visit(start, end - start));
+    if (end == left_end) {
+      left_run = left_reader.NextRun();
+    }
+    if (end == right_end) {
+      right_run = right_reader.NextRun();
+    }
+  }
+  return Status::OK();
+}
+
+template <typename Visit>
+inline Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
+                              const uint8_t* right_bitmap, int64_t right_offset,
+                              int64_t length, Visit&& visit) {
+  int64_t output_position = 0;
+  ARROW_RETURN_NOT_OK(VisitTwoSetBitRuns(
+      left_bitmap, left_offset, right_bitmap, right_offset, length,
+      [&](int64_t position, int64_t run_length) {
+        if (output_position < position) {
+          ARROW_RETURN_NOT_OK(visit(output_position, position - output_position, false));
+        }
+        ARROW_RETURN_NOT_OK(visit(position, run_length, true));
+        output_position = position + run_length;
+        return Status::OK();
+      }));
+  if (output_position < length) {
+    return visit(output_position, length - output_position, false);
+  }
+  return Status::OK();
+}
+
+template <typename Visit>
+inline void VisitTwoBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
+                                const uint8_t* right_bitmap, int64_t right_offset,
+                                int64_t length, Visit&& visit) {
+  ARROW_IGNORE_EXPR(VisitTwoBitRuns(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length,
+                                    [&](int64_t position, int64_t length, bool set) {
+                                      visit(position, length, set);
+                                      return Status::OK();
+                                    }));
+}
+
+template <typename Visit>
+inline void VisitTwoSetBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
+                                   const uint8_t* right_bitmap, int64_t right_offset,
+                                   int64_t length, Visit&& visit) {
+  ARROW_IGNORE_EXPR(VisitTwoSetBitRuns(left_bitmap, left_offset, right_bitmap,
+                                       right_offset, length,
+                                       [&](int64_t position, int64_t length) {
+                                         visit(position, length);
+                                         return Status::OK();
+                                       }));
 }
 
 }  // namespace internal
