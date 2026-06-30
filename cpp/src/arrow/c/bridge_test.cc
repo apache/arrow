@@ -930,7 +930,7 @@ TEST_F(TestArrayExport, PrimitiveSliced) {
   TestPrimitive(factory);
 }
 
-TEST_F(TestArrayExport, NullVariadicBuffers) {
+TEST_F(TestArrayExport, RejectNullVariadicBuffers) {
   // GH-49740: _export_to_c segmentation fault for binary_view array.
   for (const auto& type : {binary_view(), utf8_view()}) {
     auto arr =
@@ -943,14 +943,12 @@ TEST_F(TestArrayExport, NullVariadicBuffers) {
                                    nullptr}));
 
     struct ArrowArray c_export;
-    ASSERT_OK(ExportArray(*arr, &c_export));
-    ArrayExportGuard guard(&c_export);
-
-    ASSERT_EQ(c_export.n_buffers, 4);
-    ASSERT_EQ(c_export.buffers[2], nullptr);
-    ASSERT_NE(c_export.buffers[3], nullptr);
-    const auto* variadic_buffer_sizes = static_cast<const int64_t*>(c_export.buffers[3]);
-    ASSERT_EQ(variadic_buffer_sizes[0], 0);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "Cannot export array of type " + type->ToString() +
+            ": null variadic buffer at buffer index #2 (variadic buffer index #0)"),
+        ExportArray(*arr, &c_export));
   }
 }
 
