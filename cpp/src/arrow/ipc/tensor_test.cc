@@ -24,9 +24,14 @@
 
 #include <gtest/gtest.h>
 
+#include <flatbuffers/flatbuffers.h>
+
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
+#include "arrow/ipc/message.h"
+#include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
@@ -499,6 +504,83 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestSparseTensorRoundTrip, UInt16Type
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt32, TestSparseTensorRoundTrip, Int32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestSparseTensorRoundTrip, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestInt64, TestSparseTensorRoundTrip, Int64Type);
+
+namespace {
+
+// Build a SparseTensor IPC message carrying a CSF index with caller-controlled
+// buffer counts. This lets us exercise the reader's validation directly, since
+// such inconsistent indices can only be produced by hand-crafted flatbuffers.
+Result<std::shared_ptr<Message>> MakeCSFSparseTensorMessage(int num_dims,
+                                                            int num_indptr_buffers,
+                                                            int num_indices_buffers,
+                                                            int axis_order_size) {
+  flatbuffers::FlatBufferBuilder fbb;
+
+  auto value_type = flatbuf::CreateInt(fbb, 64, /*is_signed=*/true);
+
+  std::vector<flatbuffers::Offset<flatbuf::TensorDim>> dims;
+  for (int i = 0; i < num_dims; ++i) {
+    dims.push_back(flatbuf::CreateTensorDim(fbb, /*size=*/4, /*name=*/0));
+  }
+  auto fb_shape = fbb.CreateVector(dims);
+
+  auto indptr_type = flatbuf::CreateInt(fbb, 64, /*is_signed=*/false);
+  auto indices_type = flatbuf::CreateInt(fbb, 64, /*is_signed=*/false);
+
+  std::vector<flatbuf::Buffer> indptr(num_indptr_buffers, flatbuf::Buffer(0, 0));
+  std::vector<flatbuf::Buffer> indices(num_indices_buffers, flatbuf::Buffer(0, 0));
+  auto fb_indptr = fbb.CreateVectorOfStructs(indptr);
+  auto fb_indices = fbb.CreateVectorOfStructs(indices);
+
+  std::vector<int32_t> axis_order(axis_order_size, 0);
+  auto fb_axis_order = fbb.CreateVector(axis_order);
+
+  auto csf = flatbuf::CreateSparseTensorIndexCSF(fbb, indptr_type, fb_indptr,
+                                                 indices_type, fb_indices, fb_axis_order);
+
+  flatbuf::Buffer data(0, 0);
+  auto sparse_tensor = flatbuf::CreateSparseTensor(
+      fbb, flatbuf::Type_Int, value_type.Union(), fb_shape, /*non_zero_length=*/0,
+      flatbuf::SparseTensorIndex::SparseTensorIndex_SparseTensorIndexCSF, csf.Union(),
+      &data);
+
+  fbb.Finish(flatbuf::CreateMessage(fbb, internal::kCurrentMetadataVersion,
+                                    flatbuf::MessageHeader::MessageHeader_SparseTensor,
+                                    sparse_tensor.Union(),
+                                    /*bodyLength=*/0));
+
+  ARROW_ASSIGN_OR_RAISE(auto metadata, internal::WriteFlatbufferBuilder(fbb));
+  auto body = Buffer::FromString(std::string(8, '\0'));
+  ARROW_ASSIGN_OR_RAISE(auto message, Message::Open(metadata, body));
+  return std::shared_ptr<Message>(std::move(message));
+}
+
+}  // namespace
+
+TEST(TestSparseCSFIndex, RejectInconsistentBufferCounts) {
+  // ndim == 1 is not a valid CSF index (it has no indptr buffers), and used to
+  // reach SparseCSFIndex's constructor with an empty indptr vector.
+  ASSERT_OK_AND_ASSIGN(
+      auto message, MakeCSFSparseTensorMessage(/*num_dims=*/1, /*num_indptr_buffers=*/0,
+                                               /*num_indices_buffers=*/1,
+                                               /*axis_order_size=*/1));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+
+  // Too many indices buffers for the declared number of dimensions, which used
+  // to write past the end of the fixed-size index vectors.
+  ASSERT_OK_AND_ASSIGN(
+      message, MakeCSFSparseTensorMessage(/*num_dims=*/2, /*num_indptr_buffers=*/1,
+                                          /*num_indices_buffers=*/3,
+                                          /*axis_order_size=*/2));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+
+  // axisOrder and indicesBuffers lengths disagree (out-of-bounds read).
+  ASSERT_OK_AND_ASSIGN(
+      message, MakeCSFSparseTensorMessage(/*num_dims=*/2, /*num_indptr_buffers=*/1,
+                                          /*num_indices_buffers=*/2,
+                                          /*axis_order_size=*/3));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+}
 
 }  // namespace test
 }  // namespace ipc

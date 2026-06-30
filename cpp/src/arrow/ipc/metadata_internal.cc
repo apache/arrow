@@ -1522,10 +1522,19 @@ Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_ind
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
 
-  const int ndim = static_cast<int>(sparse_index->axisOrder()->size());
+  auto* fb_axis_order = sparse_index->axisOrder();
+  auto* fb_indices_buffers = sparse_index->indicesBuffers();
+  if (fb_axis_order == nullptr || fb_indices_buffers == nullptr ||
+      fb_axis_order->size() != fb_indices_buffers->size()) {
+    return Status::Invalid(
+        "Inconsistent CSF sparse index: axisOrder and indicesBuffers have different "
+        "lengths");
+  }
+
+  const int ndim = static_cast<int>(fb_axis_order->size());
   for (int i = 0; i < ndim; ++i) {
-    axis_order->push_back(sparse_index->axisOrder()->Get(i));
-    indices_size->push_back(sparse_index->indicesBuffers()->Get(i)->length());
+    axis_order->push_back(fb_axis_order->Get(i));
+    indices_size->push_back(fb_indices_buffers->Get(i)->length());
   }
 
   return Status::OK();
