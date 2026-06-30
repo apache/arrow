@@ -23,14 +23,24 @@
 #include <iostream>
 #include <memory>
 #include <random>
-#include <sstream>
 #include <unistd.h>
 #include <unordered_set>
 #include <vector>
 
 #include <benchmark/benchmark.h>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
+#include "arrow/csv/options.h"
+#include "arrow/csv/reader.h"
+#include "arrow/io/file.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/compression.h"
 #include "parquet/encoding.h"
@@ -353,82 +363,90 @@ std::string GetDataDirectory() {
   return data_dir;
 }
 
-std::vector<std::string> SplitCsvRow(const std::string& line, char delimiter = ',') {
-  std::vector<std::string> columns;
-  std::istringstream stream(line);
-  std::string cell;
+// ----------------------------------------------------------------------
+// CSV loading helpers backed by arrow::csv::TableReader.
 
-  while (std::getline(stream, cell, delimiter)) {
-    columns.push_back(cell);
+namespace {
+
+::arrow::Result<std::vector<double>> ReadCsvDoubleColumn(
+    const std::string& path, const std::string& column_name,
+    char delimiter, bool autogenerate_names, int32_t skip_rows) {
+  ARROW_ASSIGN_OR_RAISE(auto input, ::arrow::io::ReadableFile::Open(path));
+
+  auto read_opts = ::arrow::csv::ReadOptions::Defaults();
+  read_opts.autogenerate_column_names = autogenerate_names;
+  read_opts.skip_rows = skip_rows;
+
+  auto parse_opts = ::arrow::csv::ParseOptions::Defaults();
+  parse_opts.delimiter = delimiter;
+
+  auto convert_opts = ::arrow::csv::ConvertOptions::Defaults();
+  convert_opts.include_columns = {column_name};
+  convert_opts.column_types[column_name] = ::arrow::float64();
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto reader,
+      ::arrow::csv::TableReader::Make(::arrow::io::default_io_context(), input,
+                                      read_opts, parse_opts, convert_opts));
+  ARROW_ASSIGN_OR_RAISE(auto table, reader->Read());
+
+  std::vector<double> values;
+  values.reserve(table->num_rows());
+  const auto& column = table->column(0);
+  for (int chunk = 0; chunk < column->num_chunks(); ++chunk) {
+    const auto& array =
+        std::static_pointer_cast<::arrow::DoubleArray>(column->chunk(chunk));
+    for (int64_t i = 0; i < array->length(); ++i) {
+      if (array->IsValid(i)) values.push_back(array->Value(i));
+    }
   }
-  return columns;
+  return values;
+}
+
+}  // namespace
+
+// Load a named double column from a CSV file with a header row.
+std::vector<double> LoadCsvDoubleByName(const std::string& path,
+                                        const std::string& column_name,
+                                        char delimiter = ',') {
+  auto result = ReadCsvDoubleColumn(path, column_name, delimiter,
+                                    /*autogenerate_names=*/false, /*skip_rows=*/0);
+  if (!result.ok()) {
+    std::cerr << "Failed to read CSV column '" << column_name << "' from " << path
+              << ": " << result.status().ToString() << std::endl;
+    return {};
+  }
+  return std::move(result).ValueOrDie();
+}
+
+// Load a double column by 0-based index. Use `has_header=true` to skip the
+// first row when the file carries a header we don't want to match by name.
+std::vector<double> LoadCsvDoubleByIndex(const std::string& path, int column_index,
+                                         char delimiter = ',',
+                                         bool has_header = true) {
+  const std::string column_name = "f" + std::to_string(column_index);
+  auto result = ReadCsvDoubleColumn(path, column_name, delimiter,
+                                    /*autogenerate_names=*/true,
+                                    /*skip_rows=*/has_header ? 1 : 0);
+  if (!result.ok()) {
+    std::cerr << "Failed to read CSV column [" << column_index << "] from " << path
+              << ": " << result.status().ToString() << std::endl;
+    return {};
+  }
+  return std::move(result).ValueOrDie();
 }
 
 std::vector<double> LoadSpotifyColumn(const std::string& column_name,
                                       const std::string& filename) {
-  std::vector<double> values;
-
   static const std::unordered_set<std::string> kValidFloatColumns = {
-      "danceability", "energy",     "loudness",        "speechiness", "acousticness",
-      "instrumentalness", "liveness", "valence",         "tempo"};
-
+      "danceability", "energy",    "loudness", "speechiness", "acousticness",
+      "instrumentalness", "liveness", "valence", "tempo"};
   if (kValidFloatColumns.find(column_name) == kValidFloatColumns.end()) {
     std::cerr << "Column '" << column_name << "' is not a supported double column"
               << std::endl;
-    return values;
+    return {};
   }
-
-  std::string file_path = GetDataDirectory() + "/" + filename;
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string file_content((std::istreambuf_iterator<char>(file)),
-                           std::istreambuf_iterator<char>());
-  file.close();
-
-  std::istringstream ss(file_content);
-  std::string line;
-  size_t column_index = SIZE_MAX;
-
-  if (std::getline(ss, line)) {
-    std::istringstream header_stream(line);
-    std::string header;
-    size_t index = 0;
-
-    while (std::getline(header_stream, header, ',')) {
-      header.erase(0, header.find_first_not_of(" \t\r\n"));
-      header.erase(header.find_last_not_of(" \t\r\n") + 1);
-
-      if (header == column_name) {
-        column_index = index;
-        break;
-      }
-      index++;
-    }
-  }
-
-  if (column_index == SIZE_MAX) {
-    std::cerr << "Column '" << column_name << "' not found in header" << std::endl;
-    return values;
-  }
-
-  while (std::getline(ss, line)) {
-    std::vector<std::string> columns = SplitCsvRow(line);
-    if (column_index < columns.size()) {
-      try {
-        double value = std::stod(columns[column_index]);
-        values.push_back(value);
-      } catch (const std::exception& e) {
-        // Skip invalid values silently
-      }
-    }
-  }
-
-  return values;
+  return LoadCsvDoubleByName(GetDataDirectory() + "/" + filename, column_name);
 }
 
 // ============================================================================
@@ -471,255 +489,66 @@ struct SpotifyData2 : public RealComprBenchmarkData<T> {
 
 // Load AvgTemperature column from City Temperature CSV data
 std::vector<double> LoadCityTemperatureColumn() {
-  std::vector<double> values;
-
-  std::string file_path = GetDataDirectory() + "/floatingpoint_citytemperature.csv";
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string line;
-  // Skip header line
-  if (std::getline(file, line)) {
-    // Process data lines - each line is a single temperature value
-    while (std::getline(file, line)) {
-      try {
-        double value = std::stod(line);
-        values.push_back(value);
-      } catch (const std::exception& e) {
-        // Skip invalid values
-        continue;
-      }
-    }
-  }
-  file.close();
-
-  return values;
+  return LoadCsvDoubleByIndex(
+      GetDataDirectory() + "/floatingpoint_citytemperature.csv", 0);
 }
 
 // Load any double-point column from POI CSV data
 std::vector<double> LoadPoiColumn(const std::string& column_name) {
-  std::vector<double> values;
-
   static const std::unordered_set<std::string> kValidFloatColumns = {"latitude_radian",
                                                                      "longitude_radian"};
-
   if (kValidFloatColumns.find(column_name) == kValidFloatColumns.end()) {
     std::cerr << "Column '" << column_name << "' is not a supported double column"
               << std::endl;
-    return values;
+    return {};
   }
-
-  std::string file_path = GetDataDirectory() + "/floatingpoint_poi.csv";
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string line;
-  // Read header line to find column index
-  if (!std::getline(file, line)) {
-    std::cerr << "Failed to read header from POI CSV" << std::endl;
-    return values;
-  }
-
-  std::vector<std::string> headers = SplitCsvRow(line);
-  int column_index = -1;
-  for (size_t i = 0; i < headers.size(); ++i) {
-    std::string trimmed_header = headers[i];
-    trimmed_header.erase(0, trimmed_header.find_first_not_of(" \t\r\n"));
-    trimmed_header.erase(trimmed_header.find_last_not_of(" \t\r\n") + 1);
-
-    if (trimmed_header == column_name) {
-      column_index = static_cast<int>(i);
-      break;
-    }
-  }
-
-  if (column_index == -1) {
-    std::cerr << "Column '" << column_name << "' not found in POI CSV header"
-              << std::endl;
-    return values;
-  }
-
-  // Process data lines
-  while (std::getline(file, line)) {
-    std::vector<std::string> columns = SplitCsvRow(line);
-    if (columns.size() > static_cast<size_t>(column_index)) {
-      try {
-        double value = std::stod(columns[column_index]);
-        values.push_back(value);
-      } catch (const std::exception& e) {
-        continue;
-      }
-    }
-  }
-  file.close();
-
-  return values;
+  return LoadCsvDoubleByName(GetDataDirectory() + "/floatingpoint_poi.csv", column_name);
 }
 
 // Load Bird Migration data
 std::vector<double> LoadBirdMigrationData() {
-  std::vector<double> values;
-
-  std::string file_path = GetDataDirectory() + "/floatingpoint_birdmigration.csv";
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string line;
-  // Skip header line
-  if (!std::getline(file, line)) {
-    std::cerr << "Failed to read header from bird-migration CSV" << std::endl;
-    return values;
-  }
-
-  while (std::getline(file, line)) {
-    try {
-      double value = std::stod(line);
-      values.push_back(value);
-    } catch (const std::exception& e) {
-      continue;
-    }
-  }
-  file.close();
-
-  return values;
+  return LoadCsvDoubleByIndex(
+      GetDataDirectory() + "/floatingpoint_birdmigration.csv", 0);
 }
 
 // Load Common Government column
 std::vector<double> LoadCommonGovernmentColumn(const std::string& column_name) {
-  std::vector<double> values;
-
   static const std::unordered_set<std::string> kValidFloatColumns = {"amount1", "amount2",
                                                                      "amount3"};
-
   if (kValidFloatColumns.find(column_name) == kValidFloatColumns.end()) {
     std::cerr << "Column '" << column_name << "' is not a supported double column"
               << std::endl;
-    return values;
+    return {};
   }
-
-  size_t column_index = SIZE_MAX;
-  if (column_name == "amount1")
-    column_index = 0;
-  else if (column_name == "amount2")
-    column_index = 1;
-  else if (column_name == "amount3")
-    column_index = 2;
-
-  std::string file_path = GetDataDirectory() + "/floatingpoint_commongovernment.csv";
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string line;
-  while (std::getline(file, line)) {
-    std::vector<std::string> columns = SplitCsvRow(line, '|');
-    if (column_index < columns.size()) {
-      try {
-        double value = std::stod(columns[column_index]);
-        values.push_back(value);
-      } catch (const std::exception& e) {
-        // Skip invalid values
-      }
-    }
-  }
-  file.close();
-
-  return values;
+  int column_index = 0;
+  if (column_name == "amount2") column_index = 1;
+  else if (column_name == "amount3") column_index = 2;
+  return LoadCsvDoubleByIndex(
+      GetDataDirectory() + "/floatingpoint_commongovernment.csv",
+      column_index, '|', /*has_header=*/false);
 }
 
 // Load Arade column
 std::vector<double> LoadAradeColumn(const std::string& column_name) {
-  std::vector<double> values;
-
   static const std::unordered_set<std::string> kValidFloatColumns = {"value1", "value2",
                                                                      "value3", "value4"};
-
   if (kValidFloatColumns.find(column_name) == kValidFloatColumns.end()) {
     std::cerr << "Column '" << column_name << "' is not a supported double column"
               << std::endl;
-    return values;
+    return {};
   }
-
-  size_t column_index = SIZE_MAX;
-  if (column_name == "value1")
-    column_index = 0;
-  else if (column_name == "value2")
-    column_index = 1;
-  else if (column_name == "value3")
-    column_index = 2;
-  else if (column_name == "value4")
-    column_index = 3;
-
-  std::string file_path = GetDataDirectory() + "/floatingpoint_arade.csv";
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string line;
-  while (std::getline(file, line)) {
-    std::vector<std::string> columns = SplitCsvRow(line, '|');
-    if (column_index < columns.size()) {
-      try {
-        double value = std::stod(columns[column_index]);
-        values.push_back(value);
-      } catch (const std::exception& e) {
-        // Skip invalid values
-      }
-    }
-  }
-  file.close();
-
-  return values;
+  int column_index = 0;
+  if (column_name == "value2") column_index = 1;
+  else if (column_name == "value3") column_index = 2;
+  else if (column_name == "value4") column_index = 3;
+  return LoadCsvDoubleByIndex(GetDataDirectory() + "/floatingpoint_arade.csv",
+                              column_index, '|', /*has_header=*/false);
 }
 
 // Generic loader for single-column FPC-format CSV files (with header)
 std::vector<double> LoadSingleColumnFpcData(const std::string& dataset_name) {
-  std::vector<double> values;
-
-  std::string file_path = GetDataDirectory() + "/floatingpoint_" + dataset_name + ".csv";
-
-  std::ifstream file(file_path);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
-    return values;
-  }
-
-  std::string line;
-  // Skip header line
-  if (!std::getline(file, line)) {
-    std::cerr << "Failed to read header from " << dataset_name << " CSV" << std::endl;
-    return values;
-  }
-
-  while (std::getline(file, line)) {
-    try {
-      double value = std::stod(line);
-      values.push_back(value);
-    } catch (const std::exception& e) {
-      continue;
-    }
-  }
-  file.close();
-
-  return values;
+  return LoadCsvDoubleByIndex(
+      GetDataDirectory() + "/floatingpoint_" + dataset_name + ".csv", 0);
 }
 
 // Individual loaders for FPC datasets
