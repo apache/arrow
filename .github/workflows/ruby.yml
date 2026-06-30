@@ -105,15 +105,9 @@ jobs:
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
-            -e ARROW_AZURE=OFF \
-            -e ARROW_FLIGHT=OFF \
-            -e ARROW_FLIGHT_SQL=OFF \
-            -e ARROW_GANDIVA=OFF \
-            -e ARROW_GCS=OFF \
-            -e ARROW_ORC=OFF \
-            -e ARROW_S3=OFF \
-            -e ARROW_SUBSTRAIT=OFF \
-            -e ARROW_WITH_OPENTELEMETRY=OFF \
+            -e ARROW_FLIGHT=ON \
+            -e ARROW_FLIGHT_SQL=ON \
+            -e ARROW_GCS=ON \
             -e nlohmann_json_SOURCE=BUNDLED \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
