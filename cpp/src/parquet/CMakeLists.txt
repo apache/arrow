@@ -442,7 +442,13 @@ add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
 add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
-add_parquet_benchmark(encoding_alp_benchmark)
+if(ARROW_CSV)
+  add_parquet_benchmark(encoding_alp_benchmark)
+else()
+  message(STATUS
+          "Skipping encoding_alp_benchmark: requires ARROW_CSV=ON (real-world "
+          "dataset loader uses arrow::csv::TableReader)")
+endif()
 add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(metadata_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
