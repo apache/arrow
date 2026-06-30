@@ -2294,10 +2294,9 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
                                      /*allow_short_read=*/false));
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   int64_t indices_minimum_bytes;
-  if (MultiplyWithOverflow(non_zero_length, ndim,
-                                            &indices_minimum_bytes) ||
+  if (MultiplyWithOverflow(non_zero_length, ndim, &indices_minimum_bytes) ||
       MultiplyWithOverflow(indices_minimum_bytes, indices_elsize,
-                                            &indices_minimum_bytes) ||
+                           &indices_minimum_bytes) ||
       indices_minimum_bytes > indices_buffer->length()) {
     return Status::Invalid("shape is inconsistent to the size of indices buffer");
   }
