@@ -120,6 +120,9 @@ class S3RetryStrategy:
     def __init__(self, max_attempts=3):
         self.max_attempts = max_attempts
 
+    def __reduce__(self):
+        return (self.__class__, (self.max_attempts,))
+
 
 class AwsStandardS3RetryStrategy(S3RetryStrategy):
     """
@@ -281,6 +284,7 @@ cdef class S3FileSystem(FileSystem):
 
     cdef:
         CS3FileSystem* s3fs
+        object _retry_strategy
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
                  bint anonymous=False, region=None, request_timeout=None,
@@ -412,9 +416,11 @@ cdef class S3FileSystem(FileSystem):
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
             options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
                 retry_strategy.max_attempts)
+            self._retry_strategy = retry_strategy
         elif isinstance(retry_strategy, AwsDefaultS3RetryStrategy):
             options.value().retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(
                 retry_strategy.max_attempts)
+            self._retry_strategy = retry_strategy
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
         if tls_ca_file_path is not None:
@@ -470,6 +476,7 @@ cdef class S3FileSystem(FileSystem):
                 allow_bucket_creation=opts.allow_bucket_creation,
                 allow_bucket_deletion=opts.allow_bucket_deletion,
                 check_directory_existence_before_creation=opts.check_directory_existence_before_creation,
+                retry_strategy=self._retry_strategy,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
@@ -489,3 +496,10 @@ cdef class S3FileSystem(FileSystem):
         The AWS region this filesystem connects to.
         """
         return frombytes(self.s3fs.region())
+
+    @property
+    def retry_strategy(self):
+        """
+        The retry strategy currently configured for this S3 filesystem.
+        """
+        return self._retry_strategy
