@@ -185,6 +185,15 @@ struct AlpExponentAndFactor {
 ///   |    2    |  num_exceptions     |  2 bytes |
 ///   +------------------------------------------+
 class AlpEncodedVectorInfo {
+ private:
+  // Members are declared before the public kStoredSize below so its
+  // initializer can use `sizeof(exponent_) + …`. Static data member
+  // initializers are evaluated in declaration order rather than in
+  // complete-class context, so the members must be visible first.
+  uint8_t exponent_ = 0;
+  uint8_t factor_ = 0;
+  int16_t num_exceptions_ = 0;
+
  public:
   AlpEncodedVectorInfo() = default;
   AlpEncodedVectorInfo(uint8_t exponent, uint8_t factor, int16_t num_exceptions)
@@ -200,7 +209,7 @@ class AlpEncodedVectorInfo {
 
   /// Size of the serialized portion (4 bytes, fixed)
   static constexpr int64_t kStoredSize =
-      sizeof(uint8_t) + sizeof(uint8_t) + sizeof(int16_t);
+      sizeof(exponent_) + sizeof(factor_) + sizeof(num_exceptions_);
   static_assert(kStoredSize == 4, "AlpEncodedVectorInfo stored size must be 4 bytes");
 
   /// \brief Store the ALP metadata into an output buffer
@@ -228,16 +237,6 @@ class AlpEncodedVectorInfo {
   }
 
   bool operator!=(const AlpEncodedVectorInfo& other) const { return !(*this == other); }
-
- private:
-  uint8_t exponent_ = 0;
-  uint8_t factor_ = 0;
-  int16_t num_exceptions_ = 0;
-  // Keep kStoredSize in sync with the members above. Asserted here because
-  // `sizeof(exponent_)` isn't a constant expression inside the public
-  // kStoredSize initializer — those members aren't visible yet at that point.
-  static_assert(kStoredSize == sizeof(exponent_) + sizeof(factor_) + sizeof(num_exceptions_),
-                "AlpEncodedVectorInfo::kStoredSize must equal the sum of member sizes");
 };
 
 // ----------------------------------------------------------------------
@@ -285,6 +284,14 @@ class AlpEncodedForVectorInfo {
   /// Use uint32_t for float, uint64_t for double (matches encoded integer size)
   using ExactType = typename AlpTypedConstants<T>::FloatingToExact;
 
+ private:
+  // Members declared before the public kStoredSize below so its initializer
+  // can use `sizeof(frame_of_reference_) + sizeof(bit_width_)`. See the
+  // matching note on AlpEncodedVectorInfo for the rationale.
+  ExactType frame_of_reference_ = 0;
+  uint8_t bit_width_ = 0;
+
+ public:
   AlpEncodedForVectorInfo() = default;
   AlpEncodedForVectorInfo(ExactType frame_of_reference, uint8_t bit_width)
       : frame_of_reference_(frame_of_reference), bit_width_(bit_width) {}
@@ -298,7 +305,8 @@ class AlpEncodedForVectorInfo {
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
 
   /// Size of the serialized portion (5 bytes for float, 9 for double)
-  static constexpr int64_t kStoredSize = sizeof(ExactType) + sizeof(uint8_t);
+  static constexpr int64_t kStoredSize =
+      sizeof(frame_of_reference_) + sizeof(bit_width_);
 
   /// \brief Store the FOR metadata into an output buffer
   ///
@@ -333,15 +341,6 @@ class AlpEncodedForVectorInfo {
   }
 
   bool operator!=(const AlpEncodedForVectorInfo& other) const { return !(*this == other); }
-
- private:
-  ExactType frame_of_reference_ = 0;
-  uint8_t bit_width_ = 0;
-  // Keep kStoredSize in sync with the members above. Asserted here because
-  // `sizeof(frame_of_reference_)` isn't a constant expression inside the
-  // public kStoredSize initializer.
-  static_assert(kStoredSize == sizeof(frame_of_reference_) + sizeof(bit_width_),
-                "AlpEncodedForVectorInfo::kStoredSize must equal the sum of member sizes");
 };
 
 // ----------------------------------------------------------------------
