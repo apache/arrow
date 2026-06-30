@@ -31,8 +31,9 @@ Build-Depends:
   ninja-build,
   nlohmann-json-dev | nlohmann-json3-dev,
 # nvidia-cuda-toolkit may be unavailable (e.g. removed from Debian forky).
-# apt/build.sh enables the pkg.apache-arrow.nocuda profile in that case so
-# this build dependency and the CUDA packages below are skipped.
+# The pkg.apache-arrow.nocuda build profile (set via DEB_BUILD_PROFILES, e.g.
+# in the debian-forky Dockerfile) skips this build dependency and the CUDA
+# packages below.
   nvidia-cuda-toolkit [!arm64] <!pkg.apache-arrow.nocuda>,
   pkg-config,
   protobuf-compiler,
