@@ -2944,15 +2944,16 @@ TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
           input[i] = static_cast<double>(i) * 0.123;
         }
 
-        int64_t max_comp =
+        ASSERT_OK_AND_ASSIGN(
+            int64_t max_comp,
             ::arrow::util::alp::AlpCodec<double>::GetMaxCompressedSize(
-                static_cast<int64_t>(n), vs);
+                static_cast<int64_t>(n), vs));
         std::vector<uint8_t> comp(max_comp);
         int64_t comp_size = comp.size();
 
-        ::arrow::util::alp::AlpCodec<double>::Encode(
+        ASSERT_OK(::arrow::util::alp::AlpCodec<double>::Encode(
             input.data(), static_cast<int64_t>(n), vs,
-            comp.data(), &comp_size);
+            comp.data(), &comp_size));
         ASSERT_GT(comp_size, 0u);
 
         auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
@@ -2983,15 +2984,16 @@ TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
           input[i] = static_cast<float>(i) * 0.123f;
         }
 
-        int64_t max_comp =
+        ASSERT_OK_AND_ASSIGN(
+            int64_t max_comp,
             ::arrow::util::alp::AlpCodec<float>::GetMaxCompressedSize(
-                static_cast<int64_t>(n), vs);
+                static_cast<int64_t>(n), vs));
         std::vector<uint8_t> comp(max_comp);
         int64_t comp_size = comp.size();
 
-        ::arrow::util::alp::AlpCodec<float>::Encode(
+        ASSERT_OK(::arrow::util::alp::AlpCodec<float>::Encode(
             input.data(), static_cast<int64_t>(n), vs,
-            comp.data(), &comp_size);
+            comp.data(), &comp_size));
         ASSERT_GT(comp_size, 0u);
 
         auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP, descr.get());

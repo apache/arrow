@@ -2400,9 +2400,10 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
                   typename EncodingTraits<DType>::Accumulator* builder) override {
     const int values_to_decode = num_values - null_count;
     if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
-      ParquetException::EofException("ALP DecodeArrow: Not enough values available. "
-                                      "Available: " + std::to_string(this->num_values_) +
-                                      ", Requested: " + std::to_string(values_to_decode));
+      ParquetException::EofException(
+          "ALP DecodeArrow: Not enough values available. "
+          "Available: " + std::to_string(this->num_values_) +
+          ", Requested: " + std::to_string(values_to_decode));
     }
 
     // Decode if needed (DecodeArrow always needs intermediate buffer for nulls)
