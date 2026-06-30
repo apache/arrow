@@ -1524,6 +1524,7 @@ Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_ind
 
   auto* fb_axis_order = sparse_index->axisOrder();
   auto* fb_indices_buffers = sparse_index->indicesBuffers();
+  // ValidateSparseCSFIndexMetadata already checks this, keep this check defensively.
   if (fb_axis_order == nullptr || fb_indices_buffers == nullptr ||
       fb_axis_order->size() != fb_indices_buffers->size()) {
     return Status::Invalid(
@@ -1559,6 +1560,9 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       auto dim = sparse_tensor->shape()->Get(i);
 
       if (shape) {
+        if (dim->size() < 0) {
+          return Status::Invalid("Invalid sparse tensor dimension size: ", dim->size());
+        }
         shape->push_back(dim->size());
       }
 
@@ -1569,6 +1573,10 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
   }
 
   if (non_zero_length) {
+    if (sparse_tensor->non_zero_length() < 0) {
+      return Status::Invalid("Invalid sparse tensor non-zero length: ",
+                             sparse_tensor->non_zero_length());
+    }
     *non_zero_length = sparse_tensor->non_zero_length();
   }
 
