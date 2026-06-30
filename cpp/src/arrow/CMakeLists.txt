@@ -960,11 +960,6 @@ if(ARROW_FILESYSTEM)
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
   endif()
-  if(ARROW_S3)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/s3fs.cc)
-    set_source_files_properties(filesystem/s3fs.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION
-                                                              ON)
-  endif()
 
   arrow_add_object_library(ARROW_FILESYSTEM ${ARROW_FILESYSTEM_SRCS})
   if(ARROW_AZURE)
@@ -984,21 +979,38 @@ if(ARROW_FILESYSTEM)
     endforeach()
   endif()
   if(ARROW_S3)
-    foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
-      target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE ${AWSSDK_LINK_LIBRARIES})
-    endforeach()
-
-    if(ARROW_S3_MODULE)
-      if(NOT ARROW_BUILD_SHARED)
-        message(FATAL_ERROR "ARROW_S3_MODULE without shared libarrow (-DARROW_BUILD_SHARED=ON) is not supported"
-        )
-      endif()
-
-      add_library(arrow_s3fs MODULE filesystem/s3fs_module.cc filesystem/s3fs.cc)
-      target_link_libraries(arrow_s3fs PRIVATE ${AWSSDK_LINK_LIBRARIES} arrow_shared)
-      set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
-                                  PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+      string(APPEND ARROW_S3_PC_CFLAGS "${ARROW_S3_PC_CFLAGS_PRIVATE}")
+      set(ARROW_S3_PC_CFLAGS_PRIVATE "")
     endif()
+    list(APPEND ARROW_S3_LIB_SRCS filesystem/s3fs_module.cc filesystem/s3fs.cc)
+    add_arrow_lib(arrow_s3
+                  CMAKE_PACKAGE_NAME
+                  ArrowS3
+                  PKG_CONFIG_NAME
+                  arrow-s3
+                  SOURCES
+                  ${ARROW_S3_LIB_SRCS}
+                  SHARED_LINK_LIBS
+                  arrow_shared
+                  SHARED_PRIVATE_LINK_LIBS
+                  ${AWSSDK_LINK_LIBRARIES}
+                  SHARED_INSTALL_INTERFACE_LIBS
+                  ${ARROW_S3_SHARED_INSTALL_INTERFACE_LIBS}
+                  STATIC_LINK_LIBS
+                  arrow_static
+                  ${AWSSDK_LINK_LIBRARIES}
+                  OUTPUTS
+                  ARROW_S3_LIBRARIES)
+    foreach(LIB_TARGET ${ARROW_S3_LIBRARIES})
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_S3_EXPORTING)
+    endforeach()
+    if(ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(arrow_s3_static PUBLIC ARROW_S3_STATIC)
+    endif()
+
+    set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
+                                PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
   list(APPEND ARROW_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})

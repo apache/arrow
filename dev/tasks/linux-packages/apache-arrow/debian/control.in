@@ -119,6 +119,19 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Dataset module.
 
+Package: libarrow-s3-2500
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow2500 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for S3 filesystem module.
+
 Package: libarrow-flight2500
 Section: libs
 Architecture: any
@@ -223,6 +236,18 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for dataset module.
+
+Package: libarrow-s3-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-s3-2500 (= ${binary:Version}),
+  libarrow-dev (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for S3 filesystem module.
 
 Package: libarrow-flight-dev
 Section: libdevel
