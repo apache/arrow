@@ -295,6 +295,10 @@ jobs:
           submodules: recursive
       - name: Install dependencies
         run: |
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
           brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
@@ -472,6 +476,10 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
           brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
 
