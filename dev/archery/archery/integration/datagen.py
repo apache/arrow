@@ -681,7 +681,8 @@ class InlineBinaryViewField(BinaryViewField):
     # Generate only inline values, leaving no variadic data buffers.
 
     def _random_sizes(self, size):
-        return np.arange(size, dtype=np.int32) % (BINARY_VIEW_INLINE_SIZE + 1)
+        return np.random.randint(0, BINARY_VIEW_INLINE_SIZE + 1, size=size,
+                                 dtype=np.int32)
 
 
 class StringViewField(StringField):
