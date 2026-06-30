@@ -54,7 +54,7 @@ COPY ci/scripts/install_ninja.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ninja.sh ${ninja} /usr/local
 
 # Install ccache
-ARG ccache=4.1
+ARG ccache=4.13.6
 COPY ci/scripts/install_ccache.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
