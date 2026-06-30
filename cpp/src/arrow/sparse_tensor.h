@@ -508,6 +508,10 @@ class ARROW_EXPORT SparseTensor {
     return ToTensor(default_memory_pool());
   }
 
+  /// \brief Check whether the sparse tensor is valid and is the
+  /// correct compressed form of the given tensor.
+  Status Validate(const Tensor& tensor) const;
+
  protected:
   // Constructor with all attributes
   SparseTensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,

@@ -55,6 +55,13 @@ constexpr bool is_tensor_supported(Type::type type_id) {
 
 namespace internal {
 
+// TODO(GH-47578): Enable HalfFloatType
+template <typename ValueDataType>
+inline bool is_not_zero(typename ValueDataType::c_type value) {
+  typename ValueDataType::c_type zero = 0;
+  return value != zero;
+}
+
 ARROW_EXPORT
 Status ComputeRowMajorStrides(const FixedWidthType& type,
                               const std::vector<int64_t>& shape,

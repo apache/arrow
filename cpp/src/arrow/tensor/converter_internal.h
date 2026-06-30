@@ -17,72 +17,47 @@
 
 #pragma once
 
-#include "arrow/tensor/converter.h"
+#include "arrow/sparse_tensor.h"  // IWYU pragma: export
 
-#define DISPATCH(ACTION, index_elsize, value_elsize, ...) \
-  switch (index_elsize) {                                 \
-    case 1:                                               \
-      switch (value_elsize) {                             \
-        case 1:                                           \
-          ACTION(uint8_t, uint8_t, __VA_ARGS__);          \
-          break;                                          \
-        case 2:                                           \
-          ACTION(uint8_t, uint16_t, __VA_ARGS__);         \
-          break;                                          \
-        case 4:                                           \
-          ACTION(uint8_t, uint32_t, __VA_ARGS__);         \
-          break;                                          \
-        case 8:                                           \
-          ACTION(uint8_t, uint64_t, __VA_ARGS__);         \
-          break;                                          \
-      }                                                   \
-      break;                                              \
-    case 2:                                               \
-      switch (value_elsize) {                             \
-        case 1:                                           \
-          ACTION(uint16_t, uint8_t, __VA_ARGS__);         \
-          break;                                          \
-        case 2:                                           \
-          ACTION(uint16_t, uint16_t, __VA_ARGS__);        \
-          break;                                          \
-        case 4:                                           \
-          ACTION(uint16_t, uint32_t, __VA_ARGS__);        \
-          break;                                          \
-        case 8:                                           \
-          ACTION(uint16_t, uint64_t, __VA_ARGS__);        \
-          break;                                          \
-      }                                                   \
-      break;                                              \
-    case 4:                                               \
-      switch (value_elsize) {                             \
-        case 1:                                           \
-          ACTION(uint32_t, uint8_t, __VA_ARGS__);         \
-          break;                                          \
-        case 2:                                           \
-          ACTION(uint32_t, uint16_t, __VA_ARGS__);        \
-          break;                                          \
-        case 4:                                           \
-          ACTION(uint32_t, uint32_t, __VA_ARGS__);        \
-          break;                                          \
-        case 8:                                           \
-          ACTION(uint32_t, uint64_t, __VA_ARGS__);        \
-          break;                                          \
-      }                                                   \
-      break;                                              \
-    case 8:                                               \
-      switch (value_elsize) {                             \
-        case 1:                                           \
-          ACTION(int64_t, uint8_t, __VA_ARGS__);          \
-          break;                                          \
-        case 2:                                           \
-          ACTION(int64_t, uint16_t, __VA_ARGS__);         \
-          break;                                          \
-        case 4:                                           \
-          ACTION(int64_t, uint32_t, __VA_ARGS__);         \
-          break;                                          \
-        case 8:                                           \
-          ACTION(int64_t, uint64_t, __VA_ARGS__);         \
-          break;                                          \
-      }                                                   \
-      break;                                              \
-  }
+#include <memory>
+
+namespace arrow::internal {
+
+struct SparseTensorConverterMixin {
+  static void AssignIndex(uint8_t* indices, int64_t val, const int elsize);
+
+  static int64_t GetIndexValue(const uint8_t* value_ptr, const int elsize);
+};
+
+Status MakeSparseCOOTensorFromTensor(const Tensor& tensor,
+                                     const std::shared_ptr<DataType>& index_value_type,
+                                     MemoryPool* pool,
+                                     std::shared_ptr<SparseIndex>* out_sparse_index,
+                                     std::shared_ptr<Buffer>* out_data);
+
+Status MakeSparseCSXMatrixFromTensor(SparseMatrixCompressedAxis axis,
+                                     const Tensor& tensor,
+                                     const std::shared_ptr<DataType>& index_value_type,
+                                     MemoryPool* pool,
+                                     std::shared_ptr<SparseIndex>* out_sparse_index,
+                                     std::shared_ptr<Buffer>* out_data);
+
+Status MakeSparseCSFTensorFromTensor(const Tensor& tensor,
+                                     const std::shared_ptr<DataType>& index_value_type,
+                                     MemoryPool* pool,
+                                     std::shared_ptr<SparseIndex>* out_sparse_index,
+                                     std::shared_ptr<Buffer>* out_data);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
+    MemoryPool* pool, const SparseCOOTensor* sparse_tensor);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSRMatrix(
+    MemoryPool* pool, const SparseCSRMatrix* sparse_tensor);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSCMatrix(
+    MemoryPool* pool, const SparseCSCMatrix* sparse_tensor);
+
+Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
+    MemoryPool* pool, const SparseCSFTensor* sparse_tensor);
+
+}  // namespace arrow::internal
