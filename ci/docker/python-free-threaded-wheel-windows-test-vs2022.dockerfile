@@ -42,12 +42,7 @@ SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-test.txt C:/arrow/python/
-# Cython and Pandas wheels for free-threaded are not released yet
-RUN %PYTHON_CMD% -m pip install \
-    --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
-    --pre \
-    --prefer-binary \
-    -r C:/arrow/python/requirements-wheel-test.txt
+RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-test.txt
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0
