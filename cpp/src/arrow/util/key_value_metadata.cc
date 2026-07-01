@@ -100,6 +100,20 @@ Result<std::string> KeyValueMetadata::Get(std::string_view key) const {
 }
 
 Status KeyValueMetadata::Delete(int64_t index) {
+  if (ARROW_PREDICT_FALSE(index < 0 || std::cmp_greater_equal(index, values_.size()))) {
+    const size_t n = keys_.size();
+    if (n == 0LL) {
+      return Status::IndexError("KeyValueMetadata::Delete: index ", std::to_string(index),
+                                " is out of bounds for metadata "
+                                "of size ",
+                                std::to_string(n), ". Metadata is empty.");
+    }
+    return Status::IndexError("KeyValueMetadata::Delete: index ", std::to_string(index),
+                              " is out of bounds for metadata "
+                              "of size ",
+                              std::to_string(n), " (valid range: [0, ",
+                              std::to_string(n - 1), "])");
+  }
   keys_.erase(keys_.begin() + index);
   values_.erase(values_.begin() + index);
   return Status::OK();
