@@ -1587,8 +1587,7 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
   auto writer = std::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
   RETURN_NOT_OK(writer->Start());
-  // R build with openSUSE155 requires an explicit unique_ptr construction
-  return std::unique_ptr<RecordBatchWriter>(std::move(writer));
+  return writer;
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(
