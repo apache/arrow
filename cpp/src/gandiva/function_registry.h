@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -85,6 +86,10 @@ class GANDIVA_EXPORT FunctionRegistry {
  private:
   std::vector<NativeFunction> pc_registry_;
   SignatureMap pc_registry_map_;
+  // Tracks name+param-types (return type ignored) to detect call-shape collisions
+  // where the same `name(args)` could resolve to two functions with different
+  // return types.
+  std::unordered_map<std::string, const FunctionSignature*> call_shape_map_;
   std::vector<std::shared_ptr<arrow::Buffer>> bitcode_memory_buffers_;
   std::vector<std::pair<NativeFunction, void*>> c_functions_;
   FunctionHolderMakerRegistry holder_maker_registry_;
