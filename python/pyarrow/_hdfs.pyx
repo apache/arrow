@@ -157,14 +157,14 @@ replication=1)``
         cdef CHdfsOptions opts = self.hdfs.options()
         return (
             HadoopFileSystem._reconstruct, (dict(
-                host=frombytes(opts.connection_config.host),
-                port=opts.connection_config.port,
-                user=frombytes(opts.connection_config.user),
+                host=frombytes(opts.host()),
+                port=opts.port(),
+                user=frombytes(opts.user()),
                 replication=opts.replication,
                 buffer_size=opts.buffer_size,
                 default_block_size=opts.default_block_size,
-                kerb_ticket=frombytes(opts.connection_config.kerb_ticket),
+                kerb_ticket=frombytes(opts.kerb_ticket()),
                 extra_conf={frombytes(k): frombytes(v)
-                            for k, v in opts.connection_config.extra_conf},
+                            for k, v in opts.extra_conf()},
             ),)
         )

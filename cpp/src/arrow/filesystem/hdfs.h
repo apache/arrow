@@ -54,9 +54,7 @@ struct ARROW_EXPORT HdfsOptions {
   int port() const { return port_; }
   const std::string& user() const { return user_; }
   const std::string& kerb_ticket() const { return kerb_ticket_; }
-  const std::unordered_map<std::string, std::string>& extra_conf() const {
-    return extra_conf_;
-  }
+  std::unordered_map<std::string, std::string> extra_conf() const { return extra_conf_; }
 
  private:
   std::string host_;
