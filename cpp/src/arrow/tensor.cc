@@ -392,9 +392,10 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
         return Status::NotImplemented("Casting from or to halffloat is not supported.");
       }
 
-      ARROW_ASSIGN_OR_RAISE(
-          result_field,
-          result_field->MergeWith(
+     if (!col_type->Equals(result_field->type())) {
+       ARROW_ASSIGN_OR_RAISE(
+           result_field,
+           result_field->MergeWith(
                 container.schema()->field(i)->WithName(result_field->name()), options));
      }
     }
