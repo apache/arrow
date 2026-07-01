@@ -1163,7 +1163,8 @@ TEST(TestBinaryArithmetic, Null) {
     }
   }
 
-  for (std::string name : {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor", "hypot"}) {
+  for (std::string name :
+       {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor", "hypot"}) {
     AssertNullToNull(name);
   }
 }
