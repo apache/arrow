@@ -465,6 +465,38 @@ def test_array_getitem_numpy_scalars():
         assert arr[np.int32(idx)].as_py() == lst[idx]
 
 
+def test_to_pylist_bulk_paths():
+    # GH-50326: list-like and string arrays convert to Python objects in
+    # bulk instead of going through one Scalar per element; the result must
+    # match the per-scalar conversion exactly.
+    arrays = [
+        pa.array([[1, None, 3], None, [], [4]], type=pa.list_(pa.int32())),
+        pa.array([["a", None], None, [], ["bcd", ""]],
+                 type=pa.list_(pa.string())),
+        pa.array([["a", None], None, [], ["bcd", ""]],
+                 type=pa.large_list(pa.large_string())),
+        pa.array([[1, None], None, [3, 4]], type=pa.list_(pa.int32(), 2)),
+        pa.array([[[1], [2, None]], None, [None, [3]]],
+                 type=pa.list_(pa.list_(pa.int32()))),
+        pa.array([[("k1", 1), ("k2", None)], None, []],
+                 type=pa.map_(pa.string(), pa.int32())),
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
+                 type=pa.string()),
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
+                 type=pa.large_string()),
+        pa.array([], type=pa.list_(pa.int32())),
+        pa.array([None, None], type=pa.list_(pa.string())),
+    ]
+    for arr in arrays:
+        for view in (arr, arr.slice(1), arr.slice(0, 2), arr.slice(2)):
+            assert view.to_pylist() == [x.as_py() for x in view]
+
+    # Values inside numeric lists must stay Python ints/None, never floats
+    result = pa.array([[1, None, 3]], type=pa.list_(pa.int32())).to_pylist()
+    assert result == [[1, None, 3]]
+    assert [type(x) for x in result[0]] == [int, type(None), int]
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
