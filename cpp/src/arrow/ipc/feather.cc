@@ -272,6 +272,10 @@ class ReaderV1 : public Reader {
                     std::shared_ptr<ArrayData>* out) {
     std::vector<std::shared_ptr<Buffer>> buffers;
 
+    if (meta->length() < 0 || meta->null_count() < 0) {
+      return Status::Invalid("Feather file contains a column with negative length");
+    }
+
     // Buffer data from the source (may or may not perform a copy depending on
     // input source)
     ARROW_ASSIGN_OR_RAISE(
@@ -285,10 +289,14 @@ class ReaderV1 : public Reader {
       type = checked_cast<const DictionaryType&>(*type).index_type();
     }
 
-    // If there are nulls, the null bitmask is first
+    // If there are nulls, the null bitmask is first. The sub-buffer sizes are
+    // derived from meta->length(), which is independent of the buffer actually
+    // read above, so slice with bounds checking to reject inconsistent metadata.
     if (meta->null_count() > 0) {
       int64_t null_bitmap_size = GetOutputLength(bit_util::BytesForBits(meta->length()));
-      buffers.push_back(SliceBuffer(buffer, offset, null_bitmap_size));
+      ARROW_ASSIGN_OR_RAISE(auto null_bitmap,
+                            SliceBufferSafe(buffer, offset, null_bitmap_size));
+      buffers.push_back(std::move(null_bitmap));
       offset += null_bitmap_size;
     } else {
       buffers.push_back(nullptr);
@@ -296,15 +304,18 @@ class ReaderV1 : public Reader {
 
     if (is_binary_like(type->id())) {
       int64_t offsets_size = GetOutputLength((meta->length() + 1) * sizeof(int32_t));
-      buffers.push_back(SliceBuffer(buffer, offset, offsets_size));
+      ARROW_ASSIGN_OR_RAISE(auto offsets, SliceBufferSafe(buffer, offset, offsets_size));
+      buffers.push_back(std::move(offsets));
       offset += offsets_size;
     } else if (is_large_binary_like(type->id())) {
       int64_t offsets_size = GetOutputLength((meta->length() + 1) * sizeof(int64_t));
-      buffers.push_back(SliceBuffer(buffer, offset, offsets_size));
+      ARROW_ASSIGN_OR_RAISE(auto offsets, SliceBufferSafe(buffer, offset, offsets_size));
+      buffers.push_back(std::move(offsets));
       offset += offsets_size;
     }
 
-    buffers.push_back(SliceBuffer(buffer, offset, buffer->size() - offset));
+    ARROW_ASSIGN_OR_RAISE(auto values, SliceBufferSafe(buffer, offset));
+    buffers.push_back(std::move(values));
 
     *out = ArrayData::Make(type, meta->length(), std::move(buffers), meta->null_count());
     return Status::OK();
