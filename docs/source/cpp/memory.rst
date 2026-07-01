@@ -171,9 +171,6 @@ Arrow represents the CPU and other devices using the
 :class:`arrow::Device` abstraction.  The associated class :class:`arrow::MemoryManager`
 specifies how to allocate on a given device.  Each device has a default memory manager, but
 additional instances may be constructed (for example, wrapping a custom
-:class:`arrow::MemoryPool` the CPU).
-:class:`arrow::MemoryManager` instances which specify how to allocate
-memory on a given device (for example, using a particular
 :class:`arrow::MemoryPool` on the CPU).
 
 Device-Agnostic Programming
