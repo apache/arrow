@@ -348,7 +348,7 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
   // Check for no validity bitmap of each field
   // if null_to_nan conversion is set to false
   for (int i = 0; i < container.num_columns(); ++i) {
-    int64_t null_count;
+    int64_t null_count = 0;
     if constexpr (std::is_same_v<Container, Table>) {
       null_count = container.column(i)->null_count();
     } else if constexpr (std::is_same_v<Container, RecordBatch>) {
