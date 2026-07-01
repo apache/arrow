@@ -138,13 +138,9 @@ Status TransferColumnData(::parquet::internal::RecordReader* reader,
 // ----------------------------------------------------------------------
 // Pre-buffer eviction
 
-// GH-39808: releases pre-buffered cache entries as row groups are decoded.
-// RowGroupDecoded() is called (possibly out of order, from readahead
-// continuations) once a row group's batches are produced. It advances a
-// watermark over the contiguous prefix of completed row groups and evicts every
-// cache entry ending before the lowest byte any not-yet-completed row group
-// still needs. A coalesced entry spanning a row-group boundary is freed once
-// the watermark passes its end.
+// GH-39808: as row groups finish decoding (possibly out of order under
+// readahead), advance a watermark over the leading run of completed ones and
+// evict cache entries ending before the lowest byte any remaining one needs.
 class ReadCacheEvictionState {
  public:
   // evict_before_offsets[i] = lowest byte offset row groups i..n-1 (in
@@ -159,11 +155,8 @@ class ReadCacheEvictionState {
     }
   }
 
-  // Marks row_group_index decoded and advances the contiguous completed prefix.
-  // Returns the offset to evict before when the prefix advanced, or std::nullopt
-  // when nothing newly became evictable (index out of range, already completed,
-  // or the prefix did not grow). Separated from RowGroupDecoded so the
-  // out-of-order watermark logic is unit-testable without a reader.
+  // Reader-free half of RowGroupDecoded (so the out-of-order advance is testable):
+  // the evict-before offset when the prefix grows, else nullopt.
   std::optional<int64_t> MarkDecodedAndGetEvictOffset(size_t row_group_index) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (row_group_index >= completed_.size() || completed_[row_group_index]) {

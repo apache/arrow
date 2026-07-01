@@ -201,13 +201,9 @@ class PARQUET_EXPORT ParquetFileReader {
                  const ::arrow::io::IOContext& ctx,
                  const ::arrow::io::CacheOptions& options);
 
-  /// \brief Release cached bytes that end at or before `end_offset`.
-  ///
-  /// Only affects data cached by PreBuffer(). Call once the row groups needing
-  /// those bytes are fully decoded; later reads of evicted ranges may fail.
-  /// Buffers already handed to readers stay valid through shared ownership. A
-  /// no-op (returns 0) if PreBuffer() was not called. Returns the number of
-  /// cache entries evicted.
+  /// \brief Release cached bytes (from PreBuffer()) ending at or before
+  /// `end_offset`. Call once those row groups are decoded; later reads of evicted
+  /// ranges may fail. No-op (returns 0) if PreBuffer() was not called.
   int64_t EvictPreBufferedDataBefore(int64_t end_offset);
 
   /// Retrieve the list of byte ranges that would need to be read to retrieve

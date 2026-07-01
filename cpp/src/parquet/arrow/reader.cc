@@ -1239,10 +1239,9 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                        reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
-  // GH-39808: when pre-buffering, release each row group's cached bytes once the
-  // contiguous prefix of decoded row groups no longer needs them, keeping the
-  // memory footprint bounded while iterating. Confined to this read-once path,
-  // so PreBuffer()'s contract for other callers is unchanged.
+  // GH-39808: evict each row group's bytes as the decoded prefix advances, so
+  // memory stays bounded. Only this read-once path evicts, so PreBuffer()'s
+  // contract is unchanged for other callers.
   std::shared_ptr<ReadCacheEvictionState> eviction_state;
   if (reader_properties_.pre_buffer() && !column_indices.empty() &&
       !row_group_indices.empty()) {

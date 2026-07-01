@@ -2673,10 +2673,8 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
-// GH-39808: bytes cached by PreBuffer() for an already-decoded row group
-// should be released when the caller explicitly evicts them, otherwise
-// Dataset.to_batches accumulates memory across the lifetime of an open
-// FileReader.
+// GH-39808: bytes cached by PreBuffer() for a decoded row group must be
+// releasable, else Dataset.to_batches accumulates memory over the reader's life.
 TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_pre_buffer(true);
@@ -2758,7 +2756,7 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBeforeReleasesCrossRowGroupEntry) {
   // spanning all row-group boundaries.
   ::arrow::io::CacheOptions options = ::arrow::io::CacheOptions::LazyDefaults();
   options.hole_size_limit = static_cast<int64_t>(buffer->size());
-  options.range_size_limit = static_cast<int64_t>(buffer->size());
+  options.range_size_limit = static_cast<int64_t>(buffer->size()) + 1;
   reader->parquet_reader()->PreBuffer(row_groups, column_indices,
                                       ::arrow::io::IOContext(), options);
   ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
