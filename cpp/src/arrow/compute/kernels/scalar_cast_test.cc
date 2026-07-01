@@ -3307,9 +3307,12 @@ TEST(Cast, BinaryToString) {
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
 
-    // ARROW-16757: we no longer zero copy, but the contents are equal
-    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    if (!is_binary_view_like(*string_type)) {
+    if (is_binary_view_like(*string_type)) {
+      ASSERT_EQ(strings->data()->buffers.size(), 2);
+    } else {
+      // ARROW-16757: we no longer zero copy, but the contents are equal
+      ASSERT_NE(invalid_utf8->data()->buffers[1].get(),
+                strings->data()->buffers[2].get());
       ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
     }
   }
@@ -3349,15 +3352,87 @@ TEST(Cast, BinaryOrStringToBinary) {
     // N.B. null buffer is not always the same if input sliced
     AssertBufferSame(*invalid_utf8, *strings, 0);
 
-    // ARROW-16757: we no longer zero copy, but the contents are equal
-    ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    if (!is_binary_view_like(*to_type)) {
+    if (is_binary_view_like(*to_type)) {
+      ASSERT_EQ(strings->data()->buffers.size(), 2);
+    } else {
+      // ARROW-16757: we no longer zero copy, but the contents are equal
+      ASSERT_NE(invalid_utf8->data()->buffers[1].get(),
+                strings->data()->buffers[2].get());
       ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
     }
 
     // invalid utf-8 masked by a null bit is not an error
     CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
               MaskArrayWithNullsAt(FixedSizeInvalidUtf8(to_type), {4}));
+  }
+}
+
+TEST(Cast, BinaryOrStringToView) {
+  // GH-49740: when all values were inline, the cast left a null variadic
+  // buffer slot behind and exporting to the C data interface crashed.
+  const std::vector<std::pair<std::string, int64_t>> cases = {
+      // Empty inputs are handled before the cast kernel runs.
+      {"[]", 2},
+      {R"(["a", null, "e"])", 2},
+      {"[null, null]", 2},
+      {R"(["aaaaaaaaaaaaa", null, "eeeeeeeeeeeee"])", 3},
+      {R"(["a", null, "aaaaaaaaaaaaa"])", 3},
+  };
+
+  for (auto from_type : {binary(), large_binary(), utf8(), large_utf8()}) {
+    for (auto to_type : {binary_view(), utf8_view()}) {
+      for (const auto& [json, expected_num_buffers] : cases) {
+        auto input = ArrayFromJSON(from_type, json);
+        auto expected = ArrayFromJSON(to_type, json);
+
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(*input, to_type));
+        ValidateOutput(*casted);
+        AssertArraysEqual(*expected, *casted);
+
+        ASSERT_EQ(casted->data()->buffers.size(), expected_num_buffers)
+            << "from: " << from_type->ToString() << ", to: " << to_type->ToString()
+            << ", values: " << json;
+        if (expected_num_buffers == 3) {
+          ASSERT_NE(casted->data()->buffers[2], nullptr)
+              << "from: " << from_type->ToString() << ", to: " << to_type->ToString()
+              << ", values: " << json;
+        }
+      }
+    }
+  }
+}
+
+TEST(Cast, FixedSizeBinaryToView) {
+  // Fixed-size binary uses a separate cast kernel with the same GH-49740
+  // issue. Cover non-empty widths on both sides of the BinaryView inline limit.
+  const std::vector<std::tuple<std::shared_ptr<DataType>, std::string, int64_t>> cases = {
+      // Empty inputs are handled before the cast kernel runs.
+      {fixed_size_binary(1), "[]", 2},
+      {fixed_size_binary(13), "[]", 2},
+      {fixed_size_binary(1), R"(["a", null, "e"])", 2},
+      {fixed_size_binary(1), "[null, null]", 2},
+      {fixed_size_binary(12), R"(["aaaaaaaaaaaa", null])", 2},
+      {fixed_size_binary(13), R"(["aaaaaaaaaaaaa", null, "eeeeeeeeeeeee"])", 3},
+  };
+
+  for (const auto& [from_type, json, expected_num_buffers] : cases) {
+    for (auto to_type : {binary_view(), utf8_view()}) {
+      auto input = ArrayFromJSON(from_type, json);
+      auto expected = ArrayFromJSON(to_type, json);
+
+      ASSERT_OK_AND_ASSIGN(auto casted, Cast(*input, to_type));
+      ValidateOutput(*casted);
+      AssertArraysEqual(*expected, *casted);
+
+      ASSERT_EQ(casted->data()->buffers.size(), expected_num_buffers)
+          << "from: " << from_type->ToString() << ", to: " << to_type->ToString()
+          << ", values: " << json;
+      if (expected_num_buffers == 3) {
+        ASSERT_NE(casted->data()->buffers[2], nullptr)
+            << "from: " << from_type->ToString() << ", to: " << to_type->ToString()
+            << ", values: " << json;
+      }
+    }
   }
 }
 
