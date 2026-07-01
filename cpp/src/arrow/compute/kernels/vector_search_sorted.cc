@@ -559,7 +559,8 @@ inline bool IsNull(const ChunkedArray& values, int64_t index) {
 
   ChunkResolver resolver(values.chunks());
   const auto location = resolver.Resolve(index);
-  return values.chunk(static_cast<int>(location.chunk_index))->IsNull(location.index_in_chunk);
+  return values.chunk(static_cast<int>(location.chunk_index))
+      ->IsNull(location.index_in_chunk);
 }
 
 /// Infer the non-null search window from total null count plus a predicate that
