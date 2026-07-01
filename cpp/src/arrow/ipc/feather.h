@@ -28,6 +28,7 @@
 #include "arrow/ipc/options.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -54,6 +55,9 @@ static constexpr const int kFeatherV2Version = 3;
 
 /// \class Reader
 /// \brief An interface for reading columns from Feather files
+///
+/// \note Deprecated in 25.0.0. Feather V2 is the Arrow IPC file format;
+///   use arrow::ipc::RecordBatchFileReader instead.
 class ARROW_EXPORT Reader {
  public:
   virtual ~Reader() = default;
@@ -62,6 +66,9 @@ class ARROW_EXPORT Reader {
   ///
   /// \param[in] source a RandomAccessFile instance
   /// \return the table reader
+  /// \deprecated Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.
+  ARROW_DEPRECATED(
+      "Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.")
   static Result<std::shared_ptr<Reader>> Open(
       const std::shared_ptr<io::RandomAccessFile>& source);
 
@@ -71,6 +78,9 @@ class ARROW_EXPORT Reader {
   /// \param[in] source a RandomAccessFile instance
   /// \param[in] options IPC Read options
   /// \return the table reader
+  /// \deprecated Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.
+  ARROW_DEPRECATED(
+      "Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.")
   static Result<std::shared_ptr<Reader>> Open(
       const std::shared_ptr<io::RandomAccessFile>& source, const IpcReadOptions& options);
 
@@ -107,6 +117,11 @@ class ARROW_EXPORT Reader {
                       std::shared_ptr<Table>* out) = 0;
 };
 
+/// \struct WriteProperties
+/// \brief Options for writing Feather files
+///
+/// \note Deprecated in 25.0.0. Feather V2 is the Arrow IPC file format;
+///   use arrow::ipc::MakeFileWriter with arrow::ipc::IpcWriteOptions instead.
 struct ARROW_EXPORT WriteProperties {
   static WriteProperties Defaults();
 
@@ -141,6 +156,11 @@ struct ARROW_EXPORT WriteProperties {
   int compression_level = ::arrow::util::kUseDefaultCompressionLevel;
 };
 
+/// \brief Write a Table to a Feather file
+///
+/// \deprecated Deprecated in 25.0.0. Feather V2 is the Arrow IPC file format;
+///   use arrow::ipc::MakeFileWriter instead.
+ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::ipc::MakeFileWriter instead.")
 ARROW_EXPORT
 Status WriteTable(const Table& table, io::OutputStream* dst,
                   const WriteProperties& properties = WriteProperties::Defaults());

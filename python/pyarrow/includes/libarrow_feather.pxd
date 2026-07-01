@@ -23,6 +23,8 @@ from pyarrow.includes.libarrow cimport (CCompressionType, CStatus, CTable,
                                         c_string, CIpcReadOptions)
 
 
+# NOTE: these feather C++ APIs are deprecated. Pyarrow still binds them,
+# the user-facing FutureWarning lives in pyarrow/feather.py (GH-49232).
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     int kFeatherV1Version" arrow::ipc::feather::kFeatherV1Version"
     int kFeatherV2Version" arrow::ipc::feather::kFeatherV2Version"

@@ -44,6 +44,10 @@ using internal::checked_cast;
 namespace ipc {
 namespace feather {
 
+// These tests intentionally exercise the deprecated Feather API, supressing
+// the deprecation warnings for the whole file.
+ARROW_SUPPRESS_DEPRECATION_WARNING
+
 struct TestParam {
   TestParam(int arg_version,
             Compression::type arg_compression = Compression::UNCOMPRESSED)
@@ -382,6 +386,8 @@ TEST_P(TestFeatherRoundTrip, RoundTrip) {
 
 INSTANTIATE_TEST_SUITE_P(FeatherRoundTripTests, TestFeatherRoundTrip,
                          ::testing::ValuesIn(kBatchCases));
+
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace feather
 }  // namespace ipc

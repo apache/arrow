@@ -770,7 +770,9 @@ class ReaderV2 : public Reader {
 
 Result<std::shared_ptr<Reader>> Reader::Open(
     const std::shared_ptr<io::RandomAccessFile>& source) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return Reader::Open(source, IpcReadOptions::Defaults());
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Result<std::shared_ptr<Reader>> Reader::Open(
