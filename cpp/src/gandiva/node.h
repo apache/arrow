@@ -48,6 +48,8 @@ class GANDIVA_EXPORT Node {
 
   virtual std::string ToString() const = 0;
 
+  virtual std::string ToCacheKeyString() const = 0;
+
  protected:
   DataTypePtr return_type_;
 };
@@ -99,6 +101,8 @@ class GANDIVA_EXPORT LiteralNode : public Node {
     return ss.str();
   }
 
+  std::string ToCacheKeyString() const override { return ToString(); }
+
  private:
   LiteralHolder holder_;
   bool is_null_;
@@ -115,6 +119,10 @@ class GANDIVA_EXPORT FieldNode : public Node {
 
   std::string ToString() const override {
     return "(" + field()->type()->ToString() + ") " + field()->name();
+  }
+
+  std::string ToCacheKeyString() const override {
+    return "(" + field()->type()->ToString() + ") ";
   }
 
  private:
@@ -143,6 +151,24 @@ class GANDIVA_EXPORT FunctionNode : public Node {
         skip_comma = false;
       } else {
         ss << ", " << child->ToString();
+      }
+    }
+    ss << ")";
+    return ss.str();
+  }
+
+  std::string ToCacheKeyString() const override {
+    std::stringstream ss;
+    ss << ((return_type() == NULLPTR) ? "untyped"
+                                      : descriptor()->return_type()->ToString())
+       << " " << descriptor()->name() << "(";
+    bool skip_comma = true;
+    for (auto& child : children()) {
+      if (skip_comma) {
+        ss << child->ToCacheKeyString();
+        skip_comma = false;
+      } else {
+        ss << ", " << child->ToCacheKeyString();
       }
     }
     ss << ")";
@@ -188,6 +214,14 @@ class GANDIVA_EXPORT IfNode : public Node {
     return ss.str();
   }
 
+  std::string ToCacheKeyString() const override {
+    std::stringstream ss;
+    ss << "if (" << condition()->ToCacheKeyString() << ") { ";
+    ss << then_node()->ToCacheKeyString() << " } else { ";
+    ss << else_node()->ToCacheKeyString() << " }";
+    return ss.str();
+  }
+
  private:
   NodePtr condition_;
   NodePtr then_node_;
@@ -220,6 +254,23 @@ class GANDIVA_EXPORT BooleanNode : public Node {
         }
       }
       ss << child->ToString();
+      first = false;
+    }
+    return ss.str();
+  }
+
+  std::string ToCacheKeyString() const override {
+    std::stringstream ss;
+    bool first = true;
+    for (auto& child : children_) {
+      if (!first) {
+        if (expr_type() == BooleanNode::AND) {
+          ss << " && ";
+        } else {
+          ss << " || ";
+        }
+      }
+      ss << child->ToCacheKeyString();
       first = false;
     }
     return ss.str();
@@ -265,6 +316,22 @@ class InExpressionNode : public Node {
     return ss.str();
   }
 
+  std::string ToCacheKeyString() const override {
+    std::stringstream ss;
+    ss << eval_expr_->ToCacheKeyString() << " IN (";
+    bool add_comma = false;
+    for (auto& value : values_) {
+      if (add_comma) {
+        ss << ", ";
+      }
+      // add type in the front to differentiate
+      ss << value;
+      add_comma = true;
+    }
+    ss << ")";
+    return ss.str();
+  }
+
  private:
   NodePtr eval_expr_;
   std::unordered_set<Type> values_;
@@ -296,6 +363,22 @@ class InExpressionNode<gandiva::DecimalScalar128> : public Node {
   std::string ToString() const override {
     std::stringstream ss;
     ss << eval_expr_->ToString() << " IN (";
+    bool add_comma = false;
+    for (auto& value : values_) {
+      if (add_comma) {
+        ss << ", ";
+      }
+      // add type in the front to differentiate
+      ss << value;
+      add_comma = true;
+    }
+    ss << ")";
+    return ss.str();
+  }
+
+  std::string ToCacheKeyString() const override {
+    std::stringstream ss;
+    ss << eval_expr_->ToCacheKeyString() << " IN (";
     bool add_comma = false;
     for (auto& value : values_) {
       if (add_comma) {
