@@ -604,6 +604,27 @@ def test_uuid_extension_type():
         store_schema=False)
 
 
+@pytest.mark.pandas
+def test_uuid_roundtrip(tempdir):
+    import uuid
+    u1, u2 = uuid.uuid4(), uuid.uuid4()
+    df = pd.DataFrame({"id": [u1, None, u2]})
+    table = pa.Table.from_pandas(df)
+    assert table.column("id").type == pa.uuid()
+
+    path = tempdir / "uuid_pandas_roundtrip.parquet"
+    pq.write_table(table, path)
+    read_table = pq.read_table(path)
+    assert read_table.column("id").type == pa.uuid()
+
+    result_df = read_table.to_pandas()
+    assert isinstance(result_df.loc[0, "id"], uuid.UUID)
+    assert isinstance(result_df.loc[2, "id"], uuid.UUID)
+    assert result_df.loc[0, "id"] == u1
+    assert result_df.loc[2, "id"] == u2
+    assert pd.isna(result_df.loc[1, "id"])
+
+
 def test_undefined_logical_type(parquet_test_datadir):
     test_file = f"{parquet_test_datadir}/unknown-logical-type.parquet"
 
