@@ -433,6 +433,13 @@ class SerializedFile : public ParquetFileReader::Contents {
     return cached_source_->WaitFor(ranges);
   }
 
+  int64_t EvictPreBufferedDataBefore(int64_t end_offset) {
+    if (!cached_source_) {
+      return 0;
+    }
+    return cached_source_->EvictEntriesBefore(end_offset);
+  }
+
   // Metadata/footer parsing. Divided up to separate sync/async paths, and to use
   // exceptions for error handling (with the async path converting to Future/Status).
 
@@ -617,6 +624,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
   std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
+
   // Maps row group ordinal and prebuffer status of its column chunks in the form of a
   // bitmap buffer.
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
@@ -907,6 +915,13 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
   file->PreBuffer(row_groups, column_indices, ctx, options);
+}
+
+int64_t ParquetFileReader::EvictPreBufferedDataBefore(int64_t end_offset) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  return file->EvictPreBufferedDataBefore(end_offset);
 }
 
 Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(
