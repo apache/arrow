@@ -75,6 +75,8 @@ if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+    echo -e "===\n=== ccache configuration\n==="
+    ccache --show-config
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
 fi
