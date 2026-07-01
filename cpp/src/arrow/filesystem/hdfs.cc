@@ -93,7 +93,7 @@ class HadoopFileSystem::Impl {
   ~Impl() { ARROW_WARN_NOT_OK(Close(), "Failed to disconnect hdfs client"); }
 
   Status Init() {
-    RETURN_NOT_OK(ConnectLibHdfs(&driver_));
+    RETURN_NOT_OK(internal::ConnectLibHdfs(&driver_));
 
     if (!driver_) {
       return Status::Invalid("Failed to initialize HDFS driver");
