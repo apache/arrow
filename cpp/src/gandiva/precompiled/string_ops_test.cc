@@ -56,11 +56,12 @@ TEST(TestStringOps, TestAscii) {
 }
 
 TEST(TestStringOps, TestChrBigInt) {
-  // CHR
+  // CHR returns the UTF-8 encoding of the given Unicode code point.
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   int32_t out_len = 0;
 
+  // 1-byte ASCII code points.
   auto out = chr_int32(ctx_ptr, 88, &out_len);
   EXPECT_EQ(std::string(out, out_len), "X");
 
@@ -70,62 +71,89 @@ TEST(TestStringOps, TestChrBigInt) {
   out = chr_int32(ctx_ptr, 49, &out_len);
   EXPECT_EQ(std::string(out, out_len), "1");
 
-  out = chr_int64(ctx_ptr, 84, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T");
-
-  out = chr_int32(ctx_ptr, 340, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T");
-
-  out = chr_int64(ctx_ptr, 256, &out_len);
-  EXPECT_EQ(std::strcmp(out, "\0"), 0);
-
   out = chr_int32(ctx_ptr, 33, &out_len);
   EXPECT_EQ(std::string(out, out_len), "!");
 
-  out = chr_int64(ctx_ptr, 46, &out_len);
-  EXPECT_EQ(std::string(out, out_len), ".");
-
-  out = chr_int32(ctx_ptr, 63, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "?");
-
   out = chr_int64(ctx_ptr, 0, &out_len);
-  EXPECT_EQ(std::strcmp(out, "\0"), 0);
-
-  out = chr_int32(ctx_ptr, -158, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "b");
-
-  out = chr_int64(ctx_ptr, -5, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xFB");
-
-  out = chr_int32(ctx_ptr, -340, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xAC");
-
-  out = chr_int64(ctx_ptr, -66, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xBE");
-
-  // €
-  out = chr_int32(ctx_ptr, 128, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x80");
-
-  // œ
-  out = chr_int64(ctx_ptr, 156, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x9C");
-
-  // ÿ
-  out = chr_int32(ctx_ptr, 255, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xFF");
+  EXPECT_EQ(std::string(out, out_len), std::string("\0", 1));
 
   // BACKSPACE
   out = chr_int64(ctx_ptr, 8, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\b");
 
-  // DEVICE CONTROL 3 (DC3)
-  out = chr_int32(ctx_ptr, 19, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x13");
-
   // ESCAPE (ESC)
   out = chr_int64(ctx_ptr, 27, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\x1B");
+
+  // Highest 1-byte code point (U+007F, DELETE).
+  out = chr_int32(ctx_ptr, 0x7F, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x7F");
+
+  // 2-byte code points.
+  // Lowest 2-byte code point (U+0080).
+  out = chr_int32(ctx_ptr, 0x80, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xC2\x80");
+
+  // í (U+00ED)
+  out = chr_int32(ctx_ptr, 237, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xC3\xAD");
+
+  // Highest 2-byte code point (U+07FF).
+  out = chr_int64(ctx_ptr, 0x7FF, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xDF\xBF");
+
+  // 3-byte code points.
+  // Lowest 3-byte code point (U+0800).
+  out = chr_int32(ctx_ptr, 0x800, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xE0\xA0\x80");
+
+  // € (U+20AC)
+  out = chr_int32(ctx_ptr, 8364, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xE2\x82\xAC");
+
+  // 日 (U+65E5)
+  out = chr_int64(ctx_ptr, 26085, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xE6\x97\xA5");
+
+  // Highest 3-byte code point (U+FFFF).
+  out = chr_int32(ctx_ptr, 0xFFFF, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xEF\xBF\xBF");
+
+  // 4-byte code points.
+  // Lowest 4-byte code point (U+10000).
+  out = chr_int64(ctx_ptr, 0x10000, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xF0\x90\x80\x80");
+
+  // 😀 (U+1F600)
+  out = chr_int64(ctx_ptr, 0x1F600, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xF0\x9F\x98\x80");
+
+  // Highest valid code point (U+10FFFF).
+  out = chr_int64(ctx_ptr, 0x10FFFF, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xF4\x8F\xBF\xBF");
+
+  EXPECT_FALSE(ctx.has_error());
+
+  // Invalid code points raise an error that includes the offending value.
+  chr_int64(ctx_ptr, -1, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
+      << ctx.get_error();
+  EXPECT_TRUE(ctx.get_error().find("-1") != std::string::npos) << ctx.get_error();
+  ctx.Reset();
+
+  chr_int64(ctx_ptr, 0x110000, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
+
+  // UTF-16 surrogate range is not a valid code point.
+  chr_int32(ctx_ptr, 0xD800, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestBeginsEnds) {
