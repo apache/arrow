@@ -307,14 +307,16 @@ inline void ConvertColumnsToTensor(const Container& container, uint8_t* out,
   using CType = typename arrow::TypeTraits<DataType>::CType;
   auto* out_values = reinterpret_cast<CType*>(out);
 
-  for (int col_idx = 0; col_idx < container.num_columns(); ++col_idx) {
+  const int num_columns = container.num_columns();
+
+  for (int col_idx = 0; col_idx < num_columns; ++col_idx) {
     if constexpr (std::is_same_v<Container, Table>) {
       int64_t chunk_idx = 0;
 
-      for (const auto& chunk : container.column(col_idx)->chunks()) {
+      for (const auto& chunk : container.columns()[col_idx]->chunks()) {
         if (row_major) {
           ConvertArrayToTensorRowMajorVisitor<CType> visitor{
-              out_values, *chunk->data(), container.num_columns(), col_idx, chunk_idx};
+              out_values, *chunk->data(), num_columns, col_idx, chunk_idx};
           DCHECK_OK(VisitTypeInline(*chunk->type(), &visitor));
           chunk_idx += chunk->length();
         } else {
@@ -323,11 +325,11 @@ inline void ConvertColumnsToTensor(const Container& container, uint8_t* out,
         }
       }
     } else if constexpr (std::is_same_v<Container, RecordBatch>) {
-      const auto& array_data = container.column_data(col_idx);
+      const auto& array_data = container.column_data()[col_idx];
 
       if (row_major) {
         ConvertArrayToTensorRowMajorVisitor<CType> visitor{
-            out_values, *array_data, container.num_columns(), col_idx, 0};
+            out_values, *array_data, num_columns, col_idx, 0};
         DCHECK_OK(VisitTypeInline(*array_data->type, &visitor));
       } else {
         ConvertArrayToTensorVisitor<CType> visitor{out_values, *array_data};
@@ -393,7 +395,8 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
       ARROW_ASSIGN_OR_RAISE(
           result_field,
           result_field->MergeWith(
-              container.schema()->field(i)->WithName(result_field->name()), options));
+                container.schema()->field(i)->WithName(result_field->name()), options));
+     }
     }
     result_type = result_field->type();
   }
