@@ -84,8 +84,8 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::ipc::feather::Reader>>(
-      [&]() {
+  auto result =
+      RunWithCapturedRIfPossible<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
         ARROW_SUPPRESS_DEPRECATION_WARNING
         return arrow::ipc::feather::Reader::Open(stream);
         ARROW_UNSUPPRESS_DEPRECATION_WARNING

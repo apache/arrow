@@ -44,7 +44,7 @@ using internal::checked_cast;
 namespace ipc {
 namespace feather {
 
-// These tests intentionally exercise the deprecated Feather API, supressing
+// These tests intentionally exercise the deprecated Feather API, suppressing
 // the deprecation warnings for the whole file.
 ARROW_SUPPRESS_DEPRECATION_WARNING
 

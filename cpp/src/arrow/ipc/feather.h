@@ -67,8 +67,7 @@ class ARROW_EXPORT Reader {
   /// \param[in] source a RandomAccessFile instance
   /// \return the table reader
   /// \deprecated Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.
-  ARROW_DEPRECATED(
-      "Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.")
+  ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.")
   static Result<std::shared_ptr<Reader>> Open(
       const std::shared_ptr<io::RandomAccessFile>& source);
 
@@ -79,8 +78,7 @@ class ARROW_EXPORT Reader {
   /// \param[in] options IPC Read options
   /// \return the table reader
   /// \deprecated Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.
-  ARROW_DEPRECATED(
-      "Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.")
+  ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::ipc::RecordBatchFileReader instead.")
   static Result<std::shared_ptr<Reader>> Open(
       const std::shared_ptr<io::RandomAccessFile>& source, const IpcReadOptions& options);
 
@@ -117,9 +115,6 @@ class ARROW_EXPORT Reader {
                       std::shared_ptr<Table>* out) = 0;
 };
 
-/// \struct WriteProperties
-/// \brief Options for writing Feather files
-///
 /// \note Deprecated in 25.0.0. Feather V2 is the Arrow IPC file format;
 ///   use arrow::ipc::MakeFileWriter with arrow::ipc::IpcWriteOptions instead.
 struct ARROW_EXPORT WriteProperties {
@@ -156,8 +151,6 @@ struct ARROW_EXPORT WriteProperties {
   int compression_level = ::arrow::util::kUseDefaultCompressionLevel;
 };
 
-/// \brief Write a Table to a Feather file
-///
 /// \deprecated Deprecated in 25.0.0. Feather V2 is the Arrow IPC file format;
 ///   use arrow::ipc::MakeFileWriter instead.
 ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::ipc::MakeFileWriter instead.")
