@@ -412,10 +412,14 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
   }
 
   // Allocate memory
+  int64_t buffer_size = result_type->byte_width();
+  if (internal::MultiplyWithOverflow(
+          buffer_size, static_cast<int64_t>(container.num_columns()), &buffer_size) ||
+      internal::MultiplyWithOverflow(buffer_size, container.num_rows(), &buffer_size)) {
+    return Status::Invalid("Buffer size for tensor would not fit in 64-bit integer");
+  }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
-                        AllocateBuffer(result_type->byte_width() *
-                                           container.num_columns() * container.num_rows(),
-                                       pool));
+                        AllocateBuffer(buffer_size, pool));
   // Copy data
   switch (result_type->id()) {
     case Type::UINT8:
