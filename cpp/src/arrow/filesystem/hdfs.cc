@@ -93,7 +93,6 @@ class HadoopFileSystem::Impl {
   ~Impl() { ARROW_WARN_NOT_OK(Close(), "Failed to disconnect hdfs client"); }
 
   Status Init() {
-    const HdfsConnectionConfig* config = &options_.connection_config;
     RETURN_NOT_OK(ConnectLibHdfs(&driver_));
 
     if (!driver_) {
@@ -102,18 +101,18 @@ class HadoopFileSystem::Impl {
 
     // connect to HDFS with the builder object
     hdfsBuilder* builder = driver_->NewBuilder();
-    if (!config->host.empty()) {
-      driver_->BuilderSetNameNode(builder, config->host.c_str());
+    if (!options_.host().empty()) {
+      driver_->BuilderSetNameNode(builder, options_.host().c_str());
     }
-    driver_->BuilderSetNameNodePort(builder, static_cast<tPort>(config->port));
-    if (!config->user.empty()) {
-      driver_->BuilderSetUserName(builder, config->user.c_str());
+    driver_->BuilderSetNameNodePort(builder, static_cast<tPort>(options_.port()));
+    if (!options_.user().empty()) {
+      driver_->BuilderSetUserName(builder, options_.user().c_str());
     }
-    if (!config->kerb_ticket.empty()) {
-      driver_->BuilderSetKerbTicketCachePath(builder, config->kerb_ticket.c_str());
+    if (!options_.kerb_ticket().empty()) {
+      driver_->BuilderSetKerbTicketCachePath(builder, options_.kerb_ticket().c_str());
     }
 
-    for (const auto& kv : config->extra_conf) {
+    for (const auto& kv : options_.extra_conf()) {
       int ret = driver_->BuilderConfSetStr(builder, kv.first.c_str(), kv.second.c_str());
       CHECK_FAILURE(ret, "confsetstr");
     }
@@ -125,10 +124,10 @@ class HadoopFileSystem::Impl {
       return Status::IOError("HDFS connection failed");
     }
 
-    namenode_host_ = config->host;
-    port_ = config->port;
-    user_ = config->user;
-    kerb_ticket_ = config->kerb_ticket;
+    namenode_host_ = options_.host();
+    port_ = options_.port();
+    user_ = options_.user();
+    kerb_ticket_ = options_.kerb_ticket();
 
     return Status::OK();
   }
@@ -605,16 +604,14 @@ class HadoopFileSystem::Impl {
 };
 
 void HdfsOptions::ConfigureEndPoint(std::string host, int port) {
-  connection_config.host = std::move(host);
-  connection_config.port = port;
+  host_ = std::move(host);
+  port_ = port;
 }
 
-void HdfsOptions::ConfigureUser(std::string user_name) {
-  connection_config.user = std::move(user_name);
-}
+void HdfsOptions::ConfigureUser(std::string user_name) { user_ = std::move(user_name); }
 
 void HdfsOptions::ConfigureKerberosTicketCachePath(std::string path) {
-  connection_config.kerb_ticket = std::move(path);
+  kerb_ticket_ = std::move(path);
 }
 
 void HdfsOptions::ConfigureReplication(int16_t replication) {
@@ -630,17 +627,14 @@ void HdfsOptions::ConfigureBlockSize(int64_t default_block_size) {
 }
 
 void HdfsOptions::ConfigureExtraConf(std::string key, std::string val) {
-  connection_config.extra_conf.emplace(std::move(key), std::move(val));
+  extra_conf_.emplace(std::move(key), std::move(val));
 }
 
 bool HdfsOptions::Equals(const HdfsOptions& other) const {
   return (buffer_size == other.buffer_size && replication == other.replication &&
-          default_block_size == other.default_block_size &&
-          connection_config.host == other.connection_config.host &&
-          connection_config.port == other.connection_config.port &&
-          connection_config.user == other.connection_config.user &&
-          connection_config.kerb_ticket == other.connection_config.kerb_ticket &&
-          connection_config.extra_conf == other.connection_config.extra_conf);
+          default_block_size == other.default_block_size && host_ == other.host_ &&
+          port_ == other.port_ && user_ == other.user_ &&
+          kerb_ticket_ == other.kerb_ticket_ && extra_conf_ == other.extra_conf_);
 }
 
 Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {

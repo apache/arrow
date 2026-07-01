@@ -45,29 +45,29 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_OK(uri.Parse("hdfs://localhost"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 3);
-  ASSERT_EQ(options.connection_config.host, "hdfs://localhost");
-  ASSERT_EQ(options.connection_config.port, 0);
-  ASSERT_EQ(options.connection_config.user, "");
+  ASSERT_EQ(options.host(), "hdfs://localhost");
+  ASSERT_EQ(options.port(), 0);
+  ASSERT_EQ(options.user(), "");
 
   ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?replication=2&kerb_ticket=kerb.ticket"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 2);
-  ASSERT_EQ(options.connection_config.kerb_ticket, "kerb.ticket");
-  ASSERT_EQ(options.connection_config.host, "hdfs://otherhost");
-  ASSERT_EQ(options.connection_config.port, 9999);
-  ASSERT_EQ(options.connection_config.user, "");
+  ASSERT_EQ(options.kerb_ticket(), "kerb.ticket");
+  ASSERT_EQ(options.host(), "hdfs://otherhost");
+  ASSERT_EQ(options.port(), 9999);
+  ASSERT_EQ(options.user(), "");
 
   ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?hdfs_token=hdfs_token_ticket"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
-  ASSERT_EQ(options.connection_config.host, "hdfs://otherhost");
-  ASSERT_EQ(options.connection_config.port, 9999);
-  ASSERT_EQ(options.connection_config.extra_conf["hdfs_token"], "hdfs_token_ticket");
+  ASSERT_EQ(options.host(), "hdfs://otherhost");
+  ASSERT_EQ(options.port(), 9999);
+  ASSERT_EQ(options.extra_conf().at("hdfs_token"), "hdfs_token_ticket");
 
   ASSERT_OK(uri.Parse("viewfs://other-nn/mypath/myfile"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
-  ASSERT_EQ(options.connection_config.host, "viewfs://other-nn");
-  ASSERT_EQ(options.connection_config.port, 0);
-  ASSERT_EQ(options.connection_config.user, "");
+  ASSERT_EQ(options.host(), "viewfs://other-nn");
+  ASSERT_EQ(options.port(), 0);
+  ASSERT_EQ(options.user(), "");
 }
 
 class HadoopFileSystemTestMixin {
@@ -110,9 +110,8 @@ class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTest
 
   void TestFileSystemFromUri() {
     std::stringstream ss;
-    ss << "hdfs://" << options_.connection_config.host << ":"
-       << options_.connection_config.port << "/"
-       << "?replication=0&user=" << options_.connection_config.user;
+    ss << "hdfs://" << options_.host() << ":" << options_.port() << "/"
+       << "?replication=0&user=" << options_.user();
 
     std::shared_ptr<FileSystem> uri_fs;
     std::string path;

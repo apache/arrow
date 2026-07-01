@@ -27,21 +27,10 @@
 
 namespace arrow::fs {
 
-struct HdfsConnectionConfig {
-  std::string host;
-  int port;
-  std::string user;
-  std::string kerb_ticket;
-  std::unordered_map<std::string, std::string> extra_conf;
-};
-
 /// Options for the HDFS implementation.
 struct ARROW_EXPORT HdfsOptions {
   HdfsOptions() = default;
   ~HdfsOptions() = default;
-
-  /// Hdfs configuration options, contains host, port, user
-  HdfsConnectionConfig connection_config;
 
   /// Used by OpenOutputStream and OpenAppendStream
   int32_t buffer_size = 0;
@@ -60,6 +49,21 @@ struct ARROW_EXPORT HdfsOptions {
 
   static Result<HdfsOptions> FromUri(const ::arrow::util::Uri& uri);
   static Result<HdfsOptions> FromUri(const std::string& uri);
+
+  const std::string& host() const { return host_; }
+  int port() const { return port_; }
+  const std::string& user() const { return user_; }
+  const std::string& kerb_ticket() const { return kerb_ticket_; }
+  const std::unordered_map<std::string, std::string>& extra_conf() const {
+    return extra_conf_;
+  }
+
+ private:
+  std::string host_;
+  int port_ = 0;
+  std::string user_;
+  std::string kerb_ticket_;
+  std::unordered_map<std::string, std::string> extra_conf_;
 };
 
 /// HDFS-backed FileSystem implementation.
