@@ -328,8 +328,8 @@ inline void ConvertColumnsToTensor(const Container& container, uint8_t* out,
       const auto& array_data = container.column_data()[col_idx];
 
       if (row_major) {
-        ConvertArrayToTensorRowMajorVisitor<CType> visitor{
-            out_values, *array_data, num_columns, col_idx, 0};
+        ConvertArrayToTensorRowMajorVisitor<CType> visitor{out_values, *array_data,
+                                                           num_columns, col_idx, 0};
         DCHECK_OK(VisitTypeInline(*array_data->type, &visitor));
       } else {
         ConvertArrayToTensorVisitor<CType> visitor{out_values, *array_data};
@@ -392,12 +392,12 @@ Status ToTensorImpl(const Container& container, bool null_to_nan, bool row_major
         return Status::NotImplemented("Casting from or to halffloat is not supported.");
       }
 
-     if (!col_type->Equals(result_field->type())) {
-       ARROW_ASSIGN_OR_RAISE(
-           result_field,
-           result_field->MergeWith(
+      if (!col_type->Equals(result_field->type())) {
+        ARROW_ASSIGN_OR_RAISE(
+            result_field,
+            result_field->MergeWith(
                 container.schema()->field(i)->WithName(result_field->name()), options));
-     }
+      }
     }
     result_type = result_field->type();
   }
