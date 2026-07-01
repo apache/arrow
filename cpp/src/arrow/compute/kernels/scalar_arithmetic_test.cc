@@ -1148,6 +1148,10 @@ TEST(TestBinaryArithmetic, DispatchBest) {
   CheckDispatchBest("atan2", {float32(), float64()}, {float64(), float64()});
   // Integer always promotes to double
   CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
+
+  CheckDispatchBest("hypot", {float32(), float32()}, {float32(), float32()});
+  CheckDispatchBest("hypot", {float32(), float64()}, {float64(), float64()});
+  CheckDispatchBest("hypot", {int32(), uint8()}, {float64(), float64()});
 }
 
 TEST(TestBinaryArithmetic, Null) {
