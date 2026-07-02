@@ -38,10 +38,11 @@ fi
 # Install curl, OpenSSL, and libuv
 # - curl/OpenSSL: technically only needed for S3/GCS support, but
 #   installing the R curl package fails without it
+# - libpng: required by the png R package
 # - libuv: required by the fs R package (no longer bundles libuv by default)
 case "$PACKAGE_MANAGER" in
   apt-get)
-    apt-get install -y libcurl4-openssl-dev libssl-dev libuv1-dev
+    apt-get install -y libcurl4-openssl-dev libpng-dev libssl-dev libuv1-dev
     ;;
   apk)
     $PACKAGE_MANAGER add curl-dev openssl-dev libuv-dev
