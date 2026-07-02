@@ -481,7 +481,7 @@ FileSystemDataset <- R6Class(
       file_type <- self$format$type
       pretty_file_type <- list(
         parquet = "Parquet",
-        ipc = "IPC"
+        ipc = "Arrow IPC"
       )[[file_type]]
 
       paste(
