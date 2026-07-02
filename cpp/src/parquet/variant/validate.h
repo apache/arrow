@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "arrow/status.h"
 #include "parquet/platform.h"
 
 namespace arrow {
@@ -30,7 +29,6 @@ class MemoryPool;
 namespace parquet::variant {
 
 PARQUET_EXPORT
-::arrow::Status ValidateVariants(const ::arrow::ChunkedArray& data,
-                                 ::arrow::MemoryPool* pool);
+void ValidateVariants(const ::arrow::ChunkedArray& data, ::arrow::MemoryPool* pool);
 
 }  // namespace parquet::variant

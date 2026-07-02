@@ -23,6 +23,7 @@
 
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
+#include "parquet/exception.h"
 #include "parquet/variant/encoding_internal.h"
 
 namespace parquet::variant {
@@ -38,33 +39,29 @@ uint32_t ReadLittleEndian(std::string_view data, size_t offset, size_t width) {
   return bit_util::FromLittleEndian(value);
 }
 
-Status CheckAvailable(std::string_view data, size_t offset, size_t size,
-                      std::string_view context) {
+void CheckAvailable(std::string_view data, size_t offset, size_t size,
+                    std::string_view context) {
   if (offset > data.size() || data.size() - offset < size) {
-    return Status::Invalid("Invalid Variant encoding: truncated ", context);
+    throw ParquetInvalidOrCorruptedFileException("Invalid Variant encoding: truncated ",
+                                                 context);
   }
-  return Status::OK();
 }
 
-Status PrimitivePayloadSize(std::string_view value, size_t offset,
-                            VariantPrimitiveType primitive, size_t* size) {
+size_t PrimitivePayloadSize(std::string_view value, size_t offset,
+                            VariantPrimitiveType primitive) {
   switch (primitive) {
     case VariantPrimitiveType::kNull:
     case VariantPrimitiveType::kBooleanTrue:
     case VariantPrimitiveType::kBooleanFalse:
-      *size = 0;
-      return Status::OK();
+      return 0;
     case VariantPrimitiveType::kInt8:
-      *size = 1;
-      return Status::OK();
+      return 1;
     case VariantPrimitiveType::kInt16:
-      *size = 2;
-      return Status::OK();
+      return 2;
     case VariantPrimitiveType::kInt32:
     case VariantPrimitiveType::kDate:
     case VariantPrimitiveType::kFloat:
-      *size = 4;
-      return Status::OK();
+      return 4;
     case VariantPrimitiveType::kInt64:
     case VariantPrimitiveType::kDouble:
     case VariantPrimitiveType::kTimestampMicros:
@@ -72,74 +69,65 @@ Status PrimitivePayloadSize(std::string_view value, size_t offset,
     case VariantPrimitiveType::kTimeNTZMicros:
     case VariantPrimitiveType::kTimestampNanos:
     case VariantPrimitiveType::kTimestampNTZNanos:
-      *size = 8;
-      return Status::OK();
+      return 8;
     case VariantPrimitiveType::kDecimal4:
-      *size = 5;
-      return Status::OK();
+      return 5;
     case VariantPrimitiveType::kDecimal8:
-      *size = 9;
-      return Status::OK();
+      return 9;
     case VariantPrimitiveType::kDecimal16:
-      *size = 17;
-      return Status::OK();
+      return 17;
     case VariantPrimitiveType::kUuid:
-      *size = 16;
-      return Status::OK();
+      return 16;
     case VariantPrimitiveType::kBinary:
     case VariantPrimitiveType::kString: {
-      ARROW_RETURN_NOT_OK(CheckAvailable(value, offset, 4, "variable-length size"));
+      CheckAvailable(value, offset, 4, "variable-length size");
       const uint32_t length = ReadLittleEndian(value, offset, 4);
-      *size = 4 + static_cast<size_t>(length);
-      return Status::OK();
+      return 4 + static_cast<size_t>(length);
     }
   }
-  return Status::Invalid("Invalid Variant encoding: unknown primitive type");
+  throw ParquetInvalidOrCorruptedFileException(
+      "Invalid Variant encoding: unknown primitive type");
 }
 
-Status ParsePrimitive(std::string_view value, size_t offset,
-                      VariantPrimitiveType primitive, size_t& consumed) {
+size_t ParsePrimitive(std::string_view value, size_t offset,
+                      VariantPrimitiveType primitive) {
   if (!internal::IsKnownVariantPrimitive(primitive)) {
-    return Status::Invalid("Invalid Variant encoding: unknown primitive type ",
-                           static_cast<int>(primitive));
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: unknown primitive type ", static_cast<int>(primitive));
   }
 
-  size_t payload_size = 0;
-  ARROW_RETURN_NOT_OK(PrimitivePayloadSize(value, offset, primitive, &payload_size));
-  ARROW_RETURN_NOT_OK(CheckAvailable(value, offset, payload_size, "primitive value"));
+  const size_t payload_size = PrimitivePayloadSize(value, offset, primitive);
+  CheckAvailable(value, offset, payload_size, "primitive value");
 
   if (internal::IsDecimalVariantPrimitive(primitive)) {
     const auto scale = static_cast<uint8_t>(value[offset]);
-    ARROW_RETURN_NOT_OK(internal::ValidateDecimalScale(scale));
+    internal::ValidateDecimalScale(scale);
   }
 
   if (primitive == VariantPrimitiveType::kString) {
     const uint32_t length = ReadLittleEndian(value, offset, 4);
-    ARROW_RETURN_NOT_OK(internal::ValidateUtf8(value.substr(offset + 4, length),
-                                               "primitive string value"));
+    internal::ValidateUtf8(value.substr(offset + 4, length), "primitive string value");
   }
 
-  consumed = payload_size;
-  return Status::OK();
+  return payload_size;
 }
 
-Status ParseValue(std::string_view value, const VariantMetadataView& metadata,
-                  size_t& consumed, VariantValueView* out);
+size_t ParseValue(std::string_view value, const VariantMetadataView& metadata,
+                  VariantValueView* out);
 
-Status ParseArray(std::string_view value, const VariantMetadataView& metadata,
-                  uint8_t header, size_t& consumed, VariantValueView* out) {
+size_t ParseArray(std::string_view value, const VariantMetadataView& metadata,
+                  uint8_t header, VariantValueView* out) {
   const auto offset_size = static_cast<uint8_t>((header & 0x03) + 1);
   const bool is_large = (header & 0x04) != 0;
   const size_t count_size = is_large ? 4 : 1;
 
   size_t offset = 1;
-  ARROW_RETURN_NOT_OK(CheckAvailable(value, offset, count_size, "array size"));
+  CheckAvailable(value, offset, count_size, "array size");
   const uint32_t num_elements = ReadLittleEndian(value, offset, count_size);
   offset += count_size;
 
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(value, offset, (static_cast<size_t>(num_elements) + 1) * offset_size,
-                     "array offsets"));
+  CheckAvailable(value, offset, (static_cast<size_t>(num_elements) + 1) * offset_size,
+                 "array offsets");
 
   std::vector<uint32_t> offsets(num_elements + 1);
   for (uint32_t i = 0; i <= num_elements; ++i) {
@@ -148,18 +136,19 @@ Status ParseArray(std::string_view value, const VariantMetadataView& metadata,
   }
 
   if (offsets[0] != 0) {
-    return Status::Invalid("Invalid Variant encoding: first array offset must be 0");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: first array offset must be 0");
   }
   for (uint32_t i = 0; i < num_elements; ++i) {
     if (offsets[i] > offsets[i + 1]) {
-      return Status::Invalid("Invalid Variant encoding: array offsets must be monotonic");
+      throw ParquetInvalidOrCorruptedFileException(
+          "Invalid Variant encoding: array offsets must be monotonic");
     }
   }
 
   const size_t values_start = offset;
   const size_t total_value_size = offsets[num_elements];
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(value, values_start, total_value_size, "array values"));
+  CheckAvailable(value, values_start, total_value_size, "array values");
 
   size_t current = 0;
   std::vector<std::string_view> array_elements;
@@ -168,16 +157,14 @@ Status ParseArray(std::string_view value, const VariantMetadataView& metadata,
   }
   for (uint32_t i = 0; i < num_elements; ++i) {
     if (offsets[i] != current) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant encoding: array offset does not match value boundary");
     }
-    size_t child_consumed = 0;
-    ARROW_RETURN_NOT_OK(ParseValue(value.substr(values_start + current), metadata,
-                                   child_consumed,
-                                   /*out=*/nullptr));
+    const size_t child_consumed =
+        ParseValue(value.substr(values_start + current), metadata, /*out=*/nullptr);
     current += child_consumed;
     if (current != offsets[i + 1]) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant encoding: array value does not end at next offset");
     }
     if (out != nullptr) {
@@ -186,40 +173,40 @@ Status ParseArray(std::string_view value, const VariantMetadataView& metadata,
   }
 
   if (current != total_value_size) {
-    return Status::Invalid("Invalid Variant encoding: array values have trailing data");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: array values have trailing data");
   }
 
-  consumed = values_start + total_value_size;
+  const size_t consumed = values_start + total_value_size;
   if (out != nullptr) {
     *out = VariantValueView(value.substr(0, consumed), VariantBasicType::kArray,
                             VariantArrayView(std::move(array_elements)));
   }
-  return Status::OK();
+  return consumed;
 }
 
-Status ParseObject(std::string_view value, const VariantMetadataView& metadata,
-                   uint8_t header, size_t& consumed, VariantValueView* out) {
+size_t ParseObject(std::string_view value, const VariantMetadataView& metadata,
+                   uint8_t header, VariantValueView* out) {
   const auto offset_size = static_cast<uint8_t>((header & 0x03) + 1);
   const auto id_size = static_cast<uint8_t>(((header >> 2) & 0x03) + 1);
   const bool is_large = (header & 0x10) != 0;
   const size_t count_size = is_large ? 4 : 1;
 
   size_t offset = 1;
-  ARROW_RETURN_NOT_OK(CheckAvailable(value, offset, count_size, "object size"));
+  CheckAvailable(value, offset, count_size, "object size");
   const uint32_t num_elements = ReadLittleEndian(value, offset, count_size);
   offset += count_size;
 
-  ARROW_RETURN_NOT_OK(CheckAvailable(
-      value, offset, static_cast<size_t>(num_elements) * id_size, "object field ids"));
+  CheckAvailable(value, offset, static_cast<size_t>(num_elements) * id_size,
+                 "object field ids");
   std::vector<uint32_t> field_ids(num_elements);
   for (uint32_t i = 0; i < num_elements; ++i) {
     field_ids[i] = ReadLittleEndian(value, offset, id_size);
     offset += id_size;
   }
 
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(value, offset, (static_cast<size_t>(num_elements) + 1) * offset_size,
-                     "object field offsets"));
+  CheckAvailable(value, offset, (static_cast<size_t>(num_elements) + 1) * offset_size,
+                 "object field offsets");
   std::vector<uint32_t> field_offsets(num_elements + 1);
   for (uint32_t i = 0; i <= num_elements; ++i) {
     field_offsets[i] = ReadLittleEndian(value, offset, offset_size);
@@ -229,11 +216,10 @@ Status ParseObject(std::string_view value, const VariantMetadataView& metadata,
   const size_t values_start = offset;
   const size_t total_value_size = field_offsets[num_elements];
   if (num_elements == 0 && total_value_size != 0) {
-    return Status::Invalid(
+    throw ParquetInvalidOrCorruptedFileException(
         "Invalid Variant encoding: empty object must have zero value size");
   }
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(value, values_start, total_value_size, "object values"));
+  CheckAvailable(value, values_start, total_value_size, "object values");
 
   std::vector<VariantObjectField> object_fields;
   if (out != nullptr) {
@@ -243,20 +229,20 @@ Status ParseObject(std::string_view value, const VariantMetadataView& metadata,
   std::string_view previous_name;
   for (uint32_t i = 0; i < num_elements; ++i) {
     if (field_ids[i] >= metadata.dictionary_size()) {
-      return Status::Invalid("Invalid Variant encoding: object field id ", field_ids[i],
-                             " is outside metadata dictionary of size ",
-                             metadata.dictionary_size());
+      throw ParquetInvalidOrCorruptedFileException(
+          "Invalid Variant encoding: object field id ", field_ids[i],
+          " is outside metadata dictionary of size ", metadata.dictionary_size());
     }
     const auto name = metadata.string(field_ids[i]);
     if (i > 0 && !(previous_name < name)) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant encoding: object field names must be sorted and unique");
     }
     previous_name = name;
 
     const auto field_offset = field_offsets[i];
     if (field_offset >= total_value_size) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant encoding: object field offset is outside values");
     }
   }
@@ -264,22 +250,21 @@ Status ParseObject(std::string_view value, const VariantMetadataView& metadata,
   std::vector<uint32_t> value_offsets = field_offsets;
   std::ranges::sort(value_offsets);
   if (std::ranges::adjacent_find(value_offsets) != value_offsets.end()) {
-    return Status::Invalid(
+    throw ParquetInvalidOrCorruptedFileException(
         "Invalid Variant encoding: object field offsets must be unique");
   }
   if (value_offsets.front() != 0) {
-    return Status::Invalid("Invalid Variant encoding: object values have leading data");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: object values have leading data");
   }
 
   for (uint32_t i = 0; i < num_elements; ++i) {
     const uint32_t start = value_offsets[i];
     const uint32_t end = value_offsets[i + 1];
-    size_t child_consumed = 0;
-    ARROW_RETURN_NOT_OK(ParseValue(value.substr(values_start + start), metadata,
-                                   child_consumed,
-                                   /*out=*/nullptr));
+    const size_t child_consumed =
+        ParseValue(value.substr(values_start + start), metadata, /*out=*/nullptr);
     if (child_consumed != end - start) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant encoding: object value does not end at next value boundary");
     }
   }
@@ -299,17 +284,17 @@ Status ParseObject(std::string_view value, const VariantMetadataView& metadata,
     }
   }
 
-  consumed = values_start + total_value_size;
+  const size_t consumed = values_start + total_value_size;
   if (out != nullptr) {
     *out = VariantValueView(value.substr(0, consumed), VariantBasicType::kObject,
                             VariantObjectView(std::move(object_fields)));
   }
-  return Status::OK();
+  return consumed;
 }
 
-Status ParseValue(std::string_view value, const VariantMetadataView& metadata,
-                  size_t& consumed, VariantValueView* out) {
-  ARROW_RETURN_NOT_OK(CheckAvailable(value, 0, 1, "value header"));
+size_t ParseValue(std::string_view value, const VariantMetadataView& metadata,
+                  VariantValueView* out) {
+  CheckAvailable(value, 0, 1, "value header");
 
   const auto metadata_byte = static_cast<uint8_t>(value[0]);
   const auto basic_type = static_cast<VariantBasicType>(metadata_byte & 0x03);
@@ -318,44 +303,43 @@ Status ParseValue(std::string_view value, const VariantMetadataView& metadata,
   switch (basic_type) {
     case VariantBasicType::kPrimitive: {
       const auto primitive = static_cast<VariantPrimitiveType>(header);
-      size_t payload_size = 0;
-      ARROW_RETURN_NOT_OK(ParsePrimitive(value, 1, primitive, payload_size));
-      consumed = 1 + payload_size;
+      const size_t payload_size = ParsePrimitive(value, 1, primitive);
+      const size_t consumed = 1 + payload_size;
       if (out != nullptr) {
         *out = VariantValueView(
             value.substr(0, consumed), VariantBasicType::kPrimitive,
             VariantPrimitiveView(primitive, value.substr(1, payload_size)));
       }
-      return Status::OK();
+      return consumed;
     }
     case VariantBasicType::kShortString: {
-      ARROW_RETURN_NOT_OK(CheckAvailable(value, 1, header, "short string value"));
-      ARROW_RETURN_NOT_OK(
-          internal::ValidateUtf8(value.substr(1, header), "short string value"));
-      consumed = 1 + header;
+      CheckAvailable(value, 1, header, "short string value");
+      internal::ValidateUtf8(value.substr(1, header), "short string value");
+      const size_t consumed = 1 + header;
       if (out != nullptr) {
         *out = VariantValueView(value.substr(0, consumed), VariantBasicType::kShortString,
                                 VariantShortStringView(value.substr(1, header)));
       }
-      return Status::OK();
+      return consumed;
     }
     case VariantBasicType::kObject:
-      return ParseObject(value, metadata, header, consumed, out);
+      return ParseObject(value, metadata, header, out);
     case VariantBasicType::kArray:
-      return ParseArray(value, metadata, header, consumed, out);
+      return ParseArray(value, metadata, header, out);
   }
-  return Status::Invalid("Invalid Variant encoding: unknown basic type");
+  throw ParquetInvalidOrCorruptedFileException(
+      "Invalid Variant encoding: unknown basic type");
 }
 
 }  // namespace
 
-Result<VariantMetadataView> VariantMetadataView::Make(std::string_view metadata) {
-  ARROW_RETURN_NOT_OK(CheckAvailable(metadata, 0, 1, "metadata header"));
+VariantMetadataView VariantMetadataView::Make(std::string_view metadata) {
+  CheckAvailable(metadata, 0, 1, "metadata header");
   const auto header = static_cast<uint8_t>(metadata[0]);
   const auto version = static_cast<uint8_t>(header & internal::kMetadataVersionMask);
   if (version != internal::kVariantVersion) {
-    return Status::Invalid("Invalid Variant metadata: expected version 1, got ",
-                           static_cast<int>(version));
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant metadata: expected version 1, got ", static_cast<int>(version));
   }
 
   VariantMetadataView view;
@@ -363,14 +347,12 @@ Result<VariantMetadataView> VariantMetadataView::Make(std::string_view metadata)
   view.sorted_strings_ = (header & internal::kMetadataSortedStringsMask) != 0;
   view.offset_size_ = static_cast<uint8_t>(((header >> 6) & 0x03) + 1);
 
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(metadata, 1, view.offset_size_, "metadata dictionary size"));
+  CheckAvailable(metadata, 1, view.offset_size_, "metadata dictionary size");
   const uint32_t dictionary_size = ReadLittleEndian(metadata, 1, view.offset_size_);
   const size_t offsets_offset = 1 + view.offset_size_;
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(metadata, offsets_offset,
-                     (static_cast<size_t>(dictionary_size) + 1) * view.offset_size_,
-                     "metadata dictionary offsets"));
+  CheckAvailable(metadata, offsets_offset,
+                 (static_cast<size_t>(dictionary_size) + 1) * view.offset_size_,
+                 "metadata dictionary offsets");
 
   std::vector<uint32_t> offsets(dictionary_size + 1);
   for (uint32_t i = 0; i <= dictionary_size; ++i) {
@@ -379,11 +361,12 @@ Result<VariantMetadataView> VariantMetadataView::Make(std::string_view metadata)
   }
 
   if (offsets[0] != 0) {
-    return Status::Invalid("Invalid Variant metadata: first dictionary offset must be 0");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant metadata: first dictionary offset must be 0");
   }
   for (uint32_t i = 0; i < dictionary_size; ++i) {
     if (offsets[i] > offsets[i + 1]) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant metadata: dictionary offsets must be monotonic");
     }
   }
@@ -391,18 +374,18 @@ Result<VariantMetadataView> VariantMetadataView::Make(std::string_view metadata)
   const size_t bytes_offset =
       offsets_offset + (static_cast<size_t>(dictionary_size) + 1) * view.offset_size_;
   const size_t bytes_size = offsets[dictionary_size];
-  ARROW_RETURN_NOT_OK(
-      CheckAvailable(metadata, bytes_offset, bytes_size, "metadata dictionary bytes"));
+  CheckAvailable(metadata, bytes_offset, bytes_size, "metadata dictionary bytes");
   if (metadata.size() != bytes_offset + bytes_size) {
-    return Status::Invalid("Invalid Variant metadata: trailing bytes after dictionary");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant metadata: trailing bytes after dictionary");
   }
 
   view.strings_.reserve(dictionary_size);
   for (uint32_t i = 0; i < dictionary_size; ++i) {
     auto string = metadata.substr(bytes_offset + offsets[i], offsets[i + 1] - offsets[i]);
-    ARROW_RETURN_NOT_OK(internal::ValidateUtf8(string, "metadata dictionary string"));
+    internal::ValidateUtf8(string, "metadata dictionary string");
     if (view.sorted_strings_ && i > 0 && !(view.strings_.back() < string)) {
-      return Status::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant metadata: sorted dictionary strings must be unique and "
           "lexicographically sorted");
     }
@@ -445,26 +428,25 @@ bool VariantObjectView::ContainsField(std::string_view name) const {
   return std::ranges::binary_search(fields_, name, {}, &VariantObjectField::name);
 }
 
-Result<VariantValueView> VariantValueView::Make(std::string_view value,
-                                                const VariantMetadataView& metadata) {
-  size_t consumed = 0;
+VariantValueView VariantValueView::Make(std::string_view value,
+                                        const VariantMetadataView& metadata) {
   VariantValueView view({}, VariantBasicType::kPrimitive,
                         VariantPrimitiveView(VariantPrimitiveType::kNull, {}));
-  ARROW_RETURN_NOT_OK(ParseValue(value, metadata, consumed, &view));
+  const size_t consumed = ParseValue(value, metadata, &view);
   if (consumed != value.size()) {
-    return Status::Invalid("Invalid Variant encoding: trailing bytes after value");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: trailing bytes after value");
   }
   return view;
 }
 
-Status VariantValueView::Validate(std::string_view value,
-                                  const VariantMetadataView& metadata) {
-  size_t consumed = 0;
-  ARROW_RETURN_NOT_OK(ParseValue(value, metadata, consumed, /*out=*/nullptr));
+void VariantValueView::Validate(std::string_view value,
+                                const VariantMetadataView& metadata) {
+  const size_t consumed = ParseValue(value, metadata, /*out=*/nullptr);
   if (consumed != value.size()) {
-    return Status::Invalid("Invalid Variant encoding: trailing bytes after value");
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: trailing bytes after value");
   }
-  return Status::OK();
 }
 
 }  // namespace parquet::variant

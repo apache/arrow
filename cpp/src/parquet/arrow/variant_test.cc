@@ -51,7 +51,7 @@ using variant::internal::WriteVariantRecordBatch;
 using variant::internal::WriteVariantTable;
 
 TEST(TestVariantExtensionType, WriterValidatesUnshreddedVariantBytes) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -73,7 +73,7 @@ TEST(TestVariantExtensionType, WriterValidatesUnshreddedVariantBytes) {
 }
 
 TEST(TestVariantExtensionType, WriteRecordBatchValidatesVariantBytes) {
-  ASSERT_OK_AND_ASSIGN(auto metadata, EmptyVariantMetadata());
+  auto metadata = EmptyVariantMetadata();
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
   auto variant_type = ::arrow::extension::variant(storage_type);
@@ -91,7 +91,7 @@ TEST(TestVariantExtensionType, WriteRecordBatchValidatesVariantBytes) {
 }
 
 TEST(TestVariantExtensionType, WriteRecordBatchValidatesBatch) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -120,7 +120,7 @@ TEST(TestVariantExtensionType, WriteRecordBatchValidatesBatch) {
 }
 
 TEST(TestVariantExtensionType, WriterValidatesBinaryViewVariantBytes) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type =
       struct_({field("metadata", ::arrow::binary_view(), /*nullable=*/false),
@@ -134,7 +134,7 @@ TEST(TestVariantExtensionType, WriterValidatesBinaryViewVariantBytes) {
 }
 
 TEST(TestVariantExtensionType, WriterSkipsNullParents) {
-  ASSERT_OK_AND_ASSIGN(auto metadata, EmptyVariantMetadata());
+  auto metadata = EmptyVariantMetadata();
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
   auto variant_type = ::arrow::extension::variant(storage_type);
@@ -167,7 +167,7 @@ TEST(TestVariantExtensionType, WriterSkipsNullParents) {
 }
 
 TEST(TestVariantExtensionType, WriterValidatesShreddedPrimitiveConflicts) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type =
       struct_({field("metadata", binary(), /*nullable=*/false), field("value", binary()),
@@ -197,7 +197,7 @@ TEST(TestVariantExtensionType, WriterValidatesShreddedPrimitiveConflicts) {
 }
 
 TEST(TestVariantExtensionType, WriterValidatesShreddedWithoutValue) {
-  ASSERT_OK_AND_ASSIGN(auto metadata, EmptyVariantMetadata());
+  auto metadata = EmptyVariantMetadata();
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("typed_value", ::arrow::int64())});
   ASSERT_OK_AND_ASSIGN(auto variant_type,
@@ -211,7 +211,7 @@ TEST(TestVariantExtensionType, WriterValidatesShreddedWithoutValue) {
 }
 
 TEST(TestVariantExtensionType, ReadsDictionaryEncodedMetadata) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -256,7 +256,7 @@ TEST(TestVariantExtensionType, ReadsDictionaryEncodedMetadata) {
 }
 
 TEST(TestVariantExtensionType, ReadsWithDictionaryOption) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -296,7 +296,7 @@ TEST(TestVariantExtensionType, ReadsWithDictionaryOption) {
 }
 
 TEST(TestVariantExtensionType, WriterWritesUuid) {
-  ASSERT_OK_AND_ASSIGN(auto metadata, EmptyVariantMetadata());
+  auto metadata = EmptyVariantMetadata();
   auto storage_type =
       struct_({field("metadata", binary(), /*nullable=*/false), field("value", binary()),
                field("typed_value", ::arrow::extension::uuid())});
@@ -312,10 +312,10 @@ TEST(TestVariantExtensionType, WriterWritesUuid) {
 
 TEST(TestVariantExtensionType, WriterValidatesShreddedObjectConflicts) {
   variant::VariantBuilder object_builder;
-  ASSERT_OK_AND_ASSIGN(auto object, object_builder.StartObject());
-  ASSERT_OK(object.AppendShortString("event_type", "login"));
-  ASSERT_OK(object.Finish());
-  ASSERT_OK_AND_ASSIGN(auto encoded, object_builder.Finish());
+  auto object = object_builder.StartObject();
+  object.AppendShortString("event_type", "login");
+  object.Finish();
+  auto encoded = object_builder.Finish();
 
   auto field_group_type =
       struct_({field("value", binary()), field("typed_value", ::arrow::utf8())});
