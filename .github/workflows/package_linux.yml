@@ -58,7 +58,6 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: package_linux
@@ -72,6 +71,7 @@ jobs:
     steps:
       - id: set_enabled
         if: >-
+          github.ref_type == 'tag' ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
