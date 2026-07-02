@@ -40,53 +40,29 @@ if [ ! -f "$ODBC_64BIT" ]; then
   exit 1
 fi
 
-case "$(uname)" in
-  Linux)
-    SYSTEM_ODBCINST_FILE="/etc/odbcinst.ini"
-    ;;
-  *)
-    # macOS
-    SYSTEM_ODBCINST_FILE="/Library/ODBC/odbcinst.ini"
-    mkdir -p /Library/ODBC
-    ;;
-esac
+if ! command -v odbcinst >/dev/null 2>&1; then
+  echo "error: odbcinst not found. Please install unixODBC first."
+  exit 1
+fi
+
+# On macOS, iODBC reads from /Library/ODBC/odbcinst.ini. Point odbcinst there
+# so the registration is visible to iODBC rather than written to the unixODBC
+# Homebrew path that iODBC never reads.
+if [ "$(uname)" = "Darwin" ]; then
+  mkdir -p /Library/ODBC
+  export ODBCINSTINI=/Library/ODBC/odbcinst.ini
+fi
 
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
 
-touch "$SYSTEM_ODBCINST_FILE"
+TEMPLATE_FILE=$(mktemp /tmp/arrow_odbc_XXXXXX.ini)
+trap 'rm -f "$TEMPLATE_FILE"' EXIT
 
-if grep -q "^\[$DRIVER_NAME\]" "$SYSTEM_ODBCINST_FILE"; then
-  echo "Driver [$DRIVER_NAME] already exists in odbcinst.ini"
-else
-  echo "Adding [$DRIVER_NAME] to odbcinst.ini..."
-  echo "
+cat > "$TEMPLATE_FILE" <<EOF
 [$DRIVER_NAME]
 Description=An ODBC Driver for Apache Arrow Flight SQL
 Driver=$ODBC_64BIT
-" >>"$SYSTEM_ODBCINST_FILE"
-fi
+EOF
 
-# Check if [ODBC Drivers] section exists
-if grep -q '^\[ODBC Drivers\]' "$SYSTEM_ODBCINST_FILE"; then
-  # Section exists: check if driver entry exists
-  if ! grep -q "^${DRIVER_NAME}=" "$SYSTEM_ODBCINST_FILE"; then
-    # Driver entry does not exist, add under [ODBC Drivers]
-
-    awk -v driver="$DRIVER_NAME" '
-      $0 ~ /^\[ODBC Drivers\]/ && !inserted {
-        print
-        print driver "=Installed"
-        inserted=1
-        next
-      }
-      { print }
-    ' "$SYSTEM_ODBCINST_FILE" > "${SYSTEM_ODBCINST_FILE}.tmp" && mv "${SYSTEM_ODBCINST_FILE}.tmp" "$SYSTEM_ODBCINST_FILE"
-  fi
-else
-  # Section doesn't exist, append both section and driver entry at end
-  {
-    echo ""
-    echo "[ODBC Drivers]"
-    echo "${DRIVER_NAME}=Installed"
-  } >>"$SYSTEM_ODBCINST_FILE"
-fi
+echo "Registering [$DRIVER_NAME] via odbcinst..."
+odbcinst -i -d -f "$TEMPLATE_FILE"
