@@ -34,7 +34,7 @@ version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 release_tag="apache-arrow-${version}-rc${rc}"
 rc_branch="release-${version_with_rc}"
-maint-branch="maint-${version}"
+maint_branch="maint-${version}"
 
 : ${ARROW_REPOSITORY:="apache/arrow"}
 : ${ARROW_BRANCH:=${release_tag}}
