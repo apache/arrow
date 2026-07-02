@@ -124,6 +124,7 @@ RUN apt-get update -y -q && \
         sudo \
         tzdata \
         tzdata-legacy \
+        unixodbc \
         unixodbc-dev \
         uuid-runtime \
         unzip \
