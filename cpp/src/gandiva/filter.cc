@@ -91,8 +91,6 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 Status Filter::Evaluate(const arrow::RecordBatch& batch,
                         std::shared_ptr<SelectionVector> out_selection) {
   const auto num_rows = batch.num_rows();
-  ARROW_RETURN_IF(!batch.schema()->Equals(*schema_),
-                  Status::Invalid("RecordBatch schema must expected filter schema"));
   ARROW_RETURN_IF(num_rows == 0, Status::Invalid("RecordBatch must be non-empty."));
   ARROW_RETURN_IF(out_selection == nullptr,
                   Status::Invalid("out_selection must be non-null."));
