@@ -38,9 +38,9 @@ DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
 if [ "$N_JOBS" = "" ]; then
   if [ "`uname -s`" = "Darwin" ]; then
-    N_JOBS="$(sysctl -n hw.logicalcpu)"
+    N_JOBS="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 2)"
   else
-    N_JOBS="$(nproc)"
+    N_JOBS="$(nproc 2>/dev/null || echo 2)"
   fi
 fi
 
@@ -114,7 +114,7 @@ ${CMAKE_WRAPPER} ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G "${CMAKE_GENERATOR:-Unix Makefiles}" \
     ${SOURCE_DIR}
 
-${CMAKE} --build . --target install --parallel $N_JOBS
+MAKEFLAGS="-j$N_JOBS" ${CMAKE} --build . --target install
 
 if command -v sccache &> /dev/null; then
   echo "=== sccache stats after the build ==="
