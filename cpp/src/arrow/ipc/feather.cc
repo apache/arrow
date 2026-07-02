@@ -805,6 +805,9 @@ Result<std::shared_ptr<Reader>> Reader::Open(
   }
 }
 
+// GCC warns about the deprecated type in these definitions, Clang doesn't
+ARROW_SUPPRESS_DEPRECATION_WARNING
+
 WriteProperties WriteProperties::Defaults() {
   WriteProperties result;
 #ifdef ARROW_WITH_LZ4
@@ -833,6 +836,8 @@ Status WriteTable(const Table& table, io::OutputStream* dst,
     return writer->Close();
   }
 }
+
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace feather
 }  // namespace ipc

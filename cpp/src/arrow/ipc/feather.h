@@ -152,12 +152,15 @@ struct ARROW_DEPRECATED("Deprecated in 26.0.0. Use arrow::ipc::MakeFileWriter in
   int compression_level = ::arrow::util::kUseDefaultCompressionLevel;
 };
 
+// Only suppresses the deprecated WriteProperties in the default argument
+ARROW_SUPPRESS_DEPRECATION_WARNING
 /// \deprecated Deprecated in 26.0.0. Feather V2 is the Arrow IPC file format;
 ///   use arrow::ipc::MakeFileWriter instead.
 ARROW_DEPRECATED("Deprecated in 26.0.0. Use arrow::ipc::MakeFileWriter instead.")
 ARROW_EXPORT
 Status WriteTable(const Table& table, io::OutputStream* dst,
                   const WriteProperties& properties = WriteProperties::Defaults());
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace feather
 }  // namespace ipc
