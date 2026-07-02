@@ -516,6 +516,14 @@ env_vars_as_string <- function(env_var_list) {
   env_var_string
 }
 
+strip_make_job_flags <- function(makeflags) {
+  makeflags <- gsub("(^|\\s)--jobserver-[^[:space:]]+", " ", makeflags, perl = TRUE)
+  makeflags <- gsub("(^|\\s)--jobs(=|\\s+)?[0-9]*(?=\\s|$)", " ", makeflags, perl = TRUE)
+  makeflags <- gsub("(^|\\s)-j\\s*[0-9]*(?=\\s|$)", " ", makeflags, perl = TRUE)
+  makeflags <- gsub("(^|\\s)([[:alpha:]]*)j[0-9]*([[:alpha:]]*)(?=\\s|$)", "\\1\\2\\3", makeflags, perl = TRUE)
+  trimws(gsub("\\s+", " ", makeflags, perl = TRUE))
+}
+
 R_CMD_config <- function(var) {
   tools::Rcmd(paste("config", var), stdout = TRUE)
 }
@@ -536,7 +544,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     Sys.setenv(MAKEFLAGS = makeflags)
   } else {
     # Extract -j/--jobs value from existing MAKEFLAGS if present
-    j_match <- regmatches(makeflags, regexpr("(^|\\s)(-j\\s*|--jobs(=|\\s)+)([0-9]+)(?=\\s|$)", makeflags, perl = TRUE))
+    j_match <- regmatches(
+      makeflags,
+      regexpr("(^|\\s)(-j\\s*|--jobs(=|\\s)+|[[:alpha:]]*j)([0-9]+)(?=\\s|$)", makeflags, perl = TRUE)
+    )
     if (length(j_match) > 0) {
       ncores <- as.integer(sub(".*?([0-9]+)$", "\\1", j_match, perl = TRUE))
     }
@@ -556,6 +567,9 @@ build_libarrow <- function(src_dir, dst_dir) {
     gnumakeflags <- gsub("(^|\\s)--jobs(?=\\s|$)", sprintf("\\1--jobs=%s", ncores), gnumakeflags, perl = TRUE)
     Sys.setenv(GNUMAKEFLAGS = gnumakeflags)
   }
+  makeflags <- strip_make_job_flags(makeflags)
+  gnumakeflags <- strip_make_job_flags(Sys.getenv("GNUMAKEFLAGS"))
+  Sys.setenv(MAKEFLAGS = makeflags, GNUMAKEFLAGS = gnumakeflags)
   if (!quietly) {
     lg("Building with MAKEFLAGS=%s", makeflags)
   }
@@ -594,6 +608,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     ),
     # CXXFLAGS = R_CMD_config("CXX20FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS"),
+    MAKEFLAGS = makeflags,
+    GNUMAKEFLAGS = gnumakeflags,
     N_JOBS = ncores
   )
 
