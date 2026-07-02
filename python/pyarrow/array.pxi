@@ -2776,6 +2776,59 @@ cdef class ListArray(BaseListArray):
     Concrete class for Arrow arrays of a list data type.
     """
 
+    def to_pylist(self, *, maps_as_pydicts=None):
+        """
+        Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CListArray* arr = <CListArray*> self.ap
+            int64_t i, n, off0, start, end
+        self._assert_cpu()
+        n = arr.length()
+        if n == 0:
+            return []
+        # Convert the range of child values referenced by this array in a
+        # single pass, then slice out each list.  This avoids creating a
+        # Scalar wrapper, a Python Array wrapper and a values-array slice
+        # for every row (see GH-28694).
+        off0 = arr.value_offset(0)
+        child_py = pyarrow_wrap_array(arr.values()).slice(
+            off0, arr.value_offset(n) - off0
+        ).to_pylist(maps_as_pydicts=maps_as_pydicts)
+        result = []
+        if arr.null_count() == 0:
+            for i in range(n):
+                start = arr.value_offset(i) - off0
+                end = arr.value_offset(i + 1) - off0
+                result.append(child_py[start:end])
+        else:
+            for i in range(n):
+                if arr.IsNull(i):
+                    result.append(None)
+                else:
+                    start = arr.value_offset(i) - off0
+                    end = arr.value_offset(i + 1) - off0
+                    result.append(child_py[start:end])
+        return result
+
     @staticmethod
     def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
         """
@@ -2960,6 +3013,56 @@ cdef class LargeListArray(BaseListArray):
 
     Identical to ListArray, but 64-bit offsets.
     """
+
+    def to_pylist(self, *, maps_as_pydicts=None):
+        """
+        Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CLargeListArray* arr = <CLargeListArray*> self.ap
+            int64_t i, n, off0, start, end
+        self._assert_cpu()
+        n = arr.length()
+        if n == 0:
+            return []
+        # See ListArray.to_pylist for an explanation of the bulk conversion.
+        off0 = arr.value_offset(0)
+        child_py = pyarrow_wrap_array(arr.values()).slice(
+            off0, arr.value_offset(n) - off0
+        ).to_pylist(maps_as_pydicts=maps_as_pydicts)
+        result = []
+        if arr.null_count() == 0:
+            for i in range(n):
+                start = arr.value_offset(i) - off0
+                end = arr.value_offset(i + 1) - off0
+                result.append(child_py[start:end])
+        else:
+            for i in range(n):
+                if arr.IsNull(i):
+                    result.append(None)
+                else:
+                    start = arr.value_offset(i) - off0
+                    end = arr.value_offset(i + 1) - off0
+                    result.append(child_py[start:end])
+        return result
 
     @staticmethod
     def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
@@ -3551,6 +3654,34 @@ cdef class MapArray(ListArray):
     Concrete class for Arrow arrays of a map data type.
     """
 
+    def to_pylist(self, *, maps_as_pydicts=None):
+        """
+        Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
+
+        Returns
+        -------
+        lst : list
+        """
+        # Maps have per-entry key/value semantics (association tuples,
+        # optional dict conversion with duplicate-key detection) that the
+        # bulk path inherited from ListArray does not implement, so use
+        # the generic scalar-based conversion.
+        return Array.to_pylist(self, maps_as_pydicts=maps_as_pydicts)
+
     @staticmethod
     def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None, mask=None):
         """
@@ -3687,6 +3818,56 @@ cdef class FixedSizeListArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a fixed size list data type.
     """
+
+    def to_pylist(self, *, maps_as_pydicts=None):
+        """
+        Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+
+            If 'lossy', whenever duplicate keys are detected, a warning will be printed.
+            The last seen value of a duplicate key will be in the Python dictionary.
+            If 'strict', this instead results in an exception being raised when detected.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
+            int64_t i, n, off0, start, end
+        self._assert_cpu()
+        n = arr.length()
+        if n == 0:
+            return []
+        # See ListArray.to_pylist for an explanation of the bulk conversion.
+        off0 = arr.value_offset(0)
+        child_py = pyarrow_wrap_array(arr.values()).slice(
+            off0, arr.value_offset(n) - off0
+        ).to_pylist(maps_as_pydicts=maps_as_pydicts)
+        result = []
+        if arr.null_count() == 0:
+            for i in range(n):
+                start = arr.value_offset(i) - off0
+                end = arr.value_offset(i + 1) - off0
+                result.append(child_py[start:end])
+        else:
+            for i in range(n):
+                if arr.IsNull(i):
+                    result.append(None)
+                else:
+                    start = arr.value_offset(i) - off0
+                    end = arr.value_offset(i + 1) - off0
+                    result.append(child_py[start:end])
+        return result
 
     @staticmethod
     def from_arrays(values, list_size=None, DataType type=None, mask=None):
@@ -3974,6 +4155,45 @@ cdef class StringArray(Array):
     Concrete class for Arrow arrays of string (or utf8) data type.
     """
 
+    def to_pylist(self, *, maps_as_pydicts=None):
+        """
+        Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Arrays.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CStringArray* arr = <CStringArray*> self.ap
+            int64_t i, n
+            int32_t length
+            const uint8_t* data
+        self._assert_cpu()
+        n = arr.length()
+        result = []
+        # Decode values straight from the data buffer instead of creating
+        # a C++ Scalar and a Python Scalar wrapper per value (see GH-28694).
+        if arr.null_count() == 0:
+            for i in range(n):
+                data = arr.GetValue(i, &length)
+                result.append(
+                    cp.PyUnicode_DecodeUTF8(<const char*> data, length, NULL))
+        else:
+            for i in range(n):
+                if arr.IsNull(i):
+                    result.append(None)
+                else:
+                    data = arr.GetValue(i, &length)
+                    result.append(
+                        cp.PyUnicode_DecodeUTF8(<const char*> data, length, NULL))
+        return result
+
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
                      Buffer null_bitmap=None, int null_count=-1,
@@ -4005,6 +4225,44 @@ cdef class LargeStringArray(Array):
     """
     Concrete class for Arrow arrays of large string (or utf8) data type.
     """
+
+    def to_pylist(self, *, maps_as_pydicts=None):
+        """
+        Convert to a list of native Python objects.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Arrays.
+
+        Returns
+        -------
+        lst : list
+        """
+        cdef:
+            CLargeStringArray* arr = <CLargeStringArray*> self.ap
+            int64_t i, n
+            int64_t length
+            const uint8_t* data
+        self._assert_cpu()
+        n = arr.length()
+        result = []
+        # See StringArray.to_pylist for an explanation of the fast path.
+        if arr.null_count() == 0:
+            for i in range(n):
+                data = arr.GetValue(i, &length)
+                result.append(
+                    cp.PyUnicode_DecodeUTF8(<const char*> data, length, NULL))
+        else:
+            for i in range(n):
+                if arr.IsNull(i):
+                    result.append(None)
+                else:
+                    data = arr.GetValue(i, &length)
+                    result.append(
+                        cp.PyUnicode_DecodeUTF8(<const char*> data, length, NULL))
+        return result
 
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
