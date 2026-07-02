@@ -4460,6 +4460,16 @@ def test_non_cpu_array():
         arr.validate(full=True)
 
 
+def test_array_radd_unknown_operand():
+    # GH-49826: Array.__add__ on an unknown right operand must return
+    # NotImplemented so Python falls back to right.__radd__.
+    class WithRadd:
+        def __radd__(self, other):
+            return "radd-called"
+
+    assert pa.array([1, 2]) + WithRadd() == "radd-called"
+
+
 def test_arithmetic_dunders():
     # GH-32007
     arr1 = pa.array([-1.1, 2.2, -3.3])
