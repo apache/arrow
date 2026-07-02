@@ -811,7 +811,8 @@ auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
+    using RunDecoder =
+        typename RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     ARROW_DCHECK_LT(values_read, batch_size);
     RunDecoder decoder(run, value_bit_width_);
@@ -1124,7 +1125,8 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
+    using RunDecoder =
+        typename RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     RunDecoder decoder(run, value_bit_width_);
 
@@ -1306,7 +1308,8 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder = RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
+    using RunDecoder =
+        typename RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     RunDecoder decoder(run, value_bit_width_);
 
