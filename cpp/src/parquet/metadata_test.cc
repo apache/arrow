@@ -17,6 +17,8 @@
 
 #include "parquet/metadata.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 #include "arrow/util/key_value_metadata.h"
@@ -827,6 +829,32 @@ TEST(ApplicationVersion, VersionNoUnknownBuildInfoPreRelease) {
   ASSERT_EQ("", version.version.unknown);
   ASSERT_EQ("", version.version.pre_release);
   ASSERT_EQ("cd-cdh5.5.0", version.version.build_info);
+}
+
+TEST(ApplicationVersion, VersionComponentOverflow) {
+  // Version components in `created_by` are attacker-controlled. std::atoi
+  // exhibits undefined behavior when the converted value overflows int, so
+  // the parser must clamp instead of calling atoi.
+  ApplicationVersion version(
+      "parquet-mr version 99999999999999999999.88888888888888888888."
+      "77777777777777777777 (build abcd)");
+
+  ASSERT_EQ("parquet-mr", version.application_);
+  ASSERT_EQ("abcd", version.build_);
+  ASSERT_EQ(std::numeric_limits<int>::max(), version.version.major);
+  ASSERT_EQ(std::numeric_limits<int>::max(), version.version.minor);
+  ASSERT_EQ(std::numeric_limits<int>::max(), version.version.patch);
+
+  // Boundary cases: INT_MAX is representable, INT_MAX+1 saturates.
+  ApplicationVersion at_max("parquet-mr version 2147483647.2147483647.2147483647");
+  ASSERT_EQ(std::numeric_limits<int>::max(), at_max.version.major);
+  ASSERT_EQ(std::numeric_limits<int>::max(), at_max.version.minor);
+  ASSERT_EQ(std::numeric_limits<int>::max(), at_max.version.patch);
+
+  ApplicationVersion just_over("parquet-mr version 2147483648.2147483648.2147483648");
+  ASSERT_EQ(std::numeric_limits<int>::max(), just_over.version.major);
+  ASSERT_EQ(std::numeric_limits<int>::max(), just_over.version.minor);
+  ASSERT_EQ(std::numeric_limits<int>::max(), just_over.version.patch);
 }
 
 TEST(ApplicationVersion, FullWithSpaces) {
