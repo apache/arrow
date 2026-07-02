@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/row_encoder_internal.h"
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging_internal.h"
 
@@ -256,6 +257,105 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
+void BinaryViewKeyEncoder::AddLength(const ExecValue& data, int64_t batch_length,
+                                     int32_t* lengths) {
+  if (data.is_array()) {
+    int64_t i = 0;
+    ARROW_DCHECK_EQ(data.array.length, batch_length);
+    VisitArraySpanInline<BinaryViewType>(
+        data.array,
+        [&](std::string_view bytes) {
+          lengths[i++] +=
+              kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
+        },
+        [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
+  } else {
+    const Scalar& scalar = *data.scalar;
+    const int32_t buffer_size =
+        scalar.is_valid
+            ? static_cast<int32_t>(UnboxScalar<BinaryViewType>::Unbox(scalar).size())
+            : 0;
+    for (int64_t i = 0; i < batch_length; i++) {
+      lengths[i] += kExtraByteForNull + sizeof(Offset) + buffer_size;
+    }
+  }
+}
+
+void BinaryViewKeyEncoder::AddLengthNull(int32_t* length) {
+  *length += kExtraByteForNull + sizeof(Offset);
+}
+
+Status BinaryViewKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
+                                    uint8_t** encoded_bytes) {
+  auto handle_next_valid_value = [&encoded_bytes](std::string_view bytes) {
+    auto& encoded_ptr = *encoded_bytes++;
+    *encoded_ptr++ = kValidByte;
+    util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
+    encoded_ptr += sizeof(Offset);
+    memcpy(encoded_ptr, bytes.data(), bytes.size());
+    encoded_ptr += bytes.size();
+  };
+  auto handle_next_null_value = [&encoded_bytes]() {
+    auto& encoded_ptr = *encoded_bytes++;
+    *encoded_ptr++ = kNullByte;
+    util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+    encoded_ptr += sizeof(Offset);
+  };
+  if (data.is_array()) {
+    ARROW_DCHECK_EQ(data.length(), batch_length);
+    VisitArraySpanInline<BinaryViewType>(data.array, handle_next_valid_value,
+                                         handle_next_null_value);
+  } else {
+    const auto& scalar = data.scalar_as<BaseBinaryScalar>();
+    if (scalar.is_valid) {
+      const auto bytes = std::string_view{*scalar.value};
+      for (int64_t i = 0; i < batch_length; i++) {
+        handle_next_valid_value(bytes);
+      }
+    } else {
+      for (int64_t i = 0; i < batch_length; i++) {
+        handle_next_null_value();
+      }
+    }
+  }
+  return Status::OK();
+}
+
+void BinaryViewKeyEncoder::EncodeNull(uint8_t** encoded_bytes) {
+  auto& encoded_ptr = *encoded_bytes;
+  *encoded_ptr++ = kNullByte;
+  util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+  encoded_ptr += sizeof(Offset);
+}
+
+Result<std::shared_ptr<ArrayData>> BinaryViewKeyEncoder::Decode(uint8_t** encoded_bytes,
+                                                                int32_t length,
+                                                                MemoryPool* pool) {
+  // Build a fresh view array; MakeBuilder gives the type-faithful builder and
+  // Append handles inline vs. out-of-line storage.
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(pool, type_, &builder));
+  auto& view_builder = checked_cast<BinaryViewBuilder&>(*builder);
+  RETURN_NOT_OK(view_builder.Reserve(length));
+
+  for (int32_t i = 0; i < length; ++i) {
+    uint8_t*& encoded_ptr = encoded_bytes[i];
+    const bool is_valid = (*encoded_ptr++ == kValidByte);
+    const auto key_length = util::SafeLoadAs<Offset>(encoded_ptr);
+    encoded_ptr += sizeof(Offset);
+    if (is_valid) {
+      RETURN_NOT_OK(view_builder.Append(encoded_ptr, key_length));
+    } else {
+      RETURN_NOT_OK(view_builder.AppendNull());
+    }
+    encoded_ptr += key_length;  // zero for null rows
+  }
+
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(view_builder.Finish(&out));
+  return out->data();
+}
+
 void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
@@ -298,6 +398,11 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
     if (is_large_binary_like(type.id())) {
       encoders_[i] =
           std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(type.GetSharedPtr());
+      continue;
+    }
+
+    if (is_binary_view_like(type.id())) {
+      encoders_[i] = std::make_shared<BinaryViewKeyEncoder>(type.GetSharedPtr());
       continue;
     }
 

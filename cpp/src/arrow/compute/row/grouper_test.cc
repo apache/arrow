@@ -23,6 +23,7 @@
 #include "arrow/array.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/compute/row/grouper_internal.h"
@@ -119,6 +120,8 @@ void TestGroupClassSupportedKeys(
   ASSERT_OK(make_func({float16(), float32(), float64()}));
 
   ASSERT_OK(make_func({utf8(), binary(), large_utf8(), large_binary()}));
+
+  ASSERT_OK(make_func({utf8_view(), binary_view()}));
 
   ASSERT_OK(make_func({fixed_size_binary(16), fixed_size_binary(32)}));
 
@@ -754,13 +757,24 @@ struct TestGrouper {
     auto group_ids = id_batch.make_array();
     ValidateOutput(*group_ids);
 
+    // Take has no view kernel yet (GH-43010); validate via the non-view cast.
+    // Output type is checked separately by ExpectUniques.
+    auto as_takeable = [](std::shared_ptr<Array> arr) -> std::shared_ptr<Array> {
+      if (is_binary_view_like(*arr->type())) {
+        auto target = arr->type_id() == Type::STRING_VIEW ? utf8() : binary();
+        arr = Cast(Datum(arr), target).ValueOrDie().make_array();
+      }
+      return arr;
+    };
+
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(ToChars(i) + "th key array");
       auto original =
           key_batch[i].is_array()
               ? key_batch[i].make_array()
               : *MakeArrayFromScalar(*key_batch[i].scalar(), key_batch.length);
-      ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *group_ids));
+      ASSERT_OK_AND_ASSIGN(auto encoded,
+                           Take(*as_takeable(uniques_[i].make_array()), *group_ids));
       std::shared_ptr<Array> expected = original;
       if (can_be_null && original->type_id() != Type::NA) {
         // To compute the expected output, mask out the original entries that
@@ -791,7 +805,7 @@ struct TestGrouper {
         expected_data->null_count = kUnknownNullCount;
         expected = MakeArray(expected_data);
       }
-      AssertArraysEqual(*expected, *encoded, /*verbose=*/true,
+      AssertArraysEqual(*as_takeable(expected), *encoded, /*verbose=*/true,
                         EqualOptions().nans_equal(true));
     }
   }
@@ -910,6 +924,42 @@ TEST(Grouper, StringKey) {
       g.ExpectPopulate(R"([["be"], [null]])");
       g.ExpectLookup(R"([["be"], [null], ["da"]])", "[1, 2, null]");
     }
+  }
+}
+
+TEST(Grouper, StringViewKey) {
+  // Mix inline (<=12 byte) and out-of-line view keys.
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    {
+      TestGrouper g({ty});
+      g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+      g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+      g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
+      g.ExpectConsume(R"([["a long out-of-line view"], ["a long out-of-line view"]])",
+                      "[3, 3]");
+      g.ExpectUniques(R"([["eh"], ["be"], [null], ["a long out-of-line view"]])");
+    }
+    {
+      TestGrouper g({ty});
+      g.ExpectPopulate(R"([["eh"], ["eh"]])");
+      g.ExpectPopulate(R"([["be"], [null]])");
+      g.ExpectLookup(R"([["be"], [null], ["da"]])", "[1, 2, null]");
+    }
+  }
+}
+
+TEST(Grouper, StringViewInt64Key) {
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    TestGrouper g({ty, int64()});
+
+    g.ExpectConsume(R"([["eh", 0], ["eh", 0]])", "[0, 0]");
+    g.ExpectConsume(R"([["eh", 0], ["eh", null]])", "[0, 1]");
+    g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
+    g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
+
+    g.ExpectUniques(R"([["eh", 0], ["eh", null], ["eh", 1], ["bee", 1]])");
   }
 }
 
@@ -1074,6 +1124,10 @@ FieldVector AnnotateForRandomGeneration(FieldVector fields) {
     } else if (is_binary_like(*field->type())) {
       // (note this is unsupported for large binary types)
       field = field->WithMergedMetadata(key_value_metadata({"unique"}, {"100"}));
+    } else if (is_binary_view_like(*field->type())) {
+      // Views don't support the "unique" knob; small lengths keep cardinality low.
+      field = field->WithMergedMetadata(
+          key_value_metadata({"min_length", "max_length"}, {"0", "5"}));
     }
     field = field->WithMergedMetadata(key_value_metadata({"null_probability"}, {"0.1"}));
   }
@@ -1128,6 +1182,22 @@ TEST(Grouper, RandomStringInt64Keys) {
 TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
   TestRandomConsume(TestGrouper({utf8(), int64(), float64(), int32()}));
   TestRandomLookup(TestGrouper({utf8(), int64(), float64(), int32()}));
+}
+
+TEST(Grouper, RandomStringViewKeys) {
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    TestRandomConsume(TestGrouper({ty}));
+    TestRandomLookup(TestGrouper({ty}));
+  }
+}
+
+TEST(Grouper, RandomStringViewInt64Keys) {
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    TestRandomConsume(TestGrouper({ty, int64()}));
+    TestRandomLookup(TestGrouper({ty, int64()}));
+  }
 }
 
 TEST(Grouper, NullKeys) {
