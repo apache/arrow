@@ -34,6 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 
 namespace arrow {
 
@@ -996,7 +997,8 @@ TYPED_TEST(TypedTestBuffer, TypedResize) {
 
 TYPED_TEST(TypedTestBuffer, ResizeOOM) {
 // This test doesn't play nice with AddressSanitizer
-#ifndef ADDRESS_SANITIZER
+// Skip this test on big-endian architectures (e.g., s390x)
+#if !defined(ADDRESS_SANITIZER) && ARROW_LITTLE_ENDIAN
   // realloc fails, even though there may be no explicit limit
   TypeParam buf;
   ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
