@@ -24,6 +24,7 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
@@ -488,6 +489,123 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
 
 namespace {
 
+template <typename IndexCType>
+Status VarBinaryViewTakeTyped(const ArraySpan& values, const ArraySpan& indices,
+                              BinaryViewType::c_type* out_views, uint8_t* out_validity,
+                              int64_t* valid_count) {
+  const auto* source_views = values.GetValues<BinaryViewType::c_type>(1);
+  const auto* index_values = indices.GetValues<IndexCType>(1);
+
+  const bool values_may_have_nulls = values.MayHaveNulls();
+  const bool indices_may_have_nulls = indices.MayHaveNulls();
+
+  if (!values_may_have_nulls && !indices_may_have_nulls) {
+    for (int64_t out_i = 0; out_i < indices.length; ++out_i) {
+      out_views[out_i] = source_views[static_cast<int64_t>(index_values[out_i])];
+    }
+    *valid_count = indices.length;
+    return Status::OK();
+  }
+
+  for (int64_t out_i = 0; out_i < indices.length; ++out_i) {
+    if (indices_may_have_nulls &&
+        !bit_util::GetBit(indices.buffers[0].data, indices.offset + out_i)) {
+      continue;
+    }
+
+    const int64_t source_i = static_cast<int64_t>(index_values[out_i]);
+    const bool source_valid =
+        !values_may_have_nulls ||
+        bit_util::GetBit(values.buffers[0].data, values.offset + source_i);
+    if (!source_valid) {
+      continue;
+    }
+
+    out_views[out_i] = source_views[source_i];
+    if (out_validity != nullptr) {
+      bit_util::SetBit(out_validity, out_i);
+    }
+    ++(*valid_count);
+  }
+
+  return Status::OK();
+}
+
+Status VarBinaryViewTakeDispatch(const ArraySpan& values, const ArraySpan& indices,
+                                 BinaryViewType::c_type* out_views, uint8_t* out_validity,
+                                 int64_t* valid_count) {
+  switch (indices.type->byte_width()) {
+    case 1:
+      return VarBinaryViewTakeTyped<uint8_t>(values, indices, out_views, out_validity,
+                                             valid_count);
+    case 2:
+      return VarBinaryViewTakeTyped<uint16_t>(values, indices, out_views, out_validity,
+                                              valid_count);
+    case 4:
+      return VarBinaryViewTakeTyped<uint32_t>(values, indices, out_views, out_validity,
+                                              valid_count);
+    default:
+      DCHECK_EQ(indices.type->byte_width(), 8);
+      return VarBinaryViewTakeTyped<uint64_t>(values, indices, out_views, out_validity,
+                                              valid_count);
+  }
+}
+
+}  // namespace
+
+Status VarBinaryViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& indices = batch[1].array;
+
+  if (TakeState::Get(ctx).boundscheck) {
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length));
+  }
+
+  const int64_t out_length = indices.length;
+  const bool may_have_nulls = values.MayHaveNulls() || indices.MayHaveNulls();
+  const auto data_buffers = values.GetVariadicBuffers();
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto views_buf,
+      AllocateBuffer(out_length * static_cast<int64_t>(sizeof(BinaryViewType::c_type)),
+                     ctx->memory_pool()));
+  auto* out_views = reinterpret_cast<BinaryViewType::c_type*>(views_buf->mutable_data());
+  if (may_have_nulls && views_buf->size() > 0) {
+    std::memset(out_views, 0, views_buf->size());
+  }
+
+  std::shared_ptr<Buffer> validity_buf;
+  uint8_t* out_validity = nullptr;
+  if (may_have_nulls) {
+    ARROW_ASSIGN_OR_RAISE(validity_buf,
+                          AllocateEmptyBitmap(out_length, ctx->memory_pool()));
+    if (validity_buf->size() > 0) {
+      std::memset(validity_buf->mutable_data(), 0, validity_buf->size());
+    }
+    out_validity = validity_buf->mutable_data();
+  }
+
+  int64_t valid_count = 0;
+  RETURN_NOT_OK(
+      VarBinaryViewTakeDispatch(values, indices, out_views, out_validity, &valid_count));
+
+  const int64_t null_count = out_length - valid_count;
+  BufferVector buffers;
+  buffers.reserve(2 + data_buffers.size());
+  buffers.push_back(null_count == 0 ? nullptr : std::move(validity_buf));
+  buffers.push_back(std::move(views_buf));
+
+  for (const auto& data_buffer : data_buffers) {
+    buffers.push_back(data_buffer);
+  }
+
+  out->value = ArrayData::Make(values.type->GetSharedPtr(), out_length,
+                               std::move(buffers), null_count, /*offset=*/0);
+  return Status::OK();
+}
+
+namespace {
+
 // ----------------------------------------------------------------------
 // Null take
 
@@ -740,6 +858,8 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), take_indices, FixedWidthTakeExec},
       {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
       {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
+      {InputType(Type::BINARY_VIEW), take_indices, VarBinaryViewTakeExec},
+      {InputType(Type::STRING_VIEW), take_indices, VarBinaryViewTakeExec},
       {InputType(match::FixedSizeBinaryLike()), take_indices, FixedWidthTakeExec},
       {InputType(null()), take_indices, NullTakeExec},
       {InputType(Type::DICTIONARY), take_indices, DictionaryTake},

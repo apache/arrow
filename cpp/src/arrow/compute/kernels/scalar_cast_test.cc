@@ -4443,6 +4443,53 @@ TEST(Cast, FromDictionary) {
   }
 }
 
+TEST(Cast, DictionaryDecodeFromViewDictionary) {
+  for (const auto& value_type : {binary_view(), utf8_view()}) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    auto dict_values = ArrayFromJSON(
+        value_type, R"(["alpha", "long-value-over-inline-limit", "omega"])");
+    auto indices = ArrayFromJSON(int8(), "[0, 1, null, 2, 1]");
+    ASSERT_OK_AND_ASSIGN(auto dict_arr,
+                         DictionaryArray::FromArrays(dictionary(int8(), value_type),
+                                                     indices, dict_values));
+    auto expected = ArrayFromJSON(
+        value_type,
+        R"(["alpha", "long-value-over-inline-limit", null, "omega", "long-value-over-inline-limit"])");
+
+    ASSERT_OK_AND_ASSIGN(Datum decoded, CallFunction("dictionary_decode", {dict_arr}));
+    ValidateOutput(decoded);
+    AssertArraysEqual(*expected, *decoded.make_array(), /*verbose=*/true);
+    CheckCast(dict_arr, expected);
+
+    auto chunked_dict = std::make_shared<ChunkedArray>(
+        ArrayVector{dict_arr->Slice(0, 2), dict_arr->Slice(2, 3)});
+    ASSERT_OK_AND_ASSIGN(Datum decoded_chunked,
+                         CallFunction("dictionary_decode", {chunked_dict}));
+    ValidateOutput(decoded_chunked);
+    AssertChunkedEqual(
+        *ChunkedArrayFromJSON(value_type,
+                              {R"(["alpha", "long-value-over-inline-limit"])",
+                               R"([null, "omega", "long-value-over-inline-limit"])"}),
+        *decoded_chunked.chunked_array());
+
+    auto dict_values_with_null = ArrayFromJSON(value_type, R"(["alpha", null, "omega"])");
+    auto indices_with_null_source = ArrayFromJSON(int8(), "[0, 1, null, 2]");
+    ASSERT_OK_AND_ASSIGN(
+        auto dict_arr_with_null,
+        DictionaryArray::FromArrays(dictionary(int8(), value_type),
+                                    indices_with_null_source, dict_values_with_null));
+    auto expected_with_null_source =
+        ArrayFromJSON(value_type, R"(["alpha", null, null, "omega"])");
+
+    ASSERT_OK_AND_ASSIGN(Datum decoded_with_null_source,
+                         CallFunction("dictionary_decode", {dict_arr_with_null}));
+    ValidateOutput(decoded_with_null_source);
+    AssertArraysEqual(*expected_with_null_source, *decoded_with_null_source.make_array(),
+                      /*verbose=*/true);
+    CheckCast(dict_arr_with_null, expected_with_null_source);
+  }
+}
+
 std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
   auto arr = ArrayFromJSON(int16(), json_data);
   auto ext_data = arr->data()->Copy();
