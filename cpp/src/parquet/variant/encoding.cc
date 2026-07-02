@@ -395,9 +395,9 @@ VariantMetadataView VariantMetadataView::Make(std::string_view metadata) {
   return view;
 }
 
-std::string_view VariantMetadataView::string(uint32_t id) const {
-  DCHECK_LT(id, strings_.size());
-  return strings_[id];
+std::string_view VariantMetadataView::string(uint32_t field_id) const {
+  DCHECK_LT(field_id, strings_.size());
+  return strings_[field_id];
 }
 
 std::optional<uint32_t> VariantMetadataView::FindString(std::string_view value) const {

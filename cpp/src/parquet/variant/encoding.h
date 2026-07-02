@@ -76,9 +76,12 @@ class PARQUET_EXPORT VariantMetadataView {
   std::string_view metadata() const { return metadata_; }
   bool sorted_strings() const { return sorted_strings_; }
   uint8_t offset_size() const { return offset_size_; }
+  /// Number of strings in the metadata dictionary used by object field ids.
   uint32_t dictionary_size() const { return static_cast<uint32_t>(strings_.size()); }
 
-  std::string_view string(uint32_t id) const;
+  /// Return the metadata dictionary string for an object field id.
+  std::string_view string(uint32_t field_id) const;
+  /// Return the metadata dictionary id for a string, if present.
   std::optional<uint32_t> FindString(std::string_view value) const;
 
  private:
