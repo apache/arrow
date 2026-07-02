@@ -22,7 +22,15 @@
 namespace arrow {
 namespace dict_util {
 
+/// \brief Compute the logical null count of a dictionary-encoded array
 int64_t LogicalNullCount(const ArraySpan& span);
+
+/// \brief Populate a bitmap based on the logical nulls in a dictionary-encoded array
+///
+/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// we should set bits corresponding to non-nulls
+void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
+                        bool set_on_null);
 
 }  // namespace dict_util
 }  // namespace arrow

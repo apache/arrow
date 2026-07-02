@@ -57,6 +57,13 @@ Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
 /// \brief Compute the logical null count of an REE array
 int64_t LogicalNullCount(const ArraySpan& span);
 
+/// \brief Populate a bitmap based on the logical nulls in an REE array
+///
+/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// we should set bits corresponding to non-nulls
+void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
+                        bool set_on_null);
+
 namespace internal {
 
 /// \brief Uses binary-search to find the physical offset given a logical offset

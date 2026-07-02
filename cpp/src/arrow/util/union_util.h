@@ -27,5 +27,19 @@ int64_t LogicalSparseUnionNullCount(const ArraySpan& span);
 /// \brief Compute the number of of logical nulls in a dense union array
 int64_t LogicalDenseUnionNullCount(const ArraySpan& span);
 
+/// \brief Populate a bitmap based on the logical nulls in a sparse union array
+///
+/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// we should set bits corresponding to non-nulls
+void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
+                              int64_t out_offset, bool set_on_null);
+
+/// \brief Populate a bitmap based on the logical nulls in a dense union array
+///
+/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// we should set bits corresponding to non-nulls
+void SetLogicalNullBitsDense(const ArraySpan& span, uint8_t* out_bitmap,
+                             int64_t out_offset, bool set_on_null);
+
 }  // namespace union_util
 }  // namespace arrow

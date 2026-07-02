@@ -59,6 +59,55 @@ TEST_F(TestBooleanValidityKernels, TrueUnlessNull) {
                    type_singleton(), "[null, true, true, null]");
 }
 
+void CheckValidityKernels(Datum input, Datum is_valid_expected) {
+  ASSERT_OK_AND_ASSIGN(auto is_null_expected, compute::Invert(is_valid_expected));
+  BooleanScalar true_scalar(true);
+  NullScalar null_scalar;
+  ASSERT_OK_AND_ASSIGN(auto true_unlesss_null_expected,
+                       compute::IfElse(is_valid_expected, true_scalar, null_scalar));
+
+  CheckScalarUnary("is_valid", input, is_valid_expected);
+  CheckScalarUnary("is_null", input, is_null_expected);
+  CheckScalarUnary("true_unless_null", input, true_unlesss_null_expected);
+}
+
+TEST_F(TestBooleanValidityKernels, LogicalNulls) {
+  auto null_dict =
+      DictArrayFromJSON(dictionary(int8(), int8()), "[0, 2, 1]", "[0, 1, null]");
+  CheckValidityKernels(null_dict, ArrayFromJSON(boolean(), "[true, false, true]"));
+  auto null_index =
+      DictArrayFromJSON(dictionary(int8(), int32()), "[null, 1, 0]", "[8, 2]");
+  CheckValidityKernels(null_index, ArrayFromJSON(boolean(), "[false, true, true]"));
+  auto null_dict_and_index = DictArrayFromJSON(dictionary(int8(), boolean()),
+                                               "[1, null, 2, 0]", "[true, false, null]");
+  CheckValidityKernels(null_dict_and_index,
+                       ArrayFromJSON(boolean(), "[true, false, false, true]"));
+
+  ASSERT_OK_AND_ASSIGN(auto ree,
+                       RunEndEncode(ArrayFromJSON(int64(), "[11, 11, null, null, 12]")));
+  CheckValidityKernels(ree, ArrayFromJSON(boolean(), "[true, true, false, false, true]"));
+
+  ArrayVector children{
+      ArrayFromJSON(int64(), "[1, 23, 45, null, null, -2, null]"),
+      ArrayFromJSON(float32(), "[null, 1.1, 2.2, null, -4.0, 1.5, 0.1]"),
+      ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma", "delta", null])"),
+  };
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 2, 2, 0, 2, 1]");
+  auto fields = {field("a", int64()), field("b", float32()), field("c", utf8())};
+  SparseUnionArray sparse(sparse_union(fields), 7, children,
+                          type_ids->data()->buffers[1]);
+  ASSERT_OK(sparse.ValidateFull());
+  CheckValidityKernels(
+      sparse, ArrayFromJSON(boolean(), "[true, true, true, false, false, true, true]"));
+
+  auto offsets = ArrayFromJSON(int32(), "[0, 0, 0, 2, 3, 6, 3]");
+  DenseUnionArray dense(dense_union(fields), 7, children, type_ids->data()->buffers[1],
+                        offsets->data()->buffers[1]);
+  ASSERT_OK(dense.ValidateFull());
+  CheckValidityKernels(
+      dense, ArrayFromJSON(boolean(), "[true, false, true, true, false, false, false]"));
+}
+
 TEST_F(TestBooleanValidityKernels, IsValidIsNullNullType) {
   CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
                    ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
