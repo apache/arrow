@@ -61,7 +61,6 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: r_extra
@@ -69,7 +68,6 @@ jobs:
   check-enabled:
     # Check whether the CI builds in this workflow need to be run
     needs: check-labels
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     outputs:
       is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
