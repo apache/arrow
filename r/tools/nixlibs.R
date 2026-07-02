@@ -535,11 +535,26 @@ build_libarrow <- function(src_dir, dst_dir) {
     makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
   } else {
-    # Extract -j value from existing MAKEFLAGS if present
-    j_match <- regmatches(makeflags, regexpr("-j\\s*([0-9]+)", makeflags, perl = TRUE))
+    # Extract -j/--jobs value from existing MAKEFLAGS if present
+    j_match <- regmatches(makeflags, regexpr("(^|\\s)(-j\\s*|--jobs(=|\\s)+)([0-9]+)(?=\\s|$)", makeflags, perl = TRUE))
     if (length(j_match) > 0) {
-      ncores <- as.integer(sub("-j\\s*", "", j_match, perl = TRUE))
+      ncores <- as.integer(sub(".*?([0-9]+)$", "\\1", j_match, perl = TRUE))
     }
+    # Keep GNU make's optional -j/--jobs argument in one token for nested gmake
+    makeflags <- gsub("(^|\\s)-j\\s+([0-9]+)(?=\\s|$)", "\\1-j\\2", makeflags, perl = TRUE)
+    makeflags <- gsub("(^|\\s)--jobs\\s+([0-9]+)(?=\\s|$)", "\\1--jobs=\\2", makeflags, perl = TRUE)
+    # Give any remaining bare `-j`/`--jobs` an explicit count
+    makeflags <- gsub("(^|\\s)-j(?=\\s|$)", sprintf("\\1-j%s", ncores), makeflags, perl = TRUE)
+    makeflags <- gsub("(^|\\s)--jobs(?=\\s|$)", sprintf("\\1--jobs=%s", ncores), makeflags, perl = TRUE)
+    Sys.setenv(MAKEFLAGS = makeflags)
+  }
+  gnumakeflags <- Sys.getenv("GNUMAKEFLAGS")
+  if (nzchar(gnumakeflags)) {
+    gnumakeflags <- gsub("(^|\\s)-j\\s+([0-9]+)(?=\\s|$)", "\\1-j\\2", gnumakeflags, perl = TRUE)
+    gnumakeflags <- gsub("(^|\\s)--jobs\\s+([0-9]+)(?=\\s|$)", "\\1--jobs=\\2", gnumakeflags, perl = TRUE)
+    gnumakeflags <- gsub("(^|\\s)-j(?=\\s|$)", sprintf("\\1-j%s", ncores), gnumakeflags, perl = TRUE)
+    gnumakeflags <- gsub("(^|\\s)--jobs(?=\\s|$)", sprintf("\\1--jobs=%s", ncores), gnumakeflags, perl = TRUE)
+    Sys.setenv(GNUMAKEFLAGS = gnumakeflags)
   }
   if (!quietly) {
     lg("Building with MAKEFLAGS=%s", makeflags)
