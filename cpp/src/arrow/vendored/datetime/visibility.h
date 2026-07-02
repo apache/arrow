@@ -17,8 +17,14 @@
 
 #pragma once
 
-#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#ifndef _WIN32
 #  define USE_OS_TZDB 1
+#endif
+
+#ifdef __EMSCRIPTEN__
+// Emscripten has no OS timezone database and no curl, so disable both.
+#  undef USE_OS_TZDB
+#  define HAS_REMOTE_API 0
 #endif
 
 #if defined(ARROW_STATIC)

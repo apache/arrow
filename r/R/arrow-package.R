@@ -195,7 +195,7 @@ configure_tzdb <- function() {
       error = function(e) {
         packageStartupMessage(
           "The tzdb package was available but failed to initialize: ",
-          e,
+          e
         )
       }
     )

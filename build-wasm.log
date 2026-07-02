@@ -1,0 +1,5 @@
+> if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak", repos = "https://cloud.r-project.org"); if (!requireNamespace("rwasm", quietly = TRUE)) pak::pak("r-wasm/rwasm"); rwasm::build(".")
+Error in if (startsWith(url, "file:")) "internal" else "libcurl" : 
+  missing value where TRUE/FALSE needed
+Calls: <Anonymous> -> make_remote_tarball -> download.file
+Execution halted
