@@ -85,8 +85,6 @@ arrow_components = {
             'io/caching.cc',
             'io/compressed.cc',
             'io/file.cc',
-            'io/hdfs.cc',
-            'io/hdfs_internal.cc',
             'io/interfaces.cc',
             'io/memory.cc',
             'io/slow.cc',
@@ -463,7 +461,10 @@ disable Arrow gcs support with -Dgcs=disabled.
     endif
 
     if needs_hdfs
-        arrow_filesystem_srcs += ['filesystem/hdfs.cc']
+        arrow_filesystem_srcs += [
+            'filesystem/hdfs.cc',
+            'filesystem/hdfs_internal.cc',
+        ]
     endif
 
     if needs_s3

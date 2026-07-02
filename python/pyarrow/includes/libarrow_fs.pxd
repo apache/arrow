@@ -271,7 +271,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CAzureOptions options()
 
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
-        HdfsConnectionConfig connection_config
         int32_t buffer_size
         int16_t replication
         int64_t default_block_size
@@ -287,6 +286,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureBlockSize(int64_t default_block_size)
         void ConfigureKerberosTicketCachePath(c_string path)
         void ConfigureExtraConf(c_string key, c_string value)
+
+        const c_string& host()
+        int port()
+        const c_string& user()
+        const c_string& kerb_ticket()
+        unordered_map[c_string, c_string] extra_conf()
 
     cdef cppclass CHadoopFileSystem "arrow::fs::HadoopFileSystem"(CFileSystem):
         @staticmethod
@@ -311,6 +316,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         const CIOContext& io_context,
         int64_t chunk_size, c_bool use_threads)
 
+    CStatus HaveLibHdfs()
 
 # Callbacks for implementing Python filesystems
 # Use typedef to emulate syntax for std::function<void(..)>
