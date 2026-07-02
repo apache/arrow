@@ -38,7 +38,7 @@ using ::arrow::DataType;
 using ::arrow::FieldVector;
 using ::arrow::Result;
 
-Result<VariantValueView> MakeVariantValueView(const EncodedVariantValue& encoded);
+VariantValueView MakeVariantValueView(const EncodedVariantValue& encoded);
 
 std::shared_ptr<::arrow::Table> VariantTable(
     const std::shared_ptr<DataType>& variant_type,
@@ -60,9 +60,9 @@ std::optional<std::string> ShreddedVariantTestingDir();
 
 Result<std::shared_ptr<::arrow::Table>> ReadVariantTestingTable(const std::string& path);
 
-Result<std::shared_ptr<Buffer>> EmptyVariantMetadata();
+std::shared_ptr<Buffer> EmptyVariantMetadata();
 
-Result<EncodedVariantValue> Int8Variant(int8_t value);
+EncodedVariantValue Int8Variant(int8_t value);
 
 std::shared_ptr<Array> BinaryArrayFromValues(
     const std::vector<std::optional<std::string_view>>& values);

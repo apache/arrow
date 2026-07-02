@@ -33,6 +33,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
+#include "parquet/exception.h"
 #include "parquet/variant/encoding.h"
 #include "parquet/variant/encoding_internal.h"
 
@@ -54,17 +55,17 @@ namespace bit_util = ::arrow::bit_util;
 
 namespace {
 
-Status AppendLittleEndian(BufferBuilder& out, uint32_t value, uint8_t width) {
+void AppendLittleEndian(BufferBuilder& out, uint32_t value, uint8_t width) {
   DCHECK_LE(width, sizeof(uint32_t));
   const auto little_endian = bit_util::ToLittleEndian(value);
-  return out.Append(&little_endian, width);
+  PARQUET_THROW_NOT_OK(out.Append(&little_endian, width));
 }
 
 template <typename T>
   requires(std::is_arithmetic_v<T>)
-Status AppendFixedLittleEndian(BufferBuilder& out, T value) {
+void AppendFixedLittleEndian(BufferBuilder& out, T value) {
   const auto little_endian = bit_util::ToLittleEndian(value);
-  return out.Append(&little_endian, sizeof(T));
+  PARQUET_THROW_NOT_OK(out.Append(&little_endian, sizeof(T)));
 }
 
 void AppendLittleEndianToString(std::string& out, uint32_t value, uint8_t width) {
@@ -73,15 +74,14 @@ void AppendLittleEndianToString(std::string& out, uint32_t value, uint8_t width)
   out.append(reinterpret_cast<const char*>(&little_endian), width);
 }
 
-Status InsertBytes(BufferBuilder& out, int64_t offset, std::string_view bytes) {
+void InsertBytes(BufferBuilder& out, int64_t offset, std::string_view bytes) {
   const int64_t old_size = out.length();
   const auto insert_size = bytes.size();
-  ARROW_RETURN_NOT_OK(out.Reserve(insert_size));
+  PARQUET_THROW_NOT_OK(out.Reserve(insert_size));
   uint8_t* data = out.mutable_data();
   std::memmove(data + offset + insert_size, data + offset, old_size - offset);
   std::memcpy(data + offset, bytes.data(), insert_size);
   out.UnsafeAdvance(insert_size);
-  return Status::OK();
 }
 
 uint8_t WidthForValue(uint64_t value) {
@@ -101,23 +101,22 @@ class VariantMetadataBuilder {
  public:
   explicit VariantMetadataBuilder(MemoryPool* pool) : pool_(pool) {}
 
-  Status Reserve(int64_t capacity) {
+  void Reserve(int64_t capacity) {
     if (capacity < 0) {
-      return Status::Invalid("Variant metadata capacity must be non-negative");
+      throw ParquetException("Variant metadata capacity must be non-negative");
     }
     field_ids_.reserve(capacity);
-    return Status::OK();
   }
 
-  Result<uint32_t> Upsert(std::string_view name) {
+  uint32_t Upsert(std::string_view name) {
     auto it = field_ids_.find(name);
     if (it != field_ids_.end()) {
       return it->second;
     }
     if (field_names_.size() >= std::numeric_limits<uint32_t>::max()) {
-      return Status::Invalid("Variant metadata dictionary is too large");
+      throw ParquetException("Variant metadata dictionary is too large");
     }
-    ARROW_RETURN_NOT_OK(internal::ValidateUtf8(name, "metadata dictionary string"));
+    internal::ValidateUtf8(name, "metadata dictionary string");
 
     const auto id = field_names_.size();
     if (field_names_.empty()) {
@@ -143,20 +142,20 @@ class VariantMetadataBuilder {
     RebuildIndex();
   }
 
-  Result<std::shared_ptr<Buffer>> Finish() const {
+  std::shared_ptr<Buffer> Finish() const {
     uint64_t bytes_size = 0;
     for (const auto& string : field_names_) {
       bytes_size += string.size();
     }
     if (field_names_.size() > std::numeric_limits<uint32_t>::max() ||
         bytes_size > std::numeric_limits<uint32_t>::max()) {
-      return Status::Invalid("Variant metadata dictionary is too large");
+      throw ParquetException("Variant metadata dictionary is too large");
     }
 
     const uint8_t offset_size =
         WidthForValue(std::max<uint64_t>(field_names_.size(), bytes_size));
     BufferBuilder out(pool_);
-    ARROW_RETURN_NOT_OK(out.Reserve(
+    PARQUET_THROW_NOT_OK(out.Reserve(
         1 + offset_size + (field_names_.size() + 1) * offset_size + bytes_size));
 
     const bool sorted_strings = !field_names_.empty() && is_sorted_;
@@ -164,20 +163,21 @@ class VariantMetadataBuilder {
         static_cast<uint8_t>(internal::kVariantVersion |
                              (sorted_strings ? internal::kMetadataSortedStringsMask : 0) |
                              ((offset_size - 1) << 6));
-    ARROW_RETURN_NOT_OK(out.Append(&header, sizeof(header)));
-    ARROW_RETURN_NOT_OK(
-        AppendLittleEndian(out, static_cast<uint32_t>(field_names_.size()), offset_size));
+    PARQUET_THROW_NOT_OK(out.Append(&header, sizeof(header)));
+    AppendLittleEndian(out, static_cast<uint32_t>(field_names_.size()), offset_size);
 
     uint32_t offset = 0;
-    ARROW_RETURN_NOT_OK(AppendLittleEndian(out, offset, offset_size));
+    AppendLittleEndian(out, offset, offset_size);
     for (const auto& string : field_names_) {
       offset += static_cast<uint32_t>(string.size());
-      ARROW_RETURN_NOT_OK(AppendLittleEndian(out, offset, offset_size));
+      AppendLittleEndian(out, offset, offset_size);
     }
     for (const auto& string : field_names_) {
-      ARROW_RETURN_NOT_OK(out.Append(string));
+      PARQUET_THROW_NOT_OK(out.Append(string));
     }
-    return out.Finish();
+    std::shared_ptr<Buffer> buffer;
+    PARQUET_ASSIGN_OR_THROW(buffer, out.Finish());
+    return buffer;
   }
 
  private:
@@ -207,90 +207,90 @@ class VariantValueWriter {
 
   template <VariantPrimitiveType type>
     requires internal::HeaderOnlyVariantPrimitive<type>
-  Status Append() {
-    return AppendPrimitiveHeader<type>();
+  void Append() {
+    AppendPrimitiveHeader<type>();
   }
 
   template <VariantPrimitiveType type>
     requires internal::FixedVariantPrimitive<type>
-  Status Append(typename internal::VariantFixedPrimitiveTraits<type>::CType value) {
+  void Append(typename internal::VariantFixedPrimitiveTraits<type>::CType value) {
     using CType = typename internal::VariantFixedPrimitiveTraits<type>::CType;
-    ARROW_RETURN_NOT_OK(AppendPrimitiveHeader<type>());
+    AppendPrimitiveHeader<type>();
     if constexpr (sizeof(CType) == 1) {
       const auto byte = static_cast<uint8_t>(value);
-      return out_.Append(&byte, sizeof(byte));
+      PARQUET_THROW_NOT_OK(out_.Append(&byte, sizeof(byte)));
     } else {
-      return AppendFixedLittleEndian(out_, value);
+      AppendFixedLittleEndian(out_, value);
     }
   }
 
   template <VariantPrimitiveType type>
     requires internal::DecimalVariantPrimitive<type>
-  Status Append(
+  void Append(
       typename internal::VariantDecimalPrimitiveTraits<type>::CType unscaled_value,
       uint8_t scale) {
-    ARROW_RETURN_NOT_OK(internal::ValidateDecimalScale(scale));
-    ARROW_RETURN_NOT_OK(AppendPrimitiveHeader<type>());
-    ARROW_RETURN_NOT_OK(out_.Append(&scale, sizeof(scale)));
-    return AppendFixedLittleEndian(out_, unscaled_value);
+    internal::ValidateDecimalScale(scale);
+    AppendPrimitiveHeader<type>();
+    PARQUET_THROW_NOT_OK(out_.Append(&scale, sizeof(scale)));
+    AppendFixedLittleEndian(out_, unscaled_value);
   }
 
   template <VariantPrimitiveType type>
     requires internal::Decimal16VariantPrimitive<type>
-  Status Append(std::string_view little_endian_unscaled_value, uint8_t scale) {
+  void Append(std::string_view little_endian_unscaled_value, uint8_t scale) {
     if (little_endian_unscaled_value.size() != 16) {
-      return Status::Invalid("Variant Decimal16 values must be 16 bytes");
+      throw ParquetException("Variant Decimal16 values must be 16 bytes");
     }
-    ARROW_RETURN_NOT_OK(internal::ValidateDecimalScale(scale));
-    ARROW_RETURN_NOT_OK(AppendPrimitiveHeader<type>());
-    ARROW_RETURN_NOT_OK(out_.Append(&scale, sizeof(scale)));
-    return out_.Append(little_endian_unscaled_value);
+    internal::ValidateDecimalScale(scale);
+    AppendPrimitiveHeader<type>();
+    PARQUET_THROW_NOT_OK(out_.Append(&scale, sizeof(scale)));
+    PARQUET_THROW_NOT_OK(out_.Append(little_endian_unscaled_value));
   }
 
   template <VariantPrimitiveType type>
     requires internal::LengthPrefixedVariantPrimitive<type>
-  Status Append(std::string_view value) {
+  void Append(std::string_view value) {
     if (value.size() > std::numeric_limits<uint32_t>::max()) {
-      return Status::Invalid("Variant ",
+      throw ParquetException("Variant ",
                              type == VariantPrimitiveType::kBinary ? "binary" : "string",
                              " value is too large");
     }
     if constexpr (type == VariantPrimitiveType::kString) {
-      ARROW_RETURN_NOT_OK(internal::ValidateUtf8(value, "primitive string value"));
+      internal::ValidateUtf8(value, "primitive string value");
     }
-    ARROW_RETURN_NOT_OK(AppendPrimitiveHeader<type>());
-    ARROW_RETURN_NOT_OK(AppendLittleEndian(out_, static_cast<uint32_t>(value.size()), 4));
-    return out_.Append(value);
+    AppendPrimitiveHeader<type>();
+    AppendLittleEndian(out_, static_cast<uint32_t>(value.size()), 4);
+    PARQUET_THROW_NOT_OK(out_.Append(value));
   }
 
   template <VariantPrimitiveType type>
     requires internal::UuidVariantPrimitive<type>
-  Status Append(std::string_view big_endian_bytes) {
+  void Append(std::string_view big_endian_bytes) {
     if (big_endian_bytes.size() != 16) {
-      return Status::Invalid("Variant UUID values must be 16 bytes");
+      throw ParquetException("Variant UUID values must be 16 bytes");
     }
-    ARROW_RETURN_NOT_OK(AppendPrimitiveHeader<type>());
-    return out_.Append(big_endian_bytes);
+    AppendPrimitiveHeader<type>();
+    PARQUET_THROW_NOT_OK(out_.Append(big_endian_bytes));
   }
 
-  Status AppendShortString(std::string_view value) {
+  void AppendShortString(std::string_view value) {
     if (value.size() >= 64) {
-      return Status::Invalid("Variant short string value must be shorter than 64 bytes");
+      throw ParquetException("Variant short string value must be shorter than 64 bytes");
     }
-    ARROW_RETURN_NOT_OK(internal::ValidateUtf8(value, "short string value"));
+    internal::ValidateUtf8(value, "short string value");
     const auto header = static_cast<uint8_t>(
         (value.size() << 2) | static_cast<uint8_t>(VariantBasicType::kShortString));
-    ARROW_RETURN_NOT_OK(out_.Append(&header, sizeof(header)));
-    return out_.Append(value);
+    PARQUET_THROW_NOT_OK(out_.Append(&header, sizeof(header)));
+    PARQUET_THROW_NOT_OK(out_.Append(value));
   }
 
  private:
   template <VariantPrimitiveType type>
-  Status AppendPrimitiveHeader() {
+  void AppendPrimitiveHeader() {
     const auto header =
         static_cast<uint8_t>((static_cast<uint8_t>(type) << 2) |
                              static_cast<uint8_t>(VariantBasicType::kPrimitive));
-    return out_.Append(&header, sizeof(header));
+    PARQUET_THROW_NOT_OK(out_.Append(&header, sizeof(header)));
   }
 
   BufferBuilder& out_;
@@ -327,26 +327,24 @@ struct VariantBuildState {
   bool root_has_value = false;
 };
 
-Status CheckRootWritable(const VariantBuildState& state) {
+void CheckRootWritable(const VariantBuildState& state) {
   if (!state.frames.empty()) {
-    return Status::Invalid("VariantBuilder has an active container");
+    throw ParquetException("VariantBuilder has an active container");
   }
   if (state.root_has_value) {
-    return Status::Invalid("VariantBuilder already has a root value");
+    throw ParquetException("VariantBuilder already has a root value");
   }
-  return Status::OK();
 }
 
-Status CheckTopFrame(const VariantBuildState& state, size_t frame_index,
-                     VariantContainerKind kind) {
+void CheckTopFrame(const VariantBuildState& state, size_t frame_index,
+                   VariantContainerKind kind) {
   if (state.frames.empty() || frame_index + 1 != state.frames.size()) {
-    return Status::Invalid("Variant nested builder is not the active container");
+    throw ParquetException("Variant nested builder is not the active container");
   }
   const auto& frame = state.frames.back();
   if (frame.finished || frame.kind != kind) {
-    return Status::Invalid("Variant nested builder has invalid state");
+    throw ParquetException("Variant nested builder has invalid state");
   }
-  return Status::OK();
 }
 
 void TruncateFrameEntries(VariantBuildFrame& frame, size_t entry_count) {
@@ -379,11 +377,10 @@ void RollbackIfActive(Impl* impl) {
   }
 }
 
-Result<std::string> BuildObjectHeader(const VariantBuildState& state,
-                                      const VariantBuildFrame& frame,
-                                      uint32_t values_size) {
+std::string BuildObjectHeader(const VariantBuildState& state,
+                              const VariantBuildFrame& frame, uint32_t values_size) {
   if (frame.fields.size() > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid("Variant object has too many fields");
+    throw ParquetException("Variant object has too many fields");
   }
 
   std::vector<VariantFieldDescriptor> fields = frame.fields;
@@ -417,10 +414,9 @@ Result<std::string> BuildObjectHeader(const VariantBuildState& state,
   return out;
 }
 
-Result<std::string> BuildListHeader(const VariantBuildFrame& frame,
-                                    uint32_t values_size) {
+std::string BuildListHeader(const VariantBuildFrame& frame, uint32_t values_size) {
   if (frame.offsets.size() > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid("Variant array has too many elements");
+    throw ParquetException("Variant array has too many elements");
   }
 
   const uint8_t offset_size = WidthForValue(values_size);
@@ -439,141 +435,140 @@ Result<std::string> BuildListHeader(const VariantBuildFrame& frame,
   return out;
 }
 
-using RootFinishCallback = std::function<Status(EncodedVariantValue)>;
+using RootFinishCallback = std::function<void(EncodedVariantValue)>;
 
-Status FinishFrame(const std::shared_ptr<VariantBuildState>& state, size_t frame_index,
-                   VariantContainerKind kind, const RootFinishCallback& callback) {
-  ARROW_RETURN_NOT_OK(CheckTopFrame(*state, frame_index, kind));
+void FinishFrame(const std::shared_ptr<VariantBuildState>& state, size_t frame_index,
+                 VariantContainerKind kind, const RootFinishCallback& callback) {
+  CheckTopFrame(*state, frame_index, kind);
 
   auto& frame = state->frames.back();
   const auto values_size = state->value.length() - frame.value_start;
   DCHECK_GE(values_size, 0);
   if (values_size > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid("Variant container values are too large");
+    throw ParquetException("Variant container values are too large");
   }
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto header,
-      kind == VariantContainerKind::Object
-          ? BuildObjectHeader(*state, frame, static_cast<uint32_t>(values_size))
-          : BuildListHeader(frame, static_cast<uint32_t>(values_size)));
-  ARROW_RETURN_NOT_OK(InsertBytes(state->value, frame.value_start, header));
+  auto header = kind == VariantContainerKind::Object
+                    ? BuildObjectHeader(*state, frame, static_cast<uint32_t>(values_size))
+                    : BuildListHeader(frame, static_cast<uint32_t>(values_size));
+  InsertBytes(state->value, frame.value_start, header);
 
   const bool is_root = !frame.has_parent;
   frame.finished = true;
   state->frames.pop_back();
   if (!is_root) {
-    return Status::OK();
+    return;
   }
 
   state->root_has_value = true;
   if (!callback) {
-    return Status::OK();
+    return;
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto metadata, state->metadata.Finish());
-  ARROW_ASSIGN_OR_RAISE(auto value, state->value.Finish());
-  return callback({.metadata = std::move(metadata), .value = std::move(value)});
+  auto metadata = state->metadata.Finish();
+  std::shared_ptr<Buffer> value;
+  PARQUET_ASSIGN_OR_THROW(value, state->value.Finish());
+  callback({.metadata = std::move(metadata), .value = std::move(value)});
 }
 
 template <typename Write>
-Status AppendRootPrimitiveWith(const std::shared_ptr<VariantBuildState>& state,
-                               Write&& write) {
-  ARROW_RETURN_NOT_OK(CheckRootWritable(*state));
+void AppendRootPrimitiveWith(const std::shared_ptr<VariantBuildState>& state,
+                             Write&& write) {
+  CheckRootWritable(*state);
   const auto value_size = state->value.length();
   VariantValueWriter writer(state->value);
-  const Status status = std::invoke(std::forward<Write>(write), writer);
-  if (!status.ok()) {
+  try {
+    std::invoke(std::forward<Write>(write), writer);
+  } catch (...) {
     state->value.Rewind(value_size);
-    return status;
+    throw;
   }
   state->root_has_value = true;
-  return Status::OK();
 }
 
 template <VariantPrimitiveType type, typename... Args>
-Status AppendRootPrimitive(const std::shared_ptr<VariantBuildState>& state,
-                           Args&&... args) {
-  return AppendRootPrimitiveWith(state, [&](VariantValueWriter& writer) {
-    return writer.template Append<type>(std::forward<Args>(args)...);
+void AppendRootPrimitive(const std::shared_ptr<VariantBuildState>& state,
+                         Args&&... args) {
+  AppendRootPrimitiveWith(state, [&](VariantValueWriter& writer) {
+    writer.template Append<type>(std::forward<Args>(args)...);
   });
 }
 
 template <typename Write>
-Status AppendObjectPrimitiveWith(const std::shared_ptr<VariantBuildState>& state,
-                                 size_t frame_index, std::string_view field_name,
-                                 Write&& write) {
-  ARROW_RETURN_NOT_OK(CheckTopFrame(*state, frame_index, VariantContainerKind::Object));
+void AppendObjectPrimitiveWith(const std::shared_ptr<VariantBuildState>& state,
+                               size_t frame_index, std::string_view field_name,
+                               Write&& write) {
+  CheckTopFrame(*state, frame_index, VariantContainerKind::Object);
   auto& frame = state->frames.back();
   const auto metadata_size = state->metadata.size();
   const auto value_size = state->value.length();
   const auto field_count = frame.fields.size();
 
-  ARROW_ASSIGN_OR_RAISE(auto field_id, state->metadata.Upsert(field_name));
+  auto field_id = state->metadata.Upsert(field_name);
   if (!frame.object_field_ids.insert(field_id).second) {
     state->metadata.Truncate(metadata_size);
-    return Status::Invalid("Duplicate Variant object field: ", field_name);
+    throw ParquetException("Duplicate Variant object field: ", field_name);
   }
   const auto offset = state->value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (offset > std::numeric_limits<uint32_t>::max()) {
     state->metadata.Truncate(metadata_size);
     TruncateFrameEntries(frame, field_count);
-    return Status::Invalid("Variant object values are too large");
+    throw ParquetException("Variant object values are too large");
   }
   frame.fields.push_back(VariantFieldDescriptor{.field_id = field_id,
                                                 .offset = static_cast<uint32_t>(offset)});
 
   VariantValueWriter writer(state->value);
-  const Status status = std::invoke(std::forward<Write>(write), writer);
-  if (!status.ok()) {
+  try {
+    std::invoke(std::forward<Write>(write), writer);
+  } catch (...) {
     state->value.Rewind(value_size);
     state->metadata.Truncate(metadata_size);
     TruncateFrameEntries(frame, field_count);
-    return status;
+    throw;
   }
-  return Status::OK();
 }
 
 template <VariantPrimitiveType type, typename... Args>
-Status AppendObjectPrimitive(const std::shared_ptr<VariantBuildState>& state,
-                             size_t frame_index, std::string_view field_name,
-                             Args&&... args) {
-  return AppendObjectPrimitiveWith(
-      state, frame_index, field_name, [&](VariantValueWriter& writer) {
-        return writer.template Append<type>(std::forward<Args>(args)...);
-      });
+void AppendObjectPrimitive(const std::shared_ptr<VariantBuildState>& state,
+                           size_t frame_index, std::string_view field_name,
+                           Args&&... args) {
+  AppendObjectPrimitiveWith(state, frame_index, field_name,
+                            [&](VariantValueWriter& writer) {
+                              writer.template Append<type>(std::forward<Args>(args)...);
+                            });
 }
 
 template <typename Write>
-Status AppendListPrimitiveWith(const std::shared_ptr<VariantBuildState>& state,
-                               size_t frame_index, Write&& write) {
-  ARROW_RETURN_NOT_OK(CheckTopFrame(*state, frame_index, VariantContainerKind::List));
+void AppendListPrimitiveWith(const std::shared_ptr<VariantBuildState>& state,
+                             size_t frame_index, Write&& write) {
+  CheckTopFrame(*state, frame_index, VariantContainerKind::List);
   auto& frame = state->frames.back();
   const auto value_size = state->value.length();
   const auto element_count = frame.offsets.size();
   const auto offset = state->value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (offset > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid("Variant array values are too large");
+    throw ParquetException("Variant array values are too large");
   }
   frame.offsets.push_back(static_cast<uint32_t>(offset));
 
   VariantValueWriter writer(state->value);
-  const Status status = std::invoke(std::forward<Write>(write), writer);
-  if (!status.ok()) {
+  try {
+    std::invoke(std::forward<Write>(write), writer);
+  } catch (...) {
     state->value.Rewind(value_size);
     TruncateFrameEntries(frame, element_count);
-    return status;
+    throw;
   }
-  return Status::OK();
 }
 
 template <VariantPrimitiveType type, typename... Args>
-Status AppendListPrimitive(const std::shared_ptr<VariantBuildState>& state,
-                           size_t frame_index, Args&&... args) {
-  return AppendListPrimitiveWith(state, frame_index, [&](VariantValueWriter& writer) {
-    return writer.template Append<type>(std::forward<Args>(args)...);
+void AppendListPrimitive(const std::shared_ptr<VariantBuildState>& state,
+                         size_t frame_index, Args&&... args) {
+  AppendListPrimitiveWith(state, frame_index, [&](VariantValueWriter& writer) {
+    writer.template Append<type>(std::forward<Args>(args)...);
   });
 }
 
@@ -609,28 +604,29 @@ VariantBuilder::~VariantBuilder() = default;
 VariantBuilder::VariantBuilder(VariantBuilder&&) noexcept = default;
 VariantBuilder& VariantBuilder::operator=(VariantBuilder&&) noexcept = default;
 
-Status VariantBuilder::ReserveFieldNames(int64_t capacity) {
-  return impl_->state->metadata.Reserve(capacity);
+void VariantBuilder::ReserveFieldNames(int64_t capacity) {
+  impl_->state->metadata.Reserve(capacity);
 }
 
-Result<uint32_t> VariantBuilder::AddFieldName(std::string_view name) {
+uint32_t VariantBuilder::AddFieldName(std::string_view name) {
   return impl_->state->metadata.Upsert(name);
 }
 
-Status VariantBuilder::AppendVariantNull() {
-  return AppendRootPrimitive<VariantPrimitiveType::kNull>(impl_->state);
+void VariantBuilder::AppendVariantNull() {
+  AppendRootPrimitive<VariantPrimitiveType::kNull>(impl_->state);
 }
 
-Status VariantBuilder::AppendBoolean(bool value) {
+void VariantBuilder::AppendBoolean(bool value) {
   if (value) {
-    return AppendRootPrimitive<VariantPrimitiveType::kBooleanTrue>(impl_->state);
+    AppendRootPrimitive<VariantPrimitiveType::kBooleanTrue>(impl_->state);
+    return;
   }
-  return AppendRootPrimitive<VariantPrimitiveType::kBooleanFalse>(impl_->state);
+  AppendRootPrimitive<VariantPrimitiveType::kBooleanFalse>(impl_->state);
 }
 
-#define VARIANT_ROOT_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)                             \
-  Status VariantBuilder::Append##NAME(C_TYPE value) {                               \
-    return AppendRootPrimitive<VariantPrimitiveType::k##TYPE>(impl_->state, value); \
+#define VARIANT_ROOT_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)                      \
+  void VariantBuilder::Append##NAME(C_TYPE value) {                          \
+    AppendRootPrimitive<VariantPrimitiveType::k##TYPE>(impl_->state, value); \
   }
 
 VARIANT_ROOT_APPEND_ONE_ARG(Int8, Int8, int8_t)
@@ -647,48 +643,45 @@ VARIANT_ROOT_APPEND_ONE_ARG(Uuid, Uuid, std::string_view)
 
 #undef VARIANT_ROOT_APPEND_ONE_ARG
 
-Status VariantBuilder::AppendDecimal4(int32_t unscaled_value, uint8_t scale) {
-  return AppendRootPrimitive<VariantPrimitiveType::kDecimal4>(impl_->state,
-                                                              unscaled_value, scale);
+void VariantBuilder::AppendDecimal4(int32_t unscaled_value, uint8_t scale) {
+  AppendRootPrimitive<VariantPrimitiveType::kDecimal4>(impl_->state, unscaled_value,
+                                                       scale);
 }
 
-Status VariantBuilder::AppendDecimal8(int64_t unscaled_value, uint8_t scale) {
-  return AppendRootPrimitive<VariantPrimitiveType::kDecimal8>(impl_->state,
-                                                              unscaled_value, scale);
+void VariantBuilder::AppendDecimal8(int64_t unscaled_value, uint8_t scale) {
+  AppendRootPrimitive<VariantPrimitiveType::kDecimal8>(impl_->state, unscaled_value,
+                                                       scale);
 }
 
-Status VariantBuilder::AppendDecimal16(std::string_view little_endian_unscaled_value,
-                                       uint8_t scale) {
-  return AppendRootPrimitive<VariantPrimitiveType::kDecimal16>(
+void VariantBuilder::AppendDecimal16(std::string_view little_endian_unscaled_value,
+                                     uint8_t scale) {
+  AppendRootPrimitive<VariantPrimitiveType::kDecimal16>(
       impl_->state, little_endian_unscaled_value, scale);
 }
 
-Status VariantBuilder::AppendShortString(std::string_view value) {
-  return AppendRootPrimitiveWith(impl_->state, [&](VariantValueWriter& writer) {
-    return writer.AppendShortString(value);
-  });
+void VariantBuilder::AppendShortString(std::string_view value) {
+  AppendRootPrimitiveWith(
+      impl_->state, [&](VariantValueWriter& writer) { writer.AppendShortString(value); });
 }
 
-Status VariantBuilder::AppendTimestampMicros(int64_t micros, bool adjusted_to_utc) {
+void VariantBuilder::AppendTimestampMicros(int64_t micros, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return AppendRootPrimitive<VariantPrimitiveType::kTimestampMicros>(impl_->state,
-                                                                       micros);
+    AppendRootPrimitive<VariantPrimitiveType::kTimestampMicros>(impl_->state, micros);
+    return;
   }
-  return AppendRootPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(impl_->state,
-                                                                        micros);
+  AppendRootPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(impl_->state, micros);
 }
 
-Status VariantBuilder::AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc) {
+void VariantBuilder::AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return AppendRootPrimitive<VariantPrimitiveType::kTimestampNanos>(impl_->state,
-                                                                      nanos);
+    AppendRootPrimitive<VariantPrimitiveType::kTimestampNanos>(impl_->state, nanos);
+    return;
   }
-  return AppendRootPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(impl_->state,
-                                                                       nanos);
+  AppendRootPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(impl_->state, nanos);
 }
 
-Result<VariantObjectBuilder> VariantBuilder::StartObject() {
-  ARROW_RETURN_NOT_OK(CheckRootWritable(*impl_->state));
+VariantObjectBuilder VariantBuilder::StartObject() {
+  CheckRootWritable(*impl_->state);
   impl_->state->frames.push_back(
       VariantBuildFrame{.kind = VariantContainerKind::Object,
                         .value_start = impl_->state->value.length(),
@@ -697,8 +690,8 @@ Result<VariantObjectBuilder> VariantBuilder::StartObject() {
       impl_->state, impl_->state->frames.size() - 1, RootFinishCallback{}));
 }
 
-Result<VariantListBuilder> VariantBuilder::StartList() {
-  ARROW_RETURN_NOT_OK(CheckRootWritable(*impl_->state));
+VariantListBuilder VariantBuilder::StartList() {
+  CheckRootWritable(*impl_->state);
   impl_->state->frames.push_back(
       VariantBuildFrame{.kind = VariantContainerKind::List,
                         .value_start = impl_->state->value.length(),
@@ -707,16 +700,17 @@ Result<VariantListBuilder> VariantBuilder::StartList() {
       impl_->state, impl_->state->frames.size() - 1, RootFinishCallback{}));
 }
 
-Result<EncodedVariantValue> VariantBuilder::Finish() {
+EncodedVariantValue VariantBuilder::Finish() {
   if (!impl_->state->frames.empty()) {
-    return Status::Invalid("Cannot finish VariantBuilder with active containers");
+    throw ParquetException("Cannot finish VariantBuilder with active containers");
   }
   if (!impl_->state->root_has_value) {
-    return Status::Invalid("Cannot finish empty VariantBuilder");
+    throw ParquetException("Cannot finish empty VariantBuilder");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto metadata, impl_->state->metadata.Finish());
-  ARROW_ASSIGN_OR_RAISE(auto value, impl_->state->value.Finish());
+  auto metadata = impl_->state->metadata.Finish();
+  std::shared_ptr<Buffer> value;
+  PARQUET_ASSIGN_OR_THROW(value, impl_->state->value.Finish());
   EncodedVariantValue out{.metadata = std::move(metadata), .value = std::move(value)};
   Reset();
   return out;
@@ -734,24 +728,25 @@ VariantObjectBuilder::VariantObjectBuilder(VariantObjectBuilder&&) noexcept = de
 VariantObjectBuilder& VariantObjectBuilder::operator=(VariantObjectBuilder&&) noexcept =
     default;
 
-Status VariantObjectBuilder::AppendVariantNull(std::string_view field_name) {
-  return AppendObjectPrimitive<VariantPrimitiveType::kNull>(
-      impl_->state, impl_->frame_index, field_name);
+void VariantObjectBuilder::AppendVariantNull(std::string_view field_name) {
+  AppendObjectPrimitive<VariantPrimitiveType::kNull>(impl_->state, impl_->frame_index,
+                                                     field_name);
 }
 
-Status VariantObjectBuilder::AppendBoolean(std::string_view field_name, bool value) {
+void VariantObjectBuilder::AppendBoolean(std::string_view field_name, bool value) {
   if (value) {
-    return AppendObjectPrimitive<VariantPrimitiveType::kBooleanTrue>(
+    AppendObjectPrimitive<VariantPrimitiveType::kBooleanTrue>(
         impl_->state, impl_->frame_index, field_name);
+    return;
   }
-  return AppendObjectPrimitive<VariantPrimitiveType::kBooleanFalse>(
+  AppendObjectPrimitive<VariantPrimitiveType::kBooleanFalse>(
       impl_->state, impl_->frame_index, field_name);
 }
 
-#define VARIANT_OBJECT_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)                                \
-  Status VariantObjectBuilder::Append##NAME(std::string_view field_name, C_TYPE value) { \
-    return AppendObjectPrimitive<VariantPrimitiveType::k##TYPE>(                         \
-        impl_->state, impl_->frame_index, field_name, value);                            \
+#define VARIANT_OBJECT_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)                              \
+  void VariantObjectBuilder::Append##NAME(std::string_view field_name, C_TYPE value) { \
+    AppendObjectPrimitive<VariantPrimitiveType::k##TYPE>(                              \
+        impl_->state, impl_->frame_index, field_name, value);                          \
   }
 
 VARIANT_OBJECT_APPEND_ONE_ARG(Int8, Int8, int8_t)
@@ -768,71 +763,71 @@ VARIANT_OBJECT_APPEND_ONE_ARG(Uuid, Uuid, std::string_view)
 
 #undef VARIANT_OBJECT_APPEND_ONE_ARG
 
-Status VariantObjectBuilder::AppendDecimal4(std::string_view field_name,
-                                            int32_t unscaled_value, uint8_t scale) {
-  return AppendObjectPrimitive<VariantPrimitiveType::kDecimal4>(
+void VariantObjectBuilder::AppendDecimal4(std::string_view field_name,
+                                          int32_t unscaled_value, uint8_t scale) {
+  AppendObjectPrimitive<VariantPrimitiveType::kDecimal4>(
       impl_->state, impl_->frame_index, field_name, unscaled_value, scale);
 }
 
-Status VariantObjectBuilder::AppendDecimal8(std::string_view field_name,
-                                            int64_t unscaled_value, uint8_t scale) {
-  return AppendObjectPrimitive<VariantPrimitiveType::kDecimal8>(
+void VariantObjectBuilder::AppendDecimal8(std::string_view field_name,
+                                          int64_t unscaled_value, uint8_t scale) {
+  AppendObjectPrimitive<VariantPrimitiveType::kDecimal8>(
       impl_->state, impl_->frame_index, field_name, unscaled_value, scale);
 }
 
-Status VariantObjectBuilder::AppendDecimal16(
-    std::string_view field_name, std::string_view little_endian_unscaled_value,
-    uint8_t scale) {
-  return AppendObjectPrimitive<VariantPrimitiveType::kDecimal16>(
+void VariantObjectBuilder::AppendDecimal16(std::string_view field_name,
+                                           std::string_view little_endian_unscaled_value,
+                                           uint8_t scale) {
+  AppendObjectPrimitive<VariantPrimitiveType::kDecimal16>(
       impl_->state, impl_->frame_index, field_name, little_endian_unscaled_value, scale);
 }
 
-Status VariantObjectBuilder::AppendShortString(std::string_view field_name,
-                                               std::string_view value) {
-  return AppendObjectPrimitiveWith(
+void VariantObjectBuilder::AppendShortString(std::string_view field_name,
+                                             std::string_view value) {
+  AppendObjectPrimitiveWith(
       impl_->state, impl_->frame_index, field_name,
-      [&](VariantValueWriter& writer) { return writer.AppendShortString(value); });
+      [&](VariantValueWriter& writer) { writer.AppendShortString(value); });
 }
 
-Status VariantObjectBuilder::AppendTimestampMicros(std::string_view field_name,
-                                                   int64_t micros, bool adjusted_to_utc) {
+void VariantObjectBuilder::AppendTimestampMicros(std::string_view field_name,
+                                                 int64_t micros, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return AppendObjectPrimitive<VariantPrimitiveType::kTimestampMicros>(
+    AppendObjectPrimitive<VariantPrimitiveType::kTimestampMicros>(
         impl_->state, impl_->frame_index, field_name, micros);
+    return;
   }
-  return AppendObjectPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(
+  AppendObjectPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(
       impl_->state, impl_->frame_index, field_name, micros);
 }
 
-Status VariantObjectBuilder::AppendTimestampNanos(std::string_view field_name,
-                                                  int64_t nanos, bool adjusted_to_utc) {
+void VariantObjectBuilder::AppendTimestampNanos(std::string_view field_name,
+                                                int64_t nanos, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return AppendObjectPrimitive<VariantPrimitiveType::kTimestampNanos>(
+    AppendObjectPrimitive<VariantPrimitiveType::kTimestampNanos>(
         impl_->state, impl_->frame_index, field_name, nanos);
+    return;
   }
-  return AppendObjectPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(
+  AppendObjectPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(
       impl_->state, impl_->frame_index, field_name, nanos);
 }
 
-Result<VariantObjectBuilder> VariantObjectBuilder::StartObject(
-    std::string_view field_name) {
-  ARROW_RETURN_NOT_OK(
-      CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::Object));
+VariantObjectBuilder VariantObjectBuilder::StartObject(std::string_view field_name) {
+  CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::Object);
   auto& frame = impl_->state->frames.back();
   const auto metadata_size = impl_->state->metadata.size();
   const auto field_count = frame.fields.size();
 
-  ARROW_ASSIGN_OR_RAISE(auto field_id, impl_->state->metadata.Upsert(field_name));
+  auto field_id = impl_->state->metadata.Upsert(field_name);
   if (!frame.object_field_ids.insert(field_id).second) {
     impl_->state->metadata.Truncate(metadata_size);
-    return Status::Invalid("Duplicate Variant object field: ", field_name);
+    throw ParquetException("Duplicate Variant object field: ", field_name);
   }
   const auto offset = impl_->state->value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (offset > std::numeric_limits<uint32_t>::max()) {
     impl_->state->metadata.Truncate(metadata_size);
     TruncateFrameEntries(frame, field_count);
-    return Status::Invalid("Variant object values are too large");
+    throw ParquetException("Variant object values are too large");
   }
 
   frame.fields.push_back(VariantFieldDescriptor{.field_id = field_id,
@@ -848,24 +843,23 @@ Result<VariantObjectBuilder> VariantObjectBuilder::StartObject(
       impl_->state, impl_->state->frames.size() - 1, impl_->callback));
 }
 
-Result<VariantListBuilder> VariantObjectBuilder::StartList(std::string_view field_name) {
-  ARROW_RETURN_NOT_OK(
-      CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::Object));
+VariantListBuilder VariantObjectBuilder::StartList(std::string_view field_name) {
+  CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::Object);
   auto& frame = impl_->state->frames.back();
   const auto metadata_size = impl_->state->metadata.size();
   const auto field_count = frame.fields.size();
 
-  ARROW_ASSIGN_OR_RAISE(auto field_id, impl_->state->metadata.Upsert(field_name));
+  auto field_id = impl_->state->metadata.Upsert(field_name);
   if (!frame.object_field_ids.insert(field_id).second) {
     impl_->state->metadata.Truncate(metadata_size);
-    return Status::Invalid("Duplicate Variant object field: ", field_name);
+    throw ParquetException("Duplicate Variant object field: ", field_name);
   }
   const auto offset = impl_->state->value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (offset > std::numeric_limits<uint32_t>::max()) {
     impl_->state->metadata.Truncate(metadata_size);
     TruncateFrameEntries(frame, field_count);
-    return Status::Invalid("Variant object values are too large");
+    throw ParquetException("Variant object values are too large");
   }
 
   frame.fields.push_back(VariantFieldDescriptor{.field_id = field_id,
@@ -881,11 +875,10 @@ Result<VariantListBuilder> VariantObjectBuilder::StartList(std::string_view fiel
       impl_->state, impl_->state->frames.size() - 1, impl_->callback));
 }
 
-Status VariantObjectBuilder::Finish() {
-  ARROW_RETURN_NOT_OK(FinishFrame(impl_->state, impl_->frame_index,
-                                  VariantContainerKind::Object, impl_->callback));
+void VariantObjectBuilder::Finish() {
+  FinishFrame(impl_->state, impl_->frame_index, VariantContainerKind::Object,
+              impl_->callback);
   impl_->active = false;
-  return Status::OK();
 }
 
 VariantListBuilder::VariantListBuilder(
@@ -896,24 +889,24 @@ VariantListBuilder::VariantListBuilder(VariantListBuilder&&) noexcept = default;
 VariantListBuilder& VariantListBuilder::operator=(VariantListBuilder&&) noexcept =
     default;
 
-Status VariantListBuilder::AppendVariantNull() {
-  return AppendListPrimitive<VariantPrimitiveType::kNull>(impl_->state,
-                                                          impl_->frame_index);
+void VariantListBuilder::AppendVariantNull() {
+  AppendListPrimitive<VariantPrimitiveType::kNull>(impl_->state, impl_->frame_index);
 }
 
-Status VariantListBuilder::AppendBoolean(bool value) {
+void VariantListBuilder::AppendBoolean(bool value) {
   if (value) {
-    return AppendListPrimitive<VariantPrimitiveType::kBooleanTrue>(impl_->state,
-                                                                   impl_->frame_index);
+    AppendListPrimitive<VariantPrimitiveType::kBooleanTrue>(impl_->state,
+                                                            impl_->frame_index);
+    return;
   }
-  return AppendListPrimitive<VariantPrimitiveType::kBooleanFalse>(impl_->state,
-                                                                  impl_->frame_index);
+  AppendListPrimitive<VariantPrimitiveType::kBooleanFalse>(impl_->state,
+                                                           impl_->frame_index);
 }
 
-#define VARIANT_LIST_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)        \
-  Status VariantListBuilder::Append##NAME(C_TYPE value) {      \
-    return AppendListPrimitive<VariantPrimitiveType::k##TYPE>( \
-        impl_->state, impl_->frame_index, value);              \
+#define VARIANT_LIST_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)                                  \
+  void VariantListBuilder::Append##NAME(C_TYPE value) {                                  \
+    AppendListPrimitive<VariantPrimitiveType::k##TYPE>(impl_->state, impl_->frame_index, \
+                                                       value);                           \
   }
 
 VARIANT_LIST_APPEND_ONE_ARG(Int8, Int8, int8_t)
@@ -930,55 +923,56 @@ VARIANT_LIST_APPEND_ONE_ARG(Uuid, Uuid, std::string_view)
 
 #undef VARIANT_LIST_APPEND_ONE_ARG
 
-Status VariantListBuilder::AppendDecimal4(int32_t unscaled_value, uint8_t scale) {
-  return AppendListPrimitive<VariantPrimitiveType::kDecimal4>(
-      impl_->state, impl_->frame_index, unscaled_value, scale);
+void VariantListBuilder::AppendDecimal4(int32_t unscaled_value, uint8_t scale) {
+  AppendListPrimitive<VariantPrimitiveType::kDecimal4>(impl_->state, impl_->frame_index,
+                                                       unscaled_value, scale);
 }
 
-Status VariantListBuilder::AppendDecimal8(int64_t unscaled_value, uint8_t scale) {
-  return AppendListPrimitive<VariantPrimitiveType::kDecimal8>(
-      impl_->state, impl_->frame_index, unscaled_value, scale);
+void VariantListBuilder::AppendDecimal8(int64_t unscaled_value, uint8_t scale) {
+  AppendListPrimitive<VariantPrimitiveType::kDecimal8>(impl_->state, impl_->frame_index,
+                                                       unscaled_value, scale);
 }
 
-Status VariantListBuilder::AppendDecimal16(std::string_view little_endian_unscaled_value,
-                                           uint8_t scale) {
-  return AppendListPrimitive<VariantPrimitiveType::kDecimal16>(
+void VariantListBuilder::AppendDecimal16(std::string_view little_endian_unscaled_value,
+                                         uint8_t scale) {
+  AppendListPrimitive<VariantPrimitiveType::kDecimal16>(
       impl_->state, impl_->frame_index, little_endian_unscaled_value, scale);
 }
 
-Status VariantListBuilder::AppendShortString(std::string_view value) {
-  return AppendListPrimitiveWith(
+void VariantListBuilder::AppendShortString(std::string_view value) {
+  AppendListPrimitiveWith(
       impl_->state, impl_->frame_index,
-      [&](VariantValueWriter& writer) { return writer.AppendShortString(value); });
+      [&](VariantValueWriter& writer) { writer.AppendShortString(value); });
 }
 
-Status VariantListBuilder::AppendTimestampMicros(int64_t micros, bool adjusted_to_utc) {
+void VariantListBuilder::AppendTimestampMicros(int64_t micros, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return AppendListPrimitive<VariantPrimitiveType::kTimestampMicros>(
+    AppendListPrimitive<VariantPrimitiveType::kTimestampMicros>(
         impl_->state, impl_->frame_index, micros);
+    return;
   }
-  return AppendListPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(
+  AppendListPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(
       impl_->state, impl_->frame_index, micros);
 }
 
-Status VariantListBuilder::AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc) {
+void VariantListBuilder::AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return AppendListPrimitive<VariantPrimitiveType::kTimestampNanos>(
-        impl_->state, impl_->frame_index, nanos);
+    AppendListPrimitive<VariantPrimitiveType::kTimestampNanos>(impl_->state,
+                                                               impl_->frame_index, nanos);
+    return;
   }
-  return AppendListPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(
+  AppendListPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(
       impl_->state, impl_->frame_index, nanos);
 }
 
-Result<VariantObjectBuilder> VariantListBuilder::StartObject() {
-  ARROW_RETURN_NOT_OK(
-      CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::List));
+VariantObjectBuilder VariantListBuilder::StartObject() {
+  CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::List);
   auto& frame = impl_->state->frames.back();
   const auto element_count = frame.offsets.size();
   const auto offset = impl_->state->value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (offset > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid("Variant array values are too large");
+    throw ParquetException("Variant array values are too large");
   }
 
   frame.offsets.push_back(static_cast<uint32_t>(offset));
@@ -994,15 +988,14 @@ Result<VariantObjectBuilder> VariantListBuilder::StartObject() {
       impl_->state, impl_->state->frames.size() - 1, impl_->callback));
 }
 
-Result<VariantListBuilder> VariantListBuilder::StartList() {
-  ARROW_RETURN_NOT_OK(
-      CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::List));
+VariantListBuilder VariantListBuilder::StartList() {
+  CheckTopFrame(*impl_->state, impl_->frame_index, VariantContainerKind::List);
   auto& frame = impl_->state->frames.back();
   const auto element_count = frame.offsets.size();
   const auto offset = impl_->state->value.length() - frame.value_start;
   DCHECK_GE(offset, 0);
   if (offset > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid("Variant array values are too large");
+    throw ParquetException("Variant array values are too large");
   }
 
   frame.offsets.push_back(static_cast<uint32_t>(offset));
@@ -1018,11 +1011,10 @@ Result<VariantListBuilder> VariantListBuilder::StartList() {
       impl_->state, impl_->state->frames.size() - 1, impl_->callback));
 }
 
-Status VariantListBuilder::Finish() {
-  ARROW_RETURN_NOT_OK(FinishFrame(impl_->state, impl_->frame_index,
-                                  VariantContainerKind::List, impl_->callback));
+void VariantListBuilder::Finish() {
+  FinishFrame(impl_->state, impl_->frame_index, VariantContainerKind::List,
+              impl_->callback);
   impl_->active = false;
-  return Status::OK();
 }
 
 struct VariantArrayBuilder::Impl {
@@ -1030,38 +1022,36 @@ struct VariantArrayBuilder::Impl {
       : pool(pool), metadata_builder(pool), value_builder(pool), validity_builder(pool) {}
 
   template <typename Write>
-  Status AppendValue(Write&& write) {
+  void AppendValue(Write&& write) {
     auto state = std::make_shared<VariantBuildState>(pool);
-    ARROW_RETURN_NOT_OK(AppendRootPrimitiveWith(state, std::forward<Write>(write)));
-    ARROW_ASSIGN_OR_RAISE(auto metadata, state->metadata.Finish());
-    ARROW_ASSIGN_OR_RAISE(auto value, state->value.Finish());
-    return AppendEncoded({.metadata = std::move(metadata), .value = std::move(value)});
+    AppendRootPrimitiveWith(state, std::forward<Write>(write));
+    auto metadata = state->metadata.Finish();
+    std::shared_ptr<Buffer> value;
+    PARQUET_ASSIGN_OR_THROW(value, state->value.Finish());
+    AppendEncoded({.metadata = std::move(metadata), .value = std::move(value)});
   }
 
   template <VariantPrimitiveType type, typename... Args>
-  Status AppendPrimitive(Args&&... args) {
-    return AppendValue([&](VariantValueWriter& writer) {
-      return writer.template Append<type>(std::forward<Args>(args)...);
+  void AppendPrimitive(Args&&... args) {
+    AppendValue([&](VariantValueWriter& writer) {
+      writer.template Append<type>(std::forward<Args>(args)...);
     });
   }
 
-  Status AppendShortString(std::string_view value) {
-    return AppendValue(
-        [&](VariantValueWriter& writer) { return writer.AppendShortString(value); });
+  void AppendShortString(std::string_view value) {
+    AppendValue([&](VariantValueWriter& writer) { writer.AppendShortString(value); });
   }
 
-  Status AppendEncoded(const EncodedVariantValue& value) {
+  void AppendEncoded(const EncodedVariantValue& value) {
     if (value.metadata == nullptr || value.value == nullptr) {
-      return Status::Invalid(
+      throw ParquetException(
           "Encoded Variant metadata and value buffers must be non-null");
     }
-    ARROW_ASSIGN_OR_RAISE(auto metadata,
-                          VariantMetadataView::Make(std::string_view{*value.metadata}));
-    ARROW_RETURN_NOT_OK(
-        VariantValueView::Validate(std::string_view{*value.value}, metadata));
-    ARROW_RETURN_NOT_OK(metadata_builder.Append(std::string_view{*value.metadata}));
-    ARROW_RETURN_NOT_OK(value_builder.Append(std::string_view{*value.value}));
-    return validity_builder.Append(true);
+    auto metadata = VariantMetadataView::Make(std::string_view{*value.metadata});
+    VariantValueView::Validate(std::string_view{*value.value}, metadata);
+    PARQUET_THROW_NOT_OK(metadata_builder.Append(std::string_view{*value.metadata}));
+    PARQUET_THROW_NOT_OK(value_builder.Append(std::string_view{*value.value}));
+    PARQUET_THROW_NOT_OK(validity_builder.Append(true));
   }
 
   MemoryPool* pool;
@@ -1077,26 +1067,27 @@ VariantArrayBuilder::VariantArrayBuilder(VariantArrayBuilder&&) noexcept = defau
 VariantArrayBuilder& VariantArrayBuilder::operator=(VariantArrayBuilder&&) noexcept =
     default;
 
-Status VariantArrayBuilder::AppendNull() {
-  ARROW_RETURN_NOT_OK(impl_->metadata_builder.Append(""));
-  ARROW_RETURN_NOT_OK(impl_->value_builder.Append(""));
-  return impl_->validity_builder.Append(false);
+void VariantArrayBuilder::AppendNull() {
+  PARQUET_THROW_NOT_OK(impl_->metadata_builder.Append(""));
+  PARQUET_THROW_NOT_OK(impl_->value_builder.Append(""));
+  PARQUET_THROW_NOT_OK(impl_->validity_builder.Append(false));
 }
 
-Status VariantArrayBuilder::AppendVariantNull() {
-  return impl_->AppendPrimitive<VariantPrimitiveType::kNull>();
+void VariantArrayBuilder::AppendVariantNull() {
+  impl_->AppendPrimitive<VariantPrimitiveType::kNull>();
 }
 
-Status VariantArrayBuilder::AppendBoolean(bool value) {
+void VariantArrayBuilder::AppendBoolean(bool value) {
   if (value) {
-    return impl_->AppendPrimitive<VariantPrimitiveType::kBooleanTrue>();
+    impl_->AppendPrimitive<VariantPrimitiveType::kBooleanTrue>();
+    return;
   }
-  return impl_->AppendPrimitive<VariantPrimitiveType::kBooleanFalse>();
+  impl_->AppendPrimitive<VariantPrimitiveType::kBooleanFalse>();
 }
 
-#define VARIANT_ARRAY_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)                 \
-  Status VariantArrayBuilder::Append##NAME(C_TYPE value) {               \
-    return impl_->AppendPrimitive<VariantPrimitiveType::k##TYPE>(value); \
+#define VARIANT_ARRAY_APPEND_ONE_ARG(NAME, TYPE, C_TYPE)          \
+  void VariantArrayBuilder::Append##NAME(C_TYPE value) {          \
+    impl_->AppendPrimitive<VariantPrimitiveType::k##TYPE>(value); \
   }
 
 VARIANT_ARRAY_APPEND_ONE_ARG(Int8, Int8, int8_t)
@@ -1113,81 +1104,80 @@ VARIANT_ARRAY_APPEND_ONE_ARG(Uuid, Uuid, std::string_view)
 
 #undef VARIANT_ARRAY_APPEND_ONE_ARG
 
-Status VariantArrayBuilder::AppendDecimal4(int32_t unscaled_value, uint8_t scale) {
-  return impl_->AppendPrimitive<VariantPrimitiveType::kDecimal4>(unscaled_value, scale);
+void VariantArrayBuilder::AppendDecimal4(int32_t unscaled_value, uint8_t scale) {
+  impl_->AppendPrimitive<VariantPrimitiveType::kDecimal4>(unscaled_value, scale);
 }
 
-Status VariantArrayBuilder::AppendDecimal8(int64_t unscaled_value, uint8_t scale) {
-  return impl_->AppendPrimitive<VariantPrimitiveType::kDecimal8>(unscaled_value, scale);
+void VariantArrayBuilder::AppendDecimal8(int64_t unscaled_value, uint8_t scale) {
+  impl_->AppendPrimitive<VariantPrimitiveType::kDecimal8>(unscaled_value, scale);
 }
 
-Status VariantArrayBuilder::AppendDecimal16(std::string_view little_endian_unscaled_value,
-                                            uint8_t scale) {
-  return impl_->AppendPrimitive<VariantPrimitiveType::kDecimal16>(
-      little_endian_unscaled_value, scale);
+void VariantArrayBuilder::AppendDecimal16(std::string_view little_endian_unscaled_value,
+                                          uint8_t scale) {
+  impl_->AppendPrimitive<VariantPrimitiveType::kDecimal16>(little_endian_unscaled_value,
+                                                           scale);
 }
 
-Status VariantArrayBuilder::AppendShortString(std::string_view value) {
-  return impl_->AppendShortString(value);
+void VariantArrayBuilder::AppendShortString(std::string_view value) {
+  impl_->AppendShortString(value);
 }
 
-Status VariantArrayBuilder::AppendTimestampMicros(int64_t micros, bool adjusted_to_utc) {
+void VariantArrayBuilder::AppendTimestampMicros(int64_t micros, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return impl_->AppendPrimitive<VariantPrimitiveType::kTimestampMicros>(micros);
+    impl_->AppendPrimitive<VariantPrimitiveType::kTimestampMicros>(micros);
+    return;
   }
-  return impl_->AppendPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(micros);
+  impl_->AppendPrimitive<VariantPrimitiveType::kTimestampNTZMicros>(micros);
 }
 
-Status VariantArrayBuilder::AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc) {
+void VariantArrayBuilder::AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc) {
   if (adjusted_to_utc) {
-    return impl_->AppendPrimitive<VariantPrimitiveType::kTimestampNanos>(nanos);
+    impl_->AppendPrimitive<VariantPrimitiveType::kTimestampNanos>(nanos);
+    return;
   }
-  return impl_->AppendPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(nanos);
+  impl_->AppendPrimitive<VariantPrimitiveType::kTimestampNTZNanos>(nanos);
 }
 
-Status VariantArrayBuilder::AppendEncoded(const EncodedVariantValue& value) {
-  return impl_->AppendEncoded(value);
+void VariantArrayBuilder::AppendEncoded(const EncodedVariantValue& value) {
+  impl_->AppendEncoded(value);
 }
 
-Result<VariantObjectBuilder> VariantArrayBuilder::StartObject() {
+VariantObjectBuilder VariantArrayBuilder::StartObject() {
   auto state = std::make_shared<VariantBuildState>(impl_->pool);
   state->frames.push_back(VariantBuildFrame{.kind = VariantContainerKind::Object,
                                             .value_start = state->value.length(),
                                             .metadata_size = state->metadata.size()});
-  auto callback = [this](EncodedVariantValue encoded) {
-    return impl_->AppendEncoded(encoded);
-  };
+  auto callback = [this](EncodedVariantValue encoded) { impl_->AppendEncoded(encoded); };
   return VariantObjectBuilder(std::make_unique<internal::NestedVariantBuilderImpl>(
       state, state->frames.size() - 1, std::move(callback)));
 }
 
-Result<VariantListBuilder> VariantArrayBuilder::StartList() {
+VariantListBuilder VariantArrayBuilder::StartList() {
   auto state = std::make_shared<VariantBuildState>(impl_->pool);
   state->frames.push_back(VariantBuildFrame{.kind = VariantContainerKind::List,
                                             .value_start = state->value.length(),
                                             .metadata_size = state->metadata.size()});
-  auto callback = [this](EncodedVariantValue encoded) {
-    return impl_->AppendEncoded(encoded);
-  };
+  auto callback = [this](EncodedVariantValue encoded) { impl_->AppendEncoded(encoded); };
   return VariantListBuilder(std::make_unique<internal::NestedVariantBuilderImpl>(
       state, state->frames.size() - 1, std::move(callback)));
 }
 
-Result<std::shared_ptr<VariantArray>> VariantArrayBuilder::Finish() {
+std::shared_ptr<VariantArray> VariantArrayBuilder::Finish() {
   std::shared_ptr<BinaryArray> metadata;
   std::shared_ptr<BinaryArray> value;
   std::shared_ptr<BooleanArray> validity;
-  ARROW_RETURN_NOT_OK(impl_->metadata_builder.Finish(&metadata));
-  ARROW_RETURN_NOT_OK(impl_->value_builder.Finish(&value));
-  ARROW_RETURN_NOT_OK(impl_->validity_builder.Finish(&validity));
+  PARQUET_THROW_NOT_OK(impl_->metadata_builder.Finish(&metadata));
+  PARQUET_THROW_NOT_OK(impl_->value_builder.Finish(&value));
+  PARQUET_THROW_NOT_OK(impl_->validity_builder.Finish(&validity));
 
   auto null_bitmap = validity->data()->buffers[1];
   const int64_t null_count = validity->false_count();
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
-  ARROW_ASSIGN_OR_RAISE(auto storage,
-                        StructArray::Make({metadata, value}, storage_type->fields(),
-                                          null_bitmap, null_count));
+  std::shared_ptr<StructArray> storage;
+  PARQUET_ASSIGN_OR_THROW(
+      storage, StructArray::Make({metadata, value}, storage_type->fields(), null_bitmap,
+                                 null_count));
   return MakeVariantArrayFromStorage(storage);
 }
 
@@ -1207,66 +1197,68 @@ VariantValueArrayBuilder& VariantValueArrayBuilder::operator=(
     VariantValueArrayBuilder&&) noexcept = default;
 VariantValueArrayBuilder::~VariantValueArrayBuilder() = default;
 
-Status VariantValueArrayBuilder::AppendNull() {
-  return impl_->value_builder.AppendNull();
+void VariantValueArrayBuilder::AppendNull() {
+  PARQUET_THROW_NOT_OK(impl_->value_builder.AppendNull());
 }
 
-Status VariantValueArrayBuilder::AppendEncodedValue(std::string_view metadata,
-                                                    std::string_view value) {
-  ARROW_ASSIGN_OR_RAISE(auto metadata_view, VariantMetadataView::Make(metadata));
-  ARROW_RETURN_NOT_OK(VariantValueView::Validate(value, metadata_view));
-  return impl_->value_builder.Append(value);
+void VariantValueArrayBuilder::AppendEncodedValue(std::string_view metadata,
+                                                  std::string_view value) {
+  auto metadata_view = VariantMetadataView::Make(metadata);
+  VariantValueView::Validate(value, metadata_view);
+  PARQUET_THROW_NOT_OK(impl_->value_builder.Append(value));
 }
 
-Result<std::shared_ptr<BinaryArray>> VariantValueArrayBuilder::Finish() {
+std::shared_ptr<BinaryArray> VariantValueArrayBuilder::Finish() {
   std::shared_ptr<BinaryArray> out;
-  ARROW_RETURN_NOT_OK(impl_->value_builder.Finish(&out));
+  PARQUET_THROW_NOT_OK(impl_->value_builder.Finish(&out));
   return out;
 }
 
-Result<std::shared_ptr<VariantArray>> MakeVariantArrayFromStorage(
+std::shared_ptr<VariantArray> MakeVariantArrayFromStorage(
     std::shared_ptr<StructArray> storage) {
   if (storage == nullptr) {
-    return Status::Invalid("Variant storage array must be non-null");
+    throw ParquetException("Variant storage array must be non-null");
   }
-  ARROW_ASSIGN_OR_RAISE(auto type, VariantExtensionType::Make(storage->type()));
+  std::shared_ptr<DataType> type;
+  PARQUET_ASSIGN_OR_THROW(type, VariantExtensionType::Make(storage->type()));
   auto array = ExtensionType::WrapArray(type, std::move(storage));
   return std::static_pointer_cast<VariantArray>(array);
 }
 
-Result<std::shared_ptr<VariantArray>> MakeVariantArrayFromChildren(
+std::shared_ptr<VariantArray> MakeVariantArrayFromChildren(
     std::shared_ptr<DataType> storage_type, std::vector<std::shared_ptr<Array>> children,
     std::shared_ptr<Buffer> null_bitmap) {
   if (storage_type->id() != Type::STRUCT) {
-    return Status::Invalid("Variant storage type must be struct, got ",
+    throw ParquetException("Variant storage type must be struct, got ",
                            storage_type->ToString());
   }
 
   const auto& struct_type =
       ::arrow::internal::checked_cast<const StructType&>(*storage_type);
   if (children.size() != static_cast<size_t>(struct_type.num_fields())) {
-    return Status::Invalid("Variant storage expected ", struct_type.num_fields(),
+    throw ParquetException("Variant storage expected ", struct_type.num_fields(),
                            " children, got ", children.size());
   }
 
   const int64_t length = children.empty() ? 0 : children[0]->length();
   for (int i = 0; i < struct_type.num_fields(); ++i) {
     if (children[i] == nullptr) {
-      return Status::Invalid("Variant storage child ", i, " is null");
+      throw ParquetException("Variant storage child ", i, " is null");
     }
     if (!children[i]->type()->Equals(struct_type.field(i)->type())) {
-      return Status::Invalid("Variant storage child ", i, " has type ",
+      throw ParquetException("Variant storage child ", i, " has type ",
                              children[i]->type()->ToString(), ", expected ",
                              struct_type.field(i)->type()->ToString());
     }
     if (children[i]->length() != length) {
-      return Status::Invalid("Variant storage child lengths must match");
+      throw ParquetException("Variant storage child lengths must match");
     }
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto storage,
-                        StructArray::Make(std::move(children), struct_type.fields(),
-                                          std::move(null_bitmap)));
+  std::shared_ptr<StructArray> storage;
+  PARQUET_ASSIGN_OR_THROW(storage,
+                          StructArray::Make(std::move(children), struct_type.fields(),
+                                            std::move(null_bitmap)));
   return MakeVariantArrayFromStorage(storage);
 }
 

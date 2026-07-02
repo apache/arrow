@@ -33,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "parquet/arrow/reader.h"
+#include "parquet/exception.h"
 #include "parquet/variant/test_util_internal.h"
 
 namespace parquet::variant {
@@ -49,7 +50,7 @@ using internal::VariantTable;
 using internal::WriteVariantTable;
 
 TEST(TestVariantValidate, ListView) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -68,14 +69,15 @@ TEST(TestVariantValidate, ListView) {
                            *Int32ArrayFromValues({0}), *Int32ArrayFromValues({1}),
                            *variant_array, ::arrow::default_memory_pool()));
   ::arrow::ChunkedArray valid_data{valid_list};
-  ASSERT_OK(ValidateVariants(valid_data, ::arrow::default_memory_pool()));
+  ValidateVariants(valid_data, ::arrow::default_memory_pool());
 
   ASSERT_OK_AND_ASSIGN(auto invalid_list,
                        ::arrow::ListViewArray::FromArrays(
                            *Int32ArrayFromValues({1}), *Int32ArrayFromValues({1}),
                            *variant_array, ::arrow::default_memory_pool()));
   ::arrow::ChunkedArray invalid_data{invalid_list};
-  ASSERT_RAISES(Invalid, ValidateVariants(invalid_data, ::arrow::default_memory_pool()));
+  ASSERT_THROW(ValidateVariants(invalid_data, ::arrow::default_memory_pool()),
+               ParquetInvalidOrCorruptedFileException);
 }
 
 TEST(TestVariantValidate, ParquetTestingShredded) {
@@ -119,12 +121,12 @@ TEST(TestVariantValidate, ParquetTestingShredded) {
 
     auto column = table->GetColumnByName("var");
     ASSERT_NE(nullptr, column);
-    ASSERT_OK(ValidateVariants(*column, ::arrow::default_memory_pool()));
+    ValidateVariants(*column, ::arrow::default_memory_pool());
   }
 }
 
 TEST(TestVariantValidate, DictionaryMetadata) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -152,11 +154,11 @@ TEST(TestVariantValidate, DictionaryMetadata) {
   ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable());
   auto column = read_table->GetColumnByName("variant");
   ASSERT_NE(nullptr, column);
-  ASSERT_OK(ValidateVariants(*column, ::arrow::default_memory_pool()));
+  ValidateVariants(*column, ::arrow::default_memory_pool());
 }
 
 TEST(TestVariantValidate, ReadDictionaryOption) {
-  ASSERT_OK_AND_ASSIGN(auto encoded, Int8Variant(42));
+  auto encoded = Int8Variant(42);
 
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("value", binary(), /*nullable=*/false)});
@@ -184,7 +186,7 @@ TEST(TestVariantValidate, ReadDictionaryOption) {
   ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable());
   auto column = read_table->GetColumnByName("variant");
   ASSERT_NE(nullptr, column);
-  ASSERT_OK(ValidateVariants(*column, ::arrow::default_memory_pool()));
+  ValidateVariants(*column, ::arrow::default_memory_pool());
 }
 
 }  // namespace parquet::variant
