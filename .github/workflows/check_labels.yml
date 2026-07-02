@@ -41,11 +41,6 @@ jobs:
     outputs:
       ci-extra-labels: ${{ steps.check.outputs.ci-extra-labels }}
     steps:
-      - name: Checkout Arrow
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
       - name: Check
         id: check
         env:
