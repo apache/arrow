@@ -415,7 +415,7 @@ test_that("filter() with namespaced functions", {
 })
 
 test_that("filter() with across()", {
-  skip_on_emscripten() # TODO(xxx): need to figure out what warnings this throws
+  skip_on_emscripten()
 
   compare_dplyr_binding(
     .input |>
