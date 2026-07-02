@@ -54,6 +54,11 @@ async function main() {
   // Serve the repo over HTTP (webR can't access the host filesystem directly)
   const server = http.createServer((req, res) => {
     const filePath = path.join(repoDir, decodeURIComponent(req.url));
+    if (!filePath.startsWith(path.resolve(repoDir))) {
+      res.writeHead(403);
+      res.end();
+      return;
+    }
     fs.readFile(filePath, (err, data) => {
       if (err) {
         res.writeHead(404);
