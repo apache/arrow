@@ -23,12 +23,19 @@ add_arrow_test(test
                from_string_test.cc
                parser_test.cc
                reader_test.cc
+               writer_test.cc
                PREFIX
                "arrow-json"
                EXTRA_LINK_LIBS
                RapidJSON)
 
 add_arrow_benchmark(parser_benchmark
+                    PREFIX
+                    "arrow-json"
+                    EXTRA_LINK_LIBS
+                    RapidJSON)
+
+add_arrow_benchmark(writer_benchmark
                     PREFIX
                     "arrow-json"
                     EXTRA_LINK_LIBS
