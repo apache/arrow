@@ -102,6 +102,10 @@ skip_on_linux_devel <- function() {
 }
 
 skip_on_emscripten <- function() {
+  if (force_tests()) {
+    return()
+  }
+
   skip_if(identical(R.version$os, "emscripten"), "Not supported on Emscripten")
 }
 
