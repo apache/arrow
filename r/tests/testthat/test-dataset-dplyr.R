@@ -70,7 +70,7 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() on timestamp columns", {
-  skip_on_emscripten()
+  # skip_on_emscripten()  # TODO: remove if timezone fix (visibility.h) works
   skip_if_not_available("re2")
 
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -120,7 +120,7 @@ test_that("filter() on date32 columns", {
   )
 
   skip_if_not_available("re2")
-  skip_on_emscripten()
+  # skip_on_emscripten()  # TODO: remove if timezone fix (visibility.h) works
 
   # Also with timestamp scalar
   expect_equal(

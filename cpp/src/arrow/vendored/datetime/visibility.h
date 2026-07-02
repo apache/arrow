@@ -17,7 +17,7 @@
 
 #pragma once
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
 #  define USE_OS_TZDB 1
 #endif
 
