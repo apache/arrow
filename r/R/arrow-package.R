@@ -196,7 +196,9 @@ configure_tzdb <- function() {
         if (dir.exists(tz_path)) {
           tz_files <- list.files(tz_path, recursive = TRUE)
           packageStartupMessage(
-            "[configure_tzdb] tzdb contents (", length(tz_files), " files): ",
+            "[configure_tzdb] tzdb contents (",
+            length(tz_files),
+            " files): ",
             paste(head(tz_files, 10), collapse = ", "),
             if (length(tz_files) > 10) "..."
           )
