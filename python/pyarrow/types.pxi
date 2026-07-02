@@ -1971,7 +1971,7 @@ cdef class JsonType(BaseExtensionType):
 
 class _UuidPandasDtype:
     def __from_arrow__(self, array):
-        return _pandas_api.pd.array(array.to_pylist(), dtype=object)
+        return np.asarray(array.to_pylist(), dtype=object).reshape(1, -1)
 
 
 cdef class UuidType(BaseExtensionType):
