@@ -69,12 +69,14 @@ jobs:
   check-enabled:
     # Check whether the CI builds in this workflow need to be run
     needs: check-labels
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     outputs:
       is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
     steps:
       - id: set_enabled
         if: >-
+          github.ref_type == 'tag' ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: R')
