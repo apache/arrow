@@ -371,6 +371,18 @@ test_that("Can create table with specific dictionary types", {
   expect_equal_data_frame(tab_large, fact)
 })
 
+test_that("Table converts dictionary arrays with string_view values", {
+  expected <- data.frame(foo = factor(c("x", NA, "x")))
+  tab <- Table$create(expected, schema = schema(foo = dictionary(uint32(), string_view())))
+  expect_equal_data_frame(tab, expected)
+})
+
+test_that("Table round-trips string_view columns", {
+  expected <- data.frame(x = c("hello", NA, "", "a long non-inlined string"))
+  tab <- Table$create(expected, schema = schema(x = string_view()))
+  expect_equal_data_frame(tab, expected)
+})
+
 test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
   b1 <- record_batch(f = factor(c("a"), levels = c("a", "b")))
   b2 <- record_batch(f = factor(c("c"), levels = c("c", "d")))
@@ -749,4 +761,14 @@ test_that("collect() on ArrowTabular objects returns a tibble regardless of inpu
   tib <- tibble::tibble(x = 1)
   out2 <- dplyr::collect(arrow_table(tib))
   expect_s3_class(out2, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+})
+
+test_that("Table round-trips binary_view columns", {
+  bin <- list(as.raw(1:5), as.raw(1:20))
+  tab <- Table$create(
+    data.frame(x = I(bin)),
+    schema = schema(x = binary_view())
+  )
+  expect_equal(tab$schema$x$type, binary_view())
+  expect_equal(as.vector(tab$x), bin, ignore_attr = TRUE)
 })

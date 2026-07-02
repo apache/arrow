@@ -203,6 +203,13 @@ Utf8 <- R6Class(
     code = function(namespace = FALSE) call2("utf8", .ns = if (namespace) "arrow")
   )
 )
+Utf8View <- R6Class(
+  "Utf8View",
+  inherit = DataType,
+  public = list(
+    code = function(namespace = FALSE) call2("utf8_view", .ns = if (namespace) "arrow")
+  )
+)
 LargeUtf8 <- R6Class(
   "LargeUtf8",
   inherit = DataType,
@@ -222,6 +229,13 @@ LargeBinary <- R6Class(
   inherit = DataType,
   public = list(
     code = function(namespace = FALSE) call2("large_binary", .ns = if (namespace) "arrow")
+  )
+)
+BinaryView <- R6Class(
+  "BinaryView",
+  inherit = DataType,
+  public = list(
+    code = function(namespace = FALSE) call2("binary_view", .ns = if (namespace) "arrow")
   )
 )
 FixedSizeBinary <- R6Class(
@@ -507,6 +521,14 @@ utf8 <- function() Utf8__initialize()
 
 #' @rdname data-type
 #' @export
+utf8_view <- function() Utf8View__initialize()
+
+#' @rdname data-type
+#' @export
+string_view <- utf8_view
+
+#' @rdname data-type
+#' @export
 large_utf8 <- function() LargeUtf8__initialize()
 
 #' @rdname data-type
@@ -516,6 +538,10 @@ binary <- function() Binary__initialize()
 #' @rdname data-type
 #' @export
 large_binary <- function() LargeBinary__initialize()
+
+#' @rdname data-type
+#' @export
+binary_view <- function() BinaryView__initialize()
 
 #' @rdname data-type
 #' @export
@@ -806,9 +832,12 @@ canonical_type_str <- function(type_str) {
     boolean = "bool",
     bool = "bool",
     utf8 = "string",
+    utf8_view = "string_view",
+    string_view = "string_view",
     large_utf8 = "large_string",
     large_string = "large_string",
     binary = "binary",
+    binary_view = "binary_view",
     large_binary = "large_binary",
     fixed_size_binary = "fixed_size_binary",
     string = "string",

@@ -862,51 +862,94 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
 };
 
 template <typename T>
-class RPrimitiveConverter<T, enable_if_string_like<T>>
+class RPrimitiveConverter<
+    T, enable_if_t<is_string_like_type<T>::value || is_string_view_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  using OffsetType = typename T::offset_type;
-
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size, offset);
+    return AppendUtf8Strings(arrow::r::utf8_strings(x), size, offset);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     auto task = [this, values, size]() { return this->Extend(values, size); };
-    // TODO: refine this., e.g. extract setup from Extend()
     tasks.Append(false, std::move(task));
   }
 
  private:
-  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size, int64_t offset) {
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
+  Status AppendUtf8Strings(const cpp11::strings& s, int64_t size, int64_t offset) {
     const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
 
-    // we know all the R strings are utf8 already, so we can get
-    // a definite size and then use UnsafeAppend*()
-    int64_t total_length = 0;
-    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
-      SEXP si = *p_strings;
-      total_length += si == NA_STRING ? 0 : LENGTH(si);
-    }
-    RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
+    if constexpr (is_string_view_type<T>::value) {
+      RETURN_NOT_OK(this->primitive_builder_->Reserve(size - offset));
 
-    // append
-    p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
-    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
-      SEXP si = *p_strings;
-      if (si == NA_STRING) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(CHAR(si), LENGTH(si));
+      // Use safe Append (not UnsafeAppend) because StringView's heap builder
+      // has a 2GB-per-block limit that prevents bulk data pre-reservation.
+      p_strings += offset;
+      for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+        SEXP si = *p_strings;
+        if (si == NA_STRING) {
+          this->primitive_builder_->UnsafeAppendNull();
+        } else {
+          RETURN_NOT_OK(this->primitive_builder_->Append(CHAR(si), LENGTH(si)));
+        }
+      }
+    } else {
+      RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
+
+      // We know all the R strings are utf8 already, so we can get
+      // a definite size and then use UnsafeAppend*()
+      int64_t total_length = 0;
+      for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+        SEXP si = *p_strings;
+        total_length += si == NA_STRING ? 0 : LENGTH(si);
+      }
+      RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
+
+      p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+      for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+        SEXP si = *p_strings;
+        if (si == NA_STRING) {
+          this->primitive_builder_->UnsafeAppendNull();
+        } else {
+          this->primitive_builder_->UnsafeAppend(CHAR(si), LENGTH(si));
+        }
       }
     }
 
     return Status::OK();
+  }
+};
+
+template <typename T>
+class RPrimitiveConverter<
+    T, enable_if_t<is_binary_view_like_type<T>::value && !is_string_view_type<T>::value>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    RETURN_NOT_OK(check_binary(x, size));
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    auto append_value = [this](SEXP raw) {
+      R_xlen_t n = XLENGTH(raw);
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->Append(RAW_RO(raw), static_cast<int64_t>(n)));
+      return Status::OK();
+    };
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -1054,8 +1097,14 @@ struct RConverterTrait<
 };
 
 template <typename T>
-struct RConverterTrait<T, enable_if_binary_view_like<T>> {
-  // not implemented
+struct RConverterTrait<T, enable_if_string_view<T>> {
+  using type = RPrimitiveConverter<T>;
+};
+
+template <typename T>
+struct RConverterTrait<T, enable_if_t<is_binary_view_like_type<T>::value &&
+                                      !is_string_view_type<T>::value>> {
+  using type = RPrimitiveConverter<T>;
 };
 
 template <typename T>
