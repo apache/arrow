@@ -24,14 +24,9 @@
 #include <variant>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
 #include "parquet/platform.h"
 
 namespace parquet::variant {
-
-using ::arrow::Result;
-using ::arrow::Status;
 
 enum class VariantBasicType : uint8_t {
   kPrimitive = 0,
@@ -76,7 +71,7 @@ class PARQUET_EXPORT VariantMetadataView {
   ///
   /// The returned view and all string views borrowed from it are valid only while the
   /// input metadata bytes remain alive and unchanged.
-  static Result<VariantMetadataView> Make(std::string_view metadata);
+  static VariantMetadataView Make(std::string_view metadata);
 
   std::string_view metadata() const { return metadata_; }
   bool sorted_strings() const { return sorted_strings_; }
@@ -153,9 +148,9 @@ class PARQUET_EXPORT VariantValueView {
   /// The returned view and any nested object/list/string views are valid only while the
   /// input value bytes remain alive and unchanged. The metadata view must also remain
   /// valid while object field names are accessed.
-  static Result<VariantValueView> Make(std::string_view value,
-                                       const VariantMetadataView& metadata);
-  static Status Validate(std::string_view value, const VariantMetadataView& metadata);
+  static VariantValueView Make(std::string_view value,
+                               const VariantMetadataView& metadata);
+  static void Validate(std::string_view value, const VariantMetadataView& metadata);
 
   std::string_view value() const { return value_; }
   VariantBasicType basic_type() const { return basic_type_; }

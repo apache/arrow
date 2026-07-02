@@ -25,8 +25,6 @@
 #include "arrow/buffer.h"
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/memory_pool.h"
-#include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
 #include "parquet/platform.h"
 
@@ -37,8 +35,6 @@ using ::arrow::BinaryArray;
 using ::arrow::Buffer;
 using ::arrow::DataType;
 using ::arrow::MemoryPool;
-using ::arrow::Result;
-using ::arrow::Status;
 using ::arrow::StructArray;
 using ::arrow::extension::VariantArray;
 
@@ -59,33 +55,33 @@ class PARQUET_EXPORT VariantBuilder {
   VariantBuilder(VariantBuilder&&) noexcept;
   VariantBuilder& operator=(VariantBuilder&&) noexcept;
 
-  Status ReserveFieldNames(int64_t capacity);
-  Result<uint32_t> AddFieldName(std::string_view name);
+  void ReserveFieldNames(int64_t capacity);
+  uint32_t AddFieldName(std::string_view name);
 
-  Status AppendVariantNull();
-  Status AppendBoolean(bool value);
-  Status AppendInt8(int8_t value);
-  Status AppendInt16(int16_t value);
-  Status AppendInt32(int32_t value);
-  Status AppendInt64(int64_t value);
-  Status AppendFloat(float value);
-  Status AppendDouble(double value);
-  Status AppendBinary(std::string_view value);
-  Status AppendString(std::string_view value);
-  Status AppendDate(int32_t days);
-  Status AppendTimeNTZMicros(int64_t micros);
-  Status AppendUuid(std::string_view big_endian_bytes);
-  Status AppendDecimal4(int32_t unscaled_value, uint8_t scale);
-  Status AppendDecimal8(int64_t unscaled_value, uint8_t scale);
-  Status AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
-  Status AppendShortString(std::string_view value);
-  Status AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
-  Status AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
+  void AppendVariantNull();
+  void AppendBoolean(bool value);
+  void AppendInt8(int8_t value);
+  void AppendInt16(int16_t value);
+  void AppendInt32(int32_t value);
+  void AppendInt64(int64_t value);
+  void AppendFloat(float value);
+  void AppendDouble(double value);
+  void AppendBinary(std::string_view value);
+  void AppendString(std::string_view value);
+  void AppendDate(int32_t days);
+  void AppendTimeNTZMicros(int64_t micros);
+  void AppendUuid(std::string_view big_endian_bytes);
+  void AppendDecimal4(int32_t unscaled_value, uint8_t scale);
+  void AppendDecimal8(int64_t unscaled_value, uint8_t scale);
+  void AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendShortString(std::string_view value);
+  void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
+  void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
 
-  Result<VariantObjectBuilder> StartObject();
-  Result<VariantListBuilder> StartList();
+  VariantObjectBuilder StartObject();
+  VariantListBuilder StartList();
 
-  Result<EncodedVariantValue> Finish();
+  EncodedVariantValue Finish();
   void Reset();
 
  private:
@@ -105,37 +101,35 @@ class PARQUET_EXPORT VariantObjectBuilder {
   VariantObjectBuilder(VariantObjectBuilder&&) noexcept;
   VariantObjectBuilder& operator=(VariantObjectBuilder&&) noexcept;
 
-  Status AppendVariantNull(std::string_view field_name);
-  Status AppendBoolean(std::string_view field_name, bool value);
-  Status AppendInt8(std::string_view field_name, int8_t value);
-  Status AppendInt16(std::string_view field_name, int16_t value);
-  Status AppendInt32(std::string_view field_name, int32_t value);
-  Status AppendInt64(std::string_view field_name, int64_t value);
-  Status AppendFloat(std::string_view field_name, float value);
-  Status AppendDouble(std::string_view field_name, double value);
-  Status AppendBinary(std::string_view field_name, std::string_view value);
-  Status AppendString(std::string_view field_name, std::string_view value);
-  Status AppendDate(std::string_view field_name, int32_t days);
-  Status AppendTimeNTZMicros(std::string_view field_name, int64_t micros);
-  Status AppendUuid(std::string_view field_name, std::string_view big_endian_bytes);
-  Status AppendDecimal4(std::string_view field_name, int32_t unscaled_value,
-                        uint8_t scale);
-  Status AppendDecimal8(std::string_view field_name, int64_t unscaled_value,
-                        uint8_t scale);
-  Status AppendDecimal16(std::string_view field_name,
-                         std::string_view little_endian_unscaled_value, uint8_t scale);
-  Status AppendShortString(std::string_view field_name, std::string_view value);
-  Status AppendTimestampMicros(std::string_view field_name, int64_t micros,
-                               bool adjusted_to_utc);
-  Status AppendTimestampNanos(std::string_view field_name, int64_t nanos,
-                              bool adjusted_to_utc);
+  void AppendVariantNull(std::string_view field_name);
+  void AppendBoolean(std::string_view field_name, bool value);
+  void AppendInt8(std::string_view field_name, int8_t value);
+  void AppendInt16(std::string_view field_name, int16_t value);
+  void AppendInt32(std::string_view field_name, int32_t value);
+  void AppendInt64(std::string_view field_name, int64_t value);
+  void AppendFloat(std::string_view field_name, float value);
+  void AppendDouble(std::string_view field_name, double value);
+  void AppendBinary(std::string_view field_name, std::string_view value);
+  void AppendString(std::string_view field_name, std::string_view value);
+  void AppendDate(std::string_view field_name, int32_t days);
+  void AppendTimeNTZMicros(std::string_view field_name, int64_t micros);
+  void AppendUuid(std::string_view field_name, std::string_view big_endian_bytes);
+  void AppendDecimal4(std::string_view field_name, int32_t unscaled_value, uint8_t scale);
+  void AppendDecimal8(std::string_view field_name, int64_t unscaled_value, uint8_t scale);
+  void AppendDecimal16(std::string_view field_name,
+                       std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendShortString(std::string_view field_name, std::string_view value);
+  void AppendTimestampMicros(std::string_view field_name, int64_t micros,
+                             bool adjusted_to_utc);
+  void AppendTimestampNanos(std::string_view field_name, int64_t nanos,
+                            bool adjusted_to_utc);
 
-  Result<VariantObjectBuilder> StartObject(std::string_view field_name);
-  Result<VariantListBuilder> StartList(std::string_view field_name);
+  VariantObjectBuilder StartObject(std::string_view field_name);
+  VariantListBuilder StartList(std::string_view field_name);
 
   /// Commit this nested object into its parent builder. Destroying an unfinished
   /// nested builder rolls back the object contents written through this builder.
-  Status Finish();
+  void Finish();
 
  private:
   friend class VariantBuilder;
@@ -155,32 +149,32 @@ class PARQUET_EXPORT VariantListBuilder {
   VariantListBuilder(VariantListBuilder&&) noexcept;
   VariantListBuilder& operator=(VariantListBuilder&&) noexcept;
 
-  Status AppendVariantNull();
-  Status AppendBoolean(bool value);
-  Status AppendInt8(int8_t value);
-  Status AppendInt16(int16_t value);
-  Status AppendInt32(int32_t value);
-  Status AppendInt64(int64_t value);
-  Status AppendFloat(float value);
-  Status AppendDouble(double value);
-  Status AppendBinary(std::string_view value);
-  Status AppendString(std::string_view value);
-  Status AppendDate(int32_t days);
-  Status AppendTimeNTZMicros(int64_t micros);
-  Status AppendUuid(std::string_view big_endian_bytes);
-  Status AppendDecimal4(int32_t unscaled_value, uint8_t scale);
-  Status AppendDecimal8(int64_t unscaled_value, uint8_t scale);
-  Status AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
-  Status AppendShortString(std::string_view value);
-  Status AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
-  Status AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
+  void AppendVariantNull();
+  void AppendBoolean(bool value);
+  void AppendInt8(int8_t value);
+  void AppendInt16(int16_t value);
+  void AppendInt32(int32_t value);
+  void AppendInt64(int64_t value);
+  void AppendFloat(float value);
+  void AppendDouble(double value);
+  void AppendBinary(std::string_view value);
+  void AppendString(std::string_view value);
+  void AppendDate(int32_t days);
+  void AppendTimeNTZMicros(int64_t micros);
+  void AppendUuid(std::string_view big_endian_bytes);
+  void AppendDecimal4(int32_t unscaled_value, uint8_t scale);
+  void AppendDecimal8(int64_t unscaled_value, uint8_t scale);
+  void AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendShortString(std::string_view value);
+  void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
+  void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
 
-  Result<VariantObjectBuilder> StartObject();
-  Result<VariantListBuilder> StartList();
+  VariantObjectBuilder StartObject();
+  VariantListBuilder StartList();
 
   /// Commit this nested list into its parent builder. Destroying an unfinished nested
   /// builder rolls back the list contents written through this builder.
-  Status Finish();
+  void Finish();
 
  private:
   friend class VariantBuilder;
@@ -201,32 +195,32 @@ class PARQUET_EXPORT VariantArrayBuilder {
   VariantArrayBuilder(VariantArrayBuilder&&) noexcept;
   VariantArrayBuilder& operator=(VariantArrayBuilder&&) noexcept;
 
-  Status AppendNull();
-  Status AppendVariantNull();
-  Status AppendBoolean(bool value);
-  Status AppendInt8(int8_t value);
-  Status AppendInt16(int16_t value);
-  Status AppendInt32(int32_t value);
-  Status AppendInt64(int64_t value);
-  Status AppendFloat(float value);
-  Status AppendDouble(double value);
-  Status AppendBinary(std::string_view value);
-  Status AppendString(std::string_view value);
-  Status AppendDate(int32_t days);
-  Status AppendTimeNTZMicros(int64_t micros);
-  Status AppendUuid(std::string_view big_endian_bytes);
-  Status AppendDecimal4(int32_t unscaled_value, uint8_t scale);
-  Status AppendDecimal8(int64_t unscaled_value, uint8_t scale);
-  Status AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
-  Status AppendShortString(std::string_view value);
-  Status AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
-  Status AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
-  Status AppendEncoded(const EncodedVariantValue& value);
+  void AppendNull();
+  void AppendVariantNull();
+  void AppendBoolean(bool value);
+  void AppendInt8(int8_t value);
+  void AppendInt16(int16_t value);
+  void AppendInt32(int32_t value);
+  void AppendInt64(int64_t value);
+  void AppendFloat(float value);
+  void AppendDouble(double value);
+  void AppendBinary(std::string_view value);
+  void AppendString(std::string_view value);
+  void AppendDate(int32_t days);
+  void AppendTimeNTZMicros(int64_t micros);
+  void AppendUuid(std::string_view big_endian_bytes);
+  void AppendDecimal4(int32_t unscaled_value, uint8_t scale);
+  void AppendDecimal8(int64_t unscaled_value, uint8_t scale);
+  void AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendShortString(std::string_view value);
+  void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
+  void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
+  void AppendEncoded(const EncodedVariantValue& value);
 
-  Result<VariantObjectBuilder> StartObject();
-  Result<VariantListBuilder> StartList();
+  VariantObjectBuilder StartObject();
+  VariantListBuilder StartList();
 
-  Result<std::shared_ptr<VariantArray>> Finish();
+  std::shared_ptr<VariantArray> Finish();
   void Reset();
 
  private:
@@ -243,9 +237,9 @@ class PARQUET_EXPORT VariantValueArrayBuilder {
   VariantValueArrayBuilder(VariantValueArrayBuilder&&) noexcept;
   VariantValueArrayBuilder& operator=(VariantValueArrayBuilder&&) noexcept;
 
-  Status AppendNull();
-  Status AppendEncodedValue(std::string_view metadata, std::string_view value);
-  Result<std::shared_ptr<BinaryArray>> Finish();
+  void AppendNull();
+  void AppendEncodedValue(std::string_view metadata, std::string_view value);
+  std::shared_ptr<BinaryArray> Finish();
 
  private:
   struct Impl;
@@ -253,11 +247,11 @@ class PARQUET_EXPORT VariantValueArrayBuilder {
 };
 
 PARQUET_EXPORT
-Result<std::shared_ptr<VariantArray>> MakeVariantArrayFromStorage(
+std::shared_ptr<VariantArray> MakeVariantArrayFromStorage(
     std::shared_ptr<StructArray> storage);
 
 PARQUET_EXPORT
-Result<std::shared_ptr<VariantArray>> MakeVariantArrayFromChildren(
+std::shared_ptr<VariantArray> MakeVariantArrayFromChildren(
     std::shared_ptr<DataType> storage_type, std::vector<std::shared_ptr<Array>> children,
     std::shared_ptr<Buffer> null_bitmap = nullptr);
 

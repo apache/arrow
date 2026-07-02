@@ -46,7 +46,7 @@ using internal::MakeVariantValueView;
 
 void AssertPrimitiveType(std::string_view value, const VariantMetadataView& metadata,
                          VariantPrimitiveType expected) {
-  ASSERT_OK_AND_ASSIGN(auto view, VariantValueView::Make(value, metadata));
+  auto view = VariantValueView::Make(value, metadata);
   ASSERT_EQ(VariantBasicType::kPrimitive, view.basic_type());
   ASSERT_EQ(expected, std::get<VariantPrimitiveView>(view.data()).type());
 }
@@ -63,14 +63,14 @@ void AssertPrimitiveFieldType(const VariantObjectView& object, std::string_view 
 
 TEST(TestVariantBuilder, Object) {
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto object, builder.StartObject());
-  ASSERT_OK(object.AppendVariantNull("c"));
-  ASSERT_OK(object.AppendVariantNull("b"));
-  ASSERT_OK(object.AppendVariantNull("a"));
-  ASSERT_OK(object.Finish());
+  auto object = builder.StartObject();
+  object.AppendVariantNull("c");
+  object.AppendVariantNull("b");
+  object.AppendVariantNull("a");
+  object.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
-  ASSERT_OK_AND_ASSIGN(auto view, MakeVariantValueView(encoded));
+  auto encoded = builder.Finish();
+  auto view = MakeVariantValueView(encoded);
   ASSERT_EQ(VariantBasicType::kObject, view.basic_type());
   const auto& fields = std::get<VariantObjectView>(view.data()).fields();
   ASSERT_EQ(3, fields.size());
@@ -81,73 +81,66 @@ TEST(TestVariantBuilder, Object) {
 
 TEST(TestVariantBuilder, List) {
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto list, builder.StartList());
-  ASSERT_OK(list.AppendVariantNull());
-  ASSERT_OK(list.AppendInt32(42));
-  ASSERT_OK(list.AppendString("x"));
-  ASSERT_OK(list.Finish());
+  auto list = builder.StartList();
+  list.AppendVariantNull();
+  list.AppendInt32(42);
+  list.AppendString("x");
+  list.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
-  ASSERT_OK_AND_ASSIGN(auto metadata,
-                       VariantMetadataView::Make(std::string_view{*encoded.metadata}));
-  ASSERT_OK_AND_ASSIGN(
-      auto view, VariantValueView::Make(std::string_view{*encoded.value}, metadata));
+  auto encoded = builder.Finish();
+  auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
+  auto view = VariantValueView::Make(std::string_view{*encoded.value}, metadata);
   ASSERT_EQ(VariantBasicType::kArray, view.basic_type());
   const auto& elements = std::get<VariantArrayView>(view.data()).elements();
   ASSERT_EQ(3, elements.size());
 
-  ASSERT_OK_AND_ASSIGN(auto element, VariantValueView::Make(elements[1], metadata));
+  auto element = VariantValueView::Make(elements[1], metadata);
   ASSERT_EQ(VariantPrimitiveType::kInt32,
             std::get<VariantPrimitiveView>(element.data()).type());
 }
 
 TEST(TestVariantBuilder, Nested) {
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto object, builder.StartObject());
-  ASSERT_OK_AND_ASSIGN(auto list, object.StartList("items"));
-  ASSERT_OK(list.AppendInt32(1));
-  ASSERT_OK_AND_ASSIGN(auto child, list.StartObject());
-  ASSERT_OK(child.AppendString("name", "x"));
-  ASSERT_OK(child.Finish());
-  ASSERT_OK(list.Finish());
-  ASSERT_OK(object.Finish());
+  auto object = builder.StartObject();
+  auto list = object.StartList("items");
+  list.AppendInt32(1);
+  auto child = list.StartObject();
+  child.AppendString("name", "x");
+  child.Finish();
+  list.Finish();
+  object.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
-  ASSERT_OK_AND_ASSIGN(auto metadata,
-                       VariantMetadataView::Make(std::string_view{*encoded.metadata}));
-  ASSERT_OK_AND_ASSIGN(
-      auto root, VariantValueView::Make(std::string_view{*encoded.value}, metadata));
+  auto encoded = builder.Finish();
+  auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
+  auto root = VariantValueView::Make(std::string_view{*encoded.value}, metadata);
   const auto& root_fields = std::get<VariantObjectView>(root.data()).fields();
   ASSERT_EQ(1, root_fields.size());
   ASSERT_EQ("items", root_fields[0].name);
 
-  ASSERT_OK_AND_ASSIGN(auto items,
-                       VariantValueView::Make(root_fields[0].value, metadata));
+  auto items = VariantValueView::Make(root_fields[0].value, metadata);
   const auto& item_values = std::get<VariantArrayView>(items.data()).elements();
   ASSERT_EQ(2, item_values.size());
-  ASSERT_OK_AND_ASSIGN(auto item, VariantValueView::Make(item_values[1], metadata));
+  auto item = VariantValueView::Make(item_values[1], metadata);
   ASSERT_EQ("name", std::get<VariantObjectView>(item.data()).fields()[0].name);
 }
 
 TEST(TestVariantBuilder, ObjectAppends) {
   const std::string uuid(16, '\1');
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto object, builder.StartObject());
-  ASSERT_OK(object.AppendInt8("int8", 1));
-  ASSERT_OK(object.AppendInt64("int64", 2));
-  ASSERT_OK(object.AppendDouble("double", 3));
-  ASSERT_OK(object.AppendDecimal4("decimal", 1234, 2));
-  ASSERT_OK(object.AppendBinary("binary", "abc"));
-  ASSERT_OK(object.AppendDate("date", 1));
-  ASSERT_OK(object.AppendTimestampNanos("ts", 2, true));
-  ASSERT_OK(object.AppendUuid("uuid", uuid));
-  ASSERT_OK(object.Finish());
+  auto object = builder.StartObject();
+  object.AppendInt8("int8", 1);
+  object.AppendInt64("int64", 2);
+  object.AppendDouble("double", 3);
+  object.AppendDecimal4("decimal", 1234, 2);
+  object.AppendBinary("binary", "abc");
+  object.AppendDate("date", 1);
+  object.AppendTimestampNanos("ts", 2, true);
+  object.AppendUuid("uuid", uuid);
+  object.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
-  ASSERT_OK_AND_ASSIGN(auto metadata,
-                       VariantMetadataView::Make(std::string_view{*encoded.metadata}));
-  ASSERT_OK_AND_ASSIGN(
-      auto root, VariantValueView::Make(std::string_view{*encoded.value}, metadata));
+  auto encoded = builder.Finish();
+  auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
+  auto root = VariantValueView::Make(std::string_view{*encoded.value}, metadata);
   const auto& object_view = std::get<VariantObjectView>(root.data());
   ASSERT_EQ(8, object_view.fields().size());
   AssertPrimitiveFieldType(object_view, "int8", metadata, VariantPrimitiveType::kInt8);
@@ -167,22 +160,20 @@ TEST(TestVariantBuilder, ObjectAppends) {
 TEST(TestVariantBuilder, ListAppends) {
   const std::string uuid(16, '\2');
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto list, builder.StartList());
-  ASSERT_OK(list.AppendInt8(1));
-  ASSERT_OK(list.AppendInt64(2));
-  ASSERT_OK(list.AppendDouble(3));
-  ASSERT_OK(list.AppendDecimal4(1234, 2));
-  ASSERT_OK(list.AppendBinary("abc"));
-  ASSERT_OK(list.AppendDate(1));
-  ASSERT_OK(list.AppendTimestampNanos(2, true));
-  ASSERT_OK(list.AppendUuid(uuid));
-  ASSERT_OK(list.Finish());
+  auto list = builder.StartList();
+  list.AppendInt8(1);
+  list.AppendInt64(2);
+  list.AppendDouble(3);
+  list.AppendDecimal4(1234, 2);
+  list.AppendBinary("abc");
+  list.AppendDate(1);
+  list.AppendTimestampNanos(2, true);
+  list.AppendUuid(uuid);
+  list.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
-  ASSERT_OK_AND_ASSIGN(auto metadata,
-                       VariantMetadataView::Make(std::string_view{*encoded.metadata}));
-  ASSERT_OK_AND_ASSIGN(
-      auto root, VariantValueView::Make(std::string_view{*encoded.value}, metadata));
+  auto encoded = builder.Finish();
+  auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
+  auto root = VariantValueView::Make(std::string_view{*encoded.value}, metadata);
   const auto& elements = std::get<VariantArrayView>(root.data()).elements();
   ASSERT_EQ(8, elements.size());
   AssertPrimitiveType(elements[0], metadata, VariantPrimitiveType::kInt8);
@@ -197,16 +188,16 @@ TEST(TestVariantBuilder, ListAppends) {
 
 TEST(TestVariantBuilder, Rollback) {
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto object, builder.StartObject());
+  auto object = builder.StartObject();
   {
-    ASSERT_OK_AND_ASSIGN(auto child, object.StartObject("drop"));
-    ASSERT_OK(child.AppendString("nested", "x"));
+    auto child = object.StartObject("drop");
+    child.AppendString("nested", "x");
   }
-  ASSERT_OK(object.AppendInt32("ok", 1));
-  ASSERT_OK(object.Finish());
+  object.AppendInt32("ok", 1);
+  object.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
-  ASSERT_OK_AND_ASSIGN(auto view, MakeVariantValueView(encoded));
+  auto encoded = builder.Finish();
+  auto view = MakeVariantValueView(encoded);
   const auto& fields = std::get<VariantObjectView>(view.data()).fields();
   ASSERT_EQ(1, fields.size());
   ASSERT_EQ("ok", fields[0].name);
@@ -214,37 +205,36 @@ TEST(TestVariantBuilder, Rollback) {
 
 TEST(TestVariantBuilder, Duplicate) {
   VariantBuilder builder;
-  ASSERT_OK_AND_ASSIGN(auto object, builder.StartObject());
-  ASSERT_OK(object.AppendInt32("a", 1));
-  ASSERT_RAISES(Invalid, object.AppendString("a", "x"));
+  auto object = builder.StartObject();
+  object.AppendInt32("a", 1);
+  ASSERT_THROW(object.AppendString("a", "x"), ParquetException);
 }
 
 TEST(TestVariantBuilder, UsesMemoryPool) {
   ProxyMemoryPool pool(default_memory_pool());
   VariantBuilder builder(&pool);
-  ASSERT_OK(builder.AppendString(std::string(128, 'x')));
-  ASSERT_OK_AND_ASSIGN(auto encoded, builder.Finish());
+  builder.AppendString(std::string(128, 'x'));
+  auto encoded = builder.Finish();
   ASSERT_GT(pool.total_bytes_allocated(), 0);
 
-  ASSERT_OK_AND_ASSIGN(auto metadata,
-                       VariantMetadataView::Make(std::string_view{*encoded.metadata}));
-  ASSERT_OK(VariantValueView::Validate(std::string_view{*encoded.value}, metadata));
+  auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
+  VariantValueView::Validate(std::string_view{*encoded.value}, metadata);
 }
 
 TEST(TestVariantBuilder, ArrayBuilder) {
   VariantArrayBuilder builder;
-  ASSERT_OK(builder.AppendNull());
-  ASSERT_OK(builder.AppendVariantNull());
-  ASSERT_OK(builder.AppendInt32(42));
-  ASSERT_OK(builder.AppendInt8(1));
-  ASSERT_OK(builder.AppendDouble(2));
-  ASSERT_OK(builder.AppendBinary("abc"));
-  ASSERT_OK(builder.AppendTimestampMicros(3, true));
-  ASSERT_OK_AND_ASSIGN(auto object, builder.StartObject());
-  ASSERT_OK(object.AppendString("a", "x"));
-  ASSERT_OK(object.Finish());
+  builder.AppendNull();
+  builder.AppendVariantNull();
+  builder.AppendInt32(42);
+  builder.AppendInt8(1);
+  builder.AppendDouble(2);
+  builder.AppendBinary("abc");
+  builder.AppendTimestampMicros(3, true);
+  auto object = builder.StartObject();
+  object.AppendString("a", "x");
+  object.Finish();
 
-  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  auto array = builder.Finish();
   ASSERT_EQ(8, array->length());
   ASSERT_TRUE(array->IsNull(0));
   ASSERT_FALSE(array->IsNull(1));
@@ -259,8 +249,8 @@ TEST(TestVariantBuilder, ArrayBuilder) {
 
 TEST(TestVariantBuilder, FromStorage) {
   VariantBuilder value;
-  ASSERT_OK(value.AppendInt32(1));
-  ASSERT_OK_AND_ASSIGN(auto encoded, value.Finish());
+  value.AppendInt32(1);
+  auto encoded = value.Finish();
 
   auto metadata = BinaryArrayFromValues({std::string_view{*encoded.metadata}});
   auto values = BinaryArrayFromValues({std::string_view{*encoded.value}});
@@ -269,15 +259,15 @@ TEST(TestVariantBuilder, FromStorage) {
       StructArray::Make({metadata, values}, {field("metadata", binary(), false),
                                              field("value", binary(), false)}));
 
-  ASSERT_OK_AND_ASSIGN(auto array, MakeVariantArrayFromStorage(storage));
+  auto array = MakeVariantArrayFromStorage(storage);
   ASSERT_EQ(1, array->length());
   ASSERT_TRUE(array->type()->Equals(variant(storage->type())));
 }
 
 TEST(TestVariantBuilder, FromShredded) {
   VariantBuilder value;
-  ASSERT_OK(value.AppendVariantNull());
-  ASSERT_OK_AND_ASSIGN(auto encoded, value.Finish());
+  value.AppendVariantNull();
+  auto encoded = value.Finish();
 
   auto metadata = BinaryArrayFromValues(
       {std::string_view{*encoded.metadata}, std::string_view{*encoded.metadata}});
@@ -286,22 +276,21 @@ TEST(TestVariantBuilder, FromShredded) {
   auto storage_type = struct_({field("metadata", binary(), false),
                                field("value", binary()), field("typed_value", int64())});
 
-  ASSERT_OK_AND_ASSIGN(
-      auto array, MakeVariantArrayFromChildren(storage_type, {metadata, values, typed}));
+  auto array = MakeVariantArrayFromChildren(storage_type, {metadata, values, typed});
   ASSERT_EQ(2, array->length());
   ASSERT_TRUE(array->type()->Equals(variant(storage_type)));
 }
 
 TEST(TestVariantBuilder, FallbackValue) {
   VariantBuilder value;
-  ASSERT_OK(value.AppendString("x"));
-  ASSERT_OK_AND_ASSIGN(auto encoded, value.Finish());
+  value.AppendString("x");
+  auto encoded = value.Finish();
 
   VariantValueArrayBuilder builder;
-  ASSERT_OK(builder.AppendNull());
-  ASSERT_OK(builder.AppendEncodedValue(std::string_view{*encoded.metadata},
-                                       std::string_view{*encoded.value}));
-  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  builder.AppendNull();
+  builder.AppendEncodedValue(std::string_view{*encoded.metadata},
+                             std::string_view{*encoded.value});
+  auto array = builder.Finish();
   ASSERT_EQ(2, array->length());
   ASSERT_TRUE(array->IsNull(0));
   ASSERT_EQ(std::string_view{*encoded.value}, array->GetView(1));

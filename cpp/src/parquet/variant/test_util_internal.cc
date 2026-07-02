@@ -35,9 +35,8 @@
 
 namespace parquet::variant::internal {
 
-Result<VariantValueView> MakeVariantValueView(const EncodedVariantValue& encoded) {
-  ARROW_ASSIGN_OR_RAISE(auto metadata,
-                        VariantMetadataView::Make(std::string_view{*encoded.metadata}));
+VariantValueView MakeVariantValueView(const EncodedVariantValue& encoded) {
+  auto metadata = VariantMetadataView::Make(std::string_view{*encoded.metadata});
   return VariantValueView::Make(std::string_view{*encoded.value}, metadata);
 }
 
@@ -103,16 +102,16 @@ Result<std::shared_ptr<::arrow::Table>> ReadVariantTestingTable(const std::strin
   return reader->ReadTable();
 }
 
-Result<std::shared_ptr<Buffer>> EmptyVariantMetadata() {
+std::shared_ptr<Buffer> EmptyVariantMetadata() {
   VariantBuilder builder;
-  ARROW_RETURN_NOT_OK(builder.AppendVariantNull());
-  ARROW_ASSIGN_OR_RAISE(auto encoded, builder.Finish());
-  return encoded.metadata;
+  builder.AppendVariantNull();
+  auto encoded = builder.Finish();
+  return std::move(encoded.metadata);
 }
 
-Result<EncodedVariantValue> Int8Variant(int8_t value) {
+EncodedVariantValue Int8Variant(int8_t value) {
   VariantBuilder builder;
-  ARROW_RETURN_NOT_OK(builder.AppendInt8(value));
+  builder.AppendInt8(value);
   return builder.Finish();
 }
 

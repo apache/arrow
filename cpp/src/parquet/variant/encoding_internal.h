@@ -20,13 +20,11 @@
 #include <cstdint>
 #include <string_view>
 
-#include "arrow/status.h"
 #include "arrow/util/utf8.h"
+#include "parquet/exception.h"
 #include "parquet/variant/encoding.h"
 
 namespace parquet::variant::internal {
-
-using ::arrow::Status;
 
 namespace util = ::arrow::util;
 
@@ -68,19 +66,19 @@ inline bool IsDecimalVariantPrimitive(VariantPrimitiveType type) {
          type == VariantPrimitiveType::kDecimal16;
 }
 
-inline Status ValidateDecimalScale(uint8_t scale) {
+inline void ValidateDecimalScale(uint8_t scale) {
   if (scale > 38) {
-    return Status::Invalid("Invalid Variant decimal scale ", scale, " exceeds 38");
+    throw ParquetInvalidOrCorruptedFileException("Invalid Variant decimal scale ", scale,
+                                                 " exceeds 38");
   }
-  return Status::OK();
 }
 
-inline Status ValidateUtf8(std::string_view value, std::string_view context) {
+inline void ValidateUtf8(std::string_view value, std::string_view context) {
   util::InitializeUTF8();
   if (!util::ValidateUTF8(reinterpret_cast<const uint8_t*>(value.data()), value.size())) {
-    return Status::Invalid("Invalid Variant encoding: ", context, " is not valid UTF-8");
+    throw ParquetInvalidOrCorruptedFileException("Invalid Variant encoding: ", context,
+                                                 " is not valid UTF-8");
   }
-  return Status::OK();
 }
 
 template <VariantPrimitiveType type>
