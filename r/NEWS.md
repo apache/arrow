@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 24.0.0.9000
+# arrow 25.0.0
 
 # arrow 24.0.0
 
