@@ -42,8 +42,8 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     # GH-46889: move protobuf_test_util to a more common location
     ../../../../engine/substrait/protobuf_test_util.cc)
 
-# GH-49651 Link ODBC tests statically on Linux and dynamically on macOS/Windows
-if(WIN32 OR APPLE)
+# GH-49651 Link ODBC tests statically on Linux and dynamically on macOS.
+if(APPLE OR (WIN32 AND ARROW_TEST_LINKAGE STREQUAL "shared"))
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
                                            ${ARROW_TEST_SHARED_LINK_LIBS})
 else()
@@ -56,24 +56,26 @@ endif()
 set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBRARIES})
 
 # On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
-# On unix systems, static linking ODBC is supported, thus tests link libraries statically.
+# On Windows with static Arrow, use STATIC_LINK_LIBS to avoid mixing static/shared.
+# On Unix/macOS, tests link libraries statically.
 set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
-if(WIN32)
-  # arrow_odbc_spi_impl is required on Windows due to dynamic linking
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  # Static Windows tests
+  list(APPEND
+       ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
+       arrow_odbc_spi_impl
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS}
+       ${ARROW_TEST_STATIC_LINK_LIBS})
+elseif(WIN32)
+  # Dynamic Windows tests
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
 else()
-  # Unix
+  # Unix/macOS
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
-
-  if(NOT APPLE)
-    # Links static dependencies on Linux to support ARROW_TEST_LINKAGE=static
-    list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS arrow_odbc_spi_impl
-         ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
-
 endif()
 
 add_arrow_test(flight_sql_odbc_test
@@ -92,3 +94,11 @@ target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)
 
 # Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
 set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)
+
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  if(TARGET arrow-flight-sql-odbc-test)
+    target_link_options(arrow-flight-sql-odbc-test PRIVATE "/FORCE:MULTIPLE")
+  endif()
+endif()
