@@ -117,7 +117,7 @@ class ARROW_EXPORT Reader {
 
 /// \deprecated Deprecated in 26.0.0. Feather V2 is the Arrow IPC file format;
 ///   use arrow::ipc::MakeFileWriter with arrow::ipc::IpcWriteOptions instead.
-struct ARROW_DEPRECATED("Deprecated in 26.0.0. Use arrow::ipc::MakeFileWriter instead.")
+struct ARROW_DEPRECATED("Deprecated in 26.0.0. Use arrow::ipc::IpcWriteOptions instead.")
     ARROW_EXPORT WriteProperties {
   static WriteProperties Defaults();
 
