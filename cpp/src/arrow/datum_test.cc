@@ -139,6 +139,54 @@ TEST(Datum, NullCount) {
   ASSERT_EQ(3, val3.null_count());
 }
 
+TEST(Datum, ComputeLogicalNullCount) {
+  // For scalars, is_valid already reflects logical validity.
+  Datum val1(std::make_shared<Int8Scalar>(1));
+  ASSERT_EQ(0, val1.ComputeLogicalNullCount());
+
+  Datum val2(MakeNullScalar(int8()));
+  ASSERT_EQ(1, val2.ComputeLogicalNullCount());
+
+  // For arrays with a validity bitmap, the logical null count matches
+  // null_count().
+  Datum val3(ArrayFromJSON(int8(), "[1, null, null, null]"));
+  ASSERT_EQ(3, val3.null_count());
+  ASSERT_EQ(3, val3.ComputeLogicalNullCount());
+
+  // Union arrays carry logical nulls in their children without a top-level
+  // validity bitmap, so null_count() is 0 while the logical null count is not.
+  auto union_type = sparse_union({field("a", int8()), field("b", boolean())});
+  auto union_arr =
+      ArrayFromJSON(union_type, R"([[0, null], [1, true], [0, 5], [1, null]])");
+  Datum val4(union_arr);
+  ASSERT_EQ(0, val4.null_count());
+  ASSERT_EQ(2, val4.ComputeLogicalNullCount());
+
+  // Chunked arrays sum the logical null count over the chunks.
+  auto union_chunk = ArrayFromJSON(union_type, R"([[0, 1], [1, null]])");
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({union_arr, union_chunk}));
+  Datum val5(chunked);
+  ASSERT_EQ(0, val5.null_count());
+  ASSERT_EQ(3, val5.ComputeLogicalNullCount());
+
+  // Dictionary arrays have a validity bitmap on the indices, but a valid
+  // index referencing a null dictionary value is also a logical null.
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_arr = DictArrayFromJSON(dict_type, /*indices=*/"[0, 1, null, 1]",
+                                    /*dictionary=*/R"([null, "a"])");
+  Datum val6(dict_arr);
+  ASSERT_EQ(1, val6.null_count());
+  ASSERT_EQ(2, val6.ComputeLogicalNullCount());
+
+  // A DictionaryScalar's is_valid only reflects index validity, so unlike the
+  // array path, a valid index referencing a null dictionary value does not
+  // count as a logical null.
+  ASSERT_OK_AND_ASSIGN(auto dict_scalar, dict_arr->GetScalar(0));
+  Datum val7(dict_scalar);
+  ASSERT_EQ(0, val7.null_count());
+  ASSERT_EQ(0, val7.ComputeLogicalNullCount());
+}
+
 TEST(Datum, MutableArray) {
   auto arr = ArrayFromJSON(int8(), "[1, 2, 3, 4]");
 
