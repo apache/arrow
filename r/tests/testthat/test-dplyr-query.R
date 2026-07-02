@@ -646,6 +646,7 @@ test_that("Scalars in expressions match the type of the field, if possible", {
   # it merges.
   # https://github.com/r-hub/rhub-linux-builders/pull/65
   skip_if(identical(Sys.timezone(), "/UTC"))
+  skip_on_emscripten()
 
   expect_output(
     tab |>

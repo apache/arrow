@@ -238,6 +238,7 @@ test_that("Can use across() within arrange()", {
       collect(),
     example_data
   )
+  skip_on_emscripten()
   compare_dplyr_binding(
     .input |>
       arrange(across(starts_with("d"), desc)) |>

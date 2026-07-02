@@ -70,6 +70,7 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() on timestamp columns", {
+  skip_on_emscripten()
   skip_if_not_available("re2")
 
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -119,6 +120,7 @@ test_that("filter() on date32 columns", {
   )
 
   skip_if_not_available("re2")
+  skip_on_emscripten()
 
   # Also with timestamp scalar
   expect_equal(
