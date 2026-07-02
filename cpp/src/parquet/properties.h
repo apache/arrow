@@ -1259,10 +1259,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// Enable Parquet-supported Arrow extension types.
   ///
   /// When enabled, Parquet logical types will be mapped to their corresponding Arrow
-  /// extension types at read time, if such exist. Currently only arrow::extension::json()
-  /// extension type is supported. Columns whose LogicalType is JSON will be interpreted
-  /// as arrow::extension::json(), with storage type inferred from the serialized Arrow
-  /// schema if present, or `utf8` by default.
+  /// extension types at read time, if such exist. For example, columns whose LogicalType
+  /// is JSON will be interpreted as arrow::extension::json(), with storage type inferred
+  /// from the serialized Arrow schema if present, or `utf8` by default.
   void set_arrow_extensions_enabled(bool extensions_enabled) {
     arrow_extensions_enabled_ = extensions_enabled;
   }
@@ -1332,7 +1331,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR),
-          write_time_adjusted_to_utc_(false) {}
+          write_time_adjusted_to_utc_(false),
+          variant_validation_enabled_(true) {}
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
     Builder* disable_deprecated_int96_timestamps() {
@@ -1436,12 +1436,23 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief Set whether to validate Parquet Variant binary values before writing.
+    ///
+    /// This is enabled by default. When enabled, Variant metadata/value bytes
+    /// are checked against the Parquet Variant encoding, and shredded value /
+    /// typed_value combinations are checked for conflicts.
+    Builder* set_variant_validation_enabled(bool enabled) {
+      variant_validation_enabled_ = enabled;
+      return this;
+    }
+
     /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, use_threads_, executor_, write_time_adjusted_to_utc_));
+          engine_version_, use_threads_, executor_, write_time_adjusted_to_utc_,
+          variant_validation_enabled_));
     }
 
    private:
@@ -1459,6 +1470,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     ::arrow::internal::Executor* executor_;
 
     bool write_time_adjusted_to_utc_;
+    bool variant_validation_enabled_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -1497,15 +1509,16 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// Note this setting doesn't affect TIMESTAMP data.
   bool write_time_adjusted_to_utc() const { return write_time_adjusted_to_utc_; }
 
+  /// \brief Returns whether Parquet Variant binary values are validated before writing.
+  bool variant_validation_enabled() const { return variant_validation_enabled_; }
+
  private:
-  explicit ArrowWriterProperties(bool write_nanos_as_int96,
-                                 bool coerce_timestamps_enabled,
-                                 ::arrow::TimeUnit::type coerce_timestamps_unit,
-                                 bool truncated_timestamps_allowed, bool store_schema,
-                                 bool compliant_nested_types,
-                                 EngineVersion engine_version, bool use_threads,
-                                 ::arrow::internal::Executor* executor,
-                                 bool write_time_adjusted_to_utc)
+  explicit ArrowWriterProperties(
+      bool write_nanos_as_int96, bool coerce_timestamps_enabled,
+      ::arrow::TimeUnit::type coerce_timestamps_unit, bool truncated_timestamps_allowed,
+      bool store_schema, bool compliant_nested_types, EngineVersion engine_version,
+      bool use_threads, ::arrow::internal::Executor* executor,
+      bool write_time_adjusted_to_utc, bool variant_validation_enabled)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
@@ -1515,7 +1528,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
         engine_version_(engine_version),
         use_threads_(use_threads),
         executor_(executor),
-        write_time_adjusted_to_utc_(write_time_adjusted_to_utc) {}
+        write_time_adjusted_to_utc_(write_time_adjusted_to_utc),
+        variant_validation_enabled_(variant_validation_enabled) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -1527,6 +1541,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
   const bool write_time_adjusted_to_utc_;
+  const bool variant_validation_enabled_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet
