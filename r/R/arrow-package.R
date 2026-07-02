@@ -150,6 +150,13 @@ s3_finalizer <- new.env(parent = emptyenv())
   # needs the C++ library loaded
   create_binding_cache()
 
+  if (identical(R.version$os, "emscripten")) {
+    # Disable multithreading on Wasm/Emscripten
+    options(arrow.use_threads = FALSE)
+    # No system tzdata on Emscripten; use the tzdb R package
+    configure_tzdb()
+  }
+
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
@@ -188,8 +195,7 @@ configure_tzdb <- function() {
       error = function(e) {
         packageStartupMessage(
           "The tzdb package was available but failed to initialize: ",
-          e,
-          "Timezones will not be available to Arrow compute functions."
+          e
         )
       }
     )
