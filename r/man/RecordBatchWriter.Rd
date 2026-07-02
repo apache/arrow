@@ -8,7 +8,7 @@
 \title{RecordBatchWriter classes}
 \description{
 Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
-a "stream" format and a "file" format, known as Feather.
+a "stream" format and a "file" format.
 \code{RecordBatchStreamWriter} and \code{RecordBatchFileWriter} are
 interfaces for writing record batches to those formats, respectively.
 
@@ -81,7 +81,7 @@ all.equal(df, chickwts, check.attributes = FALSE)
 read_file_obj$close()
 }
 \seealso{
-\code{\link[=write_ipc_stream]{write_ipc_stream()}} and \code{\link[=write_feather]{write_feather()}} provide a much simpler
+\code{\link[=write_ipc_stream]{write_ipc_stream()}} and \code{\link[=write_ipc_file]{write_ipc_file()}} provide a much simpler
 interface for writing data to these formats and are sufficient for many use
 cases. \code{\link[=write_to_raw]{write_to_raw()}} is a version that serializes data to a buffer.
 }
