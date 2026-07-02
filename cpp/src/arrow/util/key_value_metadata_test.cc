@@ -190,11 +190,11 @@ TEST(KeyValueMetadataTest, Delete) {
 
     std::string expected_error_message =
         "Index error: KeyValueMetadata::Delete: index -1 is out of bounds for metadata "
-        "of size 5 (valid range: [0, 4])";
+        "of size 5";
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message, metadata.Delete(-1));
     expected_error_message =
         "Index error: KeyValueMetadata::Delete: index 7 is out of bounds for metadata "
-        "of size 5 (valid range: [0, 4])";
+        "of size 5";
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message, metadata.Delete(7));
 
     ASSERT_OK(metadata.Delete(4));
@@ -205,7 +205,7 @@ TEST(KeyValueMetadataTest, Delete) {
 
     expected_error_message =
         "Index error: KeyValueMetadata::Delete: index 7 is out of bounds for metadata "
-        "of size 0. Metadata is empty.";
+        "of size 0";
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message, metadata.Delete(7));
   }
   {
