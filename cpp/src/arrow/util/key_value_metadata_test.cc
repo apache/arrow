@@ -193,8 +193,8 @@ TEST(KeyValueMetadataTest, Delete) {
         "of size 5";
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message, metadata.Delete(-1));
     expected_error_message =
-        "Index error: KeyValueMetadata::Delete: index 7 is out of bounds for metadata "
-        "of size 5";
+        "Index error: KeyValueMetadata::Delete: index 7 is out of bounds for metadata of "
+        "size 5";
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message, metadata.Delete(7));
 
     ASSERT_OK(metadata.Delete(4));
@@ -204,8 +204,8 @@ TEST(KeyValueMetadataTest, Delete) {
     ASSERT_OK(metadata.Delete(0));
 
     expected_error_message =
-        "Index error: KeyValueMetadata::Delete: index 7 is out of bounds for metadata "
-        "of size 0";
+        "Index error: KeyValueMetadata::Delete: index 7 is out of bounds for metadata of "
+        "size 0";
     ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message, metadata.Delete(7));
   }
   {
@@ -229,21 +229,25 @@ TEST(KeyValueMetadataTest, Delete) {
 }
 
 TEST(KeyValueMetadataTest, DuplicateKeys) {
-  KeyValueMetadata metadata1;
-  metadata1.Append("k", "v1");
-  metadata1.Append("k", "v2");
-  std::string result = metadata1.ToString();
-  std::string expected = R"(
--- metadata --
-k: v2)";
-  ASSERT_EQ(result, expected);
-
-  ASSERT_EQ(metadata1.FindKey("k"), 0);
-
-  KeyValueMetadata metadata2;
-  metadata2.Append("k", "v2");
-
-  ASSERT_TRUE(metadata1.Equals(metadata2));
+  {  // FindKey method
+    KeyValueMetadata metadata;
+    metadata.Append("k", "v1");
+    metadata.Append("k", "v2");
+    ASSERT_EQ(metadata.FindKey("k"), 0);
+  }
+  {  // Append method
+    KeyValueMetadata metadata1, metadata2;
+    metadata1.Append("k", "v1");
+    metadata1.Append("k", "v2");
+    metadata2.Append("k", "v2");
+    ASSERT_EQ(metadata1.ToString(), metadata2.ToString());
+  }
+  {  // KeyValueMetadata(vector<string> keys, vector<string> values) constructor
+    KeyValueMetadata metadata({"k", "other", "k"}, {"v1", "x", "v2"});
+    ASSERT_EQ(metadata.size(), 2);
+    ASSERT_EQ(metadata.FindKey("k"), 0);
+    ASSERT_EQ(metadata.value(0), "v2");
+  }
 }
 
 }  // namespace arrow

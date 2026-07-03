@@ -62,26 +62,18 @@ KeyValueMetadata::KeyValueMetadata(
     const std::unordered_map<std::string, std::string>& map)
     : keys_(UnorderedMapKeys(map)), values_(UnorderedMapValues(map)) {
   ARROW_CHECK_EQ(keys_.size(), values_.size());
-  std::vector<std::string> unique_keys, unique_values;
+  map_.reserve(keys_.size());
   for (size_t i = 0; i < keys_.size(); i++) {
-    if (map_.find(keys_[i]) == map_.end()) {
-      map_[keys_[i]] = i;
-      unique_keys.push_back(keys_[i]);
-      unique_values.push_back(values_[i]);
-    } else {
-      unique_values[map_[keys_[i]]] = values_[i];
-    }
+    map_[keys_[i]] = i;
   }
-  keys_ = std::move(unique_keys);
-  values_ = std::move(unique_values);
 }
 
 KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
-                                   std::vector<std::string> values)
-    : keys_(std::move(keys)), values_(std::move(values)) {
+                                   std::vector<std::string> values) {
   ARROW_CHECK_EQ(keys.size(), values.size());
-  for (size_t i = 0; i < keys_.size(); i++) {
-    map_[keys_[i]] = i;
+  reserve(static_cast<int64_t>(keys.size()));
+  for (size_t i = 0; i < keys.size(); ++i) {
+    Append(std::move(keys[i]), std::move(values[i]));
   }
 }
 
@@ -106,8 +98,7 @@ void KeyValueMetadata::Append(std::string key, std::string value) {
   if (it != map_.end()) {
     values_[it->second] = std::move(value);
   } else {
-    size_t new_index = keys_.size();
-    map_[key] = new_index;
+    map_[key] = keys_.size();
     keys_.push_back(std::move(key));
     values_.push_back(std::move(value));
   }
@@ -129,7 +120,7 @@ Status KeyValueMetadata::Delete(int64_t index) {
                               "of size ",
                               keys_.size());
   }
-  map_.erase(map_.find(keys_[index]));
+  map_.erase(keys_[index]);
   keys_.erase(keys_.begin() + index);
   values_.erase(values_.begin() + index);
   size_t n = keys_.size();
@@ -142,6 +133,9 @@ Status KeyValueMetadata::Delete(int64_t index) {
 Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
   std::sort(indices.begin(), indices.end());
   const int64_t size = static_cast<int64_t>(keys_.size());
+  for (int64_t idx : indices) {
+    map_.erase(keys_[idx]);
+  }
   indices.push_back(size);
 
   int64_t shift = 0;
@@ -156,6 +150,7 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
     for (int64_t index = start; index < stop; ++index) {
       keys_[index - shift] = std::move(keys_[index]);
       values_[index - shift] = std::move(values_[index]);
+      map_[keys_[index - shift]] = index - shift;
     }
   }
   keys_.resize(size - shift);
