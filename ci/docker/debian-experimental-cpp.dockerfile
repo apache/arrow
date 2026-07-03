@@ -58,6 +58,7 @@ RUN if [ -n "${gcc}" ]; then \
         libkrb5-dev \
         libldap-dev \
         liblz4-dev \
+        libncurses-dev \
         libnghttp2-dev \
         libopentelemetry-proto-dev \
         libprotobuf-dev \
