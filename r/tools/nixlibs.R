@@ -526,7 +526,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   # Set up make for parallel building
   # CRAN policy says not to use more than 2 cores during checks
   # If you have more and want to use more, set MAKEFLAGS or NOT_CRAN
-  ncores <- parallel::detectCores()
+  ncores <- max(1, parallel::detectCores(), na.rm = TRUE)
   if (!not_cran) {
     ncores <- min(ncores, 2)
   }
