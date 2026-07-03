@@ -117,8 +117,9 @@ ${CMAKE_WRAPPER} ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
 sanitize_makeflags() {
   printf '%s\n' "$1" |
     sed -E \
-      -e 's/(^|[[:space:]])-j[[:space:]]*[0-9]*([[:space:]]|$)/ /g' \
-      -e 's/(^|[[:space:]])([[:alpha:]]*)j[0-9]*([[:alpha:]]*)($|[[:space:]])/ \2\3 /g' \
+      -e 's/(^|[[:space:]])-j[[:space:]]+[0-9]*([[:space:]]|$)/ /g' \
+      -e 's/(^|[[:space:]])-j[^[:space:]]*([[:space:]]|$)/ /g' \
+      -e 's/(^|[[:space:]])([[:alpha:]]*)j[[:alnum:]]*([[:alpha:]]*)($|[[:space:]])/ \2\3 /g' \
       -e 's/[[:space:]]+/ /g' \
       -e 's/^ //; s/ $//'
 }
