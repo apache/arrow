@@ -228,4 +228,22 @@ TEST(KeyValueMetadataTest, Delete) {
   }
 }
 
+TEST(KeyValueMetadataTest, DuplicateKeys) {
+  KeyValueMetadata metadata1;
+  metadata1.Append("k", "v1");
+  metadata1.Append("k", "v2");
+  std::string result = metadata1.ToString();
+  std::string expected = R"(
+-- metadata --
+k: v2)";
+  ASSERT_EQ(result, expected);
+
+  ASSERT_EQ(metadata1.FindKey("k"), 0);
+
+  KeyValueMetadata metadata2;
+  metadata2.Append("k", "v2");
+
+  ASSERT_TRUE(metadata1.Equals(metadata2));
+}
+
 }  // namespace arrow
