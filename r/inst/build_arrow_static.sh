@@ -114,10 +114,7 @@ ${CMAKE_WRAPPER} ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G "${CMAKE_GENERATOR:-Unix Makefiles}" \
     ${SOURCE_DIR}
 
-SANITIZED_MAKEFLAGS="${MAKEFLAGS/-jNA/}"
-printf 'MAKEFLAGS before sanitize: %s\n' "${MAKEFLAGS:-}"
-printf 'MAKEFLAGS after sanitize: %s\n' "${SANITIZED_MAKEFLAGS}"
-MAKEFLAGS="${SANITIZED_MAKEFLAGS}" ${CMAKE} --build . --target install -- -j"${N_JOBS}"
+MAKEFLAGS="${MAKEFLAGS/-jNA/}" ${CMAKE} --build . --target install -- -j $N_JOBS
 
 if command -v sccache &> /dev/null; then
   echo "=== sccache stats after the build ==="
