@@ -332,6 +332,49 @@ class TestSetBitRunReader : public ::testing::Test {
     AssertBitRuns(buffer.data(), start_offset, length, expected);
   }
 
+  void AssertVisitTwoBitRuns(const uint8_t* left_data, int64_t left_offset,
+                             const uint8_t* right_data, int64_t right_offset,
+                             int64_t length,
+                             const std::vector<int64_t>& expected_positions,
+                             const std::vector<BitRun>& expected_runs,
+                             const std::vector<SetBitRun>& expected_set_runs) {
+    std::vector<int64_t> positions;
+    std::vector<BitRun> runs;
+    ASSERT_OK(VisitTwoBitRuns(left_data, left_offset, right_data, right_offset, length,
+                              [&](int64_t position, int64_t run_length, bool set) {
+                                positions.push_back(position);
+                                runs.push_back({run_length, set});
+                                return Status::OK();
+                              }));
+    ASSERT_THAT(positions, ElementsAreArray(expected_positions));
+    ASSERT_THAT(runs, ElementsAreArray(expected_runs));
+
+    positions.clear();
+    runs.clear();
+    VisitTwoBitRunsVoid(left_data, left_offset, right_data, right_offset, length,
+                        [&](int64_t position, int64_t run_length, bool set) {
+                          positions.push_back(position);
+                          runs.push_back({run_length, set});
+                        });
+    ASSERT_THAT(positions, ElementsAreArray(expected_positions));
+    ASSERT_THAT(runs, ElementsAreArray(expected_runs));
+
+    std::vector<SetBitRun> set_runs;
+    ASSERT_OK(VisitTwoSetBitRuns(left_data, left_offset, right_data, right_offset, length,
+                                 [&](int64_t position, int64_t run_length) {
+                                   set_runs.push_back({position, run_length});
+                                   return Status::OK();
+                                 }));
+    ASSERT_THAT(set_runs, ElementsAreArray(expected_set_runs));
+
+    set_runs.clear();
+    VisitTwoSetBitRunsVoid(left_data, left_offset, right_data, right_offset, length,
+                           [&](int64_t position, int64_t run_length) {
+                             set_runs.push_back({position, run_length});
+                           });
+    ASSERT_THAT(set_runs, ElementsAreArray(expected_set_runs));
+  }
+
   struct Range {
     int64_t offset;
     int64_t length;
@@ -487,19 +530,47 @@ TEST_F(TestSetBitRunReader, Random) {
 TEST_F(TestSetBitRunReader, VisitTwoBitRuns) {
   auto left = BitmapFromString("11110000 11111100");
   auto right = BitmapFromString("11001100 00111111");
+  const int64_t left_offset = 1;
+  const int64_t right_offset = 2;
+  const int64_t length = 12;
 
-  std::vector<int64_t> positions;
-  std::vector<BitRun> runs;
-  ASSERT_OK(VisitTwoBitRuns(left->data(), /*left_offset=*/1, right->data(),
-                            /*right_offset=*/2, /*length=*/12,
-                            [&](int64_t position, int64_t length, bool set) {
-                              positions.push_back(position);
-                              runs.push_back({length, set});
-                              return Status::OK();
-                            }));
-  ASSERT_THAT(positions, ElementsAreArray({0, 2, 3, 8}));
-  ASSERT_THAT(runs, ElementsAreArray({BitRun{2, false}, BitRun{1, true}, BitRun{5, false},
-                                      BitRun{4, true}}));
+  // With left_offset = 1 and right_offset = 2:
+  // position:  0 1 2 3 4 5 6 7 8 9 10 11
+  // left[+1]:  1 1 1 0 0 0 0 1 1 1  1  1
+  // right[+2]: 0 0 1 1 0 0 0 0 1 1  1  1
+  // AND:       0 0 1 0 0 0 0 0 1 1  1  1
+  const std::vector<int64_t> expected_positions = {0, 2, 3, 8};
+  const std::vector<BitRun> expected_runs = {{.length = 2, .set = false},
+                                             {.length = 1, .set = true},
+                                             {.length = 5, .set = false},
+                                             {.length = 4, .set = true}};
+  const std::vector<SetBitRun> expected_set_runs = {{.position = 2, .length = 1},
+                                                    {.position = 8, .length = 4}};
+
+  AssertVisitTwoBitRuns(left->data(), left_offset, right->data(), right_offset, length,
+                        expected_positions, expected_runs, expected_set_runs);
+}
+
+TEST_F(TestSetBitRunReader, VisitTwoBitRunsWithNullBitmap) {
+  auto bitmap = BitmapFromString("01101101");
+  const int64_t left_offset = 0;
+  const int64_t right_offset = 1;
+  const int64_t length = 6;
+
+  // With a null left bitmap and right_offset = 1:
+  // left all set: 1 1 1 1 1 1
+  // right[1..6]:  1 1 0 1 1 0
+  // AND:          1 1 0 1 1 0
+  const std::vector<int64_t> expected_positions = {0, 2, 3, 5};
+  const std::vector<BitRun> expected_runs = {{.length = 2, .set = true},
+                                             {.length = 1, .set = false},
+                                             {.length = 2, .set = true},
+                                             {.length = 1, .set = false}};
+  const std::vector<SetBitRun> expected_set_runs = {{.position = 0, .length = 2},
+                                                    {.position = 3, .length = 2}};
+
+  AssertVisitTwoBitRuns(nullptr, left_offset, bitmap->data(), right_offset, length,
+                        expected_positions, expected_runs, expected_set_runs);
 }
 
 TEST_F(TestSetBitRunReader, VisitTwoBitRunsFalseTail) {
@@ -534,98 +605,6 @@ TEST_F(TestSetBitRunReader, VisitTwoBitRunsNoOverlap) {
                             }));
   ASSERT_THAT(positions, ElementsAreArray({0}));
   ASSERT_THAT(runs, ElementsAreArray({BitRun{8, false}}));
-}
-
-TEST_F(TestSetBitRunReader, VisitTwoBitRunsWithNullBitmap) {
-  auto bitmap = BitmapFromString("11110000");
-
-  std::vector<int64_t> positions;
-  std::vector<BitRun> runs;
-  ASSERT_OK(VisitTwoBitRuns(nullptr, /*left_offset=*/0, bitmap->data(),
-                            /*right_offset=*/0, /*length=*/8,
-                            [&](int64_t position, int64_t length, bool set) {
-                              positions.push_back(position);
-                              runs.push_back({length, set});
-                              return Status::OK();
-                            }));
-  ASSERT_THAT(positions, ElementsAreArray({0, 4}));
-  ASSERT_THAT(runs, ElementsAreArray({BitRun{4, true}, BitRun{4, false}}));
-}
-
-TEST_F(TestSetBitRunReader, VisitTwoSetBitRuns) {
-  auto left = BitmapFromString("11110000 11111100");
-  auto right = BitmapFromString("11001100 00111111");
-
-  std::vector<SetBitRun> runs;
-  ASSERT_OK(VisitTwoSetBitRuns(left->data(), /*left_offset=*/1, right->data(),
-                               /*right_offset=*/2, /*length=*/12,
-                               [&](int64_t position, int64_t length) {
-                                 runs.push_back({position, length});
-                                 return Status::OK();
-                               }));
-  ASSERT_THAT(runs, ElementsAreArray({SetBitRun{2, 1}, SetBitRun{8, 4}}));
-}
-
-TEST_F(TestSetBitRunReader, VisitTwoSetBitRunsWithNullBitmap) {
-  auto bitmap = BitmapFromString("01101101");
-
-  std::vector<SetBitRun> runs;
-  ASSERT_OK(VisitTwoSetBitRuns(nullptr, /*left_offset=*/0, bitmap->data(),
-                               /*right_offset=*/1, /*length=*/6,
-                               [&](int64_t position, int64_t length) {
-                                 runs.push_back({position, length});
-                                 return Status::OK();
-                               }));
-  ASSERT_THAT(runs, ElementsAreArray({SetBitRun{0, 2}, SetBitRun{3, 2}}));
-}
-
-TEST_F(TestSetBitRunReader, VisitTwoBitRunsVoid) {
-  auto left = BitmapFromString("11110000 11111100");
-  auto right = BitmapFromString("11001100 00111111");
-
-  std::vector<int64_t> positions;
-  std::vector<BitRun> runs;
-  VisitTwoBitRunsVoid(left->data(), /*left_offset=*/1, right->data(),
-                      /*right_offset=*/2, /*length=*/12,
-                      [&](int64_t position, int64_t length, bool set) {
-                        positions.push_back(position);
-                        runs.push_back({length, set});
-                      });
-  // With left_offset = 1 and right_offset = 2:
-  // position:  0 1 2 3 4 5 6 7 8 9 10 11
-  // left[+1]:  1 1 1 0 0 0 0 1 1 1  1  1
-  // right[+2]: 0 0 1 1 0 0 0 0 1 1  1  1
-  // AND:       0 0 1 0 0 0 0 0 1 1  1  1
-  ASSERT_THAT(positions, ElementsAreArray({0, 2, 3, 8}));
-  ASSERT_THAT(runs, ElementsAreArray({BitRun{2, false}, BitRun{1, true}, BitRun{5, false},
-                                      BitRun{4, true}}));
-}
-
-TEST_F(TestSetBitRunReader, VisitTwoSetBitRunsVoid) {
-  auto left = BitmapFromString("11110000 11111100");
-  auto right = BitmapFromString("11001100 00111111");
-
-  std::vector<SetBitRun> runs;
-  VisitTwoSetBitRunsVoid(
-      left->data(), /*left_offset=*/1, right->data(),
-      /*right_offset=*/2, /*length=*/12,
-      [&](int64_t position, int64_t length) { runs.push_back({position, length}); });
-  ASSERT_THAT(runs, ElementsAreArray({SetBitRun{2, 1}, SetBitRun{8, 4}}));
-}
-
-TEST_F(TestSetBitRunReader, VisitTwoSetBitRunsVoidWithNullBitmap) {
-  auto bitmap = BitmapFromString("01101101");
-
-  std::vector<SetBitRun> runs;
-  VisitTwoSetBitRunsVoid(
-      nullptr, /*left_offset=*/0, bitmap->data(),
-      /*right_offset=*/1, /*length=*/6,
-      [&](int64_t position, int64_t length) { runs.push_back({position, length}); });
-  // With a null left bitmap and right_offset = 1:
-  // left all set: 1 1 1 1 1 1
-  // right[1..6]:  1 1 0 1 1 0
-  // AND:          1 1 0 1 1 0
-  ASSERT_THAT(runs, ElementsAreArray({SetBitRun{0, 2}, SetBitRun{3, 2}}));
 }
 
 // Tests for BitRunReader.
