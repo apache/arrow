@@ -148,8 +148,8 @@ if [ "${PHASE_BUILD_MSI}" -gt 0 ]; then
   run_id=$(echo "${workflow_url}" | grep -Eo 'actions/runs/[0-9]+' | grep -Eo '[0-9]+$' || true)
   if [ -z "${run_id}" ]; then
     echo "Failed to extract run ID from the above output. This is probably a" \
-         "bug. If the workflow was started, you can watch it manually and" \
-         "move onto the PHASE_SIGN_MSI step once it's done."
+      "bug. If the workflow was started, you can watch it manually and" \
+      "move onto the PHASE_SIGN_MSI step once it's done."
     exit 1
   fi
 
