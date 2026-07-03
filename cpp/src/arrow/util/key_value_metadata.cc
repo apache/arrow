@@ -122,6 +122,8 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
                               "of size ",
                               size);
   }
+  // Remove duplicate indices, otherwise the shifting logic below would move entries 
+  // to incorrect (potentially negative) positions
   indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
   indices.push_back(size);
 
