@@ -24,6 +24,7 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bit_block_counter.h"
@@ -35,13 +36,14 @@ namespace arrow::internal {
 
 struct NestedBitmapTraversalBenchmark {
   benchmark::State& state;
+  MemoryPool* memory_pool;
   int64_t parent_length;
   std::shared_ptr<ListArray> list_array;
   std::shared_ptr<Buffer> outer_bitmap;
   int64_t expected;
 
   explicit NestedBitmapTraversalBenchmark(benchmark::State& state)
-      : state(state), parent_length(1 << 20) {
+      : state(state), memory_pool(default_memory_pool()), parent_length(1 << 20) {
     constexpr double kValuesNullProbability = 0.1;
     random::RandomArrayGenerator rng(/*seed=*/0);
     const auto parent_null_probability = 1. / static_cast<double>(state.range(0));
@@ -82,9 +84,8 @@ struct NestedBitmapTraversalBenchmark {
     const auto& values = static_cast<const Int8Array&>(*list_array->values());
     for (auto _ : state) {
       std::shared_ptr<Buffer> visible_bitmap;
-      ABORT_NOT_OK(BitmapAnd(default_memory_pool(), outer_bitmap_data,
-                             /*left_offset=*/0, list_bitmap, /*right_offset=*/0,
-                             parent_length,
+      ABORT_NOT_OK(BitmapAnd(memory_pool, outer_bitmap_data, /*left_offset=*/0,
+                             list_bitmap, /*right_offset=*/0, parent_length,
                              /*out_offset=*/0)
                        .Value(&visible_bitmap));
 
@@ -136,7 +137,8 @@ struct NestedBitmapTraversalBenchmark {
               const int64_t child_end = list_array->value_offset(position + length);
               result += CountValues(values, child_start, child_end - child_start);
             }
-          });
+          },
+          memory_pool);
       CheckResult(result);
     }
     state.SetItemsProcessed(state.iterations() * parent_length);
@@ -150,11 +152,13 @@ struct NestedBitmapTraversalBenchmark {
       int64_t result = 0;
       VisitTwoSetBitRunsVoid(
           outer_bitmap_data, /*left_offset=*/0, list_bitmap,
-          /*right_offset=*/0, parent_length, [&](int64_t position, int64_t length) {
+          /*right_offset=*/0, parent_length,
+          [&](int64_t position, int64_t length) {
             const int64_t child_start = list_array->value_offset(position);
             const int64_t child_end = list_array->value_offset(position + length);
             result += CountValues(values, child_start, child_end - child_start);
-          });
+          },
+          memory_pool);
       CheckResult(result);
     }
     state.SetItemsProcessed(state.iterations() * parent_length);
