@@ -21,51 +21,53 @@
 #include <cstdlib>
 #include <memory>
 
-#include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-#include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow::internal {
 
 struct NestedBitmapTraversalBenchmark {
   benchmark::State& state;
-  int64_t bitmap_length;
-  std::shared_ptr<StructArray> outer_struct;
-  std::shared_ptr<StructArray> inner_struct;
-  std::shared_ptr<Array> values;
-  const Int8Array* values_int8;
+  int64_t parent_length;
+  std::shared_ptr<ListArray> list_array;
+  std::shared_ptr<Buffer> outer_bitmap;
   int64_t expected;
 
   explicit NestedBitmapTraversalBenchmark(benchmark::State& state)
-      : state(state), bitmap_length(1 << 20) {
+      : state(state), parent_length(1 << 20) {
+    constexpr double kValuesNullProbability = 0.1;
     random::RandomArrayGenerator rng(/*seed=*/0);
     const auto parent_null_probability = 1. / static_cast<double>(state.range(0));
-    const auto values_null_probability = 1. / static_cast<double>(state.range(1));
+    const auto avg_list_length = state.range(1);
 
-    values = rng.Int8(bitmap_length, 0, 100, values_null_probability);
-    values_int8 = static_cast<const Int8Array*>(values.get());
-    auto inner_null_bitmap = rng.NullBitmap(bitmap_length, parent_null_probability);
-    auto outer_null_bitmap = rng.NullBitmap(bitmap_length, parent_null_probability);
-    ABORT_NOT_OK(
-        StructArray::Make({values}, {field("b", int8())}, std::move(inner_null_bitmap))
-            .Value(&inner_struct));
-    ABORT_NOT_OK(StructArray::Make({inner_struct}, {field("a", inner_struct->type())},
-                                   std::move(outer_null_bitmap))
-                     .Value(&outer_struct));
+    auto child_values =
+        rng.Int8(parent_length * avg_list_length, 0, 100, kValuesNullProbability);
+    list_array = std::static_pointer_cast<ListArray>(
+        rng.List(*child_values, parent_length, parent_null_probability,
+                 /*force_empty_nulls=*/false));
+    outer_bitmap = rng.NullBitmap(parent_length, parent_null_probability);
+    const auto& values = static_cast<const Int8Array&>(*list_array->values());
 
     expected = 0;
-    for (int64_t i = 0; i < bitmap_length; ++i) {
-      if (outer_struct->IsValid(i) && inner_struct->IsValid(i) &&
-          values_int8->IsValid(i)) {
-        ++expected;
+    for (int64_t i = 0; i < parent_length; ++i) {
+      if (bit_util::GetBit(outer_bitmap->data(), i) && list_array->IsValid(i)) {
+        const int64_t child_start = list_array->value_offset(i);
+        const int64_t child_end = list_array->value_offset(i + 1);
+        expected += CountValues(values, child_start, child_end - child_start);
       }
     }
+  }
+
+  static int64_t CountValues(const Int8Array& values, int64_t offset, int64_t length) {
+    const uint8_t* values_bitmap = values.null_bitmap_data();
+    return CountSetBits(values_bitmap, values.offset() + offset, length);
   }
 
   void CheckResult(int64_t result) const {
@@ -74,61 +76,94 @@ struct NestedBitmapTraversalBenchmark {
     }
   }
 
+  void BenchBitmapAnd() {
+    const uint8_t* outer_bitmap_data = outer_bitmap->data();
+    const uint8_t* list_bitmap = list_array->null_bitmap_data();
+    const auto& values = static_cast<const Int8Array&>(*list_array->values());
+    for (auto _ : state) {
+      std::shared_ptr<Buffer> visible_bitmap;
+      ABORT_NOT_OK(BitmapAnd(default_memory_pool(), outer_bitmap_data,
+                             /*left_offset=*/0, list_bitmap, /*right_offset=*/0,
+                             parent_length,
+                             /*out_offset=*/0)
+                       .Value(&visible_bitmap));
+
+      int64_t result = 0;
+      VisitSetBitRunsVoid(
+          visible_bitmap->data(), /*offset=*/0, parent_length,
+          [&](int64_t position, int64_t length) {
+            const int64_t child_start = list_array->value_offset(position);
+            const int64_t child_end = list_array->value_offset(position + length);
+            result += CountValues(values, child_start, child_end - child_start);
+          });
+      CheckResult(result);
+    }
+    state.SetItemsProcessed(state.iterations() * parent_length);
+  }
+
   void BenchVisitTwoBitBlocks() {
-    const auto* left_bitmap = outer_struct->null_bitmap_data();
-    const auto* right_bitmap = inner_struct->null_bitmap_data();
+    const uint8_t* outer_bitmap_data = outer_bitmap->data();
+    const uint8_t* list_bitmap = list_array->null_bitmap_data();
+    const auto& values = static_cast<const Int8Array&>(*list_array->values());
     for (auto _ : state) {
       int64_t result = 0;
       VisitTwoBitBlocksVoid(
-          left_bitmap, /*left_offset=*/0, right_bitmap, /*right_offset=*/0, bitmap_length,
+          outer_bitmap_data, /*left_offset=*/0, list_bitmap, /*right_offset=*/0,
+          parent_length,
           [&](int64_t position) {
-            if (!values_int8->IsNull(position)) {
-              ++result;
-            }
+            const int64_t child_start = list_array->value_offset(position);
+            const int64_t child_end = list_array->value_offset(position + 1);
+            result += CountValues(values, child_start, child_end - child_start);
           },
           [] {});
       CheckResult(result);
     }
-    state.SetItemsProcessed(state.iterations() * bitmap_length);
+    state.SetItemsProcessed(state.iterations() * parent_length);
   }
 
   void BenchVisitTwoBitRuns() {
-    const auto* left_bitmap = outer_struct->null_bitmap_data();
-    const auto* right_bitmap = inner_struct->null_bitmap_data();
-    const auto* values_bitmap = values_int8->null_bitmap_data();
+    const uint8_t* outer_bitmap_data = outer_bitmap->data();
+    const uint8_t* list_bitmap = list_array->null_bitmap_data();
+    const auto& values = static_cast<const Int8Array&>(*list_array->values());
     for (auto _ : state) {
       int64_t result = 0;
-      VisitTwoBitRunsVoid(left_bitmap, /*left_offset=*/0, right_bitmap,
-                          /*right_offset=*/0, bitmap_length,
-                          [&](int64_t position, int64_t length, bool set) {
-                            if (set) {
-                              result +=
-                                  CountSetBits(values_bitmap,
-                                               values_int8->offset() + position, length);
-                            }
-                          });
-      CheckResult(result);
-    }
-    state.SetItemsProcessed(state.iterations() * bitmap_length);
-  }
-
-  void BenchVisitTwoSetBitRuns() {
-    const auto* left_bitmap = outer_struct->null_bitmap_data();
-    const auto* right_bitmap = inner_struct->null_bitmap_data();
-    const auto* values_bitmap = values_int8->null_bitmap_data();
-    for (auto _ : state) {
-      int64_t result = 0;
-      VisitTwoSetBitRunsVoid(
-          left_bitmap, /*left_offset=*/0, right_bitmap,
-          /*right_offset=*/0, bitmap_length, [&](int64_t position, int64_t length) {
-            result +=
-                CountSetBits(values_bitmap, values_int8->offset() + position, length);
+      VisitTwoBitRunsVoid(
+          outer_bitmap_data, /*left_offset=*/0, list_bitmap,
+          /*right_offset=*/0, parent_length,
+          [&](int64_t position, int64_t length, bool set) {
+            if (set) {
+              const int64_t child_start = list_array->value_offset(position);
+              const int64_t child_end = list_array->value_offset(position + length);
+              result += CountValues(values, child_start, child_end - child_start);
+            }
           });
       CheckResult(result);
     }
-    state.SetItemsProcessed(state.iterations() * bitmap_length);
+    state.SetItemsProcessed(state.iterations() * parent_length);
+  }
+
+  void BenchVisitTwoSetBitRuns() {
+    const uint8_t* outer_bitmap_data = outer_bitmap->data();
+    const uint8_t* list_bitmap = list_array->null_bitmap_data();
+    const auto& values = static_cast<const Int8Array&>(*list_array->values());
+    for (auto _ : state) {
+      int64_t result = 0;
+      VisitTwoSetBitRunsVoid(
+          outer_bitmap_data, /*left_offset=*/0, list_bitmap,
+          /*right_offset=*/0, parent_length, [&](int64_t position, int64_t length) {
+            const int64_t child_start = list_array->value_offset(position);
+            const int64_t child_end = list_array->value_offset(position + length);
+            result += CountValues(values, child_start, child_end - child_start);
+          });
+      CheckResult(result);
+    }
+    state.SetItemsProcessed(state.iterations() * parent_length);
   }
 };
+
+static void NestedBitmapAndCount(benchmark::State& state) {
+  NestedBitmapTraversalBenchmark(state).BenchBitmapAnd();
+}
 
 static void NestedVisitTwoBitBlocksCount(benchmark::State& state) {
   NestedBitmapTraversalBenchmark(state).BenchVisitTwoBitBlocks();
@@ -143,10 +178,10 @@ static void NestedVisitTwoSetBitRunsCount(benchmark::State& state) {
 }
 
 static void SetArgs(benchmark::internal::Benchmark* benchmark) {
-  benchmark->ArgsProduct(
-      {benchmark::CreateRange(2, 1 << 16, 8), benchmark::CreateRange(2, 1 << 16, 8)});
+  benchmark->ArgsProduct({benchmark::CreateRange(2, 1 << 16, 8), {1, 4, 16}});
 }
 
+BENCHMARK(NestedBitmapAndCount)->Apply(SetArgs);
 BENCHMARK(NestedVisitTwoBitBlocksCount)->Apply(SetArgs);
 BENCHMARK(NestedVisitTwoBitRunsCount)->Apply(SetArgs);
 BENCHMARK(NestedVisitTwoSetBitRunsCount)->Apply(SetArgs);
