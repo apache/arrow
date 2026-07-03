@@ -114,30 +114,10 @@ ${CMAKE_WRAPPER} ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G "${CMAKE_GENERATOR:-Unix Makefiles}" \
     ${SOURCE_DIR}
 
-sanitize_makeflags() {
-  printf '%s\n' "$1" |
-    sed -E \
-      -e 's/(^|[[:space:]])-j[[:space:]]+[0-9]*([[:space:]]|$)/ /g' \
-      -e 's/(^|[[:space:]])-j[^[:space:]]*([[:space:]]|$)/ /g' \
-      -e 's/(^|[[:space:]])([[:alpha:]]*)j[[:alnum:]]*([[:alpha:]]*)($|[[:space:]])/ \2\3 /g' \
-      -e 's/[[:space:]]+/ /g' \
-      -e 's/^ //; s/ $//'
-}
-
-env | sort
-SANITIZED_MAKEFLAGS="$(sanitize_makeflags "${MAKEFLAGS:-}")"
-SANITIZED_MFLAGS="$(sanitize_makeflags "${MFLAGS:-}")"
-SANITIZED_GNUMAKEFLAGS="$(sanitize_makeflags "${GNUMAKEFLAGS:-}")"
+SANITIZED_MAKEFLAGS="${MAKEFLAGS/-jNA/}"
 printf 'MAKEFLAGS before sanitize: %s\n' "${MAKEFLAGS:-}"
-printf 'MFLAGS before sanitize: %s\n' "${MFLAGS:-}"
-printf 'GNUMAKEFLAGS before sanitize: %s\n' "${GNUMAKEFLAGS:-}"
 printf 'MAKEFLAGS after sanitize: %s\n' "${SANITIZED_MAKEFLAGS}"
-printf 'MFLAGS after sanitize: %s\n' "${SANITIZED_MFLAGS}"
-printf 'GNUMAKEFLAGS after sanitize: %s\n' "${SANITIZED_GNUMAKEFLAGS}"
-MAKEFLAGS="${SANITIZED_MAKEFLAGS}" \
-MFLAGS="${SANITIZED_MFLAGS}" \
-GNUMAKEFLAGS="${SANITIZED_GNUMAKEFLAGS}" \
-  ${CMAKE} --build . --target install -- -j"${N_JOBS}"
+MAKEFLAGS="${SANITIZED_MAKEFLAGS}" ${CMAKE} --build . --target install -- -j"${N_JOBS}"
 
 if command -v sccache &> /dev/null; then
   echo "=== sccache stats after the build ==="
