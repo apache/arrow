@@ -45,7 +45,16 @@ bool SetEnableSignalStopSource(bool enabled) {
 }
 
 // [[arrow::export]]
-bool CanRunWithCapturedR() { return MainRThread::GetInstance().Executor() == nullptr; }
+bool CanRunWithCapturedR() {
+#ifdef __EMSCRIPTEN__
+  // Threading is not supported under Emscripten/WASM. Always take the
+  // synchronous path to avoid attempting pthread_create which will fail
+  // with "thread constructor failed: Not supported".
+  return false;
+#else
+  return MainRThread::GetInstance().Executor() == nullptr;
+#endif
+}
 
 // [[arrow::export]]
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,

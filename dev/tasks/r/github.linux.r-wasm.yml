@@ -21,7 +21,7 @@
 
 jobs:
   r-universe-wasm:
-    name: "R-universe Wasm build"
+    name: "R-universe Wasm build and test"
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -55,6 +55,15 @@ jobs:
               R -q -e "if (!requireNamespace(\"pak\", quietly = TRUE)) install.packages(\"pak\", repos = \"https://cloud.r-project.org\"); if (!requireNamespace(\"rwasm\", quietly = TRUE)) pak::pak(\"r-wasm/rwasm\"); rwasm::build(\".\")" \
                 2>&1 | tee build-wasm.log
             '
+
+      - name: Smoke-test arrow in webR
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "${PWD}/arrow:/arrow" \
+            -w /tmp \
+            ghcr.io/r-universe-org/build-wasm:latest \
+            bash /arrow/ci/scripts/r_wasm_test.sh /arrow/r
 
       - name: List generated artifacts
         if: always()
