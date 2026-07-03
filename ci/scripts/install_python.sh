@@ -29,7 +29,6 @@ versions=([3.10]=3.10.11
           [3.11]=3.11.9
           [3.12]=3.12.10
           [3.13]=3.13.9
-          [3.13t]=3.13.9
           [3.14]=3.14.0
           [3.14t]=3.14.0)
 
@@ -52,7 +51,7 @@ if [ "$platform" = "macOS" ]; then
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
-    if [[ $2 == "3.13t" ]] || [[ $2 == "3.14t" ]]; then
+    if [[ $2 == "3.14t" ]]; then
         # Extract the base version without 't' suffix
         base_version="${version%t}"
         # See https://github.com/python/cpython/issues/120098#issuecomment-2151122033 for more info on this.
@@ -80,7 +79,7 @@ EOF
     rm "$fname"
 
     python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    if [[ $2 == "3.13t" ]] || [[ $2 == "3.14t" ]]; then
+    if [[ $2 == "3.14t" ]]; then
         base_version="${version%t}"
         python="/Library/Frameworks/PythonT.framework/Versions/${base_version}/bin/python${base_version}t"
     fi

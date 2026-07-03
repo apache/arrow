@@ -70,10 +70,13 @@ if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
   ARROW_JEMALLOC=OFF
   ARROW_MIMALLOC=OFF
   ARROW_S3=OFF
+  ARROW_S3_MODULE=OFF
   ARROW_WITH_OPENTELEMETRY=OFF
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+    echo -e "===\n=== ccache configuration\n==="
+    ccache --show-config
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
 fi
@@ -229,6 +232,7 @@ else
     -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
     -DARROW_S3=${ARROW_S3:-OFF} \
+    -DARROW_S3_MODULE=${ARROW_S3_MODULE:-OFF} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
     -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF} \
     -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \

@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,12 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+# GH-49465: rebuild gRPC with native sync instead of absl::Mutex to avoid the
+# Windows exit hang. See the ODBC Windows job in cpp_extra.yml
+# Dynamic CRT/linkage and release-only to match that job.
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE dynamic)
+set(VCPKG_BUILD_TYPE release)
 
-ARCH=$(uname -m)
-if [ "$ARCH" != "x86_64" ]; then
-  exit 0
-fi
-
-apt update
-apt install -y attr ceph-common ceph-fuse ceph-mds ceph-mgr ceph-mon ceph-osd
+set(VCPKG_C_FLAGS "/DGPR_DISABLE_ABSEIL_SYNC")
+set(VCPKG_CXX_FLAGS "/DGPR_DISABLE_ABSEIL_SYNC")

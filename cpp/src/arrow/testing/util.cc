@@ -112,14 +112,21 @@ Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
   return Status::OK();
 }
 
-Status GetTestResourceRoot(std::string* out) {
-  const char* c_root = std::getenv("ARROW_TEST_DATA");
-  if (!c_root) {
+Result<std::string> GetTestResourceRoot() {
+  auto maybe_var = ::arrow::internal::GetEnvVar("ARROW_TEST_DATA");
+  if (maybe_var.status().IsKeyError()) {
     return Status::IOError(
         "Test resources not found, set ARROW_TEST_DATA to <repo root>/testing/data");
   }
-  *out = std::string(c_root);
-  return Status::OK();
+  return maybe_var;
+}
+
+Result<std::string> GetTestResourcePath(std::string subpath) {
+  ARROW_ASSIGN_OR_RAISE(auto root, GetTestResourceRoot());
+  if (!root.ends_with('/') && !subpath.starts_with('/')) {
+    root += '/';
+  }
+  return root + subpath;
 }
 
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.

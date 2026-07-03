@@ -239,6 +239,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
+    const ColumnDescriptor* descr = row_group_metadata_->schema()->Column(i);
 
     ::arrow::io::ReadRange col_range =
         ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
@@ -263,7 +264,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
-                              always_compressed);
+                              *descr, always_compressed);
     }
 
     // The column is encrypted
@@ -286,7 +287,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                       std::move(meta_decryptor_factory),
                       std::move(data_decryptor_factory)};
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
-                            always_compressed, &ctx);
+                            *descr, always_compressed, &ctx);
   }
 
  private:

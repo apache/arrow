@@ -217,15 +217,15 @@ struct ReplaceMaskImpl<Type, enable_if_null<Type>> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
-    out->value = array;
-    return Status::OK();
+    out->value = array.ToArrayData();
+    return replacements_offset;
   }
   static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
                                        const ArraySpan& mask, int64_t mask_offset,
                                        ExecValue replacements,
                                        int64_t replacements_offset, ExecResult* out) {
-    out->value = array;
-    return Status::OK();
+    out->value = array.ToArrayData();
+    return replacements_offset;
   }
 };
 

@@ -45,11 +45,11 @@ def flatten(node, parents=None):
 
 
 _arch_short_mapping = {
-    'arm64v8': 'arm64',
+    'arm64/v8': 'arm64',
 }
 _arch_alias_mapping = {
     'amd64': 'x86_64',
-    'arm64v8': 'aarch64',
+    'arm64/v8': 'aarch64',
 }
 
 

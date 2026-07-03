@@ -72,30 +72,25 @@ jobs:
           - conda-python-3.12-no-numpy
         include:
           - name: conda-python-docs
-            cache: conda-python-3.11
             image: conda-python-docs
             title: AMD64 Conda Python 3.11 Sphinx & Numpydoc
             python: "3.11"
           - name: conda-python-3.11-nopandas
-            cache: conda-python-3.11
             image: conda-python
             title: AMD64 Conda Python 3.11 Without Pandas
             python: "3.11"
           - name: conda-python-3.10-pandas-1.3.4
-            cache: conda-python-3.10
             image: conda-python-pandas
             title: AMD64 Conda Python 3.10 Pandas 1.3.4
             python: "3.10"
             pandas: "1.3.4"
             numpy: "1.21.2"
           - name: conda-python-3.13-pandas-latest
-            cache: conda-python-3.13
             image: conda-python-pandas
             title: AMD64 Conda Python 3.13 Pandas latest
             python: "3.13"
             pandas: latest
           - name: conda-python-3.12-no-numpy
-            cache: conda-python-3.12
             image: conda-python-no-numpy
             title: AMD64 Conda Python 3.12 without NumPy
             python: "3.12"
@@ -106,17 +101,16 @@ jobs:
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.cache }}-
+          key: python-${{ matrix.name }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -130,6 +124,14 @@ jobs:
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.image }}
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: python-${{ matrix.name }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -186,7 +188,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -198,14 +200,14 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
@@ -221,12 +223,11 @@ jobs:
         id: ccache-info
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
-          restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
+          key: python-ccache-macos-${{ matrix.macos-version }}
       - name: Build
         shell: bash
         run: |
@@ -247,6 +248,13 @@ jobs:
           python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: python-ccache-macos-${{ matrix.macos-version }}
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
@@ -257,6 +265,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
+      CCACHE_DIR: C:/ccache
       PYTHON_CMD: "py -3.13"
     steps:
       - name: Disable Crash Dialogs
@@ -268,7 +277,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -280,7 +289,7 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.3 /usr
+          ci/scripts/install_ccache.sh 4.13.6 /usr
       - name: Setup ccache
         shell: bash
         run: |
@@ -289,23 +298,25 @@ jobs:
         id: path-info
         shell: bash
         run: |
-          echo "CCACHE_DIR=$(ccache --get-config cache_dir)" >> $GITHUB_ENV
           echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: python-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: python-ccache-windows-${{ env.CACHE_VERSION }}-
-        env:
-          # We can invalidate the current cache by updating this.
-          CACHE_VERSION: "2025-09-16.1"
+          key: python-ccache-windows
       - name: Build Arrow C++ and PyArrow
         shell: cmd
         env:
           USR_WINDOWS_DIR: ${{ steps.path-info.outputs.usr-windows-dir }}
         run: |
           call "ci\scripts\python_build.bat" %cd% "%USR_WINDOWS_DIR%"
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: python-ccache-windows
       - name: Test PyArrow
         shell: cmd
         run: |

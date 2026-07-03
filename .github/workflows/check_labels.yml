@@ -28,9 +28,6 @@ on:
       ci-extra-labels:
         description: "The extra CI labels"
         value: ${{ jobs.check-labels.outputs.ci-extra-labels }}
-      force:
-        description: "Whether to force running the jobs"
-        value: ${{ jobs.check-labels.outputs.force }}
 
 permissions:
   contents: read
@@ -43,11 +40,10 @@ jobs:
     timeout-minutes: 5
     outputs:
       ci-extra-labels: ${{ steps.check.outputs.ci-extra-labels }}
-      force: ${{ steps.check.outputs.force }}
     steps:
       - name: Checkout Arrow
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check
@@ -58,9 +54,7 @@ jobs:
         run: |
           set -ex
           case "${GITHUB_EVENT_NAME}" in
-            push|schedule|workflow_dispatch)
-              echo "force=true" >> "${GITHUB_OUTPUT}"
-              ;;
+            # On PRs, extra builds are only triggered manually using labelling
             pull_request)
               {
                 echo "ci-extra-labels<<LABELS"
@@ -70,13 +64,6 @@ jobs:
                   --repo ${GITHUB_REPOSITORY}
                 echo "LABELS"
               } >> "${GITHUB_OUTPUT}"
-              git fetch origin ${GITHUB_BASE_REF}
-              git diff --stat origin/${GITHUB_BASE_REF}..
-              if git diff --stat origin/${GITHUB_BASE_REF}.. | \
-                   grep \
-                     --fixed-strings ".github/workflows/${PARENT_WORKFLOW}.yml" \
-                     --quiet; then
-                echo "force=true" >> "${GITHUB_OUTPUT}"
-              fi
               ;;
+            # Other event types trigger through specific rules in `*_extra.yml`
           esac

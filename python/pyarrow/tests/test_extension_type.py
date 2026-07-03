@@ -1731,6 +1731,72 @@ def test_tensor_array_from_numpy(np_type_str):
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_list_of_ndarrays(np_type_str):
+    np_dtype = np.dtype(np_type_str)
+    tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 3))
+
+    elements = [
+        np.arange(6, dtype=np_dtype).reshape(2, 3),
+        np.arange(6, 12, dtype=np_dtype).reshape(2, 3),
+    ]
+    result = pa.array(elements, type=tensor_type)
+    assert isinstance(result, pa.FixedShapeTensorArray)
+    assert result.type == tensor_type
+    assert len(result) == 2
+
+    expected = pa.FixedShapeTensorArray.from_numpy_ndarray(np.stack(elements))
+    assert result.storage.equals(expected.storage)
+
+    for scalar, original in zip(result, elements):
+        np.testing.assert_array_equal(scalar.to_numpy(), original)
+
+    tensor_3d = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 2, 3))
+    elements_3d = [np.arange(12, dtype=np_dtype).reshape(2, 2, 3)]
+    result_3d = pa.array(elements_3d, type=tensor_3d)
+    assert result_3d.type == tensor_3d
+    np.testing.assert_array_equal(result_3d[0].to_numpy(), elements_3d[0])
+
+    result_with_null = pa.array([elements[0], None], type=tensor_type)
+    assert result_with_null.null_count == 1
+    assert result_with_null[1].as_py() is None
+
+    with pytest.raises(ValueError, match="shape"):
+        pa.array([np.arange(6, dtype=np_dtype).reshape(3, 2)], type=tensor_type)
+
+    permuted_type = pa.fixed_shape_tensor(
+        pa.from_numpy_dtype(np_dtype), (2, 3), permutation=[1, 0])
+    with pytest.raises(NotImplementedError, match="permutation"):
+        pa.array(elements, type=permuted_type)
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_mixed_layout():
+    # C- and F-ordered arrays with the same values must produce the same
+    # result, since the values are always flattened in C order.
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), (2, 3))
+    raw = [[1, 2, 3], [4, 5, 6]]
+    c_arr = np.array(raw, order="C")
+    f_arr = np.array(raw, order="F")
+    assert np.array_equal(c_arr, f_arr)
+    assert c_arr.tobytes("A") != f_arr.tobytes("A")
+
+    same = pa.array([c_arr, c_arr], type=tensor_type)
+    mixed = pa.array([c_arr, f_arr], type=tensor_type)
+    assert mixed.equals(same)
+    assert mixed.storage.to_pylist() == [[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]]
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_of_0d_arrays():
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), ())
+    result = pa.array([np.array(1, dtype=np.int64), np.array(2, dtype=np.int64)],
+                      type=tensor_type)
+    assert result.type == tensor_type
+    assert result.storage.to_pylist() == [[1], [2]]
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
@@ -2120,3 +2186,75 @@ def test_json(storage_type, pickle_module):
                 pa.ArrowInvalid,
                 match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
             pa.json_(storage_type)
+
+
+class ListExtensionType(pa.ExtensionType):
+    """Extension type with a list field for testing int32 overflow."""
+
+    def __init__(self):
+        super().__init__(
+            pa.struct({"data": pa.list_(pa.uint8())}),
+            "pyarrow.tests.ListExtensionType",
+        )
+
+    def __arrow_ext_serialize__(self):
+        return b""
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return cls()
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+@pytest.mark.numpy
+def test_extension_type_list_overflow():
+    """
+    Test that extension types with list fields handle int32 offset overflow.
+    """
+    with registered_extension_type(ListExtensionType()):
+        schema = pa.schema({"col": ListExtensionType()})
+
+        # Create data that exceeds int32 max cumulative values
+        # 5 rows × 500M values = 2.5B > int32 max (2,147,483,647)
+        arr = np.zeros(500_000_000, dtype=np.uint8)
+        rows = [{"col": {"data": arr}} for _ in range(5)]
+
+        result = pa.Table.from_pylist(rows, schema=schema)
+
+        assert result.num_rows == 5
+        assert result.num_columns == 1
+        assert result.schema[0].type == ListExtensionType()
+
+        col = result.column(0)
+        assert isinstance(col, pa.ChunkedArray)
+        assert col.type == ListExtensionType()
+
+        assert col.num_chunks > 1, "Expected multiple chunks due to int32 overflow"
+
+        for chunk_idx in range(col.num_chunks):
+            chunk_data = col.chunk(chunk_idx)
+            assert chunk_data.type == ListExtensionType()
+
+
+@pytest.mark.numpy
+def test_extension_type_no_overflow():
+    """Test that extension types work normally when there's no overflow."""
+    with registered_extension_type(ListExtensionType()):
+        schema = pa.schema({"col": ListExtensionType()})
+
+        # Small data that won't overflow
+        arr = np.array([1, 2, 3], dtype=np.uint8)
+        rows = [{"col": {"data": arr}} for _ in range(3)]
+
+        result = pa.Table.from_pylist(rows, schema=schema)
+
+        assert result.num_rows == 3
+        assert result.num_columns == 1
+        assert result.schema[0].type == ListExtensionType()
+
+        # The column should be a ChunkedArray with a single chunk
+        col = result.column(0)
+        assert isinstance(col, pa.ChunkedArray)
+        assert col.num_chunks == 1
+        assert col.type == ListExtensionType()

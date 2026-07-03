@@ -19,7 +19,6 @@
 click
 
 # bot, crossbow
-github3.py
 jinja2
 jira
 pygit2

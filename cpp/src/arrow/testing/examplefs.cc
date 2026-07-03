@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <any>
+
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/filesystem_library.h"
 #include "arrow/result.h"
+#include "arrow/testing/examplefs.h"
 #include "arrow/util/uri.h"
 
 #include <gtest/gtest.h>
@@ -26,12 +29,41 @@ namespace arrow::fs {
 
 auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "example",
-    [](const Uri& uri, const io::IOContext& io_context,
+    [](const Uri& uri, const FileSystemFactoryOptions& options,
+       const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
       constexpr std::string_view kScheme = "example";
       EXPECT_EQ(uri.scheme(), kScheme);
       auto local_uri = "file" + uri.ToString().substr(kScheme.size());
-      return FileSystemFromUri(local_uri, io_context, out_path);
+      ARROW_ASSIGN_OR_RAISE(auto fs, FileSystemFromUri(local_uri, io_context, out_path));
+      for (const auto& [key, value] : options) {
+        EXPECT_TRUE(value.has_value());
+        if (key == "example_option_string") {
+          if (const auto* s = std::any_cast<std::string>(&value)) {
+            if (out_path != nullptr) *out_path += "/" + *s;
+          } else {
+            ADD_FAILURE() << "example_option_string has wrong type";
+          }
+        } else if (key == "example_option_int") {
+          if (const auto* i = std::any_cast<int>(&value)) {
+            if (out_path != nullptr) *out_path += "/" + std::to_string(*i);
+          } else {
+            ADD_FAILURE() << "example_option_int has wrong type";
+          }
+        } else if (key == "example_typed_option") {
+          if (const auto* opt =
+                  std::any_cast<std::shared_ptr<ExampleTypedOption>>(&value)) {
+            if (out_path != nullptr) {
+              *out_path += "/" + std::to_string((*opt)->value());
+            }
+          } else {
+            ADD_FAILURE() << "example_typed_option has wrong type";
+          }
+        } else {
+          ADD_FAILURE() << "Unexpected option: " << key;
+        }
+      }
+      return fs;
     },
     {});
 

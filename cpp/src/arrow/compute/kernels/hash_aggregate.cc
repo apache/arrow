@@ -1261,7 +1261,8 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             input.buffers[0].data, input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
-              Impl::UpdateGroupWith(reduced, *g, bit_util::GetBit(bitmap, position));
+              Impl::UpdateGroupWith(reduced, *g,
+                                    bit_util::GetBit(bitmap, input.offset + position));
               g++;
             },
             [&] { bit_util::SetBitTo(no_nulls, *g++, false); });

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,8 +17,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @importFrom bit64 print.integer64
-bit64::print.integer64
+set -e
 
-#' @importFrom bit64 str.integer64
-bit64::str.integer64
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <prefix>"
+  exit 1
+fi
+
+version=$1
+prefix=$2
+
+mkdir -p /tmp/bison
+url="https://ftp.gnu.org/gnu/bison/bison-${version}.tar.gz"
+
+wget -q "${url}" -O - | tar -xzf - --directory /tmp/bison --strip-components=1
+
+pushd /tmp/bison
+./configure --prefix="${prefix}"
+make -j$(nproc)
+make install
+popd
+
+rm -rf /tmp/bison

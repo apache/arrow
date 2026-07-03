@@ -29,10 +29,7 @@ endif()
 
 add_subdirectory(odbc_impl)
 if(ARROW_BUILD_TESTS)
-  if(WIN32 OR APPLE)
-    # GH-49552 TODO: Enable Linux test build
-    add_subdirectory(tests)
-  endif()
+  add_subdirectory(tests)
 endif()
 
 arrow_install_all_headers("arrow/flight/sql/odbc")
@@ -132,13 +129,11 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Apache Arrow Flight SQL ODBC Driver")
   set(CPACK_PACKAGE_CONTACT "dev@arrow.apache.org")
 
-  # GH-47876 TODO: set up `arrow_flight_sql_odbc` component for macOS Installer
-  # GH-47877 TODO: set up `arrow_flight_sql_odbc` component for Linux Installer
   if(WIN32)
     # Install ODBC and its Arrow dependencies
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
             DESTINATION bin
-            COMPONENT arrow_flight_sql_odbc)
+            COMPONENT ArrowFlightSQLODBC)
     install(TARGETS arrow_shared
                     arrow_compute_shared
                     arrow_flight_shared
@@ -150,7 +145,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
                     "ext-ms-.*"
                     POST_EXCLUDE_REGEXES
                     ".*system32/.*\\.dll"
-            RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
+            RUNTIME DESTINATION bin COMPONENT ArrowFlightSQLODBC)
 
     set(CPACK_WIX_EXTRA_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-flight-sql-odbc.wxs")
@@ -159,10 +154,69 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
     set(CPACK_WIX_UI_BANNER
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-wix-banner.bmp")
+  else()
+    if(APPLE)
+      set(CPACK_PACKAGE_FILE_NAME
+          "ArrowFlightSQLODBC-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
+      )
+      set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
+
+      set(CPACK_SET_DESTDIR ON)
+      set(CPACK_INSTALL_PREFIX "/Library/ODBC")
+      # Register ODBC after install
+      set(CPACK_POSTFLIGHT_ARROWFLIGHTSQLODBC_SCRIPT
+          "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/postinstall")
+      set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/README.txt")
+      set(CPACK_RESOURCE_FILE_WELCOME
+          "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/welcome.txt")
+
+      set(ODBC_INSTALL_DIR "arrow-odbc/lib")
+      set(ODBC_DOC_INSTALL_DIR "arrow-odbc/doc")
+    else()
+      # Linux
+      # GH-49595: TODO implement DEB installer
+      # GH-47977: TODO implement RPM installer
+      message(STATUS "ODBC_PACKAGE_FORMAT DEB not implemented, see GH-49595")
+      message(STATUS "ODBC_PACKAGE_FORMAT RPM not implemented, see GH-47977")
+    endif()
+
+    # Install ODBC
+    install(TARGETS arrow_flight_sql_odbc_shared
+            DESTINATION "${ODBC_INSTALL_DIR}"
+            COMPONENT ArrowFlightSQLODBC)
+
+    # Install temporary driver registration scripts, they will be removed after driver registration is complete
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/install/unix/install_odbc.sh"
+            DESTINATION "${ODBC_INSTALL_DIR}"
+            COMPONENT ArrowFlightSQLODBC
+            PERMISSIONS OWNER_EXECUTE
+                        OWNER_WRITE
+                        OWNER_READ
+                        GROUP_EXECUTE
+                        GROUP_READ
+                        WORLD_EXECUTE
+                        WORLD_READ)
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/install/unix/install_odbc_ini.sh"
+            DESTINATION "${ODBC_INSTALL_DIR}"
+            COMPONENT ArrowFlightSQLODBC
+            PERMISSIONS OWNER_EXECUTE
+                        OWNER_WRITE
+                        OWNER_READ
+                        GROUP_EXECUTE
+                        GROUP_READ
+                        WORLD_EXECUTE
+                        WORLD_READ)
+
+    # Install documentation files
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../NOTICE.txt"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
+            DESTINATION "${ODBC_DOC_INSTALL_DIR}"
+            COMPONENT Docs)
   endif()
 
   get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-  set(CPACK_COMPONENTS_ALL "arrow_flight_sql_odbc")
+  set(CPACK_COMPONENTS_ALL "ArrowFlightSQLODBC" "Docs")
 
   if(WIN32)
     # WiX msi installer on Windows
@@ -173,14 +227,20 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
     # Upgrade GUID is required to be unchanged for ODBC installer to upgrade
     set(CPACK_WIX_UPGRADE_GUID "DBF27A18-F8BF-423F-9E3A-957414D52C4B")
     set(CPACK_WIX_PRODUCT_GUID "279D087B-93B5-4DC3-BA69-BCF485022A26")
+  elseif(APPLE)
+    # macOS and Linux
+    set(CPACK_GENERATOR "productbuild")
   endif()
-  # GH-47876 TODO: create macOS Installer using cpack
   # GH-47877 TODO: create Linux Installer using cpack
 
   # Load CPack after all CPACK* variables are set
   include(CPack)
-  cpack_add_component(arrow_flight_sql_odbc
+  cpack_add_component(ArrowFlightSQLODBC
                       DISPLAY_NAME "ODBC library"
                       DESCRIPTION "Apache Arrow Flight SQL ODBC library bin, required to install"
+                      REQUIRED)
+  cpack_add_component(Docs
+                      DISPLAY_NAME "Documentation"
+                      DESCRIPTION "Documentation for Apache Arrow Flight SQL ODBC Driver"
                       REQUIRED)
 endif()

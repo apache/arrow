@@ -37,13 +37,13 @@
 %if %{_rhel} >= 9 || %{_amzn} >= 2023
 %define arrow_cmake_builddir %{__cmake_builddir}
 %define arrow_cmake %cmake
-%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
+%define arrow_cmake_build cmake --build %{arrow_cmake_builddir}
 %define arrow_cmake_install %cmake_install
 %else
 %define arrow_cmake_builddir build
 %define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
-%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
-%define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
+%define arrow_cmake_build cmake --build %{arrow_cmake_builddir}
+%define arrow_cmake_install DESTDIR="%{buildroot}" cmake --install %{arrow_cmake_builddir}
 %endif
 
 %define use_bundled_absl (%{_rhel} < 10)
@@ -131,6 +131,11 @@ Apache Arrow is a data processing library for analysis.
 
 %build
 cpp_build_type=release
+if [ -n "${X_SCLS:-}" ]; then
+  ARROW_USE_CCACHE=ON
+else
+  ARROW_USE_CCACHE=OFF
+fi
 cd cpp
 %arrow_cmake \
   -DARROW_AZURE=ON \
@@ -154,7 +159,7 @@ cd cpp
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
-  -DARROW_USE_CCACHE=OFF \
+  -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -170,7 +175,7 @@ cd cpp
 %if %{use_bundled_nlohmann_json}
   -Dnlohmann_json_SOURCE=BUNDLED \
 %endif
-  -G"Unix Makefiles"
+  -GNinja
 %arrow_cmake_build
 cd -
 

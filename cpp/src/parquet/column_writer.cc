@@ -1807,20 +1807,19 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       return;
     }
 
-    auto add_levels = [](std::vector<int64_t>& level_histogram,
-                         std::span<const int16_t> levels, int16_t max_level) {
+    auto add_levels = [](std::vector<int64_t>& level_histogram, const int16_t* levels,
+                         int64_t num_levels, int16_t max_level) {
       if (max_level == 0) {
         return;
       }
       ARROW_DCHECK_EQ(static_cast<size_t>(max_level) + 1, level_histogram.size());
-      ::parquet::UpdateLevelHistogram(levels, level_histogram);
+      std::span<const int16_t> level_span{levels, static_cast<size_t>(num_levels)};
+      ::parquet::UpdateLevelHistogram(level_span, level_histogram);
     };
 
-    add_levels(page_size_statistics_->definition_level_histogram,
-               {def_levels, static_cast<size_t>(num_levels)},
+    add_levels(page_size_statistics_->definition_level_histogram, def_levels, num_levels,
                descr_->max_definition_level());
-    add_levels(page_size_statistics_->repetition_level_histogram,
-               {rep_levels, static_cast<size_t>(num_levels)},
+    add_levels(page_size_statistics_->repetition_level_histogram, rep_levels, num_levels,
                descr_->max_repetition_level());
   }
 

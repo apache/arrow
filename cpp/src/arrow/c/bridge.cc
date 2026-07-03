@@ -608,6 +608,11 @@ struct ArrayExporter {
       export_.variadic_buffer_sizes_.resize(variadic_buffers.size());
       size_t i = 0;
       for (const auto& buf : variadic_buffers) {
+        if (buf == nullptr) {
+          return Status::Invalid("Cannot export array of type ", data->type->ToString(),
+                                 ": null variadic buffer at buffer index #", i + 2,
+                                 " (variadic buffer index #", i, ")");
+        }
         export_.variadic_buffer_sizes_[i++] = buf->size();
       }
       export_.buffers_.back() = export_.variadic_buffer_sizes_.data();

@@ -30,7 +30,6 @@ jobs:
         r_version:
           # We test devel, release, and oldrel in regular CI.
           # This is for older versions
-          - "4.1"
           - "4.2"
           - "4.3"
           - "4.4"

@@ -37,6 +37,7 @@ def _count_docstrings(source):
     return count
 
 
+# TODO(GH-48970): Check stubs ARE present once annotations are complete
 def validate_wheel(path):
     p = Path(path)
     wheels = list(p.glob('*.whl'))
@@ -54,9 +55,9 @@ def validate_wheel(path):
                 info.filename.split("/")[-1] == filename for info in wheel_zip.filelist
             ), f"{filename} is missing from the wheel."
 
-        assert any(
+        assert not any(
             info.filename == "pyarrow/py.typed" for info in wheel_zip.filelist
-        ), "pyarrow/py.typed is missing from the wheel."
+        ), "pyarrow/py.typed is present in the wheel."
 
         source_root = Path(__file__).resolve().parents[2]
         stubs_dir = source_root / "python" / "pyarrow-stubs" / "pyarrow"
@@ -73,10 +74,13 @@ def validate_wheel(path):
             if info.filename.startswith("pyarrow/") and info.filename.endswith(".pyi")
         }
 
-        assert wheel_stub_files == expected_stub_files, (
-            "Wheel .pyi files differ from python/pyarrow-stubs/pyarrow.\n"
+        assert not (wheel_stub_files == expected_stub_files), (
+            "Wheel .pyi files do not differ from python/pyarrow-stubs/pyarrow.\n"
             f"Missing in wheel: {sorted(expected_stub_files - wheel_stub_files)}\n"
             f"Unexpected in wheel: {sorted(wheel_stub_files - expected_stub_files)}"
+        )
+        assert not wheel_stub_files, (
+            f"Wheel contains unexpected .pyi files: {sorted(wheel_stub_files)}"
         )
 
         wheel_docstring_count = sum(
@@ -85,7 +89,7 @@ def validate_wheel(path):
         )
 
         print(f"Found {wheel_docstring_count} docstring(s) in wheel stubs.")
-        assert wheel_docstring_count, "No docstrings found in wheel stub files."
+        assert wheel_docstring_count == 0, "Docstrings found in wheel stub files."
 
     print(f"The wheel: {wheels[0]} seems valid.")
 

@@ -37,5 +37,6 @@ RUN \
     devscripts \
     fakeroot \
     gnupg \
+    libfaketime \
     lsb-release && \
   apt clean

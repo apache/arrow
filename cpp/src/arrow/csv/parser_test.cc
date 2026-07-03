@@ -666,6 +666,17 @@ TEST(BlockParser, MismatchingNumColumns) {
   }
 }
 
+TEST(BlockParser, TooManyValues) {
+  // A first line carrying millions of fields drives num_cols high enough that
+  // the per-chunk value count (rows x columns) would overflow the 31-bit value
+  // offset, so the parser errors out instead of overflowing.
+  uint32_t out_size;
+  BlockParser parser(ParseOptions::Defaults(), /*num_cols=*/5000000);
+  Status st = Parse(parser, MakeCSVData({"a,b\n"}), &out_size);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("exceeds the maximum number of values"), st);
+}
+
 TEST(BlockParser, MismatchingNumColumnsHandler) {
   struct CustomHandler {
     operator InvalidRowHandler() {

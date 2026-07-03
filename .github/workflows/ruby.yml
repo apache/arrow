@@ -59,6 +59,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -81,17 +82,16 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
+          key: ruby-ubuntu-${{ matrix.ubuntu }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -112,6 +112,14 @@ jobs:
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
             ubuntu-ruby
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: ruby-ubuntu-${{ matrix.ubuntu }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -152,7 +160,7 @@ jobs:
       ARROW_WITH_ZSTD: ON
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -163,6 +171,11 @@ jobs:
           # We can remove this once GitHub hosted runners include
           # Meson 1.8.4 or later by default.
           brew update
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           # For Meson.
@@ -181,20 +194,26 @@ jobs:
           ci/scripts/ccache_setup.sh
       - name: ccache info
         id: ccache-info
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+        shell: bash
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
-          restore-keys: ruby-ccache-macos-
+          key: ruby-ccache-macos
       - name: Build C++
         run: |
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Build GLib
         run: |
           ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: ruby-ccache-macos
       - name: Test GLib
         shell: bash
         run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/build
@@ -251,7 +270,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -263,12 +282,15 @@ jobs:
       - name: Setup MSYS2
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: ccache
-          key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-
+          # CCACHE_DIR is set by `msys2_setup.sh`
+          path: ${{ env.CCACHE_DIR }}
+          key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}
+      - name: Show ccache config
+        run: |
+          ccache --show-config
       - name: Build C++
         run: |
           $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
@@ -282,13 +304,20 @@ jobs:
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
           ridk exec bash ci\scripts\c_glib_build.sh "${source_dir}" "${build_dir}"
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}
       - name: RubyGems info
         id: rubygems-info
         run: |
           Write-Output "gem-dir=$(ridk exec gem env gemdir)" | `
             Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - name: Cache RubyGems
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ steps.rubygems-info.outputs.gem-dir }}
           key: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
@@ -353,6 +382,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      CCACHE_DIR: C:/ccache
       CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
@@ -370,7 +400,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -381,27 +411,21 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.3 /usr
+          ci/scripts/install_ccache.sh 4.13.6 /usr
       - name: Setup ccache
         shell: bash
         run: |
           ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: glib-ccache-msvc-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: glib-ccache-msvc-${{ env.CACHE_VERSION }}-
-        env:
-          # We can invalidate the current cache by updating this.
-          CACHE_VERSION: "2024-05-09"
+          path: ${{ env.CCACHE_DIR }}
+          key: ruby-ccache-msvc
+      - name: Show ccache config
+        run: |
+          ccache --show-config
       - name: Checkout vcpkg
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -442,3 +466,10 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ruby-ccache-msvc

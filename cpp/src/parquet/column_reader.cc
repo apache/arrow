@@ -200,10 +200,10 @@ namespace {
 
 // Extracts encoded statistics from V1 and V2 data page headers
 template <typename H>
-EncodedStatistics ExtractStatsFromHeader(const H& header) {
+EncodedStatistics ExtractStatsFromHeader(const H& header, StatisticsMinMaxField min_max) {
   EncodedStatistics page_statistics;
   if (header.__isset.statistics) {
-    page_statistics = FromThrift(header.statistics);
+    page_statistics = FromThrift(header.statistics, min_max);
   }
   return page_statistics;
 }
@@ -225,13 +225,15 @@ class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
                        Compression::type codec, const ReaderProperties& properties,
-                       const CryptoContext* crypto_ctx, bool always_compressed)
+                       const CryptoContext* crypto_ctx, bool always_compressed,
+                       StatisticsMinMaxField stats_min_max_field)
       : properties_(properties),
         stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
         seen_num_values_(0),
-        total_num_values_(total_num_values) {
+        total_num_values_(total_num_values),
+        stats_min_max_field_(stats_min_max_field) {
     if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
@@ -302,6 +304,8 @@ class SerializedPageReader : public PageReader {
   // Number of values in all the data pages
   int64_t total_num_values_;
 
+  StatisticsMinMaxField stats_min_max_field_;
+
   // data_page_aad_ and data_page_header_aad_ contain the AAD for data page and data page
   // header in a single column respectively.
   // While calculating AAD for different pages in a single column the pages AAD is
@@ -349,7 +353,7 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
   if (page_type == PageType::DATA_PAGE) {
     const format::DataPageHeader& header = current_page_header_.data_page_header;
     CheckNumValuesInHeader(header.num_values);
-    *data_page_statistics = ExtractStatsFromHeader(header);
+    *data_page_statistics = ExtractStatsFromHeader(header, stats_min_max_field_);
     seen_num_values_ += header.num_values;
     if (data_page_filter_) {
       const EncodedStatistics* filter_statistics =
@@ -370,7 +374,7 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
         header.repetition_levels_byte_length < 0) {
       throw ParquetException("Invalid page header (negative levels byte length)");
     }
-    *data_page_statistics = ExtractStatsFromHeader(header);
+    *data_page_statistics = ExtractStatsFromHeader(header, stats_min_max_field_);
     seen_num_values_ += header.num_values;
     if (data_page_filter_) {
       const EncodedStatistics* filter_statistics =
@@ -591,6 +595,16 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
 
 }  // namespace
 
+std::unique_ptr<PageReader> PageReader::Open(
+    std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
+    Compression::type codec, const ReaderProperties& properties,
+    const ColumnDescriptor& descr, bool always_compressed, const CryptoContext* ctx) {
+  const auto stats_min_max_field = GetStatisticsMinMaxField(descr);
+  return std::unique_ptr<PageReader>(
+      new SerializedPageReader(std::move(stream), total_num_values, codec, properties,
+                               ctx, always_compressed, stats_min_max_field));
+}
+
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_values,
                                              Compression::type codec,
@@ -598,7 +612,8 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              bool always_compressed,
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), total_num_values, codec, properties, ctx, always_compressed));
+      std::move(stream), total_num_values, codec, properties, ctx, always_compressed,
+      StatisticsMinMaxField::kMinValueMaxValue));
 }
 
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
@@ -607,9 +622,9 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              bool always_compressed,
                                              ::arrow::MemoryPool* pool,
                                              const CryptoContext* ctx) {
-  return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_values, codec,
-                               ReaderProperties(pool), ctx, always_compressed));
+  return std::unique_ptr<PageReader>(new SerializedPageReader(
+      std::move(stream), total_num_values, codec, ReaderProperties(pool), ctx,
+      always_compressed, StatisticsMinMaxField::kMinValueMaxValue));
 }
 
 namespace {

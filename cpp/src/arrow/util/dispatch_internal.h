@@ -93,20 +93,36 @@ constexpr bool DispatchIsStatic(DispatchLevel level) {
 }
 
 /// Return whether all function in the array can be statically dispatched.
+// TODO: remove the #else branch when we no longer have partial C++20 support with CRAN.
 template <typename Func>
 constexpr bool DispatchFullyStatic(const DynamicDispatchTargets<Func> auto& targets) {
+#if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
   return std::ranges::all_of(targets, [](const DynamicDispatchTarget<Func>& trgt) {
     return DispatchIsStatic(trgt.level);
   });
+#else
+  return std::all_of(targets.begin(), targets.end(),
+                     [](const DynamicDispatchTarget<Func>& trgt) {
+                       return DispatchIsStatic(trgt.level);
+                     });
+#endif
 }
 
 /// Return whether any function in the array can be statically dispatched.
 /// Return false on empty sets.
+// TODO: remove the #else branch when we no longer have partial C++20 support with CRAN.
 template <typename Func>
 constexpr bool DispatchHasStatic(const DynamicDispatchTargets<Func> auto& targets) {
+#if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
   return std::ranges::any_of(targets, [](const DynamicDispatchTarget<Func>& trgt) {
     return DispatchIsStatic(trgt.level);
   });
+#else
+  return std::any_of(targets.begin(), targets.end(),
+                     [](const DynamicDispatchTarget<Func>& trgt) {
+                       return DispatchIsStatic(trgt.level);
+                     });
+#endif
 }
 
 /// Find the best dispatch target given a filter.

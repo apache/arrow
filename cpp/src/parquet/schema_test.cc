@@ -660,6 +660,32 @@ TEST(TestColumnDescriptor, TestAttrs) {
   ASSERT_EQ(expected_descr, descr2.ToString());
 }
 
+TEST(TestColumnDescriptor, CanUseStats) {
+  NodePtr node = Int32("name");
+  ColumnDescriptor descr(node, 0, 0);
+  // Type-defined column order is usable when the type has a known sort order.
+  EXPECT_TRUE(descr.can_use_min_max());
+
+  auto primitive_node = std::static_pointer_cast<PrimitiveNode>(node);
+  primitive_node->SetColumnOrder(ColumnOrder::undefined_);
+  // Missing column order falls back to legacy min/max, which are signed.
+  EXPECT_TRUE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  primitive_node->SetColumnOrder(ColumnOrder::unknown_);
+  // Unsupported column order means min/max ordering is unknown to this reader.
+  EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  node = PrimitiveNode::Make("name", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  primitive_node = std::static_pointer_cast<PrimitiveNode>(node);
+  primitive_node->SetColumnOrder(ColumnOrder::undefined_);
+  // Legacy min/max are signed, so they cannot represent unsigned byte ordering.
+  EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  node = PrimitiveNode::Make("name", Repetition::REQUIRED, Type::INT96);
+  // INT96 has no defined sort order in the Parquet type-defined ordering.
+  EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+}
+
 class TestSchemaDescriptor : public ::testing::Test {
  public:
   void setUp() {}
