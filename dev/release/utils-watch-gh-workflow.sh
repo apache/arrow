@@ -21,33 +21,43 @@ set -e
 set -u
 set -o pipefail
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <tag> <workflow>"
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+  echo "Usage: $0 <tag> <workflow> [run-id]"
   exit 1
 fi
 
 TAG=$1
 WORKFLOW=$2
+RUN_ID="${3:-}"
 : "${REPOSITORY:=${GITHUB_REPOSITORY:-apache/arrow}}"
 
-echo "Looking for GitHub Actions workflow on ${REPOSITORY}:${TAG}"
-RUN_ID=""
-while true; do
-  echo "Waiting for run to start..."
-  RUN_ID=$(gh run list \
-              --branch "${TAG}" \
-              --jq '.[].databaseId' \
-              --json databaseId \
-              --limit 1 \
-              --repo "${REPOSITORY}" \
-              --workflow "${WORKFLOW}")
-  if [ -n "${RUN_ID}" ]; then
-    break
-  fi
-  sleep 60
-done
+if [ -z "${RUN_ID}" ]; then
+  echo "Looking for GitHub Actions workflow on ${REPOSITORY}:${TAG} (any ID)"
+else
+  echo "Looking for GitHub Actions workflow on ${REPOSITORY}:${TAG} with run ID ${RUN_ID}"
+fi
+if [ -z "${RUN_ID}" ]; then
+  while true; do
+    echo "Waiting for run to start..."
+    RUN_ID=$(gh run list \
+                --branch "${TAG}" \
+                --jq '.[].databaseId' \
+                --json databaseId \
+                --limit 1 \
+                --repo "${REPOSITORY}" \
+                --status "in_progress" \
+                --workflow "${WORKFLOW}")
+    if [ -n "${RUN_ID}" ]; then
+      break
+    fi
+    sleep 60
+  done
+  echo "Found GitHub Actions workflow with ID: ${RUN_ID}"
+else
+  echo "Using provided run ID: ${RUN_ID}. Sleeping for 10 seconds to let the job become available..."
+  sleep 10
+fi
 
-echo "Found GitHub Actions workflow with ID: ${RUN_ID}"
 gh run watch \
    --exit-status \
    --interval 60 \
