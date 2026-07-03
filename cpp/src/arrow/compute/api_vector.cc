@@ -218,8 +218,8 @@ SortOptions::SortOptions(std::vector<SortKey> sort_keys,
 SortOptions::SortOptions(const Ordering& ordering)
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(ordering.sort_keys()),
-      null_placement(std::nullopt) {
-  null_placement = ordering.null_placement();
+      null_placement(ordering.null_placement())
+      {
 }
 constexpr char SortOptions::kTypeName[];
 ARROW_UNSUPPRESS_DEPRECATION_WARNING

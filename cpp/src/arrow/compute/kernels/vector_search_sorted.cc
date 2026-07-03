@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <numeric>
 #include <optional>
 #include <ranges>
 #include <type_traits>
@@ -531,27 +530,6 @@ inline Result<NonNullValuesRange> MakeNonNullValuesRangeFromNullPlacement(
                                 has_leading_nulls ? 0 : null_count);
 }
 
-/// Return the logical null count for an array-like values input. REE arrays
-/// need logical counting because nullness is stored in the values child rather
-/// than in a top-level validity bitmap.
-inline int64_t GetLogicalNullCount(const ArrayData& values) {
-  return values.ComputeLogicalNullCount();
-}
-
-/// Chunked REE inputs need per-chunk logical null counting for the same reason
-/// as single REE arrays.
-inline int64_t GetLogicalNullCount(const ChunkedArray& values) {
-  if (values.type()->id() != Type::RUN_END_ENCODED) {
-    return values.null_count();
-  }
-
-  const auto chunk_null_counts =
-      values.chunks() | std::views::transform([](const auto& chunk) {
-        return GetLogicalNullCount(*chunk->data());
-      });
-  return std::reduce(chunk_null_counts.begin(), chunk_null_counts.end(), int64_t{0});
-}
-
 /// Return whether a logical position in a chunked array is null.
 inline bool IsNull(const ChunkedArray& values, int64_t index) {
   DCHECK_GE(index, 0);
@@ -672,7 +650,7 @@ inline Status ValidateRunEndEncodedLogicalValueType(const DataType& type,
 inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values) {
   NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length};
 
-  const auto null_count = GetLogicalNullCount(values);
+  const auto null_count = values.comp;
   if (null_count == 0) {
     return non_null_values_range;
   }
@@ -715,7 +693,7 @@ inline Status ValidateNeedleInput(const Datum& datum) {
 inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& values) {
   NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length()};
 
-  const auto null_count = GetLogicalNullCount(values);
+  const auto null_count = values.ComputeLogicalNullCount();
   if (null_count == 0) {
     return non_null_values_range;
   }
