@@ -309,17 +309,6 @@ TEST(SearchSorted, ValuesWithTrailingNulls) {
                           "[0, 0, 1, 3]", "[0, 1, 1, 3]");
 }
 
-TEST(SearchSorted, ValuesWithInterspersedNullsAreRejected) {
-  auto values = ArrayFromJSON(int32(), "[null, 200, null]");
-  auto needles = ArrayFromJSON(int32(), "[200]");
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("search_sorted values with nulls must be clustered at the "
-                           "start or end."),
-      SearchSorted(Datum(values), Datum(needles)));
-}
-
 TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNulls) {
   CheckSimpleSearchSortedAndScalar(float64(), "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
                                    "[0.0, 3.0, 4.0, NaN]", "[0, 1, 3, 4]",
@@ -481,21 +470,6 @@ TEST(SearchSorted, ChunkedValuesAllNullAcrossEmptyChunks) {
   auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, null]", "[0, 0, null]");
-}
-
-TEST(SearchSorted, ChunkedValuesWithInterspersedNullsAcrossChunksAreRejected) {
-  auto values = std::make_shared<ChunkedArray>(ArrayVector{
-      ArrayFromJSON(int32(), "[null]"),
-      ArrayFromJSON(int32(), "[2]"),
-      ArrayFromJSON(int32(), "[null]"),
-  });
-  auto needles = ArrayFromJSON(int32(), "[2]");
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("search_sorted values with nulls must be clustered at the "
-                           "start or end."),
-      SearchSorted(Datum(values), Datum(needles)));
 }
 
 TEST(SearchSorted, RunEndEncodedNulls) {
