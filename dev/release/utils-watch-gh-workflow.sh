@@ -45,7 +45,6 @@ if [ -z "${RUN_ID}" ]; then
                 --json databaseId \
                 --limit 1 \
                 --repo "${REPOSITORY}" \
-                --status "in_progress" \
                 --workflow "${WORKFLOW}")
     if [ -n "${RUN_ID}" ]; then
       break
