@@ -1042,7 +1042,8 @@ if(ARROW_JSON)
                            json/object_parser.cc
                            json/object_writer.cc
                            json/parser.cc
-                           json/reader.cc)
+                           json/reader.cc
+                           json/writer.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})
     target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON)
   endforeach()
