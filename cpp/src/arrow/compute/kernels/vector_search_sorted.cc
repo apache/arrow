@@ -650,7 +650,7 @@ inline Status ValidateRunEndEncodedLogicalValueType(const DataType& type,
 inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values) {
   NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length};
 
-  const auto null_count = values.comp;
+  const auto null_count = values.ComputeLogicalNullCount();
   if (null_count == 0) {
     return non_null_values_range;
   }
@@ -790,8 +790,8 @@ Status VisitArrayNeedleRuns(const std::shared_ptr<ArrayData>& needles_data,
   return Status::OK();
 }
 
-/// Visit scalar, plain-array, run-end encoded, or chunked needles through a
-/// uniform callback interface of logical run lengths.
+/// Visit scalar or plain-array needles through a uniform callback interface
+/// of logical elements.
 template <typename ArrowType, typename Visitor>
 Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
   if (needles.is_scalar()) {
@@ -801,13 +801,6 @@ Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
     ARROW_ASSIGN_OR_RAISE(auto scalar_array, MakeArrayFromScalar(*needles.scalar(), 1));
     return VisitArrayNeedleRuns<ArrowType>(scalar_array->data(),
                                            std::forward<Visitor>(visitor));
-  }
-
-  if (needles.is_chunked_array()) {
-    for (const auto& chunk : needles.chunked_array()->chunks()) {
-      ARROW_RETURN_NOT_OK((VisitNeedleRuns<ArrowType>(Datum(chunk), visitor)));
-    }
-    return Status::OK();
   }
 
   const auto& needle_data = needles.array();
@@ -935,22 +928,8 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
   }
 
   if (needles.type()->id() == Type::RUN_END_ENCODED) {
-    if (needles.is_array()) {
-      return ComputeRunEndEncodedNeedleInsertionIndices(
-          values, RunEndEncodedArray(needles.array()), side, ctx);
-    }
-
-    std::vector<std::shared_ptr<Array>> decoded_chunks;
-    decoded_chunks.reserve(static_cast<size_t>(needles.chunked_array()->num_chunks()));
-    for (const auto& chunk : needles.chunked_array()->chunks()) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto decoded_chunk,
-          ComputeRunEndEncodedNeedleInsertionIndices(
-              values, checked_cast<const RunEndEncodedArray&>(*chunk), side, ctx));
-      decoded_chunks.push_back(decoded_chunk.make_array());
-    }
-    ARROW_ASSIGN_OR_RAISE(auto out, Concatenate(decoded_chunks, ctx->memory_pool()));
-    return Datum(std::move(out));
+    return ComputeRunEndEncodedNeedleInsertionIndices(
+        values, RunEndEncodedArray(needles.array()), side, ctx);
   }
 
   auto has_nulls = DatumHasNulls(needles);
@@ -1113,6 +1092,14 @@ class SearchSortedMetaFunction : public MetaFunction {
           values_type.ToString(), " and ", needles_type.ToString());
     }
 
+    // Chunked needles are handled at the top level so the typed dispatch
+    // below only ever sees non-chunked (scalar /array) needles.
+    if (args[1].is_chunked_array()) {
+      return ExecuteChunkedNeedles(
+          args[0], *args[1].chunked_array(),
+          static_cast<const SearchSortedOptions&>(*options), ctx);
+    }
+
     ARROW_ASSIGN_OR_RAISE(auto non_null_values_range, FindNonNullValuesRange(args[0]));
     auto result = DispatchByType(args[0], non_null_values_range, args[1],
                                  static_cast<const SearchSortedOptions&>(*options), ctx);
@@ -1120,6 +1107,22 @@ class SearchSortedMetaFunction : public MetaFunction {
   }
 
  private:
+  /// Process each needle chunk independently and concatenate the results.
+  Result<Datum> ExecuteChunkedNeedles(const Datum& values,
+                                      const ChunkedArray& needles,
+                                      const SearchSortedOptions& options,
+                                      ExecContext* ctx) const {
+    ArrayVector result_chunks;
+    result_chunks.reserve(static_cast<size_t>(needles.num_chunks()));
+    for (const auto& chunk : needles.chunks()) {
+      ARROW_ASSIGN_OR_RAISE(auto chunk_result,
+                            ExecuteImpl({values, Datum(chunk)}, &options, ctx));
+      result_chunks.push_back(chunk_result.make_array());
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, Concatenate(result_chunks, ctx->memory_pool()));
+    return Datum(std::move(out));
+  }
+
   /// Compute the non-null search window on the logical view of the values
   /// input, regardless of its physical storage.
   [[nodiscard]] Result<NonNullValuesRange> FindNonNullValuesRange(
