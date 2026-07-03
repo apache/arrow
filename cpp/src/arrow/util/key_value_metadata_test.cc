@@ -227,7 +227,6 @@ TEST(KeyValueMetadataTest, Delete) {
     ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "dd", "ee"}, {"2", "4", "5"})));
   }
   {
-    // GH-50351: duplicate indices must not crash and are treated as one
     KeyValueMetadata metadata(keys, values);
     ASSERT_OK(metadata.DeleteMany({0, 0}));
     ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "cc", "dd", "ee", "ff", "gg"},
@@ -238,7 +237,6 @@ TEST(KeyValueMetadataTest, Delete) {
         KeyValueMetadata({"bb", "dd", "ff", "gg"}, {"2", "4", "6", "7"})));
   }
   {
-    // GH-50351: out-of-bounds indices must error without modifying metadata
     KeyValueMetadata metadata(keys, values);
     std::string expected_error_message =
         "Index error: KeyValueMetadata::DeleteMany: index 7 is out of bounds for "
