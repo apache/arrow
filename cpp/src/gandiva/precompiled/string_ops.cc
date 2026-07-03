@@ -206,7 +206,7 @@ gdv_int32 utf8_length_ignore_invalid(const char* data, gdv_int32 data_len) {
       // if invalid byte or incomplete glyph, ignore it
       char_len = 1;
     }
-    for (int j = 1; j < char_len; ++j) {
+    for (int j = 1; j < char_len && i + j < data_len; ++j) {
       if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
         char_len += 1;
       }

@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <vector>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -1606,6 +1607,29 @@ TEST(TestStringOps, TestRpadString) {
   EXPECT_EQ(out_len, 5002);
   EXPECT_EQ(std::string(out_str, 5000), large_text);
   EXPECT_EQ(std::string(out_str + 5000, 2), "α");
+}
+
+TEST(TestStringOps, TestPadMalformedUtf8NoOverread) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // A 4-byte utf8 lead byte followed by non-continuation bytes and no trailing
+  // space. utf8_length_ignore_invalid() used to extend the glyph length past
+  // the end of the buffer while scanning the continuation bytes. The input is
+  // held in an exactly-sized heap buffer so any over-read trips AddressSanitizer.
+  std::vector<char> text = {'\xF0', 'a', 'a', 'a'};
+  const auto text_len = static_cast<gdv_int32>(text.size());
+
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 9);
+  EXPECT_EQ(std::string(out_str + out_len - text_len, text_len),
+            std::string(text.begin(), text.end()));
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 9);
+  EXPECT_EQ(std::string(out_str, text_len), std::string(text.begin(), text.end()));
 }
 
 TEST(TestStringOps, TestRtrim) {
