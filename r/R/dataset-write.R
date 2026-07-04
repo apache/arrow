@@ -146,6 +146,9 @@ write_dataset <- function(
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
   }
+  if (format == "text") {
+    format <- "csv"
+  }
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
@@ -189,7 +192,7 @@ write_dataset <- function(
   path_and_fs <- get_path_and_filesystem(path)
 
   dots <- list(...)
-  if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
+  if (format == "txt" && !any(c("delimiter", "delim") %in% names(dots))) {
     stop("A delimiter must be given for a txt format.")
   }
   if (format == "tsv" && any(c("delimiter", "delim") %in% names(dots))) {
