@@ -1620,16 +1620,18 @@ TEST(TestStringOps, TestPadMalformedUtf8NoOverread) {
   // held in an exactly-sized heap buffer so any over-read trips AddressSanitizer.
   std::vector<char> text = {'\xF0', 'a', 'a', 'a'};
   const auto text_len = static_cast<gdv_int32>(text.size());
+  const std::string text_str(text.begin(), text.end());
 
+  // The malformed sequence is counted as one glyph, so padding to width 6 adds
+  // five fill characters.
   const char* out_str =
       lpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
   EXPECT_EQ(out_len, 9);
-  EXPECT_EQ(std::string(out_str + out_len - text_len, text_len),
-            std::string(text.begin(), text.end()));
+  EXPECT_EQ(std::string(out_str, out_len), "     " + text_str);
 
   out_str = rpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
   EXPECT_EQ(out_len, 9);
-  EXPECT_EQ(std::string(out_str, text_len), std::string(text.begin(), text.end()));
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "     ");
 }
 
 TEST(TestStringOps, TestRtrim) {
