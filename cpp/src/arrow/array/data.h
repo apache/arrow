@@ -278,7 +278,7 @@ struct ARROW_EXPORT ArrayData {
   /// \pre i > 0
   /// \pre length <= the length of the buffer (in number of values) that's expected for
   /// this array type
-  /// \return A span<const T> of the requested length
+  /// \return A span<const T> of the requested length, or empty if buffers[i] is null
   template <typename T>
   std::span<const T> GetSpan(int i, int64_t length) const {
     if (!buffers[i]) {
@@ -289,9 +289,9 @@ struct ARROW_EXPORT ArrayData {
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);
 
-    return std::span<const T>(
-        reinterpret_cast<const T*>(buffers[i]->data()) + offset, length);
-        }
+    return std::span<const T>(reinterpret_cast<const T*>(buffers[i]->data()) + offset,
+                              length);
+  }
 
   /// \brief Access a buffer's data as a typed C pointer
   ///

@@ -101,6 +101,71 @@ void CheckDictionaryNullCount(const std::shared_ptr<DataType>& dict_type,
   ASSERT_EQ(arr->data()->MayHaveLogicalNulls(), expected_may_have_logical_nulls);
 }
 
+// Tests for ArrayData::GetSpan
+
+TEST(TestArrayData, GetSpanWithOffset) {
+  using T = int32_t;
+
+  // Buffer with values 0..9
+  std::vector<T> values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto value_buffer = Buffer::FromVector(values).ValueOrDie();
+
+  // ArrayData with offset=3, length=4 → logically represents [3,4,5,6]
+  int64_t offset = 3;
+  int64_t length = 4;
+  auto data = ArrayData::Make(int32(), length, {nullptr /* null bitmap */, value_buffer},
+                              /*null_count=*/0, offset);
+
+  // Buffer index 1 is the values buffer
+  auto span = data->GetSpan<T>(/*i=*/1, /*length=*/length);
+
+  // Verify the offset is respected
+  ASSERT_EQ(span.size(), length);
+  ASSERT_EQ(span[0], 3);           // values[offset]
+  ASSERT_EQ(span[length - 1], 6);  // values[offset + length - 1]
+  ASSERT_EQ(span.data(), value_buffer->data_as<T>() + offset);
+}
+
+TEST(TestArrayData, GetSpanWithNullBufferCases) {
+  using T = int64_t;
+  std::vector<T> values = {10, 20, 30, 40};
+  auto value_buffer = Buffer::FromVector(values).ValueOrDie();
+  int64_t length = 4;
+  int64_t offset = 0;
+
+  // --- Case A: Values buffer is nullptr → expect empty span ---
+  {
+    auto data = ArrayData::Make(int64(), length, {nullptr, nullptr},
+                                /*null_count=*/0, offset);
+    auto span = data->GetSpan<T>(/*i=*/1, length);
+    ASSERT_TRUE(span.empty());
+    ASSERT_EQ(span.data(), nullptr);
+  }
+
+  // --- Case B: Null bitmap is nullptr, values buffer valid → span works ---
+  {
+    auto data = ArrayData::Make(int64(), length, {nullptr, value_buffer},
+                                /*null_count=*/0, offset);
+    auto span = data->GetSpan<T>(/*i=*/1, length);
+    ASSERT_EQ(span.size(), length);
+    ASSERT_EQ(span[0], 10);
+    ASSERT_EQ(span[3], 40);
+  }
+
+  // --- Case C: Null bitmap exists and valid, values buffer valid → span works ---
+  {
+    // All bits set = no nulls
+    auto null_buffer = *Buffer::FromString(std::string("\xFF\xFF\xFF\xFF", 4));
+    auto data = ArrayData::Make(int64(), length, {null_buffer, value_buffer},
+                                /*null_count=*/0, offset);
+    auto span = data->GetSpan<T>(/*i=*/1, length);
+    // The span ignores the null bitmap entirely – it just looks at buffer index 1
+    ASSERT_EQ(span.size(), length);
+    ASSERT_EQ(span[0], 10);
+    ASSERT_EQ(span[3], 40);
+  }
+}
+
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
