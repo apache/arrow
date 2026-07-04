@@ -1137,6 +1137,18 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
 
   AssertArraysEqual(*src, *dst);
 }
+TEST_F(TestArray, GetSpanRespectsOffset) {
+  auto data_buffer = Buffer::FromString("123456789abcdef0");
+
+  auto data = ArrayData::Make(uint8(), 3, {nullptr, data_buffer}, 0, 1);
+
+  auto span = data->GetSpan<uint8_t>(1, 3);
+
+  EXPECT_EQ(span.size(), 3);
+  EXPECT_EQ(span[0], '2');
+  EXPECT_EQ(span[1], '3');
+  EXPECT_EQ(span[2], '4');
+}
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
