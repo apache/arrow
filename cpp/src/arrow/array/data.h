@@ -256,7 +256,7 @@ struct ARROW_EXPORT ArrayData {
       return NULLPTR;
     }
   }
-/// \brief Access a buffer's data as a span
+  /// \brief Access a buffer's data as a span
   ///
   /// \param i The buffer index
   /// \param length The required length (in number of typed values) of the requested span
