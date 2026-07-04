@@ -1139,9 +1139,7 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
 }
 TEST_F(TestArray, GetSpanRespectsOffset) {
   auto data_buffer = Buffer::FromString("123456789abcdef0");
-
   auto data = ArrayData::Make(uint8(), 3, {nullptr, data_buffer}, 0, 1);
-
   auto span = data->GetSpan<uint8_t>(1, 3);
 
   EXPECT_EQ(span.size(), 3);
@@ -1149,7 +1147,29 @@ TEST_F(TestArray, GetSpanRespectsOffset) {
   EXPECT_EQ(span[1], '3');
   EXPECT_EQ(span[2], '4');
 }
+TEST_F(TestArray, GetMutableSpanRespectsOffset) {
+  const int64_t nbytes = 16;
+  ASSERT_OK_AND_ASSIGN(auto uniq_buffer, AllocateResizableBuffer(nbytes, pool_));
+  memset(uniq_buffer->mutable_data(), '0', nbytes);
+  std::shared_ptr<Buffer> buffer(std::move(uniq_buffer));
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, buffer};
+  auto data = ArrayData::Make(uint8(), 3, buffers, 0, 1);
+  auto span = data->template GetMutableSpan<uint8_t>(1, 3);
 
+  EXPECT_EQ(span.size(), 3);
+  EXPECT_EQ(span[0], '0');
+  EXPECT_EQ(span[1], '0');
+  EXPECT_EQ(span[2], '0');
+
+  span[0] = 'X';
+  span[1] = 'Y';
+  span[2] = 'Z';
+
+  auto raw = buffer->mutable_data();
+  EXPECT_EQ(raw[1], 'X');
+  EXPECT_EQ(raw[2], 'Y');
+  EXPECT_EQ(raw[3], 'Z');
+}
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto null_buffer = Buffer::FromString("\xff");
