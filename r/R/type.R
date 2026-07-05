@@ -356,13 +356,13 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' `date32()` creates a datetime type with a "day" unit, like the R `Date`
 #' class. `date64()` has a "ms" unit.
 #'
-#' `uint32` (32 bit unsigned integer), `uint64` (64 bit unsigned integer), and
-#' `int64` (64-bit signed integer) types may contain values that exceed the
-#' range of R's `integer` type (32-bit signed integer). When these arrow objects
-#' are translated to R objects, `uint32` and `uint64` are converted to `double`
-#' ("numeric") and `int64` is converted to `bit64::integer64`. For `int64`
-#' types, this conversion can be disabled (so that `int64` always yields a
-#' `bit64::integer64` object) by setting `options(arrow.int64_downcast =
+#' `uint64` (64 bit unsigned integer) is always converted to `double`
+#' ("numeric") in R. `uint32` (32 bit unsigned integer) and `int64` (64-bit
+#' signed integer) types may contain values that exceed the range of R's
+#' `integer` type (32-bit signed integer). When they do, `uint32` is converted
+#' to `double` ("numeric") and `int64` is converted to `bit64::integer64`. For
+#' `int64` types, this conversion can be disabled (so that `int64` always yields
+#' a `bit64::integer64` object) by setting `options(arrow.int64_downcast =
 #' FALSE)`.
 #'
 #' `decimal128()` creates a `Decimal128Type`. Arrow decimals are fixed-point

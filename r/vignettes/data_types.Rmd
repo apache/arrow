@@ -99,7 +99,8 @@ chunked_array(c(10L, 3L, 200L), type = int8())
 
 When translating from Arrow to R, integer types alway translate to R integers unless one of the following exceptions applies:
 
-- If the value of an Arrow uint32 or uint64 falls outside the range allowed for R integers, the result will be a numeric vector in R 
+- Arrow uint64 types are always converted to numeric (double) vectors in R
+- If the value of an Arrow uint32 falls outside the range allowed for R integers, the result will be a numeric vector in R
 - If the value of an Arrow int64 variable falls outside the range allowed for R integers, the result will be a `bit64::integer64` vector in R
 - If the user sets `options(arrow.int64_downcast = FALSE)`, the Arrow int64 type always yields a `bit64::integer64` vector in R
  regardless of the value
@@ -351,7 +352,7 @@ to Arrow list type (which is a "list of" some type).
 | uint8               | integer                      |
 | uint16              | integer                      |
 | uint32              | integer ^1^                  |
-| uint64              | integer ^1^                  |
+| uint64              | double                       |
 | float16             | - ^2^                        |
 | float32             | double                       |
 | float64             | double                       |
@@ -376,9 +377,9 @@ to Arrow list type (which is a "list of" some type).
 | map                 | arrow_list ^5^               |
 | union               | - ^2^                       |
 
-^1^: These integer types may contain values that exceed the range of R's 
-`integer` type (32 bit signed integer). When they do, `uint32` and `uint64` are 
-converted to `double` ("numeric") and `int64` is converted to 
+^1^: These integer types may contain values that exceed the range of R's
+`integer` type (32 bit signed integer). When they do, `uint32` is
+converted to `double` ("numeric") and `int64` is converted to
 `bit64::integer64`. This conversion can be disabled (so that `int64` always
 yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
 

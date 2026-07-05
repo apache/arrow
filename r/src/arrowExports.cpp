@@ -3238,22 +3238,6 @@ BEGIN_CPP11
 END_CPP11
 }
 // field.cpp
-bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
-extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
-	return cpp11::as_sexp(Field__nullable(field));
-END_CPP11
-}
-// field.cpp
-std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
-extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
-	return cpp11::as_sexp(Field__type(field));
-END_CPP11
-}
-// field.cpp
 bool Field__HasMetadata(const std::shared_ptr<arrow::Field>& field);
 extern "C" SEXP _arrow_Field__HasMetadata(SEXP field_sexp){
 BEGIN_CPP11
@@ -3284,6 +3268,22 @@ extern "C" SEXP _arrow_Field__RemoveMetadata(SEXP field_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	return cpp11::as_sexp(Field__RemoveMetadata(field));
+END_CPP11
+}
+// field.cpp
+bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__nullable(field));
+END_CPP11
+}
+// field.cpp
+std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__type(field));
 END_CPP11
 }
 // filesystem.cpp
@@ -5878,10 +5878,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_compute__Initialize", (DL_FUNC) &_arrow_compute__Initialize, 0}, 
 		{ "_arrow_RegisterScalarUDF", (DL_FUNC) &_arrow_RegisterScalarUDF, 2}, 
-		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0},
-		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0},
-		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1},
-		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1},
+		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
+		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
+		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1}, 
+		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
@@ -6054,12 +6054,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
 		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 
 		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 3}, 
-		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
-		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
 		{ "_arrow_Field__HasMetadata", (DL_FUNC) &_arrow_Field__HasMetadata, 1}, 
 		{ "_arrow_Field__metadata", (DL_FUNC) &_arrow_Field__metadata, 1}, 
 		{ "_arrow_Field__WithMetadata", (DL_FUNC) &_arrow_Field__WithMetadata, 2}, 
 		{ "_arrow_Field__RemoveMetadata", (DL_FUNC) &_arrow_Field__RemoveMetadata, 1}, 
+		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
+		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
 		{ "_arrow_fs___FileInfo__type", (DL_FUNC) &_arrow_fs___FileInfo__type, 1}, 
 		{ "_arrow_fs___FileInfo__set_type", (DL_FUNC) &_arrow_fs___FileInfo__set_type, 2}, 
 		{ "_arrow_fs___FileInfo__path", (DL_FUNC) &_arrow_fs___FileInfo__path, 1}, 
