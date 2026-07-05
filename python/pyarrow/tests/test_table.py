@@ -1361,6 +1361,22 @@ def test_table_slice_getitem():
     return _table_like_slice_tests(pa.table)
 
 
+def test_table_slice_no_columns():
+    table = pa.table({'col': range(3)})
+    empty = table.select([])
+    assert empty.num_rows == 3
+
+    # slice(offset) clamps to the remaining rows
+    assert empty.slice(1).num_rows == 2
+    assert empty.slice(0).num_rows == 3
+    # slice(offset, length) must not exceed the remaining rows
+    assert empty.slice(1, 4).num_rows == 2
+    # consistent with __getitem__ slicing, which already worked
+    assert empty[1:].num_rows == 2
+    # offset past the end yields an empty table
+    assert empty.slice(5).num_rows == 0
+
+
 @pytest.mark.pandas
 def test_slice_zero_length_table():
     # ARROW-7907: a segfault on this code was fixed after 0.16.0
