@@ -1321,7 +1321,8 @@ TEST_F(TestTable, Slice) {
 
 TEST_F(TestTable, SliceZeroColumns) {
   const int64_t length = 10;
-  auto empty_columns_table = Table::Make(::arrow::schema({}),std::vector<std::shared_ptr<ChunkedArray>>{}, length);
+  auto empty_columns_table = Table::Make(
+      ::arrow::schema({}), std::vector<std::shared_ptr<ChunkedArray>>{}, length);
   ASSERT_EQ(empty_columns_table->num_rows(), length);
   ASSERT_EQ(empty_columns_table->Slice(3)->num_rows(), length - 3);
   ASSERT_EQ(empty_columns_table->Slice(0)->num_rows(), length);
