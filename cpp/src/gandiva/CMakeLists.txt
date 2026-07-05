@@ -65,6 +65,7 @@ set(SRC_FILES
     engine.cc
     date_utils.cc
     encrypt_utils.cc
+    expr_cse.cc
     expr_decomposer.cc
     expr_validator.cc
     expression.cc

@@ -24,6 +24,7 @@
 #include "arrow/util/logging.h"
 
 #include "gandiva/cache.h"
+#include "gandiva/expr_cse.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
 
@@ -61,11 +62,15 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
+  auto folded_exprs =
+      FoldCommonSubexpressions(*configuration->function_registry(), exprs);
+
   // see if equivalent projector was already built
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
       LLVMGenerator::GetCache();
 
-  ExpressionCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
+  ExpressionCacheKey cache_key(schema, configuration, folded_exprs,
+                               selection_vector_mode);
 
   bool is_cached = false;
 
@@ -89,7 +94,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   if (!is_cached) {
     ExprValidator expr_validator(llvm_gen->types(), schema,
                                  configuration->function_registry());
-    for (auto& expr : exprs) {
+    for (auto& expr : folded_exprs) {
       ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
     }
   }
@@ -97,12 +102,12 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Set the object cache for LLVM
   ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(obj_cache));
 
-  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(folded_exprs, selection_vector_mode));
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
-  output_fields.reserve(exprs.size());
-  for (auto& expr : exprs) {
+  output_fields.reserve(folded_exprs.size());
+  for (auto& expr : folded_exprs) {
     output_fields.push_back(expr->result());
   }
 
@@ -282,6 +287,10 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 }
 
 const std::string& Projector::DumpIR() { return llvm_generator_->ir(); }
+
+const std::string& Projector::DumpUnoptimizedIR() {
+  return llvm_generator_->unoptimized_ir();
+}
 
 void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 
