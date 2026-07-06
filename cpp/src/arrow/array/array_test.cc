@@ -1138,38 +1138,55 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   AssertArraysEqual(*src, *dst);
 }
 TEST_F(TestArray, GetSpanRespectsOffset) {
-  auto data_buffer = Buffer::FromString("123456789abcdef0");
-  auto data = ArrayData::Make(uint8(), 3, {nullptr, data_buffer}, 0, 1);
-  auto span = data->GetSpan<uint8_t>(1, 3);
+  std::vector<uint16_t> values = {1, 2, 3, 4, 5};
+
+  auto data_buffer = Buffer::Wrap(values);
+  auto data = ArrayData::Make(uint16(), 3, {nullptr, data_buffer}, 0, 1);
+  auto span = data->GetSpan<uint16_t>(1, 3);
 
   EXPECT_EQ(span.size(), 3);
-  EXPECT_EQ(span[0], '2');
-  EXPECT_EQ(span[1], '3');
-  EXPECT_EQ(span[2], '4');
+
+  EXPECT_EQ(span[0], 2);
+
+  EXPECT_EQ(span[1], 3);
+
+  EXPECT_EQ(span[2], 4);
 }
+
 TEST_F(TestArray, GetMutableSpanRespectsOffset) {
-  const int64_t nbytes = 16;
+  std::vector<uint16_t> values = {10, 20, 30, 40, 50};
+
+  const int64_t nbytes = values.size() * sizeof(uint16_t);
   ASSERT_OK_AND_ASSIGN(auto uniq_buffer, AllocateResizableBuffer(nbytes, pool_));
-  memset(uniq_buffer->mutable_data(), '0', nbytes);
+  memcpy(uniq_buffer->mutable_data(), values.data(), nbytes);
+
   std::shared_ptr<Buffer> buffer(std::move(uniq_buffer));
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, buffer};
-  auto data = ArrayData::Make(uint8(), 3, buffers, 0, 1);
-  auto span = data->template GetMutableSpan<uint8_t>(1, 3);
+
+  auto data = ArrayData::Make(uint16(), 3, buffers, 0, 1);
+  auto span = data->GetMutableSpan<uint16_t>(1, 3);
 
   EXPECT_EQ(span.size(), 3);
-  EXPECT_EQ(span[0], '0');
-  EXPECT_EQ(span[1], '0');
-  EXPECT_EQ(span[2], '0');
 
-  span[0] = 'X';
-  span[1] = 'Y';
-  span[2] = 'Z';
+  EXPECT_EQ(span[0], 20);
 
-  auto raw = buffer->mutable_data();
-  EXPECT_EQ(raw[1], 'X');
-  EXPECT_EQ(raw[2], 'Y');
-  EXPECT_EQ(raw[3], 'Z');
+  EXPECT_EQ(span[1], 30);
+
+  EXPECT_EQ(span[2], 40);
+
+  span[0] = 200;
+  span[1] = 300;
+  span[2] = 400;
+
+  auto raw = reinterpret_cast<uint16_t*>(buffer->mutable_data());
+  
+  EXPECT_EQ(raw[1], 200);
+
+  EXPECT_EQ(raw[2], 300);
+
+  EXPECT_EQ(raw[3], 400);
 }
+
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto null_buffer = Buffer::FromString("\xff");
