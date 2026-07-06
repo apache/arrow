@@ -854,16 +854,15 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
 class PlainFLBADecoder : public PlainDecoder<FLBAType>, public FLBADecoder {
  public:
   using Base = PlainDecoder<FLBAType>;
-  using Base::PlainDecoder;
   using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
+  using Base::PlainDecoder;
 
   // PLAIN-encoded FLBA values are already contiguous in the page buffer, so
   // decode them with a single memcpy into the caller's buffer. This is the same
   // copy used by PlainDecoder<FLBAType>::DecodeArrow, without the builder.
   int Decode(uint8_t* buffer, int max_values) override {
     max_values = std::min(max_values, this->num_values_);
-    const int64_t bytes_to_decode =
-        static_cast<int64_t>(this->type_length_) * max_values;
+    const int64_t bytes_to_decode = static_cast<int64_t>(this->type_length_) * max_values;
     if (bytes_to_decode > this->len_ || bytes_to_decode > INT_MAX) {
       ParquetException::EofException();
     }
@@ -1239,8 +1238,8 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
 class DictFLBADecoder : public DictDecoderImpl<FLBAType>, public FLBADecoder {
  public:
   using Base = DictDecoderImpl<FLBAType>;
-  using Base::DictDecoderImpl;
   using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
+  using Base::DictDecoderImpl;
 
   // Read one index per value and copy that dictionary entry's type_length bytes
   // contiguously into the caller's buffer. Mirrors DecodeArrow without nulls.
