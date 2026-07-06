@@ -2471,15 +2471,6 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     return "";
   }
 
-  char* ret =
-      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
-
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
   int32_t startPos = 0;
   if (offset >= 0) {
     startPos = offset - 1;
@@ -2488,8 +2479,18 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
   }
 
   // an offset past the end of the text leaves nothing to copy; without this the
-  // truncation below yields a negative *out_len that memcpy reads as a huge size
+  // truncation below yields a negative *out_len that memcpy reads as a huge size.
+  // check before allocating so a past-end offset needs no output buffer at all
   if (startPos >= text_len) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
