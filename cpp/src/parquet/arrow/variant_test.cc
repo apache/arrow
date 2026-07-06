@@ -196,7 +196,7 @@ TEST(TestVariantExtensionType, WriterValidatesShreddedPrimitiveConflicts) {
   ASSERT_OK(WriteVariantTable(valid_table));
 }
 
-TEST(TestVariantExtensionType, WriterValidatesShreddedWithoutValue) {
+TEST(TestVariantExtensionType, WriterRejectsShreddedWithoutValue) {
   auto metadata = EmptyVariantMetadata();
   auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
                                field("typed_value", ::arrow::int64())});
@@ -207,7 +207,7 @@ TEST(TestVariantExtensionType, WriterValidatesShreddedWithoutValue) {
   auto typed_array = Int64ArrayFromValues({34});
   auto table =
       VariantTable(variant_type, {metadata_array, typed_array}, storage_type->fields());
-  ASSERT_OK(WriteVariantTable(table));
+  ASSERT_RAISES(Invalid, WriteVariantTable(table));
 }
 
 TEST(TestVariantExtensionType, ReadsDictionaryEncodedMetadata) {

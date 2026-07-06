@@ -1083,6 +1083,19 @@ TEST_F(TestConvertParquetSchema, ParquetVariantShredded) {
       "variant_shredded", {metadata, value, typed_value}, storage_type));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetVariantShreddedWithoutValue) {
+  auto metadata =
+      PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY);
+  auto typed_value =
+      PrimitiveNode::Make("typed_value", Repetition::OPTIONAL, ParquetType::INT64);
+  auto storage_type =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("typed_value", ::arrow::int64())});
+
+  ASSERT_NO_FATAL_FAILURE(CheckParquetVariantSchema(
+      "variant_shredded", {metadata, typed_value}, storage_type));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowJsonExtension) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
@@ -1575,6 +1588,15 @@ TEST_F(TestConvertArrowSchema, ParquetVariantShredded) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetVariantShreddedWithoutValue) {
+  auto storage_type =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("typed_value", ::arrow::int64())});
+  auto variant_type = ::arrow::extension::variant(storage_type);
+
+  ASSERT_RAISES(Invalid, ConvertSchema({::arrow::field("variant", variant_type)}));
 }
 
 TEST_F(TestConvertArrowSchema, ParquetVariantDictionary) {
