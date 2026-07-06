@@ -936,9 +936,15 @@ TEST(Grouper, StringViewKey) {
       g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
       g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
       g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
-      g.ExpectConsume(R"([["a long out-of-line view"], ["a long out-of-line view"]])",
-                      "[3, 3]");
-      g.ExpectUniques(R"([["eh"], ["be"], [null], ["a long out-of-line view"]])");
+      // Several distinct out-of-line (>12 byte) views, including two that share
+      // the same 4-byte inline prefix.
+      g.ExpectConsume(
+          R"([["a long out-of-line view"], ["a long out-of-line view"],
+              ["a different long view"], ["a distinct long-ish view"]])",
+          "[3, 3, 4, 5]");
+      g.ExpectUniques(
+          R"([["eh"], ["be"], [null], ["a long out-of-line view"],
+              ["a different long view"], ["a distinct long-ish view"]])");
     }
     {
       TestGrouper g({ty});
