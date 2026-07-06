@@ -100,7 +100,7 @@ if they genuinely apply. Remove them otherwise.
 pip install pre-commit
 pre-commit install
 pre-commit run -a                        # all hooks
-pre-commit run --all-files <component>   # single component (alias from .pre-commit-config.yaml)
+pre-commit run --all-files <hook-alias>   # e.g. python, cpp (see aliases in .pre-commit-config.yaml)
 ```
 
 Always run the relevant pre-commit checks before submitting a PR.
