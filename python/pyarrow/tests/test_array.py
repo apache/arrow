@@ -2925,6 +2925,30 @@ def test_array_from_invalid_dim_raises():
 
 
 @pytest.mark.numpy
+def test_fixed_size_list_from_multidim_ndarray():
+    arr = pa.array([np.array([[1, 2, 3]], dtype=np.int64),
+                    np.array([[4, 5, 6]], dtype=np.int64)],
+                   type=pa.list_(pa.int64(), 3))
+    assert arr.type == pa.list_(pa.int64(), 3)
+    assert arr.to_pylist() == [[1, 2, 3], [4, 5, 6]]
+
+    arr = pa.array([np.array([[1, 2], [3, 4]], dtype=np.int64)],
+                   type=pa.list_(pa.int64(), 4))
+    assert arr.to_pylist() == [[1, 2, 3, 4]]
+
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pa.array([np.array([[1, 2], [3, 4]], dtype=np.int64)],
+                 type=pa.list_(pa.int64(), 3))
+
+    with pytest.raises(pa.lib.ArrowInvalid, match=r"array values of .*int64"):
+        pa.array([np.array([[1, 2, 3]], dtype=np.int64)],
+                 type=pa.list_(pa.int64()))
+
+    arr = pa.array([np.array(1, dtype=np.int64)], type=pa.list_(pa.int64(), 1))
+    assert arr.to_pylist() == [[1]]
+
+
+@pytest.mark.numpy
 def test_array_from_strided_bool():
     # ARROW-6325
     arr = np.ones((3, 2), dtype=bool)

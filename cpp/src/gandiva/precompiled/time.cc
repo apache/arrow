@@ -270,9 +270,10 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
       }                                                                                  \
     }                                                                                    \
     if (dateSearch == 0) {                                                               \
-      std::string err_msg = "NEXT_DAY: '" + std::string(in, in_len) +                    \
-                            "' is not a recognized day of the week";                     \
-      gdv_fn_context_set_error_msg(context, err_msg.c_str());                            \
+      char err_msg[128];                                                                 \
+      snprintf(err_msg, sizeof(err_msg),                                                 \
+               "NEXT_DAY: '%.*s' is not a recognized day of the week", in_len, in);      \
+      gdv_fn_context_set_error_msg(context, err_msg);                                    \
       return 0;                                                                          \
     }                                                                                    \
                                                                                          \
@@ -647,7 +648,7 @@ gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
   int dateIndex = 0, index = 0, value = 0;
   int year_str_len = 0;
   while (dateIndex < 3 && index < length) {
-    if (!isdigit(input[index])) {
+    if (!isdigit(static_cast<unsigned char>(input[index]))) {
       dateFields[dateIndex++] = value;
       value = 0;
     } else {
@@ -717,7 +718,7 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   int year_str_len = 0, sub_seconds_len = 0;
   int ts_field_index = TimeFields::kYear, index = 0, value = 0;
   while (ts_field_index < TimeFields::kMax && index < length) {
-    if (isdigit(input[index])) {
+    if (isdigit(static_cast<unsigned char>(input[index]))) {
       value = (value * 10) + (input[index] - '0');
       if (ts_field_index == TimeFields::kYear) {
         year_str_len++;
@@ -846,7 +847,7 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
 
   bool has_invalid_digit = false;
   while (time_field_idx < TimeFields::kDisplacementHours && index < length) {
-    if (isdigit(input[index])) {
+    if (isdigit(static_cast<unsigned char>(input[index]))) {
       value = (value * 10) + (input[index] - '0');
 
       if (time_field_idx == TimeFields::kSubSeconds) {

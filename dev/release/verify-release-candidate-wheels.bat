@@ -78,7 +78,7 @@ set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
 
 set CONDA_ENV_PATH=%_VERIFICATION_DIR%\_verify-wheel-%PY_VERSION%
 call conda create -p %CONDA_ENV_PATH% ^
-    --no-shortcuts -f -q -y python=%PY_VERSION% ^
+    --no-shortcuts -q -y python=%PY_VERSION% ^
     || EXIT /B 1
 call activate %CONDA_ENV_PATH%
 

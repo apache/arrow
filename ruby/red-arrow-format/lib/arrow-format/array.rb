@@ -1,3 +1,4 @@
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -17,6 +18,7 @@
 require "bigdecimal"
 
 require_relative "bitmap"
+require_relative "bitmap-builder"
 
 module ArrowFormat
   class Array
@@ -186,7 +188,16 @@ module ArrowFormat
   end
 
   class BooleanArray < PrimitiveArray
-    def initialize(size, validity_buffer, values_buffer)
+    def initialize(*args)
+      if args.size == 1
+        args = build_data(args[0])
+      end
+      n_args = args.size
+      if args.size != 3
+        message = "wrong number of arguments (given #{n_args}, expected 1 or 3)"
+        raise ArgumentError, message
+      end
+      size, validity_buffer, values_buffer = args
       super(BooleanType.singleton, size, validity_buffer, values_buffer)
     end
 
@@ -209,6 +220,26 @@ module ArrowFormat
     def clear_cache
       super
       @values_bitmap = nil
+    end
+
+    def build_data(data)
+      n = 0
+      validity_buffer_builder = nil
+      values_buffer_builder = DenseBitmapBuilder.new
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+          values_buffer_builder.append(false)
+        elsif value
+          values_buffer_builder.append(true)
+        else
+          values_buffer_builder.append(false)
+        end
+        n += 1
+      end
+      validity_buffer = validity_buffer_builder&.finish(n)
+      return n, validity_buffer, values_buffer_builder.finish
     end
   end
 

@@ -101,7 +101,7 @@ jobs:
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -188,7 +188,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: 12.0
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -203,6 +203,11 @@ jobs:
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
@@ -260,7 +265,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
-      CCACHE_DIR: /ccache
+      CCACHE_DIR: C:/ccache
       PYTHON_CMD: "py -3.13"
     steps:
       - name: Disable Crash Dialogs
@@ -272,7 +277,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -284,7 +289,7 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.6.3 /usr
+          ci/scripts/install_ccache.sh 4.13.6 /usr
       - name: Setup ccache
         shell: bash
         run: |

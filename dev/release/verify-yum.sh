@@ -258,6 +258,10 @@ if [ "${have_flight}" = "yes" ]; then
     ruby -r gi -e "p GI.load('ArrowFlightSQL')"
   fi
   echo "::endgroup::"
+
+  echo "::group::Test Apache Arrow Flight SQL ODBC driver"
+  ${install_command} ${enablerepo_epel} arrow-flight-sql-odbc-devel-${package_version}
+  echo "::endgroup::"
 fi
 
 if [ "${have_gandiva}" = "yes" ]; then

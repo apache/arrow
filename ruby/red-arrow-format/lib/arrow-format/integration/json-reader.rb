@@ -205,18 +205,11 @@ module ArrowFormat
       end
 
       def read_bitmap(bitmap)
-        buffer = +"".b
-        bitmap.each_slice(8) do |bits|
-          byte = 0
-          while bits.size < 8
-            bits << 0
-          end
-          bits.reverse_each do |bit|
-            byte = (byte << 1) + bit
-          end
-          buffer << [byte].pack("C")
+        builder = DenseBitmapBuilder.new
+        bitmap.each do |bit|
+          builder.append(bit == 1 ? true : false)
         end
-        IO::Buffer.for(buffer)
+        builder.finish
       end
 
       def read_types(types)

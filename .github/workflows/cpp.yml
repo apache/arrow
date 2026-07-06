@@ -27,6 +27,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
+      - '.github/workflows/cpp_windows.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -44,6 +45,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
+      - '.github/workflows/cpp_windows.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -115,7 +117,7 @@ jobs:
           free -h
           lscpu
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -176,7 +178,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -232,7 +234,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -242,6 +244,11 @@ jobs:
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
@@ -293,6 +300,8 @@ jobs:
       - name: Test
         shell: bash
         run: |
+          # MinIO is installed on ${ARROW_HOME}/bin
+          export PATH="${ARROW_HOME}/bin:${PATH}"
           sudo sysctl -w kern.coredump=1
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell
@@ -363,7 +372,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

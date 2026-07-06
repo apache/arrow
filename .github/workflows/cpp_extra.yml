@@ -45,26 +45,7 @@ on:
     tags:
       - '**'
   pull_request:
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/cpp_extra.yml'
-      - '.github/workflows/cpp_windows.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/conda_env_*'
-      - 'ci/docker/**'
-      - 'ci/scripts/ccache_setup.sh'
-      - 'ci/scripts/cpp_*'
-      - 'ci/scripts/install_azurite.sh'
-      - 'ci/scripts/install_gcs_testbench.sh'
-      - 'ci/scripts/install_minio.sh'
-      - 'ci/scripts/msys2_*'
-      - 'ci/scripts/util_*'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'dev/archery/archery/**'
-      - 'format/Flight.proto'
-      - 'testing'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
@@ -85,19 +66,30 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: cpp_extra
 
-  docker:
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
     needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -136,7 +128,7 @@ jobs:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -189,11 +181,8 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   msvc-arm64:
-    needs: check-labels
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ARM64 Windows 11 MSVC
     uses: ./.github/workflows/cpp_windows.yml
     with:
@@ -202,13 +191,10 @@ jobs:
       simd-level: NONE
 
   jni-linux:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
     runs-on: ${{ matrix.platform.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
       actions: read
@@ -228,7 +214,7 @@ jobs:
       REPO: ghcr.io/${{ github.repository }}-dev
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -276,25 +262,27 @@ jobs:
         run: archery docker push cpp-jni
 
   jni-macos:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI macOS
     runs-on: macos-14
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install dependencies
         run: |
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
@@ -340,10 +328,8 @@ jobs:
           ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
           PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
         run: |
-          # MinIO is required
-          exclude_tests="arrow-s3fs-test"
           # unstable
-          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="arrow-acero-asof-join-node-test"
           exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
           ctest \
             --exclude-regex "${exclude_tests}" \
@@ -371,13 +357,10 @@ jobs:
           key: jni-macos
 
   odbc-linux:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC Linux
     runs-on: ubuntu-latest
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -389,7 +372,7 @@ jobs:
       UBUNTU: 24.04
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -439,13 +422,10 @@ jobs:
         run: archery docker push ubuntu-cpp-odbc
 
   odbc-macos:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -466,13 +446,18 @@ jobs:
       ARROW_MIMALLOC: OFF
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
         run: |
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
 
           # We want to use bundled RE2 for static linking. If
@@ -571,13 +556,10 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   odbc-msvc:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC Windows
     runs-on: windows-2022
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
       actions: read
@@ -610,7 +592,7 @@ jobs:
       VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -709,7 +691,7 @@ jobs:
 
           tree odbc-installer
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 1

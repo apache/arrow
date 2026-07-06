@@ -572,10 +572,12 @@ gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
     if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
   }
   // if no 'true', 'false', '0' or '1' value is found, set an error
-  std::string err_msg = "CAST_BIT: Invalid value for boolean: '" +
-                        std::string(data, data_len) +
-                        "' (expected 0, 1, true, false; case-insensitive)";
-  gdv_fn_context_set_error_msg(context, err_msg.c_str());
+  char err_msg[128];
+  snprintf(err_msg, sizeof(err_msg),
+           "CAST_BIT: Invalid value for boolean: '%.*s'"
+           " (expected 0, 1, true, false; case-insensitive)",
+           data_len, data);
+  gdv_fn_context_set_error_msg(context, err_msg);
   return false;
 }
 
@@ -2355,7 +2357,8 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
       char hd1 = text[i + 2];
       char hd2 = text[i + 3];
-      if (isxdigit(hd1) && isxdigit(hd2)) {
+      if (isxdigit(static_cast<unsigned char>(hd1)) &&
+          isxdigit(static_cast<unsigned char>(hd2))) {
         // [a-fA-F0-9]
         ret[j] = to_binary_from_hex(hd1) * 16 + to_binary_from_hex(hd2);
         i += 3;
@@ -2404,26 +2407,28 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
     int read_index = 0;                                                                 \
     while (read_index < in_len) {                                                       \
       char c1 = in[read_index];                                                         \
-      if (isxdigit(c1)) {                                                               \
+      if (isxdigit(static_cast<unsigned char>(c1))) {                                   \
         digit = to_binary_from_hex(c1);                                                 \
                                                                                         \
         OUT_TYPE next = result * 16 - digit;                                            \
                                                                                         \
         if (next > result) {                                                            \
-          std::string err_msg =                                                         \
-              "CAST_" #TYPE_NAME                                                        \
-              "_FROM_HEX: integer overflow while reading hex value '" +                 \
-              std::string(in_original, in_len_original) + "'";                          \
-          gdv_fn_context_set_error_msg(context, err_msg.c_str());                       \
+          char err_msg[128];                                                            \
+          snprintf(err_msg, sizeof(err_msg),                                            \
+                   "CAST_" #TYPE_NAME                                                   \
+                   "_FROM_HEX: integer overflow while reading hex value '%.*s'",        \
+                   in_len_original, in_original);                                       \
+          gdv_fn_context_set_error_msg(context, err_msg);                               \
           return -1;                                                                    \
         }                                                                               \
         result = next;                                                                  \
         read_index++;                                                                   \
       } else {                                                                          \
-        std::string err_msg = "CAST_" #TYPE_NAME                                        \
-                              "_FROM_HEX: invalid character in hex value '" +           \
-                              std::string(in_original, in_len_original) + "'";          \
-        gdv_fn_context_set_error_msg(context, err_msg.c_str());                         \
+        char err_msg[128];                                                              \
+        snprintf(err_msg, sizeof(err_msg),                                              \
+                 "CAST_" #TYPE_NAME "_FROM_HEX: invalid character in hex value '%.*s'", \
+                 in_len_original, in_original);                                         \
+        gdv_fn_context_set_error_msg(context, err_msg);                                 \
         return -1;                                                                      \
       }                                                                                 \
     }                                                                                   \
@@ -2431,10 +2436,12 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
       result *= -1;                                                                     \
                                                                                         \
       if (result < 0) {                                                                 \
-        std::string err_msg = "CAST_" #TYPE_NAME                                        \
-                              "_FROM_HEX: integer overflow while reading hex value '" + \
-                              std::string(in_original, in_len_original) + "'";          \
-        gdv_fn_context_set_error_msg(context, err_msg.c_str());                         \
+        char err_msg[128];                                                              \
+        snprintf(err_msg, sizeof(err_msg),                                              \
+                 "CAST_" #TYPE_NAME                                                     \
+                 "_FROM_HEX: integer overflow while reading hex value '%.*s'",          \
+                 in_len_original, in_original);                                         \
+        gdv_fn_context_set_error_msg(context, err_msg);                                 \
         return -1;                                                                      \
       }                                                                                 \
     }                                                                                   \
@@ -2889,8 +2896,9 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
 FORCE_INLINE
 const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len) {
   const int64_t hex_long_max_size = 2 * sizeof(int64_t);
-  auto ret =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, hex_long_max_size));
+  // Allocate one extra byte for the null terminator written by snprintf.
+  auto ret = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, hex_long_max_size + 1));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -2906,7 +2914,8 @@ const char* to_hex_int64(int64_t context, int64_t data, int32_t* out_len) {
 FORCE_INLINE
 const char* to_hex_int32(int64_t context, int32_t data, int32_t* out_len) {
   const int32_t max_size = 2 * sizeof(int32_t);
-  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_size));
+  // Allocate one extra byte for the null terminator written by snprintf.
+  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_size + 1));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -2948,7 +2957,8 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
   for (int32_t i = 0; i < text_len; i += 2) {
     char b1 = text[i];
     char b2 = text[i + 1];
-    if (isxdigit(b1) && isxdigit(b2)) {
+    if (isxdigit(static_cast<unsigned char>(b1)) &&
+        isxdigit(static_cast<unsigned char>(b2))) {
       // [a-fA-F0-9]
       ret[j++] = to_binary_from_hex(b1) * 16 + to_binary_from_hex(b2);
     } else {
@@ -3016,9 +3026,9 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
-    if (isalpha(in[i]) > 0) {
+    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
       // Retain the first letter
-      ret[0] = toupper(in[i]);
+      ret[0] = toupper(static_cast<unsigned char>(in[i]));
       start_idx = i + 1;
       break;
     }
@@ -3034,8 +3044,8 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   soundex[0] = '\0';
   // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
-    if (isalpha(in[i]) > 0) {
-      c = toupper(in[i]) - 65;
+    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
+      c = toupper(static_cast<unsigned char>(in[i])) - 65;
       if (mappings[c] != soundex[si - 1]) {
         soundex[si] = mappings[c];
         si++;

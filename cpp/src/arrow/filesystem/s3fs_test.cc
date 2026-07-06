@@ -192,6 +192,9 @@ class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
     AwsTestMixin::SetUp();
+    if (!GetMinioEnv(enable_tls_)->IsAvailable()) {
+      GTEST_SKIP() << "Minio executable not found, skipping tests";
+    }
 
     // Starting the server may fail, for example if the generated port number
     // was "stolen" by another process. Run a dummy S3 operation to make sure it
@@ -624,6 +627,7 @@ class TestS3FS : public S3TestMixin {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    if (IsSkipped()) return;
     // Most tests will create buckets
     options_.allow_bucket_creation = true;
     options_.allow_bucket_deletion = true;
@@ -1777,6 +1781,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    if (IsSkipped()) return;
     // Set up test bucket
     {
       Aws::S3::Model::CreateBucketRequest req;

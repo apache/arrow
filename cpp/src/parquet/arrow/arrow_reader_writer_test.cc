@@ -28,9 +28,11 @@
 #include <functional>
 #include <set>
 #include <sstream>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
@@ -3322,6 +3324,75 @@ TEST(ArrowReadWrite, LargeList) {
     reader_props.set_list_type(::arrow::Type::LARGE_LIST);
     CheckSimpleRoundtrip(table, 2, default_arrow_writer_properties(), reader_props);
   }
+}
+
+template <typename ViewType>
+  requires ::arrow::is_list_view_type<ViewType>::value
+void CheckListViewRoundTrip(
+    const std::shared_ptr<ViewType>& view_type,
+    const std::shared_ptr<::arrow::DataType>& fallback_type,
+    const ArrowReaderProperties& reader_props = default_arrow_reader_properties()) {
+  using ViewArrayType = typename ::arrow::TypeTraits<ViewType>::ArrayType;
+  using OffsetArrowType = typename ::arrow::TypeTraits<ViewType>::OffsetType;
+  using FallbackArrayType =
+      std::conditional_t<std::is_same_v<ViewType, ::arrow::ListViewType>,
+                         ::arrow::ListArray, ::arrow::LargeListArray>;
+
+  auto values = ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5]");
+  auto offsets = ArrayFromJSON(::arrow::TypeTraits<OffsetArrowType>::type_singleton(),
+                               "[3, 0, 5, 1]");
+  auto sizes = ArrayFromJSON(::arrow::TypeTraits<OffsetArrowType>::type_singleton(),
+                             "[2, 1, 0, 2]");
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       ViewArrayType::FromArrays(view_type, *offsets, *sizes, *values,
+                                                 default_memory_pool()));
+
+  auto table = Table::Make(
+      ::arrow::schema({::arrow::field("root", array->type(), false)}), {array});
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+
+  ASSERT_OK_AND_ASSIGN(auto expected_array,
+                       FallbackArrayType::FromListView(*array, default_memory_pool()));
+
+  auto expected = Table::Make(
+      ::arrow::schema({::arrow::field("root", fallback_type, false)}), {expected_array});
+  CheckConfiguredRoundtrip(table, expected, ::parquet::default_writer_properties(),
+                           default_arrow_writer_properties(), reader_props);
+}
+
+TEST(ArrowReadWrite, ListView) {
+  CheckListViewRoundTrip(std::make_shared<::arrow::ListViewType>(::arrow::int32()),
+                         ::arrow::list(::arrow::int32()));
+}
+
+TEST(ArrowReadWrite, LargeListView) {
+  ArrowReaderProperties reader_props;
+  reader_props.set_list_type(::arrow::Type::LARGE_LIST);
+  CheckListViewRoundTrip(std::make_shared<::arrow::LargeListViewType>(::arrow::int32()),
+                         ::arrow::large_list(::arrow::int32()), reader_props);
+}
+
+TEST(ArrowReadWrite, EmptyListView) {
+  auto type = ::arrow::list_view(::arrow::int32());
+  auto array = ArrayFromJSON(type, "[]");
+  auto table = Table::Make(::arrow::schema({::arrow::field("root", type)}), {array});
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  std::shared_ptr<Table> result;
+  ASSERT_NO_FATAL_FAILURE(
+      DoRoundtrip(table, 1, &result, default_writer_properties(), props_store_schema));
+  ASSERT_OK(result->ValidateFull());
+
+  ASSERT_EQ(1, result->column(0)->num_chunks());
+  const auto& list_view =
+      checked_cast<const ::arrow::ListViewArray&>(*result->column(0)->chunk(0));
+  ASSERT_EQ(0, list_view.length());
+  ASSERT_NE(nullptr, list_view.value_offsets());
+  ASSERT_EQ(0, list_view.value_offsets()->size());
+  ASSERT_NE(nullptr, list_view.value_sizes());
+  ASSERT_EQ(0, list_view.value_sizes()->size());
 }
 
 TEST(ArrowReadWrite, FixedSizeList) {

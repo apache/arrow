@@ -75,6 +75,8 @@ if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+    echo -e "===\n=== ccache configuration\n==="
+    ccache --show-config
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
 fi
@@ -267,6 +269,7 @@ else
     -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD:-20}" \
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
+    -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=${CMAKE_MSVC_DEBUG_INFORMATION_FORMAT:-} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -DCUDAToolkit_ROOT=${CUDAToolkit_ROOT:-} \
     -Dgflags_SOURCE=${gflags_SOURCE:-} \

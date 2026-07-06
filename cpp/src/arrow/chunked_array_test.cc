@@ -23,6 +23,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array/builder_run_end.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -74,6 +75,37 @@ TEST_F(TestChunkedArray, Make) {
 
   ASSERT_RAISES(TypeError, ChunkedArray::Make({chunk0, chunk1}));
   ASSERT_RAISES(TypeError, ChunkedArray::Make({chunk0}, int16()));
+}
+
+TEST_F(TestChunkedArray, ComputeLogicalNullCount) {
+  // For types with a validity bitmap, the logical null count matches
+  // null_count() (the sum over chunks).
+  auto chunk0 = ArrayFromJSON(int32(), "[1, null, 3]");
+  auto chunk1 = ArrayFromJSON(int32(), "[null, 5]");
+  ChunkedArray with_bitmap({chunk0, chunk1});
+  ASSERT_EQ(with_bitmap.null_count(), 2);
+  ASSERT_EQ(with_bitmap.ComputeLogicalNullCount(), 2);
+
+  // An empty chunked array has no logical nulls.
+  ASSERT_OK_AND_ASSIGN(auto empty, ChunkedArray::MakeEmpty(int32()));
+  ASSERT_EQ(empty->ComputeLogicalNullCount(), 0);
+
+  // Run-end encoded arrays carry logical nulls without a top-level validity
+  // bitmap, so null_count() is 0 while the logical null count is not.
+  auto pool = default_memory_pool();
+  auto ree_type = run_end_encoded(int32(), int32());
+  RunEndEncodedBuilder ree_builder(pool, std::make_shared<Int32Builder>(pool),
+                                   std::make_shared<Int32Builder>(pool), ree_type);
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(2), 2));
+  ASSERT_OK(ree_builder.AppendNulls(3));
+  ASSERT_OK_AND_ASSIGN(auto ree_chunk0, ree_builder.Finish());
+  ASSERT_OK(ree_builder.AppendNulls(4));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(8), 5));
+  ASSERT_OK_AND_ASSIGN(auto ree_chunk1, ree_builder.Finish());
+
+  ChunkedArray ree_ca({ree_chunk0, ree_chunk1}, ree_type);
+  ASSERT_EQ(ree_ca.null_count(), 0);
+  ASSERT_EQ(ree_ca.ComputeLogicalNullCount(), 7);
 }
 
 TEST_F(TestChunkedArray, MakeEmpty) {

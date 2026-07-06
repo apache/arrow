@@ -34,6 +34,7 @@ version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 release_tag="apache-arrow-${version}-rc${rc}"
 rc_branch="release-${version_with_rc}"
+maint_branch="maint-${version}"
 
 : ${ARROW_REPOSITORY:="apache/arrow"}
 : ${ARROW_BRANCH:=${release_tag}}
@@ -57,5 +58,7 @@ job_name=$(archery crossbow latest-prefix --no-fetch ${crossbow_job_prefix})
 archery crossbow report-pr \
     --no-fetch \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
+    --base-branch ${maint_branch} \
+    --head-branch ${rc_branch} \
     --job-name ${job_name} \
     --pr-title "WIP: [Release] Verify ${rc_branch}"

@@ -31,6 +31,7 @@
 #  undef private
 #endif
 
+#include <cstring>
 #include <sstream>
 
 namespace red_arrow {
@@ -220,6 +221,7 @@ namespace red_arrow {
         return false;
       }
       auto view_ = reinterpret_cast<memory_view *>(view);
+      memset(view_, 0, sizeof(memory_view));
       view_->obj = obj;
       view_->private_data = new PrivateData();
       auto array = GARROW_ARRAY(RVAL2GOBJ(obj));
@@ -231,9 +233,6 @@ namespace red_arrow {
       }
       view_->readonly = true;
       view_->ndim = 1;
-      view_->shape = NULL;
-      view_->strides = NULL;
-      view_->sub_offsets = NULL;
       return true;
     }
 
@@ -258,6 +257,7 @@ namespace red_arrow {
         return false;
       }
       auto view_ = reinterpret_cast<memory_view *>(view);
+      memset(view_, 0, sizeof(memory_view));
       view_->obj = obj;
       auto buffer = GARROW_BUFFER(RVAL2GOBJ(obj));
       auto arrow_buffer = garrow_buffer_get_raw(buffer);
@@ -275,9 +275,6 @@ namespace red_arrow {
       view_->byte_size = arrow_buffer->size();
       view_->readonly = true;
       view_->ndim = 1;
-      view_->shape = NULL;
-      view_->strides = NULL;
-      view_->sub_offsets = NULL;
       return true;
     }
 

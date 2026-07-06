@@ -88,3 +88,8 @@ RUN \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean
+
+# nvidia-cuda-toolkit was removed from Debian forky amd64, so disable the
+# CUDA packages via the pkg.apache-arrow.nocuda build profile.See GH-50090.
+# Once nvidia-cuda-toolkit is re-added to Debian forky, this can be removed.
+ENV DEB_BUILD_PROFILES=pkg.apache-arrow.nocuda
