@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cassert>
 #include <cstdint>
@@ -27,6 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
@@ -558,11 +560,25 @@ inline Status VisitTwoSetBitRuns(const uint8_t* left_bitmap, int64_t left_offset
     return VisitSetBitRuns(left_bitmap, left_offset, length, std::forward<Visit>(visit));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto bitmap_and,
-                        BitmapAnd(pool, left_bitmap, left_offset, right_bitmap,
-                                  right_offset, length, /*out_offset=*/0));
-  return VisitSetBitRuns(bitmap_and->data(), /*offset=*/0, length,
-                         std::forward<Visit>(visit));
+  constexpr int64_t kBitmapChunkLength = 4096;  // 512 bytes of scratch space on stack
+  std::array<uint8_t, bit_util::BytesForBits(kBitmapChunkLength)> bitmap_chunk;
+
+  int64_t offset = 0;
+  while (offset < length) {
+    const auto chunk_length = std::min(kBitmapChunkLength, length - offset);
+    BitmapAnd(left_bitmap, left_offset + offset, right_bitmap, right_offset + offset,
+              chunk_length,
+              /*out_offset=*/0, bitmap_chunk.data());
+
+    auto visit_with_offset = [&](int64_t position_in_chunk, int64_t run_length) {
+      return visit(position_in_chunk + offset, run_length);
+    };
+
+    ARROW_RETURN_NOT_OK(VisitSetBitRuns(bitmap_chunk.data(), /*offset=*/0, chunk_length,
+                                        std::move(visit_with_offset)));
+    offset += chunk_length;
+  }
+  return Status::OK();
 }
 
 template <typename Visit>
