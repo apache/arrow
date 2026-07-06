@@ -370,6 +370,13 @@ Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
                      const std::string& name, bool nullable, int field_id,
                      const WriterProperties& properties,
                      const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  // `VariantExtensionType` already validates the general storage shape. Writing is
+  // stricter than reading: we keep accepting typed-only Variant schemas on read,
+  // but must not write them.
+  if (type->value() == nullptr) {
+    return Status::Invalid("Invalid Variant write schema: missing top-level value field");
+  }
+
   std::vector<NodePtr> children;
   children.reserve(type->storage_type()->num_fields());
 
