@@ -2487,6 +2487,13 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     startPos = text_len + offset;
   }
 
+  // an offset past the end of the text leaves nothing to copy; without this the
+  // truncation below yields a negative *out_len that memcpy reads as a huge size
+  if (startPos >= text_len) {
+    *out_len = 0;
+    return "";
+  }
+
   // calculate end position from length and truncate to upper value bounds
   if (startPos + length > text_len) {
     *out_len = text_len - startPos;
