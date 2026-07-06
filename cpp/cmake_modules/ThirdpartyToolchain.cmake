@@ -2833,6 +2833,10 @@ function(build_xsimd)
                        URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}")
   fetchcontent_makeavailable(xsimd)
 
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${xsimd_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
   set(xsimd_INCLUDE_DIR "${xsimd_SOURCE_DIR}/include")
   add_library(arrow::xsimd INTERFACE IMPORTED)
   target_include_directories(arrow::xsimd INTERFACE "${xsimd_INCLUDE_DIR}")
