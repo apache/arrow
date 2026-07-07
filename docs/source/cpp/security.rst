@@ -125,7 +125,7 @@ Controlling and restricting memory allocation
 
 By construction, many Arrow C++ APIs can allocate large amounts of memory, depending
 on their input parameters. Arrow C++ allows customizing the memory allocator for
-such large data areads through the :ref:`MemoryPool <cpp_memory_pool>` interface.
+such large data requests through the :ref:`MemoryPool <cpp_memory_pool>` interface.
 
 You can therefore implement a MemoryPool class enforcing the restrictions
 of your choise (for example to limit the total number of allocated bytes), and pass
