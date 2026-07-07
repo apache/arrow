@@ -471,8 +471,8 @@ using ReverseSetBitRunReader = BaseSetBitRunReader</*Reverse=*/true>;
 // Functional-style bit run visitors.
 
 template <typename Visit>
-inline Status VisitBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
-                           Visit&& visit) {
+ARROW_FORCE_INLINE Status VisitBitRuns(const uint8_t* bitmap, int64_t offset,
+                                       int64_t length, Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     return visit(static_cast<int64_t>(0), length, true);
@@ -495,8 +495,8 @@ inline Status VisitBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length
 // - don't inline SetBitRunReader constructor, it doesn't hurt performance
 // - un-inline NextRun hurts 'many null' cases a bit, but improves normal cases
 template <typename Visit>
-inline Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
-                              Visit&& visit) {
+ARROW_FORCE_INLINE Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset,
+                                          int64_t length, Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     return visit(static_cast<int64_t>(0), static_cast<int64_t>(length));
@@ -513,8 +513,8 @@ inline Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t len
 }
 
 template <typename Visit>
-inline void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
-                                Visit&& visit) {
+ARROW_FORCE_INLINE void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset,
+                                            int64_t length, Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     visit(static_cast<int64_t>(0), static_cast<int64_t>(length));
@@ -531,24 +531,27 @@ inline void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t l
 }
 
 template <typename Visit>
-inline Status VisitSetBitRuns(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
-                              int64_t length, Visit&& visit) {
+ARROW_FORCE_INLINE Status VisitSetBitRuns(const std::shared_ptr<Buffer>& bitmap,
+                                          int64_t offset, int64_t length, Visit&& visit) {
   return VisitSetBitRuns(bitmap ? bitmap->data() : NULLPTR, offset, length,
                          std::forward<Visit>(visit));
 }
 
 template <typename Visit>
-inline void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
-                                int64_t length, Visit&& visit) {
+ARROW_FORCE_INLINE void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap,
+                                            int64_t offset, int64_t length,
+                                            Visit&& visit) {
   VisitSetBitRunsVoid(bitmap ? bitmap->data() : NULLPTR, offset, length,
                       std::forward<Visit>(visit));
 }
 
 template <typename Visit>
-inline Status VisitTwoSetBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
-                                 const uint8_t* right_bitmap, int64_t right_offset,
-                                 int64_t length, Visit&& visit,
-                                 MemoryPool* pool = default_memory_pool()) {
+ARROW_FORCE_INLINE Status VisitTwoSetBitRuns(const uint8_t* left_bitmap,
+                                             int64_t left_offset,
+                                             const uint8_t* right_bitmap,
+                                             int64_t right_offset, int64_t length,
+                                             Visit&& visit,
+                                             MemoryPool* pool = default_memory_pool()) {
   if (length == 0) {
     return Status::OK();
   }
@@ -582,10 +585,11 @@ inline Status VisitTwoSetBitRuns(const uint8_t* left_bitmap, int64_t left_offset
 }
 
 template <typename Visit>
-inline Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
-                              const uint8_t* right_bitmap, int64_t right_offset,
-                              int64_t length, Visit&& visit,
-                              MemoryPool* pool = default_memory_pool()) {
+ARROW_FORCE_INLINE Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
+                                          const uint8_t* right_bitmap,
+                                          int64_t right_offset, int64_t length,
+                                          Visit&& visit,
+                                          MemoryPool* pool = default_memory_pool()) {
   int64_t output_position = 0;
   ARROW_RETURN_NOT_OK(VisitTwoSetBitRuns(
       left_bitmap, left_offset, right_bitmap, right_offset, length,
@@ -605,10 +609,12 @@ inline Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
 }
 
 template <typename Visit>
-inline void VisitTwoBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
-                                const uint8_t* right_bitmap, int64_t right_offset,
-                                int64_t length, Visit&& visit,
-                                MemoryPool* pool = default_memory_pool()) {
+ARROW_FORCE_INLINE void VisitTwoBitRunsVoid(const uint8_t* left_bitmap,
+                                            int64_t left_offset,
+                                            const uint8_t* right_bitmap,
+                                            int64_t right_offset, int64_t length,
+                                            Visit&& visit,
+                                            MemoryPool* pool = default_memory_pool()) {
   ARROW_IGNORE_EXPR(VisitTwoBitRuns(
       left_bitmap, left_offset, right_bitmap, right_offset, length,
       [&](int64_t position, int64_t length, bool set) {
@@ -619,10 +625,12 @@ inline void VisitTwoBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
 }
 
 template <typename Visit>
-inline void VisitTwoSetBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
-                                   const uint8_t* right_bitmap, int64_t right_offset,
-                                   int64_t length, Visit&& visit,
-                                   MemoryPool* pool = default_memory_pool()) {
+ARROW_FORCE_INLINE void VisitTwoSetBitRunsVoid(const uint8_t* left_bitmap,
+                                               int64_t left_offset,
+                                               const uint8_t* right_bitmap,
+                                               int64_t right_offset, int64_t length,
+                                               Visit&& visit,
+                                               MemoryPool* pool = default_memory_pool()) {
   ARROW_IGNORE_EXPR(VisitTwoSetBitRuns(
       left_bitmap, left_offset, right_bitmap, right_offset, length,
       [&](int64_t position, int64_t length) {
