@@ -256,12 +256,11 @@ struct SearchSortedCompare {
   }
 };
 
-class PlainArrayAccessorBase {
+class SearchWindow {
  public:
-  PlainArrayAccessorBase(int64_t array_length, NonNullValuesRange non_null_range)
+  SearchWindow(int64_t length, NonNullValuesRange non_null_range)
       : offset_(non_null_range.offset),
-        length_(non_null_range.is_identity(array_length) ? array_length
-                                                         : non_null_range.length) {}
+        length_(non_null_range.is_identity(length) ? length : non_null_range.length) {}
 
   int64_t length() const { return length_; }
 
@@ -279,7 +278,7 @@ class PlainArrayAccessorBase {
 
 /// Access logical values from a plain Arrow array.
 template <typename ArrowType>
-class PlainArrayAccessor : public PlainArrayAccessorBase {
+class PlainArrayAccessor : public SearchWindow {
  public:
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using ValueType = SearchValue<ArrowType>;
@@ -288,7 +287,7 @@ class PlainArrayAccessor : public PlainArrayAccessorBase {
   /// to a non-null subrange.
   explicit PlainArrayAccessor(const std::shared_ptr<ArrayData>& array_data,
                               NonNullValuesRange non_null_range = {})
-      : PlainArrayAccessorBase(array_data->length, non_null_range), array_(array_data) {}
+      : SearchWindow(array_data->length, non_null_range), array_(array_data) {}
 
   /// Return the logical value at the given position within the search window.
   ValueType Value(int64_t index) const {
@@ -406,40 +405,9 @@ class RunEndEncodedValuesAccessor : public RunEndEncodedValuesAccessorBase {
   ArrayType values_;
 };
 
-class ChunkedArrayAccessorBase {
- public:
-  ChunkedArrayAccessorBase(const ChunkedArray& chunked_array,
-                           NonNullValuesRange non_null_range = {})
-      : chunked_array_(chunked_array),
-        resolver_(chunked_array.chunks()),
-        offset_(non_null_range.offset),
-        length_(non_null_range.is_identity(chunked_array_.length())
-                    ? chunked_array_.length()
-                    : non_null_range.length) {}
-
-  int64_t length() const { return length_; }
-
-  uint64_t LogicalInsertionIndex(int64_t index) const {
-    return static_cast<uint64_t>(index);
-  }
-
- protected:
-  const ChunkedArray& chunked_array() const { return chunked_array_; }
-
-  ChunkLocation ResolveIndex(int64_t index) const {
-    return resolver_.Resolve(offset_ + index);
-  }
-
- private:
-  const ChunkedArray& chunked_array_;
-  ChunkResolver resolver_;
-  int64_t offset_ = 0;
-  int64_t length_;
-};
-
 /// Access logical values from a chunked Arrow array without combining chunks.
 template <typename ArrowType>
-class ChunkedArrayAccessor : public ChunkedArrayAccessorBase {
+class ChunkedArrayAccessor : public SearchWindow {
  public:
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using ValueType = SearchValue<ArrowType>;
@@ -448,7 +416,9 @@ class ChunkedArrayAccessor : public ChunkedArrayAccessorBase {
   /// without concatenating the input, optionally restricted to a subrange.
   explicit ChunkedArrayAccessor(const ChunkedArray& chunked_array,
                                 NonNullValuesRange non_null_range = {})
-      : ChunkedArrayAccessorBase(chunked_array, non_null_range) {
+      : SearchWindow(chunked_array.length(), non_null_range),
+        chunked_array_(chunked_array),
+        resolver_(chunked_array.chunks()) {
     chunks_.reserve(static_cast<size_t>(chunked_array.num_chunks()));
     for (const auto& chunk : chunked_array.chunks()) {
       DCHECK_NE(chunk->type_id(), Type::RUN_END_ENCODED);
@@ -459,13 +429,15 @@ class ChunkedArrayAccessor : public ChunkedArrayAccessorBase {
   /// Resolve a logical index within the search window to its chunk-local
   /// storage and return that value.
   ValueType Value(int64_t index) const {
-    const auto location = ResolveIndex(index);
-    DCHECK_LT(location.chunk_index, chunked_array().num_chunks());
+    const auto location = resolver_.Resolve(physical_offset() + index);
+    DCHECK_LT(location.chunk_index, chunked_array_.num_chunks());
     return GetViewType<ArrowType>::LogicalValue(
         chunks_[location.chunk_index].GetView(location.index_in_chunk));
   }
 
  private:
+  const ChunkedArray& chunked_array_;
+  ChunkResolver resolver_;
   std::vector<ArrayType> chunks_;
 };
 
@@ -1003,17 +975,6 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
   return Datum(std::move(out));
 }
 
-// Main entry point for search_sorted over a single array of sorted values and scalar or
-// array needles. The accessor already has the non-null range folded in so this is a
-// straight pass-through to ComputeInsertionIndices.
-template <typename ArrowType, typename ValuesAccessor>
-Result<Datum> SearchWithAccessor(const ValuesAccessor& values_accessor,
-                                 const Datum& needles, SearchSortedOptions::Side side,
-                                 uint64_t insertion_offset, ExecContext* ctx) {
-  return ComputeInsertionIndices<ArrowType>(values_accessor, needles, side,
-                                            insertion_offset, ctx);
-}
-
 /// Normalize a single ArrayData values input to the correct accessor type and
 /// invoke the supplied visitor with that accessor.
 template <typename ArrowType, typename Visitor>
@@ -1178,7 +1139,7 @@ class SearchSortedMetaFunction : public MetaFunction {
       return VisitValuesAccessor<ArrowType>(
           *values.chunked_array(), non_null_values_range,
           [&](const auto& values_accessor) {
-            return SearchWithAccessor<ArrowType>(
+            return ComputeInsertionIndices<ArrowType>(
                 values_accessor, needles, side,
                 static_cast<uint64_t>(non_null_values_range.offset), ctx);
           });
@@ -1186,7 +1147,7 @@ class SearchSortedMetaFunction : public MetaFunction {
 
     return VisitValuesAccessor<ArrowType>(
         values.array(), non_null_values_range, [&](const auto& values_accessor) {
-          return SearchWithAccessor<ArrowType>(
+          return ComputeInsertionIndices<ArrowType>(
               values_accessor, needles, side,
               static_cast<uint64_t>(non_null_values_range.offset), ctx);
         });
