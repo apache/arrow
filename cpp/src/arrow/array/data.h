@@ -266,6 +266,10 @@ struct ARROW_EXPORT ArrayData {
   /// \return A span<const T> of the requested length
   template <typename T>
   std::span<const T> GetSpan(int i, int64_t length) const {
+    if (!buffers[i]) {
+      assert(length == 0);
+      return {};
+    }
     const int64_t buffer_length = buffers[i]->size() / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);
@@ -282,6 +286,10 @@ struct ARROW_EXPORT ArrayData {
   /// \return A span<T> of the requested length
   template <typename T>
   std::span<T> GetMutableSpan(int i, int64_t length) {
+    if (!buffers[i]) {
+      assert(length == 0);
+      return {};
+    }
     const int64_t buffer_length = buffers[i]->size() / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);

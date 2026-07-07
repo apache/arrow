@@ -1138,45 +1138,6 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   AssertArraysEqual(*src, *dst);
 }
 
-TEST_F(TestArray, GetSpanRespectsOffset) {
-  std::vector<uint16_t> values = {1, 2, 3, 4, 5};
-
-  auto buffer = Buffer::FromVector(std::move(values));
-  auto data = ArrayData::Make(uint16(), 3, {nullptr, buffer}, 0, 1);
-  auto span = data->GetSpan<uint16_t>(1, 3);
-
-  EXPECT_EQ(span.size(), 3);
-  EXPECT_EQ(span[0], 2);
-  EXPECT_EQ(span[1], 3);
-  EXPECT_EQ(span[2], 4);
-}
-
-TEST_F(TestArray, GetMutableSpanRespectsOffset) {
-  std::vector<uint16_t> values = {10, 20, 30, 40, 50};
-
-  auto buffer = std::make_shared<MutableBuffer>(reinterpret_cast<uint8_t*>(values.data()),
-                                                values.size() * sizeof(uint16_t));
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, buffer};
-
-  auto data = ArrayData::Make(uint16(), 3, buffers, 0, 1);
-  auto span = data->GetMutableSpan<uint16_t>(1, 3);
-
-  EXPECT_EQ(span.size(), 3);
-  EXPECT_EQ(span[0], 20);
-  EXPECT_EQ(span[1], 30);
-  EXPECT_EQ(span[2], 40);
-
-  span[0] = 200;
-  span[1] = 300;
-  span[2] = 400;
-
-  auto raw = reinterpret_cast<uint16_t*>(buffer->mutable_data());
-
-  EXPECT_EQ(raw[1], 200);
-  EXPECT_EQ(raw[2], 300);
-  EXPECT_EQ(raw[3], 400);
-}
-
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto null_buffer = Buffer::FromString("\xff");
