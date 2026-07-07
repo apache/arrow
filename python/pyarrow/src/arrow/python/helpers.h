@@ -123,6 +123,10 @@ Status PyObject_StdStringStr(PyObject* obj, std::string* out);
 ARROW_PYTHON_EXPORT
 std::string PyObject_StdStringRepr(PyObject* obj);
 
+// \brief Return the type name of the given object as a std::string
+ARROW_PYTHON_EXPORT
+std::string PyObject_StdStringTypeName(PyObject* obj);
+
 // \brief Cast the given size to int32_t, with error checking
 inline Status CastSize(Py_ssize_t size, int32_t* out,
                        const char* error_msg = "Maximum size exceeded (2GB)") {

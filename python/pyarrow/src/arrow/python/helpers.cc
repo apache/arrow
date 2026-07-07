@@ -89,7 +89,8 @@ Result<uint16_t> PyFloat_AsHalf(PyObject* obj) {
     return PyArrayScalar_VAL(obj, Half);
   } else {
     return Status::TypeError("conversion to float16 expects a `float` or ",
-                             "`np.float16` object, got ", Py_TYPE(obj)->tp_name);
+                             "`np.float16` object, got ",
+                             internal::PyObject_StdStringTypeName(obj));
   }
 }
 
@@ -97,7 +98,7 @@ namespace internal {
 
 std::string PyBytes_AsStdString(PyObject* obj) {
   ARROW_DCHECK(PyBytes_Check(obj));
-  return std::string(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
+  return std::string(PyBytes_AsString(obj), PyBytes_Size(obj));
 }
 
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
@@ -121,10 +122,25 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
   if (!bytes_ref) {
     PyErr_Clear();
     std::stringstream ss;
-    ss << "<object of type '" << Py_TYPE(obj)->tp_name << "' repr() failed>";
+    ss << "<object of type '" << PyObject_StdStringTypeName(obj) << "' repr() failed>";
     return ss.str();
   }
   return PyBytes_AsStdString(bytes_ref.obj());
+}
+
+std::string PyObject_StdStringTypeName(PyObject* obj) {
+  OwnedRef name_ref(PyType_GetName(Py_TYPE(obj)));
+  if (!name_ref) {
+    PyErr_Clear();
+    return "?";
+  }
+  Py_ssize_t size;
+  const char* data = PyUnicode_AsUTF8AndSize(name_ref.obj(), &size);
+  if (data == nullptr) {
+    PyErr_Clear();
+    return "?";
+  }
+  return std::string(data, size);
 }
 
 Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
@@ -176,9 +192,10 @@ Result<OwnedRef> PyObjectToPyInt(PyObject* obj) {
     return std::move(ref);
   }
   PyErr_Clear();
-  const auto nb = Py_TYPE(obj)->tp_as_number;
-  if (nb && nb->nb_int) {
-    ref.reset(nb->nb_int(obj));
+  const auto nb_int =
+      reinterpret_cast<unaryfunc>(PyType_GetSlot(Py_TYPE(obj), Py_nb_int));
+  if (nb_int) {
+    ref.reset(nb_int(obj));
     if (!ref) {
       RETURN_IF_PYERROR();
     }
@@ -286,7 +303,7 @@ inline bool MayHaveNaN(PyObject* obj) {
                                   Py_TPFLAGS_TUPLE_SUBCLASS | Py_TPFLAGS_BYTES_SUBCLASS |
                                   Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
                                   Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
-  return !PyType_HasFeature(Py_TYPE(obj), non_nan_tpflags);
+  return (PyType_GetFlags(Py_TYPE(obj)) & non_nan_tpflags) == 0;
 }
 
 bool PyFloat_IsNaN(PyObject* obj) {
@@ -433,13 +450,13 @@ PyObject* BorrowPandasDataOffsetType() { return pandas_DateOffset; }
 Status InvalidValue(PyObject* obj, const std::string& why) {
   auto obj_as_str = PyObject_StdStringRepr(obj);
   return Status::Invalid("Could not convert ", std::move(obj_as_str), " with type ",
-                         Py_TYPE(obj)->tp_name, ": ", why);
+                         PyObject_StdStringTypeName(obj), ": ", why);
 }
 
 Status InvalidType(PyObject* obj, const std::string& why) {
   auto obj_as_str = PyObject_StdStringRepr(obj);
   return Status::TypeError("Could not convert ", std::move(obj_as_str), " with type ",
-                           Py_TYPE(obj)->tp_name, ": ", why);
+                           PyObject_StdStringTypeName(obj), ": ", why);
 }
 
 Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {

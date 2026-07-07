@@ -233,7 +233,8 @@ Result<int64_t> PyReadableFile::Read(int64_t nbytes, void* out) {
       return Status::TypeError(
           "Python file read() should have returned a bytes object or an object "
           "supporting the buffer protocol, got '",
-          Py_TYPE(bytes_obj)->tp_name, "' (did you open the file in binary mode?)");
+          internal::PyObject_StdStringTypeName(bytes_obj),
+          "' (did you open the file in binary mode?)");
     }
   });
 }

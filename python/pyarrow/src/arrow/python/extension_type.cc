@@ -78,8 +78,8 @@ std::string PyExtensionType::ToString(bool show_metadata) const {
 
   std::stringstream ss;
   OwnedRef instance(GetInstance());
-  ss << "extension<" << this->extension_name() << "<" << Py_TYPE(instance.obj())->tp_name
-     << ">>";
+  ss << "extension<" << this->extension_name() << "<"
+     << internal::PyObject_StdStringTypeName(instance.obj()) << ">>";
   return ss.str();
 }
 
