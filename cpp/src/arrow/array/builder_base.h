@@ -111,6 +111,31 @@ class ARROW_EXPORT ArrayBuilder {
 
   int num_children() const { return static_cast<int>(children_.size()); }
 
+  /// \brief Return true if value at index is null. Does not boundscheck
+  bool IsNull(int64_t i) const { return !IsValid(i); }
+
+  /// \brief Return true if value at index is valid (not null). Does not
+  /// boundscheck.
+  /// Note that this method does not work for types that do not have a
+  /// top-level validity bitmap ( Union and Run-End Encoded (RLE) types).
+  bool IsValid(int64_t i) const {
+    if (type()->id() == Type::NA) {
+      return false;
+    } else if (type()->id() == Type::SPARSE_UNION) {
+      // Not implemented
+      return false;
+    } else if (type()->id() == Type::DENSE_UNION) {
+      // Not implemented
+      return false;
+    } else if (type()->id() == Type::RUN_END_ENCODED) {
+      // Not implemented
+      return false;
+    } else {
+      // NullType
+      return bit_util::GetBit(null_bitmap_builder_.data(), i);
+    }
+  }
+
   virtual int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
   int64_t capacity() const { return capacity_; }
