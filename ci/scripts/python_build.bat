@@ -59,7 +59,7 @@ set ARROW_WITH_LZ4=ON
 set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
-set CMAKE_BUILD_TYPE=Release
+set CMAKE_BUILD_TYPE=Debug
 set CMAKE_GENERATOR=Ninja
 set CMAKE_UNITY_BUILD=ON
 
@@ -134,6 +134,8 @@ pushd %SOURCE_DIR%\python
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
 
 @REM Build PyArrow
-%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv -C build.verbose=true . || exit /B 1
+%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv  ^
+    -C build.verbose=true  ^
+    -C cmake.build-type=%CMAKE_BUILD_TYPE% . || exit /B 1
 
 popd
