@@ -685,6 +685,64 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
 
 namespace {
 
+/// Wrapper around a `TypedDecoder` pointer to skip values.
+///
+/// Use a scratch buffer to decode values into that buffer.
+/// This was migrated here from a historical implementation.
+/// Ideally all decoders would implement a `Skip` functionality that would at best
+/// avoid decoding, and at worst, decode without intermediarry allocation.
+template <typename DType, int64_t kScratchValueCount_>
+class SkippableTypedDecoder {
+ public:
+  using Decoder = TypedDecoder<DType>;
+  using T = typename Decoder::T;
+
+  static constexpr int64_t kValueByteSize = type_traits<DType::type_num>::value_byte_size;
+  static constexpr int64_t kScratchValueCount = kScratchValueCount_;
+  static constexpr int64_t kScratchByteSize = kScratchValueCount * kValueByteSize;
+
+  SkippableTypedDecoder() = default;
+
+  explicit SkippableTypedDecoder(Decoder* decoder) : decoder_(decoder) {}
+
+  void SetDecoder(Decoder* decoder) { decoder_ = decoder; }
+
+  const Decoder* get() const { return decoder_; }
+
+  Decoder* get() { return decoder_; }
+
+  int64_t Skip(int64_t num_values, ::arrow::MemoryPool* pool = nullptr) {
+    EnsureScratch(pool);
+
+    int64_t total_read = 0;
+    int iter_read = 0;
+    do {
+      static_assert(kScratchValueCount <= std::numeric_limits<int>::max());
+      const int batch_size =
+          static_cast<int>(std::min(kScratchValueCount, num_values - total_read));
+
+      iter_read = get()->Decode(scratch_->mutable_data_as<T>(), batch_size);
+      total_read += iter_read;
+    } while (iter_read > 0 && total_read < num_values);
+
+    return total_read;
+  }
+
+ private:
+  /// Scratch space to skip decode values that need skipping.
+  /// We actually do not need the whole shared_ptr machinery but it was historically
+  /// chosen for ease of use with ``AllocateBuffer`` and migrated here.
+  std::shared_ptr<ResizableBuffer> scratch_ = nullptr;
+  Decoder* decoder_ = nullptr;
+
+  void EnsureScratch(::arrow::MemoryPool* pool) {
+    if (this->scratch_ == nullptr) {
+      this->scratch_ = AllocateBuffer(pool, kScratchByteSize);
+    }
+    ARROW_DCHECK_NE(this->scratch_, nullptr);
+  }
+};
+
 // ----------------------------------------------------------------------
 // Impl base class for TypedColumnReader and RecordReader
 
