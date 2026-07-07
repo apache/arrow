@@ -1179,7 +1179,7 @@ TEST_F(TestArray, GetMutableSpanRespectsOffset) {
   span[2] = 400;
 
   auto raw = reinterpret_cast<uint16_t*>(buffer->mutable_data());
-  
+
   EXPECT_EQ(raw[1], 200);
 
   EXPECT_EQ(raw[2], 300);
