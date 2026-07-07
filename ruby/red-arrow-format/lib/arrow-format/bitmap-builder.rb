@@ -18,6 +18,8 @@
 require_relative "buffer-alignable"
 
 module ArrowFormat
+  using FlatBuffers::AppendAsBytes if FlatBuffers.const_defined?(:AppendAsBytes)
+
   class DenseBitmapBuilder
     include BufferAlignable
 
@@ -36,8 +38,7 @@ module ArrowFormat
 
     def finish
       flush if @n_bits > 0
-      padding_size = buffer_padding_size(@buffer)
-      @buffer.append_as_bytes(padding(padding_size)) if padding_size > 0
+      pad!(@buffer, buffer_padding_size(@buffer))
       @buffer.freeze
       IO::Buffer.for(@buffer)
     end
