@@ -1622,16 +1622,40 @@ TEST(TestStringOps, TestPadMalformedUtf8NoOverread) {
   const auto text_len = static_cast<gdv_int32>(text.size());
   const std::string text_str(text.begin(), text.end());
 
-  // The malformed sequence is counted as one glyph, so padding to width 6 adds
-  // five fill characters.
+  // The lone lead byte counts as one invalid glyph and the three 'a's as one
+  // each, so the length is 4 and padding to width 6 adds two fill characters.
   const char* out_str =
       lpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
-  EXPECT_EQ(out_len, 9);
-  EXPECT_EQ(std::string(out_str, out_len), "     " + text_str);
+  EXPECT_EQ(out_len, 6);
+  EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
 
   out_str = rpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
-  EXPECT_EQ(out_len, 9);
-  EXPECT_EQ(std::string(out_str, out_len), text_str + "     ");
+  EXPECT_EQ(out_len, 6);
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
+}
+
+TEST(TestStringOps, TestPadMalformedUtf8KeepsValidGlyph) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // {0xF0, 'a', 0xE2, 0x82, 0xAC}: malformed 4-byte lead + ASCII 'a' + U+20AC €.
+  // 0xF0 alone counts as one invalid glyph, then 'a' and € follow on their own,
+  // so the count is 3. If the inner scan kept char_len at 4 it would advance the
+  // outer loop past 'a', 0xE2, 0x82 and only see the orphaned 0xAC, giving 2.
+  std::vector<char> text = {'\xF0', 'a', '\xE2', '\x82', '\xAC'};
+  const auto text_len = static_cast<gdv_int32>(text.size());
+  const std::string text_str(text.begin(), text.end());
+
+  // 3 glyphs padded to width 5 adds two fill characters, out_len = 2 + 5 = 7.
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 5, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 5, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
 }
 
 TEST(TestStringOps, TestRtrim) {

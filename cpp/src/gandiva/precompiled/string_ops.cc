@@ -208,6 +208,11 @@ gdv_int32 utf8_length_ignore_invalid(const char* data, gdv_int32 data_len) {
     }
     for (int j = 1; j < char_len; ++j) {
       if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        // Only the bytes up to the mismatch belong to this (invalid) glyph, so
+        // advance past them and let the outer loop re-parse the rest. Keeping
+        // char_len at its declared width would swallow valid characters that
+        // fall inside the truncated sequence's window.
+        char_len = j;
         break;
       }
     }
