@@ -180,7 +180,7 @@ their own risks. For example, buffer offsets and sizes encoded in IPC messages
 may be out of bounds for the IPC stream; Flatbuffers-encoded metadata payloads
 may carry incorrect offsets pointing outside of the designated metadata area.
 
-Besides, the IPC format provides optional :ref:`buffer compression <buffer-compression>`
+In addition, the IPC format provides optional :ref:`buffer compression <buffer-compression>`
 using general-purpose compression algorithms. It is therefore possible to craft an IPC
 stream or file that acts as a decompression bomb by consuming all available memory,
 opening a potential channel for denial-of-service attacks.
