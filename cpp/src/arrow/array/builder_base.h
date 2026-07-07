@@ -117,22 +117,16 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck.
   /// Note that this method does not work for types that do not have a
-  /// top-level validity bitmap ( Union and Run-End Encoded (RLE) types).
+  /// top-level validity bitmap (Union and Run-End Encoded (RLE) types).
   bool IsValid(int64_t i) const {
-    if (type()->id() == Type::NA) {
-      return false;
-    } else if (type()->id() == Type::SPARSE_UNION) {
-      // Not implemented
-      return false;
-    } else if (type()->id() == Type::DENSE_UNION) {
-      // Not implemented
-      return false;
-    } else if (type()->id() == Type::RUN_END_ENCODED) {
-      // Not implemented
-      return false;
-    } else {
-      // NullType
-      return bit_util::GetBit(null_bitmap_builder_.data(), i);
+    switch (type()->id()) {
+      case Type::NA:
+      case Type::SPARSE_UNION:
+      case Type::DENSE_UNION:
+      case Type::RUN_END_ENCODED:
+        return false;
+      default:
+        return bit_util::GetBit(null_bitmap_builder_.data(), i);
     }
   }
 
