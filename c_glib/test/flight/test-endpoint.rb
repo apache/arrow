@@ -21,7 +21,8 @@ class TestFlightEndpoint < Test::Unit::TestCase
   end
 
   def test_ticket
-    ticket = ArrowFlight::Ticket.new("data")
+    data = GLib::Bytes.new("data")
+    ticket = ArrowFlight::Ticket.new(data)
     locations = [
        ArrowFlight::Location.new("grpc://127.0.0.1:2929"),
        ArrowFlight::Location.new("grpc+tcp://127.0.0.1:12929"),
@@ -32,7 +33,8 @@ class TestFlightEndpoint < Test::Unit::TestCase
   end
 
   def test_locations
-    ticket = ArrowFlight::Ticket.new("data")
+    data = GLib::Bytes.new("data")
+    ticket = ArrowFlight::Ticket.new(data)
     locations = [
        ArrowFlight::Location.new("grpc://127.0.0.1:2929"),
        ArrowFlight::Location.new("grpc+tcp://127.0.0.1:12929"),
@@ -44,7 +46,8 @@ class TestFlightEndpoint < Test::Unit::TestCase
 
   sub_test_case("#==") do
     def test_true
-      ticket = ArrowFlight::Ticket.new("data")
+      data = GLib::Bytes.new("data")
+      ticket = ArrowFlight::Ticket.new(data)
       location = ArrowFlight::Location.new("grpc://127.0.0.1:2929")
       endpoint1 = ArrowFlight::Endpoint.new(ticket, [location])
       endpoint2 = ArrowFlight::Endpoint.new(ticket, [location])
@@ -54,7 +57,8 @@ class TestFlightEndpoint < Test::Unit::TestCase
     end
 
     def test_false
-      ticket = ArrowFlight::Ticket.new("data")
+      data = GLib::Bytes.new("data")
+      ticket = ArrowFlight::Ticket.new(data)
       location1 = ArrowFlight::Location.new("grpc://127.0.0.1:2929")
       location2 = ArrowFlight::Location.new("grpc://127.0.0.1:1129")
       endpoint1 = ArrowFlight::Endpoint.new(ticket, [location1])
