@@ -863,7 +863,7 @@ class PlainFLBADecoder : public PlainDecoder<FLBAType>, public FLBADecoder {
   int Decode(uint8_t* buffer, int max_values) override {
     max_values = std::min(max_values, this->num_values_);
     const int64_t bytes_to_decode = static_cast<int64_t>(this->type_length_) * max_values;
-    if (bytes_to_decode > this->len_ || bytes_to_decode > INT_MAX) {
+    if (bytes_to_decode > this->len_) {
       ParquetException::EofException();
     }
     if (bytes_to_decode > 0) {
@@ -1231,35 +1231,6 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
   return num_values - null_count;
 }
 
-// Dictionary decoder for FIXED_LEN_BYTE_ARRAY that can decode directly into a
-// caller-owned, densely packed byte buffer. DictDecoderImpl<FLBAType> on its own
-// does not inherit FLBADecoder, so this thin subclass adds the dense Decode
-// overload (mirroring the DeltaByteArray and ByteStreamSplit FLBA decoders).
-class DictFLBADecoder : public DictDecoderImpl<FLBAType>, public FLBADecoder {
- public:
-  using Base = DictDecoderImpl<FLBAType>;
-  using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
-  using Base::DictDecoderImpl;
-
-  // Read one index per value and copy that dictionary entry's type_length bytes
-  // contiguously into the caller's buffer. Mirrors DecodeArrow without nulls.
-  int Decode(uint8_t* buffer, int max_values) override {
-    max_values = std::min(max_values, this->num_values_);
-    const auto* dict_values = this->dictionary_->data_as<FLBA>();
-    const int64_t type_length = this->type_length_;
-    for (int i = 0; i < max_values; ++i) {
-      int32_t index;
-      if (ARROW_PREDICT_FALSE(!this->idx_decoder_.Get(&index))) {
-        throw ParquetException("Dict decoding failed");
-      }
-      PARQUET_THROW_NOT_OK(this->IndexInBounds(index));
-      memcpy(buffer + i * type_length, dict_values[index].ptr,
-             static_cast<size_t>(type_length));
-    }
-    this->num_values_ -= max_values;
-    return max_values;
-  }
-};
 template <typename Type>
 int DictDecoderImpl<Type>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
@@ -1476,6 +1447,36 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
     }
     *out_num_values = values_decoded;
     return Status::OK();
+  }
+};
+
+// Dictionary decoder for FIXED_LEN_BYTE_ARRAY that can decode directly into a
+// caller-owned, densely packed byte buffer. DictDecoderImpl<FLBAType> on its own
+// does not inherit FLBADecoder, so this thin subclass adds the dense Decode
+// overload (mirroring the DeltaByteArray and ByteStreamSplit FLBA decoders).
+class DictFLBADecoder : public DictDecoderImpl<FLBAType>, public FLBADecoder {
+ public:
+  using Base = DictDecoderImpl<FLBAType>;
+  using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
+  using Base::DictDecoderImpl;
+
+  // Read one index per value and copy that dictionary entry's type_length bytes
+  // contiguously into the caller's buffer. Mirrors DecodeArrow without nulls.
+  int Decode(uint8_t* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const auto* dict_values = this->dictionary_->data_as<FLBA>();
+    const int64_t type_length = this->type_length_;
+    for (int i = 0; i < max_values; ++i) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!this->idx_decoder_.Get(&index))) {
+        throw ParquetException("Dict decoding failed");
+      }
+      PARQUET_THROW_NOT_OK(this->IndexInBounds(index));
+      memcpy(buffer + i * type_length, dict_values[index].ptr,
+             static_cast<size_t>(type_length));
+    }
+    this->num_values_ -= max_values;
+    return max_values;
   }
 };
 
@@ -2444,13 +2445,6 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
 };
 
 }  // namespace
-
-// Default for the dense (densely packed) FLBA decode. Encodings override this;
-// the base throws so an unimplemented encoding fails with a clear message.
-int FLBADecoder::Decode(uint8_t* /*buffer*/, int /*max_values*/) {
-  throw ParquetException(
-      "Dense FIXED_LEN_BYTE_ARRAY decoding is not implemented for this encoding");
-}
 
 // ----------------------------------------------------------------------
 // Factory functions

@@ -426,7 +426,7 @@ class FLBADecoder : virtual public TypedDecoder<FLBAType> {
   /// except at the end of the current data page.
   ///
   /// \note API EXPERIMENTAL
-  virtual int Decode(uint8_t* buffer, int max_values);
+  virtual int Decode(uint8_t* buffer, int max_values) = 0;
 };
 
 PARQUET_EXPORT
