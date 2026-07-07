@@ -2495,8 +2495,11 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     return "";
   }
 
-  // calculate end position from length and truncate to upper value bounds
-  if (startPos + length > text_len) {
+  // calculate end position from length and truncate to upper value bounds.
+  // startPos < text_len is guaranteed above, so text_len - startPos is positive;
+  // comparing against it avoids the startPos + length overflow when length is
+  // near INT32_MAX, which would otherwise leave *out_len huge for the memcpy.
+  if (length > text_len - startPos) {
     *out_len = text_len - startPos;
   } else {
     *out_len = length;
