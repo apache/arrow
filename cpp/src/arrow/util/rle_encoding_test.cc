@@ -989,6 +989,39 @@ TEST(BitRle, Overflow) {
   }
 }
 
+/// Encode the values of an Array with RleBitPackedEncoder.
+///
+/// @param spaced If false, treat Nulls as regular data (i.e. their raw value is
+///        encoded). If true, Nulls are skipped and only valid values are encoded.
+template <typename Type>
+std::vector<uint8_t> EncodeTestArray(const Array& data, int bit_width,
+                                     bool spaced = false) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
+  const auto data_size = static_cast<rle_size_t>(data.length());
+  const auto values_count =
+      static_cast<rle_size_t>(data.length() - (spaced ? data.null_count() : 0));
+  const int buffer_size =
+      static_cast<int>(RleBitPackedEncoder::MaxBufferSize(bit_width, values_count) +
+                       RleBitPackedEncoder::MinBufferSize(bit_width));
+  const auto* data_values = static_cast<const ArrayType&>(data).raw_values();
+
+  std::vector<uint8_t> buffer(buffer_size);
+  RleBitPackedEncoder encoder(buffer.data(), buffer_size, bit_width);
+  rle_size_t encoded_values_count = 0;
+  for (rle_size_t i = 0; i < data_size; ++i) {
+    if (data.IsValid(i) || !spaced) {
+      EXPECT_TRUE(encoder.Put(static_cast<uint64_t>(data_values[i])))
+          << "Encoding failed in pos " << i << ", current encoder len: " << encoder.len();
+      ++encoded_values_count;
+    }
+  }
+  EXPECT_EQ(encoded_values_count, values_count)
+      << "All values input were not encoded successfully by the encoder";
+  buffer.resize(encoder.Flush());
+  return buffer;
+}
+
 /// Check RleBitPacked encoding/decoding round trip.
 ///
 /// \param spaced If set to false, treat Nulls in the input array as regular data.
@@ -1002,38 +1035,20 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   using value_type = typename Type::c_type;
 
   const int data_size = static_cast<int>(data.length());
-  const int data_values_count =
-      static_cast<int>(data.length() - spaced * data.null_count());
-  const int buffer_size = static_cast<int>(
-      ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, data_values_count) +
-      ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width));
 
   ASSERT_GE(parts, 1);
   ASSERT_LE(parts, data_size);
 
   ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", spaced = ", spaced,
-                     ", data_size = ", data_size, ", buffer_size = ", buffer_size);
+                     ", data_size = ", data_size);
   const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
 
   // Encode the data into `buffer` using the encoder.
-  std::vector<uint8_t> buffer(buffer_size);
-  RleBitPackedEncoder encoder(buffer.data(), buffer_size, bit_width);
-  int32_t encoded_values_size = 0;
-  for (int i = 0; i < data_size; ++i) {
-    // Depending on `spaced` we treat nulls as regular values.
-    if (data.IsValid(i) || !spaced) {
-      bool success = encoder.Put(static_cast<uint64_t>(data_values[i]));
-      ASSERT_TRUE(success) << "Encoding failed in pos " << i
-                           << ", current encoder len: " << encoder.len();
-      ++encoded_values_size;
-    }
-  }
-  int encoded_byte_size = encoder.Flush();
-  ASSERT_EQ(encoded_values_size, data_values_count)
-      << "All values input were not encoded successfully by the encoder";
+  const auto buffer = EncodeTestArray<Type>(data, bit_width, spaced);
 
   // Now we verify batch read
-  RleBitPackedDecoder<value_type> decoder(buffer.data(), encoded_byte_size, bit_width);
+  RleBitPackedDecoder<value_type> decoder(buffer.data(), static_cast<int>(buffer.size()),
+                                          bit_width);
   // We will only use one of them depending on whether this is a dictionary tests
   std::vector<float> dict_read;
   std::vector<value_type> values_read;
@@ -1100,6 +1115,60 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
       }
     }
   }
+}
+
+/// Check RleBitPackedDecoder::Advance, which spans multiple runs through the
+/// parser (unlike the per-run decoder Advance).
+///
+/// Nulls are treated as regular data (i.e. their raw value is encoded and
+/// decoded). Advance and GetBatch are interleaved so that run boundaries are
+/// crossed and partial runs consumed, verifying decoded values as we go.
+template <typename Type>
+void CheckAdvance(const Array& data, int bit_width) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using value_type = typename Type::c_type;
+
+  const auto data_size = static_cast<rle_size_t>(data.length());
+  const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
+
+  ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", data_size = ", data_size);
+
+  // Encode all values into `buffer`.
+  const auto buffer = EncodeTestArray<Type>(data, bit_width);
+
+  // Interleave Advance and GetBatch, verifying decoded values against the original.
+  RleBitPackedDecoder<value_type> decoder(buffer.data(), static_cast<int>(buffer.size()),
+                                          bit_width);
+  rle_size_t pos = 0;
+  auto advance = [&](rle_size_t* pos, rle_size_t n) {
+    n = std::min(n, data_size - *pos);
+    EXPECT_EQ(decoder.Advance(n), n);
+    *pos += n;
+  };
+  auto read = [&](rle_size_t* pos, rle_size_t n) {
+    n = std::min(n, data_size - *pos);
+    std::vector<value_type> got(n);
+    EXPECT_EQ(decoder.GetBatch(got.data(), n), n);
+    for (rle_size_t i = 0; i < n; ++i) {
+      EXPECT_EQ(got[i], data_values[*pos + i]) << "at position " << (*pos + i);
+    }
+    *pos += n;
+  };
+
+  // Advance in a `step` small relative to the data size, so we span many
+  // iterations and repeatedly cross run boundaries.
+  const rle_size_t step = std::max<rle_size_t>(data_size / 16, 1);
+  int iter = 0;
+  while (pos < data_size) {
+    // Some way to make various successions of `read` of `advance`
+    if (bit_width % 2 == iter % 3) {
+      read(&pos, step);
+    }
+    advance(&pos, step);
+    ++iter;
+  }
+  // Note: we do not assert exhaustion here because the encoder pads the last
+  // literal group to a multiple of 8 with zeros, leaving up to 7 extra values.
 }
 
 template <typename T>
@@ -1256,6 +1325,10 @@ void DoTestGetBatchSpacedRoundtrip() {
                               /* parts= */ 1);
     CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ false,
                               /* parts= */ 3);
+
+    // Tests for Advance
+    CheckAdvance<ArrowType>(*array, case_.bit_width);
+    CheckAdvance<ArrowType>(*array->Slice(1), case_.bit_width);
 
     // Tests for GetBatchSpaced
     CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true,
