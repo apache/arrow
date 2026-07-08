@@ -82,6 +82,10 @@ TEST_F(TestBooleanValidityKernels, LogicalNulls) {
                                                "[1, null, 2, 0]", "[true, false, null]");
   CheckValidityKernels(null_dict_and_index,
                        ArrayFromJSON(boolean(), "[true, false, false, true]"));
+  // No validity bitmap at all
+  auto no_nulls = DictArrayFromJSON(dictionary(int8(), utf8()), "[0, 1, 2, 2]",
+                                    R"(["itsy", "bitsy", "spider"])");
+  CheckValidityKernels(no_nulls, ArrayFromJSON(boolean(), "[true, true, true, true]"));
 
   ASSERT_OK_AND_ASSIGN(auto ree,
                        RunEndEncode(ArrayFromJSON(int64(), "[11, 11, null, null, 12]")));

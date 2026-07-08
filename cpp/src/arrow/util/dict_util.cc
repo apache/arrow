@@ -122,7 +122,11 @@ void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_
   if (span.dictionary().GetNullCount() == 0) {
     // No nulls in dictionary, so a value is a logical null if and only if
     // its index is null
-    if (set_on_null) {
+    if (span.GetNullCount() == 0) {
+      // No null indices either (and possibly no validity bitmap at all), so
+      // there are no logical nulls
+      bit_util::SetBitsTo(out_bitmap, out_offset, span.length, !set_on_null);
+    } else if (set_on_null) {
       internal::InvertBitmap(span.buffers[0].data, span.offset, span.length, out_bitmap,
                              out_offset);
     } else {
