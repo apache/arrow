@@ -2461,6 +2461,7 @@ cdef class BooleanArray(Array):
         if self.ap.IsNull(i):
             return None
         return (<CBooleanArray*> self.ap).Value(i)
+
     @property
     def false_count(self):
         return (<CBooleanArray*> self.ap).false_count()
