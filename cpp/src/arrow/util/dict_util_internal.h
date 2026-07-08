@@ -29,6 +29,7 @@ namespace dict_util {
 /// only accounts for physical nulls in the dictionary. It does not recurse into the
 /// dictionary values to find logical nulls, which would matter when those values are
 /// themselves dictionary, run-end encoded, or union typed.
+ARROW_EXPORT
 int64_t LogicalNullCount(const ArraySpan& span);
 
 /// \brief Populate a bitmap based on the logical nulls in a dictionary-encoded array
