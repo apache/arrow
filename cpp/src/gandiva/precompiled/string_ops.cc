@@ -208,7 +208,12 @@ gdv_int32 utf8_length_ignore_invalid(const char* data, gdv_int32 data_len) {
     }
     for (int j = 1; j < char_len; ++j) {
       if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
-        char_len += 1;
+        // Only the bytes up to the mismatch belong to this (invalid) glyph, so
+        // advance past them and let the outer loop re-parse the rest. Keeping
+        // char_len at its declared width would swallow valid characters that
+        // fall inside the truncated sequence's window.
+        char_len = j;
+        break;
       }
     }
     ++count;
@@ -2472,6 +2477,21 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     return "";
   }
 
+  int32_t startPos = 0;
+  if (offset >= 0) {
+    startPos = offset - 1;
+  } else if (text_len + offset >= 0) {
+    startPos = text_len + offset;
+  }
+
+  // an offset past the end of the text leaves nothing to copy; without this the
+  // truncation below yields a negative *out_len that memcpy reads as a huge size.
+  // check before allocating so a past-end offset needs no output buffer at all
+  if (startPos >= text_len) {
+    *out_len = 0;
+    return "";
+  }
+
   char* ret =
       reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
@@ -2481,15 +2501,11 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     return "";
   }
 
-  int32_t startPos = 0;
-  if (offset >= 0) {
-    startPos = offset - 1;
-  } else if (text_len + offset >= 0) {
-    startPos = text_len + offset;
-  }
-
-  // calculate end position from length and truncate to upper value bounds
-  if (startPos + length > text_len) {
+  // calculate end position from length and truncate to upper value bounds.
+  // startPos < text_len is guaranteed above, so text_len - startPos is positive;
+  // comparing against it avoids the startPos + length overflow when length is
+  // near INT32_MAX, which would otherwise leave *out_len huge for the memcpy.
+  if (length > text_len - startPos) {
     *out_len = text_len - startPos;
   } else {
     *out_len = length;
