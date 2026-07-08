@@ -410,8 +410,8 @@ applied.
 
 .. _parquet_bloom_filters:
 
-Bloom Filters
--------------
+Writing Bloom Filters
+---------------------
 
 Bloom filters are a probabilistic data structure stored per column per row
 group that can answer, for a given value, either that value is
