@@ -736,7 +736,7 @@ TEST(TestBufferBuilder, InvalidReserveAndAppendLengths) {
   ASSERT_RAISES(Invalid, builder.Advance(-1));
 
   const int64_t overflow_add = std::numeric_limits<int64_t>::max() - 8;
-  ASSERT_RAISES(CapacityError, builder.Reserve(overflow_add));
+  ASSERT_RAISES(OutOfMemory, builder.Reserve(overflow_add));
 }
 
 TEST(TestBufferBuilder, Alignment) {
@@ -880,7 +880,8 @@ TYPED_TEST(TypedTestBufferBuilder, NegativeAndOverflowAppend) {
 
   ASSERT_RAISES(Invalid, builder.Append(-1, static_cast<TypeParam>(0)));
 
-  const int64_t max_num_elements = std::numeric_limits<int64_t>::max() / sizeof(TypeParam) + 1;
+  const int64_t max_num_elements =
+      std::numeric_limits<int64_t>::max() / sizeof(TypeParam) + 1;
   ASSERT_RAISES(CapacityError,
                 builder.Append(max_num_elements, static_cast<TypeParam>(0)));
 }

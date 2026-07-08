@@ -27,9 +27,9 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
@@ -114,8 +114,8 @@ class ARROW_EXPORT BufferBuilder {
     // jemalloc, but significantly better performance when using the system
     // allocator. See ARROW-6450 for further discussion
     int64_t doubled;
-    if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(current_capacity, current_capacity,
-                                                      &doubled))) {
+    if (ARROW_PREDICT_FALSE(
+            internal::AddWithOverflow(current_capacity, current_capacity, &doubled))) {
       return new_capacity;
     }
     return std::max(new_capacity, doubled);
@@ -274,21 +274,12 @@ class TypedBufferBuilder<
   }
 
   Status Append(const T* values, int64_t num_elements) {
-    if (ARROW_PREDICT_FALSE(num_elements < 0)) {
-      return Status::Invalid("Append: negative number of elements");
-    }
     int64_t num_bytes;
-    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
-            num_elements, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
-      return Status::CapacityError("Append: size overflow");
-    }
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Append", num_elements, &num_bytes));
     return bytes_builder_.Append(reinterpret_cast<const uint8_t*>(values), num_bytes);
   }
 
   Status Append(const int64_t num_copies, T value) {
-    if (ARROW_PREDICT_FALSE(num_copies < 0)) {
-      return Status::Invalid("Append: negative number of copies");
-    }
     ARROW_RETURN_NOT_OK(Reserve(num_copies));
     UnsafeAppend(num_copies, value);
     return Status::OK();
@@ -318,38 +309,20 @@ class TypedBufferBuilder<
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    if (ARROW_PREDICT_FALSE(new_capacity < 0)) {
-      return Status::Invalid("Resize: negative capacity");
-    }
     int64_t num_bytes;
-    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
-            new_capacity, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
-      return Status::CapacityError("Resize: capacity overflow");
-    }
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Resize", new_capacity, &num_bytes));
     return bytes_builder_.Resize(num_bytes, shrink_to_fit);
   }
 
   Status Reserve(const int64_t additional_elements) {
-    if (ARROW_PREDICT_FALSE(additional_elements < 0)) {
-      return Status::Invalid("Reserve: negative additional_elements");
-    }
     int64_t num_bytes;
-    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
-            additional_elements, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
-      return Status::CapacityError("Reserve: size overflow");
-    }
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Reserve", additional_elements, &num_bytes));
     return bytes_builder_.Reserve(num_bytes);
   }
 
   Status Advance(const int64_t length) {
-    if (ARROW_PREDICT_FALSE(length < 0)) {
-      return Status::Invalid("Advance: negative length");
-    }
     int64_t num_bytes;
-    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
-            length, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
-      return Status::CapacityError("Advance: size overflow");
-    }
+    ARROW_RETURN_NOT_OK(ElementsToBytes("Advance", length, &num_bytes));
     return bytes_builder_.Advance(num_bytes);
   }
 
@@ -374,14 +347,8 @@ class TypedBufferBuilder<
   /// only for memory allocation).
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
-    if (ARROW_PREDICT_FALSE(final_length < 0)) {
-      return Status::Invalid("FinishWithLength: negative final length");
-    }
     int64_t num_bytes;
-    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
-            final_length, static_cast<int64_t>(sizeof(T)), &num_bytes))) {
-      return Status::CapacityError("FinishWithLength: final length overflow");
-    }
+    ARROW_RETURN_NOT_OK(ElementsToBytes("FinishWithLength", final_length, &num_bytes));
     return bytes_builder_.FinishWithLength(num_bytes, shrink_to_fit);
   }
 
@@ -393,6 +360,20 @@ class TypedBufferBuilder<
   T* mutable_data() { return reinterpret_cast<T*>(bytes_builder_.mutable_data()); }
 
  private:
+  // Convert a number of elements to a number of bytes, erroring out on
+  // negative element counts and byte size overflow.
+  static Status ElementsToBytes(const char* operation, int64_t num_elements,
+                                int64_t* num_bytes) {
+    if (ARROW_PREDICT_FALSE(num_elements < 0)) {
+      return Status::Invalid(operation, ": negative number of elements");
+    }
+    if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
+            num_elements, static_cast<int64_t>(sizeof(T)), num_bytes))) {
+      return Status::CapacityError(operation, ": byte size overflow");
+    }
+    return Status::OK();
+  }
+
   BufferBuilder bytes_builder_;
 };
 
@@ -503,7 +484,7 @@ class TypedBufferBuilder<bool> {
             internal::AddWithOverflow(bit_length_, additional_elements, &min_length))) {
       return Status::CapacityError("Reserve: capacity overflow");
     }
-    return Resize(min_length, false);
+    return Resize(BufferBuilder::GrowByFactor(bit_length_, min_length), false);
   }
 
   Status Advance(const int64_t length) {
@@ -534,6 +515,9 @@ class TypedBufferBuilder<bool> {
   /// only for memory allocation).
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
+    if (ARROW_PREDICT_FALSE(final_length < 0)) {
+      return Status::Invalid("FinishWithLength: negative final length");
+    }
     const auto final_byte_length = bit_util::BytesForBits(final_length);
     bytes_builder_.UnsafeAdvance(final_byte_length - bytes_builder_.length());
     bit_length_ = false_count_ = 0;

@@ -68,10 +68,10 @@ constexpr int64_t kMaxBufferCapacity = std::numeric_limits<int64_t>::max() - 63;
 
 Status ValidateBufferCapacity(int64_t capacity, const char* operation) {
   if (ARROW_PREDICT_FALSE(capacity < 0)) {
-    return Status::Invalid(operation, ": negative capacity");
+    return Status::Invalid(operation, ": negative capacity: ", capacity);
   }
   if (ARROW_PREDICT_FALSE(capacity > kMaxBufferCapacity)) {
-    return Status::CapacityError(operation, ": capacity overflow");
+    return Status::OutOfMemory(operation, ": capacity too large: ", capacity);
   }
   return Status::OK();
 }
@@ -1026,7 +1026,6 @@ Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t s
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
                                                                  const int64_t alignment,
                                                                  MemoryPool* pool) {
-  RETURN_NOT_OK(ValidateBufferCapacity(size, "AllocateResizableBuffer"));
   return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(
       PoolBuffer::MakeUnique(pool, alignment), size);
 }
