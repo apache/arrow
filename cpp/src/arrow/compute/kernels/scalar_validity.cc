@@ -80,9 +80,8 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
-static Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span,
-                                 uint8_t* out_bitmap, int64_t out_offset,
-                                 bool set_on_null) {
+Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span, uint8_t* out_bitmap,
+                          int64_t out_offset, bool set_on_null) {
   const Type::type t = span.type->id();
   if (t == Type::NA) {
     // Input is all nulls, so all output bits are the same.

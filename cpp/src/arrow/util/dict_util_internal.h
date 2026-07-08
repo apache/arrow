@@ -23,9 +23,17 @@ namespace arrow {
 namespace dict_util {
 
 /// \brief Compute the logical null count of a dictionary-encoded array
+///
+/// This function considers a value to be a logical null if its index is null or if
+/// it points to a null entry in the dictionary's validity bitmap. This means that it
+/// only accounts for physical nulls in the dictionary. It does not recurse into the
+/// dictionary values to find logical nulls, which would matter when those values are
+/// themselves dictionary, run-end encoded, or union typed.
 int64_t LogicalNullCount(const ArraySpan& span);
 
 /// \brief Populate a bitmap based on the logical nulls in a dictionary-encoded array
+///
+/// \see LogicalNullCount for how nulls in the dictionary are handled.
 ///
 /// \param set_on_null true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
