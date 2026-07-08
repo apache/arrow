@@ -61,8 +61,9 @@ set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_BUILD_TYPE=RelWithDebInfo
 set CMAKE_GENERATOR=Ninja
-@rem Override CMAKE_CXX_FLAGS_RELWITHDEBINFO and CMAKE_C_FLAGS_RELWITHDEBINFO to avoid
-@rem stripping debug symbols in RelWithDebInfo builds.
+@rem Set CMAKE_CXX_FLAGS_RELWITHDEBINFO and CMAKE_C_FLAGS_RELWITHDEBINFO to
+@rem override default /DNDEBUG to be dropped so assertions are maintained.
+@rem A debug build would require linking against python3xx_d.lib (debug).
 @rem See details of discussion on PR GH-50406
 set CMAKE_CXX_FLAGS_RELWITHDEBINFO=/O2 /Ob1
 set CMAKE_C_FLAGS_RELWITHDEBINFO=/O2 /Ob1
