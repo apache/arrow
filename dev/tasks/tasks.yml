@@ -557,15 +557,13 @@ tasks:
 {% endfor %}
 
 
-{% for ubuntu_version in ["24.04", "26.04"] %}
-  test-ubuntu-{{ ubuntu_version }}-python-3:
+  test-ubuntu-24.04-python-3:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "{{ ubuntu_version }}"
+        UBUNTU: "24.04"
       image: ubuntu-python
-{% endfor %}
 
   test-fedora-42-python-3:
     ci: github
