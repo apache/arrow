@@ -282,6 +282,8 @@ cdef class Array(_PandasConvertible):
     cdef:
         shared_ptr[CArray] sp_array
         CArray* ap
+        # Lazily wrapped child array(s) reused by _getitem_py (see GH-50326)
+        object _children_cache
 
     cdef readonly:
         DataType type
@@ -290,6 +292,7 @@ cdef class Array(_PandasConvertible):
 
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
+    cdef object _getitem_py(self, int64_t i)
     cdef int64_t length(self)
     cdef void _assert_cpu(self) except *
 
