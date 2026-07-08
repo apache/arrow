@@ -287,10 +287,6 @@ class RleBitPackedToBitmapDecoder {
   /// values left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatch(BitmapSpanMut out, rle_size_t batch_size);
 
-  /// Advance by as many values as provided or until exhaustion of the decoder.
-  /// Return the number of values skipped.
-  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size);
-
  private:
   RleBitPackedParser parser_ = {};
   std::variant<RleRunToBitmapDecoder, BitPackedRunToBitmapDecoder> decoder_ = {};
@@ -300,14 +296,10 @@ class RleBitPackedToBitmapDecoder {
     return std::visit([](const auto& dec) { return dec.remaining(); }, decoder_);
   }
 
-  /// Process data in the current run and subsequent ones.
-  ///
-  /// ``func`` is called as ``func(decoder, run_batch_size)`` where ``decoder`` is
-  /// the statically-typed run decoder and must return the number of values processed.
-  ///
-  /// Return the number of values processed.
-  template <typename Callable>
-  rle_size_t ProcessValues(Callable&& func, rle_size_t batch_size);
+  /// Get a batch of values from the current run and return the number elements read.
+  [[nodiscard]] rle_size_t RunGetBatch(BitmapSpanMut out, rle_size_t batch_size) {
+    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder_);
+  }
 };
 
 /************************************************
@@ -328,70 +320,50 @@ struct RleBitPackedToBitmapDecoderGetDecoder<BitPackedRun> {
   using type = BitPackedRunToBitmapDecoder;
 };
 
-template <typename Callable>
-auto RleBitPackedToBitmapDecoder::ProcessValues(Callable&& func,
-                                                rle_size_t batch_size) -> rle_size_t {
+inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
+                                                  rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
   if (ARROW_PREDICT_FALSE(batch_size == 0 || exhausted())) {
     return 0;
   }
 
-  rle_size_t values_processed = 0;
+  rle_size_t values_read = 0;
 
   // Remaining from a previous call that would have left some unread data from a run.
   if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
-    const auto processed =
-        std::visit([&](auto& decoder) { return func(decoder, batch_size); }, decoder_);
-    values_processed += processed;
+    const auto read = RunGetBatch(out, batch_size);
+    values_read += read;
 
     // Either we fulfilled all the batch to be read or we finished remaining run.
-    if (ARROW_PREDICT_FALSE(values_processed == batch_size)) {
-      return values_processed;
+    if (ARROW_PREDICT_FALSE(values_read == batch_size)) {
+      return values_read;
     }
     ARROW_DCHECK(run_remaining() == 0);
   }
 
   parser_.ParseWithCallable([&](auto run) {
-    using RunDecoder =
-        typename RleBitPackedToBitmapDecoderGetDecoder<decltype(run)>::type;
+    using RunDecoder = RleBitPackedToBitmapDecoderGetDecoder<decltype(run)>::type;
 
-    ARROW_DCHECK_LT(values_processed, batch_size);
-    // Decode from a local decoder and only store it back into `decoder_` when we stop in
-    // the middle of a run. This keeps the run type statically known inside `func` and
-    // avoids writing the variant for every fully-consumed run.
+    ARROW_DCHECK_LT(values_read, batch_size);
     RunDecoder decoder(run);
-    const auto read = func(decoder, batch_size - values_processed);
-    ARROW_DCHECK_LE(read, batch_size - values_processed);
-    values_processed += read;
+    // The output span carries its own bit offset, so advancing it past the values
+    // already written keeps successive runs correctly aligned in the bitmap.
+    const auto read =
+        decoder.GetBatch(out.NewStartingAt(values_read), batch_size - values_read);
+    ARROW_DCHECK_LE(read, batch_size - values_read);
+    values_read += read;
 
-    if (ARROW_PREDICT_FALSE(values_processed == batch_size || read == 0)) {
+    // Stop reading and store remaining decoder
+    if (ARROW_PREDICT_FALSE(values_read == batch_size || read == 0)) {
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
+
     return ControlFlow::Continue;
   });
 
-  return values_processed;
-}
-
-inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
-                                                  rle_size_t batch_size) -> rle_size_t {
-  return ProcessValues(
-      [out](auto& decoder, rle_size_t run_batch_size) mutable {
-        const auto read = decoder.GetBatch(out, run_batch_size);
-        out = out.NewStartingAt(read);
-        return read;
-      },
-      batch_size);
-}
-
-inline auto RleBitPackedToBitmapDecoder::Advance(rle_size_t batch_size) -> rle_size_t {
-  return ProcessValues(
-      [](auto& decoder, rle_size_t run_batch_size) {
-        return decoder.Advance(run_batch_size);
-      },
-      batch_size);
+  return values_read;
 }
 
 }  // namespace arrow::util
