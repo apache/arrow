@@ -681,6 +681,12 @@ class SkippableTypedDecoder {
 
   Decoder* get() { return decoder_; }
 
+  const Decoder* operator->() const { return decoder_; }
+
+  Decoder* operator->() { return decoder_; }
+
+  explicit operator bool() const { return decoder_ != nullptr; }
+
   int64_t Skip(int64_t num_values, ::arrow::MemoryPool* pool = nullptr) {
     EnsureScratch(pool);
 
@@ -846,7 +852,7 @@ class ColumnReaderImplBase {
     }
 
     new_dictionary_ = true;
-    current_decoder_ = decoders_[encoding].get();
+    current_decoder_.SetDecoder(decoders_[encoding].get());
     ARROW_DCHECK(current_decoder_);
   }
 
@@ -949,7 +955,7 @@ class ColumnReaderImplBase {
     auto it = decoders_.find(static_cast<int>(encoding));
     if (it != decoders_.end()) {
       ARROW_DCHECK(it->second.get() != nullptr);
-      current_decoder_ = it->second.get();
+      current_decoder_.SetDecoder(it->second.get());
     } else {
       switch (encoding) {
         case Encoding::PLAIN:
@@ -959,7 +965,7 @@ class ColumnReaderImplBase {
         case Encoding::DELTA_BYTE_ARRAY:
         case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
           auto decoder = MakeTypedDecoder<DType>(encoding, descr_, pool_);
-          current_decoder_ = decoder.get();
+          current_decoder_.SetDecoder(decoder.get());
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
@@ -1018,7 +1024,7 @@ class ColumnReaderImplBase {
   ::arrow::MemoryPool* pool_;
 
   using DecoderType = TypedDecoder<DType>;
-  DecoderType* current_decoder_ = nullptr;
+  SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
   Encoding::type current_encoding_ = Encoding::UNKNOWN;
 
   /// Flag to signal when a new dictionary has been set, for the benefit of
@@ -1074,19 +1080,11 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
     this->exposed_encoding_ = encoding;
   }
 
-  // Allocate enough scratch space to accommodate skipping 16-bit levels or any
-  // value type.
-  void InitScratchForSkip();
-
-  // Scratch space for reading and throwing away rep/def levels and values when
-  // skipping.
-  std::shared_ptr<ResizableBuffer> scratch_for_skip_;
-
  private:
   // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
   // This function is called only by ReadBatchWithDictionary().
   int64_t ReadDictionaryIndices(int64_t indices_to_read, int32_t* indices) {
-    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
     return decoder->DecodeIndices(static_cast<int>(indices_to_read), indices);
   }
 
@@ -1094,7 +1092,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // owned by the internal decoder and is destroyed when the reader is destroyed. This
   // function is called only by ReadBatchWithDictionary() after dictionary is configured.
   void GetDictionary(const T** dictionary, int32_t* dictionary_length) {
-    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
     decoder->GetDictionary(dictionary, dictionary_length);
   }
 
@@ -1226,39 +1224,39 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
 }
 
 template <typename DType>
-void TypedColumnReaderImpl<DType>::InitScratchForSkip() {
-  if (this->scratch_for_skip_ == nullptr) {
-    int value_size = type_traits<DType::type_num>::value_byte_size;
-    this->scratch_for_skip_ = AllocateBuffer(
-        this->pool_, kSkipScratchBatchSize * std::max<int>(sizeof(int16_t), value_size));
-  }
-}
-
-template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   // Optimization: Do not call HasNext() when values_to_skip == 0.
   while (values_to_skip > 0 && HasNext()) {
     // If the number of values to skip is more than the number of undecoded values, skip
-    // the Page.
+    // the whole Page without decoding levels or values.
     const int64_t available_values = this->available_values_current_page();
     if (values_to_skip >= available_values) {
       values_to_skip -= available_values;
       this->ConsumeBufferedValues(available_values);
     } else {
-      // We need to read this Page
-      // Jump to the right offset in the Page
-      int64_t values_read = 0;
-      InitScratchForSkip();
-      ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
-      do {
-        int64_t batch_size = std::min(kSkipScratchBatchSize, values_to_skip);
-        values_read = ReadBatch(static_cast<int>(batch_size),
-                                scratch_for_skip_->mutable_data_as<int16_t>(),
-                                scratch_for_skip_->mutable_data_as<int16_t>(),
-                                scratch_for_skip_->mutable_data_as<T>(), &values_read);
-        values_to_skip -= values_read;
-      } while (values_read > 0 && values_to_skip > 0);
+      // Skip within the current Page. Since `values_to_skip < available_values`, the
+      // whole batch fits inside this Page and no page boundary is crossed.
+      const int batch_size = static_cast<int>(values_to_skip);
+
+      // Advance the definition levels, counting how many correspond to present
+      // (non-null) values that must be skipped in the data decoder.
+      int64_t non_null_values_to_skip = batch_size;
+      if (this->max_def_level() > 0) {
+        const auto [count, advanced] =
+            this->definition_level_decoder_.CountUpTo(this->max_def_level(), batch_size);
+        non_null_values_to_skip = count;
+        ARROW_DCHECK_EQ(advanced, batch_size);
+      }
+      // Advance the repetition levels; their values are not needed.
+      if (this->max_rep_level() > 0) {
+        this->repetition_level_decoder_.Skip(batch_size);
+      }
+      // Skip the corresponding data values.
+      this->current_decoder_.Skip(non_null_values_to_skip, this->pool_);
+
+      this->ConsumeBufferedValues(batch_size);
+      values_to_skip -= batch_size;
     }
   }
   return num_values_to_skip - values_to_skip;
@@ -1355,7 +1353,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   const void* ReadDictionary(int32_t* dictionary_length) override {
-    if (this->current_decoder_ == nullptr && !this->HasNextInternal()) {
+    if (!this->current_decoder_ && !this->HasNextInternal()) {
       *dictionary_length = 0;
       return nullptr;
     }
@@ -1368,7 +1366,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
          << EncodingToString(this->current_encoding_);
       throw ParquetException(ss.str());
     }
-    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
     const T* dictionary = nullptr;
     decoder->GetDictionary(&dictionary, dictionary_length);
     return reinterpret_cast<const void*>(dictionary);
@@ -1604,20 +1602,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // Read 'num_values' values and throw them away.
   // Throws an error if it could not read 'num_values'.
   void ReadAndThrowAwayValues(int64_t num_values) {
-    int64_t values_left = num_values;
-    int64_t values_read = 0;
-
-    // Allocate enough scratch space to accommodate 16-bit levels or any
-    // value type
-    this->InitScratchForSkip();
-    ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
-    do {
-      int64_t batch_size = std::min<int64_t>(kSkipScratchBatchSize, values_left);
-      values_read = this->ReadValues(
-          batch_size, this->scratch_for_skip_->template mutable_data_as<T>());
-      values_left -= values_read;
-    } while (values_read > 0 && values_left > 0);
-    if (values_left > 0) {
+    const int64_t values_read = this->current_decoder_.Skip(num_values, this->pool_);
+    if (values_read < num_values) {
       std::stringstream ss;
       ss << "Could not read and throw away " << num_values << " values";
       throw ParquetException(ss.str());
@@ -2216,7 +2202,7 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
       /// insert the new dictionary values
       FlushBuilder();
       builder_.ResetFull();
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
       decoder->InsertDictionary(&builder_);
       this->new_dictionary_ = false;
     }
@@ -2226,7 +2212,7 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
     int64_t num_decoded = 0;
     if (current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
       num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
     } else {
       num_decoded = this->current_decoder_->DecodeArrowNonNull(
@@ -2241,7 +2227,7 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
     int64_t num_decoded = 0;
     if (current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
+      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
       num_decoded = decoder->DecodeIndicesSpaced(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
           valid_bits_->mutable_data(), values_written_, &builder_);
