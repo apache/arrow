@@ -129,7 +129,8 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
 }
 
 std::string PyObject_StdStringTypeName(PyObject* obj) {
-  // Once Python 3.10 is dropped, this can use PyType_GetName(Py_TYPE(obj)) (added in 3.11).
+  // Once Python 3.10 is dropped, this can use PyType_GetName(Py_TYPE(obj)) (
+  // added in 3.11).
   OwnedRef name_ref(
       PyObject_GetAttrString(reinterpret_cast<PyObject*>(Py_TYPE(obj)), "__name__"));
   if (!name_ref) {
