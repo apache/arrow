@@ -780,6 +780,13 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
         arr = pandas_dtype.__from_arrow__(arr)
+        if isinstance(arr, np.ndarray) and arr.ndim == 1:
+            # A plain (non-ExtensionArray) 1-D result — e.g. from the UUID
+            # extension type — must be reshaped to the (1, n) single-column
+            # block layout that make_block and create_dataframe_from_blocks
+            # expect. pandas ExtensionArrays are 1-D and handled directly, so
+            # they are intentionally left untouched here.
+            arr = arr.reshape(1, -1)
     else:
         arr = block_arr
 
