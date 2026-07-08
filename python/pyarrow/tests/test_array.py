@@ -466,9 +466,9 @@ def test_array_getitem_numpy_scalars():
 
 
 def test_to_pylist_bulk_paths():
-    # GH-50326: list-like and string arrays convert to Python objects in
-    # bulk instead of going through one Scalar per element; the result must
-    # match the per-scalar conversion exactly.
+    # GH-50326: to_pylist converts through scalar-free _getitem_py
+    # specializations; the result must match the per-scalar conversion
+    # exactly.
     arrays = [
         pa.array([[1, None, 3], None, [], [4]], type=pa.list_(pa.int32())),
         pa.array([["a", None], None, [], ["bcd", ""]],
@@ -484,6 +484,18 @@ def test_to_pylist_bulk_paths():
                  type=pa.string()),
         pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
                  type=pa.large_string()),
+        pa.array([b"a\x00b", None, b"", b"\xff"], type=pa.binary()),
+        pa.array([b"a\x00b", None, b""], type=pa.large_binary()),
+        pa.array([[b"x", None, b"\x00y"], None, []],
+                 type=pa.list_(pa.binary())),
+        pa.array([1, None, -(2**62), 2**62], type=pa.int64()),
+        pa.array([0, None, 2**63 + 7], type=pa.uint64()),
+        pa.array([-128, 127, None], type=pa.int8()),
+        pa.array([1.5, None, -0.5], type=pa.float64()),
+        pa.array([1.5, None], type=pa.float32()),
+        pa.array([True, None, False], type=pa.bool_()),
+        pa.array([{"a": 1, "b": "x"}, None, {"a": None, "b": None}],
+                 type=pa.struct([("a", pa.int32()), ("b", pa.string())])),
         pa.array([], type=pa.list_(pa.int32())),
         pa.array([None, None], type=pa.list_(pa.string())),
     ]
@@ -495,6 +507,12 @@ def test_to_pylist_bulk_paths():
     result = pa.array([[1, None, 3]], type=pa.list_(pa.int32())).to_pylist()
     assert result == [[1, None, 3]]
     assert [type(x) for x in result[0]] == [int, type(None), int]
+
+    # Duplicate struct field names raise like StructScalar.as_py does
+    dup = pa.StructArray.from_arrays(
+        [pa.array([1, 2]), pa.array(["a", "b"])], names=["x", "x"])
+    with pytest.raises(ValueError):
+        dup.to_pylist()
 
 
 def test_array_slice():
