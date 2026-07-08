@@ -168,9 +168,6 @@ jobs:
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
-          # We can remove this once GitHub hosted runners include
-          # Meson 1.8.4 or later by default.
-          brew update
           # Install aws-sdk-cpp manually to avoid issues with the new default
           # `brew --jobs auto` causing a lock.
           # Remove once the upstream issue is solved:
