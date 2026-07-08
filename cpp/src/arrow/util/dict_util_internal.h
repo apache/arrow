@@ -34,10 +34,10 @@ int64_t LogicalNullCount(const ArraySpan& span);
 
 /// \brief Populate a bitmap based on the logical nulls in a dictionary-encoded array
 ///
-/// \see LogicalNullCount for how nulls in the dictionary are handled.
-///
-/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// `set_on_null` is true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
+///
+/// \see LogicalNullCount for how nulls in the dictionary are handled
 ARROW_EXPORT
 void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
                         bool set_on_null);
