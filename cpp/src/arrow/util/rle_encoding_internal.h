@@ -157,7 +157,8 @@ class BitPackedRun {
   constexpr BitPackedRun() noexcept = default;
 
   constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
-                         rle_size_t value_bit_width, rle_size_t max_read_bytes) noexcept
+                         rle_size_t value_bit_width,
+                         rle_size_t max_read_bytes = -1) noexcept
       : data_(data), values_count_(values_count), max_read_bytes_(max_read_bytes) {
     ARROW_DCHECK_GE(value_bit_width, 0);
     ARROW_DCHECK_GE(values_count_, 0);
@@ -520,6 +521,59 @@ class RleBitPackedDecoder {
                                      typename Converter::out_type* out,
                                      rle_size_t batch_size, const uint8_t* valid_bits,
                                      int64_t valid_bits_offset, rle_size_t null_count);
+};
+
+/// Minimal decoder for legacy bit packed encoding (BIT_PACKED = 4).
+///
+/// The number of values that the decoder can represent is up to 2^31 - 1.
+template <typename T>
+class BitPackedDecoder : private BitPackedRunDecoder<T> {
+ private:
+  using Base = BitPackedRunDecoder<T>;
+
+ public:
+  /// The type in which the data should be decoded.
+  using value_type = T;
+
+  using Base::Advance;
+
+  BitPackedDecoder() noexcept = default;
+
+  /// Create a decoder object.
+  ///
+  /// data and data_size are the raw bytes to decode.
+  /// value_bit_width is the size in bits of each encoded value.
+  BitPackedDecoder(const uint8_t* data, rle_size_t data_size,
+                   rle_size_t value_bit_width) noexcept {
+    Reset(data, data_size, value_bit_width);
+  }
+
+  void Reset(const uint8_t* data, rle_size_t data_size,
+             rle_size_t value_bit_width) noexcept {
+    value_bit_width_ = value_bit_width;
+    const auto value_count = (static_cast<int64_t>(data_size) * 8) / value_bit_width;
+    ARROW_DCHECK_LE(value_count, std::numeric_limits<rle_size_t>::max());
+    const auto run = BitPackedRun{
+        /* data= */ data,
+        /* value_count= */ static_cast<rle_size_t>(value_count),
+        /* value_bit_width= */ value_bit_width,
+    };
+    return Base::Reset(run, value_bit_width);
+  }
+
+  /// Whether there is still values to iterate over.
+  bool exhausted() const { return Base::remaining() == 0; }
+
+  /// Gets the next value or returns false if there are no more or an error occurred.
+  [[nodiscard]] bool Get(value_type* val) { return Base::Get(val, value_bit_width_); }
+
+  /// Get a batch of values return the number of decoded elements.
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
+    return Base::GetBatch(out, batch_size, value_bit_width_);
+  }
+
+ private:
+  rle_size_t value_bit_width_ = {};
 };
 
 /// Class to incrementally build the rle data.   This class does not allocate any memory.
