@@ -57,6 +57,8 @@ const char* r6_class_name<arrow::DataType>::get(
 
     case Type::STRING:
       return "Utf8";
+    case Type::STRING_VIEW:
+      return "Utf8View";
     case Type::LARGE_STRING:
       return "LargeUtf8";
 
@@ -66,6 +68,8 @@ const char* r6_class_name<arrow::DataType>::get(
       return "FixedSizeBinary";
     case Type::LARGE_BINARY:
       return "LargeBinary";
+    case Type::BINARY_VIEW:
+      return "BinaryView";
 
     case Type::DATE32:
       return "Date32";
@@ -166,6 +170,9 @@ std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean()
 std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> Utf8View__initialize() { return arrow::utf8_view(); }
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> LargeUtf8__initialize() { return arrow::large_utf8(); }
 
 // [[arrow::export]]
@@ -175,6 +182,9 @@ std::shared_ptr<arrow::DataType> Binary__initialize() { return arrow::binary(); 
 std::shared_ptr<arrow::DataType> LargeBinary__initialize() {
   return arrow::large_binary();
 }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> BinaryView__initialize() { return arrow::binary_view(); }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Date32__initialize() { return arrow::date32(); }

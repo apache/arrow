@@ -290,26 +290,32 @@ struct Converter_String : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto p_offset = array->data()->GetValues<int32_t>(1);
-    if (!p_offset) {
-      return Status::Invalid("Invalid offset buffer");
-    }
-    auto p_strings = array->data()->GetValues<char>(2, *p_offset);
-    if (!p_strings) {
-      // There is an offset buffer, but the data buffer is null
-      // There is at least one value in the array and not all the values are null
-      // That means all values are either empty strings or nulls so there is nothing to do
+    // BinaryView/StringView arrays use a different memory layout (views + data buffers)
+    // rather than offsets, so skip the offset-based fast path and fall through to the
+    // GetView()-based element loop below.
+    if (!is_binary_view_like(array->type_id())) {
+      auto p_offset = array->data()->GetValues<int32_t>(1);
+      if (!p_offset) {
+        return Status::Invalid("Invalid offset buffer");
+      }
+      auto p_strings = array->data()->GetValues<char>(2, *p_offset);
+      if (!p_strings) {
+        // There is an offset buffer, but the data buffer is null
+        // There is at least one value in the array and not all the values are null
+        // That means all values are either empty strings or nulls so there is nothing to
+        // do
 
-      if (array->null_count()) {
-        arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
-                                                  array->offset(), n);
-        for (int i = 0; i < n; i++, null_reader.Next()) {
-          if (null_reader.IsNotSet()) {
-            SET_STRING_ELT(data, start + i, NA_STRING);
+        if (array->null_count()) {
+          arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
+                                                    array->offset(), n);
+          for (int i = 0; i < n; i++, null_reader.Next()) {
+            if (null_reader.IsNotSet()) {
+              SET_STRING_ELT(data, start + i, NA_STRING);
+            }
           }
         }
+        return Status::OK();
       }
-      return Status::OK();
     }
 
     StringArrayType* string_array = static_cast<StringArrayType*>(array.get());
@@ -484,6 +490,44 @@ class Converter_Binary : public Converter {
       }
       SEXP raw = PROTECT(Rf_allocVector(RAWSXP, ni));
       std::copy(value, value + ni, RAW(raw));
+
+      SET_VECTOR_ELT(data, i + start, raw);
+      UNPROTECT(1);
+
+      return Status::OK();
+    };
+
+    return IngestSome(array, n, ingest_one);
+  }
+
+  virtual bool Parallel() const { return false; }
+};
+
+class Converter_BinaryView : public Converter {
+ public:
+  explicit Converter_BinaryView(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    SEXP res = PROTECT(Rf_allocVector(VECSXP, n));
+    Rf_classgets(res, data::classes_arrow_binary);
+    UNPROTECT(1);
+    return res;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    const BinaryViewArray* binary_array =
+        checked_cast<const BinaryViewArray*>(array.get());
+
+    auto ingest_one = [&](R_xlen_t i) {
+      auto value = binary_array->GetView(i);
+      SEXP raw = PROTECT(Rf_allocVector(RAWSXP, value.size()));
+      std::copy(value.data(), value.data() + value.size(), RAW(raw));
 
       SET_VECTOR_ELT(data, i + start, raw);
       UNPROTECT(1);
@@ -726,7 +770,8 @@ class Converter_Dictionary : public Converter {
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING &&
-        dictionary_->type_id() != Type::LARGE_STRING) {
+        dictionary_->type_id() != Type::LARGE_STRING &&
+        dictionary_->type_id() != Type::STRING_VIEW) {
       cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
@@ -1262,6 +1307,13 @@ std::shared_ptr<Converter> Converter::Make(
     case Type::LARGE_STRING:
       return std::make_shared<arrow::r::Converter_String<arrow::LargeStringArray>>(
           chunked_array);
+
+    case Type::STRING_VIEW:
+      return std::make_shared<arrow::r::Converter_String<arrow::StringViewArray>>(
+          chunked_array);
+
+    case Type::BINARY_VIEW:
+      return std::make_shared<arrow::r::Converter_BinaryView>(chunked_array);
 
     case Type::DICTIONARY:
       return std::make_shared<arrow::r::Converter_Dictionary>(chunked_array);
