@@ -154,12 +154,8 @@ int64_t Datum::ComputeLogicalNullCount() const {
     return std::get<std::shared_ptr<ChunkedArray>>(this->value)
         ->ComputeLogicalNullCount();
   } else if (this->kind() == Datum::SCALAR) {
-    // Union and run-end encoded scalars derive is_valid from their underlying
-    // value, so it reflects logical validity. A DictionaryScalar's is_valid
-    // only tracks index validity, so this differs from the array path when a
-    // valid index points to a null dictionary value.
     const auto& val = *std::get<std::shared_ptr<Scalar>>(this->value);
-    return val.is_valid ? 0 : 1;
+    return val.IsLogicalNull() ? 1 : 0;
   } else {
     DCHECK(false) << "This function only valid for scalar or array-like values";
     return 0;
