@@ -1903,6 +1903,20 @@ TEST(TestStringOps, TestByteSubstr) {
   out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -100, 10, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
+
+  // offset past the end of the text must yield an empty result, not a negative
+  // length that memcpy reads as an out-of-bounds copy
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 15, 10, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // a huge length must be truncated to the remaining bytes, not overflow
+  // startPos + length and copy far past the end of the text
+  out_str =
+      byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 2, 2147483647, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "estString");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestStringOps, TestStrPos) {
