@@ -400,11 +400,15 @@ struct PyBytesView {
   Status ParseBinary(PyObject* obj) {
     if (PyBytes_Check(obj)) {
       bytes = PyBytes_AsString(obj);
+      RETURN_IF_PYERROR();
       size = PyBytes_Size(obj);
+      RETURN_IF_PYERROR();
       is_utf8 = false;
     } else if (PyByteArray_Check(obj)) {
-      bytes = PyByteArray_AS_STRING(obj);
-      size = PyByteArray_GET_SIZE(obj);
+      bytes = PyByteArray_AsString(obj);
+      RETURN_IF_PYERROR();
+      size = PyByteArray_Size(obj);
+      RETURN_IF_PYERROR();
       is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
       PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
@@ -430,7 +434,9 @@ struct PyBytesView {
                                "' object");
     }
     bytes = PyBytes_AsString(ref.obj());
+    RETURN_IF_PYERROR();
     size = PyBytes_Size(ref.obj());
+    RETURN_IF_PYERROR();
     is_utf8 = false;
     return Status::OK();
   }
