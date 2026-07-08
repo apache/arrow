@@ -556,7 +556,6 @@ tasks:
       image: debian-python
 {% endfor %}
 
-
   test-ubuntu-24.04-python-3:
     ci: github
     template: docker-tests/github.linux.yml
