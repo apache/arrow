@@ -692,9 +692,9 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
 
   const int32_t length = static_cast<int32_t>(PyBytes_Size(utf8_obj.obj()));
   RETURN_IF_PYERROR();
-  const char* data = PyBytes_AsString(utf8_obj.obj());
+  const char* utf8_data = PyBytes_AsString(utf8_obj.obj());
   RETURN_IF_PYERROR();
-  return builder->Append(reinterpret_cast<const uint8_t*>(data), length);
+  return builder->Append(reinterpret_cast<const uint8_t*>(utf8_data), length);
 }
 
 }  // namespace
