@@ -81,8 +81,11 @@ class PARQUET_EXPORT LevelDecoder {
   void SetDataV2(int32_t num_bytes, int16_t max_level, int num_buffered_values,
                  const uint8_t* data);
 
-  /// Decode a batch of levels into an array and returns the number of levels decoded
+  /// Decode a batch of levels into an array and returns the number of levels decoded.
   int Decode(int batch_size, int16_t* levels);
+
+  /// Advance the decoder and throw away decoder levels.
+  int Skip(int batch_size);
 
   /// Return the max level used in this decoder.
   int max_level() const { return max_level_; }
@@ -91,6 +94,8 @@ class PARQUET_EXPORT LevelDecoder {
   struct Impl;
 
   std::unique_ptr<Impl> decoder_;
+  /// Number of value remaining. The underlying decoder zero pads bit packed values
+  /// up to a multiple of 8 so it cannot know the exact number of remaining values.
   int num_values_remaining_ = 0;
   int16_t max_level_;
 };
