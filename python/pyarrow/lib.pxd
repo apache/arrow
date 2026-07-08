@@ -296,7 +296,7 @@ cdef class Array(_PandasConvertible):
 
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
-    cdef object _getitem_py(self, int64_t i)
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts)
     cdef int64_t length(self)
     cdef void _assert_cpu(self) except *
 

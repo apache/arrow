@@ -1865,23 +1865,16 @@ cdef class Array(_PandasConvertible):
         """
         self._assert_cpu()
         cdef int64_t i, n = self.length()
-        if maps_as_pydicts is not None:
-            # Converting maps to dicts has per-entry semantics (duplicate-key
-            # detection); use the Scalar-based conversion for exact behavior.
-            # TODO(GH-50429): this falls back to the Scalar path for the whole
-            # array even when the type contains no maps; threading
-            # maps_as_pydicts through _getitem_py keeps the fast paths instead.
-            return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
         # TODO(GH-50448): convert per range instead of per element to cut
         # the per-element call overhead further.
-        return [self._getitem_py(i) for i in range(n)]
+        return [self._getitem_py(i, maps_as_pydicts) for i in range(n)]
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         # Return self[i] as a Python object, without creating a Python Scalar
         # (nor, for nested types, per-row Array wrappers) where a subclass
         # provides a specialization; this base implementation goes through
         # Scalar.as_py and thus preserves its semantics exactly (see GH-50326).
-        return self.getitem(i).as_py()
+        return self.getitem(i).as_py(maps_as_pydicts=maps_as_pydicts)
 
     def tolist(self):
         """
@@ -2458,7 +2451,7 @@ cdef class BooleanArray(Array):
     Concrete class for Arrow arrays of boolean data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         return (<CBooleanArray*> self.ap).Value(i)
@@ -2477,7 +2470,7 @@ cdef class NumericArray(Array):
     A base class for Arrow numeric arrays.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef Type tid = self.ap.type_id()
         if self.ap.IsNull(i):
             return None
@@ -2503,7 +2496,7 @@ cdef class NumericArray(Array):
             return (<CDoubleArray*> self.ap).Value(i)
         # Subclasses whose as_py returns non-primitive objects (dates, times,
         # timestamps, durations, half floats, ...) use the exact Scalar path.
-        return Array._getitem_py(self, i)
+        return Array._getitem_py(self, i, maps_as_pydicts)
 
 
 cdef class IntegerArray(NumericArray):
@@ -2823,7 +2816,7 @@ cdef class ListArray(BaseListArray):
     Concrete class for Arrow arrays of a list data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef CListArray* arr = <CListArray*> self.ap
         if arr.IsNull(i):
             return None
@@ -2831,7 +2824,7 @@ cdef class ListArray(BaseListArray):
             self._children_cache = pyarrow_wrap_array(arr.values())
         cdef Array values = <Array> self._children_cache
         cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
-        return [values._getitem_py(j) for j in range(start, end)]
+        return [values._getitem_py(j, maps_as_pydicts) for j in range(start, end)]
 
     @staticmethod
     def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
@@ -3018,7 +3011,7 @@ cdef class LargeListArray(BaseListArray):
     Identical to ListArray, but 64-bit offsets.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef CLargeListArray* arr = <CLargeListArray*> self.ap
         if arr.IsNull(i):
             return None
@@ -3026,7 +3019,7 @@ cdef class LargeListArray(BaseListArray):
             self._children_cache = pyarrow_wrap_array(arr.values())
         cdef Array values = <Array> self._children_cache
         cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
-        return [values._getitem_py(j) for j in range(start, end)]
+        return [values._getitem_py(j, maps_as_pydicts) for j in range(start, end)]
 
     @staticmethod
     def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
@@ -3618,8 +3611,16 @@ cdef class MapArray(ListArray):
     Concrete class for Arrow arrays of a map data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef CListArray* arr = <CListArray*> self.ap
+        cdef bint as_dicts = maps_as_pydicts is not None
+        if as_dicts and maps_as_pydicts != "lossy" and maps_as_pydicts != "strict":
+            # Matches MapScalar.as_py, which validates before the null check.
+            raise ValueError(
+                "Invalid value for 'maps_as_pydicts': "
+                + "valid values are 'lossy', 'strict' or `None` (default). "
+                + f"Received {maps_as_pydicts!r}."
+            )
         if arr.IsNull(i):
             return None
         if self._children_cache is None:
@@ -3627,9 +3628,34 @@ cdef class MapArray(ListArray):
         cdef Array keys = <Array> (<tuple> self._children_cache)[0]
         cdef Array items = <Array> (<tuple> self._children_cache)[1]
         cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
-        # Matches MapScalar.as_py with the default maps_as_pydicts=None:
-        # an association list of (key, value) tuples.
-        return [(keys._getitem_py(j), items._getitem_py(j)) for j in range(start, end)]
+        if not as_dicts:
+            # Matches MapScalar.as_py with the default maps_as_pydicts=None:
+            # an association list of (key, value) tuples.
+            return [
+                (keys._getitem_py(j, None), items._getitem_py(j, maps_as_pydicts))
+                for j in range(start, end)
+            ]
+        cdef dict result = {}
+        for j in range(start, end):
+            result[keys._getitem_py(j, None)] = items._getitem_py(j, maps_as_pydicts)
+        if len(result) == end - start:
+            return result
+        # Duplicate keys: redo the row with the per-key loop so the 'lossy'
+        # warnings and 'strict' KeyError match MapScalar.as_py exactly.
+        result = {}
+        for j in range(start, end):
+            key = keys._getitem_py(j, None)
+            if key in result:
+                if maps_as_pydicts == "strict":
+                    raise KeyError(
+                        "Converting to Python dictionary is not supported in strict mode "
+                        f"when duplicate keys are present (duplicate key was '{key}')."
+                    )
+                else:
+                    warnings.warn(
+                        f"Encountered key '{key}' which was already encountered.")
+            result[key] = items._getitem_py(j, maps_as_pydicts)
+        return result
 
     @staticmethod
     def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None, mask=None):
@@ -3768,7 +3794,7 @@ cdef class FixedSizeListArray(BaseListArray):
     Concrete class for Arrow arrays of a fixed size list data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         if arr.IsNull(i):
             return None
@@ -3776,7 +3802,7 @@ cdef class FixedSizeListArray(BaseListArray):
             self._children_cache = pyarrow_wrap_array(arr.values())
         cdef Array values = <Array> self._children_cache
         cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
-        return [values._getitem_py(j) for j in range(start, end)]
+        return [values._getitem_py(j, maps_as_pydicts) for j in range(start, end)]
 
     @staticmethod
     def from_arrays(values, list_size=None, DataType type=None, mask=None):
@@ -4064,7 +4090,7 @@ cdef class StringArray(Array):
     Concrete class for Arrow arrays of string (or utf8) data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef cpp_string_view view = (<CBinaryArray*> self.ap).GetView(i)
@@ -4103,7 +4129,7 @@ cdef class LargeStringArray(Array):
     Concrete class for Arrow arrays of large string (or utf8) data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef cpp_string_view view = (<CLargeBinaryArray*> self.ap).GetView(i)
@@ -4141,7 +4167,7 @@ cdef class StringViewArray(Array):
     Concrete class for Arrow arrays of string (or utf8) view data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef cpp_string_view view = (<CBinaryViewArray*> self.ap).GetView(i)
@@ -4153,7 +4179,7 @@ cdef class BinaryArray(Array):
     Concrete class for Arrow arrays of variable-sized binary data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef cpp_string_view view = (<CBinaryArray*> self.ap).GetView(i)
@@ -4173,7 +4199,7 @@ cdef class LargeBinaryArray(Array):
     Concrete class for Arrow arrays of large variable-sized binary data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef cpp_string_view view = (<CLargeBinaryArray*> self.ap).GetView(i)
@@ -4193,7 +4219,7 @@ cdef class BinaryViewArray(Array):
     Concrete class for Arrow arrays of variable-sized binary view data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef cpp_string_view view = (<CBinaryViewArray*> self.ap).GetView(i)
@@ -4358,7 +4384,7 @@ cdef class StructArray(Array):
     Concrete class for Arrow arrays of a struct data type.
     """
 
-    cdef object _getitem_py(self, int64_t i):
+    cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         if self.ap.IsNull(i):
             return None
         cdef int64_t k, num_fields = self.type.num_fields
@@ -4377,7 +4403,7 @@ cdef class StructArray(Array):
         result = {}
         for k in range(num_fields):
             field_arr = <Array> fields[k]
-            result[names[k]] = field_arr._getitem_py(i)
+            result[names[k]] = field_arr._getitem_py(i, maps_as_pydicts)
         return result
 
     def field(self, index):

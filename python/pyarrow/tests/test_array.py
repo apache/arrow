@@ -523,6 +523,36 @@ def test_to_pylist_bulk_paths():
         dup.to_pylist()
 
 
+def test_to_pylist_maps_as_pydicts():
+    # GH-50429: maps_as_pydicts converts through the scalar-free path; the
+    # semantics must match MapScalar.as_py exactly.
+    map_type = pa.map_(pa.string(), pa.int32())
+    arrays = [
+        pa.array([[("k1", 1), ("k2", None)], None, []], type=map_type),
+        pa.array([[[("k", 1)], None], None], type=pa.list_(map_type)),
+        pa.array([[("o", [("i", 5)])]],
+                 type=pa.map_(pa.string(), map_type)),
+        pa.array([{"m": [("k", 1)]}, None],
+                 type=pa.struct([("m", map_type)])),
+    ]
+    for arr in arrays:
+        for mode in ("lossy", "strict"):
+            for view in (arr, arr.slice(1)):
+                expected = [x.as_py(maps_as_pydicts=mode) for x in view]
+                assert view.to_pylist(maps_as_pydicts=mode) == expected
+
+    dup = pa.array([[("k", 1), ("k", 2)]], type=map_type)
+    with pytest.warns(UserWarning, match="already encountered"):
+        assert dup.to_pylist(maps_as_pydicts="lossy") == [{"k": 2}]
+    with pytest.raises(KeyError, match="strict mode"):
+        dup.to_pylist(maps_as_pydicts="strict")
+    with pytest.raises(ValueError, match="Invalid value for 'maps_as_pydicts'"):
+        dup.to_pylist(maps_as_pydicts="bogus")
+    # invalid values are only rejected when a map value is converted,
+    # matching the Scalar-based behavior
+    assert pa.array([1, 2]).to_pylist(maps_as_pydicts="bogus") == [1, 2]
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
