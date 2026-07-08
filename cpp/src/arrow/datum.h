@@ -281,11 +281,9 @@ struct ARROW_EXPORT Datum {
   /// Only valid for scalar and array-like data. Unlike null_count(), this
   /// accounts for types whose logical nulls are not captured by the top-level
   /// validity bitmap, such as union, run-end encoded and dictionary types; for
-  /// those types the count is recomputed on every call. For scalars this
-  /// returns the same value as null_count(); note that a DictionaryScalar
-  /// counts as non-null whenever its index is valid, even if the index points
-  /// to a null dictionary value.
+  /// those types the count is recomputed on every call.
   ///
+  /// \see Scalar::IsLogicalNull
   /// \see ArrayData::ComputeLogicalNullCount
   /// \see ChunkedArray::ComputeLogicalNullCount
   int64_t ComputeLogicalNullCount() const;
