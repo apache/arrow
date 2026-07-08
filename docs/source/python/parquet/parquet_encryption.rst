@@ -137,6 +137,9 @@ creating file encryption properties) includes the following options:
 * ``column_keys``, which columns to encrypt with which key. Dictionary with
   master key IDs as the keys, and column name lists as the values,
   e.g. ``{key1: [col1, col2], key2: [col3]}``. See notes on nested fields below.
+* ``uniform_encryption``, whether to encrypt the footer and all columns with
+  the same ``footer_key``, instead of specifying ``column_keys``
+  individually. Cannot be used together with ``column_keys``.
 * ``encryption_algorithm``, the Parquet encryption algorithm.
   Can be ``AES_GCM_V1`` (default) or ``AES_GCM_CTR_V1``.
 * ``plaintext_footer``, whether to write the file footer in plain text (otherwise it is encrypted).
@@ -190,8 +193,6 @@ all columns are encrypted with the same key identified by ``column_key_id``:
 
 .. code-block:: python
 
-   >>> import pyarrow.parquet.encryption as pe
-
    schema = pa.schema([
      ("MapColumn", pa.map_(pa.string(), pa.int32())),
      ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
@@ -208,8 +209,6 @@ An example encryption configuration for columns with nested fields, where
 some inner fields are encrypted with the same key identified by ``column_key_id``:
 
 .. code-block:: python
-
-   >>> import pyarrow.parquet.encryption as pe
 
    >>> schema = pa.schema([
    ...   ("MapColumn", pa.map_(pa.string(), pa.int32())),
@@ -231,3 +230,49 @@ file decryption properties) is optional and it includes the following options:
 
 * ``cache_lifetime``, the lifetime of cached entities (key encryption keys, local
   wrapping keys, KMS client objects) represented as a ``datetime.timedelta``.
+
+External key material and key rotation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When ``internal_key_material=False`` is set on ``EncryptionConfiguration``,
+key material is stored in a separate file next to the Parquet file instead of
+in its footer.
+
+Storing key material externally is what enables key rotation:
+``crypto_factory.rotate_master_keys()`` re-wraps the data encryption keys of
+a file that uses external key material under new master keys, without rewriting
+the file itself:
+
+.. code-block:: python
+
+   >>> crypto_factory.rotate_master_keys(  # doctest: +SKIP
+   ...     kms_connection_config, parquet_file_path="table.parquet",
+   ... )
+
+Direct Key Encryption (without KMS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:func:`pyarrow.parquet.encryption.create_encryption_properties` and
+:func:`pyarrow.parquet.encryption.create_decryption_properties` build
+encryption/decryption properties directly from a plaintext key, bypassing
+:class:`~pyarrow.parquet.encryption.CryptoFactory` and the KMS-based flow.
+
+.. note::
+   Only uniform encryption (a single key for the footer and all columns) is
+   supported by these functions. For per-column keys, use the
+   ``CryptoFactory``/``EncryptionConfiguration`` flow described above.
+
+.. code-block:: python
+
+   >>> props = pe.create_encryption_properties(  # doctest: +SKIP
+   ...     footer_key=b'0123456789abcdef',
+   ...     aad_prefix=b'table_id',
+   ...     store_aad_prefix=False,
+   ... )
+   >>> pq.write_table(table, 'encrypted.parquet', encryption_properties=props)  # doctest: +SKIP
+
+   >>> decryption_props = pe.create_decryption_properties(  # doctest: +SKIP
+   ...     footer_key=b'0123456789abcdef',
+   ...     aad_prefix=b'table_id',
+   ... )
+   >>> pq.read_table('encrypted.parquet', decryption_properties=decryption_props)  # doctest: +SKIP

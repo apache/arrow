@@ -95,7 +95,8 @@ Certain Parquet logical types (JSON, UUID, Geometry, Geography) are supported
 and read as Arrow extension types by default (``arrow.json``, ``arrow.uuid``
 and ``geoarrow.wkb`` respectively). This support is enabled via the
 ``arrow_extensions_enabled`` parameter and is used in :func:`~pyarrow.parquet.read_table`,
-:class:`~pyarrow.parquet.ParquetFile`, and :class:`~pyarrow.parquet.ParquetDataset`.
+:class:`~pyarrow.parquet.ParquetFile`, :class:`~pyarrow.parquet.ParquetDataset`, and
+:func:`~pyarrow.parquet.read_schema`.
 
 To read these Parquet logical types as storage types (default behavior
 until PyArrow version ``21.0.0``), set ``arrow_extensions_enabled=False``.

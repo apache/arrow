@@ -444,7 +444,7 @@ Both can also be configured explicitly via a dictionary:
    ...                    'two': {'ndv': 100, 'fpp': 0.01},
    ...                })
 
-Recommnded value for ``ndv`` is the number of rows. Lower values of ``fpp``
+Recommended value for ``ndv`` is the number of rows. Lower values of ``fpp``
 reduce false positives but require more space (space grows roughly proportional
 to ``log(1/FPP)``). Recommended values are 0.1, 0.05, or 0.01.
 
