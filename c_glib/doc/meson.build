@@ -22,6 +22,7 @@ gi_docgen_toml_conf = configuration_data()
 gi_docgen_toml_conf.set('SOURCE_REFERENCE', source_reference)
 # We can't use "version.replace('-SNAPSHOT', '.dev')" here because
 # Ubuntu 20.04's Meson is < 0.58.0.
+# Is the above comment still relevant?
 if version_tag == ''
     gi_docgen_version_tag = ''
 else

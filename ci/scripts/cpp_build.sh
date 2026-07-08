@@ -157,10 +157,6 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   CC="${ORIGINAL_CC}"
   CXX="${ORIGINAL_CXX}"
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
-  if [ "${UBUNTU}" = "20.04" ]; then
-    echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
-    exit -1
-  fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
   source ~/emsdk/emsdk_env.sh
   export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
