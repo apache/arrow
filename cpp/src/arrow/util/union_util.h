@@ -22,9 +22,11 @@ namespace arrow {
 namespace union_util {
 
 /// \brief Compute the number of of logical nulls in a sparse union array
+ARROW_EXPORT
 int64_t LogicalSparseUnionNullCount(const ArraySpan& span);
 
 /// \brief Compute the number of of logical nulls in a dense union array
+ARROW_EXPORT
 int64_t LogicalDenseUnionNullCount(const ArraySpan& span);
 
 /// \brief Populate a bitmap based on the logical nulls in a sparse union array

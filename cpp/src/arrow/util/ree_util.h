@@ -48,6 +48,7 @@ const RunEndCType* RunEnds(const ArraySpan& span) {
 /// All the checks complete in O(1) time. Consequently, this function:
 /// - DOES NOT check that run_ends is sorted and all-positive
 /// - DOES NOT check the actual contents of the run_ends and values arrays
+ARROW_EXPORT
 Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
                                      int64_t logical_length,
                                      const std::shared_ptr<ArrayData>& run_ends_data,
@@ -55,6 +56,7 @@ Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
                                      int64_t null_count, int64_t logical_offset);
 
 /// \brief Compute the logical null count of an REE array
+ARROW_EXPORT
 int64_t LogicalNullCount(const ArraySpan& span);
 
 /// \brief Populate a bitmap based on the logical nulls in an REE array
