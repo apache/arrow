@@ -1457,8 +1457,6 @@ test_that("Array handles negative fractional dates correctly (GH-46873)", {
 })
 
 test_that("uint64 inside list columns always converts to double (GH-50339)", {
-  # When uint64 is nested inside a list, all elements should get the same type
-  # (double) regardless of whether individual values fit in int32
   list_arr <- arrow_array(
     list(1, 9999999999),
     type = list_of(uint64())
