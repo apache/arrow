@@ -128,7 +128,7 @@ on their input parameters. Arrow C++ allows customizing the memory allocator for
 such large data requests through the :ref:`MemoryPool <cpp_memory_pool>` interface.
 
 You can therefore implement a MemoryPool class enforcing the restrictions
-of your choise (for example to limit the total number of allocated bytes), and pass
+of your choice (for example to limit the total number of allocated bytes), and pass
 it to any Arrow C++ APIs you use.
 
 .. note::
