@@ -593,7 +593,7 @@ inline void VisitTwoBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
                                 const uint8_t* right_bitmap, int64_t right_offset,
                                 int64_t length, Visit&& visit,
                                 MemoryPool* pool = default_memory_pool()) {
-  ARROW_IGNORE_EXPR(VisitTwoBitRuns(
+  ARROW_CHECK_OK(VisitTwoBitRuns(
       left_bitmap, left_offset, right_bitmap, right_offset, length,
       [&](int64_t position, int64_t length, bool set) {
         visit(position, length, set);
@@ -607,7 +607,7 @@ inline void VisitTwoSetBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offs
                                    const uint8_t* right_bitmap, int64_t right_offset,
                                    int64_t length, Visit&& visit,
                                    MemoryPool* pool = default_memory_pool()) {
-  ARROW_IGNORE_EXPR(VisitTwoSetBitRuns(
+  ARROW_CHECK_OK(VisitTwoSetBitRuns(
       left_bitmap, left_offset, right_bitmap, right_offset, length,
       [&](int64_t position, int64_t length) {
         visit(position, length);
