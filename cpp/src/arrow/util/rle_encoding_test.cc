@@ -335,6 +335,31 @@ TEST(Rle, RleDecoder) {
                            /* expected_value= */ 16777749);
 }
 
+TEST(Rle, RleDecoderCountUpTo) {
+  // A run of value 21 repeated 23 times.
+  const std::array<uint8_t, 3> bytes = {21, 0, 0};
+  const auto run = RleRun(bytes.data(), /* value_count= */ 23, /* bit_width= */ 5);
+  auto decoder = RleRunDecoder<uint8_t>(run, /* value_bit_width= */ 5);
+
+  // Counting the repeated value counts every advanced element.
+  auto res = decoder.CountUpTo({.value = 21, .batch_size = 10, .value_bit_width = 5});
+  EXPECT_EQ(res.advanced_count, 10);
+  EXPECT_EQ(res.count, 10);
+  EXPECT_EQ(decoder.remaining(), 23 - 10);
+
+  // Counting another value matches nothing but still advances.
+  res = decoder.CountUpTo({.value = 99, .batch_size = 5, .value_bit_width = 5});
+  EXPECT_EQ(res.advanced_count, 5);
+  EXPECT_EQ(res.count, 0);
+  EXPECT_EQ(decoder.remaining(), 23 - 15);
+
+  // Requesting more than remaining is capped to the remaining count.
+  res = decoder.CountUpTo({.value = 21, .batch_size = 100, .value_bit_width = 5});
+  EXPECT_EQ(res.advanced_count, 8);
+  EXPECT_EQ(res.count, 8);
+  EXPECT_EQ(decoder.remaining(), 0);
+}
+
 template <typename T>
 void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
                           rle_size_t bit_width, std::vector<T> expected) {

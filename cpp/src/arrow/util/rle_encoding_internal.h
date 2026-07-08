@@ -259,6 +259,18 @@ class RleBitPackedParser {
   std::pair<rle_size_t, ControlFlow> PeekImpl(Handler&&) const;
 };
 
+template <typename T>
+struct RleCountUpToParams {
+  T value;
+  rle_size_t batch_size;
+  rle_size_t value_bit_width;
+};
+
+struct RleCountUpToResult {
+  rle_size_t count;
+  rle_size_t advanced_count;
+};
+
 /// Decoder class for a single run of RLE encoded data.
 template <typename T>
 class RleRunDecoder {
@@ -299,6 +311,15 @@ class RleRunDecoder {
     const auto steps = std::min(batch_size, remaining_count_);
     remaining_count_ -= steps;
     return steps;
+  }
+
+  /// Advance and count the number of occurrence of a values.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of of element that were processed.
+  RleCountUpToResult CountUpTo(const RleCountUpToParams<value_type>& p) {
+    const auto steps = Advance(p.batch_size);
+    return {.count = steps * (p.value == value_), .advanced_count = steps};
   }
 
   /// Get the next value and return false if there are no more.
@@ -362,6 +383,29 @@ class BitPackedRunDecoder {
     const auto steps = std::min(batch_size, remaining());
     values_read_ += steps;
     return steps;
+  }
+
+  /// Advance and count the number of occurrence of a values.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of of element that were processed.
+  RleCountUpToResult CountUpTo(const RleCountUpToParams<value_type>& p) {
+    // Decoding in a stack buffer of 512 values: 1KB for int16_t used in levels
+    // and up to 4KB for uint64_t.
+    constexpr rle_size_t kBufferValueCount = 512;
+    alignas(16) value_type buffer[kBufferValueCount];  // uninitialized
+
+    rle_size_t remaining = p.batch_size;
+    rle_size_t count = 0;
+    rle_size_t read_iter = 0;
+    do {
+      const auto batch_iter = std::min(remaining, kBufferValueCount);
+      read_iter = GetBatch(buffer, batch_iter, p.value_bit_width);
+      count += static_cast<rle_size_t>(std::count(buffer, buffer + read_iter, p.value));
+      remaining -= read_iter;
+    } while (remaining > 0 && read_iter > 0);
+
+    return {.count = count, .advanced_count = p.batch_size - remaining};
   }
 
   /// Get the next value and return false if there are no more.
@@ -452,6 +496,12 @@ class RleBitPackedDecoder {
   /// Advance by as many values as provided or until exhaustion of the decoder.
   /// Return the number of values skipped.
   [[nodiscard]] rle_size_t Advance(rle_size_t batch_size);
+
+  /// Advance and count the number of occurrence of a values.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of of element that were processed.
+  RleCountUpToResult CountUpTo(value_type value, rle_size_t batch_size);
 
   /// Gets the next value or returns false if there are no more or an error occurred.
   ///
@@ -563,6 +613,18 @@ class BitPackedDecoder : private BitPackedRunDecoder<T> {
 
   /// Whether there is still values to iterate over.
   bool exhausted() const { return Base::remaining() == 0; }
+
+  /// Advance and count the number of occurrence of a values.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of of element that were processed.
+  RleCountUpToResult CountUpTo(value_type value, rle_size_t batch_size) {
+    return Base::CountUpTo({
+        .value = value,
+        .batch_size = batch_size,
+        .value_bit_width = value_bit_width_,
+    });
+  }
 
   /// Gets the next value or returns false if there are no more or an error occurred.
   [[nodiscard]] bool Get(value_type* val) { return Base::Get(val, value_bit_width_); }
@@ -895,6 +957,24 @@ auto RleBitPackedDecoder<T>::Advance(rle_size_t batch_size) -> rle_size_t {
         return decoder.Advance(run_batch_size);
       },
       batch_size);
+}
+
+template <typename T>
+RleCountUpToResult RleBitPackedDecoder<T>::CountUpTo(value_type value,
+                                                     rle_size_t batch_size) {
+  rle_size_t count = 0;
+  const rle_size_t advanced_count = ProcessValues(
+      [value, this, &count](auto& decoder, rle_size_t run_batch_size) {
+        const auto result = decoder.CountUpTo({
+            .value = value,
+            .batch_size = run_batch_size,
+            .value_bit_width = value_bit_width_,
+        });
+        count += result.count;
+        return result.advanced_count;
+      },
+      batch_size);
+  return {.count = count, .advanced_count = advanced_count};
 }
 
 template <typename T>
