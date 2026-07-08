@@ -21,7 +21,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <vector>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
