@@ -18,7 +18,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <limits>
+#include <memory>
 #include <vector>
 
 #include "gandiva/execution_context.h"
@@ -1618,18 +1620,20 @@ TEST(TestStringOps, TestPadMalformedUtf8NoOverread) {
   // space. utf8_length_ignore_invalid() used to extend the glyph length past
   // the end of the buffer while scanning the continuation bytes. The input is
   // held in an exactly-sized heap buffer so any over-read trips AddressSanitizer.
-  std::vector<char> text = {'\xF0', 'a', 'a', 'a'};
-  const auto text_len = static_cast<gdv_int32>(text.size());
-  const std::string text_str(text.begin(), text.end());
+  const char bytes[] = {'\xF0', 'a', 'a', 'a'};
+  const auto text_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> text(new char[text_len]);
+  std::memcpy(text.get(), bytes, text_len);
+  const std::string text_str(text.get(), text_len);
 
   // The lone lead byte counts as one invalid glyph and the three 'a's as one
   // each, so the length is 4 and padding to width 6 adds two fill characters.
   const char* out_str =
-      lpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
+      lpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 6, " ", 1, &out_len);
   EXPECT_EQ(out_len, 6);
   EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
 
-  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 6, " ", 1, &out_len);
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 6, " ", 1, &out_len);
   EXPECT_EQ(out_len, 6);
   EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
 }
@@ -1643,17 +1647,20 @@ TEST(TestStringOps, TestPadMalformedUtf8KeepsValidGlyph) {
   // 0xF0 alone counts as one invalid glyph, then 'a' and € follow on their own,
   // so the count is 3. If the inner scan kept char_len at 4 it would advance the
   // outer loop past 'a', 0xE2, 0x82 and only see the orphaned 0xAC, giving 2.
-  std::vector<char> text = {'\xF0', 'a', '\xE2', '\x82', '\xAC'};
-  const auto text_len = static_cast<gdv_int32>(text.size());
-  const std::string text_str(text.begin(), text.end());
+  // The input sits in an exactly-sized heap buffer so any over-read trips ASAN.
+  const char bytes[] = {'\xF0', 'a', '\xE2', '\x82', '\xAC'};
+  const auto text_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> text(new char[text_len]);
+  std::memcpy(text.get(), bytes, text_len);
+  const std::string text_str(text.get(), text_len);
 
   // 3 glyphs padded to width 5 adds two fill characters, out_len = 2 + 5 = 7.
   const char* out_str =
-      lpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 5, " ", 1, &out_len);
+      lpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 5, " ", 1, &out_len);
   EXPECT_EQ(out_len, 7);
   EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
 
-  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.data(), text_len, 5, " ", 1, &out_len);
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 5, " ", 1, &out_len);
   EXPECT_EQ(out_len, 7);
   EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
 }
