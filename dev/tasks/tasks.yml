@@ -565,6 +565,7 @@ tasks:
       env:
         UBUNTU: "{{ ubuntu_version }}"
       image: ubuntu-python
+{% endfor %}
 
   test-fedora-42-python-3:
     ci: github
