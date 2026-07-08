@@ -2075,7 +2075,7 @@ function(build_protobuf)
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=
         # OFF so protobuf does not take conda's zlib and add its include dir
-        # globally, so vendored Abseil sources compile against env's old headers
+        # globally, causing vendored Abseil sources to include env's old headers
         -Dprotobuf_WITH_ZLIB=OFF)
     if(ABSL_VENDORED)
       # Force protobuf to reuse Arrow's already-extracted absl source

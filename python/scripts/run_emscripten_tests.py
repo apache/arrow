@@ -283,7 +283,7 @@ def _load_pyarrow_in_runner(driver, wheel_name):
         """import sys
 import micropip
 if "pyarrow" not in sys.modules:
-    await micropip.install("hypothesis")
+    await micropip.install(["hypothesis", "pytest>=8.2"])
     import pyodide_js as pjs
     await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
