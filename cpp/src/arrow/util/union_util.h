@@ -31,7 +31,7 @@ int64_t LogicalDenseUnionNullCount(const ArraySpan& span);
 
 /// \brief Populate a bitmap based on the logical nulls in a sparse union array
 ///
-/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// `set_on_null` is true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
 ARROW_EXPORT
 void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
@@ -39,7 +39,7 @@ void SetLogicalNullBitsSparse(const ArraySpan& span, uint8_t* out_bitmap,
 
 /// \brief Populate a bitmap based on the logical nulls in a dense union array
 ///
-/// \param set_on_null true if we should set bits corresponding to nulls and false if
+/// `set_on_null` is true if we should set bits corresponding to nulls and false if
 /// we should set bits corresponding to non-nulls
 ARROW_EXPORT
 void SetLogicalNullBitsDense(const ArraySpan& span, uint8_t* out_bitmap,
