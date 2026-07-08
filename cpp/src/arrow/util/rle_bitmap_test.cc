@@ -468,6 +468,83 @@ void CheckRleBitPackedToBitmap(const std::vector<uint8_t>& bytes,
   }
 }
 
+/// Interleave Advance and GetBatch across the whole stream with a fixed `step`,
+/// verifying the values that are read.
+///
+/// Advance and GetBatch both go through the parser, so `step` values that do not
+/// align with run boundaries leave the decoder mid-run between calls, exercising
+/// the resume path they share.
+void CheckRleBitPackedAdvance(const std::vector<uint8_t>& bytes,
+                              const std::vector<bool>& expected, rle_size_t step) {
+  ARROW_SCOPED_TRACE("step = ", step);
+  const auto n_vals = static_cast<rle_size_t>(expected.size());
+
+  // Advancing over the whole stream consumes every value then reports exhaustion.
+  {
+    RleBitPackedToBitmapDecoder decoder(bytes.data(),
+                                        static_cast<rle_size_t>(bytes.size()));
+    rle_size_t pos = 0;
+    while (pos < n_vals) {
+      const auto n = std::min(step, n_vals - pos);
+      EXPECT_EQ(decoder.Advance(n), n) << "at pos " << pos;
+      pos += n;
+    }
+    EXPECT_EQ(pos, n_vals);
+    EXPECT_TRUE(decoder.exhausted());
+    EXPECT_EQ(decoder.Advance(1), 0);
+  }
+
+  // Interleave Advance and GetBatch, checking the values we do read.
+  {
+    RleBitPackedToBitmapDecoder decoder(bytes.data(),
+                                        static_cast<rle_size_t>(bytes.size()));
+    // Output buffer with one guard byte to catch out-of-bounds writes.
+    std::vector<uint8_t> out(static_cast<size_t>(bit_util::BytesForBits(n_vals)) + 1, 0);
+
+    rle_size_t pos = 0;
+    auto advance = [&](rle_size_t n) {
+      n = std::min(n, n_vals - pos);
+      EXPECT_EQ(decoder.Advance(n), n) << "at pos " << pos;
+      pos += n;
+    };
+    auto read = [&](rle_size_t n) {
+      n = std::min(n, n_vals - pos);
+      const auto got = decoder.GetBatch(BitmapSpanMut(out.data(), /*bit_start=*/pos), n);
+      EXPECT_EQ(got, n) << "at pos " << pos;
+      CheckDecodedBits({
+          .actual = out,
+          .expected = expected,
+          .count = n,
+          .actual_start_bit = pos,
+          .expected_start_idx = pos,
+      });
+      pos += n;
+    };
+
+    int iter = 0;
+    while (pos < n_vals) {
+      // Vary how reads and advances alternate so runs are consumed many ways.
+      if (iter % 3 != 0) {
+        read(step);
+      }
+      advance(step);
+      ++iter;
+    }
+    EXPECT_TRUE(decoder.exhausted());
+  }
+}
+
+/// Run the Advance check over a battery of step sizes.
+void CheckRleBitPackedToBitmapAdvance(const std::vector<uint8_t>& bytes,
+                                      const std::vector<bool>& expected) {
+  const auto n_vals = static_cast<rle_size_t>(expected.size());
+  ASSERT_GT(n_vals, 0);
+  for (const rle_size_t step : {rle_size_t{1}, rle_size_t{3}, rle_size_t{7},
+                                rle_size_t{8}, rle_size_t{9}, rle_size_t{33}}) {
+    CheckRleBitPackedAdvance(bytes, expected, step);
+  }
+}
+
 }  // namespace
 
 TEST(RleBitPackedToBitmapDecoder, Empty) {
@@ -597,6 +674,47 @@ TEST(RleBitPackedToBitmapDecoder, Truncated) {
   EXPECT_EQ(got, 10);
   EXPECT_FALSE(decoder.exhausted());
   CheckDecodedBits({.actual = out, .expected = expected, .count = 10});
+}
+
+TEST(RleBitPackedToBitmapDecoder, AdvanceSingleRun) {
+  {
+    std::vector<uint8_t> bytes;
+    std::vector<bool> expected;
+    AppendRleRun(bytes, expected, /*value=*/true, /*count=*/100);
+    CheckRleBitPackedToBitmapAdvance(bytes, expected);
+  }
+  {
+    std::vector<uint8_t> bytes;
+    std::vector<bool> expected;
+    AppendBitPackedRun(bytes, expected, {0b10101010, 0b11001100, 0b11110000});
+    CheckRleBitPackedToBitmapAdvance(bytes, expected);
+  }
+}
+
+TEST(RleBitPackedToBitmapDecoder, AdvanceMixedRunsAligned) {
+  // All runs end on a byte boundary.
+  std::vector<uint8_t> bytes;
+  std::vector<bool> expected;
+  AppendRleRun(bytes, expected, /*value=*/false, /*count=*/16);
+  AppendBitPackedRun(bytes, expected, {0b10101010, 0b01010101});
+  AppendRleRun(bytes, expected, /*value=*/true, /*count=*/64);
+  AppendBitPackedRun(bytes, expected, {0b00001111});
+  CheckRleBitPackedToBitmapAdvance(bytes, expected);
+}
+
+TEST(RleBitPackedToBitmapDecoder, AdvanceMixedRunsUnaligned) {
+  // RLE runs with counts that are not multiples of 8 make each following run
+  // start at a non-byte-aligned output position.
+  std::vector<uint8_t> bytes;
+  std::vector<bool> expected;
+  AppendRleRun(bytes, expected, /*value=*/true, /*count=*/13);
+  AppendBitPackedRun(bytes, expected, {0b01101001, 0b10010110});
+  AppendRleRun(bytes, expected, /*value=*/false, /*count=*/5);
+  AppendRleRun(bytes, expected, /*value=*/true, /*count=*/200);
+  AppendBitPackedRun(bytes, expected, {0b11110000});
+  AppendRleRun(bytes, expected, /*value=*/false, /*count=*/3);
+  AppendBitPackedRun(bytes, expected, {0b10110001, 0b00011101});
+  CheckRleBitPackedToBitmapAdvance(bytes, expected);
 }
 
 }  // namespace arrow::util
