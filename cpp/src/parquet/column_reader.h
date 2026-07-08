@@ -87,6 +87,12 @@ class PARQUET_EXPORT LevelDecoder {
   /// Advance the decoder and throw away decoder levels.
   int Skip(int batch_size);
 
+  /// Advance and count the number of occurrence of a values.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were processed.
+  std::pair<int, int> CountUpTo(int16_t value, int batch_size);
+
   /// Return the max level used in this decoder.
   int max_level() const { return max_level_; }
 

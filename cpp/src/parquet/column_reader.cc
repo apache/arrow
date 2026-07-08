@@ -113,6 +113,11 @@ struct LevelDecoder::Impl {
   [[nodiscard]] int Advance(int batch_size) {
     return std::visit([&](auto& dec) { return dec.Advance(batch_size); }, decoder);
   }
+
+  auto CountUpTo(int16_t value, int batch_size) {
+    return std::visit([&](auto& dec) { return dec.CountUpTo(value, batch_size); },
+                      decoder);
+  }
 };
 
 LevelDecoder::LevelDecoder(int16_t max_level)
@@ -202,6 +207,14 @@ int LevelDecoder::Skip(int batch_size) {
   ARROW_DCHECK_EQ(num_values, num_advanced);
   num_values_remaining_ -= num_advanced;
   return num_advanced;
+}
+
+std::pair<int, int> LevelDecoder::CountUpTo(int16_t value, int batch_size) {
+  const int num_values = std::min(num_values_remaining_, batch_size);
+  const auto result = decoder_->CountUpTo(value, num_values);
+  ARROW_DCHECK_EQ(num_values, result.advanced_count);
+  num_values_remaining_ -= result.advanced_count;
+  return {result.count, result.advanced_count};
 }
 
 ReaderProperties default_reader_properties() {
