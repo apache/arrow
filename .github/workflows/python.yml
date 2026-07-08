@@ -84,7 +84,7 @@ jobs:
             title: AMD64 Conda Python 3.11 Pandas 1.5.2
             python: "3.11"
             pandas: "1.5.2"
-            numpy: "1.21.2"
+            numpy: "1.23.2"
           - name: conda-python-3.14-pandas-latest
             image: conda-python-pandas
             title: AMD64 Conda Python 3.14 Pandas latest
