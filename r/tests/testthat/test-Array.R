@@ -521,7 +521,7 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   expect_as_vector(a, u8)
 })
 
-test_that("Arrays of {,u}int{32} convert to integer if they can fit", {
+test_that("Arrays of uint32 and int64 convert to integer if they can fit", {
   u32 <- arrow_array(1L)$cast(uint32())
   expect_identical(as.vector(u32), 1L)
 
