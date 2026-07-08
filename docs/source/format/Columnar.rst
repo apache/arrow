@@ -1391,6 +1391,8 @@ have two entries in each RecordBatch. For a RecordBatch of this schema with
     buffer 12: col2    data
     buffer 13: col2    data
 
+.. _buffer-compression:
+
 Compression
 -----------
 
