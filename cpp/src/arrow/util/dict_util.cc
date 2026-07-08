@@ -18,9 +18,11 @@
 #include "arrow/util/dict_util_internal.h"
 
 #include "arrow/array/array_dict.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace dict_util {
@@ -29,58 +31,68 @@ namespace {
 
 template <typename IndexArrowType>
 int64_t LogicalNullCount(const ArraySpan& span) {
-  const auto* indices_null_bit_map = span.buffers[0].data;
+  const auto* indices_valid_bitmap = span.buffers[0].data;
   const auto& dictionary_span = span.dictionary();
-  const auto* dictionary_null_bit_map = dictionary_span.buffers[0].data;
+  const auto* dictionary_valid_bitmap = dictionary_span.buffers[0].data;
 
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = span.GetValues<CType>(1);
   int64_t null_count = 0;
-  for (int64_t i = 0; i < span.length; i++) {
-    if (indices_null_bit_map != nullptr &&
-        !bit_util::GetBit(indices_null_bit_map, i + span.offset)) {
-      null_count++;
-      continue;
-    }
-
-    CType current_index = indices_data[i];
-    if (!bit_util::GetBit(dictionary_null_bit_map,
-                          current_index + dictionary_span.offset)) {
-      null_count++;
-    }
-  }
+  DCHECK_OK(internal::VisitBitRuns(
+      indices_valid_bitmap, span.offset, span.length,
+      [=, &null_count](int64_t position, int64_t length, bool valid) {
+        if (valid) {
+          // This is a run of valid indicies, so we need to look each of them up
+          // in the dictionary array to see if they are null
+          for (int64_t i = position; i < position + length; i++) {
+            CType index = indices_data[i];
+            if (!bit_util::GetBit(dictionary_valid_bitmap,
+                                  index + dictionary_span.offset)) {
+              null_count++;
+            }
+          }
+        } else {
+          // This is a run of null indices
+          null_count += length;
+        }
+        return Status::OK();
+      }));
   return null_count;
 }
 
 template <typename IndexArrowType>
 void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
                         bool set_on_null) {
-  const auto* indices_null_bit_map = span.buffers[0].data;
+  const auto* indices_valid_bitmap = span.buffers[0].data;
   const auto& dictionary_span = span.dictionary();
-  // TODO: Is this always non-null?
-  const auto* dictionary_null_bit_map = dictionary_span.buffers[0].data;
+  const auto* dictionary_valid_bitmap = dictionary_span.buffers[0].data;
 
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = span.GetValues<CType>(1);
-  for (int64_t i = 0; i < span.length; i++) {
-    bool is_null = false;
-    if (indices_null_bit_map != nullptr &&
-        !bit_util::GetBit(indices_null_bit_map, i + span.offset)) {
-      is_null = true;
-    } else {
-      CType current_index = indices_data[i];
-      is_null = !bit_util::GetBit(dictionary_null_bit_map,
-                                  current_index + dictionary_span.offset);
-    }
-
-    bit_util::SetBitTo(out_bitmap, out_offset + i, set_on_null == is_null);
-  }
+  DCHECK_OK(internal::VisitBitRuns(
+      indices_valid_bitmap, span.offset, span.length,
+      [=](int64_t position, int64_t length, bool valid) {
+        if (valid) {
+          // This is a run of valid indicies, so we need to look each of them up
+          // in the dictionary array to see if they are null
+          for (int64_t i = position; i < position + length; i++) {
+            CType index = indices_data[i];
+            bool is_null = !bit_util::GetBit(dictionary_valid_bitmap,
+                                             index + dictionary_span.offset);
+            bit_util::SetBitTo(out_bitmap, out_offset + i, is_null == set_on_null);
+          }
+        } else {
+          // This is a run of null indices
+          bit_util::SetBitsTo(out_bitmap, out_offset + position, length, set_on_null);
+        }
+        return Status::OK();
+      }));
 }
 
 }  // namespace
 
 int64_t LogicalNullCount(const ArraySpan& span) {
-  if (span.dictionary().GetNullCount() == 0 || span.length == 0) {
+  if (span.dictionary().GetNullCount() == 0) {
     return span.GetNullCount();
   }
 
@@ -107,7 +119,9 @@ int64_t LogicalNullCount(const ArraySpan& span) {
 
 void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
                         bool set_on_null) {
-  if (span.dictionary().GetNullCount() == 0 || span.length == 0) {
+  if (span.dictionary().GetNullCount() == 0) {
+    // No nulls in dictionary, so a value is a logical null if and only if
+    // its index is null
     if (set_on_null) {
       internal::InvertBitmap(span.buffers[0].data, span.offset, span.length, out_bitmap,
                              out_offset);
