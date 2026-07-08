@@ -97,7 +97,7 @@ If the value in R does not fall within the permissible range for the correspondi
 chunked_array(c(10L, 3L, 200L), type = int8())
 ```
 
-When translating from Arrow to R, integer types alway translate to R integers unless one of the following exceptions applies:
+When translating from Arrow to R, integer types always translate to R integers unless one of the following exceptions applies:
 
 - Arrow uint64 types are always converted to numeric (double) vectors in R
 - If the value of an Arrow uint32 falls outside the range allowed for R integers, the result will be a numeric vector in R
