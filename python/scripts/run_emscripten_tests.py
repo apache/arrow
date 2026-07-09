@@ -87,17 +87,25 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                     self.postMessage({print:databytes});
                     return databytes.length;
                 }
+                function log(message) {
+                    do_print(new TextEncoder().encode(`[worker] ${message}\n`));
+                }
                 onmessage = async function (e) {
                     const data = e.data;
                     try {
                         if (!self.pyodide) {
+                            log("loading Pyodide");
                             self.pyodide = await loadPyodide();
+                            log("loaded Pyodide");
                         }
                         self.pyodide.setStdout({write:do_print,isatty:data.isatty});
                         self.pyodide.setStderr({write:do_print,isatty:data.isatty});
 
+                        log("loading packages from imports");
                         await self.pyodide.loadPackagesFromImports(data.python);
+                        log("running Python");
                         let results = await self.pyodide.runPythonAsync(data.python);
+                        log("Python completed");
                         self.postMessage({results});
                     } catch (error) {
                         do_print(new TextEncoder().encode(
