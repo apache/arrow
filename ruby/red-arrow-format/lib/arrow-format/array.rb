@@ -192,6 +192,9 @@ module ArrowFormat
         expected_n_args = "1 or 3"
       else
         type = args.shift
+        unless type.is_a?(Type)
+          type = self.class.type_class.try_convert(type) || type
+        end
         expected_n_args = "2 or 4"
       end
       args = build_data(args[0], type) if args.size == 1
@@ -461,12 +464,27 @@ module ArrowFormat
   end
 
   class Time32Array < TimeArray
+    class << self
+      def type_class
+        Time32Type
+      end
+    end
   end
 
   class Time64Array < TimeArray
+    class << self
+      def type_class
+        Time64Type
+      end
+    end
   end
 
   class TimestampArray < TemporalArray
+    class << self
+      def type_class
+        TimestampType
+      end
+    end
   end
 
   class IntervalArray < TemporalArray
