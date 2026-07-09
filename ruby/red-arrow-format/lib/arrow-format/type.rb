@@ -476,6 +476,20 @@ module ArrowFormat
   end
 
   class Time32Type < TimeType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     def initialize(unit)
       super(32, unit)
     end
@@ -488,12 +502,30 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "l"
+    end
+
     def build_array(...)
       Time32Array.new(self, ...)
     end
   end
 
   class Time64Type < TimeType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     def initialize(unit)
       super(64, unit)
     end
@@ -504,6 +536,10 @@ module ArrowFormat
 
     def buffer_type
       :s64
+    end
+
+    def pack_template
+      "q"
     end
 
     def build_array(...)
