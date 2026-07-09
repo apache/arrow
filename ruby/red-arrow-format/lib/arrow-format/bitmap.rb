@@ -19,23 +19,43 @@ module ArrowFormat
   class Bitmap
     include Enumerable
 
-    def initialize(buffer, offset, n_values)
+    attr_reader :offset
+    attr_reader :size
+    alias_method :length, :size
+    def initialize(buffer, offset, size)
       @buffer = buffer
       @offset = offset
-      @n_values = n_values
+      @size = size
+    end
+
+    def ==(other)
+      return false unless other.is_a?(self.class)
+      return false unless @size == other.size
+      lazy.zip(other).all? do |bit, other_bit|
+        bit == other_bit
+      end
     end
 
     def [](i)
+      return false if @buffer.nil?
+
       i += @offset
       (@buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
     end
 
     def each
-      return to_enum(__method__) unless block_given?
+      return to_enum(__method__) {@size} unless block_given?
+
+      if @buffer.nil?
+        @size.times do
+          yield(false)
+        end
+        return
+      end
 
       # TODO: Optimize
       current = -1
-      n_bytes = (@offset + @n_values) / 8
+      n_bytes = (@offset + @size) / 8
       @buffer.each(:U8, 0, n_bytes) do |offset, value|
         8.times do |i|
           current += 1
@@ -43,7 +63,7 @@ module ArrowFormat
           yield((value & (1 << (i % 8))) > 0)
         end
       end
-      remained_bits = (@offset + @n_values) % 8
+      remained_bits = (@offset + @size) % 8
       unless remained_bits.zero?
         value = @buffer.get_value(:U8, n_bytes)
         remained_bits.times do |i|
