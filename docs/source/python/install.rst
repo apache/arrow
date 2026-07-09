@@ -74,7 +74,7 @@ Dependencies
 Optional dependencies
 
 * **NumPy 1.23.2** or higher.
-* **pandas 1.5.2** or higher,
+* **pandas 2.0.3** or higher,
 * **cffi**.
 
 Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
