@@ -172,7 +172,8 @@ A few functions have aliases:
 class. \code{date64()} has a "ms" unit.
 
 \code{uint64} (64 bit unsigned integer) is always converted to \code{double}
-("numeric") in R. \code{uint32} (32 bit unsigned integer) and \code{int64} (64-bit
+("numeric") in R. Note that doubles cannot exactly represent all uint64
+values; precision may be lost for values above 2^53. \code{uint32} (32 bit unsigned integer) and \code{int64} (64-bit
 signed integer) types may contain values that exceed the range of R's
 \code{integer} type (32-bit signed integer). When they do, \code{uint32} is converted
 to \code{double} ("numeric") and \code{int64} is converted to \code{bit64::integer64}. For
