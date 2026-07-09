@@ -704,6 +704,10 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def encoding
       Encoding::ASCII_8BIT
     end
@@ -730,6 +734,10 @@ module ArrowFormat
 
     def offset_buffer_type
       :s64 # TODO: big endian support
+    end
+
+    def offset_pack_template
+      "q"
     end
 
     def encoding
@@ -760,6 +768,10 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def encoding
       Encoding::UTF_8
     end
@@ -786,6 +798,10 @@ module ArrowFormat
 
     def offset_buffer_type
       :s64 # TODO: big endian support
+    end
+
+    def offset_pack_template
+      "q"
     end
 
     def encoding
