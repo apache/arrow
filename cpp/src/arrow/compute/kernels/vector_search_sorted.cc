@@ -543,7 +543,8 @@ class ChunkedRunEndEncodedValuesAccessor : public ChunkedRunEndEncodedValuesAcce
       if (chunk->length() != 0) {
         DCHECK_EQ(chunk->type_id(), Type::RUN_END_ENCODED);
         const auto& ree_chunk = checked_cast<const RunEndEncodedArray&>(*chunk);
-        accessors_.emplace_back(ree_chunk, NonNullValuesRange{.offset=0, .length=ree_chunk.length()});
+        accessors_.emplace_back(
+            ree_chunk, NonNullValuesRange{.offset = 0, .length = ree_chunk.length()});
       }
     }
     FinalizeSearchWindow(logical_non_null_range, NullCount());
