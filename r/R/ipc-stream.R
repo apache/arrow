@@ -24,6 +24,7 @@
 #' and [write_ipc_file()] write those formats, respectively.
 #'
 #' @inheritParams write_ipc_file
+#' @param ... deprecated and ignored.
 #'
 #' @return `x`, invisibly.
 #' @seealso [write_ipc_file()] for writing IPC files. [write_to_raw()] to
@@ -97,6 +98,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' open.
 #' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
+#' @param ... deprecated and ignored.
 #'
 #' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise

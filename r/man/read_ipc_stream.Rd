@@ -15,6 +15,8 @@ open.}
 
 \item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
+
+\item{...}{deprecated and ignored.}
 }
 \value{
 A \code{tibble} if \code{as_data_frame} is \code{TRUE} (the default), or an
