@@ -50,10 +50,28 @@ Several implementations have moved to their own repositories:
 - **Swift**: [apache/arrow-swift](https://github.com/apache/arrow-swift)
 - **Julia**: [apache/arrow-julia](https://github.com/apache/arrow-julia)
 
+## Git Conventions
+
+### Remote Names
+
+- `upstream` → `apache/arrow` (fetch from here)
+- `origin` → your fork (push PR branches here)
+
+Verify with `git remote -v` before pushing. Never push directly to
+`upstream`.
+
+### Commit Messages
+
+Use imperative mood and focus on *why*, not *what*.
+
+Good: `Fix UnionArray validation when type codes are non-contiguous`
+Bad: `Fixed the bug in union array`
+
 ## Issue Conventions
 
-- Prefix the issue title with the component name in brackets:
-  `[C++][Python] Short description of the problem`
+- Follow the issue templates at
+  https://github.com/apache/arrow/tree/main/.github/ISSUE_TEMPLATE
+  when creating a new issue.
 - Do NOT include a `GH-` prefix in issue titles (that is only for PRs).
 - Search existing issues before creating a new one.
 
@@ -81,18 +99,17 @@ Do NOT combine `MINOR:` with a `GH-` number.
 
 ### PR Description
 
-Fill in all four sections of the PR template:
-
-1. **Rationale for this change** - Why is this needed?
-2. **What changes are included in this PR?** - What did you do?
-3. **Are these changes tested?** - How are they validated?
-4. **Are there any user-facing changes?** - Yes/No with brief explanation
+Fill in all four sections of the PR template at
+https://github.com/apache/arrow/blob/main/.github/pull_request_template.md
 
 Descriptions should be concise and to the point — do not restate things
 that are obvious from reading the diff.
 
-Only keep the "Critical Fix" or "Breaking changes" flags in the description
-if they genuinely apply. Remove them otherwise.
+### AI-Generated Content
+
+Never open pull requests or post comments to GitHub automatically.
+A human must review all changes locally and write the PR description
+before submitting.
 
 ## Pre-commit Hooks
 
