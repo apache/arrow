@@ -41,14 +41,14 @@ class TestInt8Array < Test::Unit::TestCase
     def test_sliced
       values = [-(2 ** 7), nil, (2 ** 7) - 1]
       array1 = ArrowFormat::Int8Array.new(values)
-      array2 = ArrowFormat::Int8Array.new([0] + values + [0])
+      array2 = ArrowFormat::Int8Array.new([0, *values, 0])
       assert_equal(array1, array2.slice(1, 3))
     end
 
     def test_sliced_different_content
       values = [-(2 ** 7), nil, (2 ** 7) - 1]
       array1 = ArrowFormat::Int8Array.new(values)
-      array2 = ArrowFormat::Int8Array.new([0, 0] + values + [0])
+      array2 = ArrowFormat::Int8Array.new([0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
     end
   end

@@ -15,41 +15,46 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestFloat32Array < Test::Unit::TestCase
+class TestDate32Array < Test::Unit::TestCase
+  def setup
+    @date_2017_08_28 = 17406
+    @date_2025_12_09 = 20431
+  end
+
   sub_test_case("#initialize") do
     def test_no_null
-      values = [-Float::INFINITY, -0.0, +0.0, +Float::INFINITY]
+      values = [@date_2017_08_28, @date_2025_12_09]
       assert_equal(values,
-                   ArrowFormat::Float32Array.new(values).to_a)
+                   ArrowFormat::Date32Array.new(values).to_a)
     end
 
     def test_mixed
-      values = [-Float::INFINITY, -0.0, nil, +0.0, +Float::INFINITY]
+      values = [@date_2017_08_28, nil, @date_2025_12_09]
       assert_equal(values,
-                   ArrowFormat::Float32Array.new(values).to_a)
+                   ArrowFormat::Date32Array.new(values).to_a)
     end
   end
 
   sub_test_case("#==") do
     def test_no_slice
-      values = [-Float::INFINITY, -0.0, nil, +0.0, +Float::INFINITY]
-      array1 = ArrowFormat::Float32Array.new(values)
-      array2 = ArrowFormat::Float32Array.new(values)
+      values = [@date_2017_08_28, nil, @date_2025_12_09]
+      array1 = ArrowFormat::Date32Array.new(values)
+      array2 = ArrowFormat::Date32Array.new(values)
       assert_equal(array1, array2)
     end
 
     def test_sliced
-      values = [-Float::INFINITY, -0.0, nil, +0.0, +Float::INFINITY]
-      array1 = ArrowFormat::Float32Array.new(values)
-      array2 = ArrowFormat::Float32Array.new([0.0, *values, 0.0])
-      assert_equal(array1, array2.slice(1, 5))
+      values = [@date_2017_08_28, nil, @date_2025_12_09]
+      array1 = ArrowFormat::Date32Array.new(values)
+      array2 = ArrowFormat::Date32Array.new([0, *values, 0])
+      assert_equal(array1, array2.slice(1, 3))
     end
 
     def test_sliced_different_content
-      values = [-Float::INFINITY, -0.0, nil, +0.0, +Float::INFINITY]
-      array1 = ArrowFormat::Float32Array.new(values)
-      array2 = ArrowFormat::Float32Array.new([0.0, 0.0, *values, 0.0])
-      assert_not_equal(array1, array2.slice(1, 5))
+      values = [@date_2017_08_28, nil, @date_2025_12_09]
+      array1 = ArrowFormat::Date32Array.new(values)
+      array2 = ArrowFormat::Date32Array.new([0, 0, *values, 0])
+      assert_not_equal(array1, array2.slice(1, 3))
     end
   end
 end
