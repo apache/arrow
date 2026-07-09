@@ -591,21 +591,35 @@ class BitPackedDecoder : private BitPackedRunDecoder<T> {
 
   /// Create a decoder object.
   ///
-  /// data and data_size are the raw bytes to decode.
-  /// value_bit_width is the size in bits of each encoded value.
-  BitPackedDecoder(const uint8_t* data, rle_size_t data_size,
-                   rle_size_t value_bit_width) noexcept {
-    Reset(data, data_size, value_bit_width);
+  /// Unless explicitly given, then number of values is deduced from the data size,
+  /// in which case it may read more values from the input stream than the user
+  /// intended (to reach final byte alignment). This option is mandatory if the
+  /// `value_bit_width` is zero.
+  ///
+  /// @param data and data_size are the raw bytes to decode.
+  /// @param value_bit_width is the size in bits of each encoded value.
+  /// @param value_count is an optional number of values in the run.
+  BitPackedDecoder(const uint8_t* data, rle_size_t data_size, rle_size_t value_bit_width,
+                   rle_size_t value_count = -1) noexcept {
+    Reset(data, data_size, value_bit_width, value_count);
   }
 
-  void Reset(const uint8_t* data, rle_size_t data_size,
-             rle_size_t value_bit_width) noexcept {
+  void Reset(const uint8_t* data, rle_size_t data_size, rle_size_t value_bit_width,
+             rle_size_t value_count = -1) noexcept {
+    ARROW_DCHECK_GE(value_bit_width, 0);
+    ARROW_DCHECK_LE(value_bit_width, 64);
+
     value_bit_width_ = value_bit_width;
-    const auto value_count = (static_cast<int64_t>(data_size) * 8) / value_bit_width;
+    if (value_count < 0) {
+      ARROW_DCHECK_GT(value_bit_width, 0);
+      const int64_t data_bit_size = static_cast<int64_t>(data_size) * 8;
+      value_count = static_cast<rle_size_t>(data_bit_size / value_bit_width);
+    }
+
     ARROW_DCHECK_LE(value_count, std::numeric_limits<rle_size_t>::max());
     const auto run = BitPackedRun{
         /* data= */ data,
-        /* value_count= */ static_cast<rle_size_t>(value_count),
+        /* value_count= */ value_count,
         /* value_bit_width= */ value_bit_width,
     };
     return Base::Reset(run, value_bit_width);

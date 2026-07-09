@@ -157,10 +157,12 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       if (num_bytes < 0 || num_bytes > data_size) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
+      // Also adding `value_count` so that the decoder also works with zero-width runs.
       this->decoder_->decoder = Impl::BitPackedDecoder(  //
           /* data= */ data,
           /* data_size =*/num_bytes,
-          /* value_bit_width= */ value_bit_width);
+          /* value_bit_width= */ value_bit_width,
+          /* value_count= */ num_buffered_values);
       return num_bytes;
     }
     default:
