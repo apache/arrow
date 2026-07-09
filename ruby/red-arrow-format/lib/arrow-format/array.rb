@@ -24,6 +24,8 @@ module ArrowFormat
   using FlatBuffers::AppendAsBytes if FlatBuffers.const_defined?(:AppendAsBytes)
 
   class Array
+    include Enumerable
+
     attr_reader :type
     attr_reader :size
     alias_method :length, :size
@@ -64,6 +66,16 @@ module ArrowFormat
       @size.zero?
     end
 
+    def ==(other)
+      return false unless other.is_a?(self.class)
+      return false unless @size == other.size
+      return true if @validity_buffer.nil? and other.validity_buffer.nil?
+      if @offset == other.offset and @validity_buffer == other.validity_buffer
+        return true
+      end
+      validity_bitmap == other.validity_bitmap
+    end
+
     protected
     def slice!(offset, size)
       @offset = offset
@@ -71,11 +83,11 @@ module ArrowFormat
       clear_cache
     end
 
-    private
     def validity_bitmap
       @validity_bitmap ||= Bitmap.new(@validity_buffer, @offset, @size)
     end
 
+    private
     def apply_validity(array)
       return array if @validity_buffer.nil?
       validity_bitmap.each_with_index do |is_valid, i|
@@ -159,11 +171,20 @@ module ArrowFormat
     def to_a
       [nil] * @size
     end
+
+    def each
+      return to_enum(__method__) unless block_given?
+
+      @size.times do
+        yield(nil)
+      end
+    end
   end
 
   class PrimitiveArray < Array
     include BufferAlignable
 
+    attr_reader :values_buffer
     def initialize(*args)
       n_args = args.size
       if self.class.respond_to?(:type)
@@ -192,13 +213,45 @@ module ArrowFormat
       apply_validity(@values_buffer.values(@type.buffer_type, offset, @size))
     end
 
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      each_value = Enumerator.new(@size) do |yielder|
+        offset = element_size * @offset
+        @values_buffer.each(@type.buffer_type, offset, @size) do |_, value|
+          yielder << value
+        end
+      end
+      if @validity_buffer.nil?
+        each_value.each(&block)
+      else
+        validity_bitmap.zip(each_value) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
+    end
+
     def each_buffer
-      return to_enum(__method__) unless block_given?
+      return to_enum(__method__) {2} unless block_given?
 
       yield(slice_bitmap_buffer(:validity, @validity_buffer))
       yield(slice_fixed_element_size_buffer(:values,
                                             @values_buffer,
                                             element_size))
+    end
+
+    def ==(other)
+      return false unless super(other)
+      if @offset == other.offset and @values_buffer == other.values_buffer
+        return true
+      end
+      lazy.zip(other).all? do |value, other_value|
+        value == other_value
+      end
     end
 
     private
@@ -238,19 +291,38 @@ module ArrowFormat
     def to_a
       return [] if empty?
 
-      @values_bitmap ||= Bitmap.new(@values_buffer, @offset, @size)
-      values = @values_bitmap.to_a
+      values = values_bitmap.to_a
       apply_validity(values)
     end
 
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      if @validity_buffer.nil?
+        values_bitmap.each(&block)
+      else
+        validity_bitmap.zip(values_bitmap) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
+    end
+
     def each_buffer
-      return to_enum(__method__) unless block_given?
+      return to_enum(__method__) {2} unless block_given?
 
       yield(slice_bitmap_buffer(:validity, @validity_buffer))
       yield(slice_bitmap_buffer(:values, @values_buffer))
     end
 
     private
+    def values_bitmap
+      @values_bitmap ||= Bitmap.new(@values_buffer, @offset, @size)
+    end
+
     def clear_cache
       super
       @values_bitmap = nil
