@@ -33,6 +33,9 @@ from io import BytesIO
 from selenium import webdriver
 
 
+BROWSER_TIMEOUT_SECONDS = 3600
+
+
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
     def log_request(self, code="-", size="-"):
         # don't log successful requests but log errors
@@ -203,7 +206,7 @@ class BrowserDriver:
         self.driver = driver
         self.driver.get(f"http://{hostname}:{port}/test.html")
         # Chrome on CI takes longer than locally to compile.
-        self.driver.set_script_timeout(1200)
+        self.driver.set_script_timeout(BROWSER_TIMEOUT_SECONDS)
 
     def load_pyodide(self, dist_dir):
         pass
@@ -262,8 +265,9 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
         driver = webdriver.Chrome(options=options)
-        driver.command_executor._client_config.timeout = 1200
+        driver.command_executor._client_config.timeout = BROWSER_TIMEOUT_SECONDS
         super().__init__(hostname, port, driver)
 
 
