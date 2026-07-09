@@ -660,7 +660,7 @@ namespace {
 /// Use a scratch buffer to decode values into that buffer.
 /// This was migrated here from a historical implementation.
 /// Ideally all decoders would implement a `Skip` functionality that would at best
-/// avoid decoding, and at worst, decode without intermediarry allocation.
+/// avoid decoding, and at worst, decode without intermediary allocation.
 template <typename DType, int64_t kScratchValueCount_>
 class SkippableTypedDecoder {
  public:

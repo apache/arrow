@@ -77,7 +77,7 @@ class PARQUET_EXPORT LevelDecoder {
 
   /// Initialize the LevelDecoder state with new data from a V2 page.
   ///
-  /// Encoding of the level in the
+  /// Repetition and definition levels in V2 pages are always RLE encoded.
   void SetDataV2(int32_t num_bytes, int16_t max_level, int num_buffered_values,
                  const uint8_t* data);
 
@@ -87,7 +87,7 @@ class PARQUET_EXPORT LevelDecoder {
   /// Advance the decoder and throw away decoder levels.
   int Skip(int batch_size);
 
-  /// Advance and count the number of occurrence of a values.
+  /// Advance and count the number of occurrences of `value`.
   ///
   /// The count is limited to at most the next `batch_size` items.
   /// @return The matching value count and number of elements that were processed.

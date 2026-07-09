@@ -313,10 +313,10 @@ class RleRunDecoder {
     return steps;
   }
 
-  /// Advance and count the number of occurrence of a values.
+  /// Advance and count the number of occurrences of a value.
   ///
   /// The count is limited to at most the next `batch_size` items.
-  /// @return The matching value count and number of of element that were processed.
+  /// @return The matching value count and number of elements that were processed.
   RleCountUpToResult CountUpTo(const RleCountUpToParams<value_type>& p) {
     const auto steps = Advance(p.batch_size);
     return {.count = steps * (p.value == value_), .advanced_count = steps};
