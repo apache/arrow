@@ -621,6 +621,7 @@ class BitPackedDecoder : private BitPackedRunDecoder<T> {
         /* data= */ data,
         /* value_count= */ value_count,
         /* value_bit_width= */ value_bit_width,
+        /* max_read_bytes= */ data_size,
     };
     return Base::Reset(run, value_bit_width);
   }

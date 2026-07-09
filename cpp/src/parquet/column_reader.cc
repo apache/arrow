@@ -666,6 +666,8 @@ namespace {
 /// This was migrated here from a historical implementation.
 /// Ideally all decoders would implement a `Skip` functionality that would at best
 /// avoid decoding, and at worst, decode without intermediary allocation.
+///
+/// @todo GH-50453
 template <typename DType, int64_t kScratchValueCount>
 class SkippableTypedDecoder {
  public:

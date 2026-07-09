@@ -1209,7 +1209,8 @@ void CheckCountUpTo(const Array& data, int bit_width, typename Type::c_type valu
   using value_type = typename Type::c_type;
 
   const auto data_size = static_cast<rle_size_t>(data.length());
-  const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
+  const value_type* data_values =
+      arrow::internal::checked_cast<const ArrayType&>(data).raw_values();
 
   ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", data_size = ", data_size,
                      ", value = ", value);
@@ -1320,6 +1321,7 @@ template <typename T>
 void DoTestGetBatchSpacedRoundtrip() {
   using Data = DataTestRleBitPacked<T>;
   using ArrowType = typename Data::ArrowType;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using RandomPart = typename Data::RandomPart;
   using NullPart = typename Data::NullPart;
   using RepeatPart = typename Data::RepeatPart;
@@ -1410,9 +1412,9 @@ void DoTestGetBatchSpacedRoundtrip() {
 
     // Tests for CountUpTo, counting a value present in the data (the first one)
     // and a value that may not be (the max encodable one).
-    const auto first = static_cast<T>(
-        static_cast<const typename TypeTraits<ArrowType>::ArrayType&>(*array).Value(0));
-    const auto max_value = static_cast<T>((T{1} << (case_.bit_width - 1)) - 1);
+    const auto first =
+        static_cast<T>(arrow::internal::checked_cast<const ArrayType&>(*array).Value(0));
+    const auto max_value = bit_util::LeastSignificantBitMask<T, true>(case_.bit_width);
     CheckCountUpTo<ArrowType>(*array, case_.bit_width, first);
     CheckCountUpTo<ArrowType>(*array, case_.bit_width, max_value);
     CheckCountUpTo<ArrowType>(*array->Slice(1), case_.bit_width, first);
