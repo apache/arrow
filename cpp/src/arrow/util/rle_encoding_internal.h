@@ -157,8 +157,7 @@ class BitPackedRun {
   constexpr BitPackedRun() noexcept = default;
 
   constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
-                         rle_size_t value_bit_width,
-                         rle_size_t max_read_bytes = -1) noexcept
+                         rle_size_t value_bit_width, rle_size_t max_read_bytes) noexcept
       : data_(data), values_count_(values_count), max_read_bytes_(max_read_bytes) {
     ARROW_DCHECK_GE(value_bit_width, 0);
     ARROW_DCHECK_GE(values_count_, 0);
