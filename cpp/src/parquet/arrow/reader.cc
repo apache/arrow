@@ -727,10 +727,8 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
     const auto* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
     const int32_t list_size = type.list_size();
-    const uint8_t* valid_bits =
-        data->buffers[0] != nullptr ? data->buffers[0]->data() : nullptr;
-    auto validate_offsets = [&](int64_t start, int64_t length,
-                                int32_t expected_size) -> Status {
+    auto validate_offsets = [&](int64_t start, int64_t length, bool valid) -> Status {
+      const int32_t expected_size = valid ? list_size : 0;
       std::span<const int32_t> run_offsets(offsets + start,
                                            static_cast<size_t>(length + 1));
       const auto first_invalid_offset = std::ranges::adjacent_find(
@@ -739,17 +737,27 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       if (first_invalid_offset != run_offsets.end()) {
         const int64_t x =
             start + std::ranges::distance(run_offsets.begin(), first_invalid_offset);
-        return Status::Invalid("Expected offset at index ", x + 1, " to be ",
-                               offsets[x] + expected_size, " but got ", offsets[x + 1]);
+        const int32_t size = offsets[x + 1] - offsets[x];
+        if (valid) {
+          return Status::Invalid("Expected all lists to be of size=", list_size,
+                                 " but index ", x + 1, " had size=", size);
+        }
+        return Status::Invalid("Expected null fixed-size list at index ", x + 1,
+                               " to have no child values but had size=", size);
       }
       return Status::OK();
     };
-    if (valid_bits != nullptr) {
-      bool needs_padding = false;
+    if (data->GetNullCount() != 0) {
+      // Rebuild the child array run-by-run so null fixed-size list slots still
+      // contribute list_size child values in the final layout.
       ::arrow::ArrayVector child_arrays;
 
-      auto append_child_run = [&](int64_t start, int64_t length, bool valid) -> Status {
+      auto visit_run = [&](int64_t start, int64_t length, bool valid) -> Status {
+        RETURN_NOT_OK(validate_offsets(start, length, valid));
+
         const int64_t child_length = length * list_size;
+        // Valid runs reuse the decoded child slice; null runs materialize null
+        // children to preserve the fixed-size list shape.
         if (!valid) {
           ARROW_ASSIGN_OR_RAISE(
               auto null_array,
@@ -762,29 +770,14 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
         return Status::OK();
       };
 
-      auto visit_run = [&](int64_t start, int64_t length, bool valid) -> Status {
-        RETURN_NOT_OK(validate_offsets(start, length, valid ? list_size : 0));
-        if (valid && !needs_padding) {
-          return Status::OK();
-        }
-        if (!needs_padding) {
-          needs_padding = true;
-          if (start > 0) {
-            RETURN_NOT_OK(append_child_run(/*start=*/0, start, /*valid=*/true));
-          }
-        }
-        return append_child_run(start, length, valid);
-      };
-
-      RETURN_NOT_OK(::arrow::internal::VisitBitRuns(valid_bits, data->offset,
-                                                    data->length, visit_run));
-      if (needs_padding) {
-        ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
-                              ::arrow::Concatenate(child_arrays, ctx_->pool));
-        data->child_data[0] = child_array_with_padding->data();
-      }
+      DCHECK_NE(data->buffers[0], nullptr);
+      RETURN_NOT_OK(::arrow::internal::VisitBitRuns(
+          data->buffers[0]->data(), data->offset, data->length, visit_run));
+      ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
+                            ::arrow::Concatenate(child_arrays, ctx_->pool));
+      data->child_data[0] = child_array_with_padding->data();
     } else {
-      RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, list_size));
+      RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, /*valid=*/true));
     }
     data->buffers.resize(1);
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
