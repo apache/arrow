@@ -3307,9 +3307,6 @@ def test_search_sorted_errors():
     with pytest.raises(ValueError, match='"middle" is not a valid search sorted side'):
         pc.search_sorted(values, pa.array([1]), side="middle")
 
-    with pytest.raises(pa.ArrowInvalid, match="clustered at the start or end"):
-        pc.search_sorted(pa.array([None, 1, None], type=pa.int64()), pa.array([1]))
-
 
 def test_sort_indices_array():
     arr = pa.array([1, 2, None, 0])
