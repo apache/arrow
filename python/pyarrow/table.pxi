@@ -2115,8 +2115,8 @@ cdef class _Tabular(_PandasConvertible):
             Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name
-            and sorting order ("ascending" or "descending") 
-            and nulls and NaNs are placed 
+            and sorting order ("ascending" or "descending")
+            and nulls and NaNs are placed
             at the start or at the end ("at_start" or "at_end")
         **kwargs : dict, optional
             Additional sorting options.
@@ -5861,7 +5861,7 @@ cdef class Table(_Tabular):
         ...                'n_legs': [5, 100],
         ...                'animal': ["Brittle stars", "Centipede"]})
 
-        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2)
+        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2).combine_chunks()
         pyarrow.Table
         id: int64
         year: int64
