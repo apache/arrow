@@ -31,7 +31,7 @@ test_that("explicit type conversions with cast()", {
 
   int_types <- c(int8(), int16(), int32(), int64())
   uint_types <- c(uint8(), uint16(), uint32(), uint64())
-  float_types <- c(float32(), float64())
+  float_types <- c(float16(), float32(), float64())
 
   types <- c(
     int_types,
