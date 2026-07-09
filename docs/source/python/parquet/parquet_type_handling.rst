@@ -39,7 +39,7 @@ and improved performance for columns with many repeated string values.
    >>> table = pa.table({'one': [-1, None, 2.5],
    ...                   'two': ['foo', 'bar', 'baz'],
    ...                   'three': [True, False, True]})
-   ... 
+   ...
    >>> pq.write_table(table, 'example.parquet')
 
    >>> pq.read_table('example.parquet', read_dictionary=['two'])

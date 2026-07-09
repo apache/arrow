@@ -64,7 +64,7 @@ added is to use the local filesystem.
    >>> table = pa.table({'one': [-1, None, 2.5],
    ...                   'two': ['foo', 'bar', 'baz'],
    ...                   'three': [True, False, True]})
-   ... 
+   ...
 
    >>> # Local dataset write
    >>> pq.write_to_dataset(table, root_path='dataset_name',

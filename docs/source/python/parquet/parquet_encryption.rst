@@ -39,6 +39,7 @@ Writing an encrypted Parquet file:
 
 .. code-block:: python
 
+   >>> import pyarrow.parquet as pq
    >>> encryption_properties = crypto_factory.file_encryption_properties(  # doctest: +SKIP
    ...                                  kms_connection_config, encryption_config)
    >>> with pq.ParquetWriter(filename, schema,  # doctest: +SKIP
@@ -193,17 +194,18 @@ all columns are encrypted with the same key identified by ``column_key_id``:
 
 .. code-block:: python
 
-   schema = pa.schema([
-     ("MapColumn", pa.map_(pa.string(), pa.int32())),
-     ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
-   ])
+   >>> import pyarrow as pa
+   >>> schema = pa.schema([
+   ...   ("MapColumn", pa.map_(pa.string(), pa.int32())),
+   ...   ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
+   ... ])
 
-   encryption_config = pe.EncryptionConfiguration(
-      footer_key="footer_key_name",
-      column_keys={
-         "column_key_id": [ "MapColumn", "StructColumn" ],
-      },
-   )
+   >>> encryption_config = pe.EncryptionConfiguration(
+   ...    footer_key="footer_key_name",
+   ...    column_keys={
+   ...       "column_key_id": [ "MapColumn", "StructColumn" ],
+   ...    },
+   ... )
 
 An example encryption configuration for columns with nested fields, where
 some inner fields are encrypted with the same key identified by ``column_key_id``:
