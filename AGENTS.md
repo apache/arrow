@@ -50,6 +50,18 @@ Several implementations have moved to their own repositories:
 - **Swift**: [apache/arrow-swift](https://github.com/apache/arrow-swift)
 - **Julia**: [apache/arrow-julia](https://github.com/apache/arrow-julia)
 
+## License Headers
+
+All new source files must include the Apache License 2.0 header.
+Copy the header format from an existing file in the same directory.
+
+## Cross-Language Dependencies
+
+The C++ library (`cpp/`) is the shared core. PyArrow, R, and MATLAB
+bind directly to it. C/GLib wraps the C++ library, and Ruby binds to
+C/GLib. Changes in `cpp/` can break any of these downstream components.
+When modifying C++ code, consider the impact on dependent bindings.
+
 ## Git Conventions
 
 ### Remote Names
