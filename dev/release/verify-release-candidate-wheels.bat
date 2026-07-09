@@ -46,9 +46,6 @@ python dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
 set ARROW_TEST_DATA=%cd%\testing\data
 set PARQUET_TEST_DATA=%cd%\cpp\submodules\parquet-testing\data
 
-CALL :verify_wheel 3.10
-if errorlevel 1 GOTO error
-
 CALL :verify_wheel 3.11
 if errorlevel 1 GOTO error
 
@@ -56,6 +53,9 @@ CALL :verify_wheel 3.12
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.13
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.14
 if errorlevel 1 GOTO error
 
 :done

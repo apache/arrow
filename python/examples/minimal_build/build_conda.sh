@@ -26,7 +26,7 @@ MINICONDA=$WORKDIR/miniconda-for-arrow
 LIBRARY_INSTALL_DIR=$WORKDIR/local-libs
 CPP_BUILD_DIR=$WORKDIR/arrow-cpp-build
 ARROW_ROOT=/arrow
-PYTHON=3.10
+PYTHON=3.11
 
 git config --global --add safe.directory $ARROW_ROOT
 
