@@ -67,8 +67,20 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                                 evt.data.print.forEach((x)=>{window.python_logs.push(x)});
                             }
                         }
-                        window.pyworker = new Worker("worker.js");
-                        window.pyworker.onmessage = capturelogs;
+                        function startPyWorker() {
+                            window.pyworker = new Worker("worker.js");
+                            window.pyworker.onmessage = capturelogs;
+                            window.pyworker.onerror = (evt) => {
+                                window.python_logs.push(...new TextEncoder().encode(
+                                    `Worker error: ${evt.message}\n`));
+                                if (window.python_done_callback) {
+                                    let callback = window.python_done_callback;
+                                    window.python_done_callback = undefined;
+                                    callback({result: 1});
+                                }
+                            };
+                        }
+                        startPyWorker();
                     </script>
                 </head>
                 <body></body>
@@ -223,12 +235,19 @@ class BrowserDriver:
         pass
 
     def load_arrow(self):
-        self.execute_python(
-            f"import pyodide_js as pjs\n"
-            f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n"
-        )
+        code = (f"import pyodide_js as pjs\n"
+                f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
+        for attempt in range(3):
+            try:
+                return self.execute_python(code, timeout=300)
+            except TimeoutError:
+                if attempt == 2:
+                    raise TimeoutError("Timed out loading PyArrow in browser")
+                print("Timed out loading PyArrow in browser; restarting worker",
+                      flush=True)
+                self.restart_worker()
 
-    def execute_python(self, code, wait_for_terminate=True):
+    def execute_python(self, code, wait_for_terminate=True, timeout=None):
         self.driver.execute_script(
             f"""
             let python = `{code}`;
@@ -239,13 +258,19 @@ class BrowserDriver:
             """
         )
         if wait_for_terminate:
-            return self.wait_for_done()
+            return self.wait_for_done(timeout=timeout)
+
+    def restart_worker(self):
+        self.driver.execute_script(
+            "window.pyworker.terminate(); startPyWorker(); "
+            "delete window.python_script_done; window.python_done_callback = undefined;"
+        )
 
     def clear_logs(self):
         self.driver.execute_script("window.python_logs = [];")
 
-    def wait_for_done(self):
-        last_heartbeat = time.monotonic()
+    def wait_for_done(self, timeout=None):
+        start = last_heartbeat = time.monotonic()
         while True:
             # poll for console.log messages from our webworker
             # which are the output of pytest
@@ -261,6 +286,8 @@ class BrowserDriver:
                 self.driver.execute_script("delete window.python_script_done;")
                 return value
             now = time.monotonic()
+            if timeout is not None and now - start > timeout:
+                raise TimeoutError
             if now - last_heartbeat > 30:
                 print("Waiting for browser-side Python to finish...", flush=True)
                 last_heartbeat = now
