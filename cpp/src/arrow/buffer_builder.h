@@ -93,18 +93,18 @@ class ARROW_EXPORT BufferBuilder {
   /// \return Status
   Status Reserve(const int64_t additional_bytes) {
     if (ARROW_PREDICT_FALSE(additional_bytes < 0)) {
-      return Status::Invalid("Reserve: negative additional_bytes");
+      return Status::Invalid("Reserve: negative additional_bytes: ", additional_bytes);
     }
     int64_t min_capacity;
     if (ARROW_PREDICT_FALSE(
             internal::AddWithOverflow(size_, additional_bytes, &min_capacity))) {
-      return Status::CapacityError("Reserve: capacity overflow");
+      return Status::CapacityError("Reserve: capacity overflow: ", size_, " + ",
+                                   additional_bytes);
     }
     if (min_capacity <= capacity_) {
       return Status::OK();
     }
-    int64_t requested_capacity = GrowByFactor(capacity_, min_capacity);
-    return Resize(requested_capacity, false);
+    return Resize(GrowByFactor(capacity_, min_capacity), false);
   }
 
   /// \brief Return a capacity expanded by the desired growth factor
@@ -126,11 +126,11 @@ class ARROW_EXPORT BufferBuilder {
   /// The buffer is automatically expanded if necessary.
   Status Append(const void* data, const int64_t length) {
     if (ARROW_PREDICT_FALSE(length < 0)) {
-      return Status::Invalid("Append: negative length");
+      return Status::Invalid("Append: negative length: ", length);
     }
     int64_t new_size;
     if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(size_, length, &new_size))) {
-      return Status::CapacityError("Append: size overflow");
+      return Status::CapacityError("Append: size overflow: ", size_, " + ", length);
     }
     if (ARROW_PREDICT_FALSE(new_size > capacity_)) {
       ARROW_RETURN_NOT_OK(Resize(GrowByFactor(capacity_, new_size), false));
@@ -208,7 +208,7 @@ class ARROW_EXPORT BufferBuilder {
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
     if (ARROW_PREDICT_FALSE(final_length < 0)) {
-      return Status::Invalid("FinishWithLength: negative final length");
+      return Status::Invalid("FinishWithLength: negative final length: ", final_length);
     }
     size_ = final_length;
     return Finish(shrink_to_fit);
@@ -365,11 +365,12 @@ class TypedBufferBuilder<
   static Status ElementsToBytes(const char* operation, int64_t num_elements,
                                 int64_t* num_bytes) {
     if (ARROW_PREDICT_FALSE(num_elements < 0)) {
-      return Status::Invalid(operation, ": negative number of elements");
+      return Status::Invalid(operation, ": negative number of elements: ", num_elements);
     }
     if (ARROW_PREDICT_FALSE(internal::MultiplyWithOverflow(
             num_elements, static_cast<int64_t>(sizeof(T)), num_bytes))) {
-      return Status::CapacityError(operation, ": byte size overflow");
+      return Status::CapacityError(operation, ": byte size overflow: ", num_elements,
+                                   " * ", sizeof(T));
     }
     return Status::OK();
   }
@@ -460,6 +461,9 @@ class TypedBufferBuilder<bool> {
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
+    if (ARROW_PREDICT_FALSE(new_capacity < 0)) {
+      return Status::Invalid("Resize: negative capacity: ", new_capacity);
+    }
     const int64_t old_byte_capacity = bytes_builder_.capacity();
     ARROW_RETURN_NOT_OK(
         bytes_builder_.Resize(bit_util::BytesForBits(new_capacity), shrink_to_fit));
@@ -477,12 +481,14 @@ class TypedBufferBuilder<bool> {
 
   Status Reserve(const int64_t additional_elements) {
     if (ARROW_PREDICT_FALSE(additional_elements < 0)) {
-      return Status::Invalid("Reserve: negative additional_elements");
+      return Status::Invalid("Reserve: negative additional_elements: ",
+                             additional_elements);
     }
     int64_t min_length;
     if (ARROW_PREDICT_FALSE(
             internal::AddWithOverflow(bit_length_, additional_elements, &min_length))) {
-      return Status::CapacityError("Reserve: capacity overflow");
+      return Status::CapacityError("Reserve: capacity overflow: ", bit_length_, " + ",
+                                   additional_elements);
     }
     return Resize(BufferBuilder::GrowByFactor(bit_length_, min_length), false);
   }
@@ -516,7 +522,7 @@ class TypedBufferBuilder<bool> {
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
     if (ARROW_PREDICT_FALSE(final_length < 0)) {
-      return Status::Invalid("FinishWithLength: negative final length");
+      return Status::Invalid("FinishWithLength: negative final length: ", final_length);
     }
     const auto final_byte_length = bit_util::BytesForBits(final_length);
     bytes_builder_.UnsafeAdvance(final_byte_length - bytes_builder_.length());
