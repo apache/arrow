@@ -548,6 +548,23 @@ module ArrowFormat
   end
 
   class TimestampType < TemporalType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit, nil)
+        when ::Array
+          unit, time_zone = value
+          new(unit, time_zone)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :unit
     attr_reader :time_zone
     def initialize(unit, time_zone)
@@ -556,12 +573,22 @@ module ArrowFormat
       @time_zone = time_zone
     end
 
+    def ==(other)
+      other.is_a?(self.class) and
+        @unit == other.unit and
+        @time_zone == other.time_zone
+    end
+
     def name
       "Timestamp"
     end
 
     def buffer_type
       :s64
+    end
+
+    def pack_template
+      "q"
     end
 
     def build_array(...)
