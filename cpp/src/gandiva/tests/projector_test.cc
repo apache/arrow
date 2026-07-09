@@ -449,11 +449,11 @@ TEST_F(TestProjector, TestExtendedMath) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema, {cbrt_expr,  exp_expr,  log_expr,     log10_expr,   logb_expr,
-               power_expr, sin_expr,  cos_expr,     asin_expr,    acos_expr,
-               tan_expr,   atan_expr, sinh_expr,    cosh_expr,    tanh_expr,
-               atan2_expr, cot_expr,  radians_expr, degrees_expr, udfdegrees_expr,
-               ln_expr},
+      schema,
+      {cbrt_expr,    exp_expr,        log_expr,  log10_expr, logb_expr, power_expr,
+       sin_expr,     cos_expr,        asin_expr, acos_expr,  tan_expr,  atan_expr,
+       sinh_expr,    cosh_expr,       tanh_expr, atan2_expr, cot_expr,  radians_expr,
+       degrees_expr, udfdegrees_expr, ln_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
