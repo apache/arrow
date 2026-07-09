@@ -11,6 +11,8 @@ write_ipc_stream(x, sink, ...)
 
 \item{sink}{A string file path, connection, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
+
+\item{...}{deprecated and ignored.}
 }
 \value{
 \code{x}, invisibly.
