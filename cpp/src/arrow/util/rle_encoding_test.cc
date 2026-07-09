@@ -17,6 +17,7 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <cstring>
@@ -1196,6 +1197,58 @@ void CheckAdvance(const Array& data, int bit_width) {
   // literal group to a multiple of 8 with zeros, leaving up to 7 extra values.
 }
 
+/// Check RleBitPackedDecoder::CountUpTo, which spans multiple runs through the
+/// parser (unlike the per-run decoder CountUpTo).
+///
+/// Nulls are treated as regular data (i.e. their raw value is encoded and
+/// decoded). The counts returned over successive batches are compared against a
+/// naive count over the original data.
+template <typename Type>
+void CheckCountUpTo(const Array& data, int bit_width, typename Type::c_type value) {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using value_type = typename Type::c_type;
+
+  const auto data_size = static_cast<rle_size_t>(data.length());
+  const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
+
+  ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", data_size = ", data_size,
+                     ", value = ", value);
+
+  // Encode all values into `buffer`.
+  const auto buffer = EncodeTestArray<Type>(data, bit_width);
+
+  RleBitPackedDecoder<value_type> decoder(buffer.data(), static_cast<int>(buffer.size()),
+                                          bit_width);
+
+  // Count in a `step` small relative to the data size, so we span many
+  // iterations and repeatedly cross run boundaries.
+  const rle_size_t step = std::max<rle_size_t>(data_size / 16, 1);
+  rle_size_t pos = 0;
+  rle_size_t total_matching = 0;
+  while (pos < data_size) {
+    const auto to_process = std::min(step, data_size - pos);
+    const auto res = decoder.CountUpTo(value, to_process);
+    ASSERT_EQ(res.processed_count, to_process);
+
+    // The matching count of this batch must equal a naive count over the data.
+    const auto expected =
+        std::count(data_values + pos, data_values + pos + to_process, value);
+    EXPECT_EQ(res.matching_count, static_cast<rle_size_t>(expected))
+        << "at position " << pos;
+
+    pos += res.processed_count;
+    total_matching += res.matching_count;
+  }
+  EXPECT_EQ(pos, data_size) << "Total number of values processed is off";
+  const auto total_expected = std::count(data_values, data_values + data_size, value);
+  EXPECT_EQ(total_matching, static_cast<rle_size_t>(total_expected));
+
+  // The decoder is exhausted of the values we requested: counting further only
+  // yields the padding values the encoder appended to the last literal group.
+  const auto res = decoder.CountUpTo(value, data_size);
+  EXPECT_LT(res.processed_count, 8);
+}
+
 template <typename T>
 struct DataTestRleBitPackedRandomPart {
   using value_type = T;
@@ -1354,6 +1407,15 @@ void DoTestGetBatchSpacedRoundtrip() {
     // Tests for Advance
     CheckAdvance<ArrowType>(*array, case_.bit_width);
     CheckAdvance<ArrowType>(*array->Slice(1), case_.bit_width);
+
+    // Tests for CountUpTo, counting a value present in the data (the first one)
+    // and a value that may not be (the max encodable one).
+    const auto first = static_cast<T>(
+        static_cast<const typename TypeTraits<ArrowType>::ArrayType&>(*array).Value(0));
+    const auto max_value = static_cast<T>((T{1} << (case_.bit_width - 1)) - 1);
+    CheckCountUpTo<ArrowType>(*array, case_.bit_width, first);
+    CheckCountUpTo<ArrowType>(*array, case_.bit_width, max_value);
+    CheckCountUpTo<ArrowType>(*array->Slice(1), case_.bit_width, first);
 
     // Tests for GetBatchSpaced
     CheckRoundTrip<ArrowType>(*array, case_.bit_width, /* spaced= */ true,
