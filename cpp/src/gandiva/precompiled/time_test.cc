@@ -18,6 +18,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
+#include <memory>
+#include <string>
+
 #include "arrow/util/logging_internal.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/testing.h"
@@ -57,6 +61,24 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
 
   EXPECT_EQ(castDATE_date32(1), 86400000);
+}
+
+TEST(TestTime, TestCastDateInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // The invalid-value error message is built from the raw input pointer. Hold
+  // the input in an exactly-sized heap buffer with no trailing NUL so that
+  // formatting the error must respect `length` instead of scanning for a NUL;
+  // any over-read past the buffer trips AddressSanitizer.
+  const char bytes[] = {'1', '9', '7', '2', '2', '2', '2', '2', '2', '2'};
+  const auto length = static_cast<int32_t>(sizeof(bytes));
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), bytes, length);
+
+  EXPECT_EQ(castDATE_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid date value 1972222222");
+  context.Reset();
 }
 
 TEST(TestTime, TestCastTimestamp) {
