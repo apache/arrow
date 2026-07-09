@@ -357,7 +357,8 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' class. `date64()` has a "ms" unit.
 #'
 #' `uint64` (64 bit unsigned integer) is always converted to `double`
-#' ("numeric") in R. `uint32` (32 bit unsigned integer) and `int64` (64-bit
+#' ("numeric") in R. Note that doubles cannot exactly represent all uint64
+#' values; precision may be lost for values above 2^53. `uint32` (32 bit unsigned integer) and `int64` (64-bit
 #' signed integer) types may contain values that exceed the range of R's
 #' `integer` type (32-bit signed integer). When they do, `uint32` is converted
 #' to `double` ("numeric") and `int64` is converted to `bit64::integer64`. For
