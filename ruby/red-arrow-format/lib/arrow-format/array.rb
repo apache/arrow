@@ -534,6 +534,11 @@ module ArrowFormat
   end
 
   class DurationArray < TemporalArray
+    class << self
+      def type_class
+        DurationType
+      end
+    end
   end
 
   class VariableSizeBinaryArray < Array
