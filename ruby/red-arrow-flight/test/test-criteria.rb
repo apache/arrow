@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,27 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "rubygems"
-require "bundler/gem_helper"
-
-base_dir = File.join(__dir__)
-
-helper = Bundler::GemHelper.new(base_dir)
-helper.install
-
-release_task = Rake::Task["release"]
-release_task.prerequisites.replace(["build", "release:rubygem_push"])
-
-desc "Run tests"
-task :test do
-  cd(base_dir) do
-    cd("dependency-check") do
-      ruby("-S", "rake")
+class TestCriteria < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    def test_string
+      expression = "expression"
+      criteria = ArrowFlight::Criteria.try_convert(expression)
+      assert_equal(expression,
+                   criteria.expression.to_s)
     end
-    args = []
-    args << "-v" if ENV["RUNNER_DEBUG"]
-    ruby("test/run-test.rb", *args)
   end
 end
-
-task default: :test

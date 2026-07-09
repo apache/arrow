@@ -1166,6 +1166,7 @@ G_BEGIN_DECLS
 struct GAFlightServerPrivate
 {
   gaflight::Server server;
+  GAFlightServerOptions *options;
 };
 
 G_END_DECLS
@@ -1178,6 +1179,10 @@ gaflight_server_servable_interface_init(GAFlightServableInterface *iface)
 {
   iface->get_raw = gaflight_server_servable_get_raw;
 }
+
+enum {
+  PROP_OPTIONS = 1,
+};
 
 G_DEFINE_ABSTRACT_TYPE_WITH_CODE(
   GAFlightServer, gaflight_server, G_TYPE_OBJECT, G_ADD_PRIVATE(GAFlightServer);
@@ -1197,12 +1202,43 @@ gaflight_server_servable_get_raw(GAFlightServable *servable)
 G_BEGIN_DECLS
 
 static void
+gaflight_server_dispose(GObject *object)
+{
+  auto priv = GAFLIGHT_SERVER_GET_PRIVATE(object);
+
+  if (priv->options) {
+    g_object_unref(priv->options);
+    priv->options = nullptr;
+  }
+
+  G_OBJECT_CLASS(gaflight_server_parent_class)->dispose(object);
+}
+
+static void
 gaflight_server_finalize(GObject *object)
 {
   auto priv = GAFLIGHT_SERVER_GET_PRIVATE(object);
   priv->server.~Server();
 
   G_OBJECT_CLASS(gaflight_server_parent_class)->finalize(object);
+}
+
+static void
+gaflight_server_get_property(GObject *object,
+                             guint prop_id,
+                             GValue *value,
+                             GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_SERVER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_OPTIONS:
+    g_value_set_object(value, priv->options);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -1216,7 +1252,24 @@ static void
 gaflight_server_class_init(GAFlightServerClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose = gaflight_server_dispose;
   gobject_class->finalize = gaflight_server_finalize;
+  gobject_class->get_property = gaflight_server_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GAFlightServer:options:
+   *
+   * The options used in this server.
+   *
+   * Since: 26.0.0
+   */
+  spec = g_param_spec_object("options",
+                             "Options",
+                             "The options used in this server",
+                             GAFLIGHT_TYPE_SERVER_OPTIONS,
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class, PROP_OPTIONS, spec);
 }
 
 /**
@@ -1236,6 +1289,14 @@ gaflight_server_listen(GAFlightServer *server,
 {
   auto flight_server = gaflight_servable_get_raw(GAFLIGHT_SERVABLE(server));
   const auto flight_options = gaflight_server_options_get_raw(options);
+  auto priv = GAFLIGHT_SERVER_GET_PRIVATE(server);
+  if (priv->options != options) {
+    g_object_ref(options);
+    if (priv->options) {
+      g_object_unref(priv->options);
+    }
+    priv->options = options;
+  }
   return garrow::check(error,
                        flight_server->Init(*flight_options),
                        "[flight-server][listen]");
