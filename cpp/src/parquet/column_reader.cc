@@ -1318,15 +1318,14 @@ namespace internal {
 namespace {
 
 template <typename DType>
-class TypedRecordReader : public TypedColumnReaderImpl<DType>,
+class TypedRecordReader : public ColumnReaderImplBase<DType>,
                           virtual public RecordReader {
  public:
   using T = typename DType::c_type;
-  using BASE = TypedColumnReaderImpl<DType>;
+  using Base = ColumnReaderImplBase<DType>;
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable)
-      // Pager must be set using SetPageReader.
-      : BASE(descr, /* pager = */ nullptr, pool) {
+      : Base(descr, pool) {
     leaf_info_ = leaf_info;
     nullable_values_ = leaf_info_.HasNullableValues();
     at_record_start_ = true;
