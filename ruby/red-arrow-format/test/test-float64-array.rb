@@ -41,14 +41,14 @@ class TestFloat64Array < Test::Unit::TestCase
     def test_sliced
       values = [-Float::INFINITY, -0.0, nil, +0.0, +Float::INFINITY]
       array1 = ArrowFormat::Float64Array.new(values)
-      array2 = ArrowFormat::Float64Array.new([0.0] + values + [0.0])
+      array2 = ArrowFormat::Float64Array.new([0.0, *values, 0.0])
       assert_equal(array1, array2.slice(1, 5))
     end
 
     def test_sliced_different_content
       values = [-Float::INFINITY, -0.0, nil, +0.0, +Float::INFINITY]
       array1 = ArrowFormat::Float64Array.new(values)
-      array2 = ArrowFormat::Float64Array.new([0.0, 0.0] + values + [0.0])
+      array2 = ArrowFormat::Float64Array.new([0.0, 0.0, *values, 0.0])
       assert_not_equal(array1, array2.slice(1, 5))
     end
   end

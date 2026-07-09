@@ -417,6 +417,10 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "l"
+    end
+
     def build_array(...)
       Date32Array.new(...)
     end
@@ -439,6 +443,10 @@ module ArrowFormat
 
     def buffer_type
       :s64
+    end
+
+    def pack_template
+      "q"
     end
 
     def build_array(...)
