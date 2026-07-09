@@ -1048,6 +1048,44 @@ class ColumnReaderImplBase {
   std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
 
   void ConsumeBufferedValues(int64_t num_values) { num_decoded_values_ += num_values; }
+
+  int64_t Skip(int64_t num_values_to_skip) {
+    int64_t values_to_skip = num_values_to_skip;
+    // Optimization: Do not call HasNext() when values_to_skip == 0.
+    while (values_to_skip > 0 && HasNextInternal()) {
+      // If the number of values to skip is more than the number of undecoded values, skip
+      // the whole Page without decoding levels or values.
+      const int64_t available_values = this->available_values_current_page();
+      if (values_to_skip >= available_values) {
+        values_to_skip -= available_values;
+        this->ConsumeBufferedValues(available_values);
+      } else {
+        // Skip within the current Page. Since `values_to_skip < available_values`, the
+        // whole batch fits inside this Page and no page boundary is crossed.
+        const int batch_size = static_cast<int>(values_to_skip);
+
+        // Advance the definition levels, counting how many correspond to present
+        // (non-null) values that must be skipped in the data decoder.
+        int64_t non_null_values_to_skip = batch_size;
+        if (this->max_def_level() > 0) {
+          const auto count = this->definition_level_decoder_.CountUpTo(
+              this->max_def_level(), batch_size);
+          non_null_values_to_skip = count.matching_count;
+          ARROW_DCHECK_EQ(count.processed_count, batch_size);
+        }
+        // Advance the repetition levels; their values are not needed.
+        if (this->max_rep_level() > 0) {
+          this->repetition_level_decoder_.Skip(batch_size);
+        }
+        // Skip the corresponding data values.
+        this->current_decoder_.Skip(non_null_values_to_skip);
+
+        this->ConsumeBufferedValues(batch_size);
+        values_to_skip -= batch_size;
+      }
+    }
+    return num_values_to_skip - values_to_skip;
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -1070,7 +1108,9 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                     T* values, int64_t* values_read) override;
 
-  int64_t Skip(int64_t num_values_to_skip) override;
+  int64_t Skip(int64_t num_values_to_skip) override {
+    return ColumnReaderImplBase<DType>::Skip(num_values_to_skip);
+  }
 
   Type::type type() const override { return this->descr_->physical_type(); }
 
@@ -1229,45 +1269,6 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
   }
   this->ConsumeBufferedValues(total_values);
   return total_values;
-}
-
-template <typename DType>
-int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
-  int64_t values_to_skip = num_values_to_skip;
-  // Optimization: Do not call HasNext() when values_to_skip == 0.
-  while (values_to_skip > 0 && HasNext()) {
-    // If the number of values to skip is more than the number of undecoded values, skip
-    // the whole Page without decoding levels or values.
-    const int64_t available_values = this->available_values_current_page();
-    if (values_to_skip >= available_values) {
-      values_to_skip -= available_values;
-      this->ConsumeBufferedValues(available_values);
-    } else {
-      // Skip within the current Page. Since `values_to_skip < available_values`, the
-      // whole batch fits inside this Page and no page boundary is crossed.
-      const int batch_size = static_cast<int>(values_to_skip);
-
-      // Advance the definition levels, counting how many correspond to present
-      // (non-null) values that must be skipped in the data decoder.
-      int64_t non_null_values_to_skip = batch_size;
-      if (this->max_def_level() > 0) {
-        const auto count =
-            this->definition_level_decoder_.CountUpTo(this->max_def_level(), batch_size);
-        non_null_values_to_skip = count.matching_count;
-        ARROW_DCHECK_EQ(count.processed_count, batch_size);
-      }
-      // Advance the repetition levels; their values are not needed.
-      if (this->max_rep_level() > 0) {
-        this->repetition_level_decoder_.Skip(batch_size);
-      }
-      // Skip the corresponding data values.
-      this->current_decoder_.Skip(non_null_values_to_skip);
-
-      this->ConsumeBufferedValues(batch_size);
-      values_to_skip -= batch_size;
-    }
-  }
-  return num_values_to_skip - values_to_skip;
 }
 
 }  // namespace
