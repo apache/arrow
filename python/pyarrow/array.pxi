@@ -3635,16 +3635,21 @@ cdef class MapArray(ListArray):
                 (keys._getitem_py(j, None), items._getitem_py(j, maps_as_pydicts))
                 for j in range(start, end)
             ]
+        # Convert all keys first (as MapScalar.as_py does via keys()) and
+        # detect duplicates before converting any value, so that the 'lossy'
+        # warnings and the 'strict' KeyError are emitted at the same point as
+        # in MapScalar.as_py even when a later value conversion raises.
+        cdef int64_t count = end - start
+        cdef list keys_py = [keys._getitem_py(j, None) for j in range(start, end)]
         cdef dict result = {}
-        for j in range(start, end):
-            result[keys._getitem_py(j, None)] = items._getitem_py(j, maps_as_pydicts)
-        if len(result) == end - start:
+        cdef int64_t k
+        if len(set(keys_py)) == count:
+            for k in range(count):
+                result[keys_py[k]] = items._getitem_py(start + k, maps_as_pydicts)
             return result
-        # Duplicate keys: redo the row with the per-key loop so the 'lossy'
-        # warnings and 'strict' KeyError match MapScalar.as_py exactly.
-        result = {}
-        for j in range(start, end):
-            key = keys._getitem_py(j, None)
+        # Duplicate keys: per-key loop matching MapScalar.as_py exactly.
+        for k in range(count):
+            key = keys_py[k]
             if key in result:
                 if maps_as_pydicts == "strict":
                     raise KeyError(
@@ -3654,7 +3659,7 @@ cdef class MapArray(ListArray):
                 else:
                     warnings.warn(
                         f"Encountered key '{key}' which was already encountered.")
-            result[key] = items._getitem_py(j, maps_as_pydicts)
+            result[key] = items._getitem_py(start + k, maps_as_pydicts)
         return result
 
     @staticmethod

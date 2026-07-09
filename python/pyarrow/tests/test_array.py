@@ -546,6 +546,17 @@ def test_to_pylist_maps_as_pydicts():
         assert dup.to_pylist(maps_as_pydicts="lossy") == [{"k": 2}]
     with pytest.raises(KeyError, match="strict mode"):
         dup.to_pylist(maps_as_pydicts="strict")
+
+    # Duplicate keys must be detected before converting values: with a
+    # poison value *after* the duplicate, strict mode raises the outer
+    # duplicate-key error, and lossy mode still emits its warning first.
+    nested_map = pa.map_(pa.string(), map_type)
+    poison = pa.array(
+        [[("k1", [("a", 1)]), ("k1", [("d", 1), ("d", 2)])]], type=nested_map)
+    with pytest.raises(KeyError, match="duplicate key was 'k1'"):
+        poison.to_pylist(maps_as_pydicts="strict")
+    with pytest.warns(UserWarning, match="Encountered key 'k1'"):
+        assert poison.to_pylist(maps_as_pydicts="lossy") == [{"k1": {"d": 2}}]
     with pytest.raises(ValueError, match="Invalid value for 'maps_as_pydicts'"):
         dup.to_pylist(maps_as_pydicts="bogus")
     # invalid values are only rejected when a map value is converted,
