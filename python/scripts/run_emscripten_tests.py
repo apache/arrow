@@ -85,22 +85,36 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
         elif self.path.endswith("/worker.js"):
             body = b"""
                 importScripts("./pyodide.js");
+                function postLog(message) {
+                    self.postMessage({print: Array.from(new TextEncoder().encode(
+                        `[worker] ${new Date().toISOString()} ${message}\n`))});
+                }
                 onmessage = async function (e) {
                     const data = e.data;
-                    if (!self.pyodide) {
-                        self.pyodide = await loadPyodide();
-                    }
-                    function do_print(arg) {
-                        let databytes = Array.from(arg);
-                        self.postMessage({print:databytes});
-                        return databytes.length;
-                    }
-                    self.pyodide.setStdout({write:do_print,isatty:data.isatty});
-                    self.pyodide.setStderr({write:do_print,isatty:data.isatty});
+                    try {
+                        if (!self.pyodide) {
+                            postLog("loading Pyodide");
+                            self.pyodide = await loadPyodide();
+                            postLog("loaded Pyodide");
+                        }
+                        function do_print(arg) {
+                            let databytes = Array.from(arg);
+                            self.postMessage({print:databytes});
+                            return databytes.length;
+                        }
+                        self.pyodide.setStdout({write:do_print,isatty:data.isatty});
+                        self.pyodide.setStderr({write:do_print,isatty:data.isatty});
 
-                    await self.pyodide.loadPackagesFromImports(data.python);
-                    let results = await self.pyodide.runPythonAsync(data.python);
-                    self.postMessage({results});
+                        postLog("loading packages from imports");
+                        await self.pyodide.loadPackagesFromImports(data.python);
+                        postLog("running Python");
+                        let results = await self.pyodide.runPythonAsync(data.python);
+                        postLog(`Python completed with result ${results}`);
+                        self.postMessage({results});
+                    } catch (error) {
+                        postLog(`Python failed: ${error && error.stack || error}`);
+                        self.postMessage({results: 1});
+                    }
                 }
                 """
             self.send_response(200)
@@ -218,30 +232,23 @@ class BrowserDriver:
         )
 
     def execute_python(self, code, wait_for_terminate=True):
+        self.driver.execute_script(
+            f"""
+            let python = `{code}`;
+            delete window.python_script_done;
+            window.python_done_callback= (x) => {{window.python_script_done=x;}};
+            window.pyworker.postMessage(
+                {{python,isatty:{'true' if sys.stdout.isatty() else 'false'}}});
+            """
+        )
         if wait_for_terminate:
-            self.driver.execute_async_script(
-                f"""
-                let callback = arguments[arguments.length-1];
-                python = `{code}`;
-                window.python_done_callback = callback;
-                window.pyworker.postMessage(
-                    {{python, isatty: {'true' if sys.stdout.isatty() else 'false'}}});
-                """
-            )
-        else:
-            self.driver.execute_script(
-                f"""
-                let python = `{code}`;
-                window.python_done_callback= (x) => {{window.python_script_done=x;}};
-                window.pyworker.postMessage(
-                    {{python,isatty:{'true' if sys.stdout.isatty() else 'false'}}});
-                """
-            )
+            return self.wait_for_done()
 
     def clear_logs(self):
         self.driver.execute_script("window.python_logs = [];")
 
     def wait_for_done(self):
+        last_heartbeat = time.monotonic()
         while True:
             # poll for console.log messages from our webworker
             # which are the output of pytest
@@ -250,11 +257,16 @@ class BrowserDriver:
             )
             if len(lines) > 0:
                 sys.stdout.buffer.write(bytes(lines))
+                sys.stdout.buffer.flush()
             done = self.driver.execute_script("return window.python_script_done;")
             if done is not None:
                 value = done["result"]
                 self.driver.execute_script("delete window.python_script_done;")
                 return value
+            now = time.monotonic()
+            if now - last_heartbeat > 30:
+                print("Waiting for browser-side Python to finish...", flush=True)
+                last_heartbeat = now
             time.sleep(0.1)
 
 
