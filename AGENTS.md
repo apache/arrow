@@ -101,13 +101,11 @@ Example: `GH-14736: [C++][Python] Ensure no validity bitmap in UnionArray::SetDa
 
 For trivial documentation or typo fixes affecting no more than 2 files and
 no more than 500 words, you may skip creating an issue and prefix the PR
-title with `MINOR:` instead:
+title with `MINOR: ` instead:
 
-```
-MINOR: [Docs] Fix typo in memory.rst
-```
+    MINOR: [Docs] Fix typo in memory.rst
 
-Do NOT combine `MINOR:` with a `GH-` number.
+Do NOT combine `MINOR: ` with a `GH-` number.
 
 ### PR Description
 
