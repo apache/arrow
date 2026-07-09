@@ -122,9 +122,6 @@ def test_offset_of_sliced_array():
     ]
 )
 def test_pandas_roundtrip(uint, int, float, np_float_str):
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
     arr = [1, 2, 3]
     table = pa.table(
         {
@@ -153,9 +150,6 @@ def test_pandas_roundtrip(uint, int, float, np_float_str):
 @pytest.mark.pandas
 def test_pandas_roundtrip_string():
     # See https://github.com/pandas-dev/pandas/issues/50554
-    if Version(pd.__version__) < Version("1.6"):
-        pytest.skip("Column.size() bug in pandas")
-
     arr = ["a", "", "c"]
     table = pa.table({"a": pa.array(arr)})
 
@@ -182,9 +176,6 @@ def test_pandas_roundtrip_string():
 @pytest.mark.pandas
 def test_pandas_roundtrip_large_string():
     # See https://github.com/pandas-dev/pandas/issues/50554
-    if Version(pd.__version__) < Version("1.6"):
-        pytest.skip("Column.size() bug in pandas")
-
     arr = ["a", "", "c"]
     table = pa.table({"a_large": pa.array(arr, type=pa.large_string())})
 
@@ -219,9 +210,6 @@ def test_pandas_roundtrip_large_string():
 @pytest.mark.pandas
 def test_pandas_roundtrip_string_with_missing():
     # See https://github.com/pandas-dev/pandas/issues/50554
-    if Version(pd.__version__) < Version("1.6"):
-        pytest.skip("Column.size() bug in pandas")
-
     arr = ["a", "", "c", None]
     table = pa.table({"a": pa.array(arr),
                       "a_large": pa.array(arr, type=pa.large_string())})
@@ -299,8 +287,6 @@ def test_pandas_roundtrip_categorical():
 @pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 def test_pandas_roundtrip_datetime(unit):
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
     from datetime import datetime as dt
 
     # timezones not included as they are not yet supported in
@@ -308,12 +294,7 @@ def test_pandas_roundtrip_datetime(unit):
     dt_arr = [dt(2007, 7, 13), dt(2007, 7, 14), dt(2007, 7, 15)]
     table = pa.table({"a": pa.array(dt_arr, type=pa.timestamp(unit))})
 
-    if Version(pd.__version__) < Version("1.6"):
-        # pandas < 2.0 always creates datetime64 in "ns"
-        # resolution
-        expected = pa.table({"a": pa.array(dt_arr, type=pa.timestamp('ns'))})
-    else:
-        expected = table
+    expected = table
 
     from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
@@ -337,9 +318,6 @@ def test_pandas_roundtrip_datetime(unit):
     "np_float_str", ["float32", "float64"]
 )
 def test_pandas_to_pyarrow_with_missing(np_float_str):
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
     np_array = np.array([0, np.nan, 2], dtype=np.dtype(np_float_str))
     datetime_array = [None, dt(2007, 7, 14), dt(2007, 7, 15)]
     df = pd.DataFrame({
@@ -359,9 +337,6 @@ def test_pandas_to_pyarrow_with_missing(np_float_str):
 
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_float16_with_missing():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
     # np.float16 errors if ps.is_nan is used
     # pyarrow.lib.ArrowNotImplementedError: Function 'is_nan' has no kernel
     # matching input types (halffloat)
@@ -482,9 +457,6 @@ def test_nan_as_null():
 
 @pytest.mark.pandas
 def test_allow_copy_false():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
     # Test that an error is raised when a copy is needed
     # to create a bitmask
 
@@ -501,9 +473,6 @@ def test_allow_copy_false():
 
 @pytest.mark.pandas
 def test_allow_copy_false_bool_categorical():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
     # Test that an error is raised for boolean
     # and categorical dtype (copy is always made)
 

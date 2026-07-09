@@ -4070,10 +4070,6 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         c_options.extension_columns = make_shared[unordered_set[c_string]](
             unordered_set[c_string]({tobytes(col) for col in extension_columns}))
 
-    if pandas_api.is_v1():
-        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-        c_options.coerce_temporal_nanoseconds = True
-
     if c_options.self_destruct:
         # Move the shared_ptr, table is now unsafe to use further
         c_table = move(table.sp_table)

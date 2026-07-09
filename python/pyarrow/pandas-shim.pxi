@@ -38,7 +38,7 @@ cdef class _PandasAPIShim(object):
         object _array_like_types, _is_extension_array_dtype, _lock
         bint has_sparse
         bint _pd024
-        bint _is_v1, _is_ge_v21, _is_ge_v23, _is_ge_v3, _is_ge_v3_strict
+        bint _is_ge_v21, _is_ge_v23, _is_ge_v3, _is_ge_v3_strict
 
     def __init__(self):
         self._lock = Lock()
@@ -61,25 +61,23 @@ cdef class _PandasAPIShim(object):
         self._pd = pd
         self._version = pd.__version__
         self._loose_version = Version(pd.__version__)
-        self._is_v1 = False
 
-        if self._loose_version < Version('1.0.0'):
+        if self._loose_version < Version('2.0.0'):
             self._have_pandas = False
             if raise_:
                 raise ImportError(
-                    f"pyarrow requires pandas 1.0.0 or above, pandas {self._version} is "
+                    f"pyarrow requires pandas 2.0.0 or above, pandas {self._version} is "
                     "installed"
                 )
             else:
                 warnings.warn(
-                    f"pyarrow requires pandas 1.0.0 or above, pandas {self._version} is "
+                    f"pyarrow requires pandas 2.0.0 or above, pandas {self._version} is "
                     "installed. Therefore, pandas-specific integration is not "
                     "used.",
                     stacklevel=2
                 )
                 return
 
-        self._is_v1 = self._loose_version < Version('2.0.0')
         self._is_ge_v21 = self._loose_version >= Version('2.1.0')
         self._is_ge_v23 = self._loose_version >= Version('2.3.0.dev0')
         self._is_ge_v3 = self._loose_version >= Version('3.0.0.dev0')
@@ -165,10 +163,6 @@ cdef class _PandasAPIShim(object):
     def version(self):
         self._check_import()
         return self._version
-
-    def is_v1(self):
-        self._check_import()
-        return self._is_v1
 
     def is_ge_v21(self):
         self._check_import()
