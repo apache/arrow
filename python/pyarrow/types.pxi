@@ -186,7 +186,7 @@ def _get_pandas_tz_type(arrow_type, coerce_to_ns=False):
 
 
 def _to_pandas_dtype(arrow_type, options=None):
-    coerce_to_ns = (options and options.get('coerce_temporal_nanoseconds', False))
+    coerce_to_ns = bool(options and options.get('coerce_temporal_nanoseconds', False))
 
     if getattr(arrow_type, 'tz', None):
         dtype = _get_pandas_tz_type(arrow_type, coerce_to_ns)
