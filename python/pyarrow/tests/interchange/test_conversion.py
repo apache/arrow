@@ -17,7 +17,6 @@
 
 from datetime import datetime as dt
 import pyarrow as pa
-from pyarrow.vendored.version import Version
 import pytest
 
 try:
@@ -183,28 +182,20 @@ def test_pandas_roundtrip_large_string():
         from_dataframe as pandas_from_dataframe
     )
 
-    if Version(pd.__version__) >= Version("2.0.1"):
-        pandas_df = pandas_from_dataframe(table)
-        result = pi.from_dataframe(pandas_df)
+    pandas_df = pandas_from_dataframe(table)
+    result = pi.from_dataframe(pandas_df)
 
-        assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
-        assert pa.types.is_large_string(table["a_large"].type)
-        assert pa.types.is_large_string(result["a_large"].type)
+    assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
+    assert pa.types.is_large_string(table["a_large"].type)
+    assert pa.types.is_large_string(result["a_large"].type)
 
-        table_protocol = table.__dataframe__()
-        result_protocol = result.__dataframe__()
+    table_protocol = table.__dataframe__()
+    result_protocol = result.__dataframe__()
 
-        assert table_protocol.num_columns() == result_protocol.num_columns()
-        assert table_protocol.num_rows() == result_protocol.num_rows()
-        assert table_protocol.num_chunks() == result_protocol.num_chunks()
-        assert table_protocol.column_names() == result_protocol.column_names()
-
-    else:
-        # large string not supported by pandas implementation for
-        # older versions of pandas
-        # https://github.com/pandas-dev/pandas/issues/52795
-        with pytest.raises(AssertionError):
-            pandas_from_dataframe(table)
+    assert table_protocol.num_columns() == result_protocol.num_columns()
+    assert table_protocol.num_rows() == result_protocol.num_rows()
+    assert table_protocol.num_chunks() == result_protocol.num_chunks()
+    assert table_protocol.column_names() == result_protocol.column_names()
 
 
 @pytest.mark.pandas
@@ -218,29 +209,20 @@ def test_pandas_roundtrip_string_with_missing():
         from_dataframe as pandas_from_dataframe
     )
 
-    if Version(pd.__version__) >= Version("2.0.2"):
-        pandas_df = pandas_from_dataframe(table)
-        result = pi.from_dataframe(pandas_df)
+    pandas_df = pandas_from_dataframe(table)
+    result = pi.from_dataframe(pandas_df)
 
-        assert result["a"].to_pylist() == table["a"].to_pylist()
-        assert pa.types.is_string(table["a"].type)
-        assert pa.types.is_large_string(result["a"].type)
+    assert result["a"].to_pylist() == table["a"].to_pylist()
+    assert pa.types.is_string(table["a"].type)
+    assert pa.types.is_large_string(result["a"].type)
 
-        assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
-        assert pa.types.is_large_string(table["a_large"].type)
-        assert pa.types.is_large_string(result["a_large"].type)
-    else:
-        # older versions of pandas do not have bitmask support
-        # https://github.com/pandas-dev/pandas/issues/49888
-        with pytest.raises(NotImplementedError):
-            pandas_from_dataframe(table)
+    assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
+    assert pa.types.is_large_string(table["a_large"].type)
+    assert pa.types.is_large_string(result["a_large"].type)
 
 
 @pytest.mark.pandas
 def test_pandas_roundtrip_categorical():
-    if Version(pd.__version__) < Version("2.0.2"):
-        pytest.skip("Bitmasks not supported in pandas interchange implementation")
-
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
     table = pa.table(
         {"weekday": pa.array(arr).dictionary_encode()}

@@ -4549,11 +4549,6 @@ def test_to_pandas_extension_dtypes_mapping():
 
 
 def test_to_pandas_extension_dtypes_mapping_complex_type():
-    # https://github.com/apache/arrow/pull/44720
-    # For the pandas issue, see backport commit to 2.0.2:
-    # https://github.com/pandas-dev/pandas/commit/c8cd0277f8f889c5db7463ef7f36b495b5c9de69
-    if Version(pd.__version__) < Version("2.0.2"):
-        pytest.skip("ArrowDtype.type doesn't support struct before pandas 2.0.2")
     pa_type = pa.struct(
         [
             pa.field("bar", pa.bool_(), nullable=False),
