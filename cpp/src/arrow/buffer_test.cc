@@ -881,9 +881,18 @@ TYPED_TEST(TypedTestBufferBuilder, NegativeAndOverflowAppend) {
   ASSERT_RAISES(Invalid, builder.Append(-1, static_cast<TypeParam>(0)));
 
   const int64_t max_num_elements =
-      std::numeric_limits<int64_t>::max() / sizeof(TypeParam) + 1;
+      std::numeric_limits<int64_t>::max() / static_cast<int64_t>(sizeof(TypeParam)) + 1;
   ASSERT_RAISES(CapacityError,
                 builder.Append(max_num_elements, static_cast<TypeParam>(0)));
+}
+
+TEST(TestBoolBufferBuilder, NegativeInputs) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_RAISES(Invalid, builder.Resize(-1));
+  ASSERT_RAISES(Invalid, builder.Reserve(-1));
+  ASSERT_RAISES(Invalid, builder.Append(-1, true));
+  ASSERT_RAISES(Invalid, builder.FinishWithLength(-1));
 }
 
 TEST(TestBoolBufferBuilder, Basics) {
