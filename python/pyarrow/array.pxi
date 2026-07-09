@@ -1869,6 +1869,8 @@ cdef class Array(_PandasConvertible):
             # Converting maps to dicts has per-entry semantics (duplicate-key
             # detection); use the Scalar-based conversion for exact behavior.
             return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
+        # TODO(GH-50448): convert per range instead of per element to cut
+        # the per-element call overhead further.
         return [self._getitem_py(i) for i in range(n)]
 
     cdef object _getitem_py(self, int64_t i):
@@ -2480,26 +2482,26 @@ cdef class NumericArray(Array):
         cdef Type tid = self.ap.type_id()
         if self.ap.IsNull(i):
             return None
-        if tid == _Type_INT64:
-            return (<CInt64Array*> self.ap).Value(i)
-        elif tid == _Type_INT32:
-            return (<CInt32Array*> self.ap).Value(i)
-        elif tid == _Type_DOUBLE:
-            return (<CDoubleArray*> self.ap).Value(i)
-        elif tid == _Type_FLOAT:
-            return (<CFloatArray*> self.ap).Value(i)
+        if tid == _Type_INT8:
+            return (<CInt8Array*> self.ap).Value(i)
         elif tid == _Type_INT16:
             return (<CInt16Array*> self.ap).Value(i)
-        elif tid == _Type_INT8:
-            return (<CInt8Array*> self.ap).Value(i)
-        elif tid == _Type_UINT64:
-            return (<CUInt64Array*> self.ap).Value(i)
-        elif tid == _Type_UINT32:
-            return (<CUInt32Array*> self.ap).Value(i)
-        elif tid == _Type_UINT16:
-            return (<CUInt16Array*> self.ap).Value(i)
+        elif tid == _Type_INT32:
+            return (<CInt32Array*> self.ap).Value(i)
+        elif tid == _Type_INT64:
+            return (<CInt64Array*> self.ap).Value(i)
         elif tid == _Type_UINT8:
             return (<CUInt8Array*> self.ap).Value(i)
+        elif tid == _Type_UINT16:
+            return (<CUInt16Array*> self.ap).Value(i)
+        elif tid == _Type_UINT32:
+            return (<CUInt32Array*> self.ap).Value(i)
+        elif tid == _Type_UINT64:
+            return (<CUInt64Array*> self.ap).Value(i)
+        elif tid == _Type_FLOAT:
+            return (<CFloatArray*> self.ap).Value(i)
+        elif tid == _Type_DOUBLE:
+            return (<CDoubleArray*> self.ap).Value(i)
         # Subclasses whose as_py returns non-primitive objects (dates, times,
         # timestamps, durations, half floats, ...) use the exact Scalar path.
         return Array._getitem_py(self, i)
@@ -4064,14 +4066,11 @@ cdef class StringArray(Array):
     """
 
     cdef object _getitem_py(self, int64_t i):
-        cdef:
-            int32_t length
-            const uint8_t* data
         if self.ap.IsNull(i):
             return None
-        data = (<CStringArray*> self.ap).GetValue(i, &length)
+        cdef cpp_string_view view = (<CBinaryArray*> self.ap).GetView(i)
         # Matches StringScalar.as_py, which is str(buf, 'utf8').
-        return cp.PyUnicode_DecodeUTF8(<const char*> data, length, NULL)
+        return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
 
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
@@ -4106,13 +4105,10 @@ cdef class LargeStringArray(Array):
     """
 
     cdef object _getitem_py(self, int64_t i):
-        cdef:
-            int64_t length
-            const uint8_t* data
         if self.ap.IsNull(i):
             return None
-        data = (<CLargeStringArray*> self.ap).GetValue(i, &length)
-        return cp.PyUnicode_DecodeUTF8(<const char*> data, length, NULL)
+        cdef cpp_string_view view = (<CLargeBinaryArray*> self.ap).GetView(i)
+        return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
 
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
@@ -4146,6 +4142,12 @@ cdef class StringViewArray(Array):
     Concrete class for Arrow arrays of string (or utf8) view data type.
     """
 
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CBinaryViewArray*> self.ap).GetView(i)
+        return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
+
 
 cdef class BinaryArray(Array):
     """
@@ -4153,13 +4155,10 @@ cdef class BinaryArray(Array):
     """
 
     cdef object _getitem_py(self, int64_t i):
-        cdef:
-            int32_t length
-            const uint8_t* data
         if self.ap.IsNull(i):
             return None
-        data = (<CBinaryArray*> self.ap).GetValue(i, &length)
-        return cp.PyBytes_FromStringAndSize(<const char*> data, length)
+        cdef cpp_string_view view = (<CBinaryArray*> self.ap).GetView(i)
+        return cp.PyBytes_FromStringAndSize(view.data(), <Py_ssize_t> view.size())
 
     @property
     def total_values_length(self):
@@ -4176,13 +4175,10 @@ cdef class LargeBinaryArray(Array):
     """
 
     cdef object _getitem_py(self, int64_t i):
-        cdef:
-            int64_t length
-            const uint8_t* data
         if self.ap.IsNull(i):
             return None
-        data = (<CLargeBinaryArray*> self.ap).GetValue(i, &length)
-        return cp.PyBytes_FromStringAndSize(<const char*> data, length)
+        cdef cpp_string_view view = (<CLargeBinaryArray*> self.ap).GetView(i)
+        return cp.PyBytes_FromStringAndSize(view.data(), <Py_ssize_t> view.size())
 
     @property
     def total_values_length(self):
@@ -4197,6 +4193,12 @@ cdef class BinaryViewArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary view data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CBinaryViewArray*> self.ap).GetView(i)
+        return cp.PyBytes_FromStringAndSize(view.data(), <Py_ssize_t> view.size())
 
 
 cdef class DictionaryArray(Array):
@@ -4364,15 +4366,13 @@ cdef class StructArray(Array):
         if self._children_cache is None:
             names = [self.type.field(k).name for k in range(num_fields)]
             if len(set(names)) != len(names):
-                # StructScalar.as_py raises ValueError on duplicate field
-                # names; mark the cache so we take the Scalar path below.
-                self._children_cache = (None, None)
-            else:
-                self._children_cache = (
-                    names, [self.field(k) for k in range(num_fields)])
+                # Matches StructScalar.as_py
+                raise ValueError(
+                    "Converting to Python dictionary is not supported when "
+                    "duplicate field names are present")
+            self._children_cache = (
+                names, [self.field(k) for k in range(num_fields)])
         names = (<tuple> self._children_cache)[0]
-        if names is None:
-            return Array._getitem_py(self, i)
         fields = (<tuple> self._children_cache)[1]
         cdef Array field_arr
         result = {}

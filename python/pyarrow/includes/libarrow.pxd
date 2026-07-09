@@ -946,6 +946,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
         const uint8_t* GetValue(int i, int32_t* length)
+        cpp_string_view GetView(int64_t i)
         shared_ptr[CBuffer] value_data()
         int32_t value_offset(int64_t i)
         int32_t value_length(int64_t i)
@@ -953,6 +954,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
         const uint8_t* GetValue(int i, int64_t* length)
+        cpp_string_view GetView(int64_t i)
         shared_ptr[CBuffer] value_data()
         int64_t value_offset(int64_t i)
         int64_t value_length(int64_t i)
@@ -976,6 +978,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                           int64_t offset)
 
         c_string GetString(int i)
+
+    cdef cppclass CBinaryViewArray" arrow::BinaryViewArray"(CArray):
+        cpp_string_view GetView(int64_t i)
+
+    cdef cppclass CStringViewArray" arrow::StringViewArray"(CBinaryViewArray):
+        pass
 
     cdef cppclass CStructArray" arrow::StructArray"(CArray):
         CStructArray(shared_ptr[CDataType]& type, int64_t length,
