@@ -267,8 +267,8 @@ struct RleCountUpToParams {
 };
 
 struct RleCountUpToResult {
-  rle_size_t count;
-  rle_size_t advanced_count;
+  rle_size_t matching_count;
+  rle_size_t processed_count;
 };
 
 /// Decoder class for a single run of RLE encoded data.
@@ -319,7 +319,7 @@ class RleRunDecoder {
   /// @return The matching value count and number of elements that were processed.
   RleCountUpToResult CountUpTo(const RleCountUpToParams<value_type>& p) {
     const auto steps = Advance(p.batch_size);
-    return {.count = steps * (p.value == value_), .advanced_count = steps};
+    return {.matching_count = steps * (p.value == value_), .processed_count = steps};
   }
 
   /// Get the next value and return false if there are no more.
@@ -405,7 +405,7 @@ class BitPackedRunDecoder {
       remaining -= read_iter;
     } while (remaining > 0 && read_iter > 0);
 
-    return {.count = count, .advanced_count = p.batch_size - remaining};
+    return {.matching_count = count, .processed_count = p.batch_size - remaining};
   }
 
   /// Get the next value and return false if there are no more.
@@ -955,6 +955,7 @@ auto RleBitPackedDecoder<T>::ProcessValues(Callable&& func,
     values_processed += read;
 
     if (ARROW_PREDICT_FALSE(values_processed == batch_size || read == 0)) {
+      // Stop reading and store remaining decoder
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
@@ -977,18 +978,18 @@ template <typename T>
 RleCountUpToResult RleBitPackedDecoder<T>::CountUpTo(value_type value,
                                                      rle_size_t batch_size) {
   rle_size_t count = 0;
-  const rle_size_t advanced_count = ProcessValues(
+  const rle_size_t processed_count = ProcessValues(
       [value, this, &count](auto& decoder, rle_size_t run_batch_size) {
         const auto result = decoder.CountUpTo({
             .value = value,
             .batch_size = run_batch_size,
             .value_bit_width = value_bit_width_,
         });
-        count += result.count;
-        return result.advanced_count;
+        count += result.matching_count;
+        return result.processed_count;
       },
       batch_size);
-  return {.count = count, .advanced_count = advanced_count};
+  return {.matching_count = count, .processed_count = processed_count};
 }
 
 template <typename T>

@@ -343,20 +343,20 @@ TEST(Rle, RleDecoderCountUpTo) {
 
   // Counting the repeated value counts every advanced element.
   auto res = decoder.CountUpTo({.value = 21, .batch_size = 10, .value_bit_width = 5});
-  EXPECT_EQ(res.advanced_count, 10);
-  EXPECT_EQ(res.count, 10);
+  EXPECT_EQ(res.processed_count, 10);
+  EXPECT_EQ(res.matching_count, 10);
   EXPECT_EQ(decoder.remaining(), 23 - 10);
 
   // Counting another value matches nothing but still advances.
   res = decoder.CountUpTo({.value = 99, .batch_size = 5, .value_bit_width = 5});
-  EXPECT_EQ(res.advanced_count, 5);
-  EXPECT_EQ(res.count, 0);
+  EXPECT_EQ(res.processed_count, 5);
+  EXPECT_EQ(res.matching_count, 0);
   EXPECT_EQ(decoder.remaining(), 23 - 15);
 
   // Requesting more than remaining is capped to the remaining count.
   res = decoder.CountUpTo({.value = 21, .batch_size = 100, .value_bit_width = 5});
-  EXPECT_EQ(res.advanced_count, 8);
-  EXPECT_EQ(res.count, 8);
+  EXPECT_EQ(res.processed_count, 8);
+  EXPECT_EQ(res.matching_count, 8);
   EXPECT_EQ(decoder.remaining(), 0);
 }
 

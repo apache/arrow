@@ -87,11 +87,16 @@ class PARQUET_EXPORT LevelDecoder {
   /// Advance the decoder and throw away decoder levels.
   int Skip(int batch_size);
 
+  struct CountUpToResult {
+    int matching_count;
+    int processed_count;
+  };
+
   /// Advance and count the number of occurrences of `value`.
   ///
   /// The count is limited to at most the next `batch_size` items.
   /// @return The matching value count and number of elements that were processed.
-  std::pair<int, int> CountUpTo(int16_t value, int batch_size);
+  CountUpToResult CountUpTo(int16_t value, int batch_size);
 
   /// Return the max level used in this decoder.
   int max_level() const { return max_level_; }
@@ -99,7 +104,7 @@ class PARQUET_EXPORT LevelDecoder {
  private:
   struct Impl;
 
-  std::unique_ptr<Impl> decoder_;
+  std::unique_ptr<Impl> impl_;
   /// Number of value remaining. The underlying decoder zero pads bit packed values
   /// up to a multiple of 8 so it cannot know the exact number of remaining values.
   int num_values_remaining_ = 0;

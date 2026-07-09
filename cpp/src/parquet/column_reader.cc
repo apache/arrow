@@ -121,7 +121,7 @@ struct LevelDecoder::Impl {
 };
 
 LevelDecoder::LevelDecoder(int16_t max_level)
-    : decoder_(std::make_unique<Impl>()), max_level_(max_level) {}
+    : impl_(std::make_unique<Impl>()), max_level_(max_level) {}
 
 LevelDecoder::~LevelDecoder() = default;
 
@@ -141,7 +141,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
-      this->decoder_->decoder = Impl::RleBitPackedDecoder(  //
+      this->impl_->decoder = Impl::RleBitPackedDecoder(  //
           /* data= */ data + 4,
           /* data_size =*/num_bytes,
           /* value_bit_width= */ value_bit_width);
@@ -158,7 +158,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       // Also adding `value_count` so that the decoder also works with zero-width runs.
-      this->decoder_->decoder = Impl::BitPackedDecoder(  //
+      this->impl_->decoder = Impl::BitPackedDecoder(  //
           /* data= */ data,
           /* data_size =*/num_bytes,
           /* value_bit_width= */ value_bit_width,
@@ -181,7 +181,7 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   }
   num_values_remaining_ = num_buffered_values;
 
-  this->decoder_->decoder = Impl::RleBitPackedDecoder(  //
+  this->impl_->decoder = Impl::RleBitPackedDecoder(  //
       /* data= */ data,
       /* data_size =*/num_bytes,
       /* value_bit_width= */ bit_util::Log2(max_level + 1));
@@ -189,7 +189,7 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
 
 int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   const int num_values = std::min(num_values_remaining_, batch_size);
-  const int num_decoded = decoder_->GetBatch(levels, num_values);
+  const int num_decoded = impl_->GetBatch(levels, num_values);
   if (num_decoded > 0) {
     internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
     if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
@@ -205,18 +205,21 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
 
 int LevelDecoder::Skip(int batch_size) {
   const int num_values = std::min(num_values_remaining_, batch_size);
-  const int num_advanced = decoder_->Advance(num_values);
+  const int num_advanced = impl_->Advance(num_values);
   ARROW_DCHECK_EQ(num_values, num_advanced);
   num_values_remaining_ -= num_advanced;
   return num_advanced;
 }
 
-std::pair<int, int> LevelDecoder::CountUpTo(int16_t value, int batch_size) {
+auto LevelDecoder::CountUpTo(int16_t value, int batch_size) -> CountUpToResult {
   const int num_values = std::min(num_values_remaining_, batch_size);
-  const auto result = decoder_->CountUpTo(value, num_values);
-  ARROW_DCHECK_EQ(num_values, result.advanced_count);
-  num_values_remaining_ -= result.advanced_count;
-  return {result.count, result.advanced_count};
+  const auto result = impl_->CountUpTo(value, num_values);
+  ARROW_DCHECK_EQ(num_values, result.processed_count);
+  num_values_remaining_ -= result.processed_count;
+  return {
+      .matching_count = result.matching_count,
+      .processed_count = result.processed_count,
+  };
 }
 
 ReaderProperties default_reader_properties() {
@@ -663,17 +666,16 @@ namespace {
 /// This was migrated here from a historical implementation.
 /// Ideally all decoders would implement a `Skip` functionality that would at best
 /// avoid decoding, and at worst, decode without intermediary allocation.
-template <typename DType, int64_t kScratchValueCount_>
+template <typename DType, int64_t kScratchValueCount>
 class SkippableTypedDecoder {
  public:
   using Decoder = TypedDecoder<DType>;
   using T = typename Decoder::T;
 
   static constexpr int64_t kValueByteSize = type_traits<DType::type_num>::value_byte_size;
-  static constexpr int64_t kScratchValueCount = kScratchValueCount_;
   static constexpr int64_t kScratchByteSize = kScratchValueCount * kValueByteSize;
 
-  SkippableTypedDecoder() = default;
+  explicit SkippableTypedDecoder(::arrow::MemoryPool* pool = nullptr) : pool_(pool) {}
 
   explicit SkippableTypedDecoder(Decoder* decoder) : decoder_(decoder) {}
 
@@ -689,8 +691,8 @@ class SkippableTypedDecoder {
 
   explicit operator bool() const { return decoder_ != nullptr; }
 
-  int64_t Skip(int64_t num_values, ::arrow::MemoryPool* pool = nullptr) {
-    EnsureScratch(pool);
+  int64_t Skip(int64_t num_values) {
+    EnsureScratch();
 
     int64_t total_read = 0;
     int iter_read = 0;
@@ -712,10 +714,11 @@ class SkippableTypedDecoder {
   /// chosen for ease of use with ``AllocateBuffer`` and migrated here.
   std::shared_ptr<ResizableBuffer> scratch_ = nullptr;
   Decoder* decoder_ = nullptr;
+  ::arrow::MemoryPool* pool_ = nullptr;
 
-  void EnsureScratch(::arrow::MemoryPool* pool) {
+  void EnsureScratch() {
     if (this->scratch_ == nullptr) {
-      this->scratch_ = AllocateBuffer(pool, kScratchByteSize);
+      this->scratch_ = AllocateBuffer(pool_, kScratchByteSize);
     }
     ARROW_DCHECK_NE(this->scratch_, nullptr);
   }
@@ -733,7 +736,8 @@ class ColumnReaderImplBase {
       : descr_(descr),
         definition_level_decoder_(descr->max_definition_level()),
         repetition_level_decoder_(descr->max_repetition_level()),
-        pool_(pool) {}
+        pool_(pool),
+        current_decoder_(pool) {}
 
   virtual ~ColumnReaderImplBase() = default;
 
@@ -1245,17 +1249,17 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
       // (non-null) values that must be skipped in the data decoder.
       int64_t non_null_values_to_skip = batch_size;
       if (this->max_def_level() > 0) {
-        const auto [count, advanced] =
+        const auto count =
             this->definition_level_decoder_.CountUpTo(this->max_def_level(), batch_size);
-        non_null_values_to_skip = count;
-        ARROW_DCHECK_EQ(advanced, batch_size);
+        non_null_values_to_skip = count.matching_count;
+        ARROW_DCHECK_EQ(count.processed_count, batch_size);
       }
       // Advance the repetition levels; their values are not needed.
       if (this->max_rep_level() > 0) {
         this->repetition_level_decoder_.Skip(batch_size);
       }
       // Skip the corresponding data values.
-      this->current_decoder_.Skip(non_null_values_to_skip, this->pool_);
+      this->current_decoder_.Skip(non_null_values_to_skip);
 
       this->ConsumeBufferedValues(batch_size);
       values_to_skip -= batch_size;
@@ -1604,7 +1608,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   // Read 'num_values' values and throw them away.
   // Throws an error if it could not read 'num_values'.
   void ReadAndThrowAwayValues(int64_t num_values) {
-    const int64_t values_read = this->current_decoder_.Skip(num_values, this->pool_);
+    const int64_t values_read = this->current_decoder_.Skip(num_values);
     if (values_read < num_values) {
       std::stringstream ss;
       ss << "Could not read and throw away " << num_values << " values";
