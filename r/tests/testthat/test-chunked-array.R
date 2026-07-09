@@ -17,7 +17,7 @@
 
 int_types <- c(int8(), int16(), int32(), int64())
 uint_types <- c(uint8(), uint16(), uint32(), uint64())
-float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+float_types <- c(float16(), float32(), float64())
 all_numeric_types <- c(int_types, uint_types, float_types)
 
 expect_chunked_roundtrip <- function(x, type) {
