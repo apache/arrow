@@ -362,6 +362,10 @@ if(CMAKE_VERSION VERSION_LESS 3.18)
   else()
     set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT TRUE)
   endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  # msvc does not support version scripts, but check_linker_flag won't return false
+  # due to how msvc's linker reports unrecognized arguments
+  set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT FALSE)
 else()
   include(CheckLinkerFlag)
   check_linker_flag(CXX
