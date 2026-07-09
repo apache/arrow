@@ -19,6 +19,8 @@
 
 #include <sstream>
 
+#include <grpcpp/support/server_callback.h>
+
 #include "arrow/flight/transport/grpc/customize_grpc.h"
 
 namespace arrow::flight::transport::grpc {
