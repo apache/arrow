@@ -1296,13 +1296,8 @@ std::shared_ptr<Converter> Converter::Make(
       }
 
     case Type::UINT64:
-      if (ArraysCanFitInteger(chunked_array->chunks())) {
-        return std::make_shared<arrow::r::Converter_Int<arrow::UInt64Type>>(
-            chunked_array);
-      } else {
-        return std::make_shared<arrow::r::Converter_Double<arrow::UInt64Type>>(
-            chunked_array);
-      }
+      return std::make_shared<arrow::r::Converter_Double<arrow::UInt64Type>>(
+          chunked_array);
 
     case Type::HALF_FLOAT:
       return std::make_shared<arrow::r::Converter_Double<arrow::HalfFloatType>>(
