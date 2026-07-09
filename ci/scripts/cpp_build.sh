@@ -173,7 +173,7 @@ elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   # emcmake so we unset them
   unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
   emcmake cmake \
-    --preset=ninja-"${ARROW_BUILD_TYPE:-debug}"-emscripten \
+    --preset="ninja-${ARROW_BUILD_TYPE:-debug}-emscripten" \
     -DCMAKE_VERBOSE_MAKEFILE="${CMAKE_VERBOSE_MAKEFILE:-OFF}" \
     -DCMAKE_C_FLAGS="${CFLAGS:-}" \
     -DCMAKE_CXX_FLAGS="${CXXFLAGS:-}" \
@@ -335,7 +335,7 @@ if [ -x "$(command -v ldconfig)" ]; then
       SUDO=
     fi
   fi
-  ${SUDO} ldconfig "${ARROW_HOME}"/"${CMAKE_INSTALL_LIBDIR:-lib}"
+  ${SUDO} ldconfig "${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}"
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
