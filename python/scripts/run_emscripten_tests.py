@@ -274,6 +274,7 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
         driver = webdriver.Chrome(options=options)
         driver.command_executor._client_config.timeout = 1200
         super().__init__(hostname, port, driver)
