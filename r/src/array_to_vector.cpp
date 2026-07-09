@@ -23,6 +23,7 @@
 #include <arrow/table.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/bitmap_writer.h>
+#include <arrow/util/float16.h>
 #include <arrow/util/int_util.h>
 
 #include <type_traits>
@@ -224,7 +225,11 @@ class Converter_Double : public Converter {
     }
     auto p_data = REAL(data) + start;
     auto ingest_one = [&](R_xlen_t i) {
-      p_data[i] = static_cast<value_type>(p_values[i]);
+      if constexpr (std::is_same_v<Type, HalfFloatType>) {
+        p_data[i] = arrow::util::Float16::FromBits(p_values[i]).ToDouble();
+      } else {
+        p_data[i] = static_cast<value_type>(p_values[i]);
+      }
       return Status::OK();
     };
     auto null_one = [&](R_xlen_t i) {
