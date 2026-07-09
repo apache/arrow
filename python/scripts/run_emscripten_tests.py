@@ -82,34 +82,26 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
         elif self.path.endswith("/worker.js"):
             body = b"""
                 importScripts("./pyodide.js");
-                function postLog(message) {
-                    self.postMessage({print: Array.from(new TextEncoder().encode(
-                        `[worker] ${new Date().toISOString()} ${message}\n`))});
+                function do_print(arg) {
+                    let databytes = Array.from(arg);
+                    self.postMessage({print:databytes});
+                    return databytes.length;
                 }
                 onmessage = async function (e) {
                     const data = e.data;
                     try {
                         if (!self.pyodide) {
-                            postLog("loading Pyodide");
                             self.pyodide = await loadPyodide();
-                            postLog("loaded Pyodide");
-                        }
-                        function do_print(arg) {
-                            let databytes = Array.from(arg);
-                            self.postMessage({print:databytes});
-                            return databytes.length;
                         }
                         self.pyodide.setStdout({write:do_print,isatty:data.isatty});
                         self.pyodide.setStderr({write:do_print,isatty:data.isatty});
 
-                        postLog("loading packages from imports");
                         await self.pyodide.loadPackagesFromImports(data.python);
-                        postLog("running Python");
                         let results = await self.pyodide.runPythonAsync(data.python);
-                        postLog(`Python completed with result ${results}`);
                         self.postMessage({results});
                     } catch (error) {
-                        postLog(`Python failed: ${error && error.stack || error}`);
+                        do_print(new TextEncoder().encode(
+                            `Worker failed: ${error && error.stack || error}\n`));
                         self.postMessage({results: 1});
                     }
                 }
@@ -274,7 +266,6 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
         driver = webdriver.Chrome(options=options)
         driver.command_executor._client_config.timeout = 1200
         super().__init__(hostname, port, driver)
