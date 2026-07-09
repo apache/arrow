@@ -80,8 +80,10 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
-Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span, uint8_t* out_bitmap,
-                          int64_t out_offset, bool set_on_null) {
+// `nan_is_null` can only be true for the is_null kernel since the is_valid and
+// true_unless_null kernels currently do not take `NullOptions`
+Status SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset,
+                          bool set_on_null, bool nan_is_null) {
   const Type::type t = span.type->id();
   if (t == Type::NA) {
     // Input is all nulls, so all output bits are the same.
@@ -113,7 +115,7 @@ Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span, uint8_t* ou
     }
 
     // If nan_is_null, we must also check for nans.
-    if (is_floating(t) && NanOptionsState::Get(ctx).nan_is_null) {
+    if (is_floating(t) && nan_is_null) {
       switch (t) {
         case Type::FLOAT:
           SetNanBits<float>(span, out_bitmap, out_offset);
@@ -135,14 +137,15 @@ Status SetLogicalNullBits(KernelContext* ctx, const ArraySpan& span, uint8_t* ou
 
 Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   ArraySpan* out_span = out->array_span_mutable();
-  return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[1].data,
-                            out_span->offset, false);
+  return SetLogicalNullBits(batch[0].array, out_span->buffers[1].data, out_span->offset,
+                            /*set_on_null=*/false, /*nan_is_null=*/false);
 }
 
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   ArraySpan* out_span = out->array_span_mutable();
-  return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[1].data,
-                            out_span->offset, true);
+  return SetLogicalNullBits(batch[0].array, out_span->buffers[1].data, out_span->offset,
+                            /*set_on_null=*/true,
+                            /*nan_is_null=*/NanOptionsState::Get(ctx).nan_is_null);
 }
 
 struct IsNanOperator {
@@ -258,8 +261,8 @@ Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   // NullHandling::INTERSECTION and change the validity checks in exec.cc so that
   // they correctly handle logical nulls, but that would invove significant changes
   // in exec.cc which might have more side effects
-  return SetLogicalNullBits(ctx, batch[0].array, out_span->buffers[0].data,
-                            out_span->offset, false);
+  return SetLogicalNullBits(batch[0].array, out_span->buffers[0].data, out_span->offset,
+                            /*set_on_null=*/false, /*nan_is_null=*/false);
 }
 
 const FunctionDoc is_valid_doc(

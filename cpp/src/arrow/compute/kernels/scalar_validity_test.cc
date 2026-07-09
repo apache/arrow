@@ -87,6 +87,9 @@ TEST_F(TestBooleanValidityKernels, LogicalNulls) {
                                     R"(["itsy", "bitsy", "spider"])");
   CheckValidityKernels(no_nulls, ArrayFromJSON(boolean(), "[true, true, true, true]"));
 
+  CheckValidityKernels(ArrayFromJSON(float64(), "[1.0, NaN, null, 2.0]"),
+                       ArrayFromJSON(boolean(), "[true, true, false, true]"));
+
   ASSERT_OK_AND_ASSIGN(auto ree,
                        RunEndEncode(ArrayFromJSON(int64(), "[11, 11, null, null, 12]")));
   CheckValidityKernels(ree, ArrayFromJSON(boolean(), "[true, true, false, false, true]"));
