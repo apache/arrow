@@ -242,8 +242,9 @@ class BrowserDriver:
                 return self.execute_python(code, timeout=300)
             except TimeoutError:
                 if attempt == 2:
-                    raise TimeoutError("Timed out loading PyArrow in browser")
-                print("Timed out loading PyArrow in browser; restarting worker",
+                    raise TimeoutError(
+                        "Timed out initializing Pyodide/PyArrow in browser")
+                print("Timed out initializing Pyodide/loading PyArrow. Restarting",
                       flush=True)
                 self.restart_worker()
 
