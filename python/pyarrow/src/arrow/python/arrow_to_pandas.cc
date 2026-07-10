@@ -1292,24 +1292,11 @@ struct ObjectWriterVisitor {
     auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
                               PyObject** out) {
       ARROW_DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
-      // DateOffset objects do not add nanoseconds component to pd.Timestamp.
-      // as of Pandas 1.3.3
-      // (https://github.com/pandas-dev/pandas/issues/43892).
-      // So convert microseconds and remainder to preserve data
-      // but give users more expected results.
-      int64_t microseconds = interval.nanoseconds / 1000;
-      int64_t nanoseconds;
-      if (interval.nanoseconds >= 0) {
-        nanoseconds = interval.nanoseconds % 1000;
-      } else {
-        nanoseconds = -((-interval.nanoseconds) % 1000);
-      }
 
       PyDict_SetItemString(kwargs.obj(), "months", PyLong_FromLong(interval.months));
       PyDict_SetItemString(kwargs.obj(), "days", PyLong_FromLong(interval.days));
-      PyDict_SetItemString(kwargs.obj(), "microseconds",
-                           PyLong_FromLongLong(microseconds));
-      PyDict_SetItemString(kwargs.obj(), "nanoseconds", PyLong_FromLongLong(nanoseconds));
+      PyDict_SetItemString(kwargs.obj(), "nanoseconds",
+                           PyLong_FromLongLong(interval.nanoseconds));
       *out =
           PyObject_Call(internal::BorrowPandasDataOffsetType(), args.obj(), kwargs.obj());
       RETURN_IF_PYERROR();
