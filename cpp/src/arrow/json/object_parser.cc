@@ -16,72 +16,116 @@
 // under the License.
 
 #include "arrow/json/object_parser.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 
-#include <rapidjson/document.h>
+#include <simdjson.h>
 
 namespace arrow {
 namespace json {
 namespace internal {
 
-namespace rj = arrow::rapidjson;
-
 class ObjectParser::Impl {
  public:
   Status Parse(std::string_view json) {
-    document_.Parse(reinterpret_cast<const rj::Document::Ch*>(json.data()),
-                    static_cast<size_t>(json.size()));
+    // Copy into padded buffer
+    padded_json_ = simdjson::padded_string(json);
 
-    if (document_.HasParseError()) {
-      return Status::Invalid("Json parse error (offset ", document_.GetErrorOffset(),
-                             "): ", document_.GetParseError());
+    // Parse
+    auto result = parser_.parse(padded_json_);
+
+    // Handle parse errors
+    if (result.error()) {
+      return Status::Invalid("Json parse error: ",
+                            simdjson::error_message(result.error()));
     }
-    if (!document_.IsObject()) {
+
+    // Store parsed document
+    document_ = std::move(result).value();
+
+    // Validate root is an object
+    if (!document_.is_object()) {
       return Status::TypeError("Not a json object");
     }
+
     return Status::OK();
   }
 
   Result<std::string> GetString(const char* key) const {
-    if (!document_.HasMember(key)) {
+    auto field = document_[key];
+    if (field.error() == simdjson::NO_SUCH_FIELD) {
       return Status::KeyError("Key '", key, "' does not exist");
     }
-    if (!document_[key].IsString()) {
+    if (field.error()) {
+      return Status::Invalid("Error accessing key '", key,
+                            "': ", simdjson::error_message(field.error()));
+    }
+
+    auto str_result = field.get_string();
+    if (str_result.error() == simdjson::INCORRECT_TYPE) {
       return Status::TypeError("Key '", key, "' is not a string");
     }
-    return document_[key].GetString();
+    if (str_result.error()) {
+      return Status::Invalid("Error getting string for key '", key,
+                            "': ", simdjson::error_message(str_result.error()));
+    }
+
+    return std::string(str_result.value());
   }
 
   Result<std::unordered_map<std::string, std::string>> GetStringMap() const {
     std::unordered_map<std::string, std::string> map;
-    for (auto itr = document_.MemberBegin(); itr != document_.MemberEnd(); ++itr) {
-      const auto& json_name = itr->name;
-      const auto& json_value = itr->value;
-      if (!json_name.IsString()) {
-        return Status::TypeError("Key is not a string");
-      }
-      std::string name = json_name.GetString();
-      if (!json_value.IsString()) {
-        return Status::TypeError("Key '", name, "' does not have a string value");
-      }
-      std::string value = json_value.GetString();
-      map.insert({std::move(name), std::move(value)});
+
+    auto obj_result = document_.get_object();
+    if (obj_result.error()) {
+      return Status::TypeError("Document is not an object");
     }
+
+    simdjson::dom::object obj = obj_result.value();
+
+    for (auto [key, value] : obj) {
+      auto str_result = value.get_string();
+
+      if (str_result.error() == simdjson::INCORRECT_TYPE) {
+        return Status::TypeError("Key '", std::string(key),
+                                "' does not have a string value");
+      }
+      if (str_result.error()) {
+        return Status::Invalid("Error getting value for key '",
+                              std::string(key), "': ",
+                              simdjson::error_message(str_result.error()));
+      }
+
+      map.emplace(std::string(key), std::string(str_result.value()));
+    }
+
     return map;
   }
 
   Result<bool> GetBool(const char* key) const {
-    if (!document_.HasMember(key)) {
+    auto field = document_[key];
+    if (field.error() == simdjson::NO_SUCH_FIELD) {
       return Status::KeyError("Key '", key, "' does not exist");
     }
-    if (!document_[key].IsBool()) {
+    if (field.error()) {
+      return Status::Invalid("Error accessing key '", key,
+                            "': ", simdjson::error_message(field.error()));
+    }
+
+    auto bool_result = field.get_bool();
+    if (bool_result.error() == simdjson::INCORRECT_TYPE) {
       return Status::TypeError("Key '", key, "' is not a boolean");
     }
-    return document_[key].GetBool();
+    if (bool_result.error()) {
+      return Status::Invalid("Error getting bool for key '", key,
+                            "': ", simdjson::error_message(bool_result.error()));
+    }
+
+    return bool_result.value();
   }
 
  private:
-  rj::Document document_;
+  simdjson::dom::parser parser_;
+  simdjson::padded_string padded_json_;
+  simdjson::dom::element document_;
 };
 
 ObjectParser::ObjectParser() : impl_(new ObjectParser::Impl()) {}
