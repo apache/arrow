@@ -22,6 +22,7 @@
 #include <cstring>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -660,6 +661,10 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
 
 namespace {
 
+/***************************
+ *  SkippableTypedDecoder  *
+ ***************************/
+
 /// Wrapper around a `TypedDecoder` pointer to skip values.
 ///
 /// Use a scratch buffer to decode values into that buffer.
@@ -726,9 +731,132 @@ class SkippableTypedDecoder {
   }
 };
 
-// ----------------------------------------------------------------------
-// Impl base class for TypedColumnReader and RecordReader
+/*************************
+ *  DefRepLevelsDecoder  *
+ *************************/
 
+class DefRepLevelsDecoder {
+ public:
+  DefRepLevelsDecoder(int16_t max_def, int16_t max_rep)
+      : def_lvl_dec_(max_def), rep_lvl_dec_(max_rep) {}
+
+  int16_t max_def_level() const { return def_lvl_dec_.max_level(); }
+  int16_t max_rep_level() const { return rep_lvl_dec_.max_level(); }
+
+  // Initialize repetition and definition level decoders on the next data page.
+  // If the data page includes repetition and definition levels, we
+  // initialize the level decoders and return the number of encoded level bytes.
+  // The return value helps determine the number of bytes in the encoded data.
+  int64_t InitializeV1(const DataPageV1& page);
+  int64_t InitializeV2(const DataPageV2& page);
+
+  int ReadDefinitionLevels(int batch_size, int16_t* levels);
+  int ReadRepetitionLevels(int batch_size, int16_t* levels);
+
+  /// Advance both level decoders by num_levels, without materializing them.
+  ///
+  /// @return The number of values present (non-null) among them, which is the
+  ///         number of values to skip in the data decoder.
+  int AdvanceLevels(int num_levels);
+
+ private:
+  LevelDecoder def_lvl_dec_;
+  LevelDecoder rep_lvl_dec_;
+};
+
+/****************************************
+ *  DefRepLevelsDecoder Implementation  *
+ ****************************************/
+
+inline int64_t DefRepLevelsDecoder::InitializeV1(const DataPageV1& page) {
+  const auto num_values = static_cast<int>(page.num_values());
+
+  const uint8_t* buffer = page.data();
+  int32_t levels_byte_size = 0;
+  int32_t max_size = page.size();
+
+  if (max_rep_level() > 0) {
+    int32_t rep_levels_bytes = rep_lvl_dec_.SetData(
+        page.repetition_level_encoding(), max_rep_level(), num_values, buffer, max_size);
+    buffer += rep_levels_bytes;
+    levels_byte_size += rep_levels_bytes;
+    max_size -= rep_levels_bytes;
+  }
+
+  if (max_def_level() > 0) {
+    int32_t def_levels_bytes = def_lvl_dec_.SetData(
+        page.definition_level_encoding(), max_def_level(), num_values, buffer, max_size);
+    levels_byte_size += def_levels_bytes;
+    max_size -= def_levels_bytes;
+  }
+
+  return levels_byte_size;
+}
+
+inline int64_t DefRepLevelsDecoder::InitializeV2(const DataPageV2& page) {
+  const auto num_values = static_cast<int>(page.num_values());
+
+  const int64_t total_levels_length =
+      static_cast<int64_t>(page.repetition_levels_byte_length()) +
+      page.definition_levels_byte_length();
+  if (total_levels_length > page.size()) {
+    throw ParquetException("Data page too small for levels (corrupt header?)");
+  }
+
+  const uint8_t* buffer = page.data();
+
+  if (max_rep_level() > 0) {
+    rep_lvl_dec_.SetDataV2(page.repetition_levels_byte_length(), max_rep_level(),
+                           num_values, buffer);
+  }
+  // ARROW-17453: Even if max_rep_level_ is 0, there may still be
+  // repetition level bytes written and/or reported in the header by
+  // some writers (e.g. Athena)
+  buffer += page.repetition_levels_byte_length();
+
+  if (max_def_level() > 0) {
+    def_lvl_dec_.SetDataV2(page.definition_levels_byte_length(), max_def_level(),
+                           num_values, buffer);
+  }
+
+  return total_levels_length;
+}
+
+int DefRepLevelsDecoder::ReadDefinitionLevels(int batch_size, int16_t* levels) {
+  if (max_def_level() == 0) {
+    return 0;
+  }
+  return def_lvl_dec_.Decode(batch_size, levels);
+}
+
+int DefRepLevelsDecoder::ReadRepetitionLevels(int batch_size, int16_t* levels) {
+  if (max_rep_level() == 0) {
+    return 0;
+  }
+  return rep_lvl_dec_.Decode(batch_size, levels);
+}
+
+int DefRepLevelsDecoder::AdvanceLevels(int num_levels) {
+  int max_count = num_levels;
+  // Advance the definition levels, counting how many correspond to present
+  // (non-null) values that must be skipped in the data decoder.
+  if (this->max_def_level() > 0) {
+    const auto count = def_lvl_dec_.CountUpTo(this->max_def_level(), num_levels);
+    max_count = count.matching_count;
+    ARROW_DCHECK_EQ(count.processed_count, num_levels);
+  }
+  // Advance the repetition levels; their values are not needed.
+  if (this->max_rep_level() > 0) {
+    rep_lvl_dec_.Skip(num_levels);
+  }
+  return max_count;
+}
+
+/**************************
+ *  ColumnReaderImplBase  *
+ **************************/
+
+/// Impl base class for TypedColumnReader and RecordReader
 template <typename DType>
 class ColumnReaderImplBase {
  public:
@@ -741,13 +869,10 @@ class ColumnReaderImplBase {
  protected:
   using DecoderType = TypedDecoder<DType>;
 
+  DefRepLevelsDecoder levels_decoder_;
   const ColumnDescriptor* descr_;
   std::unique_ptr<PageReader> pager_;
   std::shared_ptr<Page> current_page_;
-  // No data set if full schema for this field has no optional or repeated elements
-  LevelDecoder definition_level_decoder_;
-  // No data set for flat schemas.
-  LevelDecoder repetition_level_decoder_;
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
   // non-repeated, required columns, this is equal to the number of encoded
@@ -785,32 +910,12 @@ class ColumnReaderImplBase {
   int64_t ReadValuesSpaced(int64_t batch_size, T* out, int64_t null_count,
                            uint8_t* valid_bits, int64_t valid_bits_offset);
 
-  // Read multiple definition levels into preallocated memory
-  //
-  // Returns the number of decoded definition levels
-  int64_t ReadDefinitionLevels(int64_t batch_size, int16_t* levels);
-
   bool HasNextInternal();
-
-  // Read multiple repetition levels into preallocated memory
-  // Returns the number of decoded repetition levels
-  int64_t ReadRepetitionLevels(int64_t batch_size, int16_t* levels);
 
   // Advance to the next data page
   bool ReadNewPage();
 
   void ConfigureDictionary(const DictionaryPage* page);
-
-  // Initialize repetition and definition level decoders on the next data page.
-
-  // If the data page includes repetition and definition levels, we
-  // initialize the level decoders and return the number of encoded level bytes.
-  // The return value helps determine the number of bytes in the encoded data.
-  int64_t InitializeLevelDecoders(const DataPage& page,
-                                  Encoding::type repetition_level_encoding,
-                                  Encoding::type definition_level_encoding);
-
-  int64_t InitializeLevelDecodersV2(const DataPageV2& page);
 
   // Get a decoder object for this page or create a new decoder if this is the
   // first page with this encoding.
@@ -818,8 +923,12 @@ class ColumnReaderImplBase {
 
   // Available values in the current data page, value includes repeated values
   // and nulls.
-  int64_t available_values_current_page() const {
-    return num_buffered_values_ - num_decoded_values_;
+  int32_t available_values_current_page() const {
+    // The number of values in a page fits inside an int32_t according to the spec.
+    const int64_t out = num_buffered_values_ - num_decoded_values_;
+    ARROW_DCHECK_GE(out, 0);
+    ARROW_DCHECK_LE(out, std::numeric_limits<int32_t>::max());
+    return static_cast<int32_t>(out);
   }
 
   int16_t max_def_level() const;
@@ -834,9 +943,8 @@ class ColumnReaderImplBase {
 template <typename DType>
 ColumnReaderImplBase<DType>::ColumnReaderImplBase(const ColumnDescriptor* descr,
                                                   ::arrow::MemoryPool* pool)
-    : descr_(descr),
-      definition_level_decoder_(descr->max_definition_level()),
-      repetition_level_decoder_(descr->max_repetition_level()),
+    : levels_decoder_(descr->max_definition_level(), descr->max_repetition_level()),
+      descr_(descr),
       pool_(pool),
       current_decoder_(pool) {}
 
@@ -857,15 +965,6 @@ int64_t ColumnReaderImplBase<DType>::ReadValuesSpaced(int64_t batch_size, T* out
 }
 
 template <typename DType>
-int64_t ColumnReaderImplBase<DType>::ReadDefinitionLevels(int64_t batch_size,
-                                                          int16_t* levels) {
-  if (max_def_level() == 0) {
-    return 0;
-  }
-  return definition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
-}
-
-template <typename DType>
 bool ColumnReaderImplBase<DType>::HasNextInternal() {
   // Either there is no data page available yet, or the data page has been
   // exhausted
@@ -875,15 +974,6 @@ bool ColumnReaderImplBase<DType>::HasNextInternal() {
     }
   }
   return true;
-}
-
-template <typename DType>
-int64_t ColumnReaderImplBase<DType>::ReadRepetitionLevels(int64_t batch_size,
-                                                          int16_t* levels) {
-  if (max_rep_level() == 0) {
-    return 0;
-  }
-  return repetition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
 }
 
 template <typename DType>
@@ -900,15 +990,18 @@ bool ColumnReaderImplBase<DType>::ReadNewPage() {
       ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
       continue;
     } else if (current_page_->type() == PageType::DATA_PAGE) {
-      const auto* page = static_cast<const DataPageV1*>(current_page_.get());
-      const int64_t levels_byte_size = InitializeLevelDecoders(
-          *page, page->repetition_level_encoding(), page->definition_level_encoding());
-      InitializeDataDecoder(*page, levels_byte_size);
+      const auto& page = static_cast<const DataPageV1&>(*current_page_);
+      const int64_t levels_byte_size = levels_decoder_.InitializeV1(page);
+      num_buffered_values_ = page.num_values();
+      num_decoded_values_ = 0;
+      InitializeDataDecoder(page, levels_byte_size);
       return true;
     } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
-      const auto* page = static_cast<const DataPageV2*>(current_page_.get());
-      int64_t levels_byte_size = InitializeLevelDecodersV2(*page);
-      InitializeDataDecoder(*page, levels_byte_size);
+      const auto& page = static_cast<const DataPageV2&>(*current_page_);
+      const int64_t levels_byte_size = levels_decoder_.InitializeV2(page);
+      num_buffered_values_ = page.num_values();
+      num_decoded_values_ = 0;
+      InitializeDataDecoder(page, levels_byte_size);
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data
@@ -954,82 +1047,6 @@ void ColumnReaderImplBase<DType>::ConfigureDictionary(const DictionaryPage* page
   new_dictionary_ = true;
   current_decoder_.SetDecoder(decoders_[encoding].get());
   ARROW_DCHECK(current_decoder_);
-}
-
-template <typename DType>
-int64_t ColumnReaderImplBase<DType>::InitializeLevelDecoders(
-    const DataPage& page, Encoding::type repetition_level_encoding,
-    Encoding::type definition_level_encoding) {
-  // Read a data page.
-  num_buffered_values_ = page.num_values();
-
-  // Have not decoded any values from the data page yet
-  num_decoded_values_ = 0;
-
-  const uint8_t* buffer = page.data();
-  int32_t levels_byte_size = 0;
-  int32_t max_size = page.size();
-
-  // Data page Layout: Repetition Levels - Definition Levels - encoded values.
-  // Levels are encoded as rle or bit-packed.
-  // Init repetition levels
-  if (max_rep_level() > 0) {
-    int32_t rep_levels_bytes = repetition_level_decoder_.SetData(
-        repetition_level_encoding, max_rep_level(),
-        static_cast<int>(num_buffered_values_), buffer, max_size);
-    buffer += rep_levels_bytes;
-    levels_byte_size += rep_levels_bytes;
-    max_size -= rep_levels_bytes;
-  }
-  // TODO figure a way to set max_def_level_ to 0
-  // if the initial value is invalid
-
-  // Init definition levels
-  if (max_def_level() > 0) {
-    int32_t def_levels_bytes = definition_level_decoder_.SetData(
-        definition_level_encoding, max_def_level(),
-        static_cast<int>(num_buffered_values_), buffer, max_size);
-    levels_byte_size += def_levels_bytes;
-    max_size -= def_levels_bytes;
-  }
-
-  return levels_byte_size;
-}
-
-template <typename DType>
-int64_t ColumnReaderImplBase<DType>::InitializeLevelDecodersV2(const DataPageV2& page) {
-  // Read a data page.
-  num_buffered_values_ = page.num_values();
-
-  // Have not decoded any values from the data page yet
-  num_decoded_values_ = 0;
-  const uint8_t* buffer = page.data();
-
-  const int64_t total_levels_length =
-      static_cast<int64_t>(page.repetition_levels_byte_length()) +
-      page.definition_levels_byte_length();
-
-  if (total_levels_length > page.size()) {
-    throw ParquetException("Data page too small for levels (corrupt header?)");
-  }
-
-  if (max_rep_level() > 0) {
-    repetition_level_decoder_.SetDataV2(page.repetition_levels_byte_length(),
-                                        max_rep_level(),
-                                        static_cast<int>(num_buffered_values_), buffer);
-  }
-  // ARROW-17453: Even if max_rep_level_ is 0, there may still be
-  // repetition level bytes written and/or reported in the header by
-  // some writers (e.g. Athena)
-  buffer += page.repetition_levels_byte_length();
-
-  if (max_def_level() > 0) {
-    definition_level_decoder_.SetDataV2(page.definition_levels_byte_length(),
-                                        max_def_level(),
-                                        static_cast<int>(num_buffered_values_), buffer);
-  }
-
-  return total_levels_length;
 }
 
 template <typename DType>
@@ -1081,14 +1098,12 @@ void ColumnReaderImplBase<DType>::InitializeDataDecoder(const DataPage& page,
 
 template <typename DType>
 int16_t ColumnReaderImplBase<DType>::max_def_level() const {
-  // max level indirectly part of this object storage
-  return definition_level_decoder_.max_level();
+  return levels_decoder_.max_def_level();
 }
 
 template <typename DType>
 int16_t ColumnReaderImplBase<DType>::max_rep_level() const {
-  // max level indirectly part of this object storage
-  return repetition_level_decoder_.max_level();
+  return levels_decoder_.max_rep_level();
 }
 
 template <typename DType>
@@ -1107,27 +1122,22 @@ int64_t ColumnReaderImplBase<DType>::Skip(int64_t num_values_to_skip) {
       // whole batch fits inside this Page and no page boundary is crossed.
       const int batch_size = static_cast<int>(values_to_skip);
 
-      // Advance the definition levels, counting how many correspond to present
-      // (non-null) values that must be skipped in the data decoder.
-      int64_t non_null_values_to_skip = batch_size;
-      if (this->max_def_level() > 0) {
-        const auto count =
-            this->definition_level_decoder_.CountUpTo(this->max_def_level(), batch_size);
-        non_null_values_to_skip = count.matching_count;
-        ARROW_DCHECK_EQ(count.processed_count, batch_size);
-      }
-      // Advance the repetition levels; their values are not needed.
-      if (this->max_rep_level() > 0) {
-        this->repetition_level_decoder_.Skip(batch_size);
-      }
+      int64_t non_null = levels_decoder_.AdvanceLevels(batch_size);
       // Skip the corresponding data values.
-      this->current_decoder_.Skip(non_null_values_to_skip);
+      this->current_decoder_.Skip(non_null);
 
       this->ConsumeBufferedValues(batch_size);
       values_to_skip -= batch_size;
     }
   }
   return num_values_to_skip - values_to_skip;
+}
+
+template <typename T, typename U>
+constexpr T clamp_to(U val) {
+  constexpr U kMax = std::numeric_limits<T>::max();
+  constexpr U kMin = std::numeric_limits<T>::min();
+  return static_cast<T>(std::clamp<U>(val, kMin, kMax));
 }
 
 // ----------------------------------------------------------------------
@@ -1189,15 +1199,16 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // Read definition and repetition levels. Also return the number of definition levels
   // and number of values to read. This function is called before reading values.
   //
-  // ReadLevels will throw exception when any num-levels read is not equal to the number
-  // of the levels can be read.
-  void ReadLevels(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-                  int64_t* num_def_levels, int64_t* non_null_values_to_read) {
+  // ReadLevelsInCurrentPage will throw exception when any num-levels read is not
+  // equal to the number of the levels can be read.
+  void ReadLevelsInCurrentPage(int32_t batch_size, int16_t* def_levels,
+                               int16_t* rep_levels, int64_t* num_def_levels,
+                               int64_t* non_null_values_to_read) {
     batch_size = std::min(batch_size, this->available_values_current_page());
-
     // If the field is required and non-repeated, there are no definition levels
     if (this->max_def_level() > 0 && def_levels != nullptr) {
-      *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
+      *num_def_levels =
+          this->levels_decoder_.ReadDefinitionLevels(batch_size, def_levels);
       if (ARROW_PREDICT_FALSE(*num_def_levels != batch_size)) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
@@ -1215,7 +1226,8 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
 
     // Not present for non-repeated fields
     if (this->max_rep_level() > 0 && rep_levels != nullptr) {
-      int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
+      int64_t num_rep_levels =
+          this->levels_decoder_.ReadRepetitionLevels(batch_size, rep_levels);
       if (batch_size != num_rep_levels) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
@@ -1225,8 +1237,11 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
 
 template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
-    int64_t batch_size, int16_t* def_levels, int16_t* rep_levels, int32_t* indices,
+    int64_t batch_size_64, int16_t* def_levels, int16_t* rep_levels, int32_t* indices,
     int64_t* indices_read, const T** dict, int32_t* dict_len) {
+  // This is only reading in the current page so this fits in an int32.
+  const auto batch_size = clamp_to<int32_t>(batch_size_64);
+
   bool has_dict_output = dict != nullptr && dict_len != nullptr;
   // Similar logic as ReadValues to get pages.
   if (!HasNext()) {
@@ -1254,7 +1269,8 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   // Similar logic as ReadValues to get def levels and rep levels.
   int64_t num_def_levels = 0;
   int64_t indices_to_read = 0;
-  ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &indices_to_read);
+  ReadLevelsInCurrentPage(batch_size, def_levels, rep_levels, &num_def_levels,
+                          &indices_to_read);
 
   // Read dictionary indices.
   *indices_read = ReadDictionaryIndices(indices_to_read, indices);
@@ -1272,9 +1288,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
 }
 
 template <typename DType>
-int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def_levels,
-                                                int16_t* rep_levels, T* values,
-                                                int64_t* values_read) {
+int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size_64,
+                                                int16_t* def_levels, int16_t* rep_levels,
+                                                T* values, int64_t* values_read) {
   // HasNext might invoke ReadNewPage until a data page with
   // `available_values_current_page() > 0` is found.
   if (!HasNext()) {
@@ -1282,15 +1298,18 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
     return 0;
   }
 
+  // This is only reading in the current page so this fits in an int32.
+  const auto batch_size = clamp_to<int32_t>(batch_size_64);
+
   // TODO(wesm): keep reading data pages until batch_size is reached, or the
   // row group is finished
   int64_t num_def_levels = 0;
   // Number of non-null values to read within `num_def_levels`.
   int64_t non_null_values_to_read = 0;
-  ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels,
-             &non_null_values_to_read);
+  ReadLevelsInCurrentPage(batch_size, def_levels, rep_levels, &num_def_levels,
+                          &non_null_values_to_read);
   // Should not return more values than available in the current data page,
-  // since currently, ReadLevels would only consume level from current
+  // since currently, ReadLevelsInCurrentPage would only consume levels from current
   // data page.
   if (ARROW_PREDICT_FALSE(num_def_levels > this->available_values_current_page())) {
     throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
@@ -1556,8 +1575,10 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
       /// We perform multiple batch reads until we either exhaust the row group
       /// or observe the desired number of records
-      int64_t batch_size =
-          std::min(level_batch_size, this->available_values_current_page());
+      const int64_t batch_size_64 =
+          std::min<int64_t>(level_batch_size, this->available_values_current_page());
+      // available_values_current_page fits in int32_t
+      const auto batch_size = static_cast<int32_t>(batch_size_64);
 
       // No more data in column
       if (batch_size == 0) {
@@ -1570,12 +1591,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
         int16_t* def_levels = this->def_levels() + levels_written_;
         int16_t* rep_levels = this->rep_levels() + levels_written_;
 
-        if (ARROW_PREDICT_FALSE(this->ReadDefinitionLevels(batch_size, def_levels) !=
-                                batch_size)) {
+        if (ARROW_PREDICT_FALSE(this->levels_decoder_.ReadDefinitionLevels(
+                                    batch_size, def_levels) != batch_size)) {
           throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
         }
         if (this->max_rep_level() > 0) {
-          int64_t rep_levels_read = this->ReadRepetitionLevels(batch_size, rep_levels);
+          int64_t rep_levels_read =
+              this->levels_decoder_.ReadRepetitionLevels(batch_size, rep_levels);
           if (ARROW_PREDICT_FALSE(rep_levels_read != batch_size)) {
             throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
           }
@@ -1585,7 +1607,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
         records_read += ReadRecordData(num_records - records_read);
       } else {
         // No repetition and definition levels, we can read values directly
-        batch_size = std::min(num_records - records_read, batch_size);
+        const auto batch_size = std::min(num_records - records_read, batch_size_64);
         records_read += ReadRecordData(batch_size);
       }
     }
@@ -1722,8 +1744,11 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       }
 
       // Read some more levels.
-      int64_t batch_size =
-          std::min(level_batch_size, this->available_values_current_page());
+      const int64_t batch_size_64 =
+          std::min<int64_t>(level_batch_size, this->available_values_current_page());
+      // available_values_current_page fits in int32_t
+      const auto batch_size = static_cast<int32_t>(batch_size_64);
+
       // No more data in column. This must be an empty page.
       // If we had exhausted the last page, HasNextInternal() must have advanced
       // to the next page. So there must be available values to process.
@@ -1738,10 +1763,12 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       int16_t* def_levels = this->def_levels() + levels_written_;
       int16_t* rep_levels = this->rep_levels() + levels_written_;
 
-      if (this->ReadDefinitionLevels(batch_size, def_levels) != batch_size) {
+      if (this->levels_decoder_.ReadDefinitionLevels(batch_size, def_levels) !=
+          batch_size) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
-      if (this->ReadRepetitionLevels(batch_size, rep_levels) != batch_size) {
+      if (this->levels_decoder_.ReadRepetitionLevels(batch_size, rep_levels) !=
+          batch_size) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
 
