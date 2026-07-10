@@ -633,7 +633,18 @@ module ArrowFormat
   end
 
   class VariableSizeBinaryArray < Array
-    def initialize(size, validity_buffer, offsets_buffer, values_buffer)
+    include BufferAlignable
+
+    def initialize(*args)
+      if args.size == 1
+        args = build_data(args.first)
+      elsif args.size != 4
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size}, expected 1 or 4)"
+      end
+
+      size, validity_buffer, offsets_buffer, values_buffer = args
+
       super(self.class.type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
       @values_buffer = values_buffer
@@ -673,6 +684,48 @@ module ArrowFormat
     end
 
     private
+    def build_data(data)
+      type = self.class.type
+
+      n = 0
+      validity_buffer_builder = nil
+
+      values = +"".b
+      offsets = [0]
+
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+
+          offsets << values.bytesize
+        else
+          values.append_as_bytes(value)
+          offsets << values.bytesize
+        end
+
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+
+      offsets_data = offsets.pack("#{type.offset_pack_template}*")
+      pad!(offsets_data, buffer_padding_size(offsets_data))
+      offsets_data.freeze
+      offsets_buffer = IO::Buffer.for(offsets_data)
+
+      pad!(values, buffer_padding_size(values))
+      values.freeze
+      values_buffer = IO::Buffer.for(values)
+
+      [
+        n,
+        validity_buffer,
+        offsets_buffer,
+        values_buffer,
+      ]
+    end
+
     def offset_size
       IO::Buffer.size_of(@type.offset_buffer_type)
     end
