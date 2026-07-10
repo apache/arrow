@@ -642,8 +642,12 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "l"
+    end
+
     def build_array(...)
-      YearMonthIntervalArray.new(self, ...)
+      YearMonthIntervalArray.new(...)
     end
   end
 
@@ -660,8 +664,12 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "ll"
+    end
+
     def build_array(...)
-      DayTimeIntervalArray.new(self, ...)
+      DayTimeIntervalArray.new(...)
     end
   end
 
@@ -678,8 +686,12 @@ module ArrowFormat
       @buffer_types ||= [:s32, :s32, :s64]
     end
 
+    def pack_template
+      "llq"
+    end
+
     def build_array(...)
-      MonthDayNanoIntervalArray.new(self, ...)
+      MonthDayNanoIntervalArray.new(...)
     end
   end
 

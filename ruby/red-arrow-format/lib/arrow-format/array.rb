@@ -271,9 +271,9 @@ module ArrowFormat
         if value.nil?
           validity_buffer_builder ||= SparseBitmapBuilder.new
           validity_buffer_builder.unset(i)
-          buffer.append_as_bytes([0].pack(pack_template))
+          buffer.append_as_bytes(pack_value(nil, pack_template))
         else
-          buffer.append_as_bytes([value].pack(pack_template))
+          buffer.append_as_bytes(pack_value(value, pack_template))
         end
         n += 1
       end
@@ -281,6 +281,11 @@ module ArrowFormat
       pad!(buffer, buffer_padding_size(buffer))
       buffer.freeze
       return n, validity_buffer, IO::Buffer.for(buffer)
+    end
+
+    def pack_value(value, template)
+      value = 0 if value.nil?
+      [value].pack(template)
     end
   end
 
@@ -491,9 +496,20 @@ module ArrowFormat
   end
 
   class YearMonthIntervalArray < IntervalArray
+    class << self
+      def type
+        YearMonthIntervalType.singleton
+      end
+    end
   end
 
   class DayTimeIntervalArray < IntervalArray
+    class << self
+      def type
+        DayTimeIntervalType.singleton
+      end
+    end
+
     def to_a
       return [] if empty?
 
@@ -501,19 +517,59 @@ module ArrowFormat
       values = @values_buffer.
                  each(@type.buffer_type, offset, @size * 2).
                  each_slice(2).
-                 collect do |(_, day), (_, time)|
-        [day, time]
+                 collect do |(_, day), (_, millisecond)|
+        [day, millisecond]
       end
       apply_validity(values)
+    end
+
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      each_value = Enumerator.new(@size) do |yielder|
+        offset = element_size * @offset
+        @values_buffer.
+          each(@type.buffer_type, offset, @size * 2).
+          each_slice(2) do |(_, day), (_, millisecond)|
+          yielder << [day, millisecond]
+        end
+      end
+      if @validity_buffer.nil?
+        each_value.each(&block)
+      else
+        validity_bitmap.zip(each_value) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
     end
 
     private
     def element_size
       super * 2
     end
+
+    def pack_value(value, template)
+      if value.nil?
+        [0, 0].pack(template)
+      elsif value.is_a?(Hash)
+        [value[:day], value[:millisecond]].pack(template)
+      else
+        value.pack(template)
+      end
+    end
   end
 
   class MonthDayNanoIntervalArray < IntervalArray
+    class << self
+      def type
+        MonthDayNanoIntervalType.singleton
+      end
+    end
+
     def to_a
       return [] if empty?
 
@@ -527,9 +583,44 @@ module ArrowFormat
       apply_validity(values)
     end
 
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      each_value = Enumerator.new(@size) do |yielder|
+        buffer_types = @type.buffer_types
+        value_size = IO::Buffer.size_of(buffer_types)
+        base_offset = value_size * @offset
+        @size.times do |i|
+          offset = base_offset + value_size * i
+          yielder << @values_buffer.get_values(buffer_types, offset)
+        end
+      end
+      if @validity_buffer.nil?
+        each_value.each(&block)
+      else
+        validity_bitmap.zip(each_value) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
+    end
+
     private
     def element_size
       IO::Buffer.size_of(@type.buffer_types)
+    end
+
+    def pack_value(value, template)
+      if value.nil?
+        [0, 0, 0].pack(template)
+      elsif value.is_a?(Hash)
+        [value[:month], value[:day], value[:nanosecond]].pack(template)
+      else
+        value.pack(template)
+      end
     end
   end
 
