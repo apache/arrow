@@ -64,6 +64,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     re2
     Protobuf
     RapidJSON
+    simdjson
     Snappy
     Substrait
     Thrift
@@ -137,6 +138,10 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if("${GTest_SOURCE}" STREQUAL "")
     set(GTest_SOURCE "AUTO")
   endif()
+  # simdjson is not commonly available in conda, so we allow auto fallback.
+  if("${simdjson_SOURCE}" STREQUAL "")
+    set(simdjson_SOURCE "AUTO")
+  endif()
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
@@ -209,6 +214,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
     build_rapidjson()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "simdjson")
+    build_simdjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
@@ -409,6 +416,10 @@ endif()
 
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
+endif()
+
+if(ARROW_JSON)
+  set(ARROW_WITH_SIMDJSON ON)
 endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT)
@@ -761,6 +772,15 @@ else()
   set_urls(RAPIDJSON_SOURCE_URL
            "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_SIMDJSON_URL})
+  set(SIMDJSON_SOURCE_URL "$ENV{ARROW_SIMDJSON_URL}")
+else()
+  set_urls(
+    SIMDJSON_SOURCE_URL
+    "https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
+    "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_S2N_TLS_URL})
@@ -2778,6 +2798,61 @@ if(ARROW_BUILD_BENCHMARKS)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
+endif()
+
+macro(build_simdjson)
+  message(STATUS "Building simdjson from source")
+  set(SIMDJSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/simdjson_ep/src/simdjson_ep-install")
+  set(SIMDJSON_INCLUDE_DIR "${SIMDJSON_PREFIX}/include")
+  set(SIMDJSON_LIB_DIR "${SIMDJSON_PREFIX}/lib")
+
+  set(SIMDJSON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DSIMDJSON_BUILD_STATIC_LIB=ON
+      -DSIMDJSON_DEVELOPER_MODE=OFF
+      -DSIMDJSON_ENABLE_THREADS=ON
+      -DBUILD_SHARED_LIBS=OFF
+      "-DCMAKE_INSTALL_PREFIX=${SIMDJSON_PREFIX}")
+
+  set(SIMDJSON_STATIC_LIB
+      "${SIMDJSON_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}simdjson${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
+  externalproject_add(simdjson_ep
+                      ${EP_COMMON_OPTIONS}
+                      PREFIX "${CMAKE_BINARY_DIR}"
+                      URL ${SIMDJSON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${SIMDJSON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${SIMDJSON_STATIC_LIB}")
+
+  # The include directory must exist before it is referenced by a target.
+  file(MAKE_DIRECTORY "${SIMDJSON_INCLUDE_DIR}")
+
+  # Check if target already exists (may have been created by find_package with incompatible version)
+  if(NOT TARGET simdjson::simdjson)
+    add_library(simdjson::simdjson STATIC IMPORTED)
+  endif()
+  set_target_properties(simdjson::simdjson
+                        PROPERTIES IMPORTED_LOCATION "${SIMDJSON_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${SIMDJSON_INCLUDE_DIR}")
+  add_dependencies(simdjson::simdjson simdjson_ep)
+
+  set(SIMDJSON_VENDORED TRUE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson::simdjson)
+endmacro()
+
+if(ARROW_WITH_SIMDJSON)
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "3.0.0")
+  resolve_dependency(simdjson
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_SIMDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
 endif()
