@@ -696,6 +696,20 @@ module ArrowFormat
   end
 
   class DurationType < TemporalType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :unit
     def initialize(unit)
       super()
@@ -708,6 +722,10 @@ module ArrowFormat
 
     def buffer_type
       :s64
+    end
+
+    def pack_template
+      "q"
     end
 
     def build_array(...)
