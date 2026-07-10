@@ -107,15 +107,15 @@ struct LevelDecoder::Impl {
 
   std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder = {};
 
-  [[nodiscard]] int GetBatch(int16_t* out, int batch_size) {
+  [[nodiscard]] int32_t GetBatch(int16_t* out, int32_t batch_size) {
     return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder);
   }
 
-  [[nodiscard]] int Advance(int batch_size) {
+  [[nodiscard]] int32_t Advance(int32_t batch_size) {
     return std::visit([&](auto& dec) { return dec.Advance(batch_size); }, decoder);
   }
 
-  auto CountUpTo(int16_t value, int batch_size) {
+  auto CountUpTo(int16_t value, int32_t batch_size) {
     return std::visit([&](auto& dec) { return dec.CountUpTo(value, batch_size); },
                       decoder);
   }
@@ -126,12 +126,12 @@ LevelDecoder::LevelDecoder(int16_t max_level)
 
 LevelDecoder::~LevelDecoder() = default;
 
-int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
-                          int num_buffered_values, const uint8_t* data,
-                          int32_t data_size) {
+int32_t LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
+                              int32_t num_buffered_values, const uint8_t* data,
+                              int32_t data_size) {
   max_level_ = max_level;
   num_values_remaining_ = num_buffered_values;
-  const int value_bit_width = bit_util::Log2(max_level + 1);
+  const int32_t value_bit_width = bit_util::Log2(max_level + 1);
 
   switch (encoding) {
     case Encoding::RLE: {
@@ -149,7 +149,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       return 4 + num_bytes;
     }
     case Encoding::BIT_PACKED: {
-      int num_bits = 0;
+      int32_t num_bits = 0;
       if (MultiplyWithOverflow(num_buffered_values, value_bit_width, &num_bits)) {
         throw ParquetException(
             "Number of buffered values too large (corrupt data page?)");
@@ -173,7 +173,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
 }
 
 void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
-                             int num_buffered_values, const uint8_t* data) {
+                             int32_t num_buffered_values, const uint8_t* data) {
   max_level_ = max_level;
   // Repetition and definition levels always uses RLE encoding
   // in the DataPageV2 format.
@@ -188,9 +188,9 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
       /* value_bit_width= */ bit_util::Log2(max_level + 1));
 }
 
-int LevelDecoder::Decode(int batch_size, int16_t* levels) {
-  const int num_values = std::min(num_values_remaining_, batch_size);
-  const int num_decoded = impl_->GetBatch(levels, num_values);
+int32_t LevelDecoder::Decode(int32_t batch_size, int16_t* levels) {
+  const int32_t num_values = std::min(num_values_remaining_, batch_size);
+  const int32_t num_decoded = impl_->GetBatch(levels, num_values);
   if (num_decoded > 0) {
     internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
     if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
@@ -204,16 +204,16 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   return num_decoded;
 }
 
-int LevelDecoder::Skip(int batch_size) {
-  const int num_values = std::min(num_values_remaining_, batch_size);
-  const int num_advanced = impl_->Advance(num_values);
+int32_t LevelDecoder::Skip(int32_t batch_size) {
+  const int32_t num_values = std::min(num_values_remaining_, batch_size);
+  const int32_t num_advanced = impl_->Advance(num_values);
   ARROW_DCHECK_EQ(num_values, num_advanced);
   num_values_remaining_ -= num_advanced;
   return num_advanced;
 }
 
-auto LevelDecoder::CountUpTo(int16_t value, int batch_size) -> CountUpToResult {
-  const int num_values = std::min(num_values_remaining_, batch_size);
+auto LevelDecoder::CountUpTo(int16_t value, int32_t batch_size) -> CountUpToResult {
+  const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const auto result = impl_->CountUpTo(value, num_values);
   ARROW_DCHECK_EQ(num_values, result.processed_count);
   num_values_remaining_ -= result.processed_count;
