@@ -463,6 +463,12 @@ module ArrowFormat
       @unit = unit
     end
 
+    def ==(other)
+      other.is_a?(self.class) and
+        @bit_width == other.bit_width and
+        @unit == other.unit
+    end
+
     def to_s
       "#{super}(#{unit})"
     end
