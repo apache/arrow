@@ -363,14 +363,14 @@ class PARQUET_EXPORT RecordReader {
   /// \brief Decoded values, including nulls, if any
   /// FLBA and ByteArray types do not use this array and read into their own
   /// builders.
-  uint8_t* values() const { return values_->mutable_data(); }
+  virtual uint8_t* values() const = 0;
 
   /// \brief Number of values written, including space left for nulls if any.
   /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
   /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
   /// FLBA and ByteArray types this value reflects the values written with the last
   /// ReadRecords call since those readers will reset the values after each call.
-  int64_t values_written() const { return values_written_; }
+  virtual int64_t values_written() const = 0;
 
   /// \brief Number of definition / repetition levels (from those that have
   /// been decoded) that have been consumed inside the reader.
@@ -404,17 +404,6 @@ class PARQUET_EXPORT RecordReader {
   bool at_record_start_;
   int64_t records_read_;
 
-  /// \brief Stores values. These values are populated based on each ReadRecords
-  /// call. No extra values are buffered for the next call. SkipRecords will not
-  /// add any value to this buffer.
-  std::shared_ptr<::arrow::ResizableBuffer> values_;
-  /// \brief False for FIXED_LEN_BYTE_ARRAY and BYTE_ARRAY, in which case we
-  /// don't allocate the values buffer and we directly read into builder classes.
-  bool uses_values_;
-
-  /// \brief Values that we have read into 'values_' + 'null_count_'.
-  int64_t values_written_;
-  int64_t values_capacity_;
   int64_t null_count_;
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
