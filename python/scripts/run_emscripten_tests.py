@@ -67,22 +67,8 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                                 evt.data.print.forEach((x)=>{window.python_logs.push(x)});
                             }
                         }
-                        function startPyWorker() {
-                            window.pyworker_failed = false;
-                            window.pyworker = new Worker("worker.js");
-                            window.pyworker.onmessage = capturelogs;
-                            window.pyworker.onerror = (evt) => {
-                                window.pyworker_failed = true;
-                                window.python_logs.push(...new TextEncoder().encode(
-                                    `Worker error: ${evt.message}\n`));
-                                if (window.python_done_callback) {
-                                    let callback = window.python_done_callback;
-                                    window.python_done_callback = undefined;
-                                    callback({result: 1});
-                                }
-                            };
-                        }
-                        startPyWorker();
+                        window.pyworker = new Worker("worker.js");
+                        window.pyworker.onmessage = capturelogs;
                     </script>
                 </head>
                 <body></body>
@@ -96,28 +82,22 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
         elif self.path.endswith("/worker.js"):
             body = b"""
                 importScripts("./pyodide.js");
-                function do_print(arg) {
-                    let databytes = Array.from(arg);
-                    self.postMessage({print:databytes});
-                    return databytes.length;
-                }
                 onmessage = async function (e) {
                     const data = e.data;
-                    try {
-                        if (!self.pyodide) {
-                            self.pyodide = await loadPyodide();
-                        }
-                        self.pyodide.setStdout({write:do_print,isatty:data.isatty});
-                        self.pyodide.setStderr({write:do_print,isatty:data.isatty});
-
-                        await self.pyodide.loadPackagesFromImports(data.python);
-                        let results = await self.pyodide.runPythonAsync(data.python);
-                        self.postMessage({results});
-                    } catch (error) {
-                        do_print(new TextEncoder().encode(
-                            `Worker failed: ${error && error.stack || error}\n`));
-                        self.postMessage({results: 1});
+                    if (!self.pyodide) {
+                        self.pyodide = await loadPyodide();
                     }
+                    function do_print(arg) {
+                        let databytes = Array.from(arg);
+                        self.postMessage({print:databytes});
+                        return databytes.length;
+                    }
+                    self.pyodide.setStdout({write:do_print,isatty:data.isatty});
+                    self.pyodide.setStderr({write:do_print,isatty:data.isatty});
+
+                    await self.pyodide.loadPackagesFromImports(data.python);
+                    let results = await self.pyodide.runPythonAsync(data.python);
+                    self.postMessage({results});
                 }
                 """
             self.send_response(200)
@@ -222,78 +202,56 @@ class BrowserDriver:
     def __init__(self, hostname, port, driver):
         self.driver = driver
         self.driver.get(f"http://{hostname}:{port}/test.html")
+        # Chrome on CI takes longer than locally to compile.
+        self.driver.set_script_timeout(1200)
 
     def load_pyodide(self, dist_dir):
         pass
 
     def load_arrow(self):
-        code = (f"import pyodide_js as pjs\n"
-                f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
-        for attempt in range(3):
-            try:
-                result = self.execute_python(code, timeout=300)
-                if result:
-                    raise RuntimeError(
-                        "PyArrow wheel failed to load in browser "
-                        f"(exit status {result}), see log above")
-                return result
-            except TimeoutError:
-                if attempt == 2:
-                    raise TimeoutError(
-                        "Timed out initializing Pyodide/PyArrow in browser")
-                print("Timed out initializing Pyodide/loading PyArrow. Restarting",
-                      flush=True)
-                self.restart_worker()
-
-    def execute_python(self, code, wait_for_terminate=True, timeout=None):
-        self.driver.execute_script(
-            f"""
-            let python = `{code}`;
-            delete window.python_script_done;
-            window.python_done_callback= (x) => {{window.python_script_done=x;}};
-            window.pyworker.postMessage(
-                {{python,isatty:{'true' if sys.stdout.isatty() else 'false'}}});
-            """
+        self.execute_python(
+            f"import pyodide_js as pjs\n"
+            f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n"
         )
+
+    def execute_python(self, code, wait_for_terminate=True):
         if wait_for_terminate:
-            return self.wait_for_done(timeout=timeout)
-
-    def restart_worker(self):
-        self.driver.execute_script(
-            "window.pyworker.terminate(); startPyWorker(); "
-            "delete window.python_script_done; window.python_done_callback = undefined;"
-        )
+            self.driver.execute_async_script(
+                f"""
+                let callback = arguments[arguments.length-1];
+                python = `{code}`;
+                window.python_done_callback = callback;
+                window.pyworker.postMessage(
+                    {{python, isatty: {'true' if sys.stdout.isatty() else 'false'}}});
+                """
+            )
+        else:
+            self.driver.execute_script(
+                f"""
+                let python = `{code}`;
+                window.python_done_callback= (x) => {{window.python_script_done=x;}};
+                window.pyworker.postMessage(
+                    {{python,isatty:{'true' if sys.stdout.isatty() else 'false'}}});
+                """
+            )
 
     def clear_logs(self):
         self.driver.execute_script("window.python_logs = [];")
 
-    def wait_for_done(self, timeout=None):
-        start = last_heartbeat = time.monotonic()
+    def wait_for_done(self):
         while True:
             # poll for console.log messages from our webworker
-            # (output of pytest), completion and worker death
-            state = self.driver.execute_script(
-                "let logs = window.python_logs; window.python_logs = [];"
-                "return {logs: logs, done: window.python_script_done,"
-                "        failed: window.pyworker_failed === true};"
+            # which are the output of pytest
+            lines = self.driver.execute_script(
+                "let temp = window.python_logs;window.python_logs=[];return temp;"
             )
-            lines = state.get("logs") or []
             if len(lines) > 0:
                 sys.stdout.buffer.write(bytes(lines))
-                sys.stdout.buffer.flush()
-            done = state.get("done")
+            done = self.driver.execute_script("return window.python_script_done;")
             if done is not None:
+                value = done["result"]
                 self.driver.execute_script("delete window.python_script_done;")
-                return done["result"]
-            if state.get("failed"):
-                raise RuntimeError(
-                    "Browser-side worker died. See 'Worker error:' in log above")
-            now = time.monotonic()
-            if timeout is not None and now - start > timeout:
-                raise TimeoutError
-            if now - last_heartbeat > 30:
-                print("Waiting for browser-side Python to finish...", flush=True)
-                last_heartbeat = now
+                return value
             time.sleep(0.1)
 
 
@@ -304,7 +262,6 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
         driver = webdriver.Chrome(options=options)
         driver.command_executor._client_config.timeout = 1200
         super().__init__(hostname, port, driver)
