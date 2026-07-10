@@ -63,6 +63,15 @@ struct PARQUET_EXPORT DataPageStats {
   std::optional<int32_t> num_rows;
 };
 
+/// Decoder for repetition of definition level.
+///
+/// This decoder is used with either a deprecated bit packed (`BIT_PACKED = 4`)
+/// encoding or a mixed bit packed and RLE one (`RLE = 3`).
+/// Because it take as input a single buffer, `SetData` and `Decode` are typically
+/// used on each of the parquet `DataPage`.
+/// The number of levels is guaranteed to fit into an `int32_t` by the specification.
+///
+/// @see https://research.google.com/pubs/archive/36632.pdf
 class PARQUET_EXPORT LevelDecoder {
  public:
   explicit LevelDecoder(int16_t max_level = 0);
@@ -72,34 +81,34 @@ class PARQUET_EXPORT LevelDecoder {
   /// Initialize the LevelDecoder state with new data from a legacy (V1) page.
   ///
   /// @return the number of bytes consumed
-  int SetData(Encoding::type encoding, int16_t max_level, int num_buffered_values,
-              const uint8_t* data, int32_t data_size);
+  int32_t SetData(Encoding::type encoding, int16_t max_level, int32_t num_buffered_values,
+                  const uint8_t* data, int32_t data_size);
 
   /// Initialize the LevelDecoder state with new data from a V2 page.
   ///
   /// Repetition and definition levels in V2 pages are always RLE encoded.
-  void SetDataV2(int32_t num_bytes, int16_t max_level, int num_buffered_values,
+  void SetDataV2(int32_t num_bytes, int16_t max_level, int32_t num_buffered_values,
                  const uint8_t* data);
 
-  /// Decode a batch of levels into an array and returns the number of levels decoded.
-  int Decode(int batch_size, int16_t* levels);
+  /// Decode a batch of levels int32_to an array and returns the number of levels decoded.
+  int32_t Decode(int32_t batch_size, int16_t* levels);
 
   /// Advance the decoder and throw away decoder levels.
-  int Skip(int batch_size);
+  int32_t Skip(int32_t batch_size);
 
   struct CountUpToResult {
-    int matching_count;
-    int processed_count;
+    int32_t matching_count;
+    int32_t processed_count;
   };
 
   /// Advance and count the number of occurrences of `value`.
   ///
   /// The count is limited to at most the next `batch_size` items.
   /// @return The matching value count and number of elements that were processed.
-  CountUpToResult CountUpTo(int16_t value, int batch_size);
+  CountUpToResult CountUpTo(int16_t value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
-  int max_level() const { return max_level_; }
+  int32_t max_level() const { return max_level_; }
 
  private:
   struct Impl;
@@ -107,7 +116,7 @@ class PARQUET_EXPORT LevelDecoder {
   std::unique_ptr<Impl> impl_;
   /// Number of value remaining. The underlying decoder zero pads bit packed values
   /// up to a multiple of 8 so it cannot know the exact number of remaining values.
-  int num_values_remaining_ = 0;
+  int32_t num_values_remaining_ = 0;
   int16_t max_level_;
 };
 
