@@ -1317,7 +1317,128 @@ namespace internal {
 
 namespace {
 
+inline int64_t compute_capacity_pow2(int64_t capacity, int64_t size, int64_t extra_size) {
+  if (extra_size < 0) {
+    throw ParquetException("Negative size (corrupt file?)");
+  }
+  int64_t target_size = -1;
+  if (AddWithOverflow(size, extra_size, &target_size)) {
+    throw ParquetException("Allocation size too large (corrupt file?)");
+  }
+  if (target_size >= (1LL << 62)) {
+    throw ParquetException("Allocation size too large (corrupt file?)");
+  }
+  if (capacity >= target_size) {
+    return capacity;
+  }
+  return bit_util::NextPower2(target_size);
+}
+
+class ReadValuesCursor {
+ public:
+  int64_t capacity() const { return capacity_; }
+
+  int64_t values_count() const { return values_count_; }
+
+  void increase_values_count(int64_t extra_values) { values_count_ += extra_values; }
+
+  int64_t fit_capacity_for_extra(int64_t extra_values) {
+    auto new_capacity = compute_capacity_pow2(capacity_, values_count_, extra_values);
+    ARROW_DCHECK_GE(new_capacity, capacity());
+    return std::exchange(capacity_, new_capacity);
+  }
+
+  int64_t reset_capacity() { return std::exchange(capacity_, 0); }
+
+ private:
+  int64_t values_count_ = 0;
+  int64_t capacity_ = 0;
+};
+
 template <typename DType>
+class ReadValuesBuffer : private ReadValuesCursor {
+ public:
+  using value_type = typename DType::c_type;
+
+  using ReadValuesCursor::capacity;
+  using ReadValuesCursor::values_count;
+
+  explicit ReadValuesBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
+
+  value_type* data() const { return values_->mutable_data_as<value_type>(); }
+
+  value_type* write_start() { return data() + values_count(); }
+
+  void mark_values_as_written(int64_t extra_values) {
+    increase_values_count(extra_values);
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
+    // TODO should we set values_written to zero?
+    auto result = values_;
+    const auto byte_count = bytes_for_values(values_count());
+    PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
+    values_ = AllocateBuffer(pool);
+    reset_capacity();
+    return result;
+  }
+
+  void ReserveValues(int64_t extra_values) {
+    const auto old_capacity = fit_capacity_for_extra(extra_values);
+    if (capacity() > old_capacity) {
+      const auto byte_count = bytes_for_values(capacity());
+      PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
+    }
+  }
+
+  void ResetValues() {
+    if (values_count() > 0) {
+      PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
+      ReadValuesCursor::operator=({});
+    }
+  }
+
+ private:
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
+
+  static int64_t bytes_for_values(int64_t nitems) {
+    constexpr auto kValueByteSize = static_cast<int64_t>(sizeof(value_type));
+    int64_t bytes = -1;
+    if (MultiplyWithOverflow(nitems, kValueByteSize, &bytes)) {
+      throw ParquetException("Total size of items too large");
+    }
+    return bytes;
+  }
+};
+
+template <typename DType>
+class ReadValuesNoBuffer : private ReadValuesCursor {
+ public:
+  using value_type = typename DType::c_type;
+
+  using ReadValuesCursor::capacity;
+  using ReadValuesCursor::values_count;
+
+  explicit ReadValuesNoBuffer(MemoryPool* /* pool */) {}
+
+  value_type* data() const { return nullptr; }
+
+  value_type* write_start() { return nullptr; }
+
+  void mark_values_as_written(int64_t extra_values) {
+    increase_values_count(extra_values);
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* /* pool */) {
+    return nullptr;
+  }
+
+  void ReserveValues(int64_t extra_values) { fit_capacity_for_extra(extra_values); }
+
+  void ResetValues() { ReadValuesCursor::operator=({}); }
+};
+
+template <typename DType, typename ValuesBuffer = ReadValuesBuffer<DType>>
 class TypedRecordReader : public ColumnReaderImplBase<DType>,
                           virtual public RecordReader {
  public:
@@ -1325,40 +1446,24 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   using Base = ColumnReaderImplBase<DType>;
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable)
-      : Base(descr, pool) {
+      : Base(descr, pool), values_(pool) {
     leaf_info_ = leaf_info;
     nullable_values_ = leaf_info_.HasNullableValues();
     at_record_start_ = true;
-    values_written_ = 0;
     null_count_ = 0;
-    values_capacity_ = 0;
     levels_written_ = 0;
     levels_position_ = 0;
     levels_capacity_ = 0;
     read_dense_for_nullable_ = read_dense_for_nullable;
-    // FIXED_LEN_BYTE_ARRAY and BYTE_ARRAY values are not stored in the `values_` buffer,
-    // they are read directly as Arrow.
-    uses_values_ = (descr->physical_type() != Type::BYTE_ARRAY &&
-                    descr->physical_type() != Type::FIXED_LEN_BYTE_ARRAY);
-
-    if (uses_values_) {
-      values_ = AllocateBuffer(pool);
-    }
     valid_bits_ = AllocateBuffer(pool);
     def_levels_ = AllocateBuffer(pool);
     rep_levels_ = AllocateBuffer(pool);
     TypedRecordReader::Reset();
   }
 
-  // Compute the values capacity in bytes for the given number of elements
-  int64_t bytes_for_values(int64_t nitems) const {
-    int64_t type_size = GetTypeByteSize(this->descr_->physical_type());
-    int64_t bytes_for_values = -1;
-    if (MultiplyWithOverflow(nitems, type_size, &bytes_for_values)) {
-      throw ParquetException("Total size of items too large");
-    }
-    return bytes_for_values;
-  }
+  uint8_t* values() const final { return reinterpret_cast<uint8_t*>(values_.data()); }
+
+  int64_t values_written() const final { return values_.values_count(); }
 
   const void* ReadDictionary(int32_t* dictionary_length) override {
     if (!this->current_decoder_ && !this->HasNextInternal()) {
@@ -1650,22 +1755,14 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   bool has_values_to_process() const { return levels_position_ < levels_written_; }
 
   std::shared_ptr<ResizableBuffer> ReleaseValues() override {
-    if (uses_values_) {
-      auto result = values_;
-      PARQUET_THROW_NOT_OK(
-          result->Resize(bytes_for_values(values_written_), /*shrink_to_fit=*/true));
-      values_ = AllocateBuffer(this->pool_);
-      values_capacity_ = 0;
-      return result;
-    } else {
-      return nullptr;
-    }
+    return values_.ReleaseValues(this->pool_);
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
     if (nullable_values()) {
+      const auto bit_count = bit_util::BytesForBits(values_written());
       auto result = valid_bits_;
-      PARQUET_THROW_NOT_OK(result->Resize(bit_util::BytesForBits(values_written_),
+      PARQUET_THROW_NOT_OK(result->Resize(bit_count,
                                           /*shrink_to_fit=*/true));
       valid_bits_ = AllocateBuffer(this->pool_);
       return result;
@@ -1740,30 +1837,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
   void Reserve(int64_t capacity) override {
     ReserveLevels(capacity);
-    ReserveValues(capacity);
-  }
-
-  int64_t UpdateCapacity(int64_t capacity, int64_t size, int64_t extra_size) {
-    if (extra_size < 0) {
-      throw ParquetException("Negative size (corrupt file?)");
-    }
-    int64_t target_size = -1;
-    if (AddWithOverflow(size, extra_size, &target_size)) {
-      throw ParquetException("Allocation size too large (corrupt file?)");
-    }
-    if (target_size >= (1LL << 62)) {
-      throw ParquetException("Allocation size too large (corrupt file?)");
-    }
-    if (capacity >= target_size) {
-      return capacity;
-    }
-    return bit_util::NextPower2(target_size);
+    ReserveValuesAndIsValid(capacity);
   }
 
   void ReserveLevels(int64_t extra_levels) {
     if (this->max_def_level() > 0) {
       const int64_t new_levels_capacity =
-          UpdateCapacity(levels_capacity_, levels_written_, extra_levels);
+          compute_capacity_pow2(levels_capacity_, levels_written_, extra_levels);
       if (new_levels_capacity > levels_capacity_) {
         constexpr auto kItemSize = static_cast<int64_t>(sizeof(int16_t));
         int64_t capacity_in_bytes = -1;
@@ -1781,22 +1861,12 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     }
   }
 
-  virtual void ReserveValues(int64_t extra_values) {
-    const int64_t new_values_capacity =
-        UpdateCapacity(values_capacity_, values_written_, extra_values);
-    if (new_values_capacity > values_capacity_) {
-      // XXX(wesm): A hack to avoid memory allocation when reading directly
-      // into builder classes
-      if (uses_values_) {
-        PARQUET_THROW_NOT_OK(values_->Resize(bytes_for_values(new_values_capacity),
-                                             /*shrink_to_fit=*/false));
-      }
-      values_capacity_ = new_values_capacity;
-    }
+  virtual void ReserveValuesAndIsValid(int64_t extra_values) {
+    values_.ReserveValues(extra_values);
     if (nullable_values() && !read_dense_for_nullable_) {
-      int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
+      int64_t valid_bytes_new = bit_util::BytesForBits(values_.capacity());
       if (valid_bits_->size() < valid_bytes_new) {
-        int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
+        int64_t valid_bytes_old = bit_util::BytesForBits(values_written());
         PARQUET_THROW_NOT_OK(
             valid_bits_->Resize(valid_bytes_new, /*shrink_to_fit=*/false));
 
@@ -1833,17 +1903,17 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
   virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
     uint8_t* valid_bits = valid_bits_->mutable_data();
-    const int64_t valid_bits_offset = values_written_;
+    const int64_t valid_bits_offset = values_written();
 
     int64_t num_decoded = this->current_decoder_->DecodeSpaced(
-        ValuesHead<T>(), static_cast<int>(values_with_nulls),
+        values_.write_start(), static_cast<int>(values_with_nulls),
         static_cast<int>(null_count), valid_bits, valid_bits_offset);
     CheckNumberDecoded(num_decoded, values_with_nulls);
   }
 
   virtual void ReadValuesDense(int64_t values_to_read) {
-    int64_t num_decoded =
-        this->current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
+    int64_t num_decoded = this->current_decoder_->Decode(
+        values_.write_start(), static_cast<int>(values_to_read));
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
@@ -1925,7 +1995,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
     validity_io.valid_bits = valid_bits_->mutable_data();
-    validity_io.valid_bits_offset = values_written_;
+    validity_io.valid_bits_offset = values_written();
 
     DefLevelsToBitmap(def_levels() + start_levels_position,
                       levels_position_ - start_levels_position, leaf_info_, &validity_io);
@@ -1942,7 +2012,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max<int64_t>(num_records, levels_written_ - levels_position_);
-    ReserveValues(static_cast<size_t>(possible_num_values));
+    ReserveValuesAndIsValid(static_cast<size_t>(possible_num_values));
 
     const int64_t start_levels_position = levels_position_;
 
@@ -1971,10 +2041,10 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     ARROW_DCHECK_GE(null_count, 0);
 
     if (read_dense_for_nullable_) {
-      values_written_ += values_to_read;
+      values_.mark_values_as_written(values_to_read);
       ARROW_DCHECK_EQ(null_count, 0);
     } else {
-      values_written_ += values_to_read + null_count;
+      values_.mark_values_as_written(values_to_read + null_count);
       null_count_ += null_count;
     }
     // Total values, including null spaces, if any
@@ -2020,23 +2090,15 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   }
 
   void ResetValues() {
-    if (values_written_ > 0) {
-      // Resize to 0, but do not shrink to fit
-      if (uses_values_) {
-        PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
-      }
+    if (values_written() > 0) {
+      values_.ResetValues();
       PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
-      values_written_ = 0;
-      values_capacity_ = 0;
       null_count_ = 0;
     }
   }
 
- protected:
-  template <typename T>
-  T* ValuesHead() {
-    return values_->mutable_data_as<T>() + values_written_;
-  }
+ private:
+  ValuesBuffer values_;
   LevelInfo leaf_info_;
 };
 
@@ -2048,12 +2110,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 ///
 /// The `values_` buffer is used to store the temporary values for `Decode`, and it would
 /// be Reset after each `Decode` call. The `valid_bits_` buffer is never used.
-class FLBARecordReader final : public TypedRecordReader<FLBAType>,
-                               virtual public BinaryRecordReader {
+class FLBARecordReader final
+    : public TypedRecordReader<FLBAType, ReadValuesNoBuffer<FLBAType>>,
+      virtual public BinaryRecordReader {
  public:
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                    ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<FLBAType>(descr, leaf_info, pool, read_dense_for_nullable),
+      : TypedRecordReader(descr, leaf_info, pool, read_dense_for_nullable),
         byte_width_(descr_->type_length()),
         type_(::arrow::fixed_size_binary(byte_width_)),
         array_builder_(type_, pool) {
@@ -2065,9 +2128,8 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
     return ::arrow::ArrayVector{std::move(chunk)};
   }
 
-  void ReserveValues(int64_t extra_values) override {
-    ARROW_DCHECK(!uses_values_);
-    TypedRecordReader::ReserveValues(extra_values);
+  void ReserveValuesAndIsValid(int64_t extra_values) override {
+    TypedRecordReader::ReserveValuesAndIsValid(extra_values);
     PARQUET_THROW_NOT_OK(array_builder_.Reserve(extra_values));
   }
 
@@ -2081,7 +2143,7 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrow(
         static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written_, &array_builder_);
+        valid_bits_->mutable_data(), values_written(), &array_builder_);
     CheckNumberDecoded(num_decoded, values_to_read - null_count);
     ResetValues();
   }
@@ -2099,14 +2161,14 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
 ///
 /// The `values_` buffers are never used, and the `accumulator_`
 /// is used to store the values.
-class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayType>,
-                                           virtual public BinaryRecordReader {
+class ByteArrayChunkedRecordReader final
+    : public TypedRecordReader<ByteArrayType, ReadValuesNoBuffer<ByteArrayType>>,
+      virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable,
                                const std::shared_ptr<::arrow::DataType>& arrow_type)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
-                                         read_dense_for_nullable) {
+      : TypedRecordReader(descr, leaf_info, pool, read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     auto arrow_binary_type = arrow_type ? arrow_type->id() : ::arrow::Type::BINARY;
     switch (arrow_binary_type) {
@@ -2145,9 +2207,8 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
     return result;
   }
 
-  void ReserveValues(int64_t extra_values) override {
-    ARROW_DCHECK(!uses_values_);
-    TypedRecordReader::ReserveValues(extra_values);
+  void ReserveValuesAndIsValid(int64_t extra_values) override {
+    TypedRecordReader::ReserveValuesAndIsValid(extra_values);
     PARQUET_THROW_NOT_OK(accumulator_.builder->Reserve(extra_values));
   }
 
@@ -2161,7 +2222,7 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrow(
         static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written_, &accumulator_);
+        valid_bits_->mutable_data(), values_written(), &accumulator_);
     CheckNumberDecoded(num_decoded, values_to_read - null_count);
     ResetValues();
   }
@@ -2176,12 +2237,13 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
 ///
 /// If underlying column is dictionary encoded, it will call `DecodeIndices` to read,
 /// otherwise it will call `DecodeArrowNonNull` to read.
-class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArrayType>,
-                                              virtual public DictionaryRecordReader {
+class ByteArrayDictionaryRecordReader final
+    : public TypedRecordReader<ByteArrayType, ReadValuesNoBuffer<ByteArrayType>>,
+      virtual public DictionaryRecordReader {
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool, read_dense_for_nullable),
+      : TypedRecordReader(descr, leaf_info, pool, read_dense_for_nullable),
         builder_(pool) {
     this->read_dictionary_ = true;
   }
@@ -2238,11 +2300,11 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
       num_decoded = decoder->DecodeIndicesSpaced(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
-          valid_bits_->mutable_data(), values_written_, &builder_);
+          valid_bits_->mutable_data(), values_written(), &builder_);
     } else {
       num_decoded = this->current_decoder_->DecodeArrow(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
-          valid_bits_->mutable_data(), values_written_, &builder_);
+          valid_bits_->mutable_data(), values_written(), &builder_);
     }
     ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
     // Flush values since they have been copied into the builder
@@ -2261,10 +2323,11 @@ template <>
 void TypedRecordReader<Int96Type>::DebugPrintState() {}
 
 template <>
-void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
+void TypedRecordReader<ByteArrayType,
+                       ReadValuesNoBuffer<ByteArrayType>>::DebugPrintState() {}
 
 template <>
-void TypedRecordReader<FLBAType>::DebugPrintState() {}
+void TypedRecordReader<FLBAType, ReadValuesNoBuffer<FLBAType>>::DebugPrintState() {}
 
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
     const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
