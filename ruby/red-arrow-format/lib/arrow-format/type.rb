@@ -716,6 +716,11 @@ module ArrowFormat
       @unit = unit
     end
 
+    def ==(other)
+      other.is_a?(self.class) and
+        @unit == other.unit
+    end
+
     def name
       "Duration"
     end
