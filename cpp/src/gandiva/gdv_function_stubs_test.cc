@@ -1202,6 +1202,23 @@ TEST(TestGdvFnStubs, TestTranslate) {
   EXPECT_STREQ(result, "");
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Would overflow maximum output size"));
+
+  // A byte > 127 selects the multi-byte path. A truncated trailing glyph (0xE2
+  // claims a 3-byte character but only one byte is present) must not be read past
+  // the end of the input; it is passed through as a single byte. Exact-sized
+  // buffers let ASAN catch any over-read here.
+  const char truncated_in[] = {'a', static_cast<char>(0xE2)};
+  result = translate_utf8_utf8_utf8(ctx_ptr, truncated_in, 2, "x", 1, "y", 1, &out_len);
+  EXPECT_EQ(std::string(truncated_in, 2), std::string(result, out_len));
+
+  // A valid multi-byte input character absent from FROM previously over-read FROM
+  // by one byte at the end-of-list sentinel.
+  const char euro[] = {static_cast<char>(0xE2), static_cast<char>(0x82),
+                       static_cast<char>(0xAC)};
+  const char from_one[] = {'a'};
+  const char to_one[] = {'b'};
+  result = translate_utf8_utf8_utf8(ctx_ptr, euro, 3, from_one, 1, to_one, 1, &out_len);
+  EXPECT_EQ(std::string(euro, 3), std::string(result, out_len));
 }
 
 TEST(TestGdvFnStubs, TestToUtcTimezone) {
