@@ -733,7 +733,8 @@ if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
   arrow_add_object_library(ARROW_INTEGRATION integration/json_integration.cc
                            integration/json_internal.cc)
   foreach(ARROW_INTEGRATION_TARGET ${ARROW_INTEGRATION_TARGETS})
-    target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON)
+    target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON
+                                                              simdjson::simdjson)
   endforeach()
 else()
   set(ARROW_INTEGRATION_TARGET_SHARED)

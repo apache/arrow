@@ -27,6 +27,7 @@
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/json/json_writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -36,6 +37,8 @@
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
 
+using JsonWriter = arrow::json::JsonWriter;
+
 namespace arrow::internal::integration {
 
 // ----------------------------------------------------------------------
@@ -44,13 +47,10 @@ namespace arrow::internal::integration {
 class IntegrationJsonWriter::Impl {
  public:
   explicit Impl(const std::shared_ptr<Schema>& schema)
-      : schema_(schema), mapper_(*schema), first_batch_written_(false) {
-    writer_.reset(new RjWriter(string_buffer_));
-  }
-
+      : schema_(schema), mapper_(*schema), first_batch_written_(false) {}
   Status Start() {
-    writer_->StartObject();
-    RETURN_NOT_OK(json::WriteSchema(*schema_, mapper_, writer_.get()));
+    writer_.StartObject();
+    RETURN_NOT_OK(json::WriteSchema(*schema_, mapper_, &writer_));
     return Status::OK();
   }
 
@@ -59,26 +59,26 @@ class IntegrationJsonWriter::Impl {
 
     // Write dictionaries, if any
     if (!dictionaries.empty()) {
-      writer_->Key("dictionaries");
-      writer_->StartArray();
+      writer_.Key("dictionaries");
+      writer_.StartArray();
       for (const auto& entry : dictionaries) {
-        RETURN_NOT_OK(json::WriteDictionary(entry.first, entry.second, writer_.get()));
+        RETURN_NOT_OK(json::WriteDictionary(entry.first, entry.second, &writer_));
       }
-      writer_->EndArray();
+      writer_.EndArray();
     }
 
     // Record batches
-    writer_->Key("batches");
-    writer_->StartArray();
+    writer_.Key("batches");
+    writer_.StartArray();
     first_batch_written_ = true;
     return Status::OK();
   }
 
   Result<std::string> Finish() {
-    writer_->EndArray();  // Record batches
-    writer_->EndObject();
+    writer_.EndArray();  // Record batches
+    writer_.EndObject();
 
-    return string_buffer_.GetString();
+    return std::string(writer_.GetString());
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) {
@@ -87,7 +87,7 @@ class IntegrationJsonWriter::Impl {
     if (!first_batch_written_) {
       RETURN_NOT_OK(FirstRecordBatch(batch));
     }
-    return json::WriteRecordBatch(batch, writer_.get());
+    return json::WriteRecordBatch(batch, &writer_);
   }
 
  private:
@@ -96,8 +96,7 @@ class IntegrationJsonWriter::Impl {
 
   bool first_batch_written_;
 
-  rj::StringBuffer string_buffer_;
-  std::unique_ptr<RjWriter> writer_;
+  JsonWriter writer_;
 };
 
 IntegrationJsonWriter::IntegrationJsonWriter(const std::shared_ptr<Schema>& schema) {

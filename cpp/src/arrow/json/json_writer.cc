@@ -106,9 +106,7 @@ void JsonWriter::Null() {
   needs_comma_ = true;
 }
 
-std::string_view JsonWriter::GetString() const {
-  return builder_.view().value();
-}
+std::string_view JsonWriter::GetString() const { return builder_.view().value(); }
 
 void JsonWriter::Clear() {
   builder_.clear();
