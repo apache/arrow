@@ -17,8 +17,8 @@
 
 #include "arrow/json/object_parser.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include <string>
 #include <unordered_map>
@@ -50,10 +50,8 @@ TEST(ObjectParser, GetBool) {
 TEST(ObjectParser, InvalidJson) {
   ObjectParser parser;
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Json parse error"),
-      parser.Parse(R"({"name":)"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Json parse error"),
+                                  parser.Parse(R"({"name":)"));
 }
 
 TEST(ObjectParser, GetStringMap) {

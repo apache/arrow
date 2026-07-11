@@ -777,10 +777,9 @@ endif()
 if(DEFINED ENV{ARROW_SIMDJSON_URL})
   set(SIMDJSON_SOURCE_URL "$ENV{ARROW_SIMDJSON_URL}")
 else()
-  set_urls(
-    SIMDJSON_SOURCE_URL
-    "https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
-    "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
+  set_urls(SIMDJSON_SOURCE_URL
+           "https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_S2N_TLS_URL})
