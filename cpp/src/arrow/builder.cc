@@ -170,9 +170,10 @@ struct DictionaryBuilderCase {
     using AdaptiveBuilderType = DictionaryBuilder<ValueType>;
     using ExactBuilderType =
         internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>;
+    const bool unsigned_index = is_unsigned_integer(index_type->id());
     if (dictionary != nullptr) {
-      out->reset(
-          new AdaptiveBuilderType(dictionary, pool, kDefaultBufferAlignment, ordered));
+      out->reset(new AdaptiveBuilderType(dictionary, pool, kDefaultBufferAlignment,
+                                         ordered, unsigned_index));
     } else if (exact_index_type) {
       if (!is_integer(index_type->id())) {
         return Status::TypeError("MakeBuilder: invalid index type ", *index_type);
@@ -182,7 +183,8 @@ struct DictionaryBuilderCase {
     } else {
       auto start_int_size = index_type->byte_width();
       out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool,
-                                         kDefaultBufferAlignment, ordered));
+                                         kDefaultBufferAlignment, ordered,
+                                         unsigned_index));
     }
     return Status::OK();
   }

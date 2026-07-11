@@ -4527,3 +4527,48 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+@pytest.mark.parametrize("index_type", [pa.uint8(), pa.uint16(),
+                                        pa.uint32(), pa.uint64()])
+def test_dictionary_array_preserves_unsigned_index_type(index_type):
+    # GH-37476: an unsigned dictionary index type used to be silently replaced
+    # by the signed integer type of the same width.
+    dict_type = pa.dictionary(index_type, pa.string())
+
+    arr = pa.array(["a", "b", None, "a"], type=dict_type)
+    assert arr.type == dict_type
+    assert arr.to_pylist() == ["a", "b", None, "a"]
+    arr.validate(full=True)
+
+    chunked = pa.chunked_array([["a", "b", "a"]], dict_type)
+    assert chunked.type == dict_type
+
+
+@pytest.mark.parametrize("index_type", [pa.int8(), pa.int16(),
+                                        pa.int32(), pa.int64()])
+def test_dictionary_array_signed_index_type_unchanged(index_type):
+    dict_type = pa.dictionary(index_type, pa.string())
+    arr = pa.array(["a", "b", "a"], type=dict_type)
+    assert arr.type == dict_type
+
+
+def test_dictionary_array_index_width_still_adapts():
+    # The index width remains adaptive, as it is for signed index types; only
+    # the signedness of the requested index type is preserved.
+    values = [str(i) for i in range(200)]
+    arr = pa.array(values, type=pa.dictionary(pa.uint8(), pa.string()))
+    assert arr.type == pa.dictionary(pa.uint16(), pa.string())
+    assert arr.to_pylist() == values
+
+
+@pytest.mark.pandas
+def test_dictionary_uint64_index_to_pandas_not_supported():
+    # GH-37476: uint64 dictionary indices are now preserved instead of being
+    # silently downgraded to int64. Arrow deliberately does not support converting
+    # them to pandas (pandas categorical codes are signed), so that pre-existing
+    # limitation is now reachable, where the silent downgrade used to mask it.
+    # uint8/uint16/uint32 dictionary indices convert to pandas as before.
+    arr = pa.array(["a", "b"], type=pa.dictionary(pa.uint64(), pa.string()))
+    with pytest.raises(pa.ArrowTypeError, match="UInt64 dictionary indices"):
+        arr.to_pandas()
