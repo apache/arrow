@@ -65,7 +65,7 @@ if(SIMDJSON_INCLUDE_DIR AND SIMDJSON_LIBRARY)
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
     # Detect library type based on file extension
-    if("${SIMDJSON_LIBRARY}" MATCHES "\\.(so|dylib)(\\.[0-9]+)*$" OR "${SIMDJSON_LIBRARY}" 
+    if("${SIMDJSON_LIBRARY}" MATCHES "\\.(so|dylib)(\\.[0-9]+)*$" OR "${SIMDJSON_LIBRARY}"
                                                                      MATCHES "\\.dll$")
       add_library(simdjson::simdjson SHARED IMPORTED)
     else()
