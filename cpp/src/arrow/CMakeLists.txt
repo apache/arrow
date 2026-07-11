@@ -1041,6 +1041,7 @@ if(ARROW_JSON)
                            json/from_string.cc
                            json/object_parser.cc
                            json/object_writer.cc
+                           json/json_writer.cc
                            json/parser.cc
                            json/reader.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})
