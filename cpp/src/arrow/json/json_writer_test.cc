@@ -59,8 +59,7 @@ TEST(JsonWriter, NestedObject) {
 
   writer.EndObject();
 
-  EXPECT_EQ(writer.GetString(),
-            R"({"child":{"x":true}})");
+  EXPECT_EQ(writer.GetString(), R"({"child":{"x":true}})");
 }
 
 TEST(JsonWriter, NullValue) {
@@ -71,8 +70,7 @@ TEST(JsonWriter, NullValue) {
   writer.Null();
   writer.EndObject();
 
-  EXPECT_EQ(writer.GetString(),
-            R"({"value":null})");
+  EXPECT_EQ(writer.GetString(), R"({"value":null})");
 }
 
 TEST(JsonWriter, DoubleValue) {
@@ -83,8 +81,7 @@ TEST(JsonWriter, DoubleValue) {
   writer.Double(3.14);
   writer.EndObject();
 
-  EXPECT_EQ(writer.GetString(),
-            R"({"pi":3.14})");
+  EXPECT_EQ(writer.GetString(), R"({"pi":3.14})");
 }
 
 TEST(JsonWriter, UnsignedValues) {
@@ -97,8 +94,7 @@ TEST(JsonWriter, UnsignedValues) {
   writer.Uint64(1234567890123ULL);
   writer.EndObject();
 
-  EXPECT_EQ(writer.GetString(),
-            R"({"u32":42,"u64":1234567890123})");
+  EXPECT_EQ(writer.GetString(), R"({"u32":42,"u64":1234567890123})");
 }
 
 TEST(JsonWriter, Int64Value) {
@@ -109,8 +105,7 @@ TEST(JsonWriter, Int64Value) {
   writer.Int64(-1234567890123LL);
   writer.EndObject();
 
-  EXPECT_EQ(writer.GetString(),
-            R"({"i64":-1234567890123})");
+  EXPECT_EQ(writer.GetString(), R"({"i64":-1234567890123})");
 }
 
 TEST(JsonWriter, Clear) {

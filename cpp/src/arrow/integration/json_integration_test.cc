@@ -38,6 +38,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/json/json_writer.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -723,8 +724,7 @@ static const char* json_example6 = R"example(
 )example";
 
 void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
-  rj::StringBuffer sb;
-  rj::Writer<rj::StringBuffer> writer(sb);
+  arrow::json::JsonWriter writer;
 
   DictionaryFieldMapper mapper(*schema);
 
@@ -732,7 +732,7 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
   ASSERT_OK(json::WriteSchema(*schema, mapper, &writer));
   writer.EndObject();
 
-  std::string json_schema = sb.GetString();
+  std::string json_schema(writer.GetString());
 
   rj::Document d;
   // Pass explicit size to avoid ASAN issues with
@@ -748,12 +748,11 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
 void TestArrayRoundTrip(const Array& array) {
   static std::string name = "dummy";
 
-  rj::StringBuffer sb;
-  rj::Writer<rj::StringBuffer> writer(sb);
+  arrow::json::JsonWriter writer;
 
   ASSERT_OK(json::WriteArray(name, array, &writer));
 
-  std::string array_as_json = sb.GetString();
+  std::string array_as_json(writer.GetString());
 
   rj::Document d;
   // Pass explicit size to avoid ASAN issues with
@@ -768,7 +767,6 @@ void TestArrayRoundTrip(const Array& array) {
       json::ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type())));
   ASSERT_OK(result_array->ValidateFull());
 
-  // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *result_array, array);
 }
 
