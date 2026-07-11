@@ -220,14 +220,33 @@ struct StringPredicateFunctor {
     Status st = Status::OK();
     EnsureUtf8LookupTablesFilled();
     const ArraySpan& input = batch[0].array;
-    ArrayIterator<Type> input_it(input);
     ArraySpan* out_arr = out->array_span_mutable();
-    ::arrow::internal::GenerateBitsUnrolled(
-        out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
-          std::string_view val = input_it();
-          return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
-                                 val.size(), &st);
-        });
+    if constexpr (is_binary_view_like_type<Type>::value) {
+      // Skip null slots: a view's null header is not validated and may carry a
+      // bogus buffer_index/offset that decoding would dereference. (The base
+      // binary/string path below can safely read null slots.)
+      FirstTimeBitmapWriter writer(out_arr->buffers[1].data, out_arr->offset,
+                                   input.length);
+      VisitArrayValuesInline<Type>(
+          input,
+          [&](std::string_view val) {
+            if (Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
+                                val.size(), &st)) {
+              writer.Set();
+            }
+            writer.Next();
+          },
+          [&]() { writer.Next(); });
+      writer.Finish();
+    } else {
+      ArrayIterator<Type> input_it(input);
+      ::arrow::internal::GenerateBitsUnrolled(
+          out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
+            std::string_view val = input_it();
+            return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
+                                   val.size(), &st);
+          });
+    }
     return st;
   }
 };
@@ -240,6 +259,8 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
     auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
     ARROW_DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
   }
+  ARROW_DCHECK_OK(func->AddKernel(
+      {utf8_view()}, boolean(), StringPredicateFunctor<StringViewType, Predicate>::Exec));
   ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

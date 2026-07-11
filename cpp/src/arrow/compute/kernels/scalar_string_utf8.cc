@@ -688,6 +688,11 @@ void AddUtf8StringLength(FunctionRegistry* registry) {
         applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
     DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec)));
   }
+  {
+    auto exec =
+        applicator::ScalarUnaryNotNull<Int32Type, StringViewType, Utf8Length>::Exec;
+    DCHECK_OK(func->AddKernel({utf8_view()}, int32(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
