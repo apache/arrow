@@ -57,12 +57,7 @@
     "json": {
       "description": "JSON support",
       "dependencies": [
-        "rapidjson"
-      ]
-    },
-    "simdjson": {
-      "description": "Optimized SIMD JSON parsing support",
-      "dependencies": [
+        "rapidjson",
         "simdjson"
       ]
     },

@@ -19,8 +19,6 @@ if(SimdjsonAlt_FOUND)
   return()
 endif()
 
-# Try to find simdjson manually first, as some system packages have broken
-# CMake configs that reference non-existent library files (e.g., Alpine Linux)
 if(simdjson_ROOT)
   find_path(SIMDJSON_INCLUDE_DIR
             NAMES simdjson.h

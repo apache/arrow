@@ -45,6 +45,7 @@ pkg-config
 python
 rapidjson
 re2
+simdjson
 snappy
 thrift-cpp>=0.11.0
 xsimd>=14.2

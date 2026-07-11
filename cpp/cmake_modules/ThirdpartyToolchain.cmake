@@ -138,10 +138,6 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if("${GTest_SOURCE}" STREQUAL "")
     set(GTest_SOURCE "AUTO")
   endif()
-  # simdjson is not commonly available in conda, so we allow auto fallback.
-  if("${simdjson_SOURCE}" STREQUAL "")
-    set(simdjson_SOURCE "AUTO")
-  endif()
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
@@ -2801,49 +2797,30 @@ if(ARROW_BUILD_BENCHMARKS)
                      FALSE)
 endif()
 
-macro(build_simdjson)
+function(build_simdjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "simdjson: ")
   message(STATUS "Building simdjson from source")
-  set(SIMDJSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/simdjson_ep/src/simdjson_ep-install")
-  set(SIMDJSON_INCLUDE_DIR "${SIMDJSON_PREFIX}/include")
-  set(SIMDJSON_LIB_DIR "${SIMDJSON_PREFIX}/lib")
 
-  set(SIMDJSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DSIMDJSON_BUILD_STATIC_LIB=ON
-      -DSIMDJSON_DEVELOPER_MODE=OFF
-      -DSIMDJSON_ENABLE_THREADS=ON
-      -DBUILD_SHARED_LIBS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${SIMDJSON_PREFIX}")
+  prepare_fetchcontent()
 
-  set(SIMDJSON_STATIC_LIB
-      "${SIMDJSON_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}simdjson${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
+  fetchcontent_declare(simdjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${SIMDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
 
-  externalproject_add(simdjson_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${SIMDJSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${SIMDJSON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${SIMDJSON_STATIC_LIB}")
+  fetchcontent_makeavailable(simdjson)
 
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${SIMDJSON_INCLUDE_DIR}")
-
-  # Check if target already exists (may have been created by find_package with incompatible version)
-  if(NOT TARGET simdjson::simdjson)
-    add_library(simdjson::simdjson STATIC IMPORTED)
-  endif()
-  set_target_properties(simdjson::simdjson
-                        PROPERTIES IMPORTED_LOCATION "${SIMDJSON_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${SIMDJSON_INCLUDE_DIR}")
-  add_dependencies(simdjson::simdjson simdjson_ep)
-
-  set(SIMDJSON_VENDORED TRUE)
+  set(SIMDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson::simdjson)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_SIMDJSON)
   set(ARROW_SIMDJSON_REQUIRED_VERSION "3.0.0")

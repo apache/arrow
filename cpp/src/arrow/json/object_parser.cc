@@ -34,7 +34,7 @@ class ObjectParser::Impl {
 
     // Handle parse errors
     if (result.error()) {
-      return Status::Invalid("Json parse error: ",
+      return Status::Invalid("JSON parse error: ",
                              simdjson::error_message(result.error()));
     }
 
@@ -43,7 +43,7 @@ class ObjectParser::Impl {
 
     // Validate root is an object
     if (!document_.is_object()) {
-      return Status::TypeError("Not a json object");
+      return Status::TypeError("Not a JSON object");
     }
 
     return Status::OK();

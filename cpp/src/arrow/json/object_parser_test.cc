@@ -50,7 +50,7 @@ TEST(ObjectParser, GetBool) {
 TEST(ObjectParser, InvalidJson) {
   ObjectParser parser;
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Json parse error"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("JSON parse error"),
                                   parser.Parse(R"({"name":)"));
 }
 
