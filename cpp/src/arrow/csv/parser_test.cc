@@ -936,5 +936,44 @@ TEST(BlockParser, RowNumberAppendedToError) {
   }
 }
 
+TEST(BlockParser, EmbeddedNulInQuotedFieldAfterBulkFilterActivates) {
+  // Regression test for GH-50481. Once the running average value length
+  // crosses the bulk filter's activation threshold, a NUL byte embedded in a
+  // quoted field could hide the real closing quote if both landed in the
+  // same 8-byte SIMD word, causing the parser to keep consuming subsequent
+  // bytes as if still inside the quoted field.
+  constexpr int32_t num_cols = 64;
+  constexpr int32_t num_filler_rows = 512;  // = kTargetChunkSize / num_cols
+
+  std::string csv;
+  for (int32_t r = 0; r < num_filler_rows; ++r) {
+    for (int32_t c = 0; c < num_cols; ++c) {
+      if (c) csv += ',';
+      // 12 bytes/value, well above the bulk filter's 10-bytes/value
+      // activation threshold.
+      csv += "xxxxxxxxxxxx";
+    }
+    csv += '\n';
+  }
+  // This row's first field carries a real embedded NUL byte immediately
+  // before its closing quote - the byte pattern a misaligned
+  // implicit-length SIMD scan can hide.
+  csv += "\"abc";
+  csv += '\0';
+  csv += "def\"";
+  for (int32_t c = 1; c < num_cols; ++c) {
+    csv += ",xxxxxxxxxxxx";
+  }
+  csv += '\n';
+
+  BlockParser parser(ParseOptions::Defaults());
+  AssertParseFinal(parser, csv);
+  ASSERT_EQ(parser.num_rows(), num_filler_rows + 1);
+
+  std::vector<std::string> last_row;
+  GetLastRow(parser, &last_row);
+  ASSERT_EQ(last_row[0], std::string("abc\0def", 7));
+}
+
 }  // namespace csv
 }  // namespace arrow
