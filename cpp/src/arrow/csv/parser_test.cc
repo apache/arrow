@@ -966,7 +966,7 @@ TEST(BlockParser, EmbeddedNulInQuotedFieldAfterBulkFilterActivates) {
   }
   csv += '\n';
 
-  BlockParser parser(ParseOptions::Defaults());
+  BlockParser parser(ParseOptions::Defaults(), /*num_cols=*/num_cols);
   AssertParseFinal(parser, csv);
   ASSERT_EQ(parser.num_rows(), num_filler_rows + 1);
 
