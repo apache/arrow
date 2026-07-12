@@ -226,6 +226,10 @@ TEST(KeyValueMetadataTest, Delete) {
     ASSERT_OK(metadata.DeleteMany({}));
     ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "dd", "ee"}, {"2", "4", "5"})));
   }
+  {
+    KeyValueMetadata metadata(keys, values);
+    ASSERT_DEATH(static_cast<void>(metadata.DeleteMany({0, 0, 5, 2})), "Check failed");
+  }
 }
 
 }  // namespace arrow
