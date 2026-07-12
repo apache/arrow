@@ -972,6 +972,7 @@ TEST(BlockParser, EmbeddedNulInQuotedFieldAfterBulkFilterActivates) {
 
   std::vector<std::string> last_row;
   GetLastRow(parser, &last_row);
+  ASSERT_EQ(last_row.size(), static_cast<size_t>(num_cols));
   ASSERT_EQ(last_row[0], std::string("abc\0def", 7));
 }
 
