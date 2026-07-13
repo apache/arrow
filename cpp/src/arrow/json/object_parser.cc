@@ -34,8 +34,8 @@ class ObjectParser::Impl {
 
     // Handle parse errors
     if (result.error()) {
-      return Status::Invalid("JSON parse error: ",
-                             simdjson::error_message(result.error()));
+      return Status::Invalid("JSON parse error (code=", static_cast<int>(result.error()),
+                             ")");
     }
 
     // Store parsed document
@@ -56,7 +56,7 @@ class ObjectParser::Impl {
     }
     if (field.error()) {
       return Status::Invalid("Error accessing key '", key,
-                             "': ", simdjson::error_message(field.error()));
+                             "': (code=", static_cast<int>(field.error()), ")");
     }
 
     auto str_result = field.get_string();
@@ -65,7 +65,7 @@ class ObjectParser::Impl {
     }
     if (str_result.error()) {
       return Status::Invalid("Error getting string for key '", key,
-                             "': ", simdjson::error_message(str_result.error()));
+                             "': (code=", static_cast<int>(str_result.error()), ")");
     }
 
     return std::string(str_result.value());
@@ -90,7 +90,7 @@ class ObjectParser::Impl {
       }
       if (str_result.error()) {
         return Status::Invalid("Error getting value for key '", std::string(key),
-                               "': ", simdjson::error_message(str_result.error()));
+                               "': (code=", static_cast<int>(str_result.error()), ")");
       }
 
       map.emplace(std::string(key), std::string(str_result.value()));
@@ -106,7 +106,7 @@ class ObjectParser::Impl {
     }
     if (field.error()) {
       return Status::Invalid("Error accessing key '", key,
-                             "': ", simdjson::error_message(field.error()));
+                             "': (code=", static_cast<int>(field.error()), ")");
     }
 
     auto bool_result = field.get_bool();
@@ -115,7 +115,7 @@ class ObjectParser::Impl {
     }
     if (bool_result.error()) {
       return Status::Invalid("Error getting bool for key '", key,
-                             "': ", simdjson::error_message(bool_result.error()));
+                             "': (code=", static_cast<int>(bool_result.error()), ")");
     }
 
     return bool_result.value();
