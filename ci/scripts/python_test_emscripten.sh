@@ -34,7 +34,5 @@ echo "-------------- Running emscripten tests in Node ----------------------"
 python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=node
 
 echo "-------------- Running emscripten tests in Chrome --------------------"
-# verify compose shm_size is applied inside the container (see compose.yaml)
-df -h /dev/shm
 python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=chrome
 
