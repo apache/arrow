@@ -297,8 +297,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     // a counting sort compatible with indirect indexing.
     if (order_ == SortOrder::Ascending) {
       std::stable_sort(
-          partitions.non_null_like_range.data(),
-          partitions.non_null_like_range.data() + partitions.non_null_like_range.size(),
+          partitions.non_null_like_begin(), partitions.non_null_like_end(),
           [&](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
@@ -306,8 +305,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
           });
     } else {
       std::stable_sort(
-          partitions.non_null_like_range.data(),
-          partitions.non_null_like_range.data() + partitions.non_null_like_range.size(),
+          partitions.non_null_like_begin(), partitions.non_null_like_end(),
           [&](uint64_t left, uint64_t right) {
             // We don't use 'left > right' here to reduce required operator.
             // If we use 'right < left' here, '<' is only required.
@@ -526,8 +524,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     const auto p = PartitionNullsInternal<Type>(first_sort_key);
 
     // Sort first-key non-nulls
-    std::stable_sort(p.non_null_like_range.data(),
-                     p.non_null_like_range.data() + p.non_null_like_range.size(),
+    std::stable_sort(p.non_null_like_begin(), p.non_null_like_end(),
                      [&](uint64_t left, uint64_t right) {
                        // Both values are never null nor NaN
                        // (otherwise they've been partitioned away above).
@@ -574,7 +571,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
       // Sort all NaNs by the second and following sort keys.
       // TODO: could we instead run an independent sort from the second key on
       // this slice?
-      std::stable_sort(p.nan_range.data(), p.nan_range.data() + p.nan_range.size(),
+      std::stable_sort(p.nan_begin(), p.nan_end(),
                        [&comparator](uint64_t left, uint64_t right) {
                          return comparator.Compare(left, right, 1);
                        });
@@ -583,7 +580,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
       // Sort all nulls by the second and following sort keys.
       // TODO: could we instead run an independent sort from the second key on
       // this slice?
-      std::stable_sort(p.null_range.data(), p.null_range.data() + p.null_range.size(),
+      std::stable_sort(p.null_begin(), p.null_end(),
                        [&comparator](uint64_t left, uint64_t right) {
                          return comparator.Compare(left, right, 1);
                        });

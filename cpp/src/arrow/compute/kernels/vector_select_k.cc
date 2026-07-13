@@ -226,9 +226,9 @@ class ArraySelector : public TypeVisitor {
 
     HeapSortNonNullsToOutput<InType, sort_order>(p.non_null_like_range, arr,
                                                  output.non_null_like_range);
-    std::copy(p.nan_range.begin(), p.nan_range.begin() + output.nan_range.size(),
+    std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(),
               output.nan_range.begin());
-    std::copy(p.null_range.begin(), p.null_range.begin() + output.null_range.size(),
+    std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
               output.null_range.begin());
 
     *output_ = Datum(take_indices);
@@ -492,12 +492,12 @@ class RecordBatchSelector {
         }
         if (output.nan_range.size() > 0) {
           // We have the last sort_key, can just copy over the null values
-          std::copy(p.nan_range.begin(), p.nan_range.begin() + output.nan_range.size(),
+          std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(),
                     output.nan_range.begin());
         }
         if (output.null_range.size() > 0) {
           // We have the last sort_key, can just copy over the null values
-          std::copy(p.null_range.begin(), p.null_range.begin() + output.null_range.size(),
+          std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
                     output.null_range.begin());
         }
       } else {

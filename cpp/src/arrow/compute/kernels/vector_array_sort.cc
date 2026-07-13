@@ -80,8 +80,8 @@ struct PartitionNthToIndices {
     const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
         out_span, arr, 0, options.null_placement);
     auto nth_begin = out_span.data() + pivot;
-    auto non_null_begin = p.non_null_like_range.data();
-    auto non_null_end = p.non_null_like_range.data() + p.non_null_like_range.size();
+    auto non_null_begin = p.non_null_like_begin();
+    auto non_null_end = p.non_null_like_end();
     if (nth_begin >= non_null_begin && nth_begin < non_null_end) {
       std::nth_element(non_null_begin, nth_begin, non_null_end,
                        [&arr](uint64_t left, uint64_t right) {
@@ -156,8 +156,7 @@ class ArrayCompareSorter {
         indices, values, offset, options.null_placement);
     if (options.order == SortOrder::Ascending) {
       std::stable_sort(
-          p.non_null_like_range.data(),
-          p.non_null_like_range.data() + p.non_null_like_range.size(),
+          p.non_null_like_begin(), p.non_null_like_end(),
           [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
@@ -165,8 +164,7 @@ class ArrayCompareSorter {
           });
     } else {
       std::stable_sort(
-          p.non_null_like_range.data(),
-          p.non_null_like_range.data() + p.non_null_like_range.size(),
+          p.non_null_like_begin(), p.non_null_like_end(),
           [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(values.GetView(right - offset));

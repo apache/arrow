@@ -114,13 +114,23 @@ struct GenericNullLikePartition {
   std::span<IndexType> nan_range;
   std::span<IndexType> null_range;
 
+  IndexType* non_null_like_begin() const { return non_null_like_range.data(); }
+  IndexType* non_null_like_end() const {
+    return non_null_like_range.data() + non_null_like_range.size();
+  }
+  IndexType* nan_begin() const { return nan_range.data(); }
+  IndexType* nan_end() const { return nan_range.data() + nan_range.size(); }
+  IndexType* null_begin() const { return null_range.data(); }
+  IndexType* null_end() const { return null_range.data() + null_range.size(); }
+
   IndexType* overall_begin() const {
-    return std::min(non_null_like_range.data(), null_range.data());
+    // nans are always in the middle
+    return std::min(non_null_like_begin(), null_begin());
   }
 
   IndexType* overall_end() const {
-    return std::max(non_null_like_range.data() + non_null_like_range.size(),
-                    null_range.data() + null_range.size());
+    // nans are always in the middle
+    return std::max(non_null_like_end(), null_end());
   }
 
   // Note that "_begin" is not actually the begin of the stored ranges, but can be much
@@ -310,27 +320,21 @@ struct ChunkedMergeImpl {
       const ChunkedNullLikePartition& left, const ChunkedNullLikePartition& right) const {
     // Input layout:
     // [left nul .. left nan .. left non-nul .. right nul .. right nan .. right non-nul]
-    ARROW_DCHECK_EQ(left.null_range.data() + left.null_range.size(),
-                    left.nan_range.data());
-    ARROW_DCHECK_EQ(left.nan_range.data() + left.nan_range.size(),
-                    left.non_null_like_range.data());
-    ARROW_DCHECK_EQ(left.non_null_like_range.data() + left.non_null_like_range.size(),
-                    right.null_range.data());
-    ARROW_DCHECK_EQ(right.null_range.data() + right.null_range.size(),
-                    right.nan_range.data());
-    ARROW_DCHECK_EQ(right.nan_range.data() + right.nan_range.size(),
-                    right.non_null_like_range.data());
+    ARROW_DCHECK_EQ(left.null_end(), left.nan_begin());
+    ARROW_DCHECK_EQ(left.nan_end(), left.non_null_like_begin());
+    ARROW_DCHECK_EQ(left.non_null_like_end(), right.null_begin());
+    ARROW_DCHECK_EQ(right.null_end(), right.nan_begin());
+    ARROW_DCHECK_EQ(right.nan_end(), right.non_null_like_begin());
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
     // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nus]
-    std::rotate(left.non_null_like_range.data(), right.null_range.data(),
-                right.nan_range.data() + right.nan_range.size());
+    std::rotate(left.non_null_like_begin(), right.null_begin(), right.nan_end());
 
     // only use sizes of ranges that are at a different position now
     // [left nul .. right nul .. left nan .. right nan .. left non-nulls .. right
     // non-nulls] this is a no-op if no nan values are present
-    std::rotate(left.nan_range.data(), left.nan_range.data() + left.nan_range.size(),
-                left.nan_range.data() + left.nan_range.size() + right.null_range.size());
+    std::rotate(left.nan_begin(), left.nan_end(),
+                left.nan_end() + right.null_range.size());
 
     std::span<CompressedChunkLocation> full_span{left.overall_begin(),
                                                  right.overall_end()};
@@ -356,28 +360,22 @@ struct ChunkedMergeImpl {
                                            const ChunkedNullLikePartition& right) const {
     // Input layout:
     // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nulls]
-    ARROW_DCHECK_EQ(left.non_null_like_range.data() + left.non_null_like_range.size(),
-                    left.nan_range.data());
-    ARROW_DCHECK_EQ(left.nan_range.data() + left.nan_range.size(),
-                    left.null_range.data());
-    ARROW_DCHECK_EQ(left.null_range.data() + left.null_range.size(),
-                    right.non_null_like_range.data());
-    ARROW_DCHECK_EQ(right.non_null_like_range.data() + right.non_null_like_range.size(),
-                    right.nan_range.data());
-    ARROW_DCHECK_EQ(right.nan_range.data() + right.nan_range.size(),
-                    right.null_range.data());
+    ARROW_DCHECK_EQ(left.non_null_like_end(), left.nan_begin());
+    ARROW_DCHECK_EQ(left.nan_end(), left.null_begin());
+    ARROW_DCHECK_EQ(left.null_end(), right.non_null_like_begin());
+    ARROW_DCHECK_EQ(right.non_null_like_end(), right.nan_begin());
+    ARROW_DCHECK_EQ(right.nan_end(), right.null_begin());
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
     // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
-    std::rotate(left.nan_range.data(), right.non_null_like_range.data(),
-                right.non_null_like_range.data() + right.non_null_like_range.size());
+    std::rotate(left.nan_begin(), right.non_null_like_begin(), right.non_null_like_end());
 
     // only use sizes of ranges that are at a different position now
-    // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
+    // [left non-nul .. right non-nul .. left nan .. right nan .. left null .. right nul]
     // this is a no-op if no nan values are present
-    auto new_left_null_range_begin =
-        left.non_null_like_range.data() + left.non_null_like_range.size() +
-        right.non_null_like_range.size() + left.nan_range.size();
+    auto new_left_null_range_begin = left.non_null_like_end() +
+                                     right.non_null_like_range.size() +
+                                     left.nan_range.size();
     std::rotate(
         new_left_null_range_begin, new_left_null_range_begin + left.null_range.size(),
         new_left_null_range_begin + left.null_range.size() + right.nan_range.size());
