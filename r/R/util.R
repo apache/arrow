@@ -44,7 +44,7 @@ is_list_of <- function(object, class) {
   is.list(object) && all(map_lgl(object, ~ inherits(., class)))
 }
 
-empty_named_list <- function() structure(list(), .Names = character(0))
+empty_named_list <- function() structure(list(), names = character(0))
 
 r_symbolic_constants <- c(
   "pi",
