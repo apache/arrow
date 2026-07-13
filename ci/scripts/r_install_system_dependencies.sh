@@ -35,20 +35,22 @@ else
   apt-get update
 fi
 
-# Install curl, OpenSSL, and libuv
+# Install curl, OpenSSL, libuv, and libxml2
 # - curl/OpenSSL: technically only needed for S3/GCS support, but
 #   installing the R curl package fails without it
 # - libpng: required by the png R package
 # - libuv: required by the fs R package (no longer bundles libuv by default)
+# - libxml2: the bundled Azure C++ SDK links against libxml2, so the final
+#   link of arrow.so needs it (even when installing a prebuilt libarrow binary)
 case "$PACKAGE_MANAGER" in
   apt-get)
-    apt-get install -y libcurl4-openssl-dev libpng-dev libssl-dev libuv1-dev
+    apt-get install -y libcurl4-openssl-dev libpng-dev libssl-dev libuv1-dev libxml2-dev
     ;;
   apk)
-    $PACKAGE_MANAGER add curl-dev openssl-dev libuv-dev
+    $PACKAGE_MANAGER add curl-dev openssl-dev libuv-dev libxml2-dev
     ;;
   *)
-    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel libuv-devel
+    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel libuv-devel libxml2-devel
     ;;
 esac
 
