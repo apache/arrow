@@ -179,7 +179,7 @@ struct NullPartition {
                                   std::span<uint64_t> null_tail) {
     ARROW_DCHECK_GE(null_tail.data(), indices.data());
     ARROW_DCHECK_EQ(null_tail.data() + null_tail.size(), indices.data() + indices.size());
-    return {.non_nulls = {indices.begin(), null_tail.begin()}, .nulls = null_tail};
+    return {.non_nulls = {indices.data(), null_tail.data()}, .nulls = null_tail};
   }
 
   static NullPartition NullsAtStart(std::span<uint64_t> indices,
@@ -187,8 +187,7 @@ struct NullPartition {
     ARROW_DCHECK_GE(non_null_tail.data(), indices.data());
     ARROW_DCHECK_EQ(non_null_tail.data() + non_null_tail.size(),
                     indices.data() + indices.size());
-    return {.non_nulls = non_null_tail,
-            .nulls = {indices.begin(), non_null_tail.begin()}};
+    return {.non_nulls = non_null_tail, .nulls = {indices.data(), non_null_tail.data()}};
   }
 };
 
