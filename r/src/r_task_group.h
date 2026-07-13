@@ -45,6 +45,7 @@ class RTasks {
   StopSource stop_source_;
   std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks_;
   std::vector<Task> delayed_serial_tasks_;
+  std::vector<Task> delayed_parallel_tasks_;
 };
 
 }  // namespace r
