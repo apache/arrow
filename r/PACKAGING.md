@@ -40,12 +40,6 @@ _Wait for the release candidate to be created._
 
 - [ ] Create a CRAN-release branch from the release candidate commit, name the new branch `maint-X.Y.Z-r` and push to upstream.
 
-## Prepare and Check Package That Will Be Released to CRAN
-
-- [ ] `git fetch upstream && git checkout maint-X.Y.Z-r && git clean -f -d`.
-- [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some unnecessary components, and runs `R CMD build` to generate the source tarball. Because this will install the package, you will need to ensure that the version of Arrow C++ available to the configure script is the same as the version that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
-- [ ] `devtools::check_built("arrow_X.Y.Z.tar.gz")` locally.
-
 ## Wait for Arrow Release Vote
 
 - [ ] Release vote passed

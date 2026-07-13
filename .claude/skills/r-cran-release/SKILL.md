@@ -2,7 +2,9 @@
 
 Guide the R package maintainer through the CRAN release process for the Apache Arrow R package. Only use this skill when explicitly doing a CRAN release.
 
-Use exactly this sequence of steps. Use a checklist as you go. Do not skip ahead, and ask the user to confirm step completion.
+Use exactly this sequence of steps. Print a checklist of all steps at the start, and update it as you go. Do not skip ahead. After completing each step, ask the user to confirm before moving on. Once confirmed, update the corresponding checkbox on the tracking issue. Use exactly the commands and approaches specified in each step — do not improvise or substitute alternatives without checking with the user.
+
+If any earlier step reveals something that needs to be cherry-picked into the release branch, note it as a comment on the tracking issue. When you reach the cherry-pick step later, check the tracking issue comments for anything noted earlier.
 
 ## 1. Create GitHub Tracking Issue
 
@@ -37,6 +39,8 @@ In `r/README.md`, delete everything between `<!-- badges: start -->` and `<!-- b
 sed -i '/<!-- badges: start -->/,/<!-- badges: end -->/d' r/README.md
 ```
 
+Commit this change to the `maint-<VERSION>-r` branch.
+
 ## 4. Review Deprecated Functions
 
 Find functions using `.Deprecated()` that may need to advance (deprecated -> defunct/removed):
@@ -49,23 +53,7 @@ Review each match and decide if the deprecation should advance for this release 
 
 ## 5. Evaluate Nightly Build Status
 
-First, find the release candidate date:
-
-```bash
-gh api repos/apache/arrow/releases --jq '.[] | select(.tag_name | contains("<VERSION>-rc")) | {tag_name, created_at}'
-```
-
-Then check R nightly builds were passing at that time:
-
-1. Go to https://github.com/ursacomputing/crossbow/actions
-2. Click the "Logs" tab
-3. Filter by the RC date
-4. Filter by task status: failure
-5. Look for any failing R jobs (jobs starting with `test-r-` or `r-`)
-
-All R jobs should have been passing at RC time. If any were failing, investigate whether they would cause CRAN rejection.
-
-For failed job logs, search: https://github.com/ursacomputing/crossbow/branches/all?query=<job-name>
+Ask the user to check that R nightly builds were passing around RC time. They can check on Zulip or at https://crossbow.arrow-dev.org/
 
 ## 6. Check Current CRAN Check Results
 
@@ -101,10 +89,10 @@ All URLs should pass (badges were already removed). Fix any broken links.
 
 ## 9. Polish NEWS
 
-Review `r/NEWS.md` and polish following tidyverse style:
+Review `r/NEWS.md` and polish following tidyverse style (see https://style.tidyverse.org/news.html):
 
 - Use present tense ("X now does Y", not "X did Y")
-- Name contributors with `@username` if they're not a listed package author
+- Name contributors with `@username` if they're not a listed package author. Listed authors (do not credit): @nealrichardson, @ianmcook, @thisisnic, @paleolimbot, @romainfrancois, @jkeane, @brycemecum, @dragosmg, @jeroenooms, @assignUser
 - Use categories: "New features", "Minor improvements and fixes", "Installation" (if relevant)
 - Keep entries concise - match the style of previous releases
 - Only include user-facing changes - no CI updates or internal refactoring
@@ -123,7 +111,7 @@ git log --oneline apache-arrow-<PREVIOUS_VERSION>..HEAD | grep "\[R\]"
 
 Do NOT update version numbers - this is done automatically later.
 
-Open a GitHub issue for the NEWS updates, submit a PR to main, then cherry-pick into the `maint-<VERSION>-r` branch later.
+Open a GitHub issue for the NEWS updates, submit a PR to main from a branch on the fork (origin, not upstream), then cherry-pick into the `maint-<VERSION>-r` branch later.
 
 ## 10. Cherry-pick Necessary Changes
 
