@@ -26,6 +26,7 @@ jobs:
   # workflow. We trigger a new workflow run which will have permissions to add labels.
   label-when-reviewed:
     name: "Label PRs when reviewed"
+    if: github.event.review.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - name: "Upload PR review Payload"
