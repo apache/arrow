@@ -40,21 +40,7 @@ on:
     tags:
       - '**'
   pull_request:
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/r_extra.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/docker/**'
-      - 'ci/etc/rprofile'
-      - 'ci/scripts/PKGBUILD'
-      - 'ci/scripts/cpp_*.sh'
-      - 'ci/scripts/install_minio.sh'
-      - 'ci/scripts/r_*.sh'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'dev/archery/archery/**'
-      - 'r/**'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
@@ -75,19 +61,30 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: r_extra
 
-  docker:
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
     needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: R')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: R')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -156,7 +153,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}

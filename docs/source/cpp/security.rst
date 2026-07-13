@@ -120,6 +120,22 @@ variants, but these typically fall into two categories:
   arguments (this is typical of the :ref:`array builders <cpp-api-array-builders>`
   and :ref:`buffer builders <cpp-api-buffer-builders>`).
 
+Controlling and restricting memory allocation
+---------------------------------------------
+
+By construction, many Arrow C++ APIs can allocate large amounts of memory, depending
+on their input parameters. Arrow C++ allows customizing the memory allocator for
+such large data requests through the :ref:`MemoryPool <cpp_memory_pool>` interface.
+
+You can therefore implement a MemoryPool class enforcing the restrictions
+of your choice (for example to limit the total number of allocated bytes), and pass
+it to any Arrow C++ APIs you use.
+
+.. note::
+   Unlike memory used for Arrow data, smaller metadata structures (such as field
+   names, etc.) instead rely on the C++ standard library allocators for convenience.
+   They will therefore be invisible to the MemoryPool memory accounting.
+
 Ingesting untrusted data
 ========================
 
@@ -143,6 +159,13 @@ from an untrusted source), you **must** follow these steps:
 1. Check any error returned by the API, as with any other API
 2. If the API returned successfully, validate the returned Arrow data in full
    (see "Full validity" above)
+
+Furthermore, both the IPC and the Parquet format allow for powerful forms of
+compression, and can therefore exhibit large expansion factors when reading.
+If you need to guard against potential denial-of-service attacks that would
+exhaust available memory, we recommend you enforce memory allocation limits
+using a dedicated MemoryPool implementation (see "Controlling and restricting
+memory allocation" above).
 
 CSV reader
 ----------

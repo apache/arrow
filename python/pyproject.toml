@@ -32,7 +32,7 @@ backend-path = ["."]
 [project]
 name = "pyarrow"
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = "Apache-2.0"
@@ -41,7 +41,6 @@ license-files = [
     "NOTICE.txt",
 ]
 classifiers  = [
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
@@ -88,6 +87,12 @@ metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/", "pyarrow-stubs/"]
 wheel.packages = ["pyarrow"]
 wheel.install-dir = "pyarrow"
+# TODO(GH-32609): Remove this when stubfiles are complete
+# Withhold the PEP 561 marker until the type stubs are complete. The .pyi files
+# are also temporarily omitted from wheels, so type checkers don't rely on the
+# incomplete stubs and break downstream users (GH-49831). py.typed is kept
+# in-tree for CI type-checking.
+wheel.exclude = ["pyarrow/py.typed"]
 
 [tool.scikit-build.cmake.define]
 PYARROW_BUNDLE_ARROW_CPP = {env = "PYARROW_BUNDLE_ARROW_CPP", default = "OFF"}
@@ -101,7 +106,7 @@ root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-fallback_version = '25.0.0a0'
+fallback_version = '26.0.0a0'
 
 # TODO: Enable type checking once stubs are merged
 [tool.mypy]
@@ -117,7 +122,7 @@ exclude = [
 # TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 include = ["pyarrow-stubs"]
 exclude = [
     "pyarrow",

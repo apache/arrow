@@ -2612,8 +2612,6 @@ def test_strftime():
 
 
 def _check_datetime_components(timestamps, timezone=None):
-    from pyarrow.vendored.version import Version
-
     ts = pd.to_datetime(timestamps).tz_localize(
         "UTC").tz_convert(timezone).to_series()
     tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
@@ -2626,17 +2624,11 @@ def _check_datetime_components(timestamps, timezone=None):
         pa.field('iso_day_of_week', pa.int64())
     ]
 
-    if Version(pd.__version__) < Version("1.1.0"):
-        # https://github.com/pandas-dev/pandas/issues/33206
-        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
-        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
-        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
-    else:
-        # Casting is required because pandas isocalendar returns int32
-        # while arrow isocalendar returns int64.
-        iso_year = ts.dt.isocalendar()["year"].astype("int64")
-        iso_week = ts.dt.isocalendar()["week"].astype("int64")
-        iso_day = ts.dt.isocalendar()["day"].astype("int64")
+    # Casting is required because pandas isocalendar returns int32
+    # while arrow isocalendar returns int64.
+    iso_year = ts.dt.isocalendar()["year"].astype("int64")
+    iso_week = ts.dt.isocalendar()["week"].astype("int64")
+    iso_day = ts.dt.isocalendar()["day"].astype("int64")
 
     iso_calendar = pa.StructArray.from_arrays(
         [iso_year, iso_week, iso_day],
@@ -3903,6 +3895,18 @@ def test_rank_normal_options():
                             options=pc.RankQuantileOptions(null_placement="at_start",
                                                            sort_keys="descending"))
     assert result.to_pylist() == expected
+
+
+@pytest.mark.numpy
+def test_hypot():
+    x = np.array([3.0, 0.0, -5.0, 1.5, 7.25])
+    y = np.array([4.0, 0.0, 12.0, -2.0, 0.0])
+    result = pc.hypot(pa.array(x), pa.array(y))
+    np.testing.assert_array_almost_equal(
+        result.to_numpy(zero_copy_only=False), np.hypot(x, y))
+
+    # scalar inputs
+    assert pc.hypot(pa.scalar(3.0), pa.scalar(4.0)).as_py() == pytest.approx(5.0)
 
 
 def create_sample_expressions():

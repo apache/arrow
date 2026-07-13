@@ -1148,6 +1148,10 @@ TEST(TestBinaryArithmetic, DispatchBest) {
   CheckDispatchBest("atan2", {float32(), float64()}, {float64(), float64()});
   // Integer always promotes to double
   CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
+
+  CheckDispatchBest("hypot", {float32(), float32()}, {float32(), float32()});
+  CheckDispatchBest("hypot", {float32(), float64()}, {float64(), float64()});
+  CheckDispatchBest("hypot", {int32(), uint8()}, {float64(), float64()});
 }
 
 TEST(TestBinaryArithmetic, Null) {
@@ -1159,7 +1163,8 @@ TEST(TestBinaryArithmetic, Null) {
     }
   }
 
-  for (std::string name : {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor"}) {
+  for (std::string name :
+       {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor", "hypot"}) {
     AssertNullToNull(name);
   }
 }
@@ -2805,6 +2810,50 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                     "[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, Inf, -Inf]",
                     MakeArray(0, 0, -0.0, M_PI, -M_PI, 0, M_PI_2, M_PI, -M_PI_2, M_PI_2,
                               -M_PI_2, 0, M_PI));
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, Hypot) {
+  SKIP_IF_HALF_FLOAT();
+
+  this->SetNansEqual(true);
+  auto hypot = [](const Datum& x, const Datum& y, ArithmeticOptions, ExecContext* ctx) {
+    return Hypot(x, y, ctx);
+  };
+  this->AssertBinop(hypot, "[]", "[]", "[]");
+  // Pythagorean triples; result is independent of the sign of either argument,
+  // and hypot(0, 0) == 0.
+  this->AssertBinop(hypot, "[3, -3, 5, -8, 0]", "[4, -4, -12, 15, 0]",
+                    "[5, 5, 13, 17, 0]");
+  // Null propagation.
+  this->AssertBinop(hypot, "[1, null, 0]", "[null, 1, 0]", "[null, null, 0]");
+  // NaN propagates, unless the other argument is infinite (per C99/IEEE 754,
+  // hypot(+/-Inf, NaN) == +Inf).
+  this->AssertBinop(hypot, "[NaN, 1, NaN, Inf]", "[1, NaN, NaN, NaN]",
+                    "[NaN, NaN, NaN, Inf]");
+  // +/-infinity in either argument yields +infinity.
+  this->AssertBinop(hypot, "[Inf, -Inf, 3]", "[4, 0, -Inf]", "[Inf, Inf, Inf]");
+}
+
+// hypot avoids overflow/underflow at intermediate stages: for float32 the
+// squares below overflow to +Inf, so a naive sqrt(x*x + y*y) would return Inf,
+// while the kernel (like std::hypot) returns the correct finite result.
+TEST(TestBinaryArithmetic, HypotOverflowSafety) {
+  std::vector<float> xs = {3.0e30f, 5.0e37f, -2.0e30f};
+  std::vector<float> ys = {4.0e30f, 1.2e38f, 0.0f};
+  ASSERT_TRUE(std::isinf(xs[0] * xs[0]));  // the naive intermediate overflows
+
+  std::vector<float> expected_vals;
+  for (size_t i = 0; i < xs.size(); ++i) {
+    expected_vals.push_back(std::hypot(xs[i], ys[i]));
+  }
+
+  std::shared_ptr<Array> x, y, expected;
+  ArrayFromVector<FloatType>(xs, &x);
+  ArrayFromVector<FloatType>(ys, &y);
+  ArrayFromVector<FloatType>(expected_vals, &expected);
+
+  ASSERT_OK_AND_ASSIGN(Datum result, Hypot(x, y));
+  AssertArraysEqual(*expected, *result.make_array(), /*verbose=*/true);
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAtanh) {

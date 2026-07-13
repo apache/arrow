@@ -50,7 +50,7 @@ struct FloatToUInt<util::Float16> {
 template <typename Float>
 struct UlpDistanceUtil {
  public:
-  using UIntType = FloatToUInt<Float>::Type;
+  using UIntType = typename FloatToUInt<Float>::Type;
   static constexpr UIntType kNumberOfBits = sizeof(Float) * 8;
   static constexpr UIntType kSignMask = static_cast<UIntType>(1) << (kNumberOfBits - 1);
 

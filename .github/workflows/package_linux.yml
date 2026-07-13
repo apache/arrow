@@ -38,18 +38,7 @@ on:
     tags:
       - "apache-arrow-*-rc*"
   pull_request:
-    paths:
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/package_linux.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'cpp/**'
-      - 'c_glib/**'
-      - 'dev/archery/archery/**'
-      - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.sh'
-      - 'dev/release/verify-yum.sh'
-      - 'dev/tasks/linux-packages/**'
-      - 'format/Flight.proto'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
@@ -69,12 +58,28 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: package_linux
 
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
+    needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
   package:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     permissions:
       # Upload artifacts to GitHub Release
       contents: write
@@ -82,11 +87,6 @@ jobs:
       packages: write
     name: ${{ matrix.id }}
     runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
-    needs: check-labels
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
     timeout-minutes: 160
     strategy:
       fail-fast: false
@@ -231,7 +231,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

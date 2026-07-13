@@ -57,6 +57,7 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    unixODBC-devel \
     utf8proc-devel \
     vala \
     which \

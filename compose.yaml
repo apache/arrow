@@ -901,7 +901,8 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
-        /arrow/ci/scripts/ruby_test.sh /arrow /build"
+        /arrow/ci/scripts/ruby_test.sh /arrow /build &&
+        /arrow/ci/scripts/ccache_fix_perms.sh"
 
   ubuntu-ruby:
     # Usage:
@@ -938,7 +939,7 @@ services:
     #   docker compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm/v7
-    #   PYTHON: 3.10, 3.11, 3.12, 3.13
+    #   PYTHON: 3.11, 3.12, 3.13, 3.14
     image: ${REPO}:${ARCH_SHORT}-conda-python-${PYTHON}
     build:
       context: .

@@ -75,6 +75,8 @@ if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+    echo -e "===\n=== ccache configuration\n==="
+    ccache --show-config
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
 fi
@@ -155,10 +157,6 @@ if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   CC="${ORIGINAL_CC}"
   CXX="${ORIGINAL_CXX}"
 elif [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
-  if [ "${UBUNTU}" = "20.04" ]; then
-    echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
-    exit -1
-  fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
   source ~/emsdk/emsdk_env.sh
   export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
@@ -267,6 +265,7 @@ else
     -DCMAKE_CXX_STANDARD="${CMAKE_CXX_STANDARD:-20}" \
     -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
     -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
+    -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=${CMAKE_MSVC_DEBUG_INFORMATION_FORMAT:-} \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -DCUDAToolkit_ROOT=${CUDAToolkit_ROOT:-} \
     -Dgflags_SOURCE=${gflags_SOURCE:-} \

@@ -18,7 +18,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <limits>
+#include <memory>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -1608,6 +1610,60 @@ TEST(TestStringOps, TestRpadString) {
   EXPECT_EQ(std::string(out_str + 5000, 2), "α");
 }
 
+TEST(TestStringOps, TestPadMalformedUtf8NoOverread) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // A 4-byte utf8 lead byte followed by non-continuation bytes and no trailing
+  // space. utf8_length_ignore_invalid() used to extend the glyph length past
+  // the end of the buffer while scanning the continuation bytes. The input is
+  // held in an exactly-sized heap buffer so any over-read trips AddressSanitizer.
+  const char bytes[] = {'\xF0', 'a', 'a', 'a'};
+  const auto text_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> text(new char[text_len]);
+  std::memcpy(text.get(), bytes, text_len);
+  const std::string text_str(text.get(), text_len);
+
+  // The lone lead byte counts as one invalid glyph and the three 'a's as one
+  // each, so the length is 4 and padding to width 6 adds two fill characters.
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 6, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 6);
+  EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 6, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 6);
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
+}
+
+TEST(TestStringOps, TestPadMalformedUtf8KeepsValidGlyph) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // {0xF0, 'a', 0xE2, 0x82, 0xAC}: malformed 4-byte lead + ASCII 'a' + U+20AC €.
+  // 0xF0 alone counts as one invalid glyph, then 'a' and € follow on their own,
+  // so the count is 3. If the inner scan kept char_len at 4 it would advance the
+  // outer loop past 'a', 0xE2, 0x82 and only see the orphaned 0xAC, giving 2.
+  // The input sits in an exactly-sized heap buffer so any over-read trips ASAN.
+  const char bytes[] = {'\xF0', 'a', '\xE2', '\x82', '\xAC'};
+  const auto text_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> text(new char[text_len]);
+  std::memcpy(text.get(), bytes, text_len);
+  const std::string text_str(text.get(), text_len);
+
+  // 3 glyphs padded to width 5 adds two fill characters, out_len = 2 + 5 = 7.
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 5, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 5, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
+}
+
 TEST(TestStringOps, TestRtrim) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -1902,6 +1958,20 @@ TEST(TestStringOps, TestByteSubstr) {
 
   out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -100, 10, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  // offset past the end of the text must yield an empty result, not a negative
+  // length that memcpy reads as an out-of-bounds copy
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 15, 10, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // a huge length must be truncated to the remaining bytes, not overflow
+  // startPos + length and copy far past the end of the text
+  out_str =
+      byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 2, 2147483647, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "estString");
   EXPECT_FALSE(ctx.has_error());
 }
 

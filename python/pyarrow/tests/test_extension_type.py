@@ -1731,6 +1731,72 @@ def test_tensor_array_from_numpy(np_type_str):
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_list_of_ndarrays(np_type_str):
+    np_dtype = np.dtype(np_type_str)
+    tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 3))
+
+    elements = [
+        np.arange(6, dtype=np_dtype).reshape(2, 3),
+        np.arange(6, 12, dtype=np_dtype).reshape(2, 3),
+    ]
+    result = pa.array(elements, type=tensor_type)
+    assert isinstance(result, pa.FixedShapeTensorArray)
+    assert result.type == tensor_type
+    assert len(result) == 2
+
+    expected = pa.FixedShapeTensorArray.from_numpy_ndarray(np.stack(elements))
+    assert result.storage.equals(expected.storage)
+
+    for scalar, original in zip(result, elements):
+        np.testing.assert_array_equal(scalar.to_numpy(), original)
+
+    tensor_3d = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 2, 3))
+    elements_3d = [np.arange(12, dtype=np_dtype).reshape(2, 2, 3)]
+    result_3d = pa.array(elements_3d, type=tensor_3d)
+    assert result_3d.type == tensor_3d
+    np.testing.assert_array_equal(result_3d[0].to_numpy(), elements_3d[0])
+
+    result_with_null = pa.array([elements[0], None], type=tensor_type)
+    assert result_with_null.null_count == 1
+    assert result_with_null[1].as_py() is None
+
+    with pytest.raises(ValueError, match="shape"):
+        pa.array([np.arange(6, dtype=np_dtype).reshape(3, 2)], type=tensor_type)
+
+    permuted_type = pa.fixed_shape_tensor(
+        pa.from_numpy_dtype(np_dtype), (2, 3), permutation=[1, 0])
+    with pytest.raises(NotImplementedError, match="permutation"):
+        pa.array(elements, type=permuted_type)
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_mixed_layout():
+    # C- and F-ordered arrays with the same values must produce the same
+    # result, since the values are always flattened in C order.
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), (2, 3))
+    raw = [[1, 2, 3], [4, 5, 6]]
+    c_arr = np.array(raw, order="C")
+    f_arr = np.array(raw, order="F")
+    assert np.array_equal(c_arr, f_arr)
+    assert c_arr.tobytes("A") != f_arr.tobytes("A")
+
+    same = pa.array([c_arr, c_arr], type=tensor_type)
+    mixed = pa.array([c_arr, f_arr], type=tensor_type)
+    assert mixed.equals(same)
+    assert mixed.storage.to_pylist() == [[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]]
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_of_0d_arrays():
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), ())
+    result = pa.array([np.array(1, dtype=np.int64), np.array(2, dtype=np.int64)],
+                      type=tensor_type)
+    assert result.type == tensor_type
+    assert result.storage.to_pylist() == [[1], [2]]
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),

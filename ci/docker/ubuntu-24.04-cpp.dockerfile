@@ -120,6 +120,7 @@ RUN apt-get update -y -q && \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
+        sudo \
         tzdata \
         tzdata-legacy \
         unixodbc-dev \

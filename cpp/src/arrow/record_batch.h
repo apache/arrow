@@ -90,11 +90,9 @@ class ARROW_EXPORT RecordBatch {
   /// in the resulting struct array.
   Result<std::shared_ptr<StructArray>> ToStructArray() const;
 
-  /// \brief Convert record batch with one data type to Tensor
+  /// \brief Convert RecordBatch to Tensor
   ///
-  /// Create a Tensor object with shape (number of rows, number of columns) and
-  /// strides (type size in bytes, type size in bytes * number of rows).
-  /// Generated Tensor will have column-major layout.
+  /// Create a Tensor object.
   ///
   /// \param[in] null_to_nan if true, convert nulls to NaN
   /// \param[in] row_major if true, create row-major Tensor else column-major Tensor

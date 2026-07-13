@@ -114,6 +114,7 @@ BuildRequires:	snappy-devel
 %if %{have_thrift}
 BuildRequires:	thrift-devel
 %endif
+BuildRequires:	unixODBC-devel
 %if %{have_utf8proc}
 BuildRequires:	utf8proc-devel
 %endif
@@ -144,6 +145,7 @@ cd cpp
   -DARROW_DATASET=ON \
   -DARROW_FLIGHT=ON \
   -DARROW_FLIGHT_SQL=ON \
+  -DARROW_FLIGHT_SQL_ODBC=ON \
   -DARROW_GANDIVA=ON \
 %if %{use_gcs}
   -DARROW_GCS=ON \
@@ -472,7 +474,7 @@ This package contains the libraries for Apache Arrow Flight SQL.
 Summary:	Libraries and header files for Apache Arrow Flight SQL.
 License:	Apache-2.0
 Requires:	%{name}%{so_version}-flight-sql-libs = %{version}-%{release}
-Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}-flight-devel = %{version}-%{release}
 
 %description flight-sql-devel
 Libraries and header files for Apache Arrow Flight SQL.
@@ -482,10 +484,45 @@ Libraries and header files for Apache Arrow Flight SQL.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/sql/
+%exclude %{_includedir}/arrow/flight/sql/odbc/
 %{_libdir}/cmake/ArrowFlightSql/
 %{_libdir}/libarrow_flight_sql.a
 %{_libdir}/libarrow_flight_sql.so
 %{_libdir}/pkgconfig/arrow-flight-sql.pc
+
+%package -n %{name}%{so_version}-flight-sql-odbc-libs
+Summary:	C++ library for interacting with SQL databases via ODBC.
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-flight-sql-libs = %{version}-%{release}
+
+%description -n %{name}%{so_version}-flight-sql-odbc-libs
+This package contains the libraries for Apache Arrow Flight SQL ODBC driver.
+
+%files -n %{name}%{so_version}-flight-sql-odbc-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_flight_sql_odbc.so.*
+
+%package flight-sql-odbc-devel
+Summary:	Libraries and header files for Apache Arrow Flight SQL ODBC driver.
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-flight-sql-odbc-libs = %{version}-%{release}
+Requires:	%{name}-flight-sql-devel = %{version}-%{release}
+Requires:	unixODBC-devel
+
+%description flight-sql-odbc-devel
+Libraries and header files for Apache Arrow Flight SQL ODBC driver.
+
+%files flight-sql-odbc-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/flight/sql/odbc/
+%{_libdir}/cmake/ArrowFlightSqlOdbc/
+%{_libdir}/libarrow_flight_sql_odbc.a
+%{_libdir}/libarrow_flight_sql_odbc.so
+%{_libdir}/pkgconfig/arrow-flight-sql-odbc.pc
 
 %package -n gandiva%{so_version}-libs
 Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
@@ -886,6 +923,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Fri Jul 03 2026 Raúl Cumplido <raulcumplido@gmail.com> - 25.0.0-1
+- New upstream release.
+
 * Tue Apr 14 2026 Raúl Cumplido <raulcumplido@gmail.com> - 24.0.0-1
 - New upstream release.
 
