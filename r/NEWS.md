@@ -56,7 +56,6 @@
 
 ## Installation
 
-- The minimum supported R version is now 4.2 (#49901).
 - The R package now builds under r-universe/r-wasm (#49981).
 
 # arrow 24.0.0
