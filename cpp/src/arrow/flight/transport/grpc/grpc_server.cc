@@ -227,8 +227,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.MakeCallContext(FlightMethod::Handshake, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
-
     if (!helper_.auth_handler()) {
       RETURN_WITH_MIDDLEWARE(
           flight_context,
@@ -247,8 +245,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::ListFlights, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
-
     // Retrieve the listing from the implementation
     std::unique_ptr<FlightListing> listing;
 
@@ -279,7 +275,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
     std::unique_ptr<FlightInfo> info;
-    helper_.AddMiddlewareHeaders(context, &flight_context);
     auto res = impl_->base()->GetFlightInfo(flight_context, descr, &info);
     SERVICE_RETURN_NOT_OK(flight_context, res);
 
@@ -305,7 +300,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     FlightDescriptor descr;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
-    helper_.AddMiddlewareHeaders(context, &flight_context);
     std::unique_ptr<PollInfo> info;
     SERVICE_RETURN_NOT_OK(flight_context,
                           impl_->base()->PollFlightInfo(flight_context, descr, &info));
@@ -331,7 +325,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     FlightDescriptor descr;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
-    helper_.AddMiddlewareHeaders(context, &flight_context);
     std::unique_ptr<SchemaResult> result;
     SERVICE_RETURN_NOT_OK(flight_context,
                           impl_->base()->GetSchema(flight_context, descr, &result));
@@ -351,8 +344,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoGet, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
-
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
 
     Ticket ticket;
@@ -369,8 +360,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoPut, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
-
     PutDataStream stream(reader);
     RETURN_WITH_MIDDLEWARE(flight_context, impl_->DoPut(flight_context, &stream));
   }
@@ -381,8 +370,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoExchange, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
-
     ExchangeDataStream data_stream(stream);
     RETURN_WITH_MIDDLEWARE(flight_context,
                            impl_->DoExchange(flight_context, &data_stream));
@@ -393,7 +380,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::ListActions, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
     // Retrieve the listing from the implementation
     std::vector<ActionType> types;
     SERVICE_RETURN_NOT_OK(flight_context,
@@ -406,7 +392,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoAction, context, &flight_context));
-    helper_.AddMiddlewareHeaders(context, &flight_context);
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
     Action action;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &action));
