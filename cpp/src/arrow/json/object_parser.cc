@@ -29,34 +29,35 @@ class ObjectParser::Impl {
     // Copy into padded buffer
     padded_json_ = simdjson::padded_string(json);
 
-    // Parse
-    auto result = parser_.parse(padded_json_);
-
-    // Handle parse errors
-    if (result.error()) {
-      return Status::Invalid("JSON parse error (code=", static_cast<int>(result.error()),
-                             ")");
-    }
-
     // Store parsed document
-    document_ = std::move(result).value();
+    document_ = parser_.iterate(padded_json_);
 
     // Validate root is an object
-    if (!document_.is_object()) {
-      return Status::TypeError("Not a JSON object");
+    auto object = document_.get_object();
+    if (object.error()) {
+      if (object.error() == simdjson::INCORRECT_TYPE) {
+        return Status::TypeError("Not a JSON object");
+      }
+      return Status::Invalid("JSON parse error: ",
+                             simdjson::error_message(object.error()));
     }
 
     return Status::OK();
   }
 
-  Result<std::string> GetString(const char* key) const {
-    auto field = document_[key];
+  Result<std::string> GetString(const char* key) {
+    document_.rewind();
+
+    auto object = document_.get_object();
+
+    auto field = object.find_field(key);
+
     if (field.error() == simdjson::NO_SUCH_FIELD) {
       return Status::KeyError("Key '", key, "' does not exist");
     }
     if (field.error()) {
       return Status::Invalid("Error accessing key '", key,
-                             "': (code=", static_cast<int>(field.error()), ")");
+                             "': ", simdjson::error_message(field.error()));
     }
 
     auto str_result = field.get_string();
@@ -65,23 +66,31 @@ class ObjectParser::Impl {
     }
     if (str_result.error()) {
       return Status::Invalid("Error getting string for key '", key,
-                             "': (code=", static_cast<int>(str_result.error()), ")");
+                             "': ", simdjson::error_message(str_result.error()));
     }
 
     return std::string(str_result.value());
   }
 
-  Result<std::unordered_map<std::string, std::string>> GetStringMap() const {
+  Result<std::unordered_map<std::string, std::string>> GetStringMap() {
     std::unordered_map<std::string, std::string> map;
 
-    auto obj_result = document_.get_object();
-    if (obj_result.error()) {
-      return Status::TypeError("Document is not an object");
-    }
+    document_.rewind();
 
-    simdjson::dom::object obj = obj_result.value();
+    auto object = document_.get_object();
 
-    for (auto [key, value] : obj) {
+    for (auto field : object) {
+      auto key_result = field.unescaped_key();
+
+      auto key = key_result.value();
+
+      if (key_result.error()) {
+        return Status::Invalid("Error getting value for key '", std::string(key),
+                               "': ", simdjson::error_message(key_result.error()));
+      }
+
+      auto value = field.value();
+
       auto str_result = value.get_string();
 
       if (str_result.error() == simdjson::INCORRECT_TYPE) {
@@ -99,14 +108,19 @@ class ObjectParser::Impl {
     return map;
   }
 
-  Result<bool> GetBool(const char* key) const {
-    auto field = document_[key];
+  Result<bool> GetBool(const char* key) {
+    document_.rewind();
+
+    auto object = document_.get_object();
+
+    auto field = object.find_field(key);
+
     if (field.error() == simdjson::NO_SUCH_FIELD) {
       return Status::KeyError("Key '", key, "' does not exist");
     }
     if (field.error()) {
       return Status::Invalid("Error accessing key '", key,
-                             "': (code=", static_cast<int>(field.error()), ")");
+                             "': ", simdjson::error_message(field.error()));
     }
 
     auto bool_result = field.get_bool();
@@ -115,16 +129,16 @@ class ObjectParser::Impl {
     }
     if (bool_result.error()) {
       return Status::Invalid("Error getting bool for key '", key,
-                             "': (code=", static_cast<int>(bool_result.error()), ")");
+                             "': ", simdjson::error_message(bool_result.error()));
     }
 
     return bool_result.value();
   }
 
  private:
-  simdjson::dom::parser parser_;
+  simdjson::ondemand::parser parser_;
   simdjson::padded_string padded_json_;
-  simdjson::dom::element document_;
+  simdjson::ondemand::document document_;
 };
 
 ObjectParser::ObjectParser() : impl_(new ObjectParser::Impl()) {}
