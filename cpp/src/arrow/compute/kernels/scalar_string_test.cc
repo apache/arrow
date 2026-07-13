@@ -2331,6 +2331,17 @@ TYPED_TEST(TestStringKernels, TrimUTF8) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8"),
                                   CallFunction("utf8_trim", {input}, &options_invalid));
 }
+
+TYPED_TEST(TestStringKernels, TrimUTF8Dictionary) {
+  auto input =
+      ArrayFromJSON(dictionary(int64(), this->type()), R"(["bcabc", "b", "a", null])");
+  auto options = TrimOptions{"bc"};
+  this->CheckUnary("utf8_trim", input, this->type(), R"(["a", "", "a", null])", &options);
+  this->CheckUnary("utf8_ltrim", input, this->type(), R"(["abc", "", "a", null])",
+                   &options);
+  this->CheckUnary("utf8_rtrim", input, this->type(), R"(["bca", "", "a", null])",
+                   &options);
+}
 #endif
 
 // produce test data with e.g.:
