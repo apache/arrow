@@ -31,7 +31,6 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/logging_internal.h"
 
 namespace arrow::compute::internal {
 
@@ -144,8 +143,8 @@ struct GenericNullLikePartition {
                                              int64_t nan_count, int64_t null_count,
                                              NullPlacement null_placement) {
     GenericNullLikePartition p;
-    DCHECK_EQ(non_null_like_count + nan_count + null_count,
-              static_cast<int64_t>(indices.size()));
+    ARROW_DCHECK_EQ(non_null_like_count + nan_count + null_count,
+                    static_cast<int64_t>(indices.size()));
     if (null_placement == NullPlacement::AtEnd) {
       p.non_null_like_range = indices.subspan(0, non_null_like_count);
       p.nan_range = indices.subspan(non_null_like_count, nan_count);
@@ -178,15 +177,16 @@ struct NullPartition {
 
   static NullPartition NullsAtEnd(std::span<uint64_t> indices,
                                   std::span<uint64_t> null_tail) {
-    ARROW_DCHECK_GE(null_tail.begin(), indices.begin());
-    ARROW_DCHECK_LE(null_tail.begin(), indices.end());
+    ARROW_DCHECK_GE(null_tail.data(), indices.data());
+    ARROW_DCHECK_EQ(null_tail.data() + null_tail.size(), indices.data() + indices.size());
     return {.non_nulls = {indices.begin(), null_tail.begin()}, .nulls = null_tail};
   }
 
   static NullPartition NullsAtStart(std::span<uint64_t> indices,
                                     std::span<uint64_t> non_null_tail) {
-    ARROW_DCHECK_GE(non_null_tail.begin(), indices.begin());
-    ARROW_DCHECK_LE(non_null_tail.begin(), indices.end());
+    ARROW_DCHECK_GE(non_null_tail.data(), indices.data());
+    ARROW_DCHECK_EQ(non_null_tail.data() + non_null_tail.size(),
+                    indices.data() + indices.size());
     return {.non_nulls = non_null_tail,
             .nulls = {indices.begin(), non_null_tail.begin()}};
   }
