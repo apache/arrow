@@ -327,12 +327,16 @@ struct ChunkedMergeImpl {
     ARROW_DCHECK_EQ(right.nan_end(), right.non_null_like_begin());
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
-    // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nus]
+    // [left nul .. left nan .. left non-nul .. right nul .. right nan .. right non-nul]
+    //                          ┬────────────┴┴──────────────────────┬
+    // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nul]
     std::rotate(left.non_null_like_begin(), right.null_begin(), right.nan_end());
 
     // only use sizes of ranges that are at a different position now
-    // [left nul .. right nul .. left nan .. right nan .. left non-nulls .. right
-    // non-nulls] this is a no-op if no nan values are present
+    // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nul]
+    //              ┬────────┴┴─────────┬
+    // [left nul .. right nul .. left nan .. right nan .. left non-nul .. right non-nul]
+    // this is a no-op if no nan values are present
     std::rotate(left.nan_begin(), left.nan_end(),
                 left.nan_end() + right.null_range.size());
 
@@ -359,7 +363,7 @@ struct ChunkedMergeImpl {
   ChunkedNullLikePartition MergeNullsAtEnd(const ChunkedNullLikePartition& left,
                                            const ChunkedNullLikePartition& right) const {
     // Input layout:
-    // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nulls]
+    // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nul]
     ARROW_DCHECK_EQ(left.non_null_like_end(), left.nan_begin());
     ARROW_DCHECK_EQ(left.nan_end(), left.null_begin());
     ARROW_DCHECK_EQ(left.null_end(), right.non_null_like_begin());
@@ -367,11 +371,15 @@ struct ChunkedMergeImpl {
     ARROW_DCHECK_EQ(right.nan_end(), right.null_begin());
 
     // Mutate the input, stably in two steps, to obtain the following layouts:
+    // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nul]
+    //                  ┬────────────────────┴┴─────────────┬
     // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
     std::rotate(left.nan_begin(), right.non_null_like_begin(), right.non_null_like_end());
 
     // only use sizes of ranges that are at a different position now
-    // [left non-nul .. right non-nul .. left nan .. right nan .. left null .. right nul]
+    // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
+    //                                               ┬────────┴┴─────────┬
+    // [left non-nul .. right non-nul .. left nan .. right nan .. left nul .. right nul]
     // this is a no-op if no nan values are present
     auto new_left_null_range_begin = left.non_null_like_end() +
                                      right.non_null_like_range.size() +
