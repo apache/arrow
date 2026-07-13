@@ -91,8 +91,7 @@ infer_type <- function(x, ...) UseMethod("infer_type")
 #' @rdname infer_type
 #' @export
 type <- function(x) {
-  .Deprecated("infer_type")
-  infer_type(x)
+  .Defunct("infer_type")
 }
 
 #' @export
