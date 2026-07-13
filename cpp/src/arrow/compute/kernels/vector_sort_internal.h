@@ -59,14 +59,18 @@ namespace arrow::compute::internal {
 struct NonStablePartitioner {
   template <typename Predicate>
   auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
-    return std::ranges::partition(indices, std::forward<Predicate>(pred));
+    auto middle = std::partition(indices.data(), indices.data() + indices.size(),
+                                 std::forward<Predicate>(pred));
+    return std::span<uint64_t>{middle, indices.data() + indices.size()};
   }
 };
 
 struct StablePartitioner {
   template <typename Predicate>
   auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
-    return std::ranges::stable_partition(indices, std::forward<Predicate>(pred));
+    auto middle = std::stable_partition(indices.data(), indices.data() + indices.size(),
+                                        std::forward<Predicate>(pred));
+    return std::span<uint64_t>{middle, indices.data() + indices.size()};
   }
 };
 

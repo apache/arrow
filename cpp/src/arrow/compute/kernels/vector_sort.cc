@@ -178,26 +178,26 @@ class ChunkedArraySorter : public TypeVisitor {
     using ArrowType = typename ArrayType::TypeClass;
 
     if (order_ == SortOrder::Ascending) {
-      std::ranges::merge(
-          left, right, temp_indices.begin(),
-          [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-            return ChunkValue<ArrowType>(arrays, left) <
-                   ChunkValue<ArrowType>(arrays, right);
-          });
+      std::merge(left.data(), left.data() + left.size(), right.data(),
+                 right.data() + right.size(), temp_indices.data(),
+                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+                   return ChunkValue<ArrowType>(arrays, left) <
+                          ChunkValue<ArrowType>(arrays, right);
+                 });
     } else {
-      std::ranges::merge(
-          left, right, temp_indices.begin(),
-          [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-            // We don't use 'left > right' here to reduce required
-            // operator. If we use 'right < left' here, '<' is only
-            // required.
-            return ChunkValue<ArrowType>(arrays, right) <
-                   ChunkValue<ArrowType>(arrays, left);
-          });
+      std::merge(left.data(), left.data() + left.size(), right.data(),
+                 right.data() + right.size(), temp_indices.data(),
+                 [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+                   // We don't use 'left > right' here to reduce required
+                   // operator. If we use 'right < left' here, '<' is only
+                   // required.
+                   return ChunkValue<ArrowType>(arrays, right) <
+                          ChunkValue<ArrowType>(arrays, left);
+                 });
     }
     // Copy back temp area into main buffer
-    std::ranges::copy(temp_indices.begin(),
-                      temp_indices.begin() + left.size() + right.size(), left.begin());
+    std::copy(temp_indices.data(), temp_indices.data() + left.size() + right.size(),
+              left.data());
   }
 
   template <typename ArrowType>
@@ -296,15 +296,19 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     // Also, we would like to use a counting sort if possible.  This requires
     // a counting sort compatible with indirect indexing.
     if (order_ == SortOrder::Ascending) {
-      std::ranges::stable_sort(
-          partitions.non_null_like_range, [&](uint64_t left, uint64_t right) {
+      std::stable_sort(
+          partitions.non_null_like_range.data(),
+          partitions.non_null_like_range.data() + partitions.non_null_like_range.size(),
+          [&](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
             const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
             return lhs < rhs;
           });
     } else {
-      std::ranges::stable_sort(
-          partitions.non_null_like_range, [&](uint64_t left, uint64_t right) {
+      std::stable_sort(
+          partitions.non_null_like_range.data(),
+          partitions.non_null_like_range.data() + partitions.non_null_like_range.size(),
+          [&](uint64_t left, uint64_t right) {
             // We don't use 'left > right' here to reduce required operator.
             // If we use 'right < left' here, '<' is only required.
             const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
@@ -522,32 +526,36 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     const auto p = PartitionNullsInternal<Type>(first_sort_key);
 
     // Sort first-key non-nulls
-    std::ranges::stable_sort(p.non_null_like_range, [&](uint64_t left, uint64_t right) {
-      // Both values are never null nor NaN
-      // (otherwise they've been partitioned away above).
-      const auto value_left = GetView::LogicalValue(array.GetView(left));
-      const auto value_right = GetView::LogicalValue(array.GetView(right));
-      if (value_left != value_right) {
-        bool compared = value_left < value_right;
-        if (first_sort_key.order == SortOrder::Ascending) {
-          return compared;
-        } else {
-          return !compared;
-        }
-      }
-      // If the left value equals to the right value,
-      // we need to compare the second and following
-      // sort keys.
-      return comparator.Compare(left, right, 1);
-    });
+    std::stable_sort(p.non_null_like_range.data(),
+                     p.non_null_like_range.data() + p.non_null_like_range.size(),
+                     [&](uint64_t left, uint64_t right) {
+                       // Both values are never null nor NaN
+                       // (otherwise they've been partitioned away above).
+                       const auto value_left = GetView::LogicalValue(array.GetView(left));
+                       const auto value_right =
+                           GetView::LogicalValue(array.GetView(right));
+                       if (value_left != value_right) {
+                         bool compared = value_left < value_right;
+                         if (first_sort_key.order == SortOrder::Ascending) {
+                           return compared;
+                         } else {
+                           return !compared;
+                         }
+                       }
+                       // If the left value equals to the right value,
+                       // we need to compare the second and following
+                       // sort keys.
+                       return comparator.Compare(left, right, 1);
+                     });
     return comparator_.status();
   }
 
   template <typename Type>
   enable_if_null<Type, Status> SortInternal() {
-    std::ranges::stable_sort(indices_, [&](uint64_t left, uint64_t right) {
-      return comparator_.Compare(left, right, 1);
-    });
+    std::stable_sort(indices_.data(), indices_.data() + indices_.size(),
+                     [&](uint64_t left, uint64_t right) {
+                       return comparator_.Compare(left, right, 1);
+                     });
     return comparator_.status();
   }
 
@@ -566,18 +574,19 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
       // Sort all NaNs by the second and following sort keys.
       // TODO: could we instead run an independent sort from the second key on
       // this slice?
-      std::ranges::stable_sort(p.nan_range, [&comparator](uint64_t left, uint64_t right) {
-        return comparator.Compare(left, right, 1);
-      });
+      std::stable_sort(p.nan_range.data(), p.nan_range.data() + p.nan_range.size(),
+                       [&comparator](uint64_t left, uint64_t right) {
+                         return comparator.Compare(left, right, 1);
+                       });
     }
     if (!p.null_range.empty()) {
       // Sort all nulls by the second and following sort keys.
       // TODO: could we instead run an independent sort from the second key on
       // this slice?
-      std::ranges::stable_sort(p.null_range,
-                               [&comparator](uint64_t left, uint64_t right) {
-                                 return comparator.Compare(left, right, 1);
-                               });
+      std::stable_sort(p.null_range.data(), p.null_range.data() + p.null_range.size(),
+                       [&comparator](uint64_t left, uint64_t right) {
+                         return comparator.Compare(left, right, 1);
+                       });
     }
     return p;
   }
@@ -749,13 +758,15 @@ class TableSorter {
     // Untyped implementation
     auto& comparator = comparator_;
 
-    std::ranges::merge(range.subspan(0, middle), range.subspan(middle), temp_indices,
-                       [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                         // All rows are equal on first key so just compare by remaining
-                         // keys
-                         return comparator.Compare(ChunkLocation{left},
-                                                   ChunkLocation{right}, 1);
-                       });
+    auto left = range.subspan(0, middle);
+    auto right = range.subspan(middle);
+    std::merge(left.data(), left.data() + left.size(), right.data(),
+               right.data() + right.size(), temp_indices,
+               [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+                 // All rows are equal on first key so just compare by remaining
+                 // keys
+                 return comparator.Compare(ChunkLocation{left}, ChunkLocation{right}, 1);
+               });
     // Copy back temp area into main buffer
     std::copy(temp_indices, temp_indices + range.size(), range.data());
   }
@@ -770,31 +781,34 @@ class TableSorter {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
-    std::ranges::merge(range.subspan(0, middle), range.subspan(middle), temp_indices,
-                       [&](CompressedChunkLocation left, CompressedChunkLocation right) {
-                         // Both values are never null nor NaN.
-                         const auto left_loc = ChunkLocation{left};
-                         const auto right_loc = ChunkLocation{right};
-                         auto chunk_left = first_sort_key.GetChunk(left_loc);
-                         auto chunk_right = first_sort_key.GetChunk(right_loc);
-                         DCHECK(!chunk_left.IsNull());
-                         DCHECK(!chunk_right.IsNull());
-                         const auto value_left = chunk_left.Value<ArrowType>();
-                         const auto value_right = chunk_right.Value<ArrowType>();
-                         if (value_left == value_right) {
-                           // If the left value equals to the right value,
-                           // we need to compare the second and following
-                           // sort keys.
-                           return comparator.Compare(left_loc, right_loc, 1);
-                         } else {
-                           auto compared = value_left < value_right;
-                           if (first_sort_key.order == SortOrder::Ascending) {
-                             return compared;
-                           } else {
-                             return !compared;
-                           }
-                         }
-                       });
+    auto left = range.subspan(0, middle);
+    auto right = range.subspan(middle);
+    std::merge(left.data(), left.data() + left.size(), right.data(),
+               right.data() + right.size(), temp_indices,
+               [&](CompressedChunkLocation left, CompressedChunkLocation right) {
+                 // Both values are never null nor NaN.
+                 const auto left_loc = ChunkLocation{left};
+                 const auto right_loc = ChunkLocation{right};
+                 auto chunk_left = first_sort_key.GetChunk(left_loc);
+                 auto chunk_right = first_sort_key.GetChunk(right_loc);
+                 DCHECK(!chunk_left.IsNull());
+                 DCHECK(!chunk_right.IsNull());
+                 const auto value_left = chunk_left.Value<ArrowType>();
+                 const auto value_right = chunk_right.Value<ArrowType>();
+                 if (value_left == value_right) {
+                   // If the left value equals to the right value,
+                   // we need to compare the second and following
+                   // sort keys.
+                   return comparator.Compare(left_loc, right_loc, 1);
+                 } else {
+                   auto compared = value_left < value_right;
+                   if (first_sort_key.order == SortOrder::Ascending) {
+                     return compared;
+                   } else {
+                     return !compared;
+                   }
+                 }
+               });
 
     // Copy back temp area into main buffer
     std::copy(temp_indices, temp_indices + range.size(), range.data());
