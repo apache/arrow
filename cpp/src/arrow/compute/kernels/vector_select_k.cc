@@ -76,13 +76,10 @@ class SelectKComparator<SortOrder::Descending> {
   }
 };
 
-struct OutputRangesByNullLikeness {
-  std::span<uint64_t> non_null_like_range;
-  std::span<uint64_t> nan_range;
-  std::span<uint64_t> null_range;
-};
-
-OutputRangesByNullLikeness CalculateOutputRangesByNullLikeness(
+// Clip the group counts to the k output slots and lay out the corresponding
+// ranges in `output_indices`. Because k was clipped to the input length, the
+// clipped counts always sum to k == output_indices.size().
+NullLikePartition CalculateOutputRangesByNullLikeness(
     int64_t non_null_like_count, int64_t nan_count, int64_t null_count,
     NullPlacement null_placement, std::span<uint64_t> output_indices) {
   auto k = static_cast<int64_t>(output_indices.size());
@@ -93,21 +90,13 @@ OutputRangesByNullLikeness CalculateOutputRangesByNullLikeness(
     non_null_like_to_take = std::min(k, non_null_like_count);
     nan_to_take = std::min(k - non_null_like_to_take, nan_count);
     null_to_take = std::min(k - non_null_like_to_take - nan_to_take, null_count);
-    return OutputRangesByNullLikeness{
-        .non_null_like_range = output_indices.subspan(0, non_null_like_to_take),
-        .nan_range = output_indices.subspan(non_null_like_to_take, nan_to_take),
-        .null_range =
-            output_indices.subspan(non_null_like_to_take + nan_to_take, null_to_take)};
   } else {
     null_to_take = std::min(k, null_count);
     nan_to_take = std::min(k - null_to_take, nan_count);
     non_null_like_to_take = std::min(k - null_to_take - nan_to_take, non_null_like_count);
-    return OutputRangesByNullLikeness{
-        .non_null_like_range =
-            output_indices.subspan(null_to_take + nan_to_take, non_null_like_to_take),
-        .nan_range = output_indices.subspan(null_to_take, nan_to_take),
-        .null_range = output_indices.subspan(0, null_to_take)};
   }
+  return NullLikePartition::FromCounts(output_indices, non_null_like_to_take, nan_to_take,
+                                       null_to_take, null_placement);
 }
 
 template <typename Comparator>
@@ -226,10 +215,9 @@ class ArraySelector : public TypeVisitor {
 
     HeapSortNonNullsToOutput<InType, sort_order>(p.non_null_like_range, arr,
                                                  output.non_null_like_range);
-    std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(),
-              output.nan_range.begin());
+    std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(), output.nan_begin());
     std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
-              output.null_range.begin());
+              output.null_begin());
 
     *output_ = Datum(take_indices);
     return Status::OK();
@@ -493,12 +481,12 @@ class RecordBatchSelector {
         if (output.nan_range.size() > 0) {
           // We have the last sort_key, can just copy over the null values
           std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(),
-                    output.nan_range.begin());
+                    output.nan_begin());
         }
         if (output.null_range.size() > 0) {
           // We have the last sort_key, can just copy over the null values
           std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
-                    output.null_range.begin());
+                    output.null_begin());
         }
       } else {
         if (!output.non_null_like_range.empty()) {
