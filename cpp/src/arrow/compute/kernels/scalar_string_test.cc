@@ -2769,6 +2769,16 @@ TEST(TestStringViewPredicates, MatchLike) {
                      "[true, true, null, false, false]", &prefix);
   }
 }
+
+// utf8_view registers as StringViewType, so ignore_case folds the full Unicode
+// range (É matches é), not just ASCII. This would fail if utf8_view were
+// dispatched through the generic BinaryViewType path and lost that distinction.
+TEST(TestStringViewPredicates, MatchSubstringIgnoreCase) {
+  MatchSubstringOptions options{"aé(", /*ignore_case=*/true};
+  CheckScalarUnary("match_substring", utf8_view(),
+                   R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])", boolean(),
+                   "[false, false, true, true, false, true]", &options);
+}
 #endif
 
 TEST(TestStringViewPredicates, Utf8Length) {
