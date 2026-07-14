@@ -1219,6 +1219,12 @@ TEST(TestGdvFnStubs, TestTranslate) {
   const char to_one[] = {'b'};
   result = translate_utf8_utf8_utf8(ctx_ptr, euro, 3, from_one, 1, to_one, 1, &out_len);
   EXPECT_EQ(std::string(euro, 3), std::string(result, out_len));
+
+  // A truncated trailing glyph in TO (0xE2 claims a 3-byte character but only one
+  // byte is present) previously over-read TO when a matched input char mapped to it.
+  const char trunc_to[] = {static_cast<char>(0xE2)};
+  result = translate_utf8_utf8_utf8(ctx_ptr, "a", 1, "a", 1, trunc_to, 1, &out_len);
+  EXPECT_EQ(std::string(trunc_to, 1), std::string(result, out_len));
 }
 
 TEST(TestGdvFnStubs, TestToUtcTimezone) {
