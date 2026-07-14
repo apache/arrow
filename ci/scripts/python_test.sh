@@ -19,19 +19,21 @@
 
 set -ex
 
-arrow_dir=${1}
-test_dir=${1}/python/build/dist
+arrow_dir="${1}"
+# shellcheck disable=SC2034  # Unused variable
+test_dir="${1}/python/build/dist"
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
-export ARROW_SOURCE_DIR=${arrow_dir}
-export ARROW_TEST_DATA=${arrow_dir}/testing/data
-export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
-export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
-export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
+export ARROW_SOURCE_DIR="${arrow_dir}"
+export ARROW_TEST_DATA="${arrow_dir}/testing/data"
+export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
+export LD_LIBRARY_PATH="${ARROW_HOME}/lib:${LD_LIBRARY_PATH}"
+export DYLD_LIBRARY_PATH="${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+export ARROW_GDB_SCRIPT="${arrow_dir}/cpp/gdb_arrow.py"
 
 # Enable some checks inside Python itself
 export PYTHONDEVMODE=1
@@ -42,18 +44,18 @@ if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
 fi
 
 # By default, force-test all optional components
-: ${PYARROW_TEST_ACERO:=${ARROW_ACERO:-ON}}
-: ${PYARROW_TEST_AZURE:=${ARROW_AZURE:-ON}}
-: ${PYARROW_TEST_CUDA:=${ARROW_CUDA:-ON}}
-: ${PYARROW_TEST_DATASET:=${ARROW_DATASET:-ON}}
-: ${PYARROW_TEST_FLIGHT:=${ARROW_FLIGHT:-ON}}
-: ${PYARROW_TEST_GANDIVA:=${ARROW_GANDIVA:-ON}}
-: ${PYARROW_TEST_GCS:=${ARROW_GCS:-ON}}
-: ${PYARROW_TEST_HDFS:=${ARROW_HDFS:-ON}}
-: ${PYARROW_TEST_ORC:=${ARROW_ORC:-ON}}
-: ${PYARROW_TEST_PARQUET:=${ARROW_PARQUET:-ON}}
-: ${PYARROW_TEST_PARQUET_ENCRYPTION:=${PARQUET_REQUIRE_ENCRYPTION:-ON}}
-: ${PYARROW_TEST_S3:=${ARROW_S3:-ON}}
+: "${PYARROW_TEST_ACERO:=${ARROW_ACERO:-ON}}"
+: "${PYARROW_TEST_AZURE:=${ARROW_AZURE:-ON}}"
+: "${PYARROW_TEST_CUDA:=${ARROW_CUDA:-ON}}"
+: "${PYARROW_TEST_DATASET:=${ARROW_DATASET:-ON}}"
+: "${PYARROW_TEST_FLIGHT:=${ARROW_FLIGHT:-ON}}"
+: "${PYARROW_TEST_GANDIVA:=${ARROW_GANDIVA:-ON}}"
+: "${PYARROW_TEST_GCS:=${ARROW_GCS:-ON}}"
+: "${PYARROW_TEST_HDFS:=${ARROW_HDFS:-ON}}"
+: "${PYARROW_TEST_ORC:=${ARROW_ORC:-ON}}"
+: "${PYARROW_TEST_PARQUET:=${ARROW_PARQUET:-ON}}"
+: "${PYARROW_TEST_PARQUET_ENCRYPTION:=${PARQUET_REQUIRE_ENCRYPTION:-ON}}"
+: "${PYARROW_TEST_S3:=${ARROW_S3:-ON}}"
 
 export PYARROW_TEST_ACERO
 export PYARROW_TEST_AZURE
@@ -69,9 +71,9 @@ export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
 # Testing PyArrow
-pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
+pytest -r s "${PYTEST_ARGS}" --pyargs pyarrow
 
 # Testing RST documentation examples (if PYTEST_RST_ARGS is set)
 if [ -n "${PYTEST_RST_ARGS}" ]; then
-  pytest ${PYTEST_RST_ARGS} ${arrow_dir}/docs/source/python
+  pytest "${PYTEST_RST_ARGS}" "${arrow_dir}/docs/source/python"
 fi
