@@ -33,6 +33,7 @@ namespace {
 
 using ::arrow::ArrayFromJSON;
 using ::arrow::binary;
+using ::arrow::BinaryViewArray;
 using ::arrow::default_memory_pool;
 using ::arrow::field;
 using ::arrow::int64;
@@ -243,8 +244,35 @@ TEST(TestVariantBuilder, ArrayBuilder) {
       ::arrow::internal::checked_cast<const StructArray&>(*array->storage());
   ASSERT_FALSE(storage.type()->field(0)->nullable());
   ASSERT_FALSE(storage.type()->field(1)->nullable());
-  ASSERT_EQ(Type::BINARY, storage.field(0)->type_id());
-  ASSERT_EQ(Type::BINARY, storage.field(1)->type_id());
+  ASSERT_EQ(Type::BINARY_VIEW, storage.field(0)->type_id());
+  ASSERT_EQ(Type::BINARY_VIEW, storage.field(1)->type_id());
+}
+
+TEST(TestVariantBuilder, ArrayBuilderViews) {
+  VariantBuilder value;
+  value.AppendString("x");
+  auto short_encoded = value.Finish();
+
+  VariantArrayBuilder builder;
+  builder.AppendEncoded(short_encoded);
+  auto object = builder.StartObject();
+  object.AppendString("abcdefghijklm", std::string(32, 'y'));
+  object.Finish();
+
+  auto array = builder.Finish();
+  const auto& storage =
+      ::arrow::internal::checked_cast<const StructArray&>(*array->storage());
+  const auto& metadata =
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(0));
+  const auto& values =
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(1));
+
+  auto* metadata_views = metadata.data()->GetValues<::arrow::BinaryViewType::c_type>(1);
+  auto* value_views = values.data()->GetValues<::arrow::BinaryViewType::c_type>(1);
+  ASSERT_TRUE(metadata_views[0].is_inline());
+  ASSERT_TRUE(value_views[0].is_inline());
+  ASSERT_FALSE(metadata_views[1].is_inline());
+  ASSERT_FALSE(value_views[1].is_inline());
 }
 
 TEST(TestVariantBuilder, FromStorage) {
@@ -279,21 +307,6 @@ TEST(TestVariantBuilder, FromShredded) {
   auto array = MakeVariantArrayFromChildren(storage_type, {metadata, values, typed});
   ASSERT_EQ(2, array->length());
   ASSERT_TRUE(array->type()->Equals(variant(storage_type)));
-}
-
-TEST(TestVariantBuilder, FallbackValue) {
-  VariantBuilder value;
-  value.AppendString("x");
-  auto encoded = value.Finish();
-
-  VariantValueArrayBuilder builder;
-  builder.AppendNull();
-  builder.AppendEncodedValue(std::string_view{*encoded.metadata},
-                             std::string_view{*encoded.value});
-  auto array = builder.Finish();
-  ASSERT_EQ(2, array->length());
-  ASSERT_TRUE(array->IsNull(0));
-  ASSERT_EQ(std::string_view{*encoded.value}, array->GetView(1));
 }
 
 }  // namespace parquet::variant

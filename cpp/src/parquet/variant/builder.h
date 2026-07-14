@@ -31,7 +31,7 @@
 namespace parquet::variant {
 
 using ::arrow::Array;
-using ::arrow::BinaryArray;
+using ::arrow::BinaryViewArray;
 using ::arrow::Buffer;
 using ::arrow::DataType;
 using ::arrow::MemoryPool;
@@ -217,29 +217,14 @@ class PARQUET_EXPORT VariantArrayBuilder {
   void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
   void AppendEncoded(const EncodedVariantValue& value);
 
+  /// The returned nested builder borrows this builder's internal buffers. Finish or
+  /// destroy it before calling any other VariantArrayBuilder method, including Finish()
+  /// or Reset().
   VariantObjectBuilder StartObject();
   VariantListBuilder StartList();
 
   std::shared_ptr<VariantArray> Finish();
   void Reset();
-
- private:
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
-};
-
-class PARQUET_EXPORT VariantValueArrayBuilder {
- public:
-  explicit VariantValueArrayBuilder(MemoryPool* pool = ::arrow::default_memory_pool());
-  ~VariantValueArrayBuilder();
-  VariantValueArrayBuilder(const VariantValueArrayBuilder&) = delete;
-  VariantValueArrayBuilder& operator=(const VariantValueArrayBuilder&) = delete;
-  VariantValueArrayBuilder(VariantValueArrayBuilder&&) noexcept;
-  VariantValueArrayBuilder& operator=(VariantValueArrayBuilder&&) noexcept;
-
-  void AppendNull();
-  void AppendEncodedValue(std::string_view metadata, std::string_view value);
-  std::shared_ptr<BinaryArray> Finish();
 
  private:
   struct Impl;
