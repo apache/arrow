@@ -2801,12 +2801,12 @@ function(build_simdjson)
   list(APPEND CMAKE_MESSAGE_INDENT "simdjson: ")
   message(STATUS "Building simdjson from source")
 
-  prepare_fetchcontent()
-
   fetchcontent_declare(simdjson
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${SIMDJSON_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
 
   fetchcontent_makeavailable(simdjson)
 
