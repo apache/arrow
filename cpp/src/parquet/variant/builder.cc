@@ -28,8 +28,11 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/array/array_binary.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/builder.h"  // IWYU pragma: keep
+#include "arrow/type.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
@@ -39,16 +42,17 @@
 
 namespace parquet::variant {
 
-using ::arrow::binary;
-using ::arrow::BinaryBuilder;
-using ::arrow::BooleanArray;
-using ::arrow::BooleanBuilder;
+using ::arrow::binary_view;
+using ::arrow::BinaryViewArray;
+using ::arrow::BinaryViewType;
 using ::arrow::BufferBuilder;
+using ::arrow::BufferVector;
 using ::arrow::ExtensionType;
 using ::arrow::field;
 using ::arrow::struct_;
 using ::arrow::StructType;
 using ::arrow::Type;
+using ::arrow::TypedBufferBuilder;
 using ::arrow::extension::VariantExtensionType;
 
 namespace bit_util = ::arrow::bit_util;
@@ -142,7 +146,7 @@ class VariantMetadataBuilder {
     RebuildIndex();
   }
 
-  std::shared_ptr<Buffer> Finish() const {
+  void AppendTo(BufferBuilder& out) const {
     uint64_t bytes_size = 0;
     for (const auto& string : field_names_) {
       bytes_size += string.size();
@@ -154,7 +158,6 @@ class VariantMetadataBuilder {
 
     const uint8_t offset_size =
         WidthForValue(std::max<uint64_t>(field_names_.size(), bytes_size));
-    BufferBuilder out(pool_);
     PARQUET_THROW_NOT_OK(out.Reserve(
         1 + offset_size + (field_names_.size() + 1) * offset_size + bytes_size));
 
@@ -175,6 +178,11 @@ class VariantMetadataBuilder {
     for (const auto& string : field_names_) {
       PARQUET_THROW_NOT_OK(out.Append(string));
     }
+  }
+
+  std::shared_ptr<Buffer> Finish() const {
+    BufferBuilder out(pool_);
+    AppendTo(out);
     std::shared_ptr<Buffer> buffer;
     PARQUET_ASSIGN_OR_THROW(buffer, out.Finish());
     return buffer;
@@ -317,11 +325,11 @@ struct VariantBuildFrame {
 };
 
 struct VariantBuildState {
-  explicit VariantBuildState(MemoryPool* pool)
-      : pool(pool), value(pool), metadata(pool) {}
+  VariantBuildState(MemoryPool* pool, BufferBuilder& value)
+      : value(value), root_value_start(value.length()), metadata(pool) {}
 
-  MemoryPool* pool;
-  BufferBuilder value;
+  BufferBuilder& value;
+  int64_t root_value_start = 0;
   VariantMetadataBuilder metadata;
   std::vector<VariantBuildFrame> frames;
   bool root_has_value = false;
@@ -435,7 +443,7 @@ std::string BuildListHeader(const VariantBuildFrame& frame, uint32_t values_size
   return out;
 }
 
-using RootFinishCallback = std::function<void(EncodedVariantValue)>;
+using RootFinishCallback = std::function<void(const std::shared_ptr<VariantBuildState>&)>;
 
 void FinishFrame(const std::shared_ptr<VariantBuildState>& state, size_t frame_index,
                  VariantContainerKind kind, const RootFinishCallback& callback) {
@@ -465,10 +473,7 @@ void FinishFrame(const std::shared_ptr<VariantBuildState>& state, size_t frame_i
     return;
   }
 
-  auto metadata = state->metadata.Finish();
-  std::shared_ptr<Buffer> value;
-  PARQUET_ASSIGN_OR_THROW(value, state->value.Finish());
-  callback({.metadata = std::move(metadata), .value = std::move(value)});
+  callback(state);
 }
 
 template <typename Write>
@@ -572,6 +577,95 @@ void AppendListPrimitive(const std::shared_ptr<VariantBuildState>& state,
   });
 }
 
+// Local helper for array builders that owns one shared byte arena plus the
+// corresponding `binary_view` slots. This lets row commit write bytes once,
+// create inline or out-of-line views in place, and roll back both buffers
+// together on failure without routing hot-path appends through `BinaryViewBuilder`.
+class BinaryViewColumnBuilder {
+ public:
+  struct Mark {
+    int64_t bytes_length = 0;
+    int64_t views_length = 0;
+    bool has_out_of_line_data = false;
+  };
+
+  explicit BinaryViewColumnBuilder(MemoryPool* pool) : bytes_(pool), views_(pool) {}
+
+  [[nodiscard]] Mark mark() const {
+    return Mark{.bytes_length = bytes_.length(),
+                .views_length = views_.length(),
+                .has_out_of_line_data = has_out_of_line_data_};
+  }
+
+  void Rollback(const Mark& mark) {
+    bytes_.Rewind(mark.bytes_length);
+    views_.bytes_builder()->Rewind(mark.views_length * sizeof(BinaryViewType::c_type));
+    has_out_of_line_data_ = mark.has_out_of_line_data;
+  }
+
+  int64_t length() const { return views_.length(); }
+
+  std::string_view SliceFrom(int64_t start) const {
+    DCHECK_LE(start, bytes_.length());
+    const auto size = bytes_.length() - start;
+    DCHECK_GE(size, 0);
+    if (size == 0) {
+      return std::string_view{};
+    }
+    return std::string_view{reinterpret_cast<const char*>(bytes_.data() + start),
+                            static_cast<size_t>(size)};
+  }
+
+  void AppendView(int64_t start) {
+    const auto slice = SliceFrom(start);
+    if (slice.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+      throw ParquetException("Binary view value is too large");
+    }
+    PARQUET_THROW_NOT_OK(views_.Reserve(1));
+    if (slice.size() <= BinaryViewType::kInlineSize) {
+      views_.UnsafeAppend(::arrow::util::ToInlineBinaryView(slice));
+      bytes_.Rewind(start);
+      return;
+    }
+    if (start > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Binary view offset is too large");
+    }
+    has_out_of_line_data_ = true;
+    views_.UnsafeAppend(::arrow::util::ToNonInlineBinaryView(
+        slice.data(), static_cast<int32_t>(slice.size()),
+        /*buffer_index=*/0, static_cast<int32_t>(start)));
+  }
+
+  void AppendEmptyValue() {
+    PARQUET_THROW_NOT_OK(views_.Reserve(1));
+    views_.UnsafeAppend(BinaryViewType::c_type{});
+  }
+
+  BufferBuilder& bytes_builder() { return bytes_; }
+
+  std::shared_ptr<BinaryViewArray> Finish(std::shared_ptr<Buffer> null_bitmap = nullptr,
+                                          int64_t null_count = 0) {
+    const auto array_length = views_.length();
+    std::shared_ptr<Buffer> views_buffer;
+    PARQUET_THROW_NOT_OK(views_.Finish(&views_buffer));
+
+    std::shared_ptr<Buffer> data_buffer;
+    PARQUET_ASSIGN_OR_THROW(data_buffer, bytes_.Finish());
+    BufferVector data_buffers;
+    if (has_out_of_line_data_) {
+      data_buffers.push_back(std::move(data_buffer));
+    }
+    return std::make_shared<BinaryViewArray>(
+        binary_view(), array_length, std::move(views_buffer), std::move(data_buffers),
+        std::move(null_bitmap), null_count);
+  }
+
+ private:
+  BufferBuilder bytes_;
+  TypedBufferBuilder<BinaryViewType::c_type> views_;
+  bool has_out_of_line_data_ = false;
+};
+
 }  // namespace
 
 namespace internal {
@@ -593,9 +687,17 @@ struct NestedVariantBuilderImpl {
 
 struct VariantBuilder::Impl {
   explicit Impl(MemoryPool* pool)
-      : pool(pool), state(std::make_shared<VariantBuildState>(pool)) {}
+      : pool(pool),
+        value_builder(pool),
+        state(std::make_shared<VariantBuildState>(pool, value_builder)) {}
+
+  void Reset() {
+    value_builder.Reset();
+    state = std::make_shared<VariantBuildState>(pool, value_builder);
+  }
 
   MemoryPool* pool;
+  BufferBuilder value_builder;
   std::shared_ptr<VariantBuildState> state;
 };
 
@@ -716,9 +818,7 @@ EncodedVariantValue VariantBuilder::Finish() {
   return out;
 }
 
-void VariantBuilder::Reset() {
-  impl_->state = std::make_shared<VariantBuildState>(impl_->pool);
-}
+void VariantBuilder::Reset() { impl_->Reset(); }
 
 VariantObjectBuilder::VariantObjectBuilder(
     std::unique_ptr<internal::NestedVariantBuilderImpl> impl)
@@ -1019,16 +1119,13 @@ void VariantListBuilder::Finish() {
 
 struct VariantArrayBuilder::Impl {
   explicit Impl(MemoryPool* pool)
-      : pool(pool), metadata_builder(pool), value_builder(pool), validity_builder(pool) {}
+      : pool(pool), metadata_column(pool), value_column(pool), validity_builder(pool) {}
 
   template <typename Write>
   void AppendValue(Write&& write) {
-    auto state = std::make_shared<VariantBuildState>(pool);
+    auto state = std::make_shared<VariantBuildState>(pool, value_column.bytes_builder());
     AppendRootPrimitiveWith(state, std::forward<Write>(write));
-    auto metadata = state->metadata.Finish();
-    std::shared_ptr<Buffer> value;
-    PARQUET_ASSIGN_OR_THROW(value, state->value.Finish());
-    AppendEncoded({.metadata = std::move(metadata), .value = std::move(value)});
+    CommitBuiltRow(state);
   }
 
   template <VariantPrimitiveType type, typename... Args>
@@ -1047,17 +1144,104 @@ struct VariantArrayBuilder::Impl {
       throw ParquetException(
           "Encoded Variant metadata and value buffers must be non-null");
     }
-    auto metadata = VariantMetadataView::Make(std::string_view{*value.metadata});
-    VariantValueView::Validate(std::string_view{*value.value}, metadata);
-    PARQUET_THROW_NOT_OK(metadata_builder.Append(std::string_view{*value.metadata}));
-    PARQUET_THROW_NOT_OK(value_builder.Append(std::string_view{*value.value}));
-    PARQUET_THROW_NOT_OK(validity_builder.Append(true));
+    const auto metadata_bytes = std::string_view{*value.metadata};
+    const auto value_bytes = std::string_view{*value.value};
+    auto metadata = VariantMetadataView::Make(metadata_bytes);
+    VariantValueView::Validate(value_bytes, metadata);
+    CommitEncodedRow(metadata_bytes, value_bytes);
+  }
+
+  void AppendNull() {
+    const auto metadata_mark = metadata_column.mark();
+    const auto value_mark = value_column.mark();
+    try {
+      metadata_column.AppendEmptyValue();
+      value_column.AppendEmptyValue();
+      PARQUET_THROW_NOT_OK(validity_builder.Append(false));
+    } catch (...) {
+      metadata_column.Rollback(metadata_mark);
+      value_column.Rollback(value_mark);
+      throw;
+    }
+  }
+
+  void CommitBuiltRow(const std::shared_ptr<VariantBuildState>& state) {
+    if (!state->frames.empty()) {
+      throw ParquetException("Cannot commit Variant row with active containers");
+    }
+    if (!state->root_has_value) {
+      throw ParquetException("Cannot commit empty Variant row");
+    }
+
+    const auto value_start = state->root_value_start;
+    const auto metadata_mark = metadata_column.mark();
+    auto value_mark = value_column.mark();
+    DCHECK_LE(value_start, value_mark.bytes_length);
+    value_mark.bytes_length = value_start;
+    try {
+      const auto metadata_start = metadata_column.bytes_builder().length();
+      state->metadata.AppendTo(metadata_column.bytes_builder());
+      const auto metadata_bytes = metadata_column.SliceFrom(metadata_start);
+      auto metadata = VariantMetadataView::Make(metadata_bytes);
+
+      const auto value_bytes = value_column.SliceFrom(value_start);
+      VariantValueView::Validate(value_bytes, metadata);
+
+      metadata_column.AppendView(metadata_start);
+      value_column.AppendView(value_start);
+      PARQUET_THROW_NOT_OK(validity_builder.Append(true));
+    } catch (...) {
+      metadata_column.Rollback(metadata_mark);
+      value_column.Rollback(value_mark);
+      throw;
+    }
+  }
+
+  std::shared_ptr<VariantArray> Finish() {
+    DCHECK_EQ(metadata_column.length(), value_column.length());
+    DCHECK_EQ(metadata_column.length(), validity_builder.length());
+
+    const int64_t null_count = validity_builder.false_count();
+    std::shared_ptr<Buffer> null_bitmap;
+    if (null_count > 0) {
+      PARQUET_THROW_NOT_OK(validity_builder.Finish(&null_bitmap));
+    }
+
+    auto metadata = metadata_column.Finish();
+    auto value = value_column.Finish();
+    auto storage_type = struct_({field("metadata", binary_view(), /*nullable=*/false),
+                                 field("value", binary_view(), /*nullable=*/false)});
+    std::shared_ptr<StructArray> storage;
+    PARQUET_ASSIGN_OR_THROW(storage,
+                            StructArray::Make({metadata, value}, storage_type->fields(),
+                                              std::move(null_bitmap), null_count));
+    return MakeVariantArrayFromStorage(storage);
   }
 
   MemoryPool* pool;
-  BinaryBuilder metadata_builder;
-  BinaryBuilder value_builder;
-  BooleanBuilder validity_builder;
+  BinaryViewColumnBuilder metadata_column;
+  BinaryViewColumnBuilder value_column;
+  TypedBufferBuilder<bool> validity_builder;
+
+ private:
+  void CommitEncodedRow(std::string_view metadata_bytes, std::string_view value_bytes) {
+    const auto metadata_mark = metadata_column.mark();
+    const auto value_mark = value_column.mark();
+    try {
+      const auto metadata_start = metadata_column.bytes_builder().length();
+      PARQUET_THROW_NOT_OK(metadata_column.bytes_builder().Append(metadata_bytes));
+      const auto value_start = value_column.bytes_builder().length();
+      PARQUET_THROW_NOT_OK(value_column.bytes_builder().Append(value_bytes));
+
+      metadata_column.AppendView(metadata_start);
+      value_column.AppendView(value_start);
+      PARQUET_THROW_NOT_OK(validity_builder.Append(true));
+    } catch (...) {
+      metadata_column.Rollback(metadata_mark);
+      value_column.Rollback(value_mark);
+      throw;
+    }
+  }
 };
 
 VariantArrayBuilder::VariantArrayBuilder(MemoryPool* pool)
@@ -1067,11 +1251,7 @@ VariantArrayBuilder::VariantArrayBuilder(VariantArrayBuilder&&) noexcept = defau
 VariantArrayBuilder& VariantArrayBuilder::operator=(VariantArrayBuilder&&) noexcept =
     default;
 
-void VariantArrayBuilder::AppendNull() {
-  PARQUET_THROW_NOT_OK(impl_->metadata_builder.Append(""));
-  PARQUET_THROW_NOT_OK(impl_->value_builder.Append(""));
-  PARQUET_THROW_NOT_OK(impl_->validity_builder.Append(false));
-}
+void VariantArrayBuilder::AppendNull() { impl_->AppendNull(); }
 
 void VariantArrayBuilder::AppendVariantNull() {
   impl_->AppendPrimitive<VariantPrimitiveType::kNull>();
@@ -1143,76 +1323,34 @@ void VariantArrayBuilder::AppendEncoded(const EncodedVariantValue& value) {
 }
 
 VariantObjectBuilder VariantArrayBuilder::StartObject() {
-  auto state = std::make_shared<VariantBuildState>(impl_->pool);
+  auto state = std::make_shared<VariantBuildState>(impl_->pool,
+                                                   impl_->value_column.bytes_builder());
   state->frames.push_back(VariantBuildFrame{.kind = VariantContainerKind::Object,
                                             .value_start = state->value.length(),
                                             .metadata_size = state->metadata.size()});
-  auto callback = [this](EncodedVariantValue encoded) { impl_->AppendEncoded(encoded); };
   return VariantObjectBuilder(std::make_unique<internal::NestedVariantBuilderImpl>(
-      state, state->frames.size() - 1, std::move(callback)));
+      state, state->frames.size() - 1,
+      std::bind_front(&Impl::CommitBuiltRow, impl_.get())));
 }
 
 VariantListBuilder VariantArrayBuilder::StartList() {
-  auto state = std::make_shared<VariantBuildState>(impl_->pool);
+  auto state = std::make_shared<VariantBuildState>(impl_->pool,
+                                                   impl_->value_column.bytes_builder());
   state->frames.push_back(VariantBuildFrame{.kind = VariantContainerKind::List,
                                             .value_start = state->value.length(),
                                             .metadata_size = state->metadata.size()});
-  auto callback = [this](EncodedVariantValue encoded) { impl_->AppendEncoded(encoded); };
   return VariantListBuilder(std::make_unique<internal::NestedVariantBuilderImpl>(
-      state, state->frames.size() - 1, std::move(callback)));
+      state, state->frames.size() - 1,
+      std::bind_front(&Impl::CommitBuiltRow, impl_.get())));
 }
 
 std::shared_ptr<VariantArray> VariantArrayBuilder::Finish() {
-  std::shared_ptr<BinaryArray> metadata;
-  std::shared_ptr<BinaryArray> value;
-  std::shared_ptr<BooleanArray> validity;
-  PARQUET_THROW_NOT_OK(impl_->metadata_builder.Finish(&metadata));
-  PARQUET_THROW_NOT_OK(impl_->value_builder.Finish(&value));
-  PARQUET_THROW_NOT_OK(impl_->validity_builder.Finish(&validity));
-
-  auto null_bitmap = validity->data()->buffers[1];
-  const int64_t null_count = validity->false_count();
-  auto storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
-                               field("value", binary(), /*nullable=*/false)});
-  std::shared_ptr<StructArray> storage;
-  PARQUET_ASSIGN_OR_THROW(
-      storage, StructArray::Make({metadata, value}, storage_type->fields(), null_bitmap,
-                                 null_count));
-  return MakeVariantArrayFromStorage(storage);
+  auto out = impl_->Finish();
+  Reset();
+  return out;
 }
 
 void VariantArrayBuilder::Reset() { impl_ = std::make_unique<Impl>(impl_->pool); }
-
-struct VariantValueArrayBuilder::Impl {
-  explicit Impl(MemoryPool* pool) : value_builder(pool) {}
-
-  BinaryBuilder value_builder;
-};
-
-VariantValueArrayBuilder::VariantValueArrayBuilder(MemoryPool* pool)
-    : impl_(std::make_unique<Impl>(pool)) {}
-VariantValueArrayBuilder::VariantValueArrayBuilder(VariantValueArrayBuilder&&) noexcept =
-    default;
-VariantValueArrayBuilder& VariantValueArrayBuilder::operator=(
-    VariantValueArrayBuilder&&) noexcept = default;
-VariantValueArrayBuilder::~VariantValueArrayBuilder() = default;
-
-void VariantValueArrayBuilder::AppendNull() {
-  PARQUET_THROW_NOT_OK(impl_->value_builder.AppendNull());
-}
-
-void VariantValueArrayBuilder::AppendEncodedValue(std::string_view metadata,
-                                                  std::string_view value) {
-  auto metadata_view = VariantMetadataView::Make(metadata);
-  VariantValueView::Validate(value, metadata_view);
-  PARQUET_THROW_NOT_OK(impl_->value_builder.Append(value));
-}
-
-std::shared_ptr<BinaryArray> VariantValueArrayBuilder::Finish() {
-  std::shared_ptr<BinaryArray> out;
-  PARQUET_THROW_NOT_OK(impl_->value_builder.Finish(&out));
-  return out;
-}
 
 std::shared_ptr<VariantArray> MakeVariantArrayFromStorage(
     std::shared_ptr<StructArray> storage) {
