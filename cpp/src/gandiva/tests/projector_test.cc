@@ -72,6 +72,17 @@ std::string ExtractFunctionIR(const std::string& ir, const std::string& function
   return ir.substr(start, function_end + 3 - start);
 }
 
+void ExpectProjectorOutput(const std::shared_ptr<Projector>& projector,
+                           const SchemaPtr& schema, const arrow::ArrayVector& inputs,
+                           const ArrayPtr& expected, arrow::MemoryPool* pool) {
+  ASSERT_FALSE(inputs.empty());
+  auto batch = arrow::RecordBatch::Make(schema, inputs[0]->length(), inputs);
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*batch, pool, &outputs));
+  ASSERT_EQ(1, outputs.size());
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+}
+
 }  // namespace
 
 class TestProjector : public ::testing::Test {
@@ -455,6 +466,11 @@ TEST_F(TestProjector, TestCommonSubexpressionEliminationIR) {
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @add_int32_int32"));
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @multiply_int32_int32"));
   EXPECT_EQ(1, CountInt32AddInstructions(optimized_expr_ir));
+
+  auto input0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, false, true});
+  auto input1 = MakeArrowArrayInt32({10, -2, 3, 5}, {true, true, true, false});
+  auto expected = MakeArrowArrayInt32({121, 0, 0, 0}, {true, true, false, false});
+  ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
 }
 
 TEST_F(TestProjector, TestNestedCommonSubexpressionEliminationIR) {
@@ -491,6 +507,11 @@ TEST_F(TestProjector, TestNestedCommonSubexpressionEliminationIR) {
   EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call i32 @multiply_int32_int32"));
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @add_int32_int32"));
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @multiply_int32_int32"));
+
+  auto input0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, false, true});
+  auto input1 = MakeArrowArrayInt32({10, -2, 3, 5}, {true, true, true, false});
+  auto expected = MakeArrowArrayInt32({242, 0, 0, 0}, {true, true, false, false});
+  ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
 }
 
 TEST_F(TestProjector, TestGeneratedIfCommonSubexpressionEliminationIR) {
@@ -526,6 +547,12 @@ TEST_F(TestProjector, TestGeneratedIfCommonSubexpressionEliminationIR) {
   EXPECT_EQ(std::string::npos, optimized_expr_ir.find("generated_if_cond"));
   EXPECT_EQ(std::string::npos, optimized_expr_ir.find("validAndMatch"));
   EXPECT_EQ(std::string::npos, optimized_expr_ir.find("res_value = phi"));
+
+  auto conditions =
+      MakeArrowArrayBool({true, false, false, true}, {true, true, false, true});
+  auto values = MakeArrowArrayInt32({7, 8, 9, 10}, {true, false, true, true});
+  auto expected = MakeArrowArrayInt32({7, 0, 9, 10}, {true, false, true, true});
+  ExpectProjectorOutput(projector, schema, {conditions, values}, expected, pool_);
 }
 
 TEST_F(TestProjector, TestGeneratedBooleanCommonSubexpressionEliminationIR) {
@@ -563,6 +590,14 @@ TEST_F(TestProjector, TestGeneratedBooleanCommonSubexpressionEliminationIR) {
   EXPECT_GT(CountOccurrences(optimized_expr_ir, "\"0_lbmap\""), 0);
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "\"1_lbmap\""));
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "\"2_lbmap\""));
+
+  auto input0 = MakeArrowArrayBool({true, true, false, false, false},
+                                   {true, true, true, false, false});
+  auto input1 = MakeArrowArrayBool({true, false, true, true, false},
+                                   {true, false, false, true, true});
+  auto expected = MakeArrowArrayBool({true, false, false, false, false},
+                                     {true, false, true, false, true});
+  ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
 }
 
 TEST_F(TestProjector, TestNestedBetweenCommonSubexpressionFoldIR) {
@@ -610,6 +645,13 @@ TEST_F(TestProjector, TestNestedBetweenCommonSubexpressionFoldIR) {
                                 "call i1 @greater_than_or_equal_to_int32_int32"));
   EXPECT_EQ(0, CountOccurrences(optimized_expr_ir,
                                 "call i1 @less_than_or_equal_to_int32_int32"));
+
+  auto values = MakeArrowArrayInt32({5, 1, 10, 7, 4}, {true, true, true, true, false});
+  auto lowers = MakeArrowArrayInt32({1, 2, 10, 6, 0}, {true, true, true, false, true});
+  auto uppers = MakeArrowArrayInt32({10, 5, 10, 9, 10});
+  auto expected = MakeArrowArrayBool({true, false, true, false, false},
+                                     {true, true, true, false, false});
+  ExpectProjectorOutput(projector, schema, {values, lowers, uppers}, expected, pool_);
 }
 
 TEST_F(TestProjector, TestExtendedMath) {

@@ -216,9 +216,7 @@ class CommonSubexpressionFolder {
     if (native_function == nullptr) {
       return false;
     }
-    return native_function->result_nullable_type() != kResultNullInternal &&
-           !native_function->NeedsContext() && !native_function->NeedsFunctionHolder() &&
-           !native_function->CanReturnErrors();
+    return CanReuseNativeFunction(*native_function);
   }
 
   NodePtr Intern(const std::string& key, const NodePtr& node) {

@@ -19,17 +19,23 @@
 
 #include "gandiva/expression.h"
 #include "gandiva/gandiva_aliases.h"
-#include "gandiva/visibility.h"
+#include "gandiva/native_function.h"
 
 namespace gandiva {
 
 class Condition;
 class FunctionRegistry;
 
-GANDIVA_EXPORT ExpressionVector FoldCommonSubexpressions(
-    const FunctionRegistry& registry, const ExpressionVector& expressions);
+inline bool CanReuseNativeFunction(const NativeFunction& native_function) {
+  return native_function.result_nullable_type() != kResultNullInternal &&
+         !native_function.NeedsContext() && !native_function.NeedsFunctionHolder() &&
+         !native_function.CanReturnErrors();
+}
 
-GANDIVA_EXPORT ConditionPtr FoldCommonSubexpressions(const FunctionRegistry& registry,
-                                                     const ConditionPtr& condition);
+ExpressionVector FoldCommonSubexpressions(const FunctionRegistry& registry,
+                                          const ExpressionVector& expressions);
+
+ConditionPtr FoldCommonSubexpressions(const FunctionRegistry& registry,
+                                      const ConditionPtr& condition);
 
 }  // namespace gandiva

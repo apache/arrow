@@ -26,6 +26,7 @@
 #include "arrow/util/logging_internal.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
+#include "gandiva/expr_cse.h"
 #include "gandiva/function_holder_maker_registry.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
@@ -93,11 +94,7 @@ bool ExprDecomposer::CanReuseDecomposition(const Node& node) {
     auto desc = function_node->descriptor();
     FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
     const NativeFunction* native_function = registry_.LookupSignature(signature);
-    reusable = native_function != nullptr &&
-               native_function->result_nullable_type() != kResultNullInternal &&
-               !native_function->NeedsContext() &&
-               !native_function->NeedsFunctionHolder() &&
-               !native_function->CanReturnErrors();
+    reusable = native_function != nullptr && CanReuseNativeFunction(*native_function);
     for (const auto& child : function_node->children()) {
       reusable = reusable && CanReuseDecomposition(*child);
     }
