@@ -4404,7 +4404,7 @@ def month_day_nano_interval():
     Create a scalar with month_day_nano_interval type:
 
     >>> pa.scalar((1, 15, -30), type=pa.month_day_nano_interval())
-    <pyarrow.MonthDayNanoIntervalScalar: MonthDayNano(months=1, days=15, nanoseconds=-30)>
+    <pyarrow.MonthDayNanoIntervalScalar: pyarrow.lib.MonthDayNano(months=1, days=15, nanoseconds=-30)>
     """
     return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
 
