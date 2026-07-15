@@ -939,7 +939,7 @@ services:
     #   docker compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm/v7
-    #   PYTHON: 3.10, 3.11, 3.12, 3.13
+    #   PYTHON: 3.11, 3.12, 3.13, 3.14
     image: ${REPO}:${ARCH_SHORT}-conda-python-${PYTHON}
     build:
       context: .

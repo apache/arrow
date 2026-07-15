@@ -27,6 +27,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
+      - '.github/workflows/cpp_windows.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -44,6 +45,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
+      - '.github/workflows/cpp_windows.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'

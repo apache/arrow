@@ -34,7 +34,9 @@ task :test do
     cd("dependency-check") do
       ruby("-S", "rake")
     end
-    ruby("test/run-test.rb")
+    args = []
+    args << "-v" if ENV["RUNNER_DEBUG"]
+    ruby("test/run-test.rb", *args)
   end
 end
 

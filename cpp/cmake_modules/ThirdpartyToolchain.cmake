@@ -2822,28 +2822,36 @@ if(ARROW_WITH_RAPIDJSON)
                      FALSE)
 endif()
 
-macro(build_xsimd)
+function(build_xsimd)
+  list(APPEND CMAKE_MESSAGE_INDENT "xsimd: ")
   message(STATUS "Building xsimd from source")
-  set(XSIMD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xsimd_ep/src/xsimd_ep-install")
-  set(XSIMD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${XSIMD_PREFIX}")
 
-  externalproject_add(xsimd_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${XSIMD_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
+  prepare_fetchcontent()
+  fetchcontent_declare(xsimd
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${XSIMD_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(xsimd)
 
-  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${XSIMD_INCLUDE_DIR}")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${xsimd_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
+  set(xsimd_INCLUDE_DIR "${xsimd_SOURCE_DIR}/include")
   add_library(arrow::xsimd INTERFACE IMPORTED)
-  target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-  add_dependencies(arrow::xsimd xsimd_ep)
+  target_include_directories(arrow::xsimd INTERFACE "${xsimd_INCLUDE_DIR}")
 
-  set(XSIMD_VENDORED TRUE)
-endmacro()
+  set(XSIMD_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(xsimd_INCLUDE_DIR
+      "${xsimd_INCLUDE_DIR}"
+      PARENT_SCOPE)
+  set(xsimd_FOUND
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # Xsimd is mandatory as its CPU feature detection is the basis for Arrow CpuInfo
 resolve_dependency(xsimd
