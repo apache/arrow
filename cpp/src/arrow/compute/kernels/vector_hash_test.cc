@@ -403,6 +403,44 @@ TEST_F(TestHashKernel, DictEncodeBoolean) {
       ArrayFromJSON(boolean(), "[true]"), ArrayFromJSON(int32(), "[0, null, 0]"));
 }
 
+// float16 is not part of PrimitiveTypes(), so it is not covered by
+// TestHashKernelPrimitive above and gets its own coverage here. Like float32 and
+// float64, it is hashed by its raw bit pattern.
+TEST_F(TestHashKernel, UniqueHalfFloat) {
+  CheckUnique(ArrayFromJSON(float16(), "[1.5, 2.5, null, 1.5, 3.5, null]"),
+              ArrayFromJSON(float16(), "[1.5, 2.5, null, 3.5]"));
+
+  // No nulls
+  CheckUnique(ArrayFromJSON(float16(), "[1.5, 2.5, 1.5, 3.5]"),
+              ArrayFromJSON(float16(), "[1.5, 2.5, 3.5]"));
+
+  // Sliced
+  CheckUnique(ArrayFromJSON(float16(), "[1.5, 2.5, null, 3.5, 2.5, 1.5]")->Slice(1, 4),
+              ArrayFromJSON(float16(), "[2.5, null, 3.5]"));
+}
+
+TEST_F(TestHashKernel, ValueCountsHalfFloat) {
+  CheckValueCounts(ArrayFromJSON(float16(), "[1.5, 2.5, null, 1.5, 3.5, null]"),
+                   ArrayFromJSON(float16(), "[1.5, 2.5, null, 3.5]"),
+                   ArrayFromJSON(int64(), "[2, 1, 2, 1]"));
+}
+
+TEST_F(TestHashKernel, DictEncodeHalfFloat) {
+  CheckDictEncode(ArrayFromJSON(float16(), "[1.5, 2.5, null, 1.5, 3.5, null]"),
+                  ArrayFromJSON(float16(), "[1.5, 2.5, 3.5]"),
+                  ArrayFromJSON(int32(), "[0, 1, null, 0, 2, null]"));
+
+  // No nulls
+  CheckDictEncode(ArrayFromJSON(float16(), "[1.5, 2.5, 1.5, 3.5]"),
+                  ArrayFromJSON(float16(), "[1.5, 2.5, 3.5]"),
+                  ArrayFromJSON(int32(), "[0, 1, 0, 2]"));
+
+  // Sliced
+  CheckDictEncode(
+      ArrayFromJSON(float16(), "[1.5, 2.5, null, 3.5, 2.5, 1.5]")->Slice(1, 4),
+      ArrayFromJSON(float16(), "[2.5, 3.5]"), ArrayFromJSON(int32(), "[0, null, 1, 0]"));
+}
+
 template <typename ArrowType>
 class TestHashKernelBinaryTypes : public TestHashKernel {
  protected:
