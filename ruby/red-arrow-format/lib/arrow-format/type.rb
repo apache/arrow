@@ -417,6 +417,10 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "l"
+    end
+
     def build_array(...)
       Date32Array.new(...)
     end
@@ -441,6 +445,10 @@ module ArrowFormat
       :s64
     end
 
+    def pack_template
+      "q"
+    end
+
     def build_array(...)
       Date64Array.new(...)
     end
@@ -453,6 +461,12 @@ module ArrowFormat
       super()
       @bit_width = bit_width
       @unit = unit
+    end
+
+    def ==(other)
+      other.is_a?(self.class) and
+        @bit_width == other.bit_width and
+        @unit == other.unit
     end
 
     def to_s
@@ -468,6 +482,20 @@ module ArrowFormat
   end
 
   class Time32Type < TimeType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     def initialize(unit)
       super(32, unit)
     end
@@ -480,12 +508,30 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "l"
+    end
+
     def build_array(...)
       Time32Array.new(self, ...)
     end
   end
 
   class Time64Type < TimeType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     def initialize(unit)
       super(64, unit)
     end
@@ -498,12 +544,33 @@ module ArrowFormat
       :s64
     end
 
+    def pack_template
+      "q"
+    end
+
     def build_array(...)
       Time64Array.new(self, ...)
     end
   end
 
   class TimestampType < TemporalType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit, nil)
+        when ::Array
+          unit, time_zone = value
+          new(unit, time_zone)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :unit
     attr_reader :time_zone
     def initialize(unit, time_zone)
@@ -512,12 +579,22 @@ module ArrowFormat
       @time_zone = time_zone
     end
 
+    def ==(other)
+      other.is_a?(self.class) and
+        @unit == other.unit and
+        @time_zone == other.time_zone
+    end
+
     def name
       "Timestamp"
     end
 
     def buffer_type
       :s64
+    end
+
+    def pack_template
+      "q"
     end
 
     def build_array(...)
@@ -571,8 +648,12 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "l"
+    end
+
     def build_array(...)
-      YearMonthIntervalArray.new(self, ...)
+      YearMonthIntervalArray.new(...)
     end
   end
 
@@ -589,8 +670,12 @@ module ArrowFormat
       :s32
     end
 
+    def pack_template
+      "ll"
+    end
+
     def build_array(...)
-      DayTimeIntervalArray.new(self, ...)
+      DayTimeIntervalArray.new(...)
     end
   end
 
@@ -607,16 +692,39 @@ module ArrowFormat
       @buffer_types ||= [:s32, :s32, :s64]
     end
 
+    def pack_template
+      "llq"
+    end
+
     def build_array(...)
-      MonthDayNanoIntervalArray.new(self, ...)
+      MonthDayNanoIntervalArray.new(...)
     end
   end
 
   class DurationType < TemporalType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :unit
     def initialize(unit)
       super()
       @unit = unit
+    end
+
+    def ==(other)
+      other.is_a?(self.class) and
+        @unit == other.unit
     end
 
     def name
@@ -625,6 +733,10 @@ module ArrowFormat
 
     def buffer_type
       :s64
+    end
+
+    def pack_template
+      "q"
     end
 
     def build_array(...)
@@ -660,6 +772,10 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def encoding
       Encoding::ASCII_8BIT
     end
@@ -686,6 +802,10 @@ module ArrowFormat
 
     def offset_buffer_type
       :s64 # TODO: big endian support
+    end
+
+    def offset_pack_template
+      "q"
     end
 
     def encoding
@@ -716,6 +836,10 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def encoding
       Encoding::UTF_8
     end
@@ -742,6 +866,10 @@ module ArrowFormat
 
     def offset_buffer_type
       :s64 # TODO: big endian support
+    end
+
+    def offset_pack_template
+      "q"
     end
 
     def encoding

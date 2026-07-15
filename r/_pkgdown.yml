@@ -261,10 +261,11 @@ reference:
 
 - title: File systems
   desc: >
-   Functions for working with files on S3 and GCS
+   Functions for working with files on S3, GCS, and Azure
   contents:
   - s3_bucket
   - gs_bucket
+  - az_container
   - copy_files
 
 - title: Flight

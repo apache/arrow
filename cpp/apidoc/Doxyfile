@@ -2484,6 +2484,8 @@ PREDEFINED             = __attribute__(x)= \
                          ARROW_EXTERN_TEMPLATE= \
                          ARROW_FLIGHT_EXPORT= \
                          ARROW_FLIGHT_SQL_EXPORT= \
+                         ARROW_SUPPRESS_DEPRECATION_WARNING= \
+                         ARROW_UNSUPPRESS_DEPRECATION_WARNING= \
                          GANDIVA_EXPORT= \
                          PARQUET_EXPORT=
 

@@ -790,8 +790,6 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
 
 
 def make_datetimetz(unit, tz):
-    if _pandas_api.is_v1():
-        unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
     tz = pa.lib.string_to_tzinfo(tz, prefer_zoneinfo=_pandas_api.is_ge_v3())
     return _pandas_api.datetimetz_type(unit, tz=tz)
 

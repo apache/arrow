@@ -24,6 +24,8 @@ module ArrowFormat
   using FlatBuffers::AppendAsBytes if FlatBuffers.const_defined?(:AppendAsBytes)
 
   class Array
+    include Enumerable
+
     attr_reader :type
     attr_reader :size
     alias_method :length, :size
@@ -64,6 +66,16 @@ module ArrowFormat
       @size.zero?
     end
 
+    def ==(other)
+      return false unless other.is_a?(self.class)
+      return false unless @size == other.size
+      return true if @validity_buffer.nil? and other.validity_buffer.nil?
+      if @offset == other.offset and @validity_buffer == other.validity_buffer
+        return true
+      end
+      validity_bitmap == other.validity_bitmap
+    end
+
     protected
     def slice!(offset, size)
       @offset = offset
@@ -71,11 +83,11 @@ module ArrowFormat
       clear_cache
     end
 
-    private
     def validity_bitmap
       @validity_bitmap ||= Bitmap.new(@validity_buffer, @offset, @size)
     end
 
+    private
     def apply_validity(array)
       return array if @validity_buffer.nil?
       validity_bitmap.each_with_index do |is_valid, i|
@@ -159,11 +171,20 @@ module ArrowFormat
     def to_a
       [nil] * @size
     end
+
+    def each
+      return to_enum(__method__) unless block_given?
+
+      @size.times do
+        yield(nil)
+      end
+    end
   end
 
   class PrimitiveArray < Array
     include BufferAlignable
 
+    attr_reader :values_buffer
     def initialize(*args)
       n_args = args.size
       if self.class.respond_to?(:type)
@@ -171,6 +192,9 @@ module ArrowFormat
         expected_n_args = "1 or 3"
       else
         type = args.shift
+        unless type.is_a?(Type)
+          type = self.class.type_class.try_convert(type) || type
+        end
         expected_n_args = "2 or 4"
       end
       args = build_data(args[0], type) if args.size == 1
@@ -192,13 +216,45 @@ module ArrowFormat
       apply_validity(@values_buffer.values(@type.buffer_type, offset, @size))
     end
 
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      each_value = Enumerator.new(@size) do |yielder|
+        offset = element_size * @offset
+        @values_buffer.each(@type.buffer_type, offset, @size) do |_, value|
+          yielder << value
+        end
+      end
+      if @validity_buffer.nil?
+        each_value.each(&block)
+      else
+        validity_bitmap.zip(each_value) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
+    end
+
     def each_buffer
-      return to_enum(__method__) unless block_given?
+      return to_enum(__method__) {2} unless block_given?
 
       yield(slice_bitmap_buffer(:validity, @validity_buffer))
       yield(slice_fixed_element_size_buffer(:values,
                                             @values_buffer,
                                             element_size))
+    end
+
+    def ==(other)
+      return false unless super(other)
+      if @offset == other.offset and @values_buffer == other.values_buffer
+        return true
+      end
+      lazy.zip(other).all? do |value, other_value|
+        value == other_value
+      end
     end
 
     private
@@ -215,9 +271,9 @@ module ArrowFormat
         if value.nil?
           validity_buffer_builder ||= SparseBitmapBuilder.new
           validity_buffer_builder.unset(i)
-          buffer.append_as_bytes([0].pack(pack_template))
+          buffer.append_as_bytes(pack_value(nil, pack_template))
         else
-          buffer.append_as_bytes([value].pack(pack_template))
+          buffer.append_as_bytes(pack_value(value, pack_template))
         end
         n += 1
       end
@@ -225,6 +281,11 @@ module ArrowFormat
       pad!(buffer, buffer_padding_size(buffer))
       buffer.freeze
       return n, validity_buffer, IO::Buffer.for(buffer)
+    end
+
+    def pack_value(value, template)
+      value = 0 if value.nil?
+      [value].pack(template)
     end
   end
 
@@ -238,19 +299,38 @@ module ArrowFormat
     def to_a
       return [] if empty?
 
-      @values_bitmap ||= Bitmap.new(@values_buffer, @offset, @size)
-      values = @values_bitmap.to_a
+      values = values_bitmap.to_a
       apply_validity(values)
     end
 
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      if @validity_buffer.nil?
+        values_bitmap.each(&block)
+      else
+        validity_bitmap.zip(values_bitmap) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
+    end
+
     def each_buffer
-      return to_enum(__method__) unless block_given?
+      return to_enum(__method__) {2} unless block_given?
 
       yield(slice_bitmap_buffer(:validity, @validity_buffer))
       yield(slice_bitmap_buffer(:values, @values_buffer))
     end
 
     private
+    def values_bitmap
+      @values_bitmap ||= Bitmap.new(@values_buffer, @offset, @size)
+    end
+
     def clear_cache
       super
       @values_bitmap = nil
@@ -389,21 +469,47 @@ module ArrowFormat
   end
 
   class Time32Array < TimeArray
+    class << self
+      def type_class
+        Time32Type
+      end
+    end
   end
 
   class Time64Array < TimeArray
+    class << self
+      def type_class
+        Time64Type
+      end
+    end
   end
 
   class TimestampArray < TemporalArray
+    class << self
+      def type_class
+        TimestampType
+      end
+    end
   end
 
   class IntervalArray < TemporalArray
   end
 
   class YearMonthIntervalArray < IntervalArray
+    class << self
+      def type
+        YearMonthIntervalType.singleton
+      end
+    end
   end
 
   class DayTimeIntervalArray < IntervalArray
+    class << self
+      def type
+        DayTimeIntervalType.singleton
+      end
+    end
+
     def to_a
       return [] if empty?
 
@@ -411,19 +517,59 @@ module ArrowFormat
       values = @values_buffer.
                  each(@type.buffer_type, offset, @size * 2).
                  each_slice(2).
-                 collect do |(_, day), (_, time)|
-        [day, time]
+                 collect do |(_, day), (_, millisecond)|
+        [day, millisecond]
       end
       apply_validity(values)
+    end
+
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      each_value = Enumerator.new(@size) do |yielder|
+        offset = element_size * @offset
+        @values_buffer.
+          each(@type.buffer_type, offset, @size * 2).
+          each_slice(2) do |(_, day), (_, millisecond)|
+          yielder << [day, millisecond]
+        end
+      end
+      if @validity_buffer.nil?
+        each_value.each(&block)
+      else
+        validity_bitmap.zip(each_value) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
     end
 
     private
     def element_size
       super * 2
     end
+
+    def pack_value(value, template)
+      if value.nil?
+        [0, 0].pack(template)
+      elsif value.is_a?(Hash)
+        [value[:day], value[:millisecond]].pack(template)
+      else
+        value.pack(template)
+      end
+    end
   end
 
   class MonthDayNanoIntervalArray < IntervalArray
+    class << self
+      def type
+        MonthDayNanoIntervalType.singleton
+      end
+    end
+
     def to_a
       return [] if empty?
 
@@ -437,17 +583,68 @@ module ArrowFormat
       apply_validity(values)
     end
 
+    def each(&block)
+      return to_enum(__method__) {@size} unless block_given?
+
+      each_value = Enumerator.new(@size) do |yielder|
+        buffer_types = @type.buffer_types
+        value_size = IO::Buffer.size_of(buffer_types)
+        base_offset = value_size * @offset
+        @size.times do |i|
+          offset = base_offset + value_size * i
+          yielder << @values_buffer.get_values(buffer_types, offset)
+        end
+      end
+      if @validity_buffer.nil?
+        each_value.each(&block)
+      else
+        validity_bitmap.zip(each_value) do |is_valid, value|
+          if is_valid
+            yield(value)
+          else
+            yield(nil)
+          end
+        end
+      end
+    end
+
     private
     def element_size
       IO::Buffer.size_of(@type.buffer_types)
     end
+
+    def pack_value(value, template)
+      if value.nil?
+        [0, 0, 0].pack(template)
+      elsif value.is_a?(Hash)
+        [value[:month], value[:day], value[:nanosecond]].pack(template)
+      else
+        value.pack(template)
+      end
+    end
   end
 
   class DurationArray < TemporalArray
+    class << self
+      def type_class
+        DurationType
+      end
+    end
   end
 
   class VariableSizeBinaryArray < Array
-    def initialize(size, validity_buffer, offsets_buffer, values_buffer)
+    include BufferAlignable
+
+    def initialize(*args)
+      if args.size == 1
+        args = build_data(args.first)
+      elsif args.size != 4
+        raise ArgumentError,
+              "wrong number of arguments (given #{args.size}, expected 1 or 4)"
+      end
+
+      size, validity_buffer, offsets_buffer, values_buffer = args
+
       super(self.class.type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
       @values_buffer = values_buffer
@@ -487,6 +684,48 @@ module ArrowFormat
     end
 
     private
+    def build_data(data)
+      type = self.class.type
+
+      n = 0
+      validity_buffer_builder = nil
+
+      values = +"".b
+      offsets = [0]
+
+      data.each_with_index do |value, i|
+        if value.nil?
+          validity_buffer_builder ||= SparseBitmapBuilder.new
+          validity_buffer_builder.unset(i)
+
+          offsets << values.bytesize
+        else
+          values.append_as_bytes(value)
+          offsets << values.bytesize
+        end
+
+        n += 1
+      end
+
+      validity_buffer = validity_buffer_builder&.finish(n)
+
+      offsets_data = offsets.pack("#{type.offset_pack_template}*")
+      pad!(offsets_data, buffer_padding_size(offsets_data))
+      offsets_data.freeze
+      offsets_buffer = IO::Buffer.for(offsets_data)
+
+      pad!(values, buffer_padding_size(values))
+      values.freeze
+      values_buffer = IO::Buffer.for(values)
+
+      [
+        n,
+        validity_buffer,
+        offsets_buffer,
+        values_buffer,
+      ]
+    end
+
     def offset_size
       IO::Buffer.size_of(@type.offset_buffer_type)
     end

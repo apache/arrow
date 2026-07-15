@@ -1293,7 +1293,7 @@ struct ObjectWriterVisitor {
                               PyObject** out) {
       ARROW_DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
       // DateOffset objects do not add nanoseconds component to pd.Timestamp.
-      // as of  Pandas 1.3.3
+      // as of Pandas 1.3.3
       // (https://github.com/pandas-dev/pandas/issues/43892).
       // So convert microseconds and remainder to preserve data
       // but give users more expected results.

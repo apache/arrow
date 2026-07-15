@@ -34,7 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  # Required for the GraphQL convertPullRequestToDraft mutation.
+  contents: write
   pull-requests: write
   issues: write
   
