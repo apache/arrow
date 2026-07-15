@@ -1393,7 +1393,7 @@ inline int64_t compute_capacity_pow2(int64_t capacity, int64_t size, int64_t ext
   return bit_util::NextPower2(target_size);
 }
 
-class ReadValuesCursor {
+class BufferCursor {
  public:
   int64_t capacity() const { return capacity_; }
 
@@ -1414,13 +1414,13 @@ class ReadValuesCursor {
   int64_t capacity_ = 0;
 };
 
-template <typename DType>
-class ReadValuesBuffer : private ReadValuesCursor {
+template <typename T>
+class ReadValuesBuffer : private BufferCursor {
  public:
-  using value_type = typename DType::c_type;
+  using value_type = T;
 
-  using ReadValuesCursor::capacity;
-  using ReadValuesCursor::values_count;
+  using BufferCursor::capacity;
+  using BufferCursor::values_count;
 
   explicit ReadValuesBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
 
@@ -1453,7 +1453,7 @@ class ReadValuesBuffer : private ReadValuesCursor {
   void ResetValues() {
     if (values_count() > 0) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
-      ReadValuesCursor::operator=({});
+      BufferCursor::operator=({});
     }
   }
 
@@ -1470,13 +1470,13 @@ class ReadValuesBuffer : private ReadValuesCursor {
   }
 };
 
-template <typename DType>
-class ReadValuesNoBuffer : private ReadValuesCursor {
+template <typename T>
+class ReadValuesNoBuffer : private BufferCursor {
  public:
-  using value_type = typename DType::c_type;
+  using value_type = T;
 
-  using ReadValuesCursor::capacity;
-  using ReadValuesCursor::values_count;
+  using BufferCursor::capacity;
+  using BufferCursor::values_count;
 
   explicit ReadValuesNoBuffer(MemoryPool* /* pool */) {}
 
@@ -1494,10 +1494,11 @@ class ReadValuesNoBuffer : private ReadValuesCursor {
 
   void ReserveValues(int64_t extra_values) { fit_capacity_for_extra(extra_values); }
 
-  void ResetValues() { ReadValuesCursor::operator=({}); }
+  void ResetValues() { BufferCursor::operator=({}); }
 };
 
-template <typename DType, typename ValuesBuffer = ReadValuesBuffer<DType>>
+template <typename DType,
+          typename ValuesBuffer = ReadValuesBuffer<typename DType::c_type>>
 class TypedRecordReader : public ColumnReaderImplBase<DType>,
                           virtual public RecordReader {
  public:
@@ -2178,7 +2179,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 /// The `values_` buffer is used to store the temporary values for `Decode`, and it would
 /// be Reset after each `Decode` call. The `valid_bits_` buffer is never used.
 class FLBARecordReader final
-    : public TypedRecordReader<FLBAType, ReadValuesNoBuffer<FLBAType>>,
+    : public TypedRecordReader<FLBAType, ReadValuesNoBuffer<typename FLBAType::c_type>>,
       virtual public BinaryRecordReader {
  public:
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
@@ -2229,7 +2230,8 @@ class FLBARecordReader final
 /// The `values_` buffers are never used, and the `accumulator_`
 /// is used to store the values.
 class ByteArrayChunkedRecordReader final
-    : public TypedRecordReader<ByteArrayType, ReadValuesNoBuffer<ByteArrayType>>,
+    : public TypedRecordReader<ByteArrayType,
+                               ReadValuesNoBuffer<typename ByteArrayType::c_type>>,
       virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
@@ -2305,7 +2307,8 @@ class ByteArrayChunkedRecordReader final
 /// If underlying column is dictionary encoded, it will call `DecodeIndices` to read,
 /// otherwise it will call `DecodeArrowNonNull` to read.
 class ByteArrayDictionaryRecordReader final
-    : public TypedRecordReader<ByteArrayType, ReadValuesNoBuffer<ByteArrayType>>,
+    : public TypedRecordReader<ByteArrayType,
+                               ReadValuesNoBuffer<typename ByteArrayType::c_type>>,
       virtual public DictionaryRecordReader {
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
@@ -2390,11 +2393,14 @@ template <>
 void TypedRecordReader<Int96Type>::DebugPrintState() {}
 
 template <>
-void TypedRecordReader<ByteArrayType,
-                       ReadValuesNoBuffer<ByteArrayType>>::DebugPrintState() {}
+void TypedRecordReader<
+    ByteArrayType,
+    ReadValuesNoBuffer<typename ByteArrayType::c_type>>::DebugPrintState() {}
 
 template <>
-void TypedRecordReader<FLBAType, ReadValuesNoBuffer<FLBAType>>::DebugPrintState() {}
+void TypedRecordReader<FLBAType,
+                       ReadValuesNoBuffer<typename FLBAType::c_type>>::DebugPrintState() {
+}
 
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
     const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
