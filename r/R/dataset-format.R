@@ -142,7 +142,6 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname JsonFileFormat
 #' @name JsonFileFormat
 #' @seealso [FileFormat]
-#' @examplesIf arrow_with_dataset()
 #'
 #' @export
 JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)

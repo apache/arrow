@@ -89,24 +89,24 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{base}{
 \itemize{
-\item \code{\link{!}}
-\item \code{\link{!=}}
-\item \code{\link{\%\%}}
-\item \code{\link{\%/\%}}
-\item \code{\link{\%in\%}}
-\item \code{\link{&}}
-\item \code{\link{*}}
-\item \code{\link{+}}
-\item \code{\link{-}}
-\item \code{\link{/}}
-\item \code{\link{<}}
-\item \code{\link{<=}}
-\item \code{\link{==}}
-\item \code{\link{>}}
-\item \code{\link{>=}}
+\item \code{\link[base:!]{!}}
+\item \code{\link[base:!=]{!=}}
+\item \code{\link[base:\%\%]{\%\%}}
+\item \code{\link[base:\%/\%]{\%/\%}}
+\item \code{\link[base:\%in\%]{\%in\%}}
+\item \code{\link[base:&]{&}}
+\item \code{\link[base:*]{*}}
+\item \code{\link[base:+]{+}}
+\item \code{\link[base:-]{-}}
+\item \code{\link[base:/]{/}}
+\item \code{\link[base:<]{<}}
+\item \code{\link[base:<=]{<=}}
+\item \code{\link[base:==]{==}}
+\item \code{\link[base:>]{>}}
+\item \code{\link[base:>=]{>=}}
 \item \code{\link[base:ISOdate]{ISOdate()}}
 \item \code{\link[base:ISOdatetime]{ISOdatetime()}}
-\item \code{\link{^}}
+\item \code{\link[base:^]{^}}
 \item \code{\link[base:abs]{abs()}}
 \item \code{\link[base:acos]{acos()}}
 \item \code{\link[base:acosh]{acosh()}}
@@ -184,7 +184,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[base:tolower]{tolower()}}
 \item \code{\link[base:toupper]{toupper()}}
 \item \code{\link[base:trunc]{trunc()}}
-\item \code{\link{|}}
+\item \code{\link[base:|]{|}}
 }
 }
 
