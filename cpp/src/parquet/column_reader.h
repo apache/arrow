@@ -76,6 +76,9 @@ class PARQUET_EXPORT LevelDecoder {
  public:
   explicit LevelDecoder(int16_t max_level = 0);
 
+  LevelDecoder(LevelDecoder&&) = default;
+  LevelDecoder& operator=(LevelDecoder&&) = default;
+
   ~LevelDecoder();
 
   /// Initialize the LevelDecoder state with new data from a legacy (V1) page.
@@ -109,6 +112,9 @@ class PARQUET_EXPORT LevelDecoder {
 
   /// Return the max level used in this decoder.
   int32_t max_level() const { return max_level_; }
+
+  /// Return the number of values left to be decoded.
+  int32_t remaining() const { return num_values_remaining_; }
 
  private:
   struct Impl;
