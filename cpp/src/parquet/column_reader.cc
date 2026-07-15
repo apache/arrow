@@ -731,14 +731,280 @@ class SkippableTypedDecoder {
   }
 };
 
+/******************
+ *  BufferCursor  *
+ ******************/
+
+inline int64_t compute_capacity_pow2(int64_t capacity, int64_t size, int64_t extra_size) {
+  if (extra_size < 0) {
+    throw ParquetException("Negative size (corrupt file?)");
+  }
+  int64_t target_size = -1;
+  if (AddWithOverflow(size, extra_size, &target_size)) {
+    throw ParquetException("Allocation size too large (corrupt file?)");
+  }
+  if (target_size >= (1LL << 62)) {
+    throw ParquetException("Allocation size too large (corrupt file?)");
+  }
+  if (capacity >= target_size) {
+    return capacity;
+  }
+  return bit_util::NextPower2(target_size);
+}
+
+class BufferCursor {
+ public:
+  int64_t capacity() const { return capacity_; }
+
+  int64_t values_count() const { return values_count_; }
+
+  void set_values_count(int64_t vals) { values_count_ = vals; }
+
+  int64_t fit_capacity_for_extra(int64_t extra_values) {
+    auto new_capacity = compute_capacity_pow2(capacity_, values_count_, extra_values);
+    ARROW_DCHECK_GE(new_capacity, capacity());
+    return std::exchange(capacity_, new_capacity);
+  }
+
+  int64_t reset_capacity() { return std::exchange(capacity_, 0); }
+
+ private:
+  int64_t values_count_ = 0;
+  int64_t capacity_ = 0;
+};
+
+/**********************
+ *  ReadValuesBuffer  *
+ **********************/
+
+template <typename T>
+class ReadValuesBuffer : private BufferCursor {
+ public:
+  using value_type = T;
+
+  using BufferCursor::capacity;
+  using BufferCursor::values_count;
+
+  explicit ReadValuesBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
+
+  value_type* data() const { return values_->mutable_data_as<value_type>(); }
+
+  value_type* write_start() { return data() + values_count(); }
+
+  void mark_values_as_written(int64_t extra_values) {
+    set_values_count(values_count() + extra_values);
+  }
+
+  void delete_back(int64_t count) {
+    ARROW_DCHECK_LE(count, values_count());
+    set_values_count(values_count() - count);
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
+    // TODO should we set values_written to zero?
+    auto result = values_;
+    const auto byte_count = bytes_for_values(values_count());
+    PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
+    values_ = AllocateBuffer(pool);
+    reset_capacity();
+    return result;
+  }
+
+  void ReserveValues(int64_t extra_values) {
+    const auto old_capacity = fit_capacity_for_extra(extra_values);
+    if (capacity() > old_capacity) {
+      const auto byte_count = bytes_for_values(capacity());
+      PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
+    }
+  }
+
+  void ResetValues() {
+    if (values_count() > 0) {
+      PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
+      BufferCursor::operator=({});
+    }
+  }
+
+ private:
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
+
+  static int64_t bytes_for_values(int64_t nitems) {
+    constexpr auto kValueByteSize = static_cast<int64_t>(sizeof(value_type));
+    int64_t bytes = -1;
+    if (MultiplyWithOverflow(nitems, kValueByteSize, &bytes)) {
+      throw ParquetException("Total size of items too large");
+    }
+    return bytes;
+  }
+};
+
+/************************
+ *  ReadValuesNoBuffer  *
+ ************************/
+
+template <typename T>
+class ReadValuesNoBuffer : private BufferCursor {
+ public:
+  using value_type = T;
+
+  using BufferCursor::capacity;
+  using BufferCursor::values_count;
+
+  explicit ReadValuesNoBuffer(MemoryPool* /* pool */) {}
+
+  value_type* data() const { return nullptr; }
+
+  value_type* write_start() { return nullptr; }
+
+  void mark_values_as_written(int64_t extra_values) {
+    set_values_count(values_count() + extra_values);
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* /* pool */) {
+    return nullptr;
+  }
+
+  void ReserveValues(int64_t extra_values) { fit_capacity_for_extra(extra_values); }
+
+  void ResetValues() { BufferCursor::operator=({}); }
+};
+
+/*************************
+ *  StackedLevelDecoder  *
+ *************************/
+
+class StackedLevelDecoder : private LevelDecoder {
+ public:
+  using Base = LevelDecoder;
+  using CountUpToResult = Base::CountUpToResult;
+
+  static constexpr int32_t kMinBatchSize = kMinLevelBatchSize;
+
+  StackedLevelDecoder(int16_t max_level, MemoryPool* pool)
+      : Base{max_level}, buffer_(pool) {}
+
+  int32_t SetData(Encoding::type encoding, int16_t max_level, int32_t num_buffered_values,
+                  const uint8_t* data, int32_t data_size);
+
+  void SetDataV2(int32_t num_bytes, int16_t max_level, int32_t num_buffered_values,
+                 const uint8_t* data);
+
+  [[nodiscard]] int32_t Decode(int32_t batch_size);
+
+  [[nodiscard]] int32_t Skip(int32_t batch_size);
+
+  CountUpToResult CountUpTo(int16_t value, int32_t batch_size);
+
+  int16_t* data() const { return buffer_.data(); }
+
+  int64_t size() const { return position_; }
+
+ private:
+  ReadValuesBuffer<int16_t> buffer_;
+  int64_t position_ = 0;
+
+  int64_t total_decoded() const { return buffer_.values_count(); }
+
+  int32_t extra_decoded() const {
+    const auto count = total_decoded() - size();
+    ARROW_DCHECK_LT(count, kMinBatchSize);
+    return static_cast<int32_t>(count);
+  }
+
+  int16_t* extra_start() { return data() + size(); }
+
+  void AdvanceInBuffer(int32_t batch_size) { position_ += batch_size; }
+
+  /// Left shift the extra values in the buffer by up to the batch_size.
+  int32_t SkipInBuffer(int32_t batch_size);
+};
+
+/****************************************
+ *  StackedLevelDecoder Implementation  *
+ ****************************************/
+
+int32_t StackedLevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
+                                     int32_t num_buffered_values, const uint8_t* data,
+                                     int32_t data_size) {
+  buffer_.delete_back(extra_decoded());
+  return Base::SetData(encoding, max_level, num_buffered_values, data, data_size);
+}
+
+void StackedLevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
+                                    int32_t num_buffered_values, const uint8_t* data) {
+  buffer_.delete_back(extra_decoded());
+  return Base::SetDataV2(num_bytes, max_level, num_buffered_values, data);
+}
+
+int32_t StackedLevelDecoder::Decode(int32_t batch_size) {
+  // Advance as much as possible in the already decoded buffer.
+  const auto buffer_batch = std::min(batch_size, extra_decoded());
+  AdvanceInBuffer(buffer_batch);
+
+  // Check what is left to decode.
+  const auto decode_batch = batch_size - buffer_batch;
+  const auto decode_possible_batch = std::min(decode_batch, Base::remaining());
+  if (decode_possible_batch == 0) {
+    return buffer_batch;
+  }
+
+  // Decode the rest plus extra greedy values.
+  const auto greedy_target = std::max(kMinBatchSize, decode_batch);
+  const auto greedy_possible = std::min(greedy_target, Base::remaining());
+  buffer_.ReserveValues(/* extra= */ greedy_possible);
+  const auto decoded = Base::Decode(greedy_possible, buffer_.write_start());
+  buffer_.mark_values_as_written(decoded);
+  ARROW_DCHECK_EQ(decoded, greedy_possible);
+  AdvanceInBuffer(decode_possible_batch);
+
+  return buffer_batch + decode_possible_batch;
+}
+
+int32_t StackedLevelDecoder::SkipInBuffer(int32_t batch_size) {
+  const auto count = std::min(batch_size, extra_decoded());
+  std::copy(extra_start() + count, extra_start() + extra_decoded(), extra_start());
+  buffer_.delete_back(count);
+  return count;
+}
+
+int32_t StackedLevelDecoder::Skip(int32_t batch_size) {
+  // Left shift the extra values in the buffer by the batch_size.
+  const auto buffer_skipped = SkipInBuffer(batch_size);
+
+  // Skip the rest in the decoder
+  const auto batch_to_skip = batch_size - buffer_skipped;
+  return Base::Skip(batch_to_skip) + buffer_skipped;
+}
+
+auto StackedLevelDecoder::CountUpTo(int16_t value,
+                                    int32_t batch_size) -> CountUpToResult {
+  // Count in the decoded values
+  const auto buffer_batch = std::min(batch_size, extra_decoded());
+  const auto buffer_count = static_cast<int32_t>(
+      std::count(extra_start(), extra_start() + buffer_batch, value));
+  [[maybe_unused]] const auto buffer_skipped = SkipInBuffer(batch_size);
+  ARROW_DCHECK_EQ(buffer_skipped, buffer_batch);
+
+  // Count the rest in the decoder.
+  const auto batch_to_count = batch_size - buffer_batch;
+  auto out = Base::CountUpTo(value, batch_to_count);
+
+  out.matching_count += buffer_count;
+  out.processed_count += buffer_batch;
+  return out;
+}
+
 /*************************
  *  DefRepLevelsDecoder  *
  *************************/
 
+template <typename Decoder>
 class DefRepLevelsDecoder {
  public:
-  DefRepLevelsDecoder(int16_t max_def, int16_t max_rep)
-      : def_lvl_dec_(max_def), rep_lvl_dec_(max_rep) {}
+  using LvlDec = Decoder;
+
+  DefRepLevelsDecoder(LvlDec def_dec, LvlDec rep_dec)
+      : def_lvl_dec_(std::move(def_dec)), rep_lvl_dec_(std::move(rep_dec)) {}
 
   int16_t max_def_level() const { return def_lvl_dec_.max_level(); }
   int16_t max_rep_level() const { return rep_lvl_dec_.max_level(); }
@@ -760,15 +1026,16 @@ class DefRepLevelsDecoder {
   int AdvanceLevels(int num_levels);
 
  private:
-  LevelDecoder def_lvl_dec_;
-  LevelDecoder rep_lvl_dec_;
+  LvlDec def_lvl_dec_;
+  LvlDec rep_lvl_dec_;
 };
 
 /****************************************
  *  DefRepLevelsDecoder Implementation  *
  ****************************************/
 
-inline int64_t DefRepLevelsDecoder::InitializeV1(const DataPageV1& page) {
+template <typename LvlDec>
+inline int64_t DefRepLevelsDecoder<LvlDec>::InitializeV1(const DataPageV1& page) {
   const auto num_values = static_cast<int>(page.num_values());
 
   const uint8_t* buffer = page.data();
@@ -793,7 +1060,8 @@ inline int64_t DefRepLevelsDecoder::InitializeV1(const DataPageV1& page) {
   return levels_byte_size;
 }
 
-inline int64_t DefRepLevelsDecoder::InitializeV2(const DataPageV2& page) {
+template <typename LvlDec>
+inline int64_t DefRepLevelsDecoder<LvlDec>::InitializeV2(const DataPageV2& page) {
   const auto num_values = static_cast<int>(page.num_values());
 
   const int64_t total_levels_length =
@@ -822,21 +1090,24 @@ inline int64_t DefRepLevelsDecoder::InitializeV2(const DataPageV2& page) {
   return total_levels_length;
 }
 
-int DefRepLevelsDecoder::ReadDefinitionLevels(int batch_size, int16_t* levels) {
+template <typename LvlDec>
+int DefRepLevelsDecoder<LvlDec>::ReadDefinitionLevels(int batch_size, int16_t* levels) {
   if (max_def_level() == 0) {
     return 0;
   }
   return def_lvl_dec_.Decode(batch_size, levels);
 }
 
-int DefRepLevelsDecoder::ReadRepetitionLevels(int batch_size, int16_t* levels) {
+template <typename LvlDec>
+int DefRepLevelsDecoder<LvlDec>::ReadRepetitionLevels(int batch_size, int16_t* levels) {
   if (max_rep_level() == 0) {
     return 0;
   }
   return rep_lvl_dec_.Decode(batch_size, levels);
 }
 
-int DefRepLevelsDecoder::AdvanceLevels(int num_levels) {
+template <typename LvlDec>
+int DefRepLevelsDecoder<LvlDec>::AdvanceLevels(int num_levels) {
   int max_count = num_levels;
   // Advance the definition levels, counting how many correspond to present
   // (non-null) values that must be skipped in the data decoder.
@@ -857,19 +1128,24 @@ int DefRepLevelsDecoder::AdvanceLevels(int num_levels) {
  **************************/
 
 /// Impl base class for TypedColumnReader and RecordReader
-template <typename DType>
+template <typename DType, typename LvlDec>
 class ColumnReaderImplBase {
  public:
   using T = typename DType::c_type;
 
-  ColumnReaderImplBase(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool);
+  ColumnReaderImplBase(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                       DefRepLevelsDecoder<LvlDec> levels_decoder)
+      : levels_decoder_(std::move(levels_decoder)),
+        descr_(descr),
+        pool_(pool),
+        current_decoder_(pool) {}
 
   virtual ~ColumnReaderImplBase() = default;
 
  protected:
   using DecoderType = TypedDecoder<DType>;
 
-  DefRepLevelsDecoder levels_decoder_;
+  DefRepLevelsDecoder<LvlDec> levels_decoder_;
   const ColumnDescriptor* descr_;
   std::unique_ptr<PageReader> pager_;
   std::shared_ptr<Page> current_page_;
@@ -940,32 +1216,24 @@ class ColumnReaderImplBase {
   int64_t Skip(int64_t num_values_to_skip);
 };
 
-template <typename DType>
-ColumnReaderImplBase<DType>::ColumnReaderImplBase(const ColumnDescriptor* descr,
-                                                  ::arrow::MemoryPool* pool)
-    : levels_decoder_(descr->max_definition_level(), descr->max_repetition_level()),
-      descr_(descr),
-      pool_(pool),
-      current_decoder_(pool) {}
-
-template <typename DType>
-int64_t ColumnReaderImplBase<DType>::ReadValues(int64_t batch_size, T* out) {
+template <typename DType, typename LvlDec>
+int64_t ColumnReaderImplBase<DType, LvlDec>::ReadValues(int64_t batch_size, T* out) {
   int64_t num_decoded = current_decoder_->Decode(out, static_cast<int>(batch_size));
   return num_decoded;
 }
 
-template <typename DType>
-int64_t ColumnReaderImplBase<DType>::ReadValuesSpaced(int64_t batch_size, T* out,
-                                                      int64_t null_count,
-                                                      uint8_t* valid_bits,
-                                                      int64_t valid_bits_offset) {
+template <typename DType, typename LvlDec>
+int64_t ColumnReaderImplBase<DType, LvlDec>::ReadValuesSpaced(int64_t batch_size, T* out,
+                                                              int64_t null_count,
+                                                              uint8_t* valid_bits,
+                                                              int64_t valid_bits_offset) {
   return current_decoder_->DecodeSpaced(out, static_cast<int>(batch_size),
                                         static_cast<int>(null_count), valid_bits,
                                         valid_bits_offset);
 }
 
-template <typename DType>
-bool ColumnReaderImplBase<DType>::HasNextInternal() {
+template <typename DType, typename LvlDec>
+bool ColumnReaderImplBase<DType, LvlDec>::HasNextInternal() {
   // Either there is no data page available yet, or the data page has been
   // exhausted
   if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
@@ -976,8 +1244,8 @@ bool ColumnReaderImplBase<DType>::HasNextInternal() {
   return true;
 }
 
-template <typename DType>
-bool ColumnReaderImplBase<DType>::ReadNewPage() {
+template <typename DType, typename LvlDec>
+bool ColumnReaderImplBase<DType, LvlDec>::ReadNewPage() {
   // Loop until we find the next data page.
   while (true) {
     current_page_ = pager_->NextPage();
@@ -1012,8 +1280,9 @@ bool ColumnReaderImplBase<DType>::ReadNewPage() {
   return true;
 }
 
-template <typename DType>
-void ColumnReaderImplBase<DType>::ConfigureDictionary(const DictionaryPage* page) {
+template <typename DType, typename LvlDec>
+void ColumnReaderImplBase<DType, LvlDec>::ConfigureDictionary(
+    const DictionaryPage* page) {
   int encoding = static_cast<int>(page->encoding());
   if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
       page->encoding() == Encoding::PLAIN) {
@@ -1049,9 +1318,9 @@ void ColumnReaderImplBase<DType>::ConfigureDictionary(const DictionaryPage* page
   ARROW_DCHECK(current_decoder_);
 }
 
-template <typename DType>
-void ColumnReaderImplBase<DType>::InitializeDataDecoder(const DataPage& page,
-                                                        int64_t levels_byte_size) {
+template <typename DType, typename LvlDec>
+void ColumnReaderImplBase<DType, LvlDec>::InitializeDataDecoder(
+    const DataPage& page, int64_t levels_byte_size) {
   const uint8_t* buffer = page.data() + levels_byte_size;
   const int64_t data_size = page.size() - levels_byte_size;
 
@@ -1096,18 +1365,18 @@ void ColumnReaderImplBase<DType>::InitializeDataDecoder(const DataPage& page,
                             static_cast<int>(data_size));
 }
 
-template <typename DType>
-int16_t ColumnReaderImplBase<DType>::max_def_level() const {
+template <typename DType, typename LvlDec>
+int16_t ColumnReaderImplBase<DType, LvlDec>::max_def_level() const {
   return levels_decoder_.max_def_level();
 }
 
-template <typename DType>
-int16_t ColumnReaderImplBase<DType>::max_rep_level() const {
+template <typename DType, typename LvlDec>
+int16_t ColumnReaderImplBase<DType, LvlDec>::max_rep_level() const {
   return levels_decoder_.max_rep_level();
 }
 
-template <typename DType>
-int64_t ColumnReaderImplBase<DType>::Skip(int64_t num_values_to_skip) {
+template <typename DType, typename LvlDec>
+int64_t ColumnReaderImplBase<DType, LvlDec>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   // Optimization: Do not call HasNext() when values_to_skip == 0.
   while (values_to_skip > 0 && HasNextInternal()) {
@@ -1145,13 +1414,18 @@ constexpr T clamp_to(U val) {
 
 template <typename DType>
 class TypedColumnReaderImpl : public TypedColumnReader<DType>,
-                              public ColumnReaderImplBase<DType> {
+                              public ColumnReaderImplBase<DType, LevelDecoder> {
  public:
   using T = typename DType::c_type;
 
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
                         ::arrow::MemoryPool* pool)
-      : ColumnReaderImplBase<DType>(descr, pool) {
+      : ColumnReaderImplBase<DType, LevelDecoder>(
+            descr, pool,
+            {
+                LevelDecoder(descr->max_definition_level()),
+                LevelDecoder(descr->max_repetition_level()),
+            }) {
     this->pager_ = std::move(pager);
   }
 
@@ -1161,7 +1435,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
                     T* values, int64_t* values_read) override;
 
   int64_t Skip(int64_t num_values_to_skip) override {
-    return ColumnReaderImplBase<DType>::Skip(num_values_to_skip);
+    return ColumnReaderImplBase<DType, LevelDecoder>::Skip(num_values_to_skip);
   }
 
   Type::type type() const override { return this->descr_->physical_type(); }
@@ -1378,137 +1652,25 @@ namespace internal {
 
 namespace {
 
-inline int64_t compute_capacity_pow2(int64_t capacity, int64_t size, int64_t extra_size) {
-  if (extra_size < 0) {
-    throw ParquetException("Negative size (corrupt file?)");
-  }
-  int64_t target_size = -1;
-  if (AddWithOverflow(size, extra_size, &target_size)) {
-    throw ParquetException("Allocation size too large (corrupt file?)");
-  }
-  if (target_size >= (1LL << 62)) {
-    throw ParquetException("Allocation size too large (corrupt file?)");
-  }
-  if (capacity >= target_size) {
-    return capacity;
-  }
-  return bit_util::NextPower2(target_size);
-}
-
-class BufferCursor {
- public:
-  int64_t capacity() const { return capacity_; }
-
-  int64_t values_count() const { return values_count_; }
-
-  void increase_values_count(int64_t extra_values) { values_count_ += extra_values; }
-
-  int64_t fit_capacity_for_extra(int64_t extra_values) {
-    auto new_capacity = compute_capacity_pow2(capacity_, values_count_, extra_values);
-    ARROW_DCHECK_GE(new_capacity, capacity());
-    return std::exchange(capacity_, new_capacity);
-  }
-
-  int64_t reset_capacity() { return std::exchange(capacity_, 0); }
-
- private:
-  int64_t values_count_ = 0;
-  int64_t capacity_ = 0;
-};
-
-template <typename T>
-class ReadValuesBuffer : private BufferCursor {
- public:
-  using value_type = T;
-
-  using BufferCursor::capacity;
-  using BufferCursor::values_count;
-
-  explicit ReadValuesBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
-
-  value_type* data() const { return values_->mutable_data_as<value_type>(); }
-
-  value_type* write_start() { return data() + values_count(); }
-
-  void mark_values_as_written(int64_t extra_values) {
-    increase_values_count(extra_values);
-  }
-
-  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
-    // TODO should we set values_written to zero?
-    auto result = values_;
-    const auto byte_count = bytes_for_values(values_count());
-    PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
-    values_ = AllocateBuffer(pool);
-    reset_capacity();
-    return result;
-  }
-
-  void ReserveValues(int64_t extra_values) {
-    const auto old_capacity = fit_capacity_for_extra(extra_values);
-    if (capacity() > old_capacity) {
-      const auto byte_count = bytes_for_values(capacity());
-      PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
-    }
-  }
-
-  void ResetValues() {
-    if (values_count() > 0) {
-      PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
-      BufferCursor::operator=({});
-    }
-  }
-
- private:
-  std::shared_ptr<::arrow::ResizableBuffer> values_;
-
-  static int64_t bytes_for_values(int64_t nitems) {
-    constexpr auto kValueByteSize = static_cast<int64_t>(sizeof(value_type));
-    int64_t bytes = -1;
-    if (MultiplyWithOverflow(nitems, kValueByteSize, &bytes)) {
-      throw ParquetException("Total size of items too large");
-    }
-    return bytes;
-  }
-};
-
-template <typename T>
-class ReadValuesNoBuffer : private BufferCursor {
- public:
-  using value_type = T;
-
-  using BufferCursor::capacity;
-  using BufferCursor::values_count;
-
-  explicit ReadValuesNoBuffer(MemoryPool* /* pool */) {}
-
-  value_type* data() const { return nullptr; }
-
-  value_type* write_start() { return nullptr; }
-
-  void mark_values_as_written(int64_t extra_values) {
-    increase_values_count(extra_values);
-  }
-
-  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* /* pool */) {
-    return nullptr;
-  }
-
-  void ReserveValues(int64_t extra_values) { fit_capacity_for_extra(extra_values); }
-
-  void ResetValues() { BufferCursor::operator=({}); }
-};
+/***********************
+ *  TypedRecordReader  *
+ ***********************/
 
 template <typename DType,
           typename ValuesBuffer = ReadValuesBuffer<typename DType::c_type>>
-class TypedRecordReader : public ColumnReaderImplBase<DType>,
+class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
                           virtual public RecordReader {
  public:
   using T = typename DType::c_type;
-  using Base = ColumnReaderImplBase<DType>;
+  using Base = ColumnReaderImplBase<DType, LevelDecoder>;
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable)
-      : Base(descr, pool), values_(pool) {
+      : Base(descr, pool,
+             {
+                 LevelDecoder(descr->max_definition_level()),
+                 LevelDecoder(descr->max_repetition_level()),
+             }),
+        values_(pool) {
     leaf_info_ = leaf_info;
     nullable_values_ = leaf_info_.HasNullableValues();
     at_record_start_ = true;
