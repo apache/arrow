@@ -68,7 +68,12 @@ static PyStructSequence_Field MonthDayNanoField[] = {
 
 static PyStructSequence_Desc MonthDayNanoTupleDesc = {
     NonConst("pyarrow.lib.MonthDayNano"),
-    NonConst("A calendar interval consisting of months, days and nanoseconds."),
+    NonConst("A calendar interval consisting of months, days and nanoseconds.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "iterable : sequence\n"
+             "    The months, days and nanoseconds fields of the interval.\n"),
     MonthDayNanoField,
     /*n_in_sequence=*/3};
 
