@@ -25,6 +25,7 @@
 namespace grpc {
 
 class Status;
+class CallbackServerContext;
 
 }  // namespace grpc
 
