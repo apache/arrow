@@ -52,12 +52,6 @@ int CountOccurrences(const std::string& text, const std::string& needle) {
   return count;
 }
 
-int CountInt32AddInstructions(const std::string& ir) {
-  return CountOccurrences(ir, " add i32 ") + CountOccurrences(ir, " add nsw i32 ") +
-         CountOccurrences(ir, " add nuw i32 ") +
-         CountOccurrences(ir, " add nuw nsw i32 ");
-}
-
 std::string ExtractFunctionIR(const std::string& ir, const std::string& function_name) {
   const auto name_pos = ir.find("@" + function_name + "(");
   if (name_pos == std::string::npos) {
@@ -455,22 +449,40 @@ TEST_F(TestProjector, TestCommonSubexpressionEliminationIR) {
   std::shared_ptr<Projector> projector;
   ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
 
-  const auto unoptimized_expr_ir =
-      ExtractFunctionIR(projector->DumpUnoptimizedIR(), "expr_0_0");
-  const auto optimized_expr_ir = ExtractFunctionIR(projector->DumpIR(), "expr_0_0");
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
   ASSERT_FALSE(unoptimized_expr_ir.empty());
-  ASSERT_FALSE(optimized_expr_ir.empty());
 
   EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call i32 @add_int32_int32"));
   EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir, "call i32 @multiply_int32_int32"));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @add_int32_int32"));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @multiply_int32_int32"));
-  EXPECT_EQ(1, CountInt32AddInstructions(optimized_expr_ir));
 
   auto input0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, false, true});
   auto input1 = MakeArrowArrayInt32({10, -2, 3, 5}, {true, true, true, false});
   auto expected = MakeArrowArrayInt32({121, 0, 0, 0}, {true, true, false, false});
   ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestUnoptimizedIRUnavailableForCachedProjector) {
+  auto field0 = arrow::field("cached_ir_f0", arrow::int32());
+  auto field1 = arrow::field("cached_ir_f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+  auto expr = TreeExprBuilder::MakeExpression(
+      "add", {field0, field1}, arrow::field("cached_ir_out", arrow::int32()));
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+  ASSERT_FALSE(projector->GetBuiltFromCache());
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  ASSERT_FALSE(unoptimized_ir.empty());
+
+  std::shared_ptr<Projector> cached_projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &cached_projector));
+  ASSERT_TRUE(cached_projector->GetBuiltFromCache());
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Unoptimized IR is unavailable for projectors built from cache",
+      cached_projector->DumpUnoptimizedIR());
 }
 
 TEST_F(TestProjector, TestNestedCommonSubexpressionEliminationIR) {
@@ -497,16 +509,12 @@ TEST_F(TestProjector, TestNestedCommonSubexpressionEliminationIR) {
   std::shared_ptr<Projector> projector;
   ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
 
-  const auto unoptimized_expr_ir =
-      ExtractFunctionIR(projector->DumpUnoptimizedIR(), "expr_0_0");
-  const auto optimized_expr_ir = ExtractFunctionIR(projector->DumpIR(), "expr_0_0");
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
   ASSERT_FALSE(unoptimized_expr_ir.empty());
-  ASSERT_FALSE(optimized_expr_ir.empty());
 
   EXPECT_EQ(5, CountOccurrences(unoptimized_expr_ir, "call i32 @add_int32_int32"));
   EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call i32 @multiply_int32_int32"));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @add_int32_int32"));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "call i32 @multiply_int32_int32"));
 
   auto input0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, false, true});
   auto input1 = MakeArrowArrayInt32({10, -2, 3, 5}, {true, true, true, false});
@@ -531,11 +539,9 @@ TEST_F(TestProjector, TestGeneratedIfCommonSubexpressionEliminationIR) {
   std::shared_ptr<Projector> projector;
   ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
 
-  const auto unoptimized_expr_ir =
-      ExtractFunctionIR(projector->DumpUnoptimizedIR(), "expr_0_0");
-  const auto optimized_expr_ir = ExtractFunctionIR(projector->DumpIR(), "expr_0_0");
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
   ASSERT_FALSE(unoptimized_expr_ir.empty());
-  ASSERT_FALSE(optimized_expr_ir.empty());
 
   EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("generated_if_value"));
   EXPECT_EQ(std::string::npos, unoptimized_expr_ir.find("generated_if_cond"));
@@ -543,10 +549,6 @@ TEST_F(TestProjector, TestGeneratedIfCommonSubexpressionEliminationIR) {
   EXPECT_EQ(std::string::npos, unoptimized_expr_ir.find("else:"));
   EXPECT_EQ(std::string::npos, unoptimized_expr_ir.find("validAndMatch"));
   EXPECT_EQ(std::string::npos, unoptimized_expr_ir.find("res_value = phi"));
-  EXPECT_NE(std::string::npos, optimized_expr_ir.find("generated_if_value"));
-  EXPECT_EQ(std::string::npos, optimized_expr_ir.find("generated_if_cond"));
-  EXPECT_EQ(std::string::npos, optimized_expr_ir.find("validAndMatch"));
-  EXPECT_EQ(std::string::npos, optimized_expr_ir.find("res_value = phi"));
 
   auto conditions =
       MakeArrowArrayBool({true, false, false, true}, {true, true, false, true});
@@ -573,11 +575,9 @@ TEST_F(TestProjector, TestGeneratedBooleanCommonSubexpressionEliminationIR) {
   std::shared_ptr<Projector> projector;
   ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
 
-  const auto unoptimized_expr_ir =
-      ExtractFunctionIR(projector->DumpUnoptimizedIR(), "expr_0_0");
-  const auto optimized_expr_ir = ExtractFunctionIR(projector->DumpIR(), "expr_0_0");
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
   ASSERT_FALSE(unoptimized_expr_ir.empty());
-  ASSERT_FALSE(optimized_expr_ir.empty());
 
   EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "short_circuit"), 0);
   EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "non_short_circuit"), 0);
@@ -585,11 +585,6 @@ TEST_F(TestProjector, TestGeneratedBooleanCommonSubexpressionEliminationIR) {
   EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "\"0_lbmap\""), 0);
   EXPECT_EQ(0, CountOccurrences(unoptimized_expr_ir, "\"1_lbmap\""));
   EXPECT_EQ(0, CountOccurrences(unoptimized_expr_ir, "\"2_lbmap\""));
-  EXPECT_GT(CountOccurrences(optimized_expr_ir, "generated_bool_f0"), 0);
-  EXPECT_GT(CountOccurrences(optimized_expr_ir, "generated_bool_f1"), 0);
-  EXPECT_GT(CountOccurrences(optimized_expr_ir, "\"0_lbmap\""), 0);
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "\"1_lbmap\""));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir, "\"2_lbmap\""));
 
   auto input0 = MakeArrowArrayBool({true, true, false, false, false},
                                    {true, true, true, false, false});
@@ -628,11 +623,9 @@ TEST_F(TestProjector, TestNestedBetweenCommonSubexpressionFoldIR) {
   std::shared_ptr<Projector> projector;
   ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
 
-  const auto unoptimized_expr_ir =
-      ExtractFunctionIR(projector->DumpUnoptimizedIR(), "expr_0_0");
-  const auto optimized_expr_ir = ExtractFunctionIR(projector->DumpIR(), "expr_0_0");
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
   ASSERT_FALSE(unoptimized_expr_ir.empty());
-  ASSERT_FALSE(optimized_expr_ir.empty());
 
   EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir,
                                 "call i1 @greater_than_or_equal_to_int32_int32"));
@@ -641,10 +634,6 @@ TEST_F(TestProjector, TestNestedBetweenCommonSubexpressionFoldIR) {
   EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "\"0_lbmap\""), 0);
   EXPECT_EQ(0, CountOccurrences(unoptimized_expr_ir, "\"1_lbmap\""));
   EXPECT_EQ(0, CountOccurrences(unoptimized_expr_ir, "\"2_lbmap\""));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir,
-                                "call i1 @greater_than_or_equal_to_int32_int32"));
-  EXPECT_EQ(0, CountOccurrences(optimized_expr_ir,
-                                "call i1 @less_than_or_equal_to_int32_int32"));
 
   auto values = MakeArrowArrayInt32({5, 1, 10, 7, 4}, {true, true, true, true, false});
   auto lowers = MakeArrowArrayInt32({1, 2, 10, 6, 0}, {true, true, true, false, true});

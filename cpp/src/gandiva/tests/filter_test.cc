@@ -87,6 +87,49 @@ TEST_F(TestFilter, TestFilterCache) {
   EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
 }
 
+TEST_F(TestFilter, TestCommonSubexpressionFoldAndCache) {
+  auto field0 = field("filter_cse_f0", int32());
+  auto field1 = field("filter_cse_f1", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  auto make_less_than = [&]() {
+    auto sum = TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(field0), TreeExprBuilder::MakeField(field1)},
+        arrow::int32());
+    return TreeExprBuilder::MakeFunction(
+        "less_than", {sum, TreeExprBuilder::MakeLiteral(static_cast<int32_t>(10))},
+        arrow::boolean());
+  };
+  auto repeated_condition = TreeExprBuilder::MakeCondition(
+      TreeExprBuilder::MakeAnd({make_less_than(), make_less_than(), make_less_than()}));
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Filter> filter;
+  ASSERT_OK(Filter::Make(schema, repeated_condition, configuration, &filter));
+  ASSERT_FALSE(filter->GetBuiltFromCache());
+
+  auto input0 = MakeArrowArrayInt32({1, 2, 3, 4, 6}, {true, true, true, false, true});
+  auto input1 = MakeArrowArrayInt32({5, 9, 6, 17, 3}, {true, true, false, true, true});
+  auto batch = arrow::RecordBatch::Make(schema, 5, {input0, input1});
+  auto expected = MakeArrowArrayUint16({0, 4});
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  ASSERT_OK(SelectionVector::MakeInt16(batch->num_rows(), pool_, &selection_vector));
+  ASSERT_OK(filter->Evaluate(*batch, selection_vector));
+  EXPECT_ARROW_ARRAY_EQUALS(expected, selection_vector->ToArray());
+
+  auto equivalent_condition = TreeExprBuilder::MakeCondition(make_less_than());
+  std::shared_ptr<Filter> cached_filter;
+  ASSERT_OK(Filter::Make(schema, equivalent_condition, configuration, &cached_filter));
+  ASSERT_TRUE(cached_filter->GetBuiltFromCache());
+
+  std::shared_ptr<SelectionVector> cached_selection_vector;
+  ASSERT_OK(
+      SelectionVector::MakeInt16(batch->num_rows(), pool_, &cached_selection_vector));
+  ASSERT_OK(cached_filter->Evaluate(*batch, cached_selection_vector));
+  EXPECT_ARROW_ARRAY_EQUALS(expected, cached_selection_vector->ToArray());
+}
+
 TEST_F(TestFilter, TestFilterCacheNullTreatment) {
   // schema for input fields
   auto field0 = field("f0", utf8());

@@ -120,7 +120,9 @@ class GANDIVA_EXPORT Projector {
 
   const std::string& DumpIR();
 
-  const std::string& DumpUnoptimizedIR();
+  /// Return the generated IR before the optimizer pipeline runs.
+  /// Unavailable when IR dumping is disabled or the projector is built from cache.
+  Result<std::string> DumpUnoptimizedIR();
 
   void SetBuiltFromCache(bool flag);
 
