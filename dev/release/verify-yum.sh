@@ -261,6 +261,7 @@ if [ "${have_flight}" = "yes" ]; then
 
   echo "::group::Test Apache Arrow Flight SQL ODBC driver"
   ${install_command} ${enablerepo_epel} arrow-flight-sql-odbc-devel-${package_version}
+  odbcinst -q -d -n 'Apache Arrow Flight SQL ODBC Driver'
   echo "::endgroup::"
 fi
 
