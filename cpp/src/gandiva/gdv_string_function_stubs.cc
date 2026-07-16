@@ -779,6 +779,11 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
     for (int32_t in_for = 0; in_for < in_len; in_for += len_char_in) {
       // Updating len to char in this position
       len_char_in = gdv_fn_utf8_char_length(in[in_for]);
+      // A truncated or invalid lead byte at the tail would make the copy below read
+      // past IN, and a zero width would spin the loop forever; consume one byte.
+      if (len_char_in == 0 || in_for + len_char_in > in_len) {
+        len_char_in = 1;
+      }
       // Making copy to std::string with length for this char position
       std::string insert_copy_key(in + in_for, len_char_in);
       if (subs_list.find(insert_copy_key) != subs_list.end()) {
@@ -790,10 +795,6 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
         }
       } else {
         for (int32_t from_for = 0; from_for <= from_len; from_for += len_char_from) {
-          // Updating len to char in this position
-          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
-          // Making copy to std::string with length for this char position
-          std::string copy_from_compare(from + from_for, len_char_from);
           if (from_for == from_len) {
             // If it's not in the FROM list, just add it to the map and the result.
             std::string insert_copy_value(in + in_for, len_char_in);
@@ -806,6 +807,15 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
             break;
           }
 
+          // Updating len to char in this position
+          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
+          // Clamp a truncated or invalid lead byte to the remaining bytes so the copy
+          // below never reads past FROM and the loop always advances.
+          if (len_char_from == 0 || from_for + len_char_from > from_len) {
+            len_char_from = 1;
+          }
+          // Making copy to std::string with length for this char position
+          std::string copy_from_compare(from + from_for, len_char_from);
           if (insert_copy_key != copy_from_compare) {
             // If this character does not exist in FROM list, don't need treatment
             continue;
@@ -818,6 +828,10 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
             // If exist and the start_compare is in range, add to map with the
             // corresponding TO in position start_compare
             len_char_to = gdv_fn_utf8_char_length(to[start_compare]);
+            // Clamp a truncated or invalid lead byte to the remaining bytes of TO.
+            if (len_char_to == 0 || start_compare + len_char_to > to_len) {
+              len_char_to = 1;
+            }
             std::string insert_copy_value(to + start_compare, len_char_to);
             // Insert in map to next loops
             subs_list.insert(
