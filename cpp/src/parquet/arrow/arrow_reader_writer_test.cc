@@ -2717,6 +2717,13 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
   ASSERT_OK(reader->ReadRowGroup(/*i=*/1, column_indices, &rg_table));
   ASSERT_EQ(rg_table->num_rows(), row_group_size);
 
+  EXPECT_GT(reader->parquet_reader()->EvictPreBufferedDataBefore(
+                std::numeric_limits<int64_t>::max()),
+            0);
+  std::shared_ptr<ChunkedArray> reread_column;
+  ASSERT_OK(reader->RowGroup(1)->Column(0)->Read(&reread_column));
+  ASSERT_EQ(reread_column->length(), row_group_size);
+
   // Re-evicting the same window frees nothing more.
   ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min));
 

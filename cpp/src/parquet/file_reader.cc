@@ -247,9 +247,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         ::arrow::bit_util::GetBit(prebuffered_column_chunks_bitmap_->data(), i)) {
       // PARQUET-1698: if read coalescing is enabled, read from pre-buffered
       // segments.
-      PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
-      stream = std::make_shared<::arrow::io::BufferReader>(buffer);
-    } else {
+      auto buffer = cached_source_->Read(col_range);
+      if (!buffer.ok() && !buffer.status().IsInvalid()) {
+        PARQUET_THROW_NOT_OK(buffer.status());
+      }
+      if (buffer.ok()) {
+        stream = std::make_shared<::arrow::io::BufferReader>(*std::move(buffer));
+      }
+    }
+    if (stream == nullptr) {
       stream = properties_.GetStream(source_, col_range.offset, col_range.length);
     }
 

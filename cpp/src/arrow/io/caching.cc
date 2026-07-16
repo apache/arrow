@@ -268,17 +268,14 @@ struct ReadRangeCache::Impl {
   // `entries` is sorted by offset; an entry that extends past `end_offset`
   // (coalesced with a range a later consumer still needs) is kept.
   int64_t EvictEntriesBefore(int64_t end_offset) {
-    int64_t n_evicted = 0;
     std::unique_lock<std::mutex> guard(entry_mutex);
-    auto it = entries.begin();
-    while (it != entries.end() && it->range.offset < end_offset) {
-      if (it->range.offset + it->range.length <= end_offset) {
-        it = entries.erase(it);
-        ++n_evicted;
-      } else {
-        ++it;
-      }
-    }
+    const auto first_kept =
+        std::remove_if(entries.begin(), entries.end(),
+                       [end_offset](const RangeCacheEntry& entry) {
+                         return entry.range.offset + entry.range.length <= end_offset;
+                       });
+    const auto n_evicted = static_cast<int64_t>(entries.end() - first_kept);
+    entries.erase(first_kept, entries.end());
     return n_evicted;
   }
 
