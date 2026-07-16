@@ -366,14 +366,10 @@ class PARQUET_EXPORT RecordReader {
   virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
-  int16_t* def_levels() const {
-    return reinterpret_cast<int16_t*>(def_levels_->mutable_data());
-  }
+  virtual int16_t* def_levels() const = 0;
 
   /// \brief Decoded repetition levels
-  int16_t* rep_levels() const {
-    return reinterpret_cast<int16_t*>(rep_levels_->mutable_data());
-  }
+  virtual int16_t* rep_levels() const = 0;
 
   /// \brief Decoded values, including nulls, if any
   /// FLBA and ByteArray types do not use this array and read into their own
@@ -389,71 +385,27 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Number of definition / repetition levels (from those that have
   /// been decoded) that have been consumed inside the reader.
-  int64_t levels_position() const { return levels_position_; }
+  virtual int64_t levels_position() const = 0;
 
   /// \brief Number of definition / repetition levels that have been written
   /// internally in the reader. This may be larger than values_written() because
   /// for repeated fields we need to look at the levels in advance to figure out
   /// the record boundaries.
-  int64_t levels_written() const { return levels_written_; }
+  virtual int64_t levels_written() const = 0;
 
   /// \brief Number of nulls in the leaf that we have read so far into the
   /// values vector. This is only valid when !read_dense_for_nullable(). When
   /// read_dense_for_nullable() it will always be 0.
-  int64_t null_count() const { return null_count_; }
+  virtual int64_t null_count() const = 0;
 
   /// \brief True if the leaf values are nullable
-  bool nullable_values() const { return nullable_values_; }
+  virtual bool nullable_values() const = 0;
 
   /// \brief True if reading directly as Arrow dictionary-encoded
-  bool read_dictionary() const { return read_dictionary_; }
+  virtual bool read_dictionary() const = 0;
 
   /// \brief True if reading dense for nullable columns.
-  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
-
- protected:
-  /// \brief Indicates if we can have nullable values. Note that repeated fields
-  /// may or may not be nullable.
-  bool nullable_values_;
-
-  bool at_record_start_;
-  int64_t records_read_;
-
-  int64_t null_count_;
-
-  /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null.
-  ///
-  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
-  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
-
-  /// \brief Buffer for definition levels. May contain more levels than
-  /// is actually read. This is because we read levels ahead to
-  /// figure out record boundaries for repeated fields.
-  /// For flat required fields, 'def_levels_' and 'rep_levels_' are not
-  ///  populated. For non-repeated fields 'rep_levels_' is not populated.
-  /// 'def_levels_' and 'rep_levels_' must be of the same size if present.
-  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
-  /// \brief Buffer for repetition levels. Only populated for repeated
-  /// fields.
-  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
-
-  /// \brief Number of definition / repetition levels that have been written
-  /// internally in the reader. This may be larger than values_written() since
-  /// for repeated fields we need to look at the levels in advance to figure out
-  /// the record boundaries.
-  int64_t levels_written_;
-  /// \brief Position of the next level that should be consumed.
-  int64_t levels_position_;
-  int64_t levels_capacity_;
-
-  bool read_dictionary_ = false;
-  // If true, we will not leave any space for the null values in the values_
-  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
-  //
-  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
-  // might still populate the validity bitmap buffer.
-  bool read_dense_for_nullable_ = false;
+  virtual bool read_dense_for_nullable() const = 0;
 };
 
 class BinaryRecordReader : virtual public RecordReader {
