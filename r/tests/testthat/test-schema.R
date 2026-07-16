@@ -132,11 +132,11 @@ test_that("Schema modification", {
 
   # Error handling
   expect_error(schm$c <- 4, "value must be a DataType")
-  expect_error(schm[[-3]] <- int32(), "i not greater than 0")
-  expect_error(schm[[0]] <- int32(), "i not greater than 0")
-  expect_error(schm[[NA_integer_]] <- int32(), "!is.na(i) is not TRUE", fixed = TRUE)
-  expect_error(schm[[TRUE]] <- int32(), "i is not a numeric or integer vector")
-  expect_error(schm[[c(2, 4)]] <- int32(), "length(i) not equal to 1", fixed = TRUE)
+  expect_error(schm[[-3]] <- int32(), "i must be")
+  expect_error(schm[[0]] <- int32(), "i must be")
+  expect_error(schm[[NA_integer_]] <- int32(), "i must be", fixed = TRUE)
+  expect_error(schm[[TRUE]] <- int32(), "i must be")
+  expect_error(schm[[c(2, 4)]] <- int32(), "i must be", fixed = TRUE)
 })
 
 test_that("Metadata can be reassigned as a whole", {
@@ -326,6 +326,6 @@ test_that("schema print truncation", {
 
   expect_error(
     print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 0),
-    regexp = "max_fields not greater than 0"
+    regexp = "must be a whole number larger than or equal to 1"
   )
 })
