@@ -420,8 +420,8 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
   get_paths_and_filesystem(x, filesystem)
 }
 
-is_http_url <- function(x) is_url(x) && grepl("^http", x)
 is_url <- function(x) is_string(x) && grepl("://", x)
+is_http_url <- function(x) is_url(x) && startsWith(x, "http")
 are_urls <- function(x) if (!is.character(x)) FALSE else grepl("://", x)
 
 #' @usage NULL
