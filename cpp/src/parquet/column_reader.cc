@@ -1170,6 +1170,10 @@ class ColumnReaderImplBase {
   int64_t Skip(int64_t num_values_to_skip);
 };
 
+/*****************************************
+ *  ColumnReaderImplBase Implementation  *
+ *****************************************/
+
 template <typename DType, typename LvlDec>
 int64_t ColumnReaderImplBase<DType, LvlDec>::ReadValues(int64_t batch_size, T* out) {
   int64_t num_decoded = current_decoder_->Decode(out, static_cast<int>(batch_size));
@@ -1621,14 +1625,44 @@ namespace internal {
 
 namespace {
 
+/// Whether values of type T can be printed to `std::cout`.
+template <typename T>
+concept can_cout = requires(std::ostream& os, const T& value) {
+  os << value;
+};  // NOLINT(readability/braces)
+
+/*********************
+ *  ReadValuesHooks  *
+ *********************/
+
+/// Hooks a record reader calls to materialize decoded values.
+///
+/// The default implementations in `TypedRecordReader` and
+/// `RequiredTypedRecordReader` decode into the `values_` buffer. Leaf readers
+/// for BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY columns override them to decode
+/// directly into Arrow builders instead.
+class ReadValuesHooks {
+ public:
+  virtual ~ReadValuesHooks() = default;
+
+  virtual void ReserveValuesAndIsValid(int64_t extra_values) = 0;
+
+  /// Decode `values_to_read` non-null values
+  virtual void ReadValuesDense(int64_t values_to_read) = 0;
+
+  /// Decode a batch of `values_with_nulls` value slots, `null_count`
+  /// of which are null
+  virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) = 0;
+};
+
 /***********************
  *  TypedRecordReader  *
  ***********************/
 
-template <typename DType,
-          typename ValuesBuffer = ReadValuesBuffer<typename DType::c_type>>
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
 class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
-                          virtual public RecordReader {
+                          virtual public RecordReader,
+                          public ReadValuesHooks {
  public:
   using T = typename DType::c_type;
   using Base = ColumnReaderImplBase<DType, LevelDecoder>;
@@ -1662,7 +1696,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
   bool nullable_values() const final { return nullable_values_; }
 
-  bool read_dictionary() const final { return read_dictionary_; }
+  bool read_dictionary() const final { return kReadDictionary; }
 
   bool read_dense_for_nullable() const final { return read_dense_for_nullable_; }
 
@@ -1726,7 +1760,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
   void ReserveLevels(int64_t extra_levels);
 
-  virtual void ReserveValuesAndIsValid(int64_t extra_values);
+  void ReserveValuesAndIsValid(int64_t extra_values) override;
 
   void Reset() override;
 
@@ -1739,9 +1773,9 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
   // Dictionary decoders must be reset when advancing row groups
   void ResetDecoders() { this->decoders_.clear(); }
 
-  virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count);
+  void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) override;
 
-  virtual void ReadValuesDense(int64_t values_to_read);
+  void ReadValuesDense(int64_t values_to_read) override;
 
   // Reads repeated records and returns number of records read. Fills in
   // values_to_read and null_count.
@@ -1752,10 +1786,6 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
   // values_to_read and null_count.
   int64_t ReadOptionalRecords(int64_t num_records, int64_t* values_to_read,
                               int64_t* null_count);
-
-  // Reads required records and returns number of records read. Fills in
-  // values_to_read.
-  int64_t ReadRequiredRecords(int64_t num_records, int64_t* values_to_read);
 
   // Reads dense for optional records. First it figures out how many values to
   // read.
@@ -1779,7 +1809,6 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
   ///
   /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
-  bool read_dictionary_ = false;
 
  private:
   ValuesBuffer values_;
@@ -1827,8 +1856,8 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
  *  TypedRecordReader Implementation  *
  **************************************/
 
-template <typename DType, typename ValuesBuffer>
-const void* TypedRecordReader<DType, ValuesBuffer>::ReadDictionary(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+const void* TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadDictionary(
     int32_t* dictionary_length) {
   if (!this->current_decoder_ && !this->HasNextInternal()) {
     *dictionary_length = 0;
@@ -1849,8 +1878,9 @@ const void* TypedRecordReader<DType, ValuesBuffer>::ReadDictionary(
   return reinterpret_cast<const void*>(dictionary);
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRecords(int64_t num_records) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadRecords(
+    int64_t num_records) {
   if (num_records == 0) return 0;
   // Delimit records, then read values at the end
   int64_t records_read = 0;
@@ -1918,8 +1948,8 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRecords(int64_t num_records)
   return records_read;
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ThrowAwayLevels(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ThrowAwayLevels(
     int64_t start_levels_position) {
   ARROW_DCHECK_LE(levels_position_, levels_written_);
   ARROW_DCHECK_LE(start_levels_position, levels_position_);
@@ -1951,8 +1981,9 @@ void TypedRecordReader<DType, ValuesBuffer>::ThrowAwayLevels(
   levels_capacity_ -= gap;
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::SkipRecordsInBufferNonRepeated(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t
+TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::SkipRecordsInBufferNonRepeated(
     int64_t num_records) {
   ARROW_DCHECK_EQ(this->max_rep_level(), 0);
   if (!this->has_values_to_process() || num_records == 0) return 0;
@@ -1985,8 +2016,9 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::SkipRecordsInBufferNonRepeated(
   return skipped_records;
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::DelimitAndSkipRecordsInBuffer(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t
+TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::DelimitAndSkipRecordsInBuffer(
     int64_t num_records) {
   if (num_records == 0) return 0;
   // Look at the buffered levels, delimit them based on
@@ -2006,8 +2038,9 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::DelimitAndSkipRecordsInBuffer(
   return skipped_records;
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::SkipRecordsRepeated(int64_t num_records) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::SkipRecordsRepeated(
+    int64_t num_records) {
   ARROW_DCHECK_GT(this->max_rep_level(), 0);
   int64_t skipped_records = 0;
 
@@ -2073,8 +2106,9 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::SkipRecordsRepeated(int64_t num_
   return skipped_records;
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReadAndThrowAwayValues(int64_t num_values) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadAndThrowAwayValues(
+    int64_t num_values) {
   const int64_t values_read = this->current_decoder_.Skip(num_values);
   if (values_read < num_values) {
     std::stringstream ss;
@@ -2083,8 +2117,9 @@ void TypedRecordReader<DType, ValuesBuffer>::ReadAndThrowAwayValues(int64_t num_
   }
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::SkipRecords(int64_t num_records) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::SkipRecords(
+    int64_t num_records) {
   if (num_records == 0) return 0;
 
   // Top level required field. Number of records equals to number of levels,
@@ -2111,9 +2146,9 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::SkipRecords(int64_t num_records)
   return skipped_records;
 }
 
-template <typename DType, typename ValuesBuffer>
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
 std::shared_ptr<ResizableBuffer>
-TypedRecordReader<DType, ValuesBuffer>::ReleaseIsValid() {
+TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReleaseIsValid() {
   if (nullable_values()) {
     const auto bit_count = bit_util::BytesForBits(values_written());
     auto result = valid_bits_;
@@ -2126,9 +2161,9 @@ TypedRecordReader<DType, ValuesBuffer>::ReleaseIsValid() {
   }
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::DelimitRecords(int64_t num_records,
-                                                               int64_t* values_seen) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::DelimitRecords(
+    int64_t num_records, int64_t* values_seen) {
   if (ARROW_PREDICT_FALSE(num_records == 0 || levels_position_ == levels_written_)) {
     *values_seen = 0;
     return 0;
@@ -2186,14 +2221,15 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::DelimitRecords(int64_t num_recor
   return records_read;
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::Reserve(int64_t capacity) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::Reserve(int64_t capacity) {
   ReserveLevels(capacity);
   ReserveValuesAndIsValid(capacity);
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReserveLevels(int64_t extra_levels) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReserveLevels(
+    int64_t extra_levels) {
   if (this->max_def_level() > 0) {
     const int64_t new_levels_capacity =
         compute_capacity_pow2(levels_capacity_, levels_written_, extra_levels);
@@ -2214,8 +2250,8 @@ void TypedRecordReader<DType, ValuesBuffer>::ReserveLevels(int64_t extra_levels)
   }
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReserveValuesAndIsValid(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReserveValuesAndIsValid(
     int64_t extra_values) {
   values_.ReserveValues(extra_values);
   if (nullable_values() && !read_dense_for_nullable_) {
@@ -2231,8 +2267,8 @@ void TypedRecordReader<DType, ValuesBuffer>::ReserveValuesAndIsValid(
   }
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::Reset() {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::Reset() {
   ResetValues();
 
   if (levels_written_ > 0) {
@@ -2243,17 +2279,17 @@ void TypedRecordReader<DType, ValuesBuffer>::Reset() {
   // Call Finish on the binary builders to reset them
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::SetPageReader(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::SetPageReader(
     std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
   this->pager_ = std::move(reader);
   ResetDecoders();
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReadValuesSpaced(int64_t values_with_nulls,
-                                                              int64_t null_count) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadValuesSpaced(
+    int64_t values_with_nulls, int64_t null_count) {
   uint8_t* valid_bits = valid_bits_->mutable_data();
   const int64_t valid_bits_offset = values_written();
 
@@ -2263,15 +2299,16 @@ void TypedRecordReader<DType, ValuesBuffer>::ReadValuesSpaced(int64_t values_wit
   CheckNumberDecoded(num_decoded, values_with_nulls);
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReadValuesDense(int64_t values_to_read) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadValuesDense(
+    int64_t values_to_read) {
   int64_t num_decoded = this->current_decoder_->Decode(values_.write_start(),
                                                        static_cast<int>(values_to_read));
   CheckNumberDecoded(num_decoded, values_to_read);
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRepeatedRecords(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadRepeatedRecords(
     int64_t num_records, int64_t* values_to_read, int64_t* null_count) {
   const int64_t start_levels_position = levels_position_;
   // Note that repeated records may be required or nullable. If they have
@@ -2292,8 +2329,8 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRepeatedRecords(
   return records_read;
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::ReadOptionalRecords(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadOptionalRecords(
     int64_t num_records, int64_t* values_to_read, int64_t* null_count) {
   const int64_t start_levels_position = levels_position_;
   // No repetition levels, skip delimiting logic. Each level represents a
@@ -2315,16 +2352,8 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::ReadOptionalRecords(
   return records_read;
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRequiredRecords(
-    int64_t num_records, int64_t* values_to_read) {
-  *values_to_read = num_records;
-  ReadValuesDense(*values_to_read);
-  return num_records;
-}
-
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReadDenseForOptional(
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadDenseForOptional(
     int64_t start_levels_position, int64_t* values_to_read) {
   // levels_position_ must already be incremented based on number of records
   // read.
@@ -2337,9 +2366,10 @@ void TypedRecordReader<DType, ValuesBuffer>::ReadDenseForOptional(
   ReadValuesDense(*values_to_read);
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ReadSpacedForOptionalOrRepeated(
-    int64_t start_levels_position, int64_t* values_to_read, int64_t* null_count) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::
+    ReadSpacedForOptionalOrRepeated(int64_t start_levels_position,
+                                    int64_t* values_to_read, int64_t* null_count) {
   // levels_position_ must already be incremented based on number of records
   // read.
   ARROW_DCHECK_GE(levels_position_, start_levels_position);
@@ -2357,8 +2387,9 @@ void TypedRecordReader<DType, ValuesBuffer>::ReadSpacedForOptionalOrRepeated(
   ReadValuesSpaced(validity_io.values_read, *null_count);
 }
 
-template <typename DType, typename ValuesBuffer>
-int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRecordData(int64_t num_records) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadRecordData(
+    int64_t num_records) {
   // Conservative upper bound
   const int64_t possible_num_values =
       std::max<int64_t>(num_records, levels_written_ - levels_position_);
@@ -2382,7 +2413,9 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRecordData(int64_t num_recor
     records_read = ReadOptionalRecords(num_records, &values_to_read, &null_count);
   } else {
     ARROW_DCHECK(!nullable_values());
-    records_read = ReadRequiredRecords(num_records, &values_to_read);
+    values_to_read = num_records;
+    ReadValuesDense(values_to_read);
+    records_read = num_records;
     // We don't need to update null_count, since it is 0.
   }
 
@@ -2409,13 +2442,11 @@ int64_t TypedRecordReader<DType, ValuesBuffer>::ReadRecordData(int64_t num_recor
   return records_read;
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::DebugPrintState() {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::DebugPrintState() {
   const int16_t* def_levels = this->def_levels();
   const int16_t* rep_levels = this->rep_levels();
   const int64_t total_levels_read = levels_position_;
-
-  const T* vals = reinterpret_cast<const T*>(this->values());
 
   if (leaf_info_.def_level > 0) {
     std::cout << "def levels: ";
@@ -2434,14 +2465,21 @@ void TypedRecordReader<DType, ValuesBuffer>::DebugPrintState() {
   }
 
   std::cout << "values: ";
-  for (int64_t i = 0; i < this->values_written(); ++i) {
-    std::cout << vals[i] << " ";
+  if constexpr (can_cout<T>) {
+    const T* vals = reinterpret_cast<const T*>(this->values());
+    for (int64_t i = 0; i < this->values_written(); ++i) {
+      std::cout << vals[i] << " ";
+    }
+  } else {
+    for (int64_t i = 0; i < this->values_written(); ++i) {
+      std::cout << "? ";
+    }
   }
   std::cout << std::endl;
 }
 
-template <typename DType, typename ValuesBuffer>
-void TypedRecordReader<DType, ValuesBuffer>::ResetValues() {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void TypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ResetValues() {
   if (values_written() > 0) {
     values_.ResetValues();
     PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
@@ -2453,13 +2491,15 @@ void TypedRecordReader<DType, ValuesBuffer>::ResetValues() {
  *  RequiredTypedRecordReader  *
  *******************************/
 
-template <typename DType>
-class RequiredTypedRecordReader final : public ColumnReaderImplBase<DType, LevelDecoder>,
-                                        public RecordReader {
+template <typename DType,
+          typename ValuesBuffer = ReadValuesBuffer<typename DType::c_type>,
+          bool kReadDictionary = false>
+class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
+                                  virtual public RecordReader,
+                                  public ReadValuesHooks {
  public:
   using T = typename DType::c_type;
   using Base = ColumnReaderImplBase<DType, LevelDecoder>;
-  using ValuesBuffer = ReadValuesBuffer<typename DType::c_type>;
 
   RequiredTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool)
       : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
@@ -2484,36 +2524,51 @@ class RequiredTypedRecordReader final : public ColumnReaderImplBase<DType, Level
 
   bool nullable_values() const final { return false; }
 
-  bool read_dictionary() const final { return false; }
+  bool read_dictionary() const final { return kReadDictionary; }
 
   bool read_dense_for_nullable() const final { return false; }
 
-  const void* ReadDictionary(int32_t* dictionary_length) override;
+  const void* ReadDictionary(int32_t* dictionary_length) final;
 
-  int64_t ReadRecords(int64_t num_records) override;
+  int64_t ReadRecords(int64_t num_records) final;
 
-  int64_t SkipRecords(int64_t num_records) override { return this->Skip(num_records); }
+  int64_t SkipRecords(int64_t num_records) final { return this->Skip(num_records); }
 
-  std::shared_ptr<ResizableBuffer> ReleaseValues() override {
+  std::shared_ptr<ResizableBuffer> ReleaseValues() final {
     return values_.ReleaseValues(this->pool_);
   }
 
-  std::shared_ptr<ResizableBuffer> ReleaseIsValid() override { return nullptr; }
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid() final { return nullptr; }
 
-  void Reserve(int64_t extra_values) override { values_.ReserveValues(extra_values); }
+  void Reserve(int64_t extra_values) final { ReserveValuesAndIsValid(extra_values); }
 
-  void Reset() override;
+  void Reset() final;
 
-  void SetPageReader(std::unique_ptr<PageReader> reader) override;
+  void SetPageReader(std::unique_ptr<PageReader> reader) final;
 
-  bool HasMoreData() const override { return this->pager_ != nullptr; }
+  bool HasMoreData() const final { return this->pager_ != nullptr; }
 
-  const ColumnDescriptor* descr() const override { return this->descr_; }
+  const ColumnDescriptor* descr() const final { return this->descr_; }
 
   // Dictionary decoders must be reset when advancing row groups
   void ResetDecoders() { this->decoders_.clear(); }
 
-  void DebugPrintState() override;
+  void DebugPrintState() final;
+
+ protected:
+  // ReadValuesHooks default implementations, decoding into `values_`.
+  // Leaf classes for binary types override these to decode into their own
+  // Arrow builders.
+  void ReserveValuesAndIsValid(int64_t extra_values) override {
+    values_.ReserveValues(extra_values);
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override;
+
+  // A required column never contains nulls, so values are never read spaced.
+  void ReadValuesSpaced(int64_t /*values_with_nulls*/, int64_t /*null_count*/) override {
+    throw ParquetException("Spaced values read in required column");
+  }
 
  private:
   ValuesBuffer values_;
@@ -2523,8 +2578,10 @@ class RequiredTypedRecordReader final : public ColumnReaderImplBase<DType, Level
  *  RequiredTypedRecordReader Implementation  *
  **********************************************/
 
-template <typename DType>
-const void* RequiredTypedRecordReader<DType>::ReadDictionary(int32_t* dictionary_length) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+const void*
+RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadDictionary(
+    int32_t* dictionary_length) {
   if (!this->current_decoder_ && !this->HasNextInternal()) {
     *dictionary_length = 0;
     return nullptr;
@@ -2544,8 +2601,9 @@ const void* RequiredTypedRecordReader<DType>::ReadDictionary(int32_t* dictionary
   return reinterpret_cast<const void*>(dictionary);
 }
 
-template <typename DType>
-int64_t RequiredTypedRecordReader<DType>::ReadRecords(int64_t num_records) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+int64_t RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadRecords(
+    int64_t num_records) {
   if (num_records <= 0) {
     return 0;
   }
@@ -2563,65 +2621,119 @@ int64_t RequiredTypedRecordReader<DType>::ReadRecords(int64_t num_records) {
     const int32_t batch_size =
         std::min<int32_t>(clamp_to<int32_t>(num_records - records_read),
                           this->available_values_current_page());
-    const auto decoded =
-        this->current_decoder_->Decode(values_.write_start(), batch_size);
-    CheckNumberDecoded(decoded, batch_size);
+    ReadValuesDense(batch_size);
 
-    values_.mark_values_as_written(decoded);
-    this->ConsumeBufferedValues(decoded);
+    values_.mark_values_as_written(batch_size);
+    this->ConsumeBufferedValues(batch_size);
 
-    records_read += decoded;
+    records_read += batch_size;
   } while (records_read < num_records);
 
   return records_read;
 }
 
-template <typename DType>
-void RequiredTypedRecordReader<DType>::Reset() {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>::ReadValuesDense(
+    int64_t values_to_read) {
+  const int64_t num_decoded = this->current_decoder_->Decode(
+      values_.write_start(), static_cast<int>(values_to_read));
+  CheckNumberDecoded(num_decoded, values_to_read);
+}
+
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>::Reset() {
   if (values_written() > 0) {
     values_.ResetValues();
   }
 }
 
-template <typename DType>
-void RequiredTypedRecordReader<DType>::SetPageReader(std::unique_ptr<PageReader> reader) {
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>::SetPageReader(
+    std::unique_ptr<PageReader> reader) {
   this->pager_ = std::move(reader);
   ResetDecoders();
 }
 
-template <typename DType>
-void RequiredTypedRecordReader<DType>::DebugPrintState() {
-  const T* vals = reinterpret_cast<const T*>(this->values());
+template <typename DType, typename ValuesBuffer, bool kReadDictionary>
+void RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>::DebugPrintState() {
   std::cout << "values: ";
-  for (int64_t i = 0; i < this->values_written(); ++i) {
-    std::cout << vals[i] << " ";
+  if constexpr (can_cout<T>) {
+    const T* vals = reinterpret_cast<const T*>(this->values());
+    for (int64_t i = 0; i < this->values_written(); ++i) {
+      std::cout << vals[i] << " ";
+    }
+  } else {
+    for (int64_t i = 0; i < this->values_written(); ++i) {
+      std::cout << "? ";
+    }
   }
   std::cout << std::endl;
 }
 
-// TODO(wesm): Implement these to some satisfaction
-template <>
-void RequiredTypedRecordReader<Int96Type>::DebugPrintState() {}
+/************************
+ *  record_reader_base  *
+ ************************/
 
-/// In FLBARecordReader, we read fixed length byte array values.
+template <typename DType, bool kRequired, bool kReadDictionary>
+struct record_reader_base;
+
+template <typename DType, bool kReadDictionary>
+struct record_reader_base<DType, true, kReadDictionary> {
+  using c_type = typename DType::c_type;
+  using ValuesBuffer = ReadValuesNoBuffer<c_type>;
+  using type = RequiredTypedRecordReader<DType, ValuesBuffer, kReadDictionary>;
+};
+
+template <typename DType, bool kReadDictionary>
+struct record_reader_base<DType, false, kReadDictionary> {
+  using c_type = typename DType::c_type;
+  using ValuesBuffer = ReadValuesNoBuffer<c_type>;
+  using type = TypedRecordReader<DType, ValuesBuffer, kReadDictionary>;
+};
+
+template <typename DType, bool kRequired = false, bool kReadDictionary = false>
+using record_reader_base_t =
+    typename record_reader_base<DType, kRequired, kReadDictionary>::type;
+
+/**********************
+ *  FLBARecordReader  *
+ **********************/
+
+/// Reads fixed length byte array values into a FixedSizeBinaryBuilder.
 ///
-/// Unlike other fixed length types, the `values_` buffer is not used to store
-/// values, instead we use `data_builder_` to store the values, and `null_bitmap_builder_`
-/// is used to store the null bitmap.
+/// `kRequired` selects the base class: RequiredTypedRecordReader for
+/// required (non-nullable, non-repeated) columns, TypedRecordReader
+/// otherwise.
 ///
-/// The `values_` buffer is used to store the temporary values for `Decode`, and it would
-/// be Reset after each `Decode` call. The `valid_bits_` buffer is never used.
-class FLBARecordReader final
-    : public TypedRecordReader<FLBAType, ReadValuesNoBuffer<typename FLBAType::c_type>>,
-      virtual public BinaryRecordReader {
+/// Values are decoded directly into `array_builder_`; the `values_` buffer
+/// of the base class is a ReadValuesNoBuffer and only tracks the number of
+/// values written. The `valid_bits_` buffer, if any, is consumed by each
+/// spaced decode.
+template <bool kRequired>
+class FLBARecordReader final : public record_reader_base_t<FLBAType, kRequired>,
+                               virtual public BinaryRecordReader {
  public:
+  using Base = record_reader_base_t<FLBAType, kRequired>;
+
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                    ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader(descr, leaf_info, pool, read_dense_for_nullable),
-        byte_width_(descr_->type_length()),
+    requires(!kRequired)
+      : Base(descr, leaf_info, pool, read_dense_for_nullable),
+        byte_width_(descr->type_length()),
         type_(::arrow::fixed_size_binary(byte_width_)),
         array_builder_(type_, pool) {
-    ARROW_DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+  }
+
+  FLBARecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+    requires(kRequired)
+      : Base(descr, pool),
+        byte_width_(descr->type_length()),
+        type_(::arrow::fixed_size_binary(byte_width_)),
+        array_builder_(type_, pool) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
+    ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2629,8 +2741,9 @@ class FLBARecordReader final
     return ::arrow::ArrayVector{std::move(chunk)};
   }
 
+ protected:
   void ReserveValuesAndIsValid(int64_t extra_values) override {
-    TypedRecordReader::ReserveValuesAndIsValid(extra_values);
+    Base::ReserveValuesAndIsValid(extra_values);
     PARQUET_THROW_NOT_OK(array_builder_.Reserve(extra_values));
   }
 
@@ -2638,15 +2751,22 @@ class FLBARecordReader final
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &array_builder_);
     CheckNumberDecoded(num_decoded, values_to_read);
-    ResetValues();
+    if constexpr (!kRequired) {
+      this->ResetValues();
+    }
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    int64_t num_decoded = this->current_decoder_->DecodeArrow(
-        static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written(), &array_builder_);
-    CheckNumberDecoded(num_decoded, values_to_read - null_count);
-    ResetValues();
+    if constexpr (kRequired) {
+      // A required column never contains nulls: the base implementation throws.
+      Base::ReadValuesSpaced(values_to_read, null_count);
+    } else {
+      int64_t num_decoded = this->current_decoder_->DecodeArrow(
+          static_cast<int>(values_to_read), static_cast<int>(null_count),
+          this->valid_bits_->mutable_data(), this->values_written(), &array_builder_);
+      CheckNumberDecoded(num_decoded, values_to_read - null_count);
+      this->ResetValues();
+    }
   }
 
  private:
@@ -2655,47 +2775,69 @@ class FLBARecordReader final
   ::arrow::FixedSizeBinaryBuilder array_builder_;
 };
 
-/// ByteArrayRecordReader reads variable length byte array values.
+/***************************
+ *  ByteArrayRecordReader  *
+ ***************************/
+
+/// Create the Arrow builder for reading a Parquet BYTE_ARRAY column as the
+/// given Arrow type (BINARY by default).
+std::unique_ptr<::arrow::ArrayBuilder> MakeByteArrayBuilder(
+    const std::shared_ptr<::arrow::DataType>& arrow_type, ::arrow::MemoryPool* pool) {
+  auto arrow_binary_type = arrow_type ? arrow_type->id() : ::arrow::Type::BINARY;
+  switch (arrow_binary_type) {
+    case ::arrow::Type::BINARY:
+      return std::make_unique<::arrow::BinaryBuilder>(pool);
+    case ::arrow::Type::STRING:
+      return std::make_unique<::arrow::StringBuilder>(pool);
+    case ::arrow::Type::LARGE_BINARY:
+      return std::make_unique<::arrow::LargeBinaryBuilder>(pool);
+    case ::arrow::Type::LARGE_STRING:
+      return std::make_unique<::arrow::LargeStringBuilder>(pool);
+    case ::arrow::Type::BINARY_VIEW:
+      return std::make_unique<::arrow::BinaryViewBuilder>(pool);
+    case ::arrow::Type::STRING_VIEW:
+      return std::make_unique<::arrow::StringViewBuilder>(pool);
+    default:
+      throw ParquetException("cannot read Parquet BYTE_ARRAY as Arrow " +
+                             arrow_type->ToString());
+  }
+}
+
+/// Reads variable length byte array values into a chunked binary builder.
+///
+/// `kRequired` selects the base class: RequiredTypedRecordReader for
+/// required (non-nullable, non-repeated) columns, TypedRecordReader
+/// otherwise.
 ///
 /// It only calls `DecodeArrowNonNull` and `DecodeArrow` to read values, and
 /// `Decode` and `DecodeSpaced` are not used.
 ///
 /// The `values_` buffers are never used, and the `accumulator_`
 /// is used to store the values.
+template <bool kRequired>
 class ByteArrayChunkedRecordReader final
-    : public TypedRecordReader<ByteArrayType,
-                               ReadValuesNoBuffer<typename ByteArrayType::c_type>>,
+    : public record_reader_base_t<ByteArrayType, kRequired>,
       virtual public BinaryRecordReader {
  public:
+  using Base = record_reader_base_t<ByteArrayType, kRequired>;
+
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable,
                                const std::shared_ptr<::arrow::DataType>& arrow_type)
-      : TypedRecordReader(descr, leaf_info, pool, read_dense_for_nullable) {
-    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    auto arrow_binary_type = arrow_type ? arrow_type->id() : ::arrow::Type::BINARY;
-    switch (arrow_binary_type) {
-      case ::arrow::Type::BINARY:
-        accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
-        break;
-      case ::arrow::Type::STRING:
-        accumulator_.builder = std::make_unique<::arrow::StringBuilder>(pool);
-        break;
-      case ::arrow::Type::LARGE_BINARY:
-        accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
-        break;
-      case ::arrow::Type::LARGE_STRING:
-        accumulator_.builder = std::make_unique<::arrow::LargeStringBuilder>(pool);
-        break;
-      case ::arrow::Type::BINARY_VIEW:
-        accumulator_.builder = std::make_unique<::arrow::BinaryViewBuilder>(pool);
-        break;
-      case ::arrow::Type::STRING_VIEW:
-        accumulator_.builder = std::make_unique<::arrow::StringViewBuilder>(pool);
-        break;
-      default:
-        throw ParquetException("cannot read Parquet BYTE_ARRAY as Arrow " +
-                               arrow_type->ToString());
-    }
+    requires(!kRequired)
+      : Base(descr, leaf_info, pool, read_dense_for_nullable) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
+    accumulator_.builder = MakeByteArrayBuilder(arrow_type, pool);
+  }
+
+  ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                               const std::shared_ptr<::arrow::DataType>& arrow_type)
+    requires(kRequired)
+      : Base(descr, pool) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
+    ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
+    accumulator_.builder = MakeByteArrayBuilder(arrow_type, pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2709,8 +2851,9 @@ class ByteArrayChunkedRecordReader final
     return result;
   }
 
+ protected:
   void ReserveValuesAndIsValid(int64_t extra_values) override {
-    TypedRecordReader::ReserveValuesAndIsValid(extra_values);
+    Base::ReserveValuesAndIsValid(extra_values);
     PARQUET_THROW_NOT_OK(accumulator_.builder->Reserve(extra_values));
   }
 
@@ -2718,15 +2861,22 @@ class ByteArrayChunkedRecordReader final
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &accumulator_);
     CheckNumberDecoded(num_decoded, values_to_read);
-    ResetValues();
+    if constexpr (!kRequired) {
+      this->ResetValues();
+    }
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    int64_t num_decoded = this->current_decoder_->DecodeArrow(
-        static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written(), &accumulator_);
-    CheckNumberDecoded(num_decoded, values_to_read - null_count);
-    ResetValues();
+    if constexpr (kRequired) {
+      // A required column never contains nulls: the base implementation throws.
+      Base::ReadValuesSpaced(values_to_read, null_count);
+    } else {
+      int64_t num_decoded = this->current_decoder_->DecodeArrow(
+          static_cast<int>(values_to_read), static_cast<int>(null_count),
+          this->valid_bits_->mutable_data(), this->values_written(), &accumulator_);
+      CheckNumberDecoded(num_decoded, values_to_read - null_count);
+      this->ResetValues();
+    }
   }
 
  private:
@@ -2734,21 +2884,36 @@ class ByteArrayChunkedRecordReader final
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
-/// ByteArrayDictionaryRecordReader reads into ::arrow::dictionary(index: int32,
-/// values: binary).
+/// Reads byte array values into ::arrow::dictionary(index: int32, values: binary).
 ///
-/// If underlying column is dictionary encoded, it will call `DecodeIndices` to read,
-/// otherwise it will call `DecodeArrowNonNull` to read.
+/// `kRequired` selects the base class: RequiredTypedRecordReader for
+/// required (non-nullable, non-repeated) columns, TypedRecordReader
+/// otherwise.
+///
+/// If the underlying column is dictionary encoded, it will call
+/// `DecodeIndices` to read, otherwise it will call `DecodeArrowNonNull` to
+/// read.
+template <bool kRequired>
 class ByteArrayDictionaryRecordReader final
-    : public TypedRecordReader<ByteArrayType,
-                               ReadValuesNoBuffer<typename ByteArrayType::c_type>>,
+    : public record_reader_base_t<ByteArrayType, kRequired, /*kReadDictionary=*/true>,
       virtual public DictionaryRecordReader {
  public:
+  using Base = record_reader_base_t<ByteArrayType, kRequired, /*kReadDictionary=*/true>;
+
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader(descr, leaf_info, pool, read_dense_for_nullable),
-        builder_(pool) {
-    this->read_dictionary_ = true;
+    requires(!kRequired)
+      : Base(descr, leaf_info, pool, read_dense_for_nullable), builder_(pool) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
+  }
+
+  ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
+                                  ::arrow::MemoryPool* pool)
+    requires(kRequired)
+      : Base(descr, pool), builder_(pool) {
+    ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
+    ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
   }
 
   std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
@@ -2758,6 +2923,7 @@ class ByteArrayDictionaryRecordReader final
     return std::make_shared<::arrow::ChunkedArray>(std::move(result), builder_.type());
   }
 
+ protected:
   void FlushBuilder() {
     if (builder_.length() > 0) {
       std::shared_ptr<::arrow::Array> chunk;
@@ -2783,7 +2949,7 @@ class ByteArrayDictionaryRecordReader final
 
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = 0;
-    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+    if (this->current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
       num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
@@ -2791,27 +2957,34 @@ class ByteArrayDictionaryRecordReader final
       num_decoded = this->current_decoder_->DecodeArrowNonNull(
           static_cast<int>(values_to_read), &builder_);
     }
-    // Flush values since they have been copied into the builder
-    ResetValues();
+    if constexpr (!kRequired) {
+      // Flush values since they have been copied into the builder
+      this->ResetValues();
+    }
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    int64_t num_decoded = 0;
-    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
-      MaybeWriteNewDictionary();
-      auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
-      num_decoded = decoder->DecodeIndicesSpaced(
-          static_cast<int>(values_to_read), static_cast<int>(null_count),
-          valid_bits_->mutable_data(), values_written(), &builder_);
+    if constexpr (kRequired) {
+      // A required column never contains nulls: the base implementation throws.
+      Base::ReadValuesSpaced(values_to_read, null_count);
     } else {
-      num_decoded = this->current_decoder_->DecodeArrow(
-          static_cast<int>(values_to_read), static_cast<int>(null_count),
-          valid_bits_->mutable_data(), values_written(), &builder_);
+      int64_t num_decoded = 0;
+      if (this->current_encoding_ == Encoding::RLE_DICTIONARY) {
+        MaybeWriteNewDictionary();
+        auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_.get());
+        num_decoded = decoder->DecodeIndicesSpaced(
+            static_cast<int>(values_to_read), static_cast<int>(null_count),
+            this->valid_bits_->mutable_data(), this->values_written(), &builder_);
+      } else {
+        num_decoded = this->current_decoder_->DecodeArrow(
+            static_cast<int>(values_to_read), static_cast<int>(null_count),
+            this->valid_bits_->mutable_data(), this->values_written(), &builder_);
+      }
+      ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
+      // Flush values since they have been copied into the builder
+      this->ResetValues();
     }
-    ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
-    // Flush values since they have been copied into the builder
-    ResetValues();
   }
 
  private:
@@ -2821,30 +2994,29 @@ class ByteArrayDictionaryRecordReader final
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 
-// TODO(wesm): Implement these to some satisfaction
-template <>
-void TypedRecordReader<Int96Type>::DebugPrintState() {}
-
-template <>
-void TypedRecordReader<
-    ByteArrayType,
-    ReadValuesNoBuffer<typename ByteArrayType::c_type>>::DebugPrintState() {}
-
-template <>
-void TypedRecordReader<FLBAType,
-                       ReadValuesNoBuffer<typename FLBAType::c_type>>::DebugPrintState() {
-}
-
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
     const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
     bool read_dictionary, bool read_dense_for_nullable,
     const std::shared_ptr<::arrow::DataType>& arrow_type) {
+  const bool required =
+      descr->max_definition_level() == 0 && descr->max_repetition_level() == 0;
   if (read_dictionary) {
-    return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
-                                                             read_dense_for_nullable);
+    if (required) {
+      using RequiredReader = ByteArrayDictionaryRecordReader</*kRequired=*/true>;
+
+      return std::make_shared<RequiredReader>(descr, pool);
+    }
+    using Reader = ByteArrayDictionaryRecordReader</*kRequired=*/false>;
+    return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable);
   } else {
-    return std::make_shared<ByteArrayChunkedRecordReader>(
-        descr, leaf_info, pool, read_dense_for_nullable, arrow_type);
+    if (required) {
+      using RequiredReader = ByteArrayChunkedRecordReader</*kRequired=*/true>;
+
+      return std::make_shared<RequiredReader>(descr, pool, arrow_type);
+    }
+    using Reader = ByteArrayChunkedRecordReader</*kRequired=*/false>;
+    return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable,
+                                    arrow_type);
   }
 }
 
@@ -2857,10 +3029,21 @@ std::shared_ptr<RecordReader> DispatchTypedRecordReader(const ColumnDescriptor* 
                                                         MemoryPool* pool,
                                                         bool read_dense_for_nullable) {
   if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
-    return std::make_shared<RequiredTypedRecordReader<DType>>(descr, pool);
+    if constexpr (std::is_same_v<DType, FLBAType>) {
+      using FLBAReader = FLBARecordReader</*kRequired=*/true>;
+      return std::make_shared<FLBAReader>(descr, pool);
+    } else {
+      return std::make_shared<RequiredTypedRecordReader<DType>>(descr, pool);
+    }
   }
-  return std::make_shared<TypedRecordReader<DType>>(descr, leaf_info, pool,
-                                                    read_dense_for_nullable);
+  if constexpr (std::is_same_v<DType, FLBAType>) {
+    using FLBAReader = FLBARecordReader</*kRequired=*/false>;
+    return std::make_shared<FLBAReader>(descr, leaf_info, pool, read_dense_for_nullable);
+  } else {
+    using c_type = typename DType::c_type;
+    using Reader = TypedRecordReader<DType, ReadValuesBuffer<c_type>, false>;
+    return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable);
+  }
 }
 }  // namespace
 
@@ -2892,8 +3075,8 @@ std::shared_ptr<RecordReader> RecordReader::Make(
                                        read_dense_for_nullable, arrow_type);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
-                                                read_dense_for_nullable);
+      return DispatchTypedRecordReader<FLBAType>(descr, leaf_info, pool,
+                                                 read_dense_for_nullable);
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       std::stringstream ss;
