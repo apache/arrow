@@ -289,6 +289,14 @@ if "pyarrow" not in sys.modules:
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")
     import pytest
+    import inspect
+    if "exc_type" not in inspect.signature(pytest.importorskip).parameters:
+        _original_importorskip = pytest.importorskip
+        def _importorskip(modname, minversion=None, reason=None, *,
+                          exc_type=ImportError):
+            return _original_importorskip(modname, minversion=minversion,
+                                          reason=reason)
+        pytest.importorskip = _importorskip
     import pandas # import pandas after pyarrow package load for pandas/pyarrow
                   # functions to work
 import pyarrow
