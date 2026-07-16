@@ -6,7 +6,7 @@
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
+#   https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
@@ -19,7 +19,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr
 #' @importFrom purrr compact flatten reduce walk
-#' @importFrom assertthat assert_that is.string
+#' @importFrom assertthat assert_that
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos quo
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
@@ -27,7 +27,7 @@
 #' @importFrom rlang is_list call2 is_empty as_function as_label arg_match is_symbol is_call call_args
 #' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
 #' @importFrom rlang new_quosures expr_text caller_env check_dots_empty check_dots_empty0 dots_list is_string inform
-#' @importFrom rlang is_bare_list call_name
+#' @importFrom rlang is_bare_list call_name check_string check_number_whole check_number_decimal check_bool
 #' @importFrom tidyselect vars_pull eval_select eval_rename
 #' @importFrom glue glue
 #' @importFrom bit64 integer64
