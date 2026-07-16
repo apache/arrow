@@ -1636,20 +1636,35 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
                     bool read_dense_for_nullable)
       : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
              LevelDecoder(descr->max_repetition_level())),
-        values_(pool) {
-    leaf_info_ = leaf_info;
-    nullable_values_ = leaf_info_.HasNullableValues();
-    at_record_start_ = true;
-    null_count_ = 0;
-    levels_written_ = 0;
-    levels_position_ = 0;
-    levels_capacity_ = 0;
-    read_dense_for_nullable_ = read_dense_for_nullable;
-    valid_bits_ = AllocateBuffer(pool);
-    def_levels_ = AllocateBuffer(pool);
-    rep_levels_ = AllocateBuffer(pool);
+        valid_bits_(AllocateBuffer(pool)),
+        values_(pool),
+        leaf_info_(leaf_info),
+        def_levels_(AllocateBuffer(pool)),
+        rep_levels_(AllocateBuffer(pool)),
+        nullable_values_(leaf_info.HasNullableValues()),
+        read_dense_for_nullable_(read_dense_for_nullable) {
     TypedRecordReader::Reset();
   }
+
+  int16_t* def_levels() const final {
+    return reinterpret_cast<int16_t*>(def_levels_->mutable_data());
+  }
+
+  int16_t* rep_levels() const final {
+    return reinterpret_cast<int16_t*>(rep_levels_->mutable_data());
+  }
+
+  int64_t levels_position() const final { return levels_position_; }
+
+  int64_t levels_written() const final { return levels_written_; }
+
+  int64_t null_count() const final { return null_count_; }
+
+  bool nullable_values() const final { return nullable_values_; }
+
+  bool read_dictionary() const final { return read_dictionary_; }
+
+  bool read_dense_for_nullable() const final { return read_dense_for_nullable_; }
 
   uint8_t* values() const final { return reinterpret_cast<uint8_t*>(values_.data()); }
 
@@ -1758,9 +1773,54 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
   void ResetValues();
 
+ protected:
+  /// \brief Each bit corresponds to one element in 'values_' and specifies if it
+  /// is null or not null.
+  ///
+  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
+  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
+  bool read_dictionary_ = false;
+
  private:
   ValuesBuffer values_;
   LevelInfo leaf_info_;
+
+  /// \brief Buffer for definition levels. May contain more levels than
+  /// is actually read. This is because we read levels ahead to
+  /// figure out record boundaries for repeated fields.
+  /// For flat required fields, 'def_levels_' and 'rep_levels_' are not
+  ///  populated. For non-repeated fields 'rep_levels_' is not populated.
+  /// 'def_levels_' and 'rep_levels_' must be of the same size if present.
+  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
+  /// \brief Buffer for repetition levels. Only populated for repeated
+  /// fields.
+  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
+
+  int64_t records_read_;
+
+  int64_t null_count_ = 0;
+
+  /// \brief Number of definition / repetition levels that have been written
+  /// internally in the reader. This may be larger than values_written() since
+  /// for repeated fields we need to look at the levels in advance to figure out
+  /// the record boundaries.
+  int64_t levels_written_ = 0;
+  /// \brief Position of the next level that should be consumed.
+  int64_t levels_position_ = 0;
+  int64_t levels_capacity_ = 0;
+
+  /// \brief Indicates if we can have nullable values. Note that repeated fields
+  /// may or may not be nullable.
+  bool nullable_values_;
+
+  bool at_record_start_ = true;
+
+  // If true, we will not leave any space for the null values in the values_
+  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
+  //
+  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
+  // might still populate the validity bitmap buffer.
+  bool read_dense_for_nullable_ = false;
 };
 
 /**************************************
@@ -2405,20 +2465,28 @@ class RequiredTypedRecordReader final : public ColumnReaderImplBase<DType, Level
       : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
              LevelDecoder(descr->max_repetition_level())),
         values_(pool) {
-    nullable_values_ = false;
-    at_record_start_ = true;
-    null_count_ = 0;
-    levels_written_ = 0;
-    levels_position_ = 0;
-    levels_capacity_ = 0;
-    read_dense_for_nullable_ = false;
-    valid_bits_ = AllocateBuffer(pool);
     RequiredTypedRecordReader::Reset();
   }
 
   uint8_t* values() const final { return reinterpret_cast<uint8_t*>(values_.data()); }
 
   int64_t values_written() const final { return values_.values_count(); }
+
+  int16_t* def_levels() const final { return nullptr; }
+
+  int16_t* rep_levels() const final { return nullptr; }
+
+  int64_t levels_position() const final { return 0; }
+
+  int64_t levels_written() const final { return 0; }
+
+  int64_t null_count() const final { return 0; }
+
+  bool nullable_values() const final { return false; }
+
+  bool read_dictionary() const final { return false; }
+
+  bool read_dense_for_nullable() const final { return false; }
 
   const void* ReadDictionary(int32_t* dictionary_length) override;
 
@@ -2512,8 +2580,6 @@ template <typename DType>
 void RequiredTypedRecordReader<DType>::Reset() {
   if (values_written() > 0) {
     values_.ResetValues();
-    PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
-    null_count_ = 0;
   }
 }
 
