@@ -25,20 +25,15 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/array/array_binary.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
@@ -2394,6 +2389,154 @@ void TypedRecordReader<DType, ValuesBuffer>::ResetValues() {
   }
 }
 
+/*******************************
+ *  RequiredTypedRecordReader  *
+ *******************************/
+
+template <typename DType>
+class RequiredTypedRecordReader final : public ColumnReaderImplBase<DType, LevelDecoder>,
+                                        public RecordReader {
+ public:
+  using T = typename DType::c_type;
+  using Base = ColumnReaderImplBase<DType, LevelDecoder>;
+  using ValuesBuffer = ReadValuesBuffer<typename DType::c_type>;
+
+  RequiredTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool)
+      : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
+             LevelDecoder(descr->max_repetition_level())),
+        values_(pool) {
+    nullable_values_ = false;
+    at_record_start_ = true;
+    null_count_ = 0;
+    levels_written_ = 0;
+    levels_position_ = 0;
+    levels_capacity_ = 0;
+    read_dense_for_nullable_ = false;
+    valid_bits_ = AllocateBuffer(pool);
+    RequiredTypedRecordReader::Reset();
+  }
+
+  uint8_t* values() const final { return reinterpret_cast<uint8_t*>(values_.data()); }
+
+  int64_t values_written() const final { return values_.values_count(); }
+
+  const void* ReadDictionary(int32_t* dictionary_length) override;
+
+  int64_t ReadRecords(int64_t num_records) override;
+
+  int64_t SkipRecords(int64_t num_records) override { return this->Skip(num_records); }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues() override {
+    return values_.ReleaseValues(this->pool_);
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid() override { return nullptr; }
+
+  void Reserve(int64_t extra_values) override { values_.ReserveValues(extra_values); }
+
+  void Reset() override;
+
+  void SetPageReader(std::unique_ptr<PageReader> reader) override;
+
+  bool HasMoreData() const override { return this->pager_ != nullptr; }
+
+  const ColumnDescriptor* descr() const override { return this->descr_; }
+
+  // Dictionary decoders must be reset when advancing row groups
+  void ResetDecoders() { this->decoders_.clear(); }
+
+  void DebugPrintState() override;
+
+ private:
+  ValuesBuffer values_;
+};
+
+/**********************************************
+ *  RequiredTypedRecordReader Implementation  *
+ **********************************************/
+
+template <typename DType>
+const void* RequiredTypedRecordReader<DType>::ReadDictionary(int32_t* dictionary_length) {
+  if (!this->current_decoder_ && !this->HasNextInternal()) {
+    *dictionary_length = 0;
+    return nullptr;
+  }
+  // Verify the current data page is dictionary encoded. The current_encoding_ should
+  // have been set as RLE_DICTIONARY if the page encoding is RLE_DICTIONARY or
+  // PLAIN_DICTIONARY.
+  if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
+    std::stringstream ss;
+    ss << "Data page is not dictionary encoded. Encoding: "
+       << EncodingToString(this->current_encoding_);
+    throw ParquetException(ss.str());
+  }
+  auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
+  const T* dictionary = nullptr;
+  decoder->GetDictionary(&dictionary, dictionary_length);
+  return reinterpret_cast<const void*>(dictionary);
+}
+
+template <typename DType>
+int64_t RequiredTypedRecordReader<DType>::ReadRecords(int64_t num_records) {
+  if (num_records <= 0) {
+    return 0;
+  }
+
+  Reserve(num_records);
+
+  int64_t records_read = 0;
+
+  do {
+    // Is there more data to read in this row group?
+    if (!this->HasNextInternal()) {
+      break;
+    }
+
+    const int32_t batch_size =
+        std::min<int32_t>(clamp_to<int32_t>(num_records - records_read),
+                          this->available_values_current_page());
+    const auto decoded =
+        this->current_decoder_->Decode(values_.write_start(), batch_size);
+    CheckNumberDecoded(decoded, batch_size);
+
+    values_.mark_values_as_written(decoded);
+    this->ConsumeBufferedValues(decoded);
+
+    records_read += decoded;
+  } while (records_read < num_records);
+
+  return records_read;
+}
+
+template <typename DType>
+void RequiredTypedRecordReader<DType>::Reset() {
+  if (values_written() > 0) {
+    values_.ResetValues();
+    PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
+    null_count_ = 0;
+  }
+}
+
+template <typename DType>
+void RequiredTypedRecordReader<DType>::SetPageReader(std::unique_ptr<PageReader> reader) {
+  this->pager_ = std::move(reader);
+  ResetDecoders();
+}
+
+template <typename DType>
+void RequiredTypedRecordReader<DType>::DebugPrintState() {
+  const T* vals = reinterpret_cast<const T*>(this->values());
+  std::cout << "values: ";
+  for (int64_t i = 0; i < this->values_written(); ++i) {
+    std::cout << vals[i] << " ";
+  }
+  std::cout << std::endl;
+}
+
+// TODO(wesm): Implement these to some satisfaction
+template <>
+void RequiredTypedRecordReader<Int96Type>::DebugPrintState() {}
+
 /// In FLBARecordReader, we read fixed length byte array values.
 ///
 /// Unlike other fixed length types, the `values_` buffer is not used to store
@@ -2641,29 +2784,43 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
 
 }  // namespace
 
+namespace {
+template <typename DType>
+std::shared_ptr<RecordReader> DispatchTypedRecordReader(const ColumnDescriptor* descr,
+                                                        LevelInfo leaf_info,
+                                                        MemoryPool* pool,
+                                                        bool read_dense_for_nullable) {
+  if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
+    return std::make_shared<RequiredTypedRecordReader<DType>>(descr, pool);
+  }
+  return std::make_shared<TypedRecordReader<DType>>(descr, leaf_info, pool,
+                                                    read_dense_for_nullable);
+}
+}  // namespace
+
 std::shared_ptr<RecordReader> RecordReader::Make(
     const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
     bool read_dictionary, bool read_dense_for_nullable,
     const std::shared_ptr<::arrow::DataType>& arrow_type) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
-                                                              read_dense_for_nullable);
+      return DispatchTypedRecordReader<BooleanType>(descr, leaf_info, pool,
+                                                    read_dense_for_nullable);
     case Type::INT32:
-      return std::make_shared<TypedRecordReader<Int32Type>>(descr, leaf_info, pool,
-                                                            read_dense_for_nullable);
+      return DispatchTypedRecordReader<Int32Type>(descr, leaf_info, pool,
+                                                  read_dense_for_nullable);
     case Type::INT64:
-      return std::make_shared<TypedRecordReader<Int64Type>>(descr, leaf_info, pool,
-                                                            read_dense_for_nullable);
+      return DispatchTypedRecordReader<Int64Type>(descr, leaf_info, pool,
+                                                  read_dense_for_nullable);
     case Type::INT96:
-      return std::make_shared<TypedRecordReader<Int96Type>>(descr, leaf_info, pool,
-                                                            read_dense_for_nullable);
+      return DispatchTypedRecordReader<Int96Type>(descr, leaf_info, pool,
+                                                  read_dense_for_nullable);
     case Type::FLOAT:
-      return std::make_shared<TypedRecordReader<FloatType>>(descr, leaf_info, pool,
-                                                            read_dense_for_nullable);
+      return DispatchTypedRecordReader<FloatType>(descr, leaf_info, pool,
+                                                  read_dense_for_nullable);
     case Type::DOUBLE:
-      return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
-                                                             read_dense_for_nullable);
+      return DispatchTypedRecordReader<DoubleType>(descr, leaf_info, pool,
+                                                   read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
                                        read_dense_for_nullable, arrow_type);
