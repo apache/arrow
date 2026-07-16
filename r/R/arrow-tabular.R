@@ -153,7 +153,7 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `$.ArrowTabular` <- function(x, name, ...) {
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(x)) {
     get(name, x)
   } else {
@@ -209,7 +209,7 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `$<-.ArrowTabular` <- function(x, i, value) {
-  assert_that(is.string(i))
+  check_string(i)
   # We need to check if `i` is in names in case it is an active binding (e.g.
   # `metadata`, in which case we use assign to change the active binding instead
   # of the column in the table)

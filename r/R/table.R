@@ -85,8 +85,7 @@ Table <- R6Class(
     nbytes = function() Table__ReferencedBufferSize(self),
     RenameColumns = function(value) Table__RenameColumns(self, value),
     GetColumnByName = function(name) {
-      assert_is(name, "character")
-      assert_that(length(name) == 1)
+      check_string(name)
       Table__GetColumnByName(self, name)
     },
     RemoveColumn = function(i) Table__RemoveColumn(self, i),

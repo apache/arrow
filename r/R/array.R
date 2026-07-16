@@ -461,7 +461,7 @@ StructArray$create <- function(...) {
 
 #' @export
 `$.StructArray` <- function(x, name, ...) {
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(x)) {
     get(name, x)
   } else {

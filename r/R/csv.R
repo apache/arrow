@@ -440,7 +440,7 @@ csv_read_options <- function(
   encoding = "UTF-8",
   skip_rows_after_names = 0L
 ) {
-  assert_that(is.string(encoding))
+  check_string(encoding)
 
   options <- csv___ReadOptions__initialize(
     list(
@@ -647,13 +647,11 @@ csv_write_options <- function(
   quoting_style <- match(quoting_style, quoting_style_opts) - 1L
 
   assert_that(is.logical(include_header))
-  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
-  assert_that(is.character(delimiter))
-  assert_that(is.character(null_string))
-  assert_that(!is.na(null_string))
-  assert_that(length(null_string) == 1)
+  check_number_whole(batch_size, min = 1, allow_infinite = FALSE)
+  check_string(delimiter)
+  check_string(null_string, allow_na = FALSE)
   assert_that(!grepl('"', null_string), msg = "na argument must not contain quote characters.")
-  assert_that(is.character(eol))
+  check_string(eol)
 
   csv___WriteOptions__initialize(
     list(

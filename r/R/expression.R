@@ -75,7 +75,7 @@ Expression <- R6Class(
   )
 )
 Expression$create <- function(function_name, ..., args = list(...), options = empty_named_list()) {
-  assert_that(is.string(function_name))
+  check_string(function_name)
   # Make sure all inputs are Expressions
   args <- lapply(args, function(x) {
     if (!inherits(x, "Expression")) {
@@ -99,7 +99,7 @@ Expression$create <- function(function_name, ..., args = list(...), options = em
 
 #' @export
 `$.Expression` <- function(x, name, ...) {
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(x)) {
     get(name, x)
   } else {
@@ -111,7 +111,7 @@ get_nested_field <- function(expr, name) {
   if (expr$is_field_ref()) {
     # Make a nested field ref
     # TODO(#33756): integer (positional) field refs are supported in C++
-    assert_that(is.string(name))
+    check_string(name)
     out <- compute___expr__nested_field_ref(expr, name)
   } else {
     # Use the struct_field kernel if expr is a struct:
@@ -149,7 +149,7 @@ get_nested_field <- function(expr, name) {
 
 Expression$field_ref <- function(name) {
   # TODO(#33756): allow construction of field ref from integer
-  assert_that(is.string(name))
+  check_string(name)
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {

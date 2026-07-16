@@ -246,7 +246,7 @@ make_readable_file <- function(file, mmap = TRUE, random_access = TRUE) {
     # file names with trailing slashes, so we need to remove it here.
     path <- sub("/$", "", file$base_path)
     file <- filesystem$OpenInputFile(path)
-  } else if (is.string(file)) {
+  } else if (is_string(file)) {
     # if this is a HTTP URL, we need a local copy to pass to FileSystem$from_uri
     if (random_access && is_http_url(file)) {
       tf <- tempfile()
@@ -303,7 +303,7 @@ make_output_stream <- function(x) {
     fs_and_path <- FileSystem$from_uri(x)
     fs_and_path$fs$OpenOutputStream(fs_and_path$path)
   } else {
-    assert_that(is.string(x))
+    check_string(x)
     FileOutputStream$create(x)
   }
 }
@@ -312,7 +312,7 @@ detect_compression <- function(path) {
   if (inherits(path, "SubTreeFileSystem")) {
     path <- path$base_path
   }
-  if (!is.string(path)) {
+  if (!is_string(path)) {
     return("uncompressed")
   }
 

@@ -91,7 +91,7 @@ RecordBatch <- R6Class(
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
     },
     GetColumnByName = function(name) {
-      assert_that(is.string(name))
+      check_string(name)
       RecordBatch__GetColumnByName(self, name)
     },
     SelectColumns = function(indices) RecordBatch__SelectColumns(self, indices),

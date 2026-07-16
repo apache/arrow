@@ -146,7 +146,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       # But we don't support anything that returns multiple rows now
       .groups <- "drop_last"
     } else {
-      assert_that(is.string(.groups))
+      check_string(.groups)
     }
     if (.groups == "drop_last") {
       out$group_by_vars <- head(.data$group_by_vars, -1)

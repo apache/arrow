@@ -72,7 +72,7 @@
 #'   head()
 #'
 register_scalar_function <- function(name, fun, in_type, out_type, auto_convert = FALSE) {
-  assert_that(is.string(name))
+  check_string(name)
 
   scalar_function <- arrow_scalar_function(
     fun,

@@ -293,7 +293,7 @@ fsf_options <- function(factory_options, partitioning) {
         call. = FALSE
       )
     } else {
-      assert_that(is.string(factory_options$partition_base_dir))
+      check_string(factory_options$partition_base_dir)
     }
   }
 

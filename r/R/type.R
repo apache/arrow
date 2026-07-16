@@ -608,7 +608,7 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
     unit <- match.arg(unit)
   }
   unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
-  assert_that(is.string(timezone))
+  check_string(timezone)
   Timestamp__initialize(unit, timezone)
 }
 
@@ -784,7 +784,7 @@ as_type <- function(type, name = "type") {
 canonical_type_str <- function(type_str) {
   # canonicalizes data type strings, converting data type function names and
   # aliases to match the strings returned by DataType$ToString()
-  assert_that(is.string(type_str))
+  check_string(type_str)
   if (grepl("[([<]", type_str)) {
     stop("Cannot interpret string representations of data types that have parameters", call. = FALSE)
   }

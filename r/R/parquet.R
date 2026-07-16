@@ -251,7 +251,7 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
     version <- format(version, nsmall = 1)
   }
 
-  if (!is.string(version)) {
+  if (!is_string(version)) {
     stop(
       "`version` must be one of ",
       oxford_paste(names(valid_versions), "or"),

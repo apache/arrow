@@ -84,7 +84,7 @@ Field <- R6Class(
   )
 )
 Field$create <- function(name, type, metadata = NULL, nullable = TRUE) {
-  assert_that(inherits(name, "character"), length(name) == 1L)
+  check_string(name)
   type <- as_type(type, name)
   f <- Field__initialize(enc2utf8(name), type, nullable)
   if (!is.null(metadata)) {

@@ -78,7 +78,7 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("methods::is", function(object, class2) {
-    if (is.string(class2)) {
+    if (is_string(class2)) {
       switch(
         class2,
         # for R data types, pass off to is.*() functions
