@@ -24,7 +24,7 @@
 #include <string>
 
 #include <grpcpp/grpcpp.h>
-#include <grpcpp/support/server_callback.h>
+#include <grpcpp/server_context.h>
 
 #include "arrow/flight/transport.h"
 #include "arrow/flight/types.h"
