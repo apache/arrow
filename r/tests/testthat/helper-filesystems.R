@@ -34,7 +34,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
   if (name != "azure") {
     test_that(sprintf("read/write IPC on %s using URIs", name), {
       write_ipc_file(example_data, uri_formatter("test.arrow"))
-      expect_identical(read_feather(uri_formatter("test.arrow")), example_data)
+      expect_identical(read_ipc_file(uri_formatter("test.arrow")), example_data)
     })
   }
 
