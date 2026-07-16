@@ -44,8 +44,10 @@
 #' @include chunked-array.R
 #' @include scalar.R
 call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
-  assert_that(is.string(function_name))
-  assert_that(is.list(options), !is.null(names(options)))
+  check_string(function_name)
+  if (!is.list(options) || is.null(names(options))) {
+    stop("options must be a named list.", call. = FALSE)
+  }
 
   datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
   valid_args <- map_lgl(args, ~ inherits(., datum_classes))

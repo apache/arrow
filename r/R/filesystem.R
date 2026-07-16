@@ -377,7 +377,9 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
   if (inherits(x, "SubTreeFileSystem")) {
     return(list(fs = x$base_fs, path = x$base_path))
   }
-  assert_that(is.character(x))
+  if (!is.character(x)) {
+    stop("x must be a character vector.", call. = FALSE)
+  }
   are_urls <- are_urls(x)
   if (any(are_urls)) {
     if (!all(are_urls)) {
@@ -412,7 +414,9 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
 # variant of the above function that asserts that x is either a scalar string
 # or a SubTreeFileSystem
 get_path_and_filesystem <- function(x, filesystem = NULL) {
-  assert_that(is.string(x) || inherits(x, "SubTreeFileSystem"))
+  if (!is_string(x) && !inherits(x, "SubTreeFileSystem")) {
+    stop("x must be a string or SubTreeFileSystem.")
+  }
   get_paths_and_filesystem(x, filesystem)
 }
 
