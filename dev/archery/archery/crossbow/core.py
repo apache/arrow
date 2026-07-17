@@ -452,6 +452,8 @@ class Repo:
         if not _have_github:
             raise ImportError('Must install PyGithub')
         github_token = github_token or self.github_token
+        if github_token is None:
+            return Github(timeout=30)
         return Github(auth=GithubAuth.Token(github_token), timeout=30)
 
     def as_github_repo(self, github_token=None):
