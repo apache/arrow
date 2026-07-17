@@ -413,5 +413,115 @@ INSTANTIATE_TEST_SUITE_P(EncodeArrayTests, TestRunEndEncodeDecode,
                                             ::testing::Values(int16(), int32(),
                                                               int64())));
 
+void AssertNestedRunEndEncode(const std::shared_ptr<Array>& input,
+                              const std::string& expected_run_ends_json,
+                              const std::shared_ptr<Array>& expected_values) {
+  for (const auto& run_end_type : {int16(), int32(), int64()}) {
+    ARROW_SCOPED_TRACE("run end type = ", *run_end_type);
+    ASSERT_OK_AND_ASSIGN(Datum encoded_datum,
+                         RunEndEncode(input, RunEndEncodeOptions{run_end_type}));
+    auto encoded =
+        std::dynamic_pointer_cast<RunEndEncodedArray>(encoded_datum.make_array());
+
+    ASSERT_NE(encoded, NULLPTR);
+    ASSERT_OK(encoded->ValidateFull());
+    ASSERT_EQ(encoded->length(), input->length());
+    ASSERT_EQ(*encoded->type(), *run_end_encoded(run_end_type, input->type()));
+    ASSERT_ARRAYS_EQUAL(*encoded->run_ends(),
+                        *ArrayFromJSON(run_end_type, expected_run_ends_json));
+    ASSERT_ARRAYS_EQUAL(*encoded->values(), *expected_values);
+  }
+}
+
+TEST(TestRunEndEncodeNested, VariableSizeList) {
+  auto value_type = list(int32());
+  auto input = ArrayFromJSON(value_type, R"([
+      [9], [1, 2], [1, 2], [], [], null, null, [null], [null], [3], [3], [4], [9]
+  ])");
+  input = input->Slice(1, 11);
+  auto expected_values =
+      ArrayFromJSON(value_type, R"([[1, 2], [], null, [null], [3], [4]])");
+  AssertNestedRunEndEncode(input, "[2, 4, 6, 8, 10, 11]", expected_values);
+
+  AssertNestedRunEndEncode(ArrayFromJSON(value_type, "[]"), "[]",
+                           ArrayFromJSON(value_type, "[]"));
+
+  auto signed_zeros = ArrayFromJSON(list(float64()), "[[0.0], [-0.0]]");
+  AssertNestedRunEndEncode(signed_zeros, "[1, 2]", signed_zeros);
+
+  auto null_lists = ArrayFromJSON(list(null()), "[[null], [null], [], [null]]");
+  auto expected_null_lists = ArrayFromJSON(list(null()), "[[null], [], [null]]");
+  AssertNestedRunEndEncode(null_lists, "[2, 3, 4]", expected_null_lists);
+
+  auto nested_value_type = list(list(int32()));
+  auto nested_lists =
+      ArrayFromJSON(nested_value_type, "[[[1], [2]], [[1], [2]], [], null, [[3, null]]]");
+  auto expected_nested_lists =
+      ArrayFromJSON(nested_value_type, "[[[1], [2]], [], null, [[3, null]]]");
+  AssertNestedRunEndEncode(nested_lists, "[2, 3, 4, 5]", expected_nested_lists);
+}
+
+TEST(TestRunEndEncodeNested, FixedSizeList) {
+  auto value_type = fixed_size_list(int32(), 2);
+  auto input = ArrayFromJSON(value_type, R"([
+      [9, 9], [1, 2], [1, 2], [null, 2], [null, 2], null, null,
+      [3, 4], [3, 4], [5, 6], [9, 9]
+  ])");
+  input = input->Slice(1, 9);
+  auto expected_values =
+      ArrayFromJSON(value_type, "[[1, 2], [null, 2], null, [3, 4], [5, 6]]");
+  AssertNestedRunEndEncode(input, "[2, 4, 6, 8, 9]", expected_values);
+
+  AssertNestedRunEndEncode(ArrayFromJSON(value_type, "[]"), "[]",
+                           ArrayFromJSON(value_type, "[]"));
+}
+
+TEST(TestRunEndEncodeNested, PreservesDictionaryIndexType) {
+  auto dictionary_type = dictionary(uint8(), utf8());
+  auto dictionary_values = ArrayFromJSON(utf8(), R"(["a", "b"])");
+  ASSERT_OK_AND_ASSIGN(
+      auto input_values,
+      DictionaryArray::FromArrays(dictionary_type, ArrayFromJSON(uint8(), "[0, 0, 1]"),
+                                  dictionary_values));
+  ASSERT_OK_AND_ASSIGN(
+      auto input,
+      ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2, 3]"), *input_values));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_dictionary_values,
+      DictionaryArray::FromArrays(dictionary_type, ArrayFromJSON(uint8(), "[0, 1]"),
+                                  dictionary_values));
+  ASSERT_OK_AND_ASSIGN(auto expected_values,
+                       ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2]"),
+                                             *expected_dictionary_values));
+  AssertNestedRunEndEncode(input, "[2, 3]", expected_values);
+}
+
+TEST(TestRunEndEncodeNested, Struct) {
+  auto value_type = struct_({field("age", int32()), field("name", utf8())});
+  auto input = ArrayFromJSON(value_type, R"([
+      {"age": 99, "name": "skip"},
+      {"age": 20, "name": "a"},
+      {"age": 20, "name": "a"},
+      {"age": 20, "name": "b"},
+      null,
+      null,
+      {"age": null, "name": null},
+      {"age": null, "name": null},
+      {"age": 99, "name": "skip"}
+  ])");
+  input = input->Slice(1, 7);
+  auto expected_values = ArrayFromJSON(value_type, R"([
+      {"age": 20, "name": "a"},
+      {"age": 20, "name": "b"},
+      null,
+      {"age": null, "name": null}
+  ])");
+  AssertNestedRunEndEncode(input, "[2, 3, 5, 7]", expected_values);
+
+  AssertNestedRunEndEncode(ArrayFromJSON(value_type, "[]"), "[]",
+                           ArrayFromJSON(value_type, "[]"));
+}
+
 }  // namespace compute
 }  // namespace arrow

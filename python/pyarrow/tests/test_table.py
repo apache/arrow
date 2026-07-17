@@ -2535,6 +2535,42 @@ def test_table_from_pylist(cls):
     assert table.to_pylist() == data2
 
 
+@pytest.mark.parametrize(
+    ("value_type", "values", "encoded_values"),
+    [
+        (
+            pa.struct([pa.field("age", pa.int32())]),
+            [{"age": 20}, {"age": 20}, {"age": 21}],
+            [{"age": 20}, {"age": 21}],
+        ),
+        (
+            pa.list_(pa.int32()),
+            [[20], [20], [21, 22]],
+            [[20], [21, 22]],
+        ),
+        (
+            pa.list_(pa.int32(), 2),
+            [[20, 21], [20, 21], [22, 23]],
+            [[20, 21], [22, 23]],
+        ),
+    ],
+)
+def test_table_from_pylist_run_end_encoded_nested(
+    value_type, values, encoded_values
+):
+    ree_type = pa.run_end_encoded(pa.int16(), value_type)
+    schema = pa.schema([pa.field("data", ree_type)])
+
+    table = pa.Table.from_pylist(
+        [{"data": value} for value in values], schema=schema
+    )
+
+    encoded = table.column(0).chunk(0)
+    assert encoded.type == ree_type
+    assert encoded.run_ends.equals(pa.array([2, 3], type=pa.int16()))
+    assert encoded.values.equals(pa.array(encoded_values, type=value_type))
+
+
 @pytest.mark.pandas
 def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns
