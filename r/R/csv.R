@@ -635,12 +635,12 @@ readr_to_csv_write_options <- function(
 #' write_csv_arrow(airquality, tf, write_options = csv_write_options(null_string = "-99"))
 #' @export
 csv_write_options <- function(
-    include_header = TRUE,
-    batch_size = 1024L,
-    null_string = "",
-    delimiter = ",",
-    eol = "\n",
-    quoting_style = c("Needed", "AllValid", "None")
+  include_header = TRUE,
+  batch_size = 1024L,
+  null_string = "",
+  delimiter = ",",
+  eol = "\n",
+  quoting_style = c("Needed", "AllValid", "None")
 ) {
   quoting_style <- match.arg(quoting_style)
   quoting_style_opts <- c("Needed", "AllValid", "None")

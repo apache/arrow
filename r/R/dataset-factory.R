@@ -285,8 +285,8 @@ fsf_options <- function(factory_options, partitioning) {
   if (!is.null(factory_options$partition_base_dir)) {
     if (
       inherits(partitioning, "HivePartitioning") ||
-      (inherits(partitioning, "PartitioningFactory") &&
-       identical(partitioning$type_name, "hive"))
+        (inherits(partitioning, "PartitioningFactory") &&
+          identical(partitioning$type_name, "hive"))
     ) {
       warning(
         "factory_options$partition_base_dir is not meaningful for Hive partitioning",
