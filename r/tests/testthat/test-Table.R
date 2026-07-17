@@ -102,7 +102,7 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(tab[[c("asdf", "jkl;")]], "length(name) not equal to 1", fixed = TRUE)
+  expect_error(tab[[c("asdf", "jkl;")]], "`name` must be", fixed = TRUE)
   expect_error(tab[-3:3], "Invalid column index")
   expect_error(tab[1000], "Invalid column index")
   expect_error(tab[1:1000], "Invalid column index")

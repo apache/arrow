@@ -343,11 +343,11 @@ test_that("timestamp type input validation", {
   )
   expect_error(
     timestamp(timezone = 1231231),
-    "timezone is not a string"
+    "`timezone` must be"
   )
   expect_error(
     timestamp(timezone = c("not", "a", "timezone")),
-    "timezone is not a string"
+    "`timezone` must be"
   )
 })
 

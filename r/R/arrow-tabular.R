@@ -167,7 +167,7 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
     stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
   }
   if (length(i) != 1 || is.na(i)) {
-    stop("i must be length 1 and not NA", call. = FALSE)
+    stop("`i` must be length 1 and not NA", call. = FALSE)
   }
 
   if (is.null(value)) {

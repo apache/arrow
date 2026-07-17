@@ -1446,7 +1446,7 @@ test_that("FileSystemFactoryOptions input validation", {
       partitioning = "part",
       factory_options = list(partition_base_dir = 42)
     ),
-    "factory_options$partition_base_dir is not a string",
+    "`factory_options$partition_base_dir` must be a string",
     fixed = TRUE
   )
   expect_error(

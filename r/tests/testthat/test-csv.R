@@ -430,7 +430,7 @@ test_that("Write a CSV file with invalid input type", {
 test_that("Write a CSV file with invalid batch size", {
   expect_error(
     write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
-    regexp = "batch_size must be"
+    regexp = "`batch_size` must be"
   )
 })
 
@@ -440,7 +440,7 @@ test_that("Write a CSV with custom NA value", {
   expect_identical(tbl_out1, tbl_no_dates)
 
   csv_contents <- readLines(csv_file)
-  expect_true(any(grepl("NULL_VALUE", csv_contents)))
+  expect_match(csv_contents, "NULL_VALUE", all = FALSE)
 
   tbl_in1 <- read_csv_arrow(csv_file, na = "NULL_VALUE")
   expect_identical(tbl_in1, tbl_no_dates)
