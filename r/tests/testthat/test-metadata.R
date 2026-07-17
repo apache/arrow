@@ -141,13 +141,12 @@ arbitrary\040code\040was\040just\040executed
 254
 "
   )
-  expect_message(
+  expect_no_message(
     expect_warning(
       as.data.frame(tab),
       'Invalid metadata$[["r"]]',
       fixed = TRUE
-    ),
-    NA
+    )
   )
 })
 
@@ -382,9 +381,8 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   )
 
   # however there is *no* warning if we don't select the metadata column
-  expect_warning(
-    df_from_ds <- ds |> dplyr::select(int) |> dplyr::collect(),
-    NA
+  expect_no_warning(
+    df_from_ds <- ds |> dplyr::select(int) |> dplyr::collect()
   )
 })
 

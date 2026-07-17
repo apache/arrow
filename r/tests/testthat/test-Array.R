@@ -951,7 +951,7 @@ test_that("Array$View() (ARROW-6542)", {
 
 test_that("Array$Validate()", {
   a <- arrow_array(1:10)
-  expect_error(a$Validate(), NA)
+  expect_no_error(a$Validate())
 })
 
 test_that("is.Array", {

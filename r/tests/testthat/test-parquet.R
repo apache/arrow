@@ -35,7 +35,7 @@ test_that("simple int column roundtrip", {
   df_read <- read_parquet(pq_tmp_file, mmap = FALSE)
   expect_equal(df, df_read)
   # Make sure file connection is cleaned up
-  expect_error(file.remove(pq_tmp_file), NA)
+  expect_no_error(file.remove(pq_tmp_file))
   expect_false(file.exists(pq_tmp_file))
 })
 

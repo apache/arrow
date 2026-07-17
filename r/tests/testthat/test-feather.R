@@ -254,7 +254,7 @@ test_that("read_feather closes connection to file", {
   write_feather(tib, sink = tf)
   expect_true(file.exists(tf))
   read_feather(tf)
-  expect_error(file.remove(tf), NA)
+  expect_no_error(file.remove(tf))
   expect_false(file.exists(tf))
 })
 
