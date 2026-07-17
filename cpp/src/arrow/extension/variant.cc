@@ -281,48 +281,50 @@ Status VisitObject(const VariantMetadata& metadata, const uint8_t* data, int64_t
     return Status::Invalid("Variant value: truncated object num_fields at offset ",
                            offset);
   }
-  auto num_fields = static_cast<int32_t>(ReadUnsignedLE(data + pos, num_fields_size));
+  auto num_fields = static_cast<int64_t>(ReadUnsignedLE(data + pos, num_fields_size));
   pos += num_fields_size;
 
-  int64_t field_ids_size = static_cast<int64_t>(num_fields) * field_id_size;
+  int64_t field_ids_size = num_fields * field_id_size;
   if (pos + field_ids_size > length) {
     return Status::Invalid("Variant value: truncated object field_ids at offset ",
                            offset);
   }
-  std::vector<uint32_t> field_ids(num_fields);
-  for (int32_t i = 0; i < num_fields; ++i) {
-    field_ids[i] = ReadUnsignedLE(data + pos, field_id_size);
+  std::vector<uint32_t> field_ids(static_cast<size_t>(num_fields));
+  for (int64_t i = 0; i < num_fields; ++i) {
+    field_ids[static_cast<size_t>(i)] = ReadUnsignedLE(data + pos, field_id_size);
     pos += field_id_size;
   }
 
-  int64_t offsets_size = (static_cast<int64_t>(num_fields) + 1) * field_offset_size;
+  int64_t offsets_size = (num_fields + 1) * field_offset_size;
   if (pos + offsets_size > length) {
     return Status::Invalid("Variant value: truncated object offsets at offset ", offset);
   }
-  std::vector<uint32_t> value_offsets(num_fields + 1);
-  for (int32_t i = 0; i <= num_fields; ++i) {
-    value_offsets[i] = ReadUnsignedLE(data + pos, field_offset_size);
+  std::vector<uint32_t> value_offsets(static_cast<size_t>(num_fields + 1));
+  for (int64_t i = 0; i <= num_fields; ++i) {
+    value_offsets[static_cast<size_t>(i)] = ReadUnsignedLE(data + pos, field_offset_size);
     pos += field_offset_size;
   }
 
   int64_t data_start = pos;
-  int64_t total_data_size = static_cast<int64_t>(value_offsets[num_fields]);
+  int64_t total_data_size =
+      static_cast<int64_t>(value_offsets[static_cast<size_t>(num_fields)]);
   if (data_start + total_data_size > length) {
     return Status::Invalid("Variant value: object data exceeds buffer at offset ",
                            offset);
   }
 
-  for (int32_t i = 0; i < num_fields; ++i) {
-    if (value_offsets[i] > static_cast<uint32_t>(total_data_size)) {
-      return Status::Invalid("Variant value: object field offset ", value_offsets[i],
-                             " at index ", i, " exceeds data size ", total_data_size);
+  for (int64_t i = 0; i < num_fields; ++i) {
+    if (value_offsets[static_cast<size_t>(i)] > static_cast<uint32_t>(total_data_size)) {
+      return Status::Invalid("Variant value: object field offset ",
+                             value_offsets[static_cast<size_t>(i)], " at index ", i,
+                             " exceeds data size ", total_data_size);
     }
   }
 
-  ARROW_RETURN_NOT_OK(visitor->StartObject(num_fields));
+  ARROW_RETURN_NOT_OK(visitor->StartObject(static_cast<int32_t>(num_fields)));
 
-  for (int32_t i = 0; i < num_fields; ++i) {
-    auto field_id = field_ids[i];
+  for (int64_t i = 0; i < num_fields; ++i) {
+    auto field_id = field_ids[static_cast<size_t>(i)];
     if (field_id >= metadata.strings.size()) {
       return Status::Invalid("Variant value: field_id ", field_id,
                              " exceeds metadata dictionary size ",
@@ -330,7 +332,7 @@ Status VisitObject(const VariantMetadata& metadata, const uint8_t* data, int64_t
     }
     ARROW_RETURN_NOT_OK(visitor->FieldName(metadata.strings[field_id]));
 
-    int64_t field_offset = data_start + value_offsets[i];
+    int64_t field_offset = data_start + value_offsets[static_cast<size_t>(i)];
     int64_t consumed = 0;
     ARROW_RETURN_NOT_OK(VisitValueAt(metadata, data, data_start + total_data_size,
                                      field_offset, visitor, &consumed, depth));
@@ -354,21 +356,22 @@ Status VisitArray(const VariantMetadata& metadata, const uint8_t* data, int64_t 
     return Status::Invalid("Variant value: truncated array num_elements at offset ",
                            offset);
   }
-  auto num_elements = static_cast<int32_t>(ReadUnsignedLE(data + pos, num_elements_size));
+  auto num_elements = static_cast<int64_t>(ReadUnsignedLE(data + pos, num_elements_size));
   pos += num_elements_size;
 
-  int64_t offsets_size = (static_cast<int64_t>(num_elements) + 1) * field_offset_size;
+  int64_t offsets_size = (num_elements + 1) * field_offset_size;
   if (pos + offsets_size > length) {
     return Status::Invalid("Variant value: truncated array offsets at offset ", offset);
   }
-  std::vector<uint32_t> value_offsets(num_elements + 1);
-  for (int32_t i = 0; i <= num_elements; ++i) {
-    value_offsets[i] = ReadUnsignedLE(data + pos, field_offset_size);
+  std::vector<uint32_t> value_offsets(static_cast<size_t>(num_elements + 1));
+  for (int64_t i = 0; i <= num_elements; ++i) {
+    value_offsets[static_cast<size_t>(i)] = ReadUnsignedLE(data + pos, field_offset_size);
     pos += field_offset_size;
   }
 
-  for (int32_t i = 1; i <= num_elements; ++i) {
-    if (value_offsets[i] < value_offsets[i - 1]) {
+  for (int64_t i = 1; i <= num_elements; ++i) {
+    if (value_offsets[static_cast<size_t>(i)] <
+        value_offsets[static_cast<size_t>(i - 1)]) {
       return Status::Invalid(
           "Variant value: array value offsets are not monotonically "
           "non-decreasing at index ",
@@ -377,15 +380,16 @@ Status VisitArray(const VariantMetadata& metadata, const uint8_t* data, int64_t 
   }
 
   int64_t data_start = pos;
-  int64_t total_data_size = static_cast<int64_t>(value_offsets[num_elements]);
+  int64_t total_data_size =
+      static_cast<int64_t>(value_offsets[static_cast<size_t>(num_elements)]);
   if (data_start + total_data_size > length) {
     return Status::Invalid("Variant value: array data exceeds buffer at offset ", offset);
   }
 
-  ARROW_RETURN_NOT_OK(visitor->StartArray(num_elements));
+  ARROW_RETURN_NOT_OK(visitor->StartArray(static_cast<int32_t>(num_elements)));
 
-  for (int32_t i = 0; i < num_elements; ++i) {
-    int64_t elem_offset = data_start + value_offsets[i];
+  for (int64_t i = 0; i < num_elements; ++i) {
+    int64_t elem_offset = data_start + value_offsets[static_cast<size_t>(i)];
     int64_t consumed = 0;
     ARROW_RETURN_NOT_OK(VisitValueAt(metadata, data, data_start + total_data_size,
                                      elem_offset, visitor, &consumed, depth));
@@ -458,30 +462,30 @@ Result<VariantMetadata> DecodeMetadata(const uint8_t* data, int64_t length) {
   if (pos + offset_size > length) {
     return Status::Invalid("Variant metadata: truncated dictionary size at byte ", pos);
   }
-  auto dict_size = static_cast<int32_t>(ReadUnsignedLE(data + pos, offset_size));
+  auto dict_size = static_cast<int64_t>(ReadUnsignedLE(data + pos, offset_size));
   pos += offset_size;
 
-  int64_t offsets_bytes = static_cast<int64_t>(dict_size + 1) * offset_size;
+  int64_t offsets_bytes = (dict_size + 1) * offset_size;
   if (pos + offsets_bytes > length) {
     return Status::Invalid("Variant metadata: truncated string offsets, need ",
                            offsets_bytes, " bytes at position ", pos,
                            " but buffer length is ", length);
   }
 
-  std::vector<uint32_t> offsets(dict_size + 1);
-  for (int32_t i = 0; i <= dict_size; ++i) {
-    offsets[i] = ReadUnsignedLE(data + pos, offset_size);
+  std::vector<uint32_t> offsets(static_cast<size_t>(dict_size + 1));
+  for (int64_t i = 0; i <= dict_size; ++i) {
+    offsets[static_cast<size_t>(i)] = ReadUnsignedLE(data + pos, offset_size);
     pos += offset_size;
   }
 
   int64_t string_data_length = length - pos;
   ARROW_RETURN_NOT_OK(ValidateOffsets(offsets, string_data_length));
 
-  std::vector<std::string_view> strings(dict_size);
-  for (int32_t i = 0; i < dict_size; ++i) {
-    auto start = static_cast<int64_t>(offsets[i]);
-    auto end = static_cast<int64_t>(offsets[i + 1]);
-    strings[i] =
+  std::vector<std::string_view> strings(static_cast<size_t>(dict_size));
+  for (int64_t i = 0; i < dict_size; ++i) {
+    auto start = static_cast<int64_t>(offsets[static_cast<size_t>(i)]);
+    auto end = static_cast<int64_t>(offsets[static_cast<size_t>(i + 1)]);
+    strings[static_cast<size_t>(i)] =
         std::string_view(reinterpret_cast<const char*>(data + pos + start), end - start);
   }
 
@@ -901,26 +905,25 @@ Result<VariantObjectView> VariantObjectView::Make(const VariantMetadata& metadat
   if (1 + num_fields_size > length) {
     return Status::Invalid("VariantObjectView: truncated num_fields");
   }
-  auto num_fields = static_cast<int32_t>(ReadUnsignedLE(data + 1, num_fields_size));
+  auto num_fields_raw = static_cast<int64_t>(ReadUnsignedLE(data + 1, num_fields_size));
 
   int64_t id_start = 1 + num_fields_size;
-  int64_t offset_start = id_start + static_cast<int64_t>(num_fields) * field_id_size;
-  int64_t data_start =
-      offset_start + (static_cast<int64_t>(num_fields) + 1) * field_offset_size;
+  int64_t offset_start = id_start + num_fields_raw * field_id_size;
+  int64_t data_start = offset_start + (num_fields_raw + 1) * field_offset_size;
 
   if (data_start > length) {
     return Status::Invalid("VariantObjectView: truncated object structure");
   }
 
   // Validate last offset is within buffer
-  int64_t last_offset_pos =
-      offset_start + static_cast<int64_t>(num_fields) * field_offset_size;
+  int64_t last_offset_pos = offset_start + num_fields_raw * field_offset_size;
   auto total_data =
       static_cast<int64_t>(ReadUnsignedLE(data + last_offset_pos, field_offset_size));
   if (data_start + total_data > length) {
     return Status::Invalid("VariantObjectView: object data exceeds buffer");
   }
 
+  auto num_fields = static_cast<int32_t>(num_fields_raw);
   return VariantObjectView(&metadata, data, length, num_fields, field_id_size,
                            field_offset_size, id_start, offset_start, data_start);
 }
@@ -1066,11 +1069,11 @@ Result<VariantArrayView> VariantArrayView::Make(const VariantMetadata& metadata,
   if (1 + num_elements_size > length) {
     return Status::Invalid("VariantArrayView: truncated num_elements");
   }
-  auto num_elements = static_cast<int32_t>(ReadUnsignedLE(data + 1, num_elements_size));
+  auto num_elements_raw =
+      static_cast<int64_t>(ReadUnsignedLE(data + 1, num_elements_size));
 
   int64_t offset_start = 1 + num_elements_size;
-  int64_t data_start =
-      offset_start + (static_cast<int64_t>(num_elements) + 1) * offset_size;
+  int64_t data_start = offset_start + (num_elements_raw + 1) * offset_size;
 
   if (data_start > length) {
     return Status::Invalid("VariantArrayView: truncated array structure");
@@ -1078,7 +1081,7 @@ Result<VariantArrayView> VariantArrayView::Make(const VariantMetadata& metadata,
 
   // Validate monotonicity and last offset in bounds
   uint32_t prev = 0;
-  for (int32_t i = 0; i <= num_elements; ++i) {
+  for (int64_t i = 0; i <= num_elements_raw; ++i) {
     auto off = ReadUnsignedLE(data + offset_start + i * offset_size, offset_size);
     if (i > 0 && off < prev) {
       return Status::Invalid(
@@ -1092,6 +1095,7 @@ Result<VariantArrayView> VariantArrayView::Make(const VariantMetadata& metadata,
     return Status::Invalid("VariantArrayView: array data exceeds buffer");
   }
 
+  auto num_elements = static_cast<int32_t>(num_elements_raw);
   return VariantArrayView(&metadata, data, length, num_elements, offset_size,
                           offset_start, data_start);
 }

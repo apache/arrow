@@ -395,6 +395,18 @@ TEST_F(VariantMetadataTest, NonMonotonicStringOffsets) {
   ASSERT_RAISES(Invalid, DecodeMetadata(data, sizeof(data)));
 }
 
+TEST_F(VariantMetadataTest, LargeDictSizeOverflowsInt32) {
+  // dict_size = 0x80000001 (2,147,483,649) which overflows int32_t if cast.
+  // With offset_size=4, this should be rejected as truncated (the buffer is
+  // far too small to hold that many offsets) rather than wrapping to negative.
+  // Header: version=1, sorted=0, offset_size=4 (bits 6-7 = 0b11 → offset_size_minus_one=3)
+  uint8_t data[] = {
+      0xC1,                    // header: version=1, offset_size=4
+      0x01, 0x00, 0x00, 0x80  // dict_size = 0x80000001 in LE
+  };
+  ASSERT_RAISES(Invalid, DecodeMetadata(data, sizeof(data)));
+}
+
 // ===========================================================================
 // Primitive value decoding tests
 // ===========================================================================
@@ -1984,6 +1996,69 @@ TEST_F(VariantMetadataOffsetSizeTest, EmptyDictionaryOffsetSize4) {
   ASSERT_EQ(metadata.version, 1);
   ASSERT_EQ(metadata.offset_size, 4);
   ASSERT_EQ(metadata.strings.size(), 0);
+}
+
+// ===========================================================================
+// Overflow tests — large element counts that would overflow int32_t
+// ===========================================================================
+
+class VariantOverflowTest : public ::testing::Test {
+ protected:
+  VariantMetadata empty_metadata_;
+
+  void SetUp() override {
+    empty_metadata_.version = 1;
+    empty_metadata_.is_sorted = false;
+    empty_metadata_.offset_size = 1;
+    empty_metadata_.strings = {"key"};
+  }
+};
+
+TEST_F(VariantOverflowTest, ObjectNumFieldsOverflowsInt32) {
+  // Craft an object with is_large=true and num_fields = 0x80000001 (>INT32_MAX).
+  // header: basic_type=2(object), offset_size=1(bits2-3=0), id_size=1(bits4-5=0),
+  //         is_large=1(bit6=1) → 0x02 | (1 << 6) = 0x42
+  // num_fields = 0x80000001 in LE (4 bytes)
+  // This should be rejected as truncated (buffer is far too small).
+  uint8_t data[] = {
+      0x42,                    // object header with is_large=true
+      0x01, 0x00, 0x00, 0x80  // num_fields = 0x80000001 in LE
+  };
+  RecordingVisitor visitor;
+  ASSERT_RAISES(Invalid, DecodeAndVisit(empty_metadata_, data, sizeof(data), &visitor));
+}
+
+TEST_F(VariantOverflowTest, ObjectNumFieldsOverflowsInt32View) {
+  // Same as above but via VariantObjectView::Make
+  uint8_t data[] = {
+      0x42,                    // object header with is_large=true
+      0x01, 0x00, 0x00, 0x80  // num_fields = 0x80000001 in LE
+  };
+  ASSERT_RAISES(Invalid,
+                VariantObjectView::Make(empty_metadata_, data, sizeof(data)));
+}
+
+TEST_F(VariantOverflowTest, ArrayNumElementsOverflowsInt32) {
+  // Craft an array with is_large=true and num_elements = 0x80000001 (>INT32_MAX).
+  // header: basic_type=3(array), offset_size=1(bits2-3=0),
+  //         is_large=1(bit4=1) → 0x03 | (1 << 4) = 0x13
+  // num_elements = 0x80000001 in LE (4 bytes)
+  uint8_t data[] = {
+      0x13,                    // array header with is_large=true
+      0x01, 0x00, 0x00, 0x80  // num_elements = 0x80000001 in LE
+  };
+  RecordingVisitor visitor;
+  ASSERT_RAISES(Invalid, DecodeAndVisit(empty_metadata_, data, sizeof(data), &visitor));
+}
+
+TEST_F(VariantOverflowTest, ArrayNumElementsOverflowsInt32View) {
+  // Same as above but via VariantArrayView::Make
+  uint8_t data[] = {
+      0x13,                    // array header with is_large=true
+      0x01, 0x00, 0x00, 0x80  // num_elements = 0x80000001 in LE
+  };
+  ASSERT_RAISES(Invalid,
+                VariantArrayView::Make(empty_metadata_, data, sizeof(data)));
 }
 
 // ===========================================================================
