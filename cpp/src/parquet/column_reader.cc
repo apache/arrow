@@ -1615,7 +1615,7 @@ class ReadValuesHooks {
  public:
   virtual ~ReadValuesHooks() = default;
 
-  virtual void ReserveValuesAndIsValid(int64_t extra_values) = 0;
+  virtual void ReserveValues(int64_t extra_values) = 0;
 
   /// Decode `values_to_read` non-null values
   virtual void ReadValuesDense(int64_t values_to_read) = 0;
@@ -1730,7 +1730,9 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
   void ReserveLevels(int64_t extra_levels);
 
-  void ReserveValuesAndIsValid(int64_t extra_values) override;
+  void ReserveValues(int64_t extra_values) override;
+
+  void ReserveIsValid(int64_t extra_values);
 
   void Reset() override;
 
@@ -2192,9 +2194,10 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::DelimitRecords(
 }
 
 template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::Reserve(int64_t capacity) {
-  ReserveLevels(capacity);
-  ReserveValuesAndIsValid(capacity);
+void TypedRecordReader<DType, ValueSink, kReadDictionary>::Reserve(int64_t extra_values) {
+  ReserveLevels(extra_values);
+  ReserveValues(extra_values);
+  ReserveIsValid(extra_values);
 }
 
 template <typename DType, typename ValueSink, bool kReadDictionary>
@@ -2221,18 +2224,27 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveLevels(
 }
 
 template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveValuesAndIsValid(
+void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveValues(
     int64_t extra_values) {
   values_.ReserveValues(extra_values);
-  if (nullable_values() && !read_dense_for_nullable_) {
-    int64_t valid_bytes_new = bit_util::BytesForBits(values_.capacity());
-    if (valid_bits_->size() < valid_bytes_new) {
-      int64_t valid_bytes_old = bit_util::BytesForBits(values_written());
-      PARQUET_THROW_NOT_OK(valid_bits_->Resize(valid_bytes_new, /*shrink_to_fit=*/false));
+}
 
+template <typename DType, typename ValueSink, bool kReadDictionary>
+void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveIsValid(
+    int64_t extra_values) {
+  if (nullable_values() && !read_dense_for_nullable_) {
+    const int64_t current_byte_capacity = valid_bits_->size();
+    const int64_t bit_capacity = compute_capacity_pow2(
+        /* capacity= */ 8 * current_byte_capacity,
+        /* size= */ values_written(),
+        /* extra_size= */ extra_values);
+    const int64_t byte_capacity = bit_util::BytesForBits(bit_capacity);
+    if (current_byte_capacity < byte_capacity) {
+      PARQUET_THROW_NOT_OK(valid_bits_->Resize(byte_capacity, /*shrink_to_fit=*/false));
       // Avoid valgrind warnings
-      memset(valid_bits_->mutable_data() + valid_bytes_old, 0,
-             static_cast<size_t>(valid_bytes_new - valid_bytes_old));
+      const int64_t old_valid_bytes = bit_util::BytesForBits(values_written());
+      std::memset(valid_bits_->mutable_data() + old_valid_bytes, 0,
+                  static_cast<size_t>(byte_capacity - old_valid_bytes));
     }
   }
 }
@@ -2363,7 +2375,8 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecordData(
   // Conservative upper bound
   const int64_t possible_num_values =
       std::max<int64_t>(num_records, levels_written_ - levels_position_);
-  ReserveValuesAndIsValid(static_cast<size_t>(possible_num_values));
+  ReserveValues(possible_num_values);
+  ReserveIsValid(possible_num_values);
 
   const int64_t start_levels_position = levels_position_;
 
@@ -2511,7 +2524,7 @@ class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecode
 
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() final { return nullptr; }
 
-  void Reserve(int64_t extra_values) final { ReserveValuesAndIsValid(extra_values); }
+  void Reserve(int64_t extra_values) final { ReserveValues(extra_values); }
 
   void Reset() final;
 
@@ -2530,7 +2543,7 @@ class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecode
   // ReadValuesHooks default implementations, decoding into `values_`.
   // Leaf classes for binary types override these to decode into their own
   // Arrow builders.
-  void ReserveValuesAndIsValid(int64_t extra_values) override {
+  void ReserveValues(int64_t extra_values) override {
     values_.ReserveValues(extra_values);
   }
 
@@ -2743,8 +2756,7 @@ class FLBARecordReader final : public record_reader_base_t<FLBAType, kRequired>,
   }
 
  protected:
-  void ReserveValuesAndIsValid(int64_t extra_values) override {
-    Base::ReserveValuesAndIsValid(extra_values);
+  void ReserveValues(int64_t extra_values) override {
     PARQUET_THROW_NOT_OK(array_builder_.Reserve(extra_values));
   }
 
@@ -2853,8 +2865,7 @@ class ByteArrayChunkedRecordReader final
   }
 
  protected:
-  void ReserveValuesAndIsValid(int64_t extra_values) override {
-    Base::ReserveValuesAndIsValid(extra_values);
+  void ReserveValues(int64_t extra_values) override {
     PARQUET_THROW_NOT_OK(accumulator_.builder->Reserve(extra_values));
   }
 
