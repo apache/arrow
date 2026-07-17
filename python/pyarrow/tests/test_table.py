@@ -2553,6 +2553,11 @@ def test_table_from_pylist(cls):
             [[20, 21], [20, 21], [22, 23]],
             [[20, 21], [22, 23]],
         ),
+        (
+            pa.list_(pa.list_(pa.int32())),
+            [[[20], [21]], [[20], [21]], [[22]]],
+            [[[20], [21]], [[22]]],
+        ),
     ],
 )
 def test_table_from_pylist_run_end_encoded_nested(
@@ -2569,6 +2574,15 @@ def test_table_from_pylist_run_end_encoded_nested(
     assert encoded.type == ree_type
     assert encoded.run_ends.equals(pa.array([2, 3], type=pa.int16()))
     assert encoded.values.equals(pa.array(encoded_values, type=value_type))
+
+    expected = pa.array(values, type=value_type)
+    decoded = pc.run_end_decode(encoded)
+    assert decoded.type == value_type
+    assert decoded.equals(expected)
+    assert pc.run_end_decode(encoded.slice(1)).equals(expected.slice(1))
+    assert pc.run_end_decode(encoded.slice(0, len(encoded) - 1)).equals(
+        expected.slice(0, len(expected) - 1)
+    )
 
 
 @pytest.mark.pandas
