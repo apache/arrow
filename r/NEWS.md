@@ -25,7 +25,7 @@
 
 - Arrow `uint64` types are now always converted to R `double` (numeric) vectors,
   regardless of the values. Previously, small `uint64` values were converted to
-  R `integer`, which could cause inconsistent types within list columns when
+  R `integer`, which could cause inconsistent types within list-columns when
   different list elements had different value ranges (#50339).
 
 ## New features
@@ -42,7 +42,7 @@
 - Dictionary arrays with `large_string` value types now convert correctly to R
   factors (#39603).
 - `open_dataset()` now gives a clearer error message when providing a mix of
-  readr and Arrow options (@Rich-T-kid, #33420).
+  `readr` and Arrow options (@Rich-T-kid, #33420).
 - `read_parquet()` no longer triggers a C++ alignment warning from the Acero
   source node (#46178).
 - `Schema` metadata partial matching on `$metadata$r` no longer errors when
@@ -53,12 +53,11 @@
   positive number (#40742).
 - Stale S3 connections no longer cause a segfault during garbage collection
   (#50009).
-- Spurious "Invalid metadata$r" warnings are no longer emitted when reading
-  files with custom schema metadata (#48712).
+- Spurious warnings are no longer emitted when reading files with custom schema metadata (#48712).
 
 ## Installation
 
-- The R package now builds under r-universe/r-wasm (#49981).
+- The R package now builds under `r-universe/r-wasm` (#49981).
 
 # arrow 24.0.0
 
