@@ -3095,8 +3095,6 @@ class TestConvertMisc:
 
         arrays = {
             'cat_strings': pd.Categorical(v1 * repeats),
-            'cat_strings_with_na': pd.Categorical(v1 * repeats,
-                                                  categories=['foo', 'bar']),
             'cat_ints': pd.Categorical(v2 * repeats),
             'cat_binary': pd.Categorical(v3 * repeats),
             'cat_strings_ordered': pd.Categorical(
@@ -3121,12 +3119,22 @@ class TestConvertMisc:
             tm.assert_series_equal(pd.Series(result), pd.Series(v))
 
         arrays = [
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
+            pd.Categorical(['a', 'b', None], categories=['a', 'b']),
+            pd.Categorical(['a', 'b', None], categories=['a', 'b'],
                            ordered=True)
         ]
         for arr in arrays:
             _check(arr)
+
+    def test_category_construction_deprecation(self):
+        # GH-49255
+        if Version(pd.__version__) < Version("3.0.0"):
+            pytest.skip("out-of-category deprecation added in pandas 3.0")
+        with pytest.warns(
+                DeprecationWarning,
+                match="Constructing a Categorical with a dtype and "
+                      "values containing non-null entries"):
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'])
 
     def test_empty_category(self):
         # ARROW-2443
