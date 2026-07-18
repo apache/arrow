@@ -94,7 +94,8 @@ bool ExprDecomposer::CanReuseDecomposition(const Node& node) {
     auto desc = function_node->descriptor();
     FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
     const NativeFunction* native_function = registry_.LookupSignature(signature);
-    reusable = native_function != nullptr && CanReuseNativeFunction(*native_function);
+    reusable =
+        native_function != nullptr && CanReuseNativeFunction(registry_, *native_function);
     for (const auto& child : function_node->children()) {
       reusable = reusable && CanReuseDecomposition(*child);
     }

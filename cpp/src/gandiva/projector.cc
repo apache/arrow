@@ -289,11 +289,9 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 const std::string& Projector::DumpIR() { return llvm_generator_->ir(); }
 
 Result<std::string> Projector::DumpUnoptimizedIR() {
-  ARROW_RETURN_IF(!configuration_->dump_ir(),
-                  Status::Invalid("IR dumping is not enabled for this projector"));
   ARROW_RETURN_IF(
-      built_from_cache_,
-      Status::Invalid("Unoptimized IR is unavailable for projectors built from cache"));
+      !llvm_generator_->has_unoptimized_ir(),
+      Status::Invalid("Unoptimized IR was not captured when this projector was built"));
   return llvm_generator_->unoptimized_ir();
 }
 

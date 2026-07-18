@@ -22,6 +22,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/util/macros.h"
@@ -85,6 +86,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   llvm::Module* module() { return engine_->module(); }
   const std::string& ir() { return engine_->ir(); }
   const std::string& unoptimized_ir() { return engine_->unoptimized_ir(); }
+  bool has_unoptimized_ir() const { return engine_->has_unoptimized_ir(); }
 
  private:
   explicit LLVMGenerator(bool cached,
@@ -152,6 +154,9 @@ class GANDIVA_EXPORT LLVMGenerator {
     // Generate the code to build the validity and the value for the given pair.
     LValuePtr BuildValueAndValidity(const ValueValidityPair& pair);
 
+    // Generate or reuse code for a decomposed value in the current basic block.
+    LValuePtr BuildDex(const DexPtr& dex);
+
     // Generate code to build the params.
     std::vector<llvm::Value*> BuildParams(int holder_idx,
                                           const ValueValidityPairVector& args,
@@ -189,6 +194,11 @@ class GANDIVA_EXPORT LLVMGenerator {
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;
     bool has_arena_allocs_;
+    struct CachedDexValue {
+      llvm::BasicBlock* block;
+      LValuePtr value;
+    };
+    std::unordered_map<const Dex*, CachedDexValue> dex_cache_;
   };
 
   // Generate the code for one expression for default mode, with the output of

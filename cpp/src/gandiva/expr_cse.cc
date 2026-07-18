@@ -17,13 +17,13 @@
 
 #include "gandiva/expr_cse.h"
 
-#include <sstream>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "arrow/util/hash_util.h"
 #include "gandiva/condition.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
@@ -33,10 +33,45 @@ namespace gandiva {
 
 namespace {
 
+enum class NodeKind {
+  kField,
+  kLiteral,
+  kFunction,
+};
+
+struct NodeKey {
+  NodeKind kind;
+  std::string name;
+  std::string type;
+  std::vector<size_t> children;
+
+  bool operator==(const NodeKey& other) const {
+    return kind == other.kind && name == other.name && type == other.type &&
+           children == other.children;
+  }
+};
+
+struct NodeKeyHash {
+  size_t operator()(const NodeKey& key) const {
+    size_t hash = static_cast<size_t>(key.kind);
+    arrow::internal::hash_combine(hash, key.name);
+    arrow::internal::hash_combine(hash, key.type);
+    for (auto child : key.children) {
+      arrow::internal::hash_combine(hash, child);
+    }
+    return hash;
+  }
+};
+
 struct FoldedNode {
   NodePtr node;
-  std::string key;
+  size_t id;
   bool can_eliminate;
+};
+
+struct CanonicalNode {
+  NodePtr node;
+  size_t id;
 };
 
 class CommonSubexpressionFolder {
@@ -63,17 +98,15 @@ class CommonSubexpressionFolder {
  private:
   FoldedNode Fold(const NodePtr& node) {
     if (node == nullptr) {
-      return {nullptr, "null", false};
+      return Fresh(nullptr);
     }
 
     if (auto field_node = std::dynamic_pointer_cast<FieldNode>(node)) {
-      auto key = "field:" + field_node->field()->ToString();
-      return {Intern(key, node), std::move(key), true};
+      return Intern({NodeKind::kField, field_node->field()->ToString(), "", {}}, node);
     }
 
     if (auto literal_node = std::dynamic_pointer_cast<LiteralNode>(node)) {
-      auto key = "literal:" + literal_node->ToString();
-      return {Intern(key, node), std::move(key), true};
+      return Intern({NodeKind::kLiteral, literal_node->ToString(), "", {}}, node);
     }
 
     if (auto function_node = std::dynamic_pointer_cast<FunctionNode>(node)) {
@@ -88,19 +121,17 @@ class CommonSubexpressionFolder {
       return FoldIf(node, *if_node);
     }
 
-    // InExpressionNode stores constants in unordered_sets, so ToString() is not a
-    // stable structural key. Keep it opaque in this conservative pass.
-    std::stringstream ss;
-    ss << "opaque:" << node.get();
-    return {node, ss.str(), false};
+    // InExpressionNode stores constants in unordered_sets, so keep it opaque in this
+    // conservative pass.
+    return Fresh(node);
   }
 
   FoldedNode FoldFunction(const NodePtr& original, const FunctionNode& function_node) {
     NodeVector children;
     children.reserve(function_node.children().size());
 
-    std::vector<std::string> child_keys;
-    child_keys.reserve(function_node.children().size());
+    std::vector<size_t> child_ids;
+    child_ids.reserve(function_node.children().size());
 
     bool children_unchanged = true;
     bool children_can_eliminate = true;
@@ -109,81 +140,38 @@ class CommonSubexpressionFolder {
       children_unchanged = children_unchanged && folded.node == child;
       children_can_eliminate = children_can_eliminate && folded.can_eliminate;
       children.push_back(folded.node);
-      child_keys.push_back(std::move(folded.key));
+      child_ids.push_back(folded.id);
     }
 
     auto desc = function_node.descriptor();
     auto return_type = desc->return_type() == NULLPTR ? std::string("untyped")
                                                       : desc->return_type()->ToString();
-    auto key = JoinKey("function", desc->name(), return_type, child_keys);
+    NodeKey key{NodeKind::kFunction, desc->name(), std::move(return_type),
+                std::move(child_ids)};
     auto folded_node =
         children_unchanged
             ? original
             : std::make_shared<FunctionNode>(desc->name(), children, desc->return_type());
     bool can_eliminate = children_can_eliminate && IsFunctionSafe(function_node);
-    return {can_eliminate ? Intern(key, folded_node) : folded_node, std::move(key),
-            can_eliminate};
+    return can_eliminate ? Intern(std::move(key), folded_node) : Fresh(folded_node);
   }
 
   FoldedNode FoldBoolean(const NodePtr& original, const BooleanNode& boolean_node) {
     NodeVector folded_children;
-    std::vector<std::string> folded_keys;
-    std::unordered_set<std::string> seen_eliminable_children;
+    folded_children.reserve(boolean_node.children().size());
     bool children_unchanged = true;
-    bool children_can_eliminate = true;
 
     for (const auto& child : boolean_node.children()) {
       auto folded = Fold(child);
       children_unchanged = children_unchanged && folded.node == child;
-      AppendBooleanChild(boolean_node.expr_type(), std::move(folded),
-                         &seen_eliminable_children, &folded_children, &folded_keys,
-                         &children_unchanged, &children_can_eliminate);
+      folded_children.push_back(std::move(folded.node));
     }
 
-    if (boolean_node.children().size() > 1 && folded_children.size() == 1 &&
-        children_can_eliminate) {
-      return {folded_children[0], folded_keys[0], true};
-    }
-
-    auto op = boolean_node.expr_type() == BooleanNode::AND ? "and" : "or";
-    auto key = JoinKey("boolean", op, "bool", folded_keys);
     auto folded_node =
-        children_unchanged && folded_children.size() == boolean_node.children().size()
+        children_unchanged
             ? original
             : std::make_shared<BooleanNode>(boolean_node.expr_type(), folded_children);
-    return {children_can_eliminate ? Intern(key, folded_node) : folded_node,
-            std::move(key), children_can_eliminate};
-  }
-
-  void AppendBooleanChild(BooleanNode::ExprType expr_type, FoldedNode folded,
-                          std::unordered_set<std::string>* seen_eliminable_children,
-                          NodeVector* folded_children,
-                          std::vector<std::string>* folded_keys, bool* children_unchanged,
-                          bool* children_can_eliminate) {
-    auto nested_boolean = std::dynamic_pointer_cast<BooleanNode>(folded.node);
-    if (nested_boolean != nullptr && nested_boolean->expr_type() == expr_type &&
-        folded.can_eliminate) {
-      *children_unchanged = false;
-      for (const auto& nested_child : nested_boolean->children()) {
-        auto nested_folded = Fold(nested_child);
-        AppendBooleanChild(expr_type, std::move(nested_folded), seen_eliminable_children,
-                           folded_children, folded_keys, children_unchanged,
-                           children_can_eliminate);
-      }
-      return;
-    }
-
-    if (folded.can_eliminate) {
-      if (!seen_eliminable_children->insert(folded.key).second) {
-        *children_unchanged = false;
-        return;
-      }
-    } else {
-      *children_can_eliminate = false;
-    }
-
-    folded_children->push_back(folded.node);
-    folded_keys->push_back(std::move(folded.key));
+    return Fresh(folded_node);
   }
 
   FoldedNode FoldIf(const NodePtr& original, const IfNode& if_node) {
@@ -191,13 +179,6 @@ class CommonSubexpressionFolder {
     auto then_node = Fold(if_node.then_node());
     auto else_node = Fold(if_node.else_node());
 
-    if (condition.can_eliminate && then_node.can_eliminate && else_node.can_eliminate &&
-        then_node.key == else_node.key) {
-      return then_node;
-    }
-
-    std::vector<std::string> child_keys{condition.key, then_node.key, else_node.key};
-    auto key = JoinKey("if", "", if_node.return_type()->ToString(), child_keys);
     bool children_unchanged = condition.node == if_node.condition() &&
                               then_node.node == if_node.then_node() &&
                               else_node.node == if_node.else_node();
@@ -206,7 +187,7 @@ class CommonSubexpressionFolder {
                                                 condition.node, then_node.node,
                                                 else_node.node, if_node.return_type());
 
-    return {folded_node, std::move(key), false};
+    return Fresh(folded_node);
   }
 
   bool IsFunctionSafe(const FunctionNode& node) const {
@@ -216,37 +197,24 @@ class CommonSubexpressionFolder {
     if (native_function == nullptr) {
       return false;
     }
-    return CanReuseNativeFunction(*native_function);
+    return CanReuseNativeFunction(registry_, *native_function);
   }
 
-  NodePtr Intern(const std::string& key, const NodePtr& node) {
+  FoldedNode Intern(NodeKey key, const NodePtr& node) {
     auto it = canonical_nodes_.find(key);
     if (it != canonical_nodes_.end()) {
-      return it->second;
+      return {it->second.node, it->second.id, true};
     }
-    canonical_nodes_.emplace(key, node);
-    return node;
+    auto id = next_id_++;
+    canonical_nodes_.emplace(std::move(key), CanonicalNode{node, id});
+    return {node, id, true};
   }
 
-  std::string JoinKey(const std::string& kind, const std::string& name,
-                      const std::string& return_type,
-                      const std::vector<std::string>& child_keys) const {
-    std::stringstream ss;
-    ss << kind << ":" << name << ":" << return_type << "(";
-    bool first = true;
-    for (const auto& child_key : child_keys) {
-      if (!first) {
-        ss << ",";
-      }
-      ss << child_key.size() << ":" << child_key;
-      first = false;
-    }
-    ss << ")";
-    return ss.str();
-  }
+  FoldedNode Fresh(const NodePtr& node) { return {node, next_id_++, false}; }
 
   const FunctionRegistry& registry_;
-  std::unordered_map<std::string, NodePtr> canonical_nodes_;
+  std::unordered_map<NodeKey, CanonicalNode, NodeKeyHash> canonical_nodes_;
+  size_t next_id_ = 1;
 };
 
 }  // namespace

@@ -18,16 +18,17 @@
 #pragma once
 
 #include "gandiva/expression.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
 
 namespace gandiva {
 
 class Condition;
-class FunctionRegistry;
-
-inline bool CanReuseNativeFunction(const NativeFunction& native_function) {
-  return native_function.result_nullable_type() != kResultNullInternal &&
+inline bool CanReuseNativeFunction(const FunctionRegistry& registry,
+                                   const NativeFunction& native_function) {
+  return registry.IsBuiltIn(native_function) &&
+         native_function.result_nullable_type() != kResultNullInternal &&
          !native_function.NeedsContext() && !native_function.NeedsFunctionHolder() &&
          !native_function.CanReturnErrors();
 }
