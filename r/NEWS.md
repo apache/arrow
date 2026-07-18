@@ -53,7 +53,8 @@
   positive number (#40742).
 - Stale S3 connections no longer cause a segfault during garbage collection
   (#50009).
-- Spurious warnings are no longer emitted when reading files with custom schema metadata (#48712).
+- Spurious warnings are no longer emitted when reading files with custom schema
+  metadata (#48712).
 
 ## Installation
 
