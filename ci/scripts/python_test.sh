@@ -68,10 +68,17 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
+# Convert the space-separated options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a PYTEST_ARGS_ARRAY <<< "$PYTEST_ARGS"
+
 # Testing PyArrow
-pytest -r s "${PYTEST_ARGS}" --pyargs pyarrow
+pytest -r s "${PYTEST_ARGS_ARRAY[@]}" --pyargs pyarrow
 
 # Testing RST documentation examples (if PYTEST_RST_ARGS is set)
 if [ -n "${PYTEST_RST_ARGS}" ]; then
-  pytest "${PYTEST_RST_ARGS}" "${arrow_dir}/docs/source/python"
+  # Convert the space-separated options into a Bash array.
+  # This avoids ShellCheck SC2086 and preserves argument boundaries.
+  read -r -a PYTEST_RST_ARGS_ARRAY <<< "$PYTEST_RST_ARGS"
+  pytest "${PYTEST_RST_ARGS_ARRAY[@]}" "${arrow_dir}/docs/source/python"
 fi
