@@ -20,8 +20,6 @@
 set -ex
 
 arrow_dir="${1}"
-# shellcheck disable=SC2034  # Unused variable
-test_dir="${1}/python/build/dist"
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
   # shellcheck source=/dev/null
