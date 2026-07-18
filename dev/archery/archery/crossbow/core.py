@@ -448,11 +448,11 @@ class Repo:
         return blob.data
 
     def _github_login(self, github_token=None):
-        """Returns a logged in Github instance using PyGithub"""
+        """Returns a Github instance, optionally authenticated with a token"""
         if not _have_github:
             raise ImportError('Must install PyGithub')
         github_token = github_token or self.github_token
-        if github_token is None:
+        if not github_token:
             return Github(timeout=30)
         return Github(auth=GithubAuth.Token(github_token), timeout=30)
 
