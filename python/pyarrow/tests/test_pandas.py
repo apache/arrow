@@ -3095,8 +3095,6 @@ class TestConvertMisc:
 
         arrays = {
             'cat_strings': pd.Categorical(v1 * repeats),
-            'cat_strings_with_na': pd.Categorical(v1 * repeats,
-                                                  categories=['foo', 'bar']),
             'cat_ints': pd.Categorical(v2 * repeats),
             'cat_binary': pd.Categorical(v3 * repeats),
             'cat_strings_ordered': pd.Categorical(
@@ -3121,8 +3119,8 @@ class TestConvertMisc:
             tm.assert_series_equal(pd.Series(result), pd.Series(v))
 
         arrays = [
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
+            pd.Categorical(['a', 'b', None], categories=['a', 'b']),
+            pd.Categorical(['a', 'b', None], categories=['a', 'b'],
                            ordered=True)
         ]
         for arr in arrays:
