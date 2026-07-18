@@ -3126,6 +3126,16 @@ class TestConvertMisc:
         for arr in arrays:
             _check(arr)
 
+    def test_category_construction_deprecation(self):
+        # GH-49255
+        if Version(pd.__version__) < Version("3.0.0"):
+            pytest.skip("out-of-category deprecation added in pandas 3.0")
+        with pytest.warns(
+                DeprecationWarning,
+                match="Constructing a Categorical with a dtype and "
+                      "values containing non-null entries"):
+            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'])
+
     def test_empty_category(self):
         # ARROW-2443
         df = pd.DataFrame({'cat': pd.Categorical([])})
