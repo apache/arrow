@@ -26,7 +26,7 @@ namespace arrow::internal::bpacking {
 
 #if defined(ARROW_HAVE_NEON)
 #  define UNPACK_ARCH128 unpack_neon
-#elif defined(ARROW_HAVE_SSE4_2)
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  define UNPACK_ARCH128 unpack_sse4_2
 #endif
 

@@ -18,7 +18,7 @@
 #if defined(ARROW_HAVE_NEON)
 #  define UNPACK_PLATFORM unpack_neon
 #  define KERNEL_PLATFORM KernelNeon
-#elif defined(ARROW_HAVE_SSE4_2)
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  define UNPACK_PLATFORM unpack_sse4_2
 #  define KERNEL_PLATFORM KernelSse42
 #endif
