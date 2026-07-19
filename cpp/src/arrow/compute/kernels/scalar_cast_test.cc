@@ -4145,6 +4145,103 @@ TEST(Cast, StructToStructSubsetWithNulls) {
   CheckStructToStructSubsetWithNulls(NumericTypes());
 }
 
+TEST(Cast, StructNestedNullabilityAbsentParent) {
+  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
+  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
+  auto inner_type_src = struct_({field("a", int32())});
+  auto outer_type_src = struct_({field("inner", inner_type_src)});
+
+  auto src = ArrayFromJSON(outer_type_src, R"([
+    {"inner": {"a": 1}},
+    {"inner": {"a": null}}
+  ])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
+      Cast(src, CastOptions::Safe(outer_type_dest)));
+}
+
+TEST(Cast, StructNestedNullabilityMasked) {
+  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
+  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
+  auto inner_type_src = struct_({field("a", int32())});
+  auto outer_type_src = struct_({field("inner", inner_type_src)});
+
+  auto src = ArrayFromJSON(outer_type_src, R"([
+    {"inner": {"a": 1}},
+    null
+  ])");
+  auto expected = ArrayFromJSON(outer_type_dest, R"([
+    {"inner": {"a": 1}},
+    null
+  ])");
+  CheckCast(src, expected);
+}
+
+TEST(Cast, StructNestedNullabilitySliced) {
+  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
+  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
+  auto inner_type_src = struct_({field("a", int32())});
+  auto outer_type_src = struct_({field("inner", inner_type_src)});
+
+  auto src = ArrayFromJSON(outer_type_src, R"([
+    {"inner": {"a": 1}},
+    {"inner": {"a": 2}},
+    {"inner": {"a": null}},
+    null,
+    {"inner": {"a": 5}}
+  ])");
+  auto expected = ArrayFromJSON(outer_type_dest, R"([
+    {"inner": {"a": 1}},
+    {"inner": {"a": 2}},
+    {"inner": {"a": null}},
+    null,
+    {"inner": {"a": 5}}
+  ])");
+  
+  CheckCast(src->Slice(3, 2), expected->Slice(3, 2));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
+      Cast(src->Slice(2, 2), CastOptions::Safe(outer_type_dest)));
+}
+
+TEST(Cast, StructNestedNullabilityAbsentChild) {
+  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
+  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
+  auto inner_type_src = struct_({field("a", int32())});
+  auto outer_type_src = struct_({field("inner", inner_type_src)});
+
+  auto src = ArrayFromJSON(outer_type_src, R"([
+    {"inner": {"a": 1}},
+    {"inner": {"a": 2}}
+  ])");
+  auto expected = ArrayFromJSON(outer_type_dest, R"([
+    {"inner": {"a": 1}},
+    {"inner": {"a": 2}}
+  ])");
+  CheckCast(src, expected);
+}
+
+TEST(Cast, StructNestedNullabilityDeep) {
+  auto deep_inner_dest = struct_({field("a", int32(), /*nullable=*/false)});
+  auto deep_mid_dest = struct_({field("mid", deep_inner_dest)});
+  auto deep_outer_dest = struct_({field("outer", deep_mid_dest)});
+
+  auto deep_inner_src = struct_({field("a", int32())});
+  auto deep_mid_src = struct_({field("mid", deep_inner_src)});
+  auto deep_outer_src = struct_({field("outer", deep_mid_src)});
+
+  auto src = ArrayFromJSON(deep_outer_src, R"([
+    {"outer": {"mid": {"a": 1}}},
+    null
+  ])");
+  auto expected = ArrayFromJSON(deep_outer_dest, R"([
+    {"outer": {"mid": {"a": 1}}},
+    null
+  ])");
+  CheckCast(src, expected);
+}
+
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   std::vector<std::string> src_field_names = {"a", "b"};
   std::shared_ptr<Array> a, b;

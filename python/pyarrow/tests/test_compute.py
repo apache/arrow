@@ -2395,6 +2395,49 @@ def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
             f"diff_digits = {diff_digits!r}")
 
 
+def test_cast_struct_nested_nullability():
+    # Arrow #50515: casting nested structs with non-nullable inner fields
+    # when the parent struct is nullable and marked as null
+    
+    # Target schema: outer struct is nullable, inner struct has non-nullable field
+    target_type = pa.struct([
+        pa.field('inner', pa.struct([
+            pa.field('a', pa.int32(), nullable=False)
+        ]), nullable=True)
+    ])
+    
+    # Source array: 
+    # [0] inner: {a: 1}
+    # [1] null
+    arr = pa.array([{'inner': {'a': 1}}, None])
+    
+    # Casting should succeed, propagating the null appropriately
+    result = pc.cast(arr, target_type)
+    assert result.to_pylist() == [{'inner': {'a': 1}}, None]
+    
+    # True violation: outer struct is valid, but inner struct has null field 'a'
+    arr_fail = pa.array([{'inner': {'a': 1}}, {'inner': {'a': None}}])
+    with pytest.raises(pa.ArrowInvalid, match="has nulls"):
+        pc.cast(arr_fail, target_type)
+
+    # Slice test: a larger array sliced to only include masked nulls
+    arr_large = pa.array([
+        {'inner': {'a': 1}},
+        {'inner': {'a': None}},
+        None,
+        {'inner': {'a': 5}}
+    ])
+    
+    # Slice [2:4] includes `None, {'inner': {'a': 5}}`
+    # The true violation at index 1 is excluded. MUST succeed.
+    result_sliced = pc.cast(arr_large.slice(2, 2), target_type)
+    assert result_sliced.to_pylist() == [None, {'inner': {'a': 5}}]
+
+    # Slice [1:3] includes `{'inner': {'a': None}}, None`
+    # The true violation at index 1 is included. MUST fail.
+    with pytest.raises(pa.ArrowInvalid, match="has nulls"):
+        pc.cast(arr_large.slice(1, 2), target_type)
+
 # Cannot test float32 as case generators above assume float64
 @pytest.mark.numpy
 @pytest.mark.parametrize('float_ty', [pa.float64()], ids=str)

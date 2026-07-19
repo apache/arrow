@@ -29,6 +29,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
 
@@ -384,12 +385,48 @@ struct CastStruct {
         const auto& in_field = in_type.field(in_field_index);
         const auto& in_values = (in_array.child_data[in_field_index].ToArrayData()->Slice(
             in_array.offset, in_array.length));
+
         if (in_field->nullable() && !out_field->nullable() &&
             in_values->GetNullCount() > 0) {
-          return Status::Invalid(
-              "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
-              " has nulls. Can't cast to non-nullable field '", out_field->name(),
-              "' of type ", out_field_type->ToString());
+          bool has_nulls = false;
+          const uint8_t* parent_bitmap = in_array.buffers[0].data;
+          const uint8_t* child_bitmap = in_values->buffers.empty() ? nullptr : (in_values->buffers[0] ? in_values->buffers[0]->data() : nullptr);
+
+          if (parent_bitmap == nullptr) {
+            // Parent has no nulls. Since child has nulls, they are unmasked.
+            has_nulls = true;
+          } else if (child_bitmap == nullptr) {
+            // Child has nulls but no bitmap (e.g. NullArray, RunEndEncoded, Union).
+            // We must semantically check if any valid parent element corresponds to a null child.
+            for (int64_t i = 0; i < in_array.length; ++i) {
+              if (arrow::bit_util::GetBit(parent_bitmap, in_array.offset + i) &&
+                  in_values->IsNull(i)) {
+                has_nulls = true;
+                break;
+              }
+            }
+          } else {
+            // Both parent and child have bitmaps. Check if parent is valid AND child is null.
+            arrow::internal::BinaryBitBlockCounter bit_counter(
+                parent_bitmap, in_array.offset,
+                child_bitmap, in_values->offset, in_array.length);
+            int64_t position = 0;
+            while (position < in_array.length) {
+              arrow::internal::BitBlockCount block = bit_counter.NextAndNotWord();
+              if (block.popcount > 0) {
+                has_nulls = true;
+                break;
+              }
+              position += block.length;
+            }
+          }
+
+          if (has_nulls) {
+            return Status::Invalid(
+                "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
+                " has nulls. Can't cast to non-nullable field '", out_field->name(),
+                "' of type ", out_field_type->ToString());
+          }
         }
         ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(in_values, out_field_type, options,
                                                       ctx->exec_context()));
