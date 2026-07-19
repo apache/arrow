@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -60,7 +60,7 @@ jobs:
             ruby-dev \
             libuv1-dev
       - name: Cache pre-commit
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/pre-commit
@@ -88,7 +88,7 @@ jobs:
       GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

@@ -419,11 +419,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto field_radians = arrow::field("radians", arrow::float64());
   auto field_degrees = arrow::field("degrees", arrow::float64());
   auto field_udfdegrees = arrow::field("udfdegrees", arrow::float64());
+  auto field_ln = arrow::field("ln", arrow::float64());
 
   // Build expression
   auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
   auto exp_expr = TreeExprBuilder::MakeExpression("exp", {field0}, field_exp);
   auto log_expr = TreeExprBuilder::MakeExpression("log", {field0}, field_log);
+  auto ln_expr = TreeExprBuilder::MakeExpression("ln", {field0}, field_ln);
   auto log10_expr = TreeExprBuilder::MakeExpression("log10", {field0}, field_log10);
   auto logb_expr = TreeExprBuilder::MakeExpression("log", {field0, field1}, field_logb);
   auto power_expr =
@@ -447,10 +449,11 @@ TEST_F(TestProjector, TestExtendedMath) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema, {cbrt_expr,  exp_expr,  log_expr,     log10_expr,   logb_expr,
-               power_expr, sin_expr,  cos_expr,     asin_expr,    acos_expr,
-               tan_expr,   atan_expr, sinh_expr,    cosh_expr,    tanh_expr,
-               atan2_expr, cot_expr,  radians_expr, degrees_expr, udfdegrees_expr},
+      schema,
+      {cbrt_expr,    exp_expr,     log_expr,       ln_expr,   log10_expr, logb_expr,
+       power_expr,   sin_expr,     cos_expr,       asin_expr, acos_expr,  tan_expr,
+       atan_expr,    sinh_expr,    cosh_expr,      tanh_expr, atan2_expr, cot_expr,
+       radians_expr, degrees_expr, udfdegrees_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -484,10 +487,12 @@ TEST_F(TestProjector, TestExtendedMath) {
   std::vector<double> radians_vals;
   std::vector<double> degrees_vals;
   std::vector<double> udfdegrees_vals;
+  std::vector<double> ln_vals;
   for (int i = 0; i < num_records; i++) {
     cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
     exp_vals.push_back(static_cast<double>(expl(input0[i])));
     log_vals.push_back(static_cast<double>(logl(input0[i])));
+    ln_vals.push_back(static_cast<double>(logl(input0[i])));
     log10_vals.push_back(static_cast<double>(log10l(input0[i])));
     logb_vals.push_back(static_cast<double>(logl(input1[i]) / logl(input0[i])));
     power_vals.push_back(static_cast<double>(powl(input0[i], input1[i])));
@@ -529,6 +534,7 @@ TEST_F(TestProjector, TestExtendedMath) {
       MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
   auto expected_udfdegrees =
       MakeArrowArray<arrow::DoubleType, double>(udfdegrees_vals, validity);
+  auto expected_ln = MakeArrowArray<arrow::DoubleType, double>(ln_vals, validity);
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -539,26 +545,28 @@ TEST_F(TestProjector, TestExtendedMath) {
 
   // Validate results
   double epsilon = 1E-13;
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cbrt, outputs.at(0), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_exp, outputs.at(1), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log, outputs.at(2), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log10, outputs.at(3), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_logb, outputs.at(4), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_power, outputs.at(5), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sin, outputs.at(6), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cos, outputs.at(7), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_asin, outputs.at(8), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_acos, outputs.at(9), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tan, outputs.at(10), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan, outputs.at(11), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sinh, outputs.at(12), 1E-08);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cosh, outputs.at(13), 1E-08);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tanh, outputs.at(14), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan2, outputs.at(15), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(16), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(17), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(18), epsilon);
-  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_udfdegrees, outputs.at(19), epsilon);
+  int index = 0;
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cbrt, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_exp, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_ln, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log10, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_logb, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_power, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sin, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cos, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_asin, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_acos, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tan, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sinh, outputs.at(index++), 1E-08);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cosh, outputs.at(index++), 1E-08);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tanh, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan2, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(index++), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_udfdegrees, outputs.at(index++), epsilon);
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {

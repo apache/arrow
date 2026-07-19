@@ -595,7 +595,9 @@ class Converter_Dictionary : public Converter {
         case Type::UINT16:
         case Type::INT16:
         case Type::INT32:
-          // TODO: also add int64, uint32, uint64 downcasts, if possible
+        case Type::UINT32:
+        case Type::INT64:
+        case Type::UINT64:
           break;
         default:
           cpp11::stop("Cannot convert Dictionary Array of type `%s` to R",
@@ -611,6 +613,16 @@ class Converter_Dictionary : public Converter {
       } else {
         dictionary_ = CreateEmptyArray(dict_type.value_type());
       }
+    }
+
+    // R factors store their codes in 32-bit integers, so dictionary arrays with
+    // more levels than that cannot be represented safely.
+    if (dictionary_->length() > std::numeric_limits<int>::max()) {
+      const auto& dict_type = checked_cast<const DictionaryType&>(*chunked_array->type());
+      cpp11::stop(
+          "Cannot convert Dictionary Array of type `%s` to R: dictionary has "
+          "more levels than an R factor can represent",
+          dict_type.ToString().c_str());
     }
   }
 
@@ -653,6 +665,15 @@ class Converter_Dictionary : public Converter {
       case Type::INT32:
         return Ingest_some_nulls_Impl<arrow::Int32Type>(data, array, start, n,
                                                         chunk_index);
+      case Type::UINT32:
+        return Ingest_some_nulls_Impl<arrow::UInt32Type>(data, array, start, n,
+                                                         chunk_index);
+      case Type::INT64:
+        return Ingest_some_nulls_Impl<arrow::Int64Type>(data, array, start, n,
+                                                        chunk_index);
+      case Type::UINT64:
+        return Ingest_some_nulls_Impl<arrow::UInt64Type>(data, array, start, n,
+                                                         chunk_index);
       default:
         break;
     }
@@ -704,7 +725,8 @@ class Converter_Dictionary : public Converter {
     // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
-    if (dictionary_->type_id() != Type::STRING) {
+    if (dictionary_->type_id() != Type::STRING &&
+        dictionary_->type_id() != Type::LARGE_STRING) {
       cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
@@ -1274,13 +1296,8 @@ std::shared_ptr<Converter> Converter::Make(
       }
 
     case Type::UINT64:
-      if (ArraysCanFitInteger(chunked_array->chunks())) {
-        return std::make_shared<arrow::r::Converter_Int<arrow::UInt64Type>>(
-            chunked_array);
-      } else {
-        return std::make_shared<arrow::r::Converter_Double<arrow::UInt64Type>>(
-            chunked_array);
-      }
+      return std::make_shared<arrow::r::Converter_Double<arrow::UInt64Type>>(
+          chunked_array);
 
     case Type::HALF_FLOAT:
       return std::make_shared<arrow::r::Converter_Double<arrow::HalfFloatType>>(

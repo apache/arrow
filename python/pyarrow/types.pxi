@@ -186,9 +186,7 @@ def _get_pandas_tz_type(arrow_type, coerce_to_ns=False):
 
 
 def _to_pandas_dtype(arrow_type, options=None):
-    coerce_to_ns = (options and options.get('coerce_temporal_nanoseconds', False)) or (
-        _pandas_api.is_v1() and arrow_type.id in
-        [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION])
+    coerce_to_ns = bool(options and options.get('coerce_temporal_nanoseconds', False))
 
     if getattr(arrow_type, 'tz', None):
         dtype = _get_pandas_tz_type(arrow_type, coerce_to_ns)
@@ -4166,7 +4164,7 @@ def tzinfo_to_string(tz):
     return frombytes(GetResultValue(TzinfoToString(<PyObject*>tz)))
 
 
-def string_to_tzinfo(name):
+def string_to_tzinfo(name, *, prefer_zoneinfo=True):
     """
     Convert a time zone name into a time zone object.
 
@@ -4177,15 +4175,21 @@ def string_to_tzinfo(name):
 
     Parameters
     ----------
-      name: str
+    name: str
         Time zone name.
+    prefer_zoneinfo : bool, default True
+        If True, resolve named timezones using ``zoneinfo`` first and only
+        fall back to ``pytz`` when needed. If False, prefer ``pytz`` when it
+        is available.
 
     Returns
     -------
       tz : datetime.tzinfo
         Time zone object
     """
-    cdef PyObject* tz = GetResultValue(StringToTzinfo(name.encode('utf-8')))
+    cdef PyObject* tz = GetResultValue(
+        StringToTzinfo(name.encode('utf-8'), prefer_zoneinfo)
+    )
     return PyObject_to_object(tz)
 
 

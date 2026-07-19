@@ -2073,7 +2073,9 @@ function(build_protobuf)
         "-DCMAKE_C_FLAGS="
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
+        -Dprotobuf_DEBUG_POSTFIX=
+        # OFF to avoid conda include dirs leaking into vendored Abseil
+        -Dprotobuf_WITH_ZLIB=OFF)
     if(ABSL_VENDORED)
       # Force protobuf to reuse Arrow's already-extracted absl source
       # so we don't re-download and we don't have issues with multiple abseil.
@@ -2782,34 +2784,34 @@ if(ARROW_BUILD_BENCHMARKS)
                      FALSE)
 endif()
 
-macro(build_rapidjson)
-  message(STATUS "Building RapidJSON from source")
-  set(RAPIDJSON_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
-  set(RAPIDJSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DRAPIDJSON_BUILD_DOC=OFF
-      -DRAPIDJSON_BUILD_EXAMPLES=OFF
-      -DRAPIDJSON_BUILD_TESTS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+function(build_rapidjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "RapidJSON: ")
+  message(STATUS "Building from source")
 
-  externalproject_add(rapidjson_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${RAPIDJSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
-
-  set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
+  fetchcontent_declare(rapidjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${RAPIDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
+  set(CCACHE_FOUND OFF)
+  set(LIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+  set(RAPIDJSON_BUILD_DOC OFF)
+  set(RAPIDJSON_BUILD_EXAMPLES OFF)
+  set(RAPIDJSON_BUILD_TESTS OFF)
+  fetchcontent_makeavailable(rapidjson)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${rapidjson_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   add_library(RapidJSON INTERFACE IMPORTED)
-  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
-  add_dependencies(RapidJSON rapidjson_ep)
+  target_include_directories(RapidJSON INTERFACE "${rapidjson_SOURCE_DIR}/include")
+  add_dependencies(RapidJSON rapidjson)
 
-  set(RAPIDJSON_VENDORED TRUE)
-endmacro()
+  set(RAPIDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
@@ -2822,51 +2824,51 @@ if(ARROW_WITH_RAPIDJSON)
                      FALSE)
 endif()
 
-macro(build_xsimd)
+function(build_xsimd)
+  list(APPEND CMAKE_MESSAGE_INDENT "xsimd: ")
   message(STATUS "Building xsimd from source")
-  set(XSIMD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xsimd_ep/src/xsimd_ep-install")
-  set(XSIMD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${XSIMD_PREFIX}")
 
-  externalproject_add(xsimd_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${XSIMD_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
+  prepare_fetchcontent()
+  fetchcontent_declare(xsimd
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${XSIMD_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(xsimd)
 
-  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${XSIMD_INCLUDE_DIR}")
-
-  add_library(arrow::xsimd INTERFACE IMPORTED)
-  target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-  add_dependencies(arrow::xsimd xsimd_ep)
-
-  set(XSIMD_VENDORED TRUE)
-endmacro()
-
-if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
-                                             ))
-  set(ARROW_USE_XSIMD TRUE)
-else()
-  set(ARROW_USE_XSIMD FALSE)
-endif()
-
-if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE
-                     IS_RUNTIME_DEPENDENCY
-                     FALSE
-                     REQUIRED_VERSION
-                     "14.0.0")
-
-  if(xsimd_SOURCE STREQUAL "BUNDLED")
-    set(ARROW_XSIMD arrow::xsimd)
-  else()
-    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
-    set(ARROW_XSIMD xsimd)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${xsimd_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
+
+  set(xsimd_INCLUDE_DIR "${xsimd_SOURCE_DIR}/include")
+  add_library(arrow::xsimd INTERFACE IMPORTED)
+  target_include_directories(arrow::xsimd INTERFACE "${xsimd_INCLUDE_DIR}")
+
+  set(XSIMD_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(xsimd_INCLUDE_DIR
+      "${xsimd_INCLUDE_DIR}"
+      PARENT_SCOPE)
+  set(xsimd_FOUND
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# Xsimd is mandatory as its CPU feature detection is the basis for Arrow CpuInfo
+resolve_dependency(xsimd
+                   FORCE_ANY_NEWER_VERSION
+                   TRUE
+                   IS_RUNTIME_DEPENDENCY
+                   FALSE
+                   REQUIRED_VERSION
+                   "14.2.0")
+
+if(xsimd_SOURCE STREQUAL "BUNDLED")
+  set(ARROW_XSIMD arrow::xsimd)
+else()
+  message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+  set(ARROW_XSIMD xsimd)
 endif()
 
 macro(build_zlib)
@@ -3073,6 +3075,7 @@ function(build_re2)
 
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
+  set(RE2_BUILD_TESTING OFF)
 
   fetchcontent_makeavailable(re2)
 
@@ -3582,9 +3585,9 @@ function(build_google_cloud_cpp_storage)
   # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
   # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+  find_program(PATCH patch)
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11")
     # This is for RTools 40.
-    find_program(PATCH patch)
     if(PATCH)
       set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
           ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
@@ -3595,6 +3598,16 @@ function(build_google_cloud_cpp_storage)
             ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
       endif()
     endif()
+  endif()
+
+  # Reproducible builds are only a requirement for the Linux packaging jobs.
+  if(PATCH AND NOT WIN32)
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
   endif()
 
   fetchcontent_declare(google_cloud_cpp
@@ -4027,6 +4040,15 @@ function(build_awssdk)
   prepare_fetchcontent()
   set(BUILD_DEPS OFF)
   set(BUILD_TOOL OFF)
+  # This is for aws-lc. -ffile-prefix-map is needed for reproducible
+  # builds. If ASM flags doesn't have --file-prefix-map, it may
+  # produce different binaries. Only aws-lc uses assembler. So this is
+  # for aws-lc.
+  if(CMAKE_CXX_FLAGS MATCHES "-ffile-prefix-map=" AND NOT CMAKE_ASM_FLAGS MATCHES
+                                                      "-ffile-prefix-map=")
+    string(REGEX MATCH " -ffile-prefix-map=[^ ]+ " FFILE_PREFIX_MAP "${CMAKE_CXX_FLAGS}")
+    string(APPEND CMAKE_ASM_FLAGS "${FFILE_PREFIX_MAP}")
+  endif()
   set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
   set(ENABLE_TESTING OFF)
   set(IN_SOURCE_BUILD ON)

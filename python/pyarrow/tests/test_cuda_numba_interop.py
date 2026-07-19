@@ -23,7 +23,7 @@ except ImportError:
     pytestmark = pytest.mark.numpy
 
 dtypes = ['uint8', 'int16', 'float32']
-cuda = pytest.importorskip("pyarrow.cuda")
+cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
 nb_cuda = pytest.importorskip("numba.cuda")
 
 from numba.cuda.cudadrv.devicearray import DeviceNDArray  # noqa: E402

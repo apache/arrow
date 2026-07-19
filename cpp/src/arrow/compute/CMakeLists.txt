@@ -70,6 +70,7 @@ set(ARROW_COMPUTE_TEST_ARGS PREFIX ${ARROW_COMPUTE_TEST_PREFIX} LABELS
 # Also see: GH-34388, GH-34615
 function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   if(NOT ARROW_COMPUTE)
+    # libarrow_compute is not enabled, skip building test
     return()
   endif()
 
@@ -109,6 +110,11 @@ endfunction()
 # part of libarrow.
 # It will also link the compute libraries to the benchmark target.
 function(add_arrow_compute_benchmark REL_TEST_NAME)
+  if(NOT ARROW_COMPUTE)
+    # libarrow_compute is not enabled, skip building benchmark
+    return()
+  endif()
+
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args EXTRA_SOURCES EXTRA_LINK_LIBS)

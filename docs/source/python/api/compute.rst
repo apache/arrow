@@ -95,6 +95,7 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    exp
    expm1
+   hypot
    multiply
    multiply_checked
    negate

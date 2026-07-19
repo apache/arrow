@@ -17,14 +17,13 @@
 
 ARG repo
 ARG arch
-FROM ${repo}:${arch}-conda
+ARG arch_short
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
-# Unless overridden use Python 3.10
-# Google GCS fails building with Python 3.11 at the moment.
-ARG python=3.10
+ARG python=3.11
 
 # install the required conda packages into the test environment
 # use `mold` to work around issues with GNU `ld` (GH-47015).

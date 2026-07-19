@@ -35,26 +35,26 @@ namespace compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
  public:
-  explicit FunctionRegistryImpl(FunctionRegistryImpl* parent = NULLPTR)
+  explicit FunctionRegistryImpl(FunctionRegistryImpl* parent = nullptr)
       : parent_(parent) {}
   ~FunctionRegistryImpl() {}
 
   Status CanAddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
     }
     return DoAddFunction(function, allow_overwrite, /*add=*/false);
   }
 
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
     }
     return DoAddFunction(function, allow_overwrite, /*add=*/true);
   }
 
   Status CanAddAlias(const std::string& target_name, const std::string& source_name) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunctionName(target_name,
                                                 /*allow_overwrite=*/false));
     }
@@ -62,7 +62,7 @@ class FunctionRegistry::FunctionRegistryImpl {
   }
 
   Status AddAlias(const std::string& target_name, const std::string& source_name) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunctionName(target_name,
                                                 /*allow_overwrite=*/false));
     }
@@ -71,7 +71,7 @@ class FunctionRegistry::FunctionRegistryImpl {
 
   Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
                                    bool allow_overwrite = false) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunctionOptionsType(options_type, allow_overwrite));
     }
     return DoAddFunctionOptionsType(options_type, allow_overwrite, /*add=*/false);
@@ -79,7 +79,7 @@ class FunctionRegistry::FunctionRegistryImpl {
 
   Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
                                 bool allow_overwrite = false) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunctionOptionsType(options_type, allow_overwrite));
     }
     return DoAddFunctionOptionsType(options_type, allow_overwrite, /*add=*/true);
@@ -88,7 +88,7 @@ class FunctionRegistry::FunctionRegistryImpl {
   Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const {
     auto it = name_to_function_.find(name);
     if (it == name_to_function_.end()) {
-      if (parent_ != NULLPTR) {
+      if (parent_ != nullptr) {
         return parent_->GetFunction(name);
       }
       return Status::KeyError("No function registered with name: ", name);
@@ -98,7 +98,7 @@ class FunctionRegistry::FunctionRegistryImpl {
 
   std::vector<std::string> GetFunctionNames() const {
     std::vector<std::string> results;
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       results = parent_->GetFunctionNames();
     }
     for (auto it : name_to_function_) {
@@ -112,7 +112,7 @@ class FunctionRegistry::FunctionRegistryImpl {
       const std::string& name) const {
     auto it = name_to_options_type_.find(name);
     if (it == name_to_options_type_.end()) {
-      if (parent_ != NULLPTR) {
+      if (parent_ != nullptr) {
         return parent_->GetFunctionOptionsType(name);
       }
       return Status::KeyError("No function options type registered with name: ", name);
@@ -121,7 +121,7 @@ class FunctionRegistry::FunctionRegistryImpl {
   }
 
   int num_functions() const {
-    return (parent_ == NULLPTR ? 0 : parent_->num_functions()) +
+    return (parent_ == nullptr ? 0 : parent_->num_functions()) +
            static_cast<int>(name_to_function_.size());
   }
 
@@ -130,7 +130,7 @@ class FunctionRegistry::FunctionRegistryImpl {
  private:
   // must not acquire mutex
   Status CanAddFunctionName(const std::string& name, bool allow_overwrite) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddFunctionName(name, allow_overwrite));
     }
     if (!allow_overwrite) {
@@ -144,7 +144,7 @@ class FunctionRegistry::FunctionRegistryImpl {
 
   // must not acquire mutex
   Status CanAddOptionsTypeName(const std::string& name, bool allow_overwrite) {
-    if (parent_ != NULLPTR) {
+    if (parent_ != nullptr) {
       RETURN_NOT_OK(parent_->CanAddOptionsTypeName(name, allow_overwrite));
     }
     if (!allow_overwrite) {

@@ -34,7 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  # Required for the GraphQL convertPullRequestToDraft mutation.
+  contents: write
   pull-requests: write
   issues: write
   
@@ -43,7 +44,7 @@ jobs:
     name: Process
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: apache/arrow
           ref: main

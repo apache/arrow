@@ -91,7 +91,7 @@ jobs:
       TEST_APT: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -135,7 +135,7 @@ jobs:
       TEST_BINARY: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Run
@@ -160,7 +160,7 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-python@v6
@@ -208,7 +208,7 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Run
@@ -228,7 +228,7 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: recursive
@@ -263,7 +263,7 @@ jobs:
       TEST_YUM: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

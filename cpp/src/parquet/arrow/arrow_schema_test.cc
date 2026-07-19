@@ -1728,40 +1728,35 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
-  // parquet_arrow will always generate 3-level LIST encodings
+  // parquet_arrow will always generate this 3-level LIST encoding for list-like
+  // non-null Arrow arrays with nullable string elements:
+  //
+  // required group my_list (LIST) {
+  //   repeated group list {
+  //     optional binary element (UTF8);
+  //   }
+  // }
+  auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
+                                     ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+  auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  auto parquet_field =
+      GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST);
 
-  // // LargeList<String> (list-like non-null, elements nullable)
-  // required group my_list (LIST) {
-  //   repeated group list {
-  //     optional binary element (UTF8);
-  //   }
-  // }
-  {
-    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
-                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
-    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
-    parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
-    auto arrow_element = ::arrow::field("string", UTF8, true);
-    auto arrow_list = ::arrow::large_list(arrow_element);
-    arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
-  }
-  // // FixedSizeList[10]<String> (list-like non-null, elements nullable)
-  // required group my_list (LIST) {
-  //   repeated group list {
-  //     optional binary element (UTF8);
-  //   }
-  // }
-  {
-    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
-                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
-    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
-    parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
-    auto arrow_element = ::arrow::field("string", UTF8, true);
-    auto arrow_list = ::arrow::fixed_size_list(arrow_element, 10);
-    arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
-  }
+  auto AddListLikeField = [&](std::shared_ptr<::arrow::DataType> arrow_list) {
+    parquet_fields.push_back(parquet_field);
+    arrow_fields.push_back(::arrow::field("my_list", std::move(arrow_list), false));
+  };
+
+  auto arrow_element = ::arrow::field("string", UTF8, true);
+
+  // LargeList<String> (list-like non-null, elements nullable)
+  AddListLikeField(::arrow::large_list(arrow_element));
+  // ListView<String> (list-like non-null, elements nullable)
+  AddListLikeField(::arrow::list_view(arrow_element));
+  // LargeListView<String> (list-like non-null, elements nullable)
+  AddListLikeField(::arrow::large_list_view(arrow_element));
+  // FixedSizeList[10]<String> (list-like non-null, elements nullable)
+  AddListLikeField(::arrow::fixed_size_list(arrow_element, 10));
 
   ASSERT_OK(ConvertSchema(arrow_fields));
 

@@ -1209,8 +1209,8 @@ of these types:
 * DictionaryBatch
 
 We specify a so-called *encapsulated IPC message* format which
-includes a serialized Flatbuffer type along with an optional message
-body. We define this message format before describing how to serialize
+includes a serialized Flatbuffers metadata message along with an optional
+message body. We define this message format before describing how to serialize
 each constituent IPC message type.
 
 .. _ipc-message-format:
@@ -1238,7 +1238,7 @@ The encapsulated binary message format is as follows:
 Schematically, we have: ::
 
     <continuation: 0xFFFFFFFF>
-    <metadata_size: int32>
+    <metadata_size: little-endian int32>
     <metadata_flatbuffer: bytes>
     <padding>
     <message body>
@@ -1248,8 +1248,8 @@ can be relocated between streams. Otherwise the amount of padding between the
 metadata and the message body could be non-deterministic.
 
 The ``metadata_size`` includes the size of the ``Message`` plus
-padding. The ``metadata_flatbuffer`` contains a serialized ``Message``
-Flatbuffer value, which internally includes:
+padding. The ``metadata_flatbuffer`` contains a Flatbuffers-serialized
+``Message`` value, which internally includes:
 
 * A version number
 * A particular message value (one of ``Schema``, ``RecordBatch``, or
@@ -1264,11 +1264,11 @@ can be read.
 Schema message
 --------------
 
-The Flatbuffers files `Schema.fbs`_ contains the definitions for all
+The Flatbuffers definition file `Schema.fbs`_ contains the definitions for all
 built-in data types and the ``Schema`` metadata type which represents
 the schema of a given record batch. A schema consists of an ordered
 sequence of fields, each having a name and type. A serialized ``Schema``
-does not contain any data buffers, only type metadata.
+does not contain any body, only metadata.
 
 The ``Field`` Flatbuffers type contains the metadata for a single
 array. This includes:
@@ -1287,7 +1287,7 @@ array. This includes:
 
 We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
-own application defined metadata to customize behavior.
+own application-defined metadata to customize behavior.
 
 .. _ipc-recordbatch-message:
 
@@ -1302,17 +1302,18 @@ thus no memory copying.
 
 The serialized form of the record batch is the following:
 
-* The ``data header``, defined as the ``RecordBatch`` type in
-  `Message.fbs`_.
-* The ``body``, a flat sequence of memory buffers written end-to-end
-  with appropriate padding to ensure a minimum of 8-byte alignment
+* The metadata describing the record batch layout, defined as the ``RecordBatch``
+  type in `Message.fbs`_.
+* The record batch body, a flat sequence of binary buffers written end-to-end,
+  with appropriate padding between each of them to ensure a minimum of 8-byte
+  alignment.
 
-The data header contains the following:
+The record batch metadata contains the following:
 
 * The length and null count for each flattened field in the record
-  batch
+  batch.
 * The memory offset and length of each constituent ``Buffer`` in the
-  record batch's body
+  record batch's body.
 
 Fields and buffers are flattened by a pre-order depth-first traversal
 of the fields in the record batch. For example, let's consider the
@@ -1333,22 +1334,21 @@ The flattened version of this is: ::
 For the buffers produced, we would have the following (refer to the
 table above): ::
 
-    buffer 0: field 0 validity
-    buffer 1: field 1 validity
-    buffer 2: field 1 values
-    buffer 3: field 2 validity
-    buffer 4: field 2 offsets
-    buffer 5: field 3 validity
-    buffer 6: field 3 values
-    buffer 7: field 4 validity
-    buffer 8: field 4 values
-    buffer 9: field 5 validity
-    buffer 10: field 5 offsets
-    buffer 11: field 5 data
+    buffer 0: field 0 ('col1') validity
+    buffer 1: field 1 ('col1.a') validity
+    buffer 2: field 1 ('col1.a') values
+    buffer 3: field 2 ('col1.b') validity
+    buffer 4: field 2 ('col1.b') offsets
+    buffer 5: field 3 ('col1.b.item') validity
+    buffer 6: field 3 ('col1.b.item') values
+    buffer 7: field 4 ('col1.c') validity
+    buffer 8: field 4 ('col1.c') values
+    buffer 9: field 5 ('col2') validity
+    buffer 10: field 5 ('col2') offsets
+    buffer 11: field 5 ('col2') data
 
-The ``Buffer`` Flatbuffers value describes the location and size of a
-piece of memory. Generally these are interpreted relative to the
-**encapsulated message format** defined below.
+The ``Buffer`` Flatbuffers value describes the location and size of a buffer's
+data, relative to the start of the RecordBatch message's body.
 
 The ``size`` field of ``Buffer`` is not required to account for padding
 bytes. Since this metadata can be used to communicate in-memory pointer
@@ -1391,6 +1391,7 @@ have two entries in each RecordBatch. For a RecordBatch of this schema with
     buffer 12: col2    data
     buffer 13: col2    data
 
+.. _buffer-compression:
 
 Compression
 -----------
@@ -1452,18 +1453,19 @@ serialized form is as follows:
    ratios.
 
 Byte Order (`Endianness`_)
----------------------------
+--------------------------
 
-The Arrow format is little endian by default.
+The Arrow IPC format is little-endian by default.
 
-Serialized Schema metadata has an endianness field indicating
-endianness of RecordBatches. Typically this is the endianness of the
-system where the RecordBatch was generated. The main use case is
-exchanging RecordBatches between systems with the same Endianness.  At
-first we will return an error when trying to read a Schema with an
-endianness that does not match the underlying system. The reference
-implementation is focused on Little Endian and provides tests for
-it. Eventually we may provide automatic conversion via byte swapping.
+Serialized Schema metadata has an endianness field indicating the endianness of
+Arrow data in all the RecordBatch and DictionaryBatch message bodies.
+Typically this is the endianness of the system where the Arrow data was generated.
+While some IPC reader implementations may allow for byte-swapping when reading
+an IPC Stream or File with non-native endianness, other implementations may simply
+refuse reading such data.
+
+Note that the endianness field only applies to RecordBatch and DictionaryBatch
+message bodies, not to message metadata or any other signaling in the IPC formats.
 
 IPC Streaming Format
 --------------------
@@ -1483,7 +1485,7 @@ a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
     <DICTIONARY k - 1>
     <RECORD BATCH 0>
     ...
-    <DICTIONARY x DELTA>
+    <DICTIONARY x REPLACEMENT>
     ...
     <DICTIONARY y DELTA>
     ...
@@ -1502,9 +1504,14 @@ message flatbuffer is read, you can then read the message body.
 
 The stream writer can signal end-of-stream (EOS) either by writing 8 bytes
 containing the 4-byte continuation indicator (``0xFFFFFFFF``) followed by 0
-metadata length (``0x00000000``) or closing the stream interface. We
-recommend the ".arrows" file extension for the streaming format although
-in many cases these streams will not ever be stored as files.
+metadata length (``0x00000000``) or closing the stream interface.
+
+File extension and MIME type
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+IPC Streams are not typically stored as files, but when they are, we recommend
+the ".arrows" file extension. The registered MIME type for IPC Streams is
+`vnd.apache.arrow.stream`_.
 
 IPC File Format
 ---------------
@@ -1524,21 +1531,55 @@ Schematically we have: ::
     <empty padding bytes [to 8 byte boundary]>
     <STREAMING FORMAT with EOS>
     <FOOTER>
-    <FOOTER SIZE: int32>
+    <FOOTER SIZE: little-endian int32>
     <magic number "ARROW1">
 
-In the file format, there is no requirement that dictionary keys
-should be defined in a ``DictionaryBatch`` before they are used in a
-``RecordBatch``, as long as the keys are defined somewhere in the
-file. Further more, it is invalid to have more than one **non-delta**
-dictionary batch per dictionary ID (i.e. dictionary replacement is not
-supported). Delta dictionaries are applied in the order they appear in
-the file footer. We recommend the ".arrow" extension for files created with
-this format. Note that files created with this format are sometimes called
-"Feather V2" or with the ".feather" extension, the name and the extension
-derived from "Feather (V1)", which was a proof of concept early in
-the Arrow project for language-agnostic fast data frame storage for
-Python (pandas) and R.
+Equivalence with the IPC Streaming Format
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since the IPC file footer duplicates information already found in the embedded IPC
+stream, there is a theoretical possibility that said information diverges. However,
+we request that compliant IPC file writers follow these guidelines:
+
+1. The metadata version, schema and custom metadata serialized in the IPC file
+   footer (as part of the ``Footer`` Flatbuffers table) MUST be identical to the
+   metadata version, schema and custom metadata serialized at the beginning of
+   the embedded IPC stream (as part of the first ``Message`` Flatbuffers table).
+
+2. The dictionaries and record batches serialized in the IPC file footer
+   SHOULD be listed in the same order as they appear in the embedded IPC stream,
+   such that reading the Arrow data from the IPC file footer yields
+   the same contents as reading the Arrow data from the embedded IPC stream
+   (ignoring the IPC file footer).
+
+Deviations from the IPC Streaming Format
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The random accessible nature of IPC Files leads to semantic differences when
+decoding dictionary-encoded data:
+
+1. While the IPC Streaming format requires that all initial dictionary batches
+   are emitted before any record batch, there is no such requirement in the IPC
+   File format.
+
+2. The IPC File format does not support dictionary replacement, i.e. only one
+   non-delta dictionary batch can be emitted for a given dictionary ID.
+
+3. Delta dictionary batches in an IPC File are applied in the order they appear
+   in the file footer.
+
+File extension and MIME type
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We recommend the ".arrow" extension for IPC Files. The registered MIME type for
+IPC Files is `vnd.apache.arrow.file`_.
+
+.. admonition:: Historical note
+
+   Files created with this format were sometimes called "Feather V2" or
+   named with the ".feather" extension, stemming from "Feather (V1)", a proof of
+   concept early in the Arrow project for fast language-agnostic dataframe storage
+   supporting only a small subset of Arrow types.
 
 Dictionary Messages
 -------------------
@@ -1728,3 +1769,5 @@ the Arrow spec.
 .. _SIMD: https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-8/simd-data-layout-templates.html
 .. _Parquet: https://parquet.apache.org/docs/
 .. _UmbraDB: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf
+.. _vnd.apache.arrow.stream: https://www.iana.org/assignments/media-types/application/vnd.apache.arrow.stream
+.. _vnd.apache.arrow.file: https://www.iana.org/assignments/media-types/application/vnd.apache.arrow.file

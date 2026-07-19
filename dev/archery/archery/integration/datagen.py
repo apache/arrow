@@ -144,6 +144,7 @@ class NullField(PrimitiveField):
 
 TEST_INT_MAX = 2 ** 31 - 1
 TEST_INT_MIN = ~TEST_INT_MAX
+BINARY_VIEW_INLINE_SIZE = 12
 
 
 class IntegerField(PrimitiveField):
@@ -625,14 +626,19 @@ class StringField(BinaryField):
     def _get_type(self):
         return OrderedDict([('name', 'utf8')])
 
+    def _random_string_size(self):
+        return 7
+
+    def _random_value(self):
+        return tobytes(random_utf8(self._random_string_size()))
+
     def generate_column(self, size, name=None):
-        K = 7
         is_valid = self._make_is_valid(size)
         values = []
 
         for i in range(size):
             if is_valid[i]:
-                values.append(tobytes(random_utf8(K)))
+                values.append(self._random_value())
             else:
                 values.append(b"")
 
@@ -671,6 +677,14 @@ class BinaryViewField(BinaryField):
         return OrderedDict([('name', 'binaryview')])
 
 
+class InlineBinaryViewField(BinaryViewField):
+    # Generate only inline values, leaving no variadic data buffers.
+
+    def _random_sizes(self, size):
+        return np.random.randint(0, BINARY_VIEW_INLINE_SIZE + 1, size=size,
+                                 dtype=np.int32)
+
+
 class StringViewField(StringField):
 
     @property
@@ -679,6 +693,19 @@ class StringViewField(StringField):
 
     def _get_type(self):
         return OrderedDict([('name', 'utf8view')])
+
+
+class InlineStringViewField(StringViewField):
+
+    def _random_string_size(self):
+        # The test alphabet contains up to 3-byte UTF-8 code points, so four
+        # characters fit in the 12-byte inline representation.
+        return 4
+
+    def _random_value(self):
+        value = super()._random_value()
+        assert len(value) <= BINARY_VIEW_INLINE_SIZE
+        return value
 
 
 class Schema(object):
@@ -771,14 +798,13 @@ class BinaryViewColumn(PrimitiveColumn):
         # a small default data buffer size is used so we can exercise
         # arrays with multiple data buffers with small data sets
         DEFAULT_BUFFER_SIZE = 32
-        INLINE_SIZE = 12
 
         for i, v in enumerate(self.values):
             if not self.is_valid[i]:
                 v = b''
             assert isinstance(v, bytes)
 
-            if len(v) <= INLINE_SIZE:
+            if len(v) <= BINARY_VIEW_INLINE_SIZE:
                 # Append an inline view, skip data buffer management.
                 views.append(OrderedDict([
                     ('SIZE', len(v)),
@@ -1784,6 +1810,8 @@ def generate_binary_view_case():
     fields = [
         BinaryViewField('bv'),
         StringViewField('sv'),
+        InlineBinaryViewField('bv_inline'),
+        InlineStringViewField('sv_inline'),
     ]
     batch_sizes = [0, 7, 256]
     return _generate_file("binary_view", fields, batch_sizes)
@@ -1936,17 +1964,13 @@ def get_generated_json_files(tempdir=None):
         generate_decimal32_case()
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('nanoarrow')
         .skip_tester('Ruby')
-        .skip_tester('Rust')
         .skip_tester('Go'),
 
         generate_decimal64_case()
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('nanoarrow')
         .skip_tester('Ruby')
-        .skip_tester('Rust')
         .skip_tester('Go'),
 
         generate_datetime_case(),
@@ -1999,29 +2023,26 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Ruby'),
 
         generate_run_end_encoded_case()
-        .skip_tester('.NET')
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_binary_view_case()
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_list_view_case()
-        .skip_tester('.NET')     # Doesn't support large list views
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
-        .skip_tester('Ruby')
-        .skip_tester('Rust'),
+        .skip_tester('Ruby'),
 
         generate_extension_case()
+        # Also contains a dictionary column
+        # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
         .skip_tester('nanoarrow')
         # TODO(https://github.com/apache/arrow/issues/38045)
         .skip_format(SKIP_FLIGHT, '.NET')

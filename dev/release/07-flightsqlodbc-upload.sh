@@ -102,7 +102,7 @@ if [ -e "${tmp_dir}" ]; then
 fi
 
 if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
-  echo "[1/8 Downloading ${dll_unsigned} from release..."
+  echo "[1/8] Downloading ${dll_unsigned} from release..."
   gh release download "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
     --pattern "${dll_unsigned}" \
@@ -112,7 +112,7 @@ if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
     exit 1
   fi
 
-  echo "[2/8 Signing ${dll_unsigned}..."
+  echo "[2/8] Signing ${dll_unsigned}..."
   echo "NOTE: Running jsign. You may be prompted for your OTP PIN..."
   jsign --storetype ESIGNER \
     --alias d97c5110-c66a-4c0c-ac0c-1cd6af812ee6 \
@@ -128,7 +128,7 @@ if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
     exit 1
   fi
 
-  echo "[3/8 Uploading signed DLL to GitHub Release..."
+  echo "[3/8] Uploading signed DLL to GitHub Release..."
   gh release upload "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
     --clobber \
@@ -136,19 +136,19 @@ if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
 fi
 
 if [ "${PHASE_BUILD_MSI}" -gt 0 ]; then
-  echo "[4/8 Triggering odbc_release_step in cpp_extra.yml workflow..."
-  gh workflow run cpp_extra.yml \
+  echo "[4/8] Triggering odbc_release_step in package_odbc.yml workflow..."
+  gh workflow run package_odbc.yml \
     --repo "${GITHUB_REPOSITORY}" \
     --ref "${tag}" \
     --field odbc_release_step=true
 
-  echo "[5/8 Waiting for workflow to complete. This can take a very long time..."
+  echo "[5/8] Waiting for workflow to complete. This can take a very long time..."
   REPOSITORY="${GITHUB_REPOSITORY}" \
-    "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${tag}" cpp_extra.yml
+    "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${tag}" package_odbc.yml
 fi
 
 if [ "${PHASE_SIGN_MSI}" -gt 0 ]; then
-  echo "[6/8 Downloading unsigned MSI..."
+  echo "[6/8] Downloading unsigned MSI..."
   gh release download "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
     --pattern "Apache-Arrow-Flight-SQL-ODBC-${version}-win64.msi" \
@@ -159,7 +159,7 @@ if [ "${PHASE_SIGN_MSI}" -gt 0 ]; then
     exit 1
   fi
 
-  echo "[7/8 Signing MSI..."
+  echo "[7/8] Signing MSI..."
   echo "NOTE: Running jsign. You may be prompted for your OTP PIN..."
   jsign --storetype ESIGNER \
     --alias d97c5110-c66a-4c0c-ac0c-1cd6af812ee6 \
@@ -174,7 +174,7 @@ if [ "${PHASE_SIGN_MSI}" -gt 0 ]; then
     exit 1
   fi
 
-  echo "[8/8 Uploading signed MSI to GitHub Release..."
+  echo "[8/8] Uploading signed MSI to GitHub Release..."
   gh release upload "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
     --clobber \

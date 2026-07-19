@@ -526,7 +526,8 @@ build_libarrow <- function(src_dir, dst_dir) {
   # Set up make for parallel building
   # CRAN policy says not to use more than 2 cores during checks
   # If you have more and want to use more, set MAKEFLAGS or NOT_CRAN
-  ncores <- parallel::detectCores()
+  # detectCores() returns NA if number of cores is unknown. Set ncores to 1 if NA.
+  ncores <- max(1, parallel::detectCores(), na.rm = TRUE)
   if (!not_cran) {
     ncores <- min(ncores, 2)
   }
@@ -605,6 +606,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(
       env_var_list,
       ARROW_S3 = Sys.getenv("ARROW_S3", "ON"),
+      ARROW_AZURE = Sys.getenv("ARROW_AZURE", "ON"),
       # ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
       ARROW_WITH_ZSTD = Sys.getenv("ARROW_WITH_ZSTD", "ON")
     )
@@ -615,7 +617,13 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_MIMALLOC = Sys.getenv("ARROW_MIMALLOC", "OFF"))
   }
 
+  if (on_windows) {
+    # Disable azure on windows due to issues building azure c++ sdk with mingw.
+    env_var_list <- c(env_var_list, ARROW_AZURE = Sys.getenv("ARROW_AZURE", "OFF"))
+  }
+
   env_var_list <- with_cloud_support(env_var_list)
+  env_var_list <- with_wasm_support(env_var_list)
 
   # turn_off_all_optional_features() needs to happen after
   # with_cloud_support(), since it might turn features ON.
@@ -799,6 +807,7 @@ turn_off_all_optional_features <- function(env_var_list) {
     "ARROW_DATASET" = "OFF", # depends on parquet
     "ARROW_S3" = "OFF",
     "ARROW_GCS" = "OFF",
+    "ARROW_AZURE" = "OFF",
     "ARROW_WITH_GOOGLE_CLOUD_CPP" = "OFF",
     "ARROW_WITH_NLOHMANN_JSON" = "OFF",
     "ARROW_SUBSTRAIT" = "OFF",
@@ -883,21 +892,60 @@ is_feature_requested <- function(env_varname, env_var_list, default = env_is("LI
   requested
 }
 
+with_wasm_support <- function(env_var_list) {
+  cc <- env_var_list[["CC"]]
+  cxx <- env_var_list[["CXX"]]
+  if (!grepl("emcc", cc) && !grepl("em\\+\\+", cxx)) {
+    return(env_var_list)
+  }
+
+  lg("Emscripten compiler detected; configuring for WASM build", .indent = "****")
+
+  if (!nzchar(Sys.which("emcmake"))) {
+    stop("emcmake is required for Emscripten/webR builds but was not found in PATH")
+  }
+
+  wasm_overrides <- c(
+    CMAKE_WRAPPER = "emcmake",
+    ARROW_DEPENDENCY_SOURCE = "BUNDLED",
+    ARROW_DEPENDENCY_USE_SHARED = "OFF",
+    ARROW_ENABLE_THREADING = "OFF",
+    ARROW_GCS = "OFF",
+    ARROW_AZURE = "OFF",
+    ARROW_JEMALLOC = "OFF",
+    ARROW_MIMALLOC = "OFF",
+    ARROW_S3 = "OFF",
+    ARROW_WITH_BROTLI = "OFF",
+    ARROW_WITH_BZ2 = "OFF",
+    ARROW_WITH_ZSTD = "OFF",
+    N_JOBS = "2",
+    EXTRA_CMAKE_FLAGS = paste(
+      env_var_list[["EXTRA_CMAKE_FLAGS"]],
+      "-DARROW_SIMD_LEVEL=NONE -DARROW_RUNTIME_SIMD_LEVEL=NONE"
+    )
+  )
+  replace(env_var_list, names(wasm_overrides), wasm_overrides)
+}
+
 with_cloud_support <- function(env_var_list) {
   arrow_s3 <- is_feature_requested("ARROW_S3", env_var_list)
   arrow_gcs <- is_feature_requested("ARROW_GCS", env_var_list)
+  arrow_azure <- is_feature_requested("ARROW_AZURE", env_var_list)
 
-  if (arrow_s3 || arrow_gcs) {
-    # User wants S3 or GCS support.
-    # Make sure that we have curl and openssl system libs
-    feats <- c(
-      if (arrow_s3) "S3",
-      if (arrow_gcs) "GCS"
-    )
-    start_msg <- paste(feats, collapse = "/")
-    off_flags <- paste("ARROW_", feats, "=OFF", sep = "", collapse = " and ")
-    print_warning <- function(msg) {
-      # Utility to assemble warning message in the console
+  if (arrow_s3 || arrow_gcs || arrow_azure) {
+    # User wants S3 or GCS or Azure support.
+    # Make sure that we have curl, openssl, and libxml2 system libs
+    # Utility to assemble warning message in the console
+    print_warning <- function(
+      msg,
+      feats = c(
+        if (arrow_s3) "S3",
+        if (arrow_gcs) "GCS",
+        if (arrow_azure) "AZURE"
+      ),
+      start_msg = paste(feats, collapse = "/")
+    ) {
+      off_flags <- paste("ARROW_", feats, "=OFF", sep = "", collapse = " and ")
       cat("**** ", start_msg, " support ", msg, "; building with ", off_flags, "\n")
     }
 
@@ -907,16 +955,22 @@ with_cloud_support <- function(env_var_list) {
       print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
+      arrow_azure <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_var_list)) {
       print_warning("requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
+      arrow_azure <- FALSE
+    } else if (arrow_azure && !cmake_find_package("libxml2", NULL, env_var_list)) {
+      print_warning("requires libxml2-devel (rpm), or libxml2-dev (deb), libxml2 (brew)", "AZURE")
+      arrow_azure <- FALSE
     }
   }
 
   # Update the build flags
   env_var_list <- replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
-  replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
+  env_var_list <- replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
+  replace(env_var_list, "ARROW_AZURE", ifelse(arrow_azure, "ON", "OFF"))
 }
 
 cmake_find_package <- function(pkg, version = NULL, env_var_list) {

@@ -17,10 +17,11 @@
 
 ARG repo
 ARG arch
-FROM ${repo}:${arch}-conda-cpp
+ARG arch_short
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-cpp
 
 # install python specific packages
-ARG python=3.10
+ARG python=3.11
 COPY ci/conda_env_python.txt \
      /arrow/ci/
 # If the Python version being tested is the same as the Python used by the system gdb,

@@ -17,7 +17,7 @@
 
 ARG arch
 ARG python_image_tag
-FROM ${arch}/python:${python_image_tag}
+FROM --platform=linux/${arch} python:${python_image_tag}
 
 # pandas doesn't provide wheel for aarch64 yet, so cache the compiled
 # test dependencies in a docker image

@@ -1,17 +1,20 @@
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 6788bc7b7f..6b689dedf0 100644
+index 73f5aece46..68cdb3966f 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -83,10 +83,13 @@ vcpkg_cmake_configure(
+@@ -89,6 +89,8 @@ vcpkg_cmake_configure(
          -DENABLE_CURL_MANUAL=OFF
          -DIMPORT_LIB_SUFFIX=   # empty
          -DSHARE_LIB_OBJECT=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
+         -DCURL_USE_CMAKECONFIG=ON
          -DCURL_USE_PKGCONFIG=ON
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
-     MAYBE_UNUSED_VARIABLES
-         PKG_CONFIG_EXECUTABLE
+@@ -98,6 +100,7 @@ vcpkg_cmake_configure(
+         VCPKG_LOCK_FIND_PACKAGE_Libidn2
+         VCPKG_LOCK_FIND_PACKAGE_Libssh2
+         VCPKG_LOCK_FIND_PACKAGE_NGHTTP2
 +        ${EXTRA_ARGS_DEBUG}
  )
  vcpkg_cmake_install()

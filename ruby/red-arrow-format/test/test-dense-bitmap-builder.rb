@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,12 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+class TestDenseBitmapBuilder < Test::Unit::TestCase
+  def setup
+    @builder = ArrowFormat::DenseBitmapBuilder.new
+  end
 
-ARCH=$(uname -m)
-if [ "$ARCH" != "x86_64" ]; then
-  exit 0
-fi
+  def test_empty
+    assert_equal(IO::Buffer.for(""), @builder.finish)
+  end
 
-apt update
-apt install -y attr ceph-common ceph-fuse ceph-mds ceph-mgr ceph-mon ceph-osd
+  def test_1byte
+    8.times do |i|
+      @builder.append(i.odd?)
+    end
+    buffer = [0b10101010].pack("C") + "\x00" * 63
+    assert_equal(IO::Buffer.for(buffer),
+                 @builder.finish)
+  end
+
+  def test_9bits
+    8.times do |i|
+      @builder.append(i.odd?)
+    end
+    @builder.append(true)
+    buffer = [0b10101010].pack("C") + [0b00000001].pack("C") + "\x00" * 62
+    assert_equal(IO::Buffer.for(buffer),
+                 @builder.finish)
+  end
+end

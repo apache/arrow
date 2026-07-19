@@ -58,18 +58,23 @@ constexpr int value_length(int type_length, const FLBA& value) { return type_len
 // Static "constants" for normalizing float16 min/max values. These need to be expressed
 // as pointers because `Float16LogicalType` represents an FLBA.
 struct Float16Constants {
-  static constexpr const uint8_t* lowest() { return lowest_.data(); }
-  static constexpr const uint8_t* max() { return max_.data(); }
   static constexpr const uint8_t* positive_zero() { return positive_zero_.data(); }
   static constexpr const uint8_t* negative_zero() { return negative_zero_.data(); }
+  static constexpr const uint8_t* positive_infinity() {
+    return positive_infinity_.data();
+  }
+  static constexpr const uint8_t* negative_infinity() {
+    return negative_infinity_.data();
+  }
 
  private:
   using Bytes = std::array<uint8_t, 2>;
-  static constexpr Bytes lowest_ =
-      std::numeric_limits<Float16>::lowest().ToLittleEndian();
-  static constexpr Bytes max_ = std::numeric_limits<Float16>::max().ToLittleEndian();
   static constexpr Bytes positive_zero_ = (+Float16::FromBits(0)).ToLittleEndian();
   static constexpr Bytes negative_zero_ = (-Float16::FromBits(0)).ToLittleEndian();
+  static constexpr Bytes positive_infinity_ =
+      std::numeric_limits<Float16>::infinity().ToLittleEndian();
+  static constexpr Bytes negative_infinity_ =
+      (-std::numeric_limits<Float16>::infinity()).ToLittleEndian();
 };
 
 template <typename DType, bool is_signed>
@@ -79,8 +84,24 @@ struct CompareHelper {
   static_assert(!std::is_unsigned<T>::value || std::is_same<T, bool>::value,
                 "T is an unsigned numeric");
 
-  constexpr static T DefaultMin() { return std::numeric_limits<T>::max(); }
-  constexpr static T DefaultMax() { return std::numeric_limits<T>::lowest(); }
+  // For floating point, seed the running min/max with +/-infinity rather than
+  // the largest/smallest finite value: a finite seed is not an identity for
+  // min/max once the data contains infinities, so an all-+Inf (resp. all--Inf)
+  // column would otherwise never displace the seed and report a finite bound.
+  constexpr static T DefaultMin() {
+    if constexpr (std::is_floating_point_v<T>) {
+      return std::numeric_limits<T>::infinity();
+    } else {
+      return std::numeric_limits<T>::max();
+    }
+  }
+  constexpr static T DefaultMax() {
+    if constexpr (std::is_floating_point_v<T>) {
+      return -std::numeric_limits<T>::infinity();
+    } else {
+      return std::numeric_limits<T>::lowest();
+    }
+  }
 
   // MSVC17 fix, isnan is not overloaded for IntegralType as per C++11
   // standard requirements.
@@ -300,8 +321,8 @@ template <>
 struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
   using T = FLBA;
 
-  static T DefaultMin() { return T{Float16Constants::max()}; }
-  static T DefaultMax() { return T{Float16Constants::lowest()}; }
+  static T DefaultMin() { return T{Float16Constants::positive_infinity()}; }
+  static T DefaultMax() { return T{Float16Constants::negative_infinity()}; }
 
   static T Coalesce(T val, T fallback) {
     return (val.ptr == nullptr || Float16::FromLittleEndian(val.ptr).is_nan()) ? fallback
@@ -330,6 +351,17 @@ struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
 
 using ::std::optional;
 
+// A usable min/max pair always satisfies min <= max. The reverse ordering
+// (min > max) is produced only by the inverted DefaultMin()/DefaultMax() seeds
+// -- left in place when no valid, non-NaN value was observed -- or by an
+// inverted caller-supplied range; in either case there is no statistic to emit.
+// Testing the ordering keeps this independent of the specific seed values, so it
+// cannot drift from DefaultMin()/DefaultMax().
+template <typename T>
+bool IsInvalidMinMax(const T& min, const T& max) {
+  return max < min;
+}
+
 template <typename T>
 ::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
 CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
@@ -357,7 +389,9 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
     return ::std::nullopt;
   }
 
-  if (min == std::numeric_limits<T>::max() && max == std::numeric_limits<T>::lowest()) {
+  // Discard an inverted min/max: either an empty/all-NaN input left the seeds in
+  // place, or the supplied range is invalid. A real value always has min <= max.
+  if (IsInvalidMinMax(min, max)) {
     return ::std::nullopt;
   }
 
@@ -384,8 +418,7 @@ optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_
     return ::std::nullopt;
   }
 
-  if (min == std::numeric_limits<Float16>::max() &&
-      max == std::numeric_limits<Float16>::lowest()) {
+  if (IsInvalidMinMax(min, max)) {
     return ::std::nullopt;
   }
 

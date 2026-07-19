@@ -51,7 +51,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/**') }}
@@ -83,7 +83,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4be3345d41da8b1bf8cc5cb01a5e19c4611cb15d # v3.0.0
+        uses: matlab-actions/run-tests@ae0e80cb44fdec28d35d0831d8acf38ee4fdf91a # v3.2.0
         with:
           select-by-folder: matlab/test
           strict: true
@@ -100,7 +100,7 @@ jobs:
             macos-version: "14"
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -120,7 +120,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
@@ -132,7 +132,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4be3345d41da8b1bf8cc5cb01a5e19c4611cb15d # v3.0.0
+        uses: matlab-actions/run-tests@ae0e80cb44fdec28d35d0831d8acf38ee4fdf91a # v3.2.0
         with:
           select-by-folder: matlab/test
           strict: true
@@ -142,7 +142,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -152,7 +152,7 @@ jobs:
           release: R2025b
       - name: Install ccache
         shell: bash
-        run: ci/scripts/install_ccache.sh 4.6.3 /usr
+        run: ci/scripts/install_ccache.sh 4.13.6 /usr
       - name: Setup ccache
         shell: bash
         run: ci/scripts/ccache_setup.sh
@@ -161,7 +161,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ${{ steps.ccache-info.outputs.cache-dir }}
@@ -177,7 +177,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4be3345d41da8b1bf8cc5cb01a5e19c4611cb15d # v3.0.0
+        uses: matlab-actions/run-tests@ae0e80cb44fdec28d35d0831d8acf38ee4fdf91a # v3.2.0
         with:
           select-by-folder: matlab/test
           strict: true

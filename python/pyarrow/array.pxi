@@ -266,6 +266,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     if type is not None and type.id == _Type_EXTENSION:
         extension_type = type
         type = type.storage_type
+        # GH-49644: when building a fixed_shape_tensor from a sequence of arrays,
+        # the converter only sees the flat storage type, so validate the
+        # tensor-specific constraints here where the type is still known.
+        if (isinstance(extension_type, FixedShapeTensorType)
+                and isinstance(obj, (list, tuple))):
+            if extension_type.permutation is not None:
+                raise NotImplementedError(
+                    "Converting a sequence of arrays to a fixed_shape_tensor "
+                    "with a permutation is not supported")
+            expected_shape = tuple(extension_type.shape)
+            for element in obj:
+                shape = getattr(element, "shape", None)
+                if (shape is not None and len(shape) >= 2
+                        and tuple(shape) != expected_shape):
+                    raise ValueError(
+                        f"Cannot convert array of shape {tuple(shape)} to a "
+                        f"fixed_shape_tensor of shape {expected_shape}")
 
     if from_pandas is None:
         c_from_pandas = False
@@ -401,7 +418,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
-        result = ExtensionArray.from_storage(extension_type, result)
+        result = extension_type.wrap_array(result)
     return result
 
 
@@ -1148,7 +1165,6 @@ cdef class Array(_PandasConvertible):
         >>> left = pa.array(["one", "two", "three"])
         >>> right = pa.array(["two", None, "two-and-a-half", "three"])
         >>> print(left.diff(right)) # doctest: +SKIP
-
         @@ -0, +0 @@
         -"one"
         @@ -2, +1 @@
@@ -1707,7 +1723,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def sort(self, order="ascending", **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", **kwargs):
         """
         Sort the Array
 
@@ -1716,6 +1732,9 @@ cdef class Array(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -1727,7 +1746,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            options=_pc().SortOptions(sort_keys=[("", order, null_placement)], **kwargs)
         )
         return self.take(indices)
 
@@ -2363,10 +2382,6 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
     if hasattr(dtype, '__from_arrow__'):
         arr = dtype.__from_arrow__(obj)
         return pandas_api.series(arr, name=name, copy=False)
-
-    if pandas_api.is_v1():
-        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-        c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
         with nogil:
@@ -4387,7 +4402,7 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", by=None, **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", by=None, **kwargs):
         """
         Sort the StructArray
 
@@ -4396,6 +4411,9 @@ cdef class StructArray(Array):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         by : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
@@ -4408,9 +4426,10 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort, sort_keys = self._flattened_field(by), [("", order)]
+            tosort, sort_keys = self._flattened_field(by), [("", order, null_placement)]
         else:
-            tosort, sort_keys = self, [(field.name, order) for field in self.type]
+            tosort, sort_keys = self, [
+                (field.name, order, null_placement) for field in self.type]
         indices = _pc().sort_indices(
             tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )
@@ -4690,6 +4709,30 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         200,
         300,
         400
+      ]
+    ]
+
+    Create an extension array from a list of multi-dimensional NumPy arrays.
+    Each element is flattened in row-major (C) order, and its shape must match
+    the tensor shape.
+
+    >>> import numpy as np
+    >>> pa.array([np.array([[1, 2], [3, 4]], dtype=np.int32),
+    ...           np.array([[10, 20], [30, 40]], dtype=np.int32)],
+    ...          type=tensor_type)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
       ]
     ]
     """

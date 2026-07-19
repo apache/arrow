@@ -40,8 +40,9 @@ using TestTypesOdbcV2 =
     ::testing::Types<FlightSQLOdbcV2MockTestBase, FlightSQLOdbcV2RemoteTestBase>;
 TYPED_TEST_SUITE(GetFunctionsOdbcV2Test, TestTypesOdbcV2);
 
-// MacOS driver manager iODBC does not support SQLGetFunctions for ODBC 3.x or 2.x driver
-#ifndef __APPLE__
+// Unix driver managers iODBC and Unix-ODBC do not support SQLGetFunctions
+// for ODBC 3.x or 2.x driver
+#ifdef _WIN32
 TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsAllFunctions) {
   // Verify driver manager return values for SQLGetFunctions
 
@@ -77,7 +78,8 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsAllFunctions) {
       SQL_API_SQLDESCRIBEPARAM,  SQL_API_SQLPROCEDURES,       SQL_API_SQLSETPOS,
       SQL_API_SQLTABLEPRIVILEGES};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(conn, SQL_API_ODBC3_ALL_FUNCTIONS, api_exists));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetFunctions(this->conn, SQL_API_ODBC3_ALL_FUNCTIONS, api_exists));
 
   for (int api : supported_functions) {
     EXPECT_EQ(SQL_TRUE, SQL_FUNC_EXISTS(api_exists, api));
@@ -113,7 +115,7 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsAllFunctions) {
       SQL_API_SQLBULKOPERATIONS, SQL_API_SQLCOLUMNPRIVILEGES, SQL_API_SQLPROCEDURECOLUMNS,
       SQL_API_SQLDESCRIBEPARAM,  SQL_API_SQLPROCEDURES,       SQL_API_SQLSETPOS,
       SQL_API_SQLTABLEPRIVILEGES};
-  ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(conn, SQL_API_ALL_FUNCTIONS, api_exists));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(this->conn, SQL_API_ALL_FUNCTIONS, api_exists));
 
   for (int api : supported_functions) {
     EXPECT_EQ(SQL_TRUE, api_exists[api]);
@@ -148,7 +150,7 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsSupportedSingleAPI) {
       SQL_API_SQLGETFUNCTIONS, SQL_API_SQLDRIVERS, SQL_API_SQLDATASOURCES};
   SQLUSMALLINT api_exists;
   for (SQLUSMALLINT api : supported_functions) {
-    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(conn, api, &api_exists));
+    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(this->conn, api, &api_exists));
 
     EXPECT_EQ(SQL_TRUE, api_exists);
 
@@ -168,7 +170,7 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsUnsupportedSingleAPI) {
       SQL_API_SQLTABLEPRIVILEGES};
   SQLUSMALLINT api_exists;
   for (SQLUSMALLINT api : unsupported_functions) {
-    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(conn, api, &api_exists));
+    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(this->conn, api, &api_exists));
 
     EXPECT_EQ(SQL_FALSE, api_exists);
 
@@ -192,7 +194,7 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPI) {
       SQL_API_SQLGETFUNCTIONS, SQL_API_SQLDRIVERS, SQL_API_SQLDATASOURCES};
   SQLUSMALLINT api_exists;
   for (SQLUSMALLINT api : supported_functions) {
-    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(conn, api, &api_exists));
+    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(this->conn, api, &api_exists));
 
     EXPECT_EQ(SQL_TRUE, api_exists);
 
@@ -210,13 +212,13 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPI) {
       SQL_API_SQLTABLEPRIVILEGES};
   SQLUSMALLINT api_exists;
   for (SQLUSMALLINT api : unsupported_functions) {
-    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(conn, api, &api_exists));
+    ASSERT_EQ(SQL_SUCCESS, SQLGetFunctions(this->conn, api, &api_exists));
 
     EXPECT_EQ(SQL_FALSE, api_exists);
 
     api_exists = -1;
   }
 }
-#endif  // __APPLE__
+#endif  // _WIN32
 
 }  // namespace arrow::flight::sql::odbc

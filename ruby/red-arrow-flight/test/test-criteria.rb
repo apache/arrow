@@ -15,8 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @importFrom bit64 print.integer64
-bit64::print.integer64
-
-#' @importFrom bit64 str.integer64
-bit64::str.integer64
+class TestCriteria < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    def test_string
+      expression = "expression"
+      criteria = ArrowFlight::Criteria.try_convert(expression)
+      assert_equal(expression,
+                   criteria.expression.to_s)
+    end
+  end
+end

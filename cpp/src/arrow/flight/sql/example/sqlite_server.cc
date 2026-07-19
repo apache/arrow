@@ -17,8 +17,6 @@
 
 #include "arrow/flight/sql/example/sqlite_server.h"
 
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-#include <boost/algorithm/string.hpp>
 #include <mutex>
 #include <random>
 #include <sstream>
@@ -37,6 +35,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace flight {
@@ -46,6 +45,11 @@ namespace example {
 using arrow::internal::checked_cast;
 
 namespace {
+
+bool AsciiStartsWithCaseInsensitive(std::string_view value, std::string_view prefix) {
+  return value.size() >= prefix.size() && arrow::internal::AsciiEqualsCaseInsensitive(
+                                              value.substr(0, prefix.size()), prefix);
+}
 
 std::string PrepareQueryForGetTables(const GetTables& command) {
   std::stringstream table_query;
@@ -174,15 +178,17 @@ arrow::Result<std::shared_ptr<DataType>> GetArrowType(const char* sqlite_type) {
     return null();
   }
 
-  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+  if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "int") ||
+      arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "integer")) {
     return int64();
-  } else if (boost::iequals(sqlite_type, "REAL")) {
+  } else if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "REAL")) {
     return float64();
-  } else if (boost::iequals(sqlite_type, "BLOB")) {
+  } else if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "BLOB")) {
     return binary();
-  } else if (boost::iequals(sqlite_type, "TEXT") || boost::iequals(sqlite_type, "DATE") ||
-             boost::istarts_with(sqlite_type, "char") ||
-             boost::istarts_with(sqlite_type, "varchar")) {
+  } else if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "TEXT") ||
+             arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "DATE") ||
+             AsciiStartsWithCaseInsensitive(sqlite_type, "char") ||
+             AsciiStartsWithCaseInsensitive(sqlite_type, "varchar")) {
     return utf8();
   }
   return Status::Invalid("Invalid SQLite type: ", sqlite_type);
@@ -194,15 +200,17 @@ int32_t GetSqlTypeFromTypeName(const char* sqlite_type) {
     return SQLITE_NULL;
   }
 
-  if (boost::iequals(sqlite_type, "int") || boost::iequals(sqlite_type, "integer")) {
+  if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "int") ||
+      arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "integer")) {
     return SQLITE_INTEGER;
-  } else if (boost::iequals(sqlite_type, "REAL")) {
+  } else if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "REAL")) {
     return SQLITE_FLOAT;
-  } else if (boost::iequals(sqlite_type, "BLOB")) {
+  } else if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "BLOB")) {
     return SQLITE_BLOB;
-  } else if (boost::iequals(sqlite_type, "TEXT") || boost::iequals(sqlite_type, "DATE") ||
-             boost::istarts_with(sqlite_type, "char") ||
-             boost::istarts_with(sqlite_type, "varchar")) {
+  } else if (arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "TEXT") ||
+             arrow::internal::AsciiEqualsCaseInsensitive(sqlite_type, "DATE") ||
+             AsciiStartsWithCaseInsensitive(sqlite_type, "char") ||
+             AsciiStartsWithCaseInsensitive(sqlite_type, "varchar")) {
     return SQLITE_TEXT;
   } else {
     return SQLITE_NULL;

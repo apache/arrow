@@ -16,8 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:experimental
-ARG arch
+FROM --platform=linux/${arch} debian:experimental
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -45,10 +44,11 @@ RUN if [ -n "${gcc}" ]; then \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
+        libboost-process-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -58,6 +58,7 @@ RUN if [ -n "${gcc}" ]; then \
         libkrb5-dev \
         libldap-dev \
         liblz4-dev \
+        libncurses-dev \
         libnghttp2-dev \
         libopentelemetry-proto-dev \
         libprotobuf-dev \

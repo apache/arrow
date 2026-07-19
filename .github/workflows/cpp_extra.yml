@@ -45,26 +45,7 @@ on:
     tags:
       - '**'
   pull_request:
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/cpp_extra.yml'
-      - '.github/workflows/cpp_windows.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/conda_env_*'
-      - 'ci/docker/**'
-      - 'ci/scripts/ccache_setup.sh'
-      - 'ci/scripts/cpp_*'
-      - 'ci/scripts/install_azurite.sh'
-      - 'ci/scripts/install_gcs_testbench.sh'
-      - 'ci/scripts/install_minio.sh'
-      - 'ci/scripts/msys2_*'
-      - 'ci/scripts/util_*'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'dev/archery/archery/**'
-      - 'format/Flight.proto'
-      - 'testing'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
@@ -85,19 +66,30 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: cpp_extra
 
-  docker:
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
     needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
+  docker:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -136,17 +128,16 @@ jobs:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
-          restore-keys: extra-${{ matrix.image }}-
+          key: cpp-extra-${{ matrix.image }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -169,6 +160,14 @@ jobs:
             done
           fi
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: cpp-extra-${{ matrix.image }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -182,11 +181,8 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   msvc-arm64:
-    needs: check-labels
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ARM64 Windows 11 MSVC
     uses: ./.github/workflows/cpp_windows.yml
     with:
@@ -195,15 +191,14 @@ jobs:
       simd-level: NONE
 
   jni-linux:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
     runs-on: ${{ matrix.platform.runs-on }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
+      actions: read
+      contents: read
       # This is for using GitHub Packages for vcpkg cache
       packages: write
     strategy:
@@ -212,14 +207,14 @@ jobs:
         platform:
           - arch: "amd64"
             runs-on: ubuntu-latest
-          - arch: "arm64v8"
+          - arch: "arm64/v8"
             runs-on: ubuntu-24.04-arm
     env:
       ARCH: ${{ matrix.platform.arch }}
       REPO: ghcr.io/${{ github.repository }}-dev
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -227,12 +222,11 @@ jobs:
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: .docker
-          key: jni-${{ matrix.platform.runs-on }}-${{ hashFiles('cpp/**') }}
-          restore-keys: jni-${{ matrix.platform.runs-on }}-
+          key: jni-${{ matrix.platform.runs-on }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -248,6 +242,14 @@ jobs:
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run cpp-jni
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: jni-${{ matrix.platform.runs-on }}
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -260,25 +262,27 @@ jobs:
         run: archery docker push cpp-jni
 
   jni-macos:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI macOS
     runs-on: macos-14
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install dependencies
         run: |
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
@@ -300,12 +304,11 @@ jobs:
       - name: Prepare ccache
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ccache
-          key: jni-macos-${{ hashFiles('cpp/**') }}
-          restore-keys: jni-macos-
+          key: jni-macos
       - name: CMake
         run: |
           cmake \
@@ -325,10 +328,8 @@ jobs:
           ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
           PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
         run: |
-          # MinIO is required
-          exclude_tests="arrow-s3fs-test"
           # unstable
-          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="arrow-acero-asof-join-node-test"
           exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
           ctest \
             --exclude-regex "${exclude_tests}" \
@@ -347,15 +348,19 @@ jobs:
           cmake --build cpp/examples/minimal_build.build
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ccache
+          key: jni-macos
 
   odbc-linux:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC Linux
     runs-on: ubuntu-latest
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -367,23 +372,26 @@ jobs:
       UBUNTU: 24.04
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@v5
-        with:
-          path: .docker
-          key: ubuntu-cpp-odbc-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-cpp-odbc-
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
+      - name: Set Up Dremio Instance
+        run: |
+          docker compose up -d dremio
+          cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
+      - name: Restore Docker Volumes
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: ubuntu-cpp-odbc
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -393,6 +401,14 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ubuntu-cpp-odbc
+      - name: Save Docker Volumes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: .docker
+          key: ubuntu-cpp-odbc
+          include-hidden-files: true
       - name: Docker Push
         if: >-
           success() &&
@@ -406,13 +422,10 @@ jobs:
         run: archery docker push ubuntu-cpp-odbc
 
   odbc-macos:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -428,19 +441,25 @@ jobs:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /tmp/local
       ARROW_MIMALLOC: OFF
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
         run: |
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
-          
+
           # We want to use bundled RE2 for static linking. If
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
@@ -463,12 +482,11 @@ jobs:
         id: ccache-info
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5.0.2
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
       - name: Build
         run: |
           # Homebrew uses /usr/local as prefix. So packages
@@ -485,6 +503,13 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -503,6 +528,19 @@ jobs:
             --allow libresolv \
             --allow libz \
             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
+      - name: Generate macOS Installer
+        if: matrix.build-type == 'release'
+        shell: bash
+        run: |
+            cd $(pwd)/build/cpp
+            cpack
+      - name: Upload ODBC PKG to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
+          path: build/cpp/ArrowFlightSQLODBC-*.pkg
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
@@ -518,108 +556,51 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   odbc-msvc:
-    needs: check-labels
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     name: ODBC Windows
     runs-on: windows-2022
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
+      actions: read
+      contents: read
       packages: write
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
+      # GH-49465: work around the gRPC/Abseil exit hang on Windows
+      # https://github.com/grpc/grpc/issues/39321
+      # https://github.com/abseil/abseil-cpp/issues/1877
+      # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
+      # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
+      ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
-      VCPKG_DEFAULT_TRIPLET: x64-windows
+      # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
+      # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
+      VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
+      VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
     steps:
-      - name: Disable Crash Dialogs
-        run: |
-          reg add `
-            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
-            /v DontShowUI `
-            /t REG_DWORD `
-            /d 1 `
-            /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
-      - name: Install ccache
-        shell: bash
-        run: |
-          ci/scripts/install_ccache.sh 4.12.1 /usr
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
         with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-odbc-ccache-windows-x64-
-      - name: Checkout vcpkg
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          path: vcpkg
-          repository: microsoft/vcpkg
-      - name: Bootstrap vcpkg
-        run: |
-          vcpkg\bootstrap-vcpkg.bat
-          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
-          Write-Output ${VCPKG_ROOT} | `
-            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
-          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
-            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
-      - name: Setup NuGet credentials for vcpkg caching
-        shell: bash
-        run: |
-          $(vcpkg fetch nuget | tail -n 1) \
-            sources add \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
-            -storepasswordincleartext \
-            -name "GitHub" \
-            -username "$GITHUB_REPOSITORY_OWNER" \
-            -password "${{ secrets.GITHUB_TOKEN }}"
-          $(vcpkg fetch nuget | tail -n 1) \
-            setapikey "${{ secrets.GITHUB_TOKEN }}" \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Build
-        shell: cmd
-        run: |
-          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - name: Register Flight SQL ODBC Driver
-        shell: cmd
-        run: |
-          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         shell: cmd
         run: |
@@ -642,7 +623,7 @@ jobs:
           wix --version
           cd build/cpp
           cpack
-      - name: Upload the artifacts to the job
+      - name: Upload ODBC MSI to the job
         uses: actions/upload-artifact@v7
         with:
           name: flight-sql-odbc-msi-installer
@@ -707,10 +688,10 @@ jobs:
           dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
           mv "${msi_name}" "${dev_msi_name}"
           cd ..
-          
+
           tree odbc-installer
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -730,40 +711,6 @@ jobs:
           remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
-
-  odbc-release:
-    needs: odbc-msvc
-    name: ODBC release
-    runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref_name, 'apache-arrow-') && contains(github.ref_name, '-rc') }}
-    permissions:
-      # Upload to GitHub Release
-      contents: write
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Download the artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-msi-installer
-      - name: Wait for creating GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          dev/release/utils-watch-gh-workflow.sh \
-            ${GITHUB_REF_NAME} \
-            release_candidate.yml
-      - name: Upload the artifacts to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload ${GITHUB_REF_NAME} \
-            --clobber \
-            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()

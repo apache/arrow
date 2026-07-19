@@ -42,18 +42,14 @@ jobs:
       - name: Install System Dependencies
         shell: bash
         run: |
-          {% if github_runner in ("macos-14", "macos-latest") %}
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
-          brew uninstall pkg-config || :
-          brew uninstall pkg-config@0.29.2 || :
-          {% endif %}
-
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
-
+          # Install aws-sdk-cpp manually to avoid issues with the new default
+          # `brew --jobs auto` causing a lock.
+          # Remove once the upstream issue is solved:
+          # https://github.com/Homebrew/brew/issues/22899
+          brew install aws-sdk-cpp
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
 

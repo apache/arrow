@@ -17,9 +17,14 @@
   under the License.
 -->
 
-# arrow 24.0.0.9000
+# arrow 25.0.0.9000
 
-# arrow 24.0.0
+# arrow 25.0.0
+
+- Arrow `uint64` types are now always converted to R `double` (numeric) vectors,
+  regardless of the values. Previously, small `uint64` values were converted to
+  R `integer`, which could cause inconsistent types within list columns when
+  different list elements had different value ranges (#50339).
 
 # arrow 24.0.0
 

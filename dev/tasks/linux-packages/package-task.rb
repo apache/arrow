@@ -152,11 +152,26 @@ class PackageTask
       "DEB_BUILD_OPTIONS",
       "RPM_BUILD_NCPUS",
     ]
+    # The following environment variables carry the build variations that
+    # reprotest injects to verify reproducibility.
+    if File.basename(Dir.pwd) == apt_dir
+      pass_through_env_names += [
+        "CPU_LIST",
+        "FAKETIME",
+        "HOME",
+        "LANG",
+        "LANGUAGE",
+        "LC_ALL",
+        "NO_FAKE_STAT",
+        "TZ",
+      ]
+    end
     pass_through_env_names.each do |name|
       value = ENV[name]
       next unless value
       run_command_line.concat(["--env", "#{name}=#{value}"])
     end
+    run_command_line.concat(["--env", "UMASK=%04o" % File.umask])
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
@@ -188,7 +203,7 @@ class PackageTask
     run_command_line << image
     run_command_line << "/host/build.sh" unless console
 
-    sh(*build_command_line)
+    sh(*build_command_line) if Dir.exist?(ENV["HOME"])
     sh(*run_command_line)
   end
 
@@ -268,8 +283,6 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-bookworm",
-      # "debian-bookworm-arm64",
       "debian-trixie",
       # "debian-trixie-arm64",
       "debian-forky",

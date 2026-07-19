@@ -22,7 +22,8 @@ class TestFlightCriteria < Test::Unit::TestCase
 
   def test_expression
     expression = "expression"
-    criteria = ArrowFlight::Criteria.new(expression)
+    expression_bytes = GLib::Bytes.new(expression)
+    criteria = ArrowFlight::Criteria.new(expression_bytes)
     assert_equal(expression,
                  criteria.expression.to_s)
   end

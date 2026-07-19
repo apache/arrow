@@ -21,18 +21,16 @@ import operator
 import sys
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 10):
-    sys.exit('Python < 3.10 is not supported')
+if sys.version_info < (3, 11):
+    sys.exit('Python < 3.11 is not supported')
 
 # For pathlib.Path compatibility
 jinja_req = 'jinja2>=2.11'
 
 extras = {
     'benchmark': ['pandas'],
-    'crossbow': ['github3.py', jinja_req, 'pygit2>=1.14.0', 'requests',
+    'crossbow': [jinja_req, 'pygit2>=1.14.0', 'pygithub>=2.5.0', 'requests',
                  'ruamel.yaml', 'setuptools_scm>=8.0.0'],
-    'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
-                        'setuptools_scm'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'integration': ['cffi', 'numpy'],
     'integration-java': ['jpype1'],
@@ -51,7 +49,7 @@ setup(
     maintainer_email='dev@arrow.apache.org',
     packages=find_packages(),
     include_package_data=True,
-    python_requires='>=3.10',
+    python_requires='>=3.11',
     install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],
     extras_require=extras,

@@ -38,7 +38,7 @@ jobs:
       {% if arch == "amd64" %}
       ARCH: amd64
       {% else %}
-      ARCH: arm64v8
+      ARCH: arm64/v8
       {% endif %}
       PYTHON: "{{ python_version }}"
       PYTHON_ABI_TAG: "{{ python_abi_tag }}"
@@ -107,7 +107,7 @@ jobs:
       - name: Test wheel on Ubuntu 22.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.10' && '{{ linux_wheel_kind }}' == 'manylinux'
+          '{{ python_version }}' == '3.11' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           UBUNTU: "22.04"
         run: |

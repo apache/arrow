@@ -31,6 +31,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
@@ -109,8 +110,8 @@ UnionTypeFactories() {
 }
 
 // Return the value of the ARROW_TEST_DATA environment variable or return error
-// Status
-ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
+ARROW_TESTING_EXPORT Result<std::string> GetTestResourceRoot();
+ARROW_TESTING_EXPORT Result<std::string> GetTestResourcePath(std::string subpath);
 
 /// \deprecated Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.

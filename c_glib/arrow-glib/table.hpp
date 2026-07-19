@@ -32,6 +32,8 @@ GARROW_EXTERN
 std::shared_ptr<arrow::Table>
 garrow_table_get_raw(GArrowTable *table);
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
 GARROW_EXTERN
 arrow::ipc::feather::WriteProperties *
 garrow_feather_write_properties_get_raw(GArrowFeatherWriteProperties *properties);
+ARROW_UNSUPPRESS_DEPRECATION_WARNING

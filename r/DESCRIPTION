@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 24.0.0.9000
+Version: 25.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -22,13 +22,14 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
     package provides an interface to the 'Arrow C++' library.
-Depends: R (>= 4.1)
+Depends: R (>= 4.2)
 License: Apache License (>= 2.0)
 URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl (optional);
+SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl, and
+    libxml2 for Azure (optional);
     cmake >= 3.26 (build-time only, and only for full source build)
 Biarch: true
 Imports:
@@ -44,7 +45,6 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.3.3
 Config/testthat/edition: 3
 Config/build/bootstrap: TRUE
 Suggests:
@@ -147,8 +147,8 @@ Collate:
     'query-engine.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
-    'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
     'udf.R'
     'util.R'
+Config/roxygen2/version: 8.0.0

@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG python_version=3.13
+ARG python_version=3.14
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -41,11 +41,6 @@ RUN python${python_version}t -m venv ${ARROW_PYTHON_VENV}
 ENV PYTHON_GIL 0
 ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"
 
-# pandas doesn't provide wheels for aarch64 yet, so we have to install nightly Cython
-# along with the rest of pandas' build dependencies and disable build isolation
-RUN python -m pip install \
-    --pre \
-    --prefer-binary \
-    --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
-    Cython numpy
+COPY python/requirements-wheel-test.txt /arrow/python/
+RUN python -m pip install -r /arrow/python/requirements-wheel-test.txt
 RUN python -m pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja

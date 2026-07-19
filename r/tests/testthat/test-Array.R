@@ -521,23 +521,25 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   expect_as_vector(a, u8)
 })
 
-test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
+test_that("Arrays of uint32 and int64 convert to integer if they can fit", {
   u32 <- arrow_array(1L)$cast(uint32())
   expect_identical(as.vector(u32), 1L)
-
-  u64 <- arrow_array(1L)$cast(uint64())
-  expect_identical(as.vector(u64), 1L)
 
   i64 <- arrow_array(bit64::as.integer64(1:10))
   expect_identical(as.vector(i64), 1:10)
 })
 
-test_that("Arrays of uint{32,64} convert to numeric if they can't fit integer", {
+test_that("Arrays of uint32 convert to numeric if they can't fit integer", {
   u32 <- arrow_array(bit64::as.integer64(1) + MAX_INT)$cast(uint32())
   expect_identical(as.vector(u32), 1 + MAX_INT)
+})
 
-  u64 <- arrow_array(bit64::as.integer64(1) + MAX_INT)$cast(uint64())
-  expect_identical(as.vector(u64), 1 + MAX_INT)
+test_that("Arrays of uint64 always convert to numeric (double)", {
+  u64_small <- arrow_array(1L)$cast(uint64())
+  expect_identical(as.vector(u64_small), 1)
+
+  u64_large <- arrow_array(bit64::as.integer64(1) + MAX_INT)$cast(uint64())
+  expect_identical(as.vector(u64_large), 1 + MAX_INT)
 })
 
 test_that("arrow_array() recognise arrow::Array (ARROW-3815)", {
@@ -643,6 +645,13 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
   expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
   expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+  expect_array_roundtrip(list(ordered(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8(), ordered = TRUE)))
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -742,6 +751,13 @@ test_that("arrow_array() handles vector -> large list arrays", {
     as = large_list_of(dictionary(int8(), utf8()))
   )
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    large_list_of(dictionary(int8(), utf8(), ordered = TRUE)),
+    as = large_list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -807,6 +823,13 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
     list(factor(c("b", "a"), levels = c("a", "b"))),
     fixed_size_list_of(dictionary(int8(), utf8()), 2L),
     as = fixed_size_list_of(dictionary(int8(), utf8()), 2L)
+  )
+
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L),
+    as = fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L)
   )
 
   # struct
@@ -1431,4 +1454,15 @@ test_that("Array handles negative fractional dates correctly (GH-46873)", {
   d <- as.Date(-0.1, origin = "1970-01-01")
   arr <- arrow_array(d)
   expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
+})
+
+test_that("uint64 inside list columns always converts to double (GH-50339)", {
+  list_arr <- arrow_array(
+    list(1, 9999999999),
+    type = list_of(uint64())
+  )
+
+  result <- as.vector(list_arr)
+  expect_type(result[[1]], "double")
+  expect_type(result[[2]], "double")
 })

@@ -37,7 +37,12 @@ module Arrow
           super(schema, n_rows, values)
         when 2
           schema, data = args
-          RecordBatchBuilder.build(schema, data)
+          schema = Schema.new(schema) unless schema.is_a?(Schema)
+          if !data.empty? and data.all? {|array| array.is_a?(Arrow::Array)}
+            super(schema, data[0].size, data)
+          else
+            RecordBatchBuilder.build(schema, data)
+          end
         when 3
           super
         else
@@ -74,6 +79,27 @@ module Arrow
         return column if column
       end
       super
+    end
+
+    private
+
+    def ensure_raw_column(name, data)
+      case data
+      when Array
+        {
+          field: Field.new(name, data.value_data_type),
+          data: data,
+        }
+      when Column
+        {
+          field: data.field,
+          data: data.data,
+        }
+      else
+        message = "column must be Arrow::Array or Arrow::Column: " +
+          "<#{name}>: <#{data.inspect}>: #{inspect}"
+        raise ArgumentError, message
+      end
     end
   end
 end

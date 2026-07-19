@@ -55,8 +55,7 @@ Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
   auto impl = std::make_unique<Impl>();
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  // R build with openSUSE155 requires an explicit unique_ptr construction
-  return std::unique_ptr<KernelState>(std::move(impl));
+  return impl;
 }
 
 inline Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {

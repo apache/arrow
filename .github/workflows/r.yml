@@ -78,7 +78,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -87,7 +87,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -151,7 +151,7 @@ jobs:
       R_TAG: ${{ matrix.config.tag }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -209,7 +209,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -219,7 +219,7 @@ jobs:
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
@@ -267,7 +267,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

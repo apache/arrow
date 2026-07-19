@@ -34,6 +34,7 @@ on:
         type: string
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -71,6 +72,8 @@ jobs:
       CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
+      # ccache does not support PDB files (https://github.com/ccache/ccache/issues/1040)
+      CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
       CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
@@ -82,7 +85,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -97,7 +100,7 @@ jobs:
       - name: Install ccache
         shell: bash
         run: |
-          ci/scripts/install_ccache.sh 4.12.1 /usr
+          ci/scripts/install_ccache.sh 4.13.6 /usr
       - name: Setup ccache
         shell: bash
         run: |
@@ -107,12 +110,11 @@ jobs:
         shell: bash
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ inputs.arch }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-${{ inputs.arch }}-
+          key: cpp-ccache-windows-${{ inputs.arch }}
       - name: Build
         shell: cmd
         env:
@@ -120,6 +122,13 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %VCVARS_ARCH%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-windows-${{ inputs.arch }}
       - name: Test
         shell: cmd
         env:

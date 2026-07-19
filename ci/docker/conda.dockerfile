@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:22.04
+FROM --platform=linux/${arch} ubuntu:24.04
 
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -26,13 +26,16 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     gdb \
     libc6-dbg \
     tzdata \
+    tzdata-legacy \
     wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# install conda and mamba via miniforge
+# Install conda and mamba via miniforge.
+# Temporarily pin to an old version of miniforge due to a regression in the mamba solver.
+# See https://github.com/apache/arrow/issues/49998.
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh miniforge3 latest /opt/conda
+RUN /arrow/ci/scripts/install_conda.sh miniforge3 26.1.1-3 /opt/conda
 ENV PATH=/opt/conda/bin:$PATH
 
 # create a conda environment

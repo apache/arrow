@@ -951,6 +951,36 @@ TEST(TestCountKernel, RunEndEncodedNulls) {
   ValidateCount(*array->Slice(3, 6), {3, 3});
 }
 
+TEST(TestCountKernel, SparseUnionSlicedNulls) {
+  // GH-50113: Sliced unions can report incorrect null counts in count.
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1, 1]");
+  ArrayVector children = {
+      ArrayFromJSON(float64(), "[0.5, 99.0, null, 3.0, 88.0, 77.0]"),
+      ArrayFromJSON(boolean(), "[false, null, true, false, true, false]")};
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       SparseUnionArray::Make(*type_ids, std::move(children)));
+
+  // Logical array: [0.5, null, null, 3.0, true, false].
+  ValidateCount(*array, {4, 2});
+  // Logical slice: [null, null, 3.0, true].
+  ValidateCount(*array->Slice(1, 4), {2, 2});
+}
+
+TEST(TestCountKernel, DenseUnionSlicedNulls) {
+  // GH-50113: Sliced unions can report incorrect null counts in count.
+  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1, 1]");
+  auto value_offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1, 2]");
+  ArrayVector children = {ArrayFromJSON(float64(), "[0.5, null, 3.0]"),
+                          ArrayFromJSON(boolean(), "[null, true, false]")};
+  ASSERT_OK_AND_ASSIGN(
+      auto array, DenseUnionArray::Make(*type_ids, *value_offsets, std::move(children)));
+
+  // Logical array: [0.5, null, null, 3.0, true, false].
+  ValidateCount(*array, {4, 2});
+  // Logical slice: [null, null, 3.0, true].
+  ValidateCount(*array->Slice(1, 4), {2, 2});
+}
+
 template <typename ArrowType>
 class TestRandomNumericCountKernel : public ::testing::Test {};
 

@@ -881,9 +881,13 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
 
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
-    auto adjusted_exponent = dec.exponent;
-    parsed_scale =
-        -adjusted_exponent + static_cast<int32_t>(dec.fractional_digits.size());
+    // parsed_scale = -exponent + fractional_digits, computed with overflow
+    // detection: an exponent of INT32_MIN ("0E-2147483648") makes the negation,
+    // and a near-INT32_MIN exponent the addition, signed-overflow UB otherwise.
+    if (internal::SubtractWithOverflow(static_cast<int32_t>(dec.fractional_digits.size()),
+                                       dec.exponent, &parsed_scale)) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
   } else {
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
@@ -945,9 +949,13 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
 
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
-    auto adjusted_exponent = dec.exponent;
-    parsed_scale =
-        -adjusted_exponent + static_cast<int32_t>(dec.fractional_digits.size());
+    // parsed_scale = -exponent + fractional_digits, computed with overflow
+    // detection: an exponent of INT32_MIN ("0E-2147483648") makes the negation,
+    // and a near-INT32_MIN exponent the addition, signed-overflow UB otherwise.
+    if (internal::SubtractWithOverflow(static_cast<int32_t>(dec.fractional_digits.size()),
+                                       dec.exponent, &parsed_scale)) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
   } else {
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }

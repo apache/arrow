@@ -208,8 +208,12 @@ TEST_F(TestRecordBatchEqualOptions, Approx) {
   EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
 
   auto options = EqualOptions::Defaults().nans_equal(true).atol(0.1);
-  EXPECT_FALSE(b1->Equals(*b2, options));
+  EXPECT_FALSE(b1->Equals(*b2));
+  EXPECT_TRUE(b1->Equals(*b2, options));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   EXPECT_TRUE(b1->Equals(*b2, options.use_atol(true)));
+  EXPECT_FALSE(b1->Equals(*b2, options.use_atol(false)));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   EXPECT_TRUE(b1->ApproxEquals(*b2, options));
 }
 
@@ -906,10 +910,11 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedMissing) {
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Can only convert a RecordBatch with no nulls. "
-                             "Set null_to_nan to true to convert nulls to NaN",
-                             batch->ToTensor());
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError,
+      "Type error: Can only convert a Table or RecordBatch with no "
+      "nulls. Set null_to_nan to true to convert nulls to NaN",
+      batch->ToTensor());
 }
 
 TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
@@ -940,10 +945,11 @@ TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
   auto batch_no_columns =
       RecordBatch::Make(::arrow::schema({}), 10, std::vector<std::shared_ptr<Array>>{});
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Conversion to Tensor for RecordBatches without "
-                             "columns/schema is not supported.",
-                             batch_no_columns->ToTensor());
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError,
+      "Type error: Conversion to Tensor for Tables or RecordBatches "
+      "without columns/schema is not supported.",
+      batch_no_columns->ToTensor());
 }
 
 template <typename DataType>
@@ -1110,6 +1116,44 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
       tensor2_expected_row->Equals(*tensor2_row, EqualOptions().nans_equal(true)));
 
   CheckTensorRowMajor<FloatType>(tensor2_row, 18, shape, strides_2);
+}
+
+TEST_F(TestRecordBatch, ToTensorNullToNanFloat16) {
+  // Tensor::Equals does not yet support NaN-aware comparison for float16, so
+  // null slots are verified by inspecting the raw buffer directly.
+  const int length = 9;
+
+  auto f0 = field("f0", float16());
+  auto f1 = field("f1", float16());
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ArrayFromJSON(float16(), "[null, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(float16(), "[10, 20, 30, 40, null, 60, 70, 80, 90]");
+  auto batch = RecordBatch::Make(schema, length, {a0, a1});
+
+  // Column-major
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/true, /*row_major=*/false));
+  ASSERT_OK(tensor->Validate());
+
+  std::vector<int64_t> shape = {9, 2};
+  const int64_t f16_size = sizeof(uint16_t);
+  CheckTensor<HalfFloatType>(tensor, 18, shape, {f16_size, f16_size * shape[0]});
+
+  const auto* buf = reinterpret_cast<const uint16_t*>(tensor->raw_data());
+  EXPECT_TRUE(util::Float16::FromBits(buf[0]).is_nan());
+  EXPECT_TRUE(util::Float16::FromBits(buf[13]).is_nan());
+
+  // Row-major
+  ASSERT_OK_AND_ASSIGN(auto tensor_row, batch->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK(tensor_row->Validate());
+
+  CheckTensorRowMajor<HalfFloatType>(tensor_row, 18, shape,
+                                     {f16_size * shape[1], f16_size});
+
+  const auto* buf_row = reinterpret_cast<const uint16_t*>(tensor_row->raw_data());
+  EXPECT_TRUE(util::Float16::FromBits(buf_row[0]).is_nan());
+  EXPECT_TRUE(util::Float16::FromBits(buf_row[9]).is_nan());
 }
 
 TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {

@@ -32,8 +32,8 @@ module ArrowFormat
       "Null"
     end
 
-    def build_array(size)
-      NullArray.new(size)
+    def build_array(...)
+      NullArray.new(...)
     end
 
     def to_flatbuffers
@@ -55,8 +55,8 @@ module ArrowFormat
       "Boolean"
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      BooleanArray.new(size, validity_buffer, values_buffer)
+    def build_array(...)
+      BooleanArray.new(...)
     end
 
     def to_flatbuffers
@@ -88,6 +88,9 @@ module ArrowFormat
   end
 
   class Int8Type < IntType
+    MIN_VALUE = -(2 ** 7)
+    MAX_VALUE = (2 ** 7) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -106,12 +109,19 @@ module ArrowFormat
       :S8
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Int8Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "c"
+    end
+
+    def build_array(...)
+      Int8Array.new(...)
     end
   end
 
   class UInt8Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 8) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -130,12 +140,19 @@ module ArrowFormat
       :U8
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      UInt8Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "C"
+    end
+
+    def build_array(...)
+      UInt8Array.new(...)
     end
   end
 
   class Int16Type < IntType
+    MIN_VALUE = -(2 ** 15)
+    MAX_VALUE = (2 ** 15) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -154,12 +171,19 @@ module ArrowFormat
       :s16
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Int16Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "s"
+    end
+
+    def build_array(...)
+      Int16Array.new(...)
     end
   end
 
   class UInt16Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 16) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -178,12 +202,19 @@ module ArrowFormat
       :u16
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      UInt16Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "S"
+    end
+
+    def build_array(...)
+      UInt16Array.new(...)
     end
   end
 
   class Int32Type < IntType
+    MIN_VALUE = -(2 ** 31)
+    MAX_VALUE = (2 ** 31) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -202,12 +233,19 @@ module ArrowFormat
       :s32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Int32Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "l"
+    end
+
+    def build_array(...)
+      Int32Array.new(...)
     end
   end
 
   class UInt32Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 32) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -226,12 +264,19 @@ module ArrowFormat
       :u32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      UInt32Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "L"
+    end
+
+    def build_array(...)
+      UInt32Array.new(...)
     end
   end
 
   class Int64Type < IntType
+    MIN_VALUE = -(2 ** 63)
+    MAX_VALUE = (2 ** 63) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -250,12 +295,19 @@ module ArrowFormat
       :s64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Int64Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "q"
+    end
+
+    def build_array(...)
+      Int64Array.new(...)
     end
   end
 
   class UInt64Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 64) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -274,8 +326,12 @@ module ArrowFormat
       :u64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      UInt64Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "Q"
+    end
+
+    def build_array(...)
+      UInt64Array.new(...)
     end
   end
 
@@ -312,8 +368,12 @@ module ArrowFormat
       :f32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Float32Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "f"
+    end
+
+    def build_array(...)
+      Float32Array.new(...)
     end
   end
 
@@ -336,8 +396,12 @@ module ArrowFormat
       :f64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Float64Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "d"
+    end
+
+    def build_array(...)
+      Float64Array.new(...)
     end
   end
 
@@ -377,8 +441,12 @@ module ArrowFormat
       :s32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Date32Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "l"
+    end
+
+    def build_array(...)
+      Date32Array.new(...)
     end
   end
 
@@ -401,8 +469,12 @@ module ArrowFormat
       :s64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Date64Array.new(size, validity_buffer, values_buffer)
+    def pack_template
+      "q"
+    end
+
+    def build_array(...)
+      Date64Array.new(...)
     end
   end
 
@@ -413,6 +485,12 @@ module ArrowFormat
       super()
       @bit_width = bit_width
       @unit = unit
+    end
+
+    def ==(other)
+      other.is_a?(self.class) and
+        @bit_width == other.bit_width and
+        @unit == other.unit
     end
 
     def to_s
@@ -428,6 +506,20 @@ module ArrowFormat
   end
 
   class Time32Type < TimeType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     def initialize(unit)
       super(32, unit)
     end
@@ -440,12 +532,30 @@ module ArrowFormat
       :s32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Time32Array.new(self, size, validity_buffer, values_buffer)
+    def pack_template
+      "l"
+    end
+
+    def build_array(...)
+      Time32Array.new(self, ...)
     end
   end
 
   class Time64Type < TimeType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     def initialize(unit)
       super(64, unit)
     end
@@ -458,18 +568,45 @@ module ArrowFormat
       :s64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Time64Array.new(self, size, validity_buffer, values_buffer)
+    def pack_template
+      "q"
+    end
+
+    def build_array(...)
+      Time64Array.new(self, ...)
     end
   end
 
   class TimestampType < TemporalType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when ::Array
+          unit, time_zone = value
+          new(unit, time_zone)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :unit
     attr_reader :time_zone
-    def initialize(unit, time_zone)
+    def initialize(unit, time_zone=nil)
       super()
       @unit = unit
       @time_zone = time_zone
+    end
+
+    def ==(other)
+      other.is_a?(self.class) and
+        @unit == other.unit and
+        @time_zone == other.time_zone
     end
 
     def name
@@ -480,8 +617,12 @@ module ArrowFormat
       :s64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      TimestampArray.new(self, size, validity_buffer, values_buffer)
+    def pack_template
+      "q"
+    end
+
+    def build_array(...)
+      TimestampArray.new(self, ...)
     end
 
     def to_s
@@ -531,8 +672,12 @@ module ArrowFormat
       :s32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      YearMonthIntervalArray.new(self, size, validity_buffer, values_buffer)
+    def pack_template
+      "l"
+    end
+
+    def build_array(...)
+      YearMonthIntervalArray.new(...)
     end
   end
 
@@ -549,8 +694,12 @@ module ArrowFormat
       :s32
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      DayTimeIntervalArray.new(self, size, validity_buffer, values_buffer)
+    def pack_template
+      "ll"
+    end
+
+    def build_array(...)
+      DayTimeIntervalArray.new(...)
     end
   end
 
@@ -567,19 +716,39 @@ module ArrowFormat
       @buffer_types ||= [:s32, :s32, :s64]
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      MonthDayNanoIntervalArray.new(self,
-                                    size,
-                                    validity_buffer,
-                                    values_buffer)
+    def pack_template
+      "llq"
+    end
+
+    def build_array(...)
+      MonthDayNanoIntervalArray.new(...)
     end
   end
 
   class DurationType < TemporalType
+    class << self
+      def try_convert(value)
+        case value
+        when Symbol
+          unit = value
+          new(unit)
+        when self
+          value
+        else
+          nil
+        end
+      end
+    end
+
     attr_reader :unit
     def initialize(unit)
       super()
       @unit = unit
+    end
+
+    def ==(other)
+      other.is_a?(self.class) and
+        @unit == other.unit
     end
 
     def name
@@ -590,8 +759,12 @@ module ArrowFormat
       :s64
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      DurationArray.new(self, size, validity_buffer, values_buffer)
+    def pack_template
+      "q"
+    end
+
+    def build_array(...)
+      DurationArray.new(self, ...)
     end
 
     def to_s
@@ -623,15 +796,16 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def encoding
       Encoding::ASCII_8BIT
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      BinaryArray.new(size,
-                      validity_buffer,
-                      offsets_buffer,
-                      values_buffer)
+    def build_array(...)
+      BinaryArray.new(...)
     end
 
     def to_flatbuffers
@@ -654,15 +828,16 @@ module ArrowFormat
       :s64 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "q"
+    end
+
     def encoding
       Encoding::ASCII_8BIT
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      LargeBinaryArray.new(size,
-                           validity_buffer,
-                           offsets_buffer,
-                           values_buffer)
+    def build_array(...)
+      LargeBinaryArray.new(...)
     end
 
     def to_flatbuffers
@@ -685,12 +860,16 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "l"
+    end
+
     def encoding
       Encoding::UTF_8
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      UTF8Array.new(size, validity_buffer, offsets_buffer, values_buffer)
+    def build_array(...)
+      UTF8Array.new(...)
     end
 
     def to_flatbuffers
@@ -713,15 +892,16 @@ module ArrowFormat
       :s64 # TODO: big endian support
     end
 
+    def offset_pack_template
+      "q"
+    end
+
     def encoding
       Encoding::UTF_8
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      LargeUTF8Array.new(size,
-                         validity_buffer,
-                         offsets_buffer,
-                         values_buffer)
+    def build_array(...)
+      LargeUTF8Array.new(...)
     end
 
     def to_flatbuffers
@@ -740,8 +920,8 @@ module ArrowFormat
       "FixedSizeBinary"
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      FixedSizeBinaryArray.new(self, size, validity_buffer, values_buffer)
+    def build_array(...)
+      FixedSizeBinaryArray.new(self, ...)
     end
 
     def to_s
@@ -786,8 +966,8 @@ module ArrowFormat
       "Decimal128"
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Decimal128Array.new(self, size, validity_buffer, values_buffer)
+    def build_array(...)
+      Decimal128Array.new(self, ...)
     end
   end
 
@@ -800,8 +980,8 @@ module ArrowFormat
       "Decimal256"
     end
 
-    def build_array(size, validity_buffer, values_buffer)
-      Decimal256Array.new(self, size, validity_buffer, values_buffer)
+    def build_array(...)
+      Decimal256Array.new(self, ...)
     end
   end
 
@@ -826,8 +1006,8 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, child)
-      ListArray.new(self, size, validity_buffer, offsets_buffer, child)
+    def build_array(...)
+      ListArray.new(self, ...)
     end
 
     def to_flatbuffers
@@ -844,8 +1024,8 @@ module ArrowFormat
       :s64 # TODO: big endian support
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, child)
-      LargeListArray.new(self, size, validity_buffer, offsets_buffer, child)
+    def build_array(...)
+      LargeListArray.new(self, ...)
     end
 
     def to_flatbuffers
@@ -870,8 +1050,8 @@ module ArrowFormat
       "#{super}<#{child.name}: #{child.type}>(#{@size})"
     end
 
-    def build_array(size, validity_buffer, child)
-      FixedSizeListArray.new(self, size, validity_buffer, child)
+    def build_array(...)
+      FixedSizeListArray.new(self, ...)
     end
 
     def to_flatbuffers
@@ -892,8 +1072,8 @@ module ArrowFormat
       "Struct"
     end
 
-    def build_array(size, validity_buffer, children)
-      StructArray.new(self, size, validity_buffer, children)
+    def build_array(...)
+      StructArray.new(self, ...)
     end
 
     def to_s
@@ -942,8 +1122,8 @@ module ArrowFormat
       :s32 # TODO: big endian support
     end
 
-    def build_array(size, validity_buffer, offsets_buffer, child)
-      MapArray.new(self, size, validity_buffer, offsets_buffer, child)
+    def build_array(...)
+      MapArray.new(self, ...)
     end
 
     def to_s
@@ -999,8 +1179,8 @@ module ArrowFormat
       :s32
     end
 
-    def build_array(size, types_buffer, offsets_buffer, children)
-      DenseUnionArray.new(self, size, types_buffer, offsets_buffer, children)
+    def build_array(...)
+      DenseUnionArray.new(self, ...)
     end
   end
 
@@ -1013,8 +1193,8 @@ module ArrowFormat
       "SparseUnion"
     end
 
-    def build_array(size, types_buffer, children)
-      SparseUnionArray.new(self, size, types_buffer, children)
+    def build_array(...)
+      SparseUnionArray.new(self, ...)
     end
   end
 
@@ -1038,12 +1218,8 @@ module ArrowFormat
       "Dictionary"
     end
 
-    def build_array(size, validity_buffer, indices_buffer, dictionaries)
-      DictionaryArray.new(self,
-                          size,
-                          validity_buffer,
-                          indices_buffer,
-                          dictionaries)
+    def build_array(...)
+      DictionaryArray.new(self, ...)
     end
 
     def build_fb_field(fb_field)

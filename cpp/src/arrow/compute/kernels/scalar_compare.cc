@@ -433,6 +433,12 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
         GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
+  for (const auto& ty : BinaryViewTypes()) {
+    auto exec =
+        GenerateVarBinaryViewBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
+            *ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+  }
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);

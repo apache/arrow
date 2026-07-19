@@ -1196,6 +1196,55 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
   }
 }
 
+TEST(TestBinaryViewCompareKernel, ArrayArray) {
+  const auto cases = std::vector<std::shared_ptr<DataType>>{binary_view(), utf8_view()};
+  const auto expected = std::vector<std::pair<std::string, std::string>>{
+      {"equal", "[true, false, false, false, false, false, null]"},
+      {"not_equal", "[false, true, true, true, true, true, null]"},
+      {"greater", "[false, false, false, false, false, true, null]"},
+      {"greater_equal", "[true, false, false, false, false, true, null]"},
+      {"less", "[false, true, true, true, true, false, null]"},
+      {"less_equal", "[true, true, true, true, true, false, null]"}};
+
+  for (const auto& ty : cases) {
+    auto lhs =
+        ArrayFromJSON(ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
+                "samepref_size", null])");
+    auto rhs = ArrayFromJSON(
+        ty, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
+                "samepref", null])");
+
+    CheckScalarBinary("equal", ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+                      ArrayFromJSON(boolean(), R"([])"));
+    CheckScalarBinary("equal", ArrayFromJSON(ty, R"([null])"),
+                      ArrayFromJSON(ty, R"([null])"),
+                      ArrayFromJSON(boolean(), R"([null])"));
+    for (const auto& function_and_expected : expected) {
+      CheckScalarBinary(function_and_expected.first, lhs, rhs,
+                        ArrayFromJSON(boolean(), function_and_expected.second));
+    }
+  }
+}
+
+TEST(TestBinaryViewCompareKernel, ArrayScalar) {
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    auto arr = ArrayFromJSON(ty, R"(["", "abc", "abcdefghijklmnop", null])");
+    auto scalar = ScalarFromJSON(ty, R"("abc")");
+    auto null_scalar = ScalarFromJSON(ty, "null");
+
+    CheckScalarBinary("equal", arr, scalar,
+                      ArrayFromJSON(boolean(), R"([false, true, false, null])"));
+    CheckScalarBinary("equal", scalar, arr,
+                      ArrayFromJSON(boolean(), R"([false, true, false, null])"));
+    CheckScalarBinary("greater", arr, scalar,
+                      ArrayFromJSON(boolean(), R"([false, false, true, null])"));
+    CheckScalarBinary("less", scalar, arr,
+                      ArrayFromJSON(boolean(), R"([false, false, true, null])"));
+    CheckScalarBinary("equal", arr, null_scalar,
+                      ArrayFromJSON(boolean(), R"([null, null, null, null])"));
+  }
+}
+
 template <typename T>
 class TestVarArgsCompare : public ::testing::Test {
  protected:

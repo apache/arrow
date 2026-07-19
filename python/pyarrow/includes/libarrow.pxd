@@ -1139,6 +1139,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches)
 
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool null_to_nan, c_bool row_major,
+                                              CMemoryPool* pool) const
+
         int num_columns()
         int64_t num_rows()
 
@@ -2793,17 +2796,21 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSortKey" arrow::compute::SortKey":
         CSortKey(CFieldRef target, CSortOrder order)
+        CSortKey(CFieldRef target, CSortOrder order, CNullPlacement null_placement)
         CFieldRef target
         CSortOrder order
+        CNullPlacement null_placement
 
     cdef cppclass COrdering" arrow::compute::Ordering":
+        COrdering(vector[CSortKey] sort_keys)
         COrdering(vector[CSortKey] sort_keys, CNullPlacement null_placement)
 
     cdef cppclass CSortOptions \
             "arrow::compute::SortOptions"(CFunctionOptions):
+        CSortOptions(vector[CSortKey] sort_keys)
         CSortOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
-        CNullPlacement null_placement
+        optional[CNullPlacement] null_placement
 
     cdef cppclass CSelectKOptions \
             "arrow::compute::SelectKOptions"(CFunctionOptions):
@@ -2876,17 +2883,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRankOptions \
             "arrow::compute::RankOptions"(CFunctionOptions):
+        CRankOptions(vector[CSortKey] sort_keys, CRankOptionsTiebreaker tiebreaker)
         CRankOptions(vector[CSortKey] sort_keys, CNullPlacement,
                      CRankOptionsTiebreaker tiebreaker)
         vector[CSortKey] sort_keys
-        CNullPlacement null_placement
+        optional[CNullPlacement] null_placement
         CRankOptionsTiebreaker tiebreaker
 
     cdef cppclass CRankQuantileOptions \
             "arrow::compute::RankQuantileOptions"(CFunctionOptions):
+        CRankQuantileOptions(vector[CSortKey] sort_keys)
         CRankQuantileOptions(vector[CSortKey] sort_keys, CNullPlacement)
         vector[CSortKey] sort_keys
-        CNullPlacement null_placement
+        optional[CNullPlacement] null_placement
 
     cdef enum PivotWiderUnexpectedKeyBehavior \
             "arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior":

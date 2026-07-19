@@ -18,7 +18,7 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=24.0.0.9000
+pkgver=25.0.0.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
@@ -122,6 +122,7 @@ build() {
     -DARROW_PACKAGE_PREFIX="${MINGW_PREFIX}" \
     -DARROW_PARQUET=ON \
     -DARROW_S3=ON \
+    -DARROW_AZURE=OFF \
     -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_USE_GLOG=OFF \
     -DARROW_UTF8PROC_USE_SHARED=OFF \

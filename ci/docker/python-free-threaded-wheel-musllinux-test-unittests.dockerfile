@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG python_version=3.13
+ARG python_version=3.14
 ARG arch=aarch64
 ARG build_date
 
@@ -37,8 +37,7 @@ RUN apk update && \
 # See available releases at: https://github.com/astral-sh/python-build-standalone/releases
 RUN set -e; \
     case "${python_version}" in \
-      3.13) python_patch_version="3.13.9";; \
-      3.14) python_patch_version="3.14.0";; \
+      3.14) python_patch_version="3.14.5";; \
     esac && \
     curl -L -o python.tar.zst \
     https://github.com/astral-sh/python-build-standalone/releases/download/${build_date}/cpython-${python_patch_version}+${build_date}-${arch}-unknown-linux-musl-freethreaded+lto-full.tar.zst && \
@@ -57,11 +56,6 @@ ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"
 ENV TZDIR=/usr/share/zoneinfo
 RUN cp /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
-# pandas doesn't provide wheels for aarch64 yet, so we have to install nightly Cython
-# along with the rest of pandas' build dependencies and disable build isolation
-RUN python -m pip install \
-    --pre \
-    --prefer-binary \
-    --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
-    Cython numpy
+COPY python/requirements-wheel-test.txt /arrow/python/
+RUN python -m pip install -r /arrow/python/requirements-wheel-test.txt
 RUN python -m pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja
