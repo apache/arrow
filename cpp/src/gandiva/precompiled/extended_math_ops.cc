@@ -324,12 +324,13 @@ gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
   if (precision >= 0) {
     return number;
   }
-  gdv_int32 abs_precision = -precision;
   // This is to ensure that there is no overflow while calculating 10^precision, 9 is
-  // the smallest N for which 10^N does not fit into 32 bits, so we can safely return 0
-  if (abs_precision > 9) {
+  // the smallest N for which 10^N does not fit into 32 bits, so we can safely return 0.
+  // The bound is checked before negating because -INT32_MIN is still negative.
+  if (precision < -9) {
     return 0;
   }
+  gdv_int32 abs_precision = -precision;
   gdv_int32 num_sign = (number > 0) ? 1 : -1;
   gdv_int32 abs_number = number * num_sign;
   gdv_int32 power_of_10 = static_cast<gdv_int32>(get_power_of_10(abs_precision));
@@ -349,12 +350,13 @@ gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision) {
   if (precision >= 0) {
     return number;
   }
-  gdv_int32 abs_precision = -precision;
   // This is to ensure that there is no overflow while calculating 10^precision, 19 is
-  // the smallest N for which 10^N does not fit into 64 bits, so we can safely return 0
-  if (abs_precision > 18) {
+  // the smallest N for which 10^N does not fit into 64 bits, so we can safely return 0.
+  // The bound is checked before negating because -INT32_MIN is still negative.
+  if (precision < -18) {
     return 0;
   }
+  gdv_int32 abs_precision = -precision;
   gdv_int32 num_sign = (number > 0) ? 1 : -1;
   gdv_int64 abs_number = number * num_sign;
   gdv_int64 power_of_10 = get_power_of_10(abs_precision);
