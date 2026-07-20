@@ -307,7 +307,7 @@ git push upstream r-universe-release --force
 
 ## 19. Update Backwards Compatibility Matrix
 
-Add a new line to `dev/tasks/r/github.linux.arrow.version.back.compat.yml` with the new version.
+Add a new line to `dev/tasks/r/github.linux.arrow.version.back.compat.yml` with the previous version.
 
 Create a PR to main for this change.
 
