@@ -29,6 +29,7 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <span>
 
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
@@ -37,7 +38,6 @@
 #include "arrow/util/fastlanes/fastlanes_kernels.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -228,7 +228,7 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 
 template <typename T>
 Result<int64_t> PforCompression<T>::DecodeVector(T* values,
-                                                  arrow::util::span<const uint8_t> data,
+                                                  std::span<const uint8_t> data,
                                                   int32_t num_elements,
                                                   OutputOrder order) {
   // Step 1: Read vector info
@@ -340,7 +340,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
 
 template <typename T>
 Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
-    arrow::util::span<const uint8_t> data, int32_t num_elements) {
+    std::span<const uint8_t> data, int32_t num_elements) {
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
 
   PforEncodedVectorView<T> view;
@@ -354,7 +354,7 @@ Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
   if (info.bit_width() > 0) {
     packed_size =
         bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
-    view.set_packed_values(arrow::util::span<const uint8_t>(ptr, packed_size));
+    view.set_packed_values(std::span<const uint8_t>(ptr, packed_size));
     ptr += packed_size;
   }
 
@@ -395,11 +395,11 @@ int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec
 template <typename T>
 int64_t PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
                                             int32_t num_elements,
-                                            arrow::util::span<uint8_t> dest) {
+                                            std::span<uint8_t> dest) {
   uint8_t* write_ptr = dest.data();
 
   // Write vector info
-  vec.info().Store(arrow::util::span<uint8_t>(write_ptr, PforVectorInfo<T>::kStoredSize));
+  vec.info().Store(std::span<uint8_t>(write_ptr, PforVectorInfo<T>::kStoredSize));
   write_ptr += PforVectorInfo<T>::kStoredSize;
 
   // Write packed values

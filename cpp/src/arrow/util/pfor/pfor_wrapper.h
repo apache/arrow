@@ -23,11 +23,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/pfor/pfor.h"
-#include "arrow/util/span.h"
 
 namespace arrow {
 namespace util {
@@ -101,8 +101,8 @@ class PforWrapper {
   static constexpr int32_t kVectorSize =
       static_cast<int32_t>(PforConstants::kPforVectorSize);
 
-  static void StoreHeader(arrow::util::span<uint8_t> dest, const PforHeader& header);
-  static Result<PforHeader> LoadHeader(arrow::util::span<const uint8_t> src);
+  static void StoreHeader(std::span<uint8_t> dest, const PforHeader& header);
+  static Result<PforHeader> LoadHeader(std::span<const uint8_t> src);
 };
 
 }  // namespace pfor

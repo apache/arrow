@@ -27,12 +27,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <vector>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/pfor/pfor_constants.h"
-#include "arrow/util/span.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -80,7 +80,7 @@ class PforVectorInfo {
   void set_packing_mode(PackingMode mode) { packing_mode_ = mode; }
 
   /// \brief Store this info to a byte buffer (little-endian)
-  void Store(arrow::util::span<uint8_t> dest) const {
+  void Store(std::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, frame_of_reference_);
     const uint8_t mode_bit =
@@ -90,7 +90,7 @@ class PforVectorInfo {
   }
 
   /// \brief Load this info from a byte buffer (little-endian)
-  static Result<PforVectorInfo> Load(arrow::util::span<const uint8_t> src) {
+  static Result<PforVectorInfo> Load(std::span<const uint8_t> src) {
     if (src.size() < static_cast<size_t>(kStoredSize)) {
       return Status::Invalid("PFOR vector info buffer too small: ", src.size(),
                              " < ", kStoredSize);
@@ -178,8 +178,8 @@ class PforEncodedVectorView {
   int32_t num_elements() const { return num_elements_; }
   void set_num_elements(int32_t n) { num_elements_ = n; }
 
-  arrow::util::span<const uint8_t> packed_values() const { return packed_values_; }
-  void set_packed_values(arrow::util::span<const uint8_t> v) { packed_values_ = v; }
+  std::span<const uint8_t> packed_values() const { return packed_values_; }
+  void set_packed_values(std::span<const uint8_t> v) { packed_values_ = v; }
 
   const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
   std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
@@ -197,12 +197,12 @@ class PforEncodedVectorView {
   /// \param[in] num_elements number of elements in this vector
   /// \return the view, or an error if the buffer is too small
   static Result<PforEncodedVectorView> LoadView(
-      arrow::util::span<const uint8_t> data, int32_t num_elements);
+      std::span<const uint8_t> data, int32_t num_elements);
 
  private:
   PforVectorInfo<T> info_;
   int32_t num_elements_ = 0;
-  arrow::util::span<const uint8_t> packed_values_;
+  std::span<const uint8_t> packed_values_;
   std::vector<int16_t> exception_positions_;
   std::vector<T> exception_values_;
 };
@@ -261,7 +261,7 @@ class PforCompression {
   ///            FL_ORDER gather on decode); BitPack vectors always return
   ///            flat output regardless of `order`.
   /// \return number of bytes consumed from data, or error
-  static Result<int64_t> DecodeVector(T* values, arrow::util::span<const uint8_t> data,
+  static Result<int64_t> DecodeVector(T* values, std::span<const uint8_t> data,
                                       int32_t num_elements,
                                       OutputOrder order = OutputOrder::Flat);
 
@@ -277,7 +277,7 @@ class PforCompression {
   /// \return number of bytes written
   static int64_t SerializeVector(const PforEncodedVector<T>& vec,
                                  int32_t num_elements,
-                                 arrow::util::span<uint8_t> dest);
+                                 std::span<uint8_t> dest);
 };
 
 }  // namespace pfor
