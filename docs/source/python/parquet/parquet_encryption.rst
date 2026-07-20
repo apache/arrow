@@ -241,7 +241,7 @@ key material is stored in a separate file next to the Parquet file instead of
 in its footer.
 
 Storing key material externally is what enables key rotation:
-:meth:`~.crypto_factory.rotate_master_keys()` re-wraps the data encryption keys of
+:meth:`~pyarrow.parquet.encryption.CryptoFactory.rotate_master_keys` re-wraps the data encryption keys of
 a file that uses external key material using new master keys and overwrites the external
 key material file, without changing the Parquet file itself:
 

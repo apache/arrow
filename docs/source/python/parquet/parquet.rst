@@ -104,11 +104,11 @@ but won't help much with resident memory consumption.
 
 .. code-block:: python
 
-   >>> pq_array = pa.parquet.read_table(path, memory_map=True)  # doctest: +SKIP
+   >>> pq_array = pq.read_table(path, memory_map=True)  # doctest: +SKIP
    >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))  # doctest: +SKIP
    RSS: 4299MB
 
-   >>> pq_array = pa.parquet.read_table(path, memory_map=False)  # doctest: +SKIP
+   >>> pq_array = pq.read_table(path, memory_map=False)  # doctest: +SKIP
    >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))  # doctest: +SKIP
    RSS: 4299MB
 
@@ -187,7 +187,7 @@ Here you see the index did not survive the round trip.
 Finer-grained Reading and Writing
 ---------------------------------
 
-``read_table`` uses the :class:`~.ParquetFile` class, which has other features:
+``read_table`` uses the :class:`~pyarrow.parquet.ParquetFile` class, which has other features:
 
 .. code-block:: python
 
