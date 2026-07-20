@@ -1581,8 +1581,14 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
         case SQL_REAL:
         case SQL_FLOAT:
         case SQL_DOUBLE: {
-          ird->GetField(column_number, SQL_DESC_PRECISION, column_size_ptr,
-                        sizeof(SQLULEN), nullptr);
+          // SQL_DESC_PRECISION is stored as a SQLSMALLINT. Read it into a
+          // correctly-sized local and widen into the SQLULEN output. Passing the
+          // SQLULEN* directly would only write the low 2 bytes and leave the
+          // upper 6 bytes uninitialized.
+          SQLSMALLINT precision = 0;
+          ird->GetField(column_number, SQL_DESC_PRECISION, &precision, sizeof(precision),
+                        nullptr);
+          *column_size_ptr = static_cast<SQLULEN>(precision);
           break;
         }
 
@@ -1604,7 +1610,7 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
         case SQL_DECIMAL:
         case SQL_NUMERIC: {
           ird->GetField(column_number, SQL_DESC_SCALE, decimal_digits_ptr,
-                        sizeof(SQLULEN), nullptr);
+                        sizeof(SQLSMALLINT), nullptr);
           break;
         }
 
@@ -1622,7 +1628,7 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
         case SQL_INTERVAL_HOUR_TO_SECOND:
         case SQL_INTERVAL_DAY_TO_SECOND: {
           ird->GetField(column_number, SQL_DESC_PRECISION, decimal_digits_ptr,
-                        sizeof(SQLULEN), nullptr);
+                        sizeof(SQLSMALLINT), nullptr);
           break;
         }
 
