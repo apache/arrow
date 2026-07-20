@@ -784,28 +784,24 @@ class ValueSinkBuffer : private ValueSinkCursor {
 
   value_type* data() const { return values_->mutable_data_as<value_type>(); }
 
-  // TODO can we remove that?
-  value_type* write_start() { return data() + values_count(); }
-
-  // TODO can we remove that?
-  void mark_values_as_written(int64_t extra_values) {
-    set_values_count(values_count() + extra_values);
-  }
-
   void delete_back(int64_t count) {
     ARROW_DCHECK_LE(count, values_count());
     set_values_count(values_count() - count);
   }
 
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
-    return decoder.Decode(write_start(), batch_size);
+    const auto decoded = decoder.Decode(write_start(), batch_size);
+    set_values_count(values_count() + batch_size);
+    return decoded;
   }
 
   [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
                                       int32_t null_count, const uint8_t* valid_bits,
                                       int64_t valid_bits_offset) {
-    return decoder.DecodeSpaced(write_start(), batch_size, null_count, valid_bits,
-                                valid_bits_offset);
+    const auto decoded = decoder.DecodeSpaced(write_start(), batch_size, null_count,
+                                              valid_bits, valid_bits_offset);
+    set_values_count(values_count() + batch_size);
+    return decoded;
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
@@ -844,6 +840,8 @@ class ValueSinkBuffer : private ValueSinkCursor {
     }
     return bytes;
   }
+
+  value_type* write_start() { return data() + values_count(); }
 };
 
 /**************************
@@ -2256,11 +2254,10 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
   ARROW_DCHECK_GE(values_to_read, 0);
   ARROW_DCHECK_GE(null_count, 0);
 
+  // The values have already been accounted for by ReadValuesDense/Spaced.
   if (read_dense_for_nullable_) {
-    value_sink_.mark_values_as_written(values_to_read);
     ARROW_DCHECK_EQ(null_count, 0);
   } else {
-    value_sink_.mark_values_as_written(values_to_read + null_count);
     null_count_ += null_count;
   }
   // Total values, including null spaces, if any
@@ -2448,8 +2445,6 @@ int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records
         std::min<int32_t>(clamp_to<int32_t>(num_records - records_read),
                           this->available_values_current_page());
     ReadValuesDense(batch_size);
-
-    value_sink_.mark_values_as_written(batch_size);
     this->ConsumeBufferedValues(batch_size);
 
     records_read += batch_size;
@@ -2511,8 +2506,6 @@ class ArrayValuesSink : private ValueSinkCursor {
 
   value_type* data() const { return nullptr; }
 
-  value_type* write_start() { return nullptr; }
-
   void mark_values_as_written(int64_t extra_values) {
     set_values_count(values_count() + extra_values);
   }
@@ -2533,7 +2526,9 @@ class ArrayValuesSink : private ValueSinkCursor {
 
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
     // TODO once we have a validity sink: we can reset the validity to save some space
-    return decoder.DecodeArrowNonNull(batch_size, &builder_);
+    const int64_t decoded = decoder.DecodeArrowNonNull(batch_size, &builder_);
+    mark_values_as_written(batch_size);
+    return decoded;
   }
 
   [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
@@ -2542,6 +2537,7 @@ class ArrayValuesSink : private ValueSinkCursor {
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = decoder.DecodeArrow(batch_size, null_count, valid_bits,
                                                 valid_bits_offset, &builder_);
+    mark_values_as_written(batch_size);
     // `DecodeArrow` only counts the non-null values, but the caller expects the
     // number of values written, nulls included.
     ARROW_DCHECK_EQ(decoded, batch_size - null_count);
@@ -2740,9 +2736,7 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
 
   value_type* data() const { return nullptr; }
 
-  void mark_values_as_written(int64_t extra_values) {
-    set_values_count(values_count() + extra_values);
-  }
+  void mark_values_as_written(int64_t extra_values) {}
 
   std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* /* pool */) {
     return nullptr;
@@ -2754,18 +2748,22 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
 
   [[nodiscard]] int64_t ReadValuesDense(auto& decoder, int32_t batch_size) {
     // TODO once we have a validity sink: we can reset the validity to save some space
-    if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
-      MaybeWriteNewDictionary(*dict_decoder);
-      return dict_decoder->DecodeIndices(batch_size, builder_.get());
-    }
-    return decoder.DecodeArrowNonNull(batch_size, builder_.get());
+    const int64_t decoded = [&]() -> int64_t {
+      if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
+        MaybeWriteNewDictionary(*dict_decoder);
+        return dict_decoder->DecodeIndices(batch_size, builder_.get());
+      }
+      return decoder.DecodeArrowNonNull(batch_size, builder_.get());
+    }();
+    set_values_count(values_count() + batch_size);
+    return decoded;
   }
 
   [[nodiscard]] int64_t ReadValuesSpaced(auto& decoder, int32_t batch_size,
                                          int32_t null_count, const uint8_t* valid_bits,
                                          int64_t valid_bits_offset) {
     // TODO once we have a validity sink: we can reset the validity to save some space
-    const int64_t decoded = [&] {
+    const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
         MaybeWriteNewDictionary(*dict_decoder);
         return dict_decoder->DecodeIndicesSpaced(batch_size, null_count, valid_bits,
@@ -2774,6 +2772,7 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
       return decoder.DecodeArrow(batch_size, null_count, valid_bits, valid_bits_offset,
                                  builder_.get());
     }();
+    set_values_count(values_count() + batch_size);
     // The decoders only count the non-null values, but the caller expects the
     // number of values written, nulls included.
     ARROW_DCHECK_EQ(decoded, batch_size - null_count);
