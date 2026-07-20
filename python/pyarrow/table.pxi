@@ -556,7 +556,7 @@ cdef class ChunkedArray(_PandasConvertible):
                 "`np.asarray(obj)` to allow a copy when needed"
             )
         # 'copy' can further be ignored because to_numpy() already returns a copy
-        values = self.to_numpy()
+        values = self.to_numpy().copy()
         if dtype is None:
             return values
         return values.astype(dtype, copy=False)
