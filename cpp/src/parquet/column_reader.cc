@@ -1820,9 +1820,8 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
  *  TypedRecordReader Implementation  *
  **************************************/
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-const void* TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadDictionary(
-    int32_t* dictionary_length) {
+template <typename DT, typename VS, bool kDic>
+const void* TypedRecordReader<DT, VS, kDic>::ReadDictionary(int32_t* dictionary_length) {
   if (!this->current_decoder_ && !this->HasNextInternal()) {
     *dictionary_length = 0;
     return nullptr;
@@ -1836,15 +1835,14 @@ const void* TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadDictionary
        << EncodingToString(this->current_encoding_);
     throw ParquetException(ss.str());
   }
-  auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
+  auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
   const T* dictionary = nullptr;
   decoder->GetDictionary(&dictionary, dictionary_length);
   return reinterpret_cast<const void*>(dictionary);
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecords(
-    int64_t num_records) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
   if (num_records == 0) return 0;
   // Delimit records, then read values at the end
   int64_t records_read = 0;
@@ -1912,9 +1910,8 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecords(
   return records_read;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ThrowAwayLevels(
-    int64_t start_levels_position) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ThrowAwayLevels(int64_t start_levels_position) {
   ARROW_DCHECK_LE(levels_position_, levels_written_);
   ARROW_DCHECK_LE(start_levels_position, levels_position_);
   ARROW_DCHECK_GT(this->max_def_level(), 0);
@@ -1945,9 +1942,8 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ThrowAwayLevels(
   levels_capacity_ -= gap;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t
-TypedRecordReader<DType, ValueSink, kReadDictionary>::SkipRecordsInBufferNonRepeated(
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsInBufferNonRepeated(
     int64_t num_records) {
   ARROW_DCHECK_EQ(this->max_rep_level(), 0);
   if (!this->has_values_to_process() || num_records == 0) return 0;
@@ -1980,9 +1976,8 @@ TypedRecordReader<DType, ValueSink, kReadDictionary>::SkipRecordsInBufferNonRepe
   return skipped_records;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t
-TypedRecordReader<DType, ValueSink, kReadDictionary>::DelimitAndSkipRecordsInBuffer(
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::DelimitAndSkipRecordsInBuffer(
     int64_t num_records) {
   if (num_records == 0) return 0;
   // Look at the buffered levels, delimit them based on
@@ -2002,9 +1997,8 @@ TypedRecordReader<DType, ValueSink, kReadDictionary>::DelimitAndSkipRecordsInBuf
   return skipped_records;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::SkipRecordsRepeated(
-    int64_t num_records) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsRepeated(int64_t num_records) {
   ARROW_DCHECK_GT(this->max_rep_level(), 0);
   int64_t skipped_records = 0;
 
@@ -2070,9 +2064,8 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::SkipRecordsRepeate
   return skipped_records;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadAndThrowAwayValues(
-    int64_t num_values) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReadAndThrowAwayValues(int64_t num_values) {
   const int64_t values_read = this->current_decoder_.Skip(num_values);
   if (values_read < num_values) {
     std::stringstream ss;
@@ -2081,9 +2074,8 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadAndThrowAwayValue
   }
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::SkipRecords(
-    int64_t num_records) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::SkipRecords(int64_t num_records) {
   if (num_records == 0) return 0;
 
   // Top level required field. Number of records equals to number of levels,
@@ -2110,9 +2102,8 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::SkipRecords(
   return skipped_records;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-std::shared_ptr<ResizableBuffer>
-TypedRecordReader<DType, ValueSink, kReadDictionary>::ReleaseIsValid() {
+template <typename DT, typename VS, bool kDic>
+std::shared_ptr<ResizableBuffer> TypedRecordReader<DT, VS, kDic>::ReleaseIsValid() {
   if (nullable_values()) {
     const auto bit_count = bit_util::BytesForBits(values_written());
     auto result = valid_bits_;
@@ -2125,9 +2116,9 @@ TypedRecordReader<DType, ValueSink, kReadDictionary>::ReleaseIsValid() {
   }
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::DelimitRecords(
-    int64_t num_records, int64_t* values_seen) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::DelimitRecords(int64_t num_records,
+                                                        int64_t* values_seen) {
   if (ARROW_PREDICT_FALSE(num_records == 0 || levels_position_ == levels_written_)) {
     *values_seen = 0;
     return 0;
@@ -2185,16 +2176,15 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::DelimitRecords(
   return records_read;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::Reserve(int64_t extra_values) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::Reserve(int64_t extra_values) {
   ReserveLevels(extra_values);
   ReserveValues(extra_values);
   ReserveIsValid(extra_values);
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveLevels(
-    int64_t extra_levels) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReserveLevels(int64_t extra_levels) {
   if (this->max_def_level() > 0) {
     const int64_t new_levels_capacity =
         compute_capacity_pow2(levels_capacity_, levels_written_, extra_levels);
@@ -2215,9 +2205,8 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveLevels(
   }
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveIsValid(
-    int64_t extra_values) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReserveIsValid(int64_t extra_values) {
   if (nullable_values() && !read_dense_for_nullable_) {
     const int64_t current_byte_capacity = valid_bits_->size();
     const int64_t bit_capacity = compute_capacity_pow2(
@@ -2235,8 +2224,8 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReserveIsValid(
   }
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::Reset() {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::Reset() {
   ResetValues();
 
   if (levels_written_ > 0) {
@@ -2247,17 +2236,16 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::Reset() {
   // Call Finish on the binary builders to reset them
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::SetPageReader(
-    std::unique_ptr<PageReader> reader) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::SetPageReader(std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
   this->pager_ = std::move(reader);
   ResetDecoders();
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadValuesSpaced(
-    int32_t values_with_nulls, int32_t null_count) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReadValuesSpaced(int32_t values_with_nulls,
+                                                       int32_t null_count) {
   const auto decoded = value_sink_.ReadValuesSpaced(
       *this->current_decoder_.get(), values_with_nulls, null_count,
       /* valid_bits= */ valid_bits_->mutable_data(), /* valid_bits_offset= */
@@ -2265,17 +2253,17 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadValuesSpaced(
   CheckNumberDecoded(decoded, values_with_nulls);
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadValuesDense(
-    int32_t batch_size) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReadValuesDense(int32_t batch_size) {
   const auto decoded =
       value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
   CheckNumberDecoded(decoded, batch_size);
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRepeatedRecords(
-    int64_t num_records, int64_t* values_to_read, int64_t* null_count) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::ReadRepeatedRecords(int64_t num_records,
+                                                             int64_t* values_to_read,
+                                                             int64_t* null_count) {
   const int64_t start_levels_position = levels_position_;
   // Note that repeated records may be required or nullable. If they have
   // an optional parent in the path, they will be nullable, otherwise,
@@ -2296,9 +2284,10 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRepeatedRecord
   return records_read;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadOptionalRecords(
-    int64_t num_records, int64_t* values_to_read, int64_t* null_count) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::ReadOptionalRecords(int64_t num_records,
+                                                             int64_t* values_to_read,
+                                                             int64_t* null_count) {
   const int64_t start_levels_position = levels_position_;
   // No repetition levels, skip delimiting logic. Each level represents a
   // null or not null entry
@@ -2319,9 +2308,9 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadOptionalRecord
   return records_read;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadDenseForOptional(
-    int64_t start_levels_position, int64_t* values_to_read) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReadDenseForOptional(int64_t start_levels_position,
+                                                           int64_t* values_to_read) {
   // levels_position_ must already be incremented based on number of records
   // read.
   ARROW_DCHECK_GE(levels_position_, start_levels_position);
@@ -2334,10 +2323,9 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadDenseForOptional(
   ReadValuesDense(clamp_to<int32_t>(*values_to_read));
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::
-    ReadSpacedForOptionalOrRepeated(int64_t start_levels_position,
-                                    int64_t* values_to_read, int64_t* null_count) {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeated(
+    int64_t start_levels_position, int64_t* values_to_read, int64_t* null_count) {
   // levels_position_ must already be incremented based on number of records
   // read.
   ARROW_DCHECK_GE(levels_position_, start_levels_position);
@@ -2357,9 +2345,8 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::
                    clamp_to<int32_t>(*null_count));
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecordData(
-    int64_t num_records) {
+template <typename DT, typename VS, bool kDic>
+int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
   // Conservative upper bound
   const int64_t possible_num_values =
       std::max<int64_t>(num_records, levels_written_ - levels_position_);
@@ -2414,8 +2401,8 @@ int64_t TypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecordData(
   return records_read;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::DebugPrintState() {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::DebugPrintState() {
   const int16_t* def_levels = this->def_levels();
   const int16_t* rep_levels = this->rep_levels();
   const int64_t total_levels_read = levels_position_;
@@ -2450,8 +2437,8 @@ void TypedRecordReader<DType, ValueSink, kReadDictionary>::DebugPrintState() {
   std::cout << std::endl;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void TypedRecordReader<DType, ValueSink, kReadDictionary>::ResetValues() {
+template <typename DT, typename VS, bool kDic>
+void TypedRecordReader<DT, VS, kDic>::ResetValues() {
   if (values_written() > 0) {
     value_sink_.ResetValues();
     PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
@@ -2545,8 +2532,8 @@ class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecode
  *  RequiredTypedRecordReader Implementation  *
  **********************************************/
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-const void* RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::ReadDictionary(
+template <typename DT, typename VS, bool kDic>
+const void* RequiredTypedRecordReader<DT, VS, kDic>::ReadDictionary(
     int32_t* dictionary_length) {
   if (!this->current_decoder_ && !this->HasNextInternal()) {
     *dictionary_length = 0;
@@ -2561,15 +2548,14 @@ const void* RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::ReadDi
        << EncodingToString(this->current_encoding_);
     throw ParquetException(ss.str());
   }
-  auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
+  auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
   const T* dictionary = nullptr;
   decoder->GetDictionary(&dictionary, dictionary_length);
   return reinterpret_cast<const void*>(dictionary);
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-int64_t RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecords(
-    int64_t num_records) {
+template <typename DT, typename VS, bool kDic>
+int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
   if (num_records <= 0) {
     return 0;
   }
@@ -2598,30 +2584,29 @@ int64_t RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::ReadRecord
   return records_read;
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::ReadValuesDense(
-    int32_t batch_size) {
+template <typename DT, typename VS, bool kDic>
+void RequiredTypedRecordReader<DT, VS, kDic>::ReadValuesDense(int32_t batch_size) {
   const auto decoded =
       value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
   CheckNumberDecoded(decoded, batch_size);
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::Reset() {
+template <typename DT, typename VS, bool kDic>
+void RequiredTypedRecordReader<DT, VS, kDic>::Reset() {
   if (values_written() > 0) {
     value_sink_.ResetValues();
   }
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::SetPageReader(
+template <typename DT, typename VS, bool kDic>
+void RequiredTypedRecordReader<DT, VS, kDic>::SetPageReader(
     std::unique_ptr<PageReader> reader) {
   this->pager_ = std::move(reader);
   ResetDecoders();
 }
 
-template <typename DType, typename ValueSink, bool kReadDictionary>
-void RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>::DebugPrintState() {
+template <typename DT, typename VS, bool kDic>
+void RequiredTypedRecordReader<DT, VS, kDic>::DebugPrintState() {
   std::cout << "values: ";
   if constexpr (can_cout<T>) {
     const T* vals = reinterpret_cast<const T*>(this->values());
