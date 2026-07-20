@@ -81,14 +81,21 @@ constexpr int64_t kSkipScratchBatchSize = 1024;
 // Throws exception if number_decoded does not match expected.
 inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
   if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
-    ParquetException::EofException("Decoded values " + std::to_string(number_decoded) +
-                                   " does not match expected " +
-                                   std::to_string(expected));
+    auto msg = std::format("Decoded values {} does not match expected {}", number_decoded,
+                           expected);
+    ParquetException::EofException(msg);
   }
 }
 
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
     "Number of decoded rep / def levels do not match num_values in page header";
+
+template <typename T, typename U>
+constexpr T clamp_to(U val) {
+  constexpr U kMax = std::numeric_limits<T>::max();
+  constexpr U kMin = std::numeric_limits<T>::min();
+  return static_cast<T>(std::clamp<U>(val, kMin, kMax));
+}
 
 }  // namespace
 
@@ -846,9 +853,9 @@ class ValueSinkBuffer : private ValueSinkCursor {
   value_type* write_start() { return data() + values_count(); }
 };
 
-/**************************
- *  ColumnReaderImplBase  *
- **************************/
+/***********************
+ *  ColumnChunkReader  *
+ ***********************/
 
 /// Initialize repetition and definition level decoders on the given data page.
 ///
@@ -916,25 +923,49 @@ int64_t InitializeV2Levels(const DataPageV2& page, LvlDec& def_dec, LvlDec& rep_
   return total_levels_length;
 }
 
-/// Impl base class for TypedColumnReader and RecordReader
-template <typename DType, typename LvlDec>
-class ColumnReaderImplBase {
- public:
-  using T = typename DType::c_type;
+/// Traits of a concrete column chunk reader, for use by `ColumnChunkReader`.
+template <typename Derived>
+struct reader_trait;
 
-  ColumnReaderImplBase(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
-                       LvlDec def_levels_decoder, LvlDec rep_levels_decoder)
+/// Read through the multiple pages of a column chunk.
+template <typename Derived>
+class ColumnChunkReader {
+ public:
+  using DType = typename reader_trait<Derived>::DType;
+  using LvlDec = typename reader_trait<Derived>::level_decoder;
+  using value_type = typename DType::c_type;
+
+  ColumnChunkReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                    LvlDec def_levels_decoder, LvlDec rep_levels_decoder)
       : descr_(descr),
         pool_(pool),
         current_decoder_(pool),
         def_levels_decoder_(std::move(def_levels_decoder)),
         rep_levels_decoder_(std::move(rep_levels_decoder)) {}
 
-  virtual ~ColumnReaderImplBase() = default;
+  void SetPageReader(std::unique_ptr<PageReader> reader) {
+    pager_ = std::move(reader);
+    // Dictionary decoders must be reset when advancing row groups
+    decoders_.clear();
+  }
+
+  bool HasPageReader() const { return pager_ != nullptr; }
+
+  /// Return true if there is more data.
+  ///
+  /// If the current page is exhausted, it will process more pages until some data
+  /// page is found.
+  bool ProcessToMoreData();
+
+  /// Check the encoding of the current page or throw an exception.
+  void CheckEncodingIs(Encoding::type encoding);
 
  private:
   // Declared here because `decoders_` below refers to it.
   using DecoderType = TypedDecoder<DType>;
+
+  Derived& derived() { return static_cast<Derived&>(*this); }
+  const Derived& derived() const { return static_cast<const Derived&>(*this); }
 
  protected:
   int32_t ReadDefinitionLevels(int32_t batch_size, int16_t* levels) {
@@ -952,39 +983,14 @@ class ColumnReaderImplBase {
   }
 
   const ColumnDescriptor* descr_;
-  std::unique_ptr<PageReader> pager_;
   ::arrow::MemoryPool* pool_;
   SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
-  Encoding::type current_encoding_ = Encoding::UNKNOWN;
-  // The exposed encoding
-  ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;
-  // Map of encoding type to the respective decoder object. For example, a
-  // column chunk's data pages may include both dictionary-encoded and
-  // plain-encoded data.
-  std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
 
-  // Read up to batch_size values from the current data page into the
-  // pre-allocated memory T*
-  //
-  // @returns: the number of values read into the out buffer
-  int64_t ReadValues(int64_t batch_size, T* out);
-
-  bool HasNextInternal();
-
-  /// Called when a dictionary page has been read and its decoder set up.
-  ///
-  /// Readers accumulating dictionary-encoded values need to know about it, as
-  /// the indices they have read so far refer to the previous dictionary.
-  virtual void OnNewDictionary(DictDecoder<DType>& /* decoder */) {}
-
-  // Available values in the current data page, value includes repeated values
-  // and nulls.
+  // Available values in the current data page, value includes repeated values and nulls.
   int32_t available_values_current_page() const {
-    // The number of values in a page fits inside an int32_t according to the spec.
-    const int64_t out = num_buffered_values_ - num_decoded_values_;
+    const int32_t out = num_buffered_values_ - num_decoded_values_;
     ARROW_DCHECK_GE(out, 0);
-    ARROW_DCHECK_LE(out, std::numeric_limits<int32_t>::max());
-    return static_cast<int32_t>(out);
+    return out;
   }
 
   int16_t max_def_level() const;
@@ -998,6 +1004,11 @@ class ColumnReaderImplBase {
  private:
   LvlDec def_levels_decoder_;
   LvlDec rep_levels_decoder_;
+  // Map of encoding type to the respective decoder object. For example, a
+  // column chunk's data pages may include both dictionary-encoded and
+  // plain-encoded data.
+  std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
+  std::unique_ptr<PageReader> pager_;
   std::shared_ptr<Page> current_page_;
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
@@ -1005,10 +1016,11 @@ class ColumnReaderImplBase {
   // values. For repeated or optional values, there may be fewer data values
   // than levels, and this tells you how many encoded levels there are in that
   // case.
-  int64_t num_buffered_values_ = 0;
+  int32_t num_buffered_values_ = 0;
   // The number of values from the current data page that have been decoded
   // into memory or skipped over.
-  int64_t num_decoded_values_ = 0;
+  int32_t num_decoded_values_ = 0;
+  Encoding::type current_encoding_ = Encoding::UNKNOWN;
 
   // Advance to the next data page
   bool ReadNewPage();
@@ -1026,18 +1038,22 @@ class ColumnReaderImplBase {
   int32_t AdvanceLevels(int32_t num_levels);
 };
 
-/*****************************************
- *  ColumnReaderImplBase Implementation  *
- *****************************************/
+/**************************************
+ *  ColumnChunkReader Implementation  *
+ **************************************/
 
-template <typename DType, typename LvlDec>
-int64_t ColumnReaderImplBase<DType, LvlDec>::ReadValues(int64_t batch_size, T* out) {
-  int64_t num_decoded = current_decoder_->Decode(out, static_cast<int>(batch_size));
-  return num_decoded;
+template <typename Derived>
+void ColumnChunkReader<Derived>::CheckEncodingIs(Encoding::type encoding) {
+  if (current_encoding_ != encoding) {
+    auto msg =
+        std::format("Unexpected data page encoding. Expected {}, got {}",
+                    EncodingToString(encoding), EncodingToString(current_encoding_));
+    throw ParquetException(msg);
+  }
 }
 
-template <typename DType, typename LvlDec>
-bool ColumnReaderImplBase<DType, LvlDec>::HasNextInternal() {
+template <typename Derived>
+bool ColumnChunkReader<Derived>::ProcessToMoreData() {
   // Either there is no data page available yet, or the data page has been
   // exhausted
   if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
@@ -1048,8 +1064,8 @@ bool ColumnReaderImplBase<DType, LvlDec>::HasNextInternal() {
   return true;
 }
 
-template <typename DType, typename LvlDec>
-bool ColumnReaderImplBase<DType, LvlDec>::ReadNewPage() {
+template <typename Derived>
+bool ColumnChunkReader<Derived>::ReadNewPage() {
   // Loop until we find the next data page.
   while (true) {
     current_page_ = pager_->NextPage();
@@ -1087,9 +1103,8 @@ bool ColumnReaderImplBase<DType, LvlDec>::ReadNewPage() {
   return true;
 }
 
-template <typename DType, typename LvlDec>
-void ColumnReaderImplBase<DType, LvlDec>::ConfigureDictionary(
-    const DictionaryPage* page) {
+template <typename Derived>
+void ColumnChunkReader<Derived>::ConfigureDictionary(const DictionaryPage* page) {
   int encoding = static_cast<int>(page->encoding());
   if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
       page->encoding() == Encoding::PLAIN) {
@@ -1114,7 +1129,7 @@ void ColumnReaderImplBase<DType, LvlDec>::ConfigureDictionary(
 
     std::unique_ptr<DictDecoder<DType>> decoder = MakeDictDecoder<DType>(descr_, pool_);
     decoder->SetDict(dictionary.get());
-    OnNewDictionary(*decoder);
+    derived().OnNewDictionary(*decoder);
     decoders_[encoding] =
         std::unique_ptr<DecoderType>(dynamic_cast<DecoderType*>(decoder.release()));
   } else {
@@ -1125,9 +1140,9 @@ void ColumnReaderImplBase<DType, LvlDec>::ConfigureDictionary(
   ARROW_DCHECK(current_decoder_);
 }
 
-template <typename DType, typename LvlDec>
-void ColumnReaderImplBase<DType, LvlDec>::InitializeDataDecoder(
-    const DataPage& page, int64_t levels_byte_size) {
+template <typename Derived>
+void ColumnChunkReader<Derived>::InitializeDataDecoder(const DataPage& page,
+                                                       int64_t levels_byte_size) {
   const uint8_t* buffer = page.data() + levels_byte_size;
   const int64_t data_size = page.size() - levels_byte_size;
 
@@ -1172,18 +1187,18 @@ void ColumnReaderImplBase<DType, LvlDec>::InitializeDataDecoder(
                             static_cast<int>(data_size));
 }
 
-template <typename DType, typename LvlDec>
-int16_t ColumnReaderImplBase<DType, LvlDec>::max_def_level() const {
+template <typename Derived>
+int16_t ColumnChunkReader<Derived>::max_def_level() const {
   return def_levels_decoder_.max_level();
 }
 
-template <typename DType, typename LvlDec>
-int16_t ColumnReaderImplBase<DType, LvlDec>::max_rep_level() const {
+template <typename Derived>
+int16_t ColumnChunkReader<Derived>::max_rep_level() const {
   return rep_levels_decoder_.max_level();
 }
 
-template <typename DType, typename LvlDec>
-int32_t ColumnReaderImplBase<DType, LvlDec>::AdvanceLevels(int32_t num_levels) {
+template <typename Derived>
+int32_t ColumnChunkReader<Derived>::AdvanceLevels(int32_t num_levels) {
   int max_count = num_levels;
   // Advance the definition levels, counting how many correspond to present
   // (non-null) values that must be skipped in the data decoder.
@@ -1199,11 +1214,11 @@ int32_t ColumnReaderImplBase<DType, LvlDec>::AdvanceLevels(int32_t num_levels) {
   return max_count;
 }
 
-template <typename DType, typename LvlDec>
-int64_t ColumnReaderImplBase<DType, LvlDec>::Skip(int64_t num_values_to_skip) {
+template <typename Derived>
+int64_t ColumnChunkReader<Derived>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   // Optimization: Do not call HasNext() when values_to_skip == 0.
-  while (values_to_skip > 0 && HasNextInternal()) {
+  while (values_to_skip > 0 && ProcessToMoreData()) {
     // If the number of values to skip is more than the number of undecoded values, skip
     // the whole Page without decoding levels or values.
     const int64_t available_values = this->available_values_current_page();
@@ -1226,44 +1241,50 @@ int64_t ColumnReaderImplBase<DType, LvlDec>::Skip(int64_t num_values_to_skip) {
   return num_values_to_skip - values_to_skip;
 }
 
-template <typename T, typename U>
-constexpr T clamp_to(U val) {
-  constexpr U kMax = std::numeric_limits<T>::max();
-  constexpr U kMin = std::numeric_limits<T>::min();
-  return static_cast<T>(std::clamp<U>(val, kMin, kMax));
-}
+/***************************
+ *  TypedColumnReaderImpl  *
+ ***************************/
 
-// ----------------------------------------------------------------------
-// TypedColumnReader implementations
+template <typename DType>
+class TypedColumnReaderImpl;
+
+template <typename D>
+struct reader_trait<TypedColumnReaderImpl<D>> {
+  using DType = D;
+  using level_decoder = LevelDecoder;
+};
 
 template <typename DType>
 class TypedColumnReaderImpl : public TypedColumnReader<DType>,
-                              public ColumnReaderImplBase<DType, LevelDecoder> {
+                              public ColumnChunkReader<TypedColumnReaderImpl<DType>> {
  public:
   using T = typename DType::c_type;
 
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
                         ::arrow::MemoryPool* pool)
-      : ColumnReaderImplBase<DType, LevelDecoder>(
+      : ColumnChunkReader<TypedColumnReaderImpl<DType>>(
             descr, pool, LevelDecoder(descr->max_definition_level()),
             LevelDecoder(descr->max_repetition_level())) {
-    this->pager_ = std::move(pager);
+    this->SetPageReader(std::move(pager));
   }
 
-  bool HasNext() override { return this->HasNextInternal(); }
+  bool HasNext() override { return this->ProcessToMoreData(); }
+
+  /// Called by ColumnChunkReader.
+  void OnNewDictionary(DictDecoder<DType>& /* decoder */) {}
 
   int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                     T* values, int64_t* values_read) override;
 
   int64_t Skip(int64_t num_values_to_skip) override {
-    return ColumnReaderImplBase<DType, LevelDecoder>::Skip(num_values_to_skip);
+    return ColumnChunkReader<TypedColumnReaderImpl<DType>>::Skip(num_values_to_skip);
   }
 
   Type::type type() const override { return this->descr_->physical_type(); }
 
   const ColumnDescriptor* descr() const override { return this->descr_; }
 
-  ExposedEncoding GetExposedEncoding() override { return this->exposed_encoding_; };
+  ExposedEncoding GetExposedEncoding() override { return exposed_encoding_; };
 
   int64_t ReadBatchWithDictionary(int64_t batch_size, int16_t* def_levels,
                                   int16_t* rep_levels, int32_t* indices,
@@ -1272,10 +1293,13 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
 
  protected:
   void SetExposedEncoding(ExposedEncoding encoding) override {
-    this->exposed_encoding_ = encoding;
+    exposed_encoding_ = encoding;
   }
 
  private:
+  // The exposed encoding
+  ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;
+
   // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
   // This function is called only by ReadBatchWithDictionary().
   int64_t ReadDictionaryIndices(int64_t indices_to_read, int32_t* indices) {
@@ -1297,8 +1321,8 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // ReadLevelsInCurrentPage will throw exception when any num-levels read is not
   // equal to the number of the levels can be read.
   void ReadLevelsInCurrentPage(int32_t batch_size, int16_t* def_levels,
-                               int16_t* rep_levels, int64_t* num_def_levels,
-                               int64_t* non_null_values_to_read) {
+                               int16_t* rep_levels, int32_t* num_def_levels,
+                               int32_t* non_null_values_to_read) {
     batch_size = std::min(batch_size, this->available_values_current_page());
     // If the field is required and non-repeated, there are no definition levels
     if (this->max_def_level() > 0 && def_levels != nullptr) {
@@ -1347,12 +1371,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   }
 
   // Verify the current data page is dictionary encoded.
-  if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
-    std::stringstream ss;
-    ss << "Data page is not dictionary encoded. Encoding: "
-       << EncodingToString(this->current_encoding_);
-    throw ParquetException(ss.str());
-  }
+  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
 
   // Get dictionary pointer and length.
   if (has_dict_output) {
@@ -1360,8 +1379,8 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   }
 
   // Similar logic as ReadValues to get def levels and rep levels.
-  int64_t num_def_levels = 0;
-  int64_t indices_to_read = 0;
+  int32_t num_def_levels = 0;
+  int32_t indices_to_read = 0;
   ReadLevelsInCurrentPage(batch_size, def_levels, rep_levels, &num_def_levels,
                           &indices_to_read);
 
@@ -1396,9 +1415,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size_64,
 
   // TODO(wesm): keep reading data pages until batch_size is reached, or the
   // row group is finished
-  int64_t num_def_levels = 0;
+  int32_t num_def_levels = 0;
   // Number of non-null values to read within `num_def_levels`.
-  int64_t non_null_values_to_read = 0;
+  int32_t non_null_values_to_read = 0;
   ReadLevelsInCurrentPage(batch_size, def_levels, rep_levels, &num_def_levels,
                           &non_null_values_to_read);
   // Should not return more values than available in the current data page,
@@ -1408,7 +1427,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size_64,
     throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
   }
   if (non_null_values_to_read != 0) {
-    *values_read = this->ReadValues(non_null_values_to_read, values);
+    *values_read = this->current_decoder_->Decode(values, non_null_values_to_read);
   } else {
     *values_read = 0;
   }
@@ -1482,11 +1501,30 @@ concept can_cout = requires(std::ostream& os, const T& value) {
  ***********************/
 
 template <typename DType, typename ValueSink, bool kReadDictionary>
-class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
-                          virtual public RecordReader {
+class TypedRecordReader;
+
+// `reader_trait` can only be specialized in the namespace it is declared in.
+}  // namespace
+}  // namespace internal
+
+namespace {
+template <typename D, typename ValueSink, bool kReadDictionary>
+struct reader_trait<internal::TypedRecordReader<D, ValueSink, kReadDictionary>> {
+  using DType = D;
+  using level_decoder = LevelDecoder;
+};
+}  // namespace
+
+namespace internal {
+namespace {
+
+template <typename DType, typename ValueSink, bool kReadDictionary>
+class TypedRecordReader
+    : public ColumnChunkReader<TypedRecordReader<DType, ValueSink, kReadDictionary>>,
+      virtual public RecordReader {
  public:
   using T = typename DType::c_type;
-  using Base = ColumnReaderImplBase<DType, LevelDecoder>;
+  using Base = ColumnChunkReader<TypedRecordReader<DType, ValueSink, kReadDictionary>>;
 
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable, ValueSink value_sink)
@@ -1590,14 +1628,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
   void SetPageReader(std::unique_ptr<PageReader> reader) override;
 
-  bool HasMoreData() const override { return this->pager_ != nullptr; }
+  bool HasMoreData() const override {
+    return Base::HasPageReader();  // Surprising legacy behaviour
+  }
 
   const ColumnDescriptor* descr() const override { return this->descr_; }
 
-  // Dictionary decoders must be reset when advancing row groups
-  void ResetDecoders() { this->decoders_.clear(); }
-
-  void OnNewDictionary(DictDecoder<DType>& decoder) final {
+  void OnNewDictionary(DictDecoder<DType>& decoder) {
     value_sink_.OnNewDictionary(decoder);
   }
 
@@ -1689,19 +1726,12 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
 template <typename DT, typename VS, bool kDic>
 const void* TypedRecordReader<DT, VS, kDic>::ReadDictionary(int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->HasNextInternal()) {
+  if (!this->current_decoder_ && !this->ProcessToMoreData()) {
     *dictionary_length = 0;
     return nullptr;
   }
-  // Verify the current data page is dictionary encoded. The current_encoding_ should
-  // have been set as RLE_DICTIONARY if the page encoding is RLE_DICTIONARY or
-  // PLAIN_DICTIONARY.
-  if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
-    std::stringstream ss;
-    ss << "Data page is not dictionary encoded. Encoding: "
-       << EncodingToString(this->current_encoding_);
-    throw ParquetException(ss.str());
-  }
+  // Verify the current data page is dictionary encoded.
+  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
   auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
   const T* dictionary = nullptr;
   decoder->GetDictionary(&dictionary, dictionary_length);
@@ -1725,7 +1755,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
   // enough records
   while (!at_record_start_ || records_read < num_records) {
     // Is there more data to read in this row group?
-    if (!this->HasNextInternal()) {
+    if (!this->ProcessToMoreData()) {
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
         // the end of yet. So increment the record count for the last record in
@@ -1884,7 +1914,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsRepeated(int64_t num_records
   while (!at_record_start_ || skipped_records < num_records) {
     // Is there more data to read in this row group?
     // HasNextInternal() will advance to the next page if necessary.
-    if (!this->HasNextInternal()) {
+    if (!this->ProcessToMoreData()) {
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
         // the end of yet. So increment the record count for the last record
@@ -2106,8 +2136,7 @@ void TypedRecordReader<DT, VS, kDic>::Reset() {
 template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::SetPageReader(std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
-  this->pager_ = std::move(reader);
-  ResetDecoders();
+  Base::SetPageReader(std::move(reader));
 }
 
 template <typename DT, typename VS, bool kDic>
@@ -2317,13 +2346,34 @@ void TypedRecordReader<DT, VS, kDic>::ResetValues() {
  *******************************/
 
 // TODO can we reduce some code share with TypedRecordREader ?
+template <typename DType, typename ValueSink, bool kReadDictionary>
+class RequiredTypedRecordReader;
+
+// `reader_trait` can only be specialized in the namespace it is declared in.
+}  // namespace
+}  // namespace internal
+
+namespace {
+template <typename D, typename ValueSink, bool kReadDictionary>
+struct reader_trait<internal::RequiredTypedRecordReader<D, ValueSink, kReadDictionary>> {
+  using DType = D;
+  using level_decoder = LevelDecoder;
+};
+}  // namespace
+
+namespace internal {
+namespace {
+
 template <typename DType, typename ValueSink = ValueSinkBuffer<typename DType::c_type>,
           bool kReadDictionary = false>
-class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
-                                  virtual public RecordReader {
+class RequiredTypedRecordReader
+    : public ColumnChunkReader<
+          RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>>,
+      virtual public RecordReader {
  public:
   using T = typename DType::c_type;
-  using Base = ColumnReaderImplBase<DType, LevelDecoder>;
+  using Base =
+      ColumnChunkReader<RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>>;
 
   RequiredTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                             ValueSink value_sink)
@@ -2371,16 +2421,17 @@ class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecode
 
   void Reset() final;
 
-  void SetPageReader(std::unique_ptr<PageReader> reader) final;
+  void SetPageReader(std::unique_ptr<PageReader> reader) final {
+    return Base::SetPageReader(std::move(reader));
+  }
 
-  bool HasMoreData() const final { return this->pager_ != nullptr; }
+  bool HasMoreData() const override {
+    return Base::HasPageReader();  // Surprising legacy behaviour
+  }
 
   const ColumnDescriptor* descr() const final { return this->descr_; }
 
-  // Dictionary decoders must be reset when advancing row groups
-  void ResetDecoders() { this->decoders_.clear(); }
-
-  void OnNewDictionary(DictDecoder<DType>& decoder) final {
+  void OnNewDictionary(DictDecoder<DType>& decoder) {
     value_sink_.OnNewDictionary(decoder);
   }
 
@@ -2405,19 +2456,12 @@ class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecode
 template <typename DT, typename VS, bool kDic>
 const void* RequiredTypedRecordReader<DT, VS, kDic>::ReadDictionary(
     int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->HasNextInternal()) {
+  if (!this->current_decoder_ && !this->ProcessToMoreData()) {
     *dictionary_length = 0;
     return nullptr;
   }
-  // Verify the current data page is dictionary encoded. The current_encoding_ should
-  // have been set as RLE_DICTIONARY if the page encoding is RLE_DICTIONARY or
-  // PLAIN_DICTIONARY.
-  if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
-    std::stringstream ss;
-    ss << "Data page is not dictionary encoded. Encoding: "
-       << EncodingToString(this->current_encoding_);
-    throw ParquetException(ss.str());
-  }
+  // Verify the current data page is dictionary encoded.
+  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
   auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
   const T* dictionary = nullptr;
   decoder->GetDictionary(&dictionary, dictionary_length);
@@ -2436,7 +2480,7 @@ int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records
 
   do {
     // Is there more data to read in this row group?
-    if (!this->HasNextInternal()) {
+    if (!this->ProcessToMoreData()) {
       break;
     }
 
@@ -2464,13 +2508,6 @@ void RequiredTypedRecordReader<DT, VS, kDic>::Reset() {
   if (values_written() > 0) {
     value_sink_.ResetValues();
   }
-}
-
-template <typename DT, typename VS, bool kDic>
-void RequiredTypedRecordReader<DT, VS, kDic>::SetPageReader(
-    std::unique_ptr<PageReader> reader) {
-  this->pager_ = std::move(reader);
-  ResetDecoders();
 }
 
 template <typename DT, typename VS, bool kDic>
@@ -2804,7 +2841,8 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
       PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
       result_chunks_.emplace_back(std::move(chunk));
 
-      // Also clears the dictionary memo table
+      // Partial reset: the dictionary memo table is kept, so that the indices
+      // appended to the next chunk keep referring to the same values.
       builder_->Reset();
     }
   }
