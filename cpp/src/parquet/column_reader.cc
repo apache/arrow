@@ -922,17 +922,19 @@ class ColumnReaderImplBase {
 
   ColumnReaderImplBase(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
                        LvlDec def_levels_decoder, LvlDec rep_levels_decoder)
-      : def_levels_decoder_(std::move(def_levels_decoder)),
-        rep_levels_decoder_(std::move(rep_levels_decoder)),
-        descr_(descr),
+      : descr_(descr),
         pool_(pool),
-        current_decoder_(pool) {}
+        current_decoder_(pool),
+        def_levels_decoder_(std::move(def_levels_decoder)),
+        rep_levels_decoder_(std::move(rep_levels_decoder)) {}
 
   virtual ~ColumnReaderImplBase() = default;
 
- protected:
+ private:
+  // Declared here because `decoders_` below refers to it.
   using DecoderType = TypedDecoder<DType>;
 
+ protected:
   int32_t ReadDefinitionLevels(int32_t batch_size, int16_t* levels) {
     if (max_def_level() == 0) {
       return 0;
@@ -947,21 +949,8 @@ class ColumnReaderImplBase {
     return rep_levels_decoder_.Decode(batch_size, levels);
   }
 
-  LvlDec def_levels_decoder_;
-  LvlDec rep_levels_decoder_;
   const ColumnDescriptor* descr_;
   std::unique_ptr<PageReader> pager_;
-  std::shared_ptr<Page> current_page_;
-  // The total number of values stored in the data page. This is the maximum of
-  // the number of encoded definition levels or encoded values. For
-  // non-repeated, required columns, this is equal to the number of encoded
-  // values. For repeated or optional values, there may be fewer data values
-  // than levels, and this tells you how many encoded levels there are in that
-  // case.
-  int64_t num_buffered_values_ = 0;
-  // The number of values from the current data page that have been decoded
-  // into memory or skipped over.
-  int64_t num_decoded_values_ = 0;
   ::arrow::MemoryPool* pool_;
   SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
   Encoding::type current_encoding_ = Encoding::UNKNOWN;
@@ -981,24 +970,7 @@ class ColumnReaderImplBase {
   // @returns: the number of values read into the out buffer
   int64_t ReadValues(int64_t batch_size, T* out);
 
-  // Read up to batch_size values from the current data page into the
-  // pre-allocated memory T*, leaving spaces for null entries according
-  // to the def_levels.
-  //
-  // @returns: the number of values read into the out buffer
-  int64_t ReadValuesSpaced(int64_t batch_size, T* out, int64_t null_count,
-                           uint8_t* valid_bits, int64_t valid_bits_offset);
-
   bool HasNextInternal();
-
-  // Advance to the next data page
-  bool ReadNewPage();
-
-  void ConfigureDictionary(const DictionaryPage* page);
-
-  // Get a decoder object for this page or create a new decoder if this is the
-  // first page with this encoding.
-  void InitializeDataDecoder(const DataPage& page, int64_t levels_byte_size);
 
   // Available values in the current data page, value includes repeated values
   // and nulls.
@@ -1016,13 +988,37 @@ class ColumnReaderImplBase {
 
   void ConsumeBufferedValues(int64_t num_values) { num_decoded_values_ += num_values; }
 
+  int64_t Skip(int64_t num_values_to_skip);
+
+ private:
+  LvlDec def_levels_decoder_;
+  LvlDec rep_levels_decoder_;
+  std::shared_ptr<Page> current_page_;
+  // The total number of values stored in the data page. This is the maximum of
+  // the number of encoded definition levels or encoded values. For
+  // non-repeated, required columns, this is equal to the number of encoded
+  // values. For repeated or optional values, there may be fewer data values
+  // than levels, and this tells you how many encoded levels there are in that
+  // case.
+  int64_t num_buffered_values_ = 0;
+  // The number of values from the current data page that have been decoded
+  // into memory or skipped over.
+  int64_t num_decoded_values_ = 0;
+
+  // Advance to the next data page
+  bool ReadNewPage();
+
+  void ConfigureDictionary(const DictionaryPage* page);
+
+  // Get a decoder object for this page or create a new decoder if this is the
+  // first page with this encoding.
+  void InitializeDataDecoder(const DataPage& page, int64_t levels_byte_size);
+
   /// Advance both level decoders by num_levels, without materializing them.
   ///
   /// @return The number of values present (non-null) among them, which is the
   ///         number of values to skip in the data decoder.
   int32_t AdvanceLevels(int32_t num_levels);
-
-  int64_t Skip(int64_t num_values_to_skip);
 };
 
 /*****************************************
@@ -1033,16 +1029,6 @@ template <typename DType, typename LvlDec>
 int64_t ColumnReaderImplBase<DType, LvlDec>::ReadValues(int64_t batch_size, T* out) {
   int64_t num_decoded = current_decoder_->Decode(out, static_cast<int>(batch_size));
   return num_decoded;
-}
-
-template <typename DType, typename LvlDec>
-int64_t ColumnReaderImplBase<DType, LvlDec>::ReadValuesSpaced(int64_t batch_size, T* out,
-                                                              int64_t null_count,
-                                                              uint8_t* valid_bits,
-                                                              int64_t valid_bits_offset) {
-  return current_decoder_->DecodeSpaced(out, static_cast<int>(batch_size),
-                                        static_cast<int>(null_count), valid_bits,
-                                        valid_bits_offset);
 }
 
 template <typename DType, typename LvlDec>
