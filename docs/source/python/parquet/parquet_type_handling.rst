@@ -116,7 +116,7 @@ to represent timestamps, this can occasionally be a nuisance. By default
 (when writing version 1.0 Parquet files), the nanoseconds will be cast to
 microseconds ('us').
 
-In addition, We provide the ``coerce_timestamps`` option to allow you to select
+In addition, we provide the ``coerce_timestamps`` option to allow you to select
 the desired resolution:
 
 .. code-block:: python

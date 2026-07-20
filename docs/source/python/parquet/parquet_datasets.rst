@@ -22,7 +22,7 @@
 Partitioned Datasets (Multiple Files)
 =====================================
 
-Multiple Parquet files constitute a Parquet *dataset*. These may present in a
+Multiple Parquet files constitute a Parquet *dataset*. These may be present in a
 number of ways:
 
 * A list of Parquet absolute file paths

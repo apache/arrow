@@ -68,7 +68,7 @@ The master encryption keys should be kept and managed in a production-grade
 Key Management System (KMS), deployed in the user's organization. Using Parquet
 encryption requires implementation of a client class for the KMS server.
 Any KmsClient implementation should implement the informal interface
-defined by :class:`pyarrow.parquet.encryption.KmsClient` as following:
+defined by :class:`pyarrow.parquet.encryption.KmsClient` as follows:
 
 .. code-block:: python
 
@@ -105,7 +105,7 @@ For example, in order to use the ``MyKmsClient`` defined above:
 
    >>> crypto_factory = pe.CryptoFactory(kms_client_factory)
 
-An :download:`example <../../../python/examples/parquet_encryption/sample_vault_kms_client.py>`
+An :download:`example <../../../../python/examples/parquet_encryption/sample_vault_kms_client.py>`
 of such a class for an open source
 `KMS <https://www.vaultproject.io/api/secret/transit>`_ can be found in the Apache
 Arrow GitHub repository. The production KMS client should be designed in
