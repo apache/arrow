@@ -67,7 +67,6 @@ and ``list_type`` parameters let you choose a different Arrow type on read.
 
 .. code-block:: python
 
-   >>> import pyarrow as pa
    >>> table = pa.table({'data': pa.array([b'hello', b'world'], pa.binary())})
    >>> pq.write_table(table, 'binary.parquet', store_schema=False)
    >>> pq.read_table('binary.parquet', binary_type=pa.large_binary()).schema
