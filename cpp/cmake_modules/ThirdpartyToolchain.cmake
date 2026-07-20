@@ -2575,7 +2575,7 @@ if(ARROW_MIMALLOC)
       -DMI_LOCAL_DYNAMIC_TLS=ON
       # GH-50428: Make sure several mimalloc instances can cohabit in the same process
       # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
-      -DMI_TLS_MODEL_THREAD_LOCAL=ON
+      -DMI_TLS_MODEL_LOCAL=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF
