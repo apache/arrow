@@ -255,9 +255,15 @@ jobs:
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}
-      - name: Test
-        shell: bash
-        run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+      - name: Trigger mimalloc crash
+        run: |
+          pip install streamlit kglite
+          python -c "import pyarrow, streamlit, kglite"
+          python -c "import kglite, pyarrow, streamlit"
+          python -c "import streamlit, kglite, pyarrow"
+      # - name: Test
+      #   shell: bash
+      #   run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
 
   windows:
     name: AMD64 Windows 2022 Python 3.13
