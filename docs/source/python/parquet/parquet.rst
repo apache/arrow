@@ -113,7 +113,7 @@ but won't help much with resident memory consumption.
    RSS: 4299MB
 
 If you need to deal with Parquet data bigger than memory,
-the :ref:`dataset` and partitioning is probably what you are looking for.
+the :ref:`dataset` and partitioning are probably what you are looking for.
 
 Parquet file writing options
 ----------------------------

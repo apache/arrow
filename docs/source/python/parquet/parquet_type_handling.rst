@@ -114,7 +114,7 @@ Some Parquet readers may only support timestamps stored in millisecond
 (``'ms'``) or microsecond (``'us'``) resolution. Since pandas uses nanoseconds
 to represent timestamps, this can occasionally be a nuisance. By default
 (when writing version 1.0 Parquet files), the nanoseconds will be cast to
-microseconds ('us').
+microseconds (``'us'``).
 
 In addition, we provide the ``coerce_timestamps`` option to allow you to select
 the desired resolution:

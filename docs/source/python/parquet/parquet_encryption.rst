@@ -20,7 +20,7 @@
 
 
 Parquet Modular Encryption (Columnar Encryption)
-------------------------------------------------
+================================================
 
 Columnar encryption is supported for Parquet files in C++ starting from
 Apache Arrow 4.0.0 and in PyArrow starting from Apache Arrow 6.0.0.
