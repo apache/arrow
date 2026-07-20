@@ -287,11 +287,11 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         void ConfigureKerberosTicketCachePath(c_string path)
         void ConfigureExtraConf(c_string key, c_string value)
 
-        const c_string& host()
-        int port()
-        const c_string& user()
-        const c_string& kerb_ticket()
-        unordered_map[c_string, c_string] extra_conf()
+        const c_string& host() const
+        int port() const
+        const c_string& user() const
+        const c_string& kerb_ticket() const
+        unordered_map[c_string, c_string] extra_conf() const
 
     cdef cppclass CHadoopFileSystem "arrow::fs::HadoopFileSystem"(CFileSystem):
         @staticmethod
