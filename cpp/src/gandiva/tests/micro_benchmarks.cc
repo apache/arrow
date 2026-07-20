@@ -49,6 +49,7 @@ enum class CsePattern : int64_t {
   kDeepUnique,
   kRepeatedSafe,
   kRepeatedUnsafe,
+  kSharedDag,
 };
 
 struct CseBenchmarkExpression {
@@ -105,6 +106,15 @@ CseBenchmarkExpression MakeCseBenchmarkExpression(CsePattern pattern, int64_t si
             arrow::float64());
       };
       root = MakeBalancedTree(size, make_leaf);
+      break;
+    }
+    case CsePattern::kSharedDag: {
+      root = TreeExprBuilder::MakeFunction(
+          "add", {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+          arrow::float64());
+      for (int64_t i = 0; i < size; ++i) {
+        root = TreeExprBuilder::MakeFunction("add", {root, root}, arrow::float64());
+      }
       break;
     }
   }
@@ -222,6 +232,13 @@ void CseBenchmarkArguments(benchmark::internal::Benchmark* benchmark) {
     for (auto size : {10, 100, 1000}) {
       benchmark->Args({static_cast<int64_t>(pattern), size});
     }
+  }
+}
+
+void CseFoldBenchmarkArguments(benchmark::internal::Benchmark* benchmark) {
+  CseBenchmarkArguments(benchmark);
+  for (auto depth : {10, 20, 24}) {
+    benchmark->Args({static_cast<int64_t>(CsePattern::kSharedDag), depth});
   }
 }
 
@@ -684,7 +701,7 @@ static void DecimalAdd3Large(benchmark::State& state) {
 
 BENCHMARK(TimedTestExprCompilation)->Unit(benchmark::kMicrosecond);
 BENCHMARK(CseFoldOnly)
-    ->Apply(CseBenchmarkArguments)
+    ->Apply(CseFoldBenchmarkArguments)
     ->ArgNames({"pattern", "size"})
     ->Unit(benchmark::kMicrosecond);
 BENCHMARK(CseProjectorBuild)

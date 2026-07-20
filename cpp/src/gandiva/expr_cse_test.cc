@@ -72,6 +72,27 @@ TEST(CommonSubexpressionFolderTest, FoldsRepeatedSafeSubtrees) {
   EXPECT_EQ(folded_root->children()[0], folded_root->children()[1]);
 }
 
+TEST(CommonSubexpressionFolderTest, FoldsDeepSharedDagOncePerNode) {
+  auto value = arrow::field("value", arrow::int32());
+  NodePtr root = TreeExprBuilder::MakeField(value);
+  constexpr int kDepth = 24;
+  for (int depth = 0; depth < kDepth; ++depth) {
+    root = TreeExprBuilder::MakeFunction("add", {root, root}, arrow::int32());
+  }
+
+  auto folded =
+      FoldCommonSubexpressions(*default_function_registry(), {MakeExpression(root)});
+  auto current = folded[0]->root();
+  for (int depth = 0; depth < kDepth; ++depth) {
+    auto function = std::dynamic_pointer_cast<FunctionNode>(current);
+    ASSERT_NE(nullptr, function);
+    ASSERT_EQ(2, function->children().size());
+    EXPECT_EQ(function->children()[0], function->children()[1]);
+    current = function->children()[0];
+  }
+  EXPECT_NE(nullptr, std::dynamic_pointer_cast<FieldNode>(current));
+}
+
 TEST(CommonSubexpressionFolderTest, FoldsAcrossMultipleOutputExpressions) {
   auto left = arrow::field("left", arrow::int32());
   auto right = arrow::field("right", arrow::int32());

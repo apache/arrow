@@ -101,6 +101,17 @@ class CommonSubexpressionFolder {
       return Fresh(nullptr);
     }
 
+    auto cached = folded_nodes_.find(node.get());
+    if (cached != folded_nodes_.end()) {
+      return cached->second;
+    }
+
+    auto folded = FoldUncached(node);
+    folded_nodes_.emplace(node.get(), folded);
+    return folded;
+  }
+
+  FoldedNode FoldUncached(const NodePtr& node) {
     if (auto field_node = std::dynamic_pointer_cast<FieldNode>(node)) {
       return Intern({NodeKind::kField, field_node->field()->ToString(), "", {}}, node);
     }
@@ -213,6 +224,7 @@ class CommonSubexpressionFolder {
   FoldedNode Fresh(const NodePtr& node) { return {node, next_id_++, false}; }
 
   const FunctionRegistry& registry_;
+  std::unordered_map<const Node*, FoldedNode> folded_nodes_;
   std::unordered_map<NodeKey, CanonicalNode, NodeKeyHash> canonical_nodes_;
   size_t next_id_ = 1;
 };

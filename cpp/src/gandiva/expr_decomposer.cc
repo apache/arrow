@@ -136,7 +136,11 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
     // These functions are decomposable, merge the validity bits of the children.
 
     std::vector<DexPtr> merged_validity;
+    std::unordered_set<const ValueValidityPair*> merged_args;
     for (auto& decomposed : args) {
+      if (!merged_args.insert(decomposed.get()).second) {
+        continue;
+      }
       // Merge the validity_expressions of the children to build a combined validity
       // expression.
       merged_validity.insert(merged_validity.end(), decomposed->validity_exprs().begin(),
