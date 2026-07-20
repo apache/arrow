@@ -662,4 +662,55 @@ TEST(PforOutputOrderTest, WrapperTransposedAcrossManyVectors) {
   }
 }
 
+TEST(PforOutputOrderTest, TransposedFullWidthVector) {
+  // Exercises the bit_width == 32 path (UnpackBlock's std::memcpy branch)
+  // under transposed output. Endpoints at INT32_MIN/MAX force min-FOR to
+  // span the full 32-bit delta range, so the cost model selects bit_width 32.
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(1234);
+  std::uniform_int_distribution<int32_t> dist(std::numeric_limits<int32_t>::min(),
+                                              std::numeric_limits<int32_t>::max());
+  for (auto& v : values) v = dist(rng);
+  values[0] = std::numeric_limits<int32_t>::min();
+  values[1] = std::numeric_limits<int32_t>::max();
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::FastLanes);
+  ASSERT_EQ(encoded.info().packing_mode(), PackingMode::FastLanes);
+  ASSERT_EQ(encoded.info().bit_width(), 32);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  std::vector<int32_t> decoded(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024,
+                                                    OutputOrder::Transposed));
+  for (size_t t = 0; t < 1024; ++t) {
+    ASSERT_EQ(decoded[t], values[fastlanes::fromTransposed32(t)]) << "t=" << t;
+  }
+}
+
+TEST(PforOutputOrderTest, TransposedConstantVector) {
+  // Exercises the bit_width == 0 constant fast-path under transposed output:
+  // every value equals the frame-of-reference, so transposed and flat outputs
+  // are identical (the permutation of a constant is itself).
+  std::vector<int32_t> values(1024, -7);
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::FastLanes);
+  ASSERT_EQ(encoded.info().bit_width(), 0);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  std::vector<int32_t> decoded(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024,
+                                                    OutputOrder::Transposed));
+  for (size_t t = 0; t < 1024; ++t) {
+    ASSERT_EQ(decoded[t], values[fastlanes::fromTransposed32(t)]) << "t=" << t;
+  }
+}
+
 }  // namespace arrow::util::pfor
