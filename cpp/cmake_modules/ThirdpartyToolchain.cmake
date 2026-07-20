@@ -2555,16 +2555,8 @@ if(ARROW_MIMALLOC)
       "${MIMALLOC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
-  set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
-  if(MINGW)
-    # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
-    # This is still required as of mimalloc 3.3.1, tested as part of GH-49772
-    set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
-  endif()
-
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_INSTALL_TOPLEVEL=ON
       -DMI_OVERRIDE=OFF
