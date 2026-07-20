@@ -17,6 +17,7 @@
 
 require "bigdecimal"
 
+require_relative "array-builder"
 require_relative "bitmap"
 require_relative "bitmap-builder"
 
@@ -25,6 +26,12 @@ module ArrowFormat
 
   class Array
     include Enumerable
+
+    class << self
+      def build(values)
+        ArrayBuilder.new(values).build
+      end
+    end
 
     attr_reader :type
     attr_reader :size
@@ -271,9 +278,9 @@ module ArrowFormat
         if value.nil?
           validity_buffer_builder ||= SparseBitmapBuilder.new
           validity_buffer_builder.unset(i)
-          buffer.append_as_bytes(pack_value(nil, pack_template))
+          buffer.append_as_bytes(pack_value(nil, pack_template, type))
         else
-          buffer.append_as_bytes(pack_value(value, pack_template))
+          buffer.append_as_bytes(pack_value(value, pack_template, type))
         end
         n += 1
       end
@@ -283,7 +290,7 @@ module ArrowFormat
       return n, validity_buffer, IO::Buffer.for(buffer)
     end
 
-    def pack_value(value, template)
+    def pack_value(value, template, type)
       value = 0 if value.nil?
       [value].pack(template)
     end
@@ -455,6 +462,17 @@ module ArrowFormat
         Date32Type.singleton
       end
     end
+
+    private
+    def pack_value(value, template, type)
+      if value.nil?
+        [0].pack(template)
+      elsif value.is_a?(Date)
+        [value.day].pack(template)
+      else
+        [value].pack(template)
+      end
+    end
   end
 
   class Date64Array < DateArray
@@ -488,6 +506,27 @@ module ArrowFormat
     class << self
       def type_class
         TimestampType
+      end
+    end
+
+    private
+    def pack_value(value, template, type)
+      if value.nil?
+        [0, 0].pack(template)
+      elsif value.is_a?(Time)
+        case type.unit
+        when :second
+          value = value.to_i
+        when :millisecond
+          value = (value.to_i * 1_000) + (value.nsec / 1_000_000)
+        when :microsecond
+          value = (value.to_i * 1_000_000) + (value.nsec / 1_000)
+        when :nanosecond
+          value = (value.to_i * 1_000_000_000) + value.nsec
+        end
+        [value].pack(template)
+      else
+        [value].pack(template)
       end
     end
   end
@@ -552,7 +591,7 @@ module ArrowFormat
       super * 2
     end
 
-    def pack_value(value, template)
+    def pack_value(value, template, type)
       if value.nil?
         [0, 0].pack(template)
       elsif value.is_a?(Hash)
@@ -613,7 +652,7 @@ module ArrowFormat
       IO::Buffer.size_of(@type.buffer_types)
     end
 
-    def pack_value(value, template)
+    def pack_value(value, template, type)
       if value.nil?
         [0, 0, 0].pack(template)
       elsif value.is_a?(Hash)

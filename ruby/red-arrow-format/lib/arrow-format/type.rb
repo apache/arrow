@@ -88,6 +88,9 @@ module ArrowFormat
   end
 
   class Int8Type < IntType
+    MIN_VALUE = -(2 ** 7)
+    MAX_VALUE = (2 ** 7) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -116,6 +119,9 @@ module ArrowFormat
   end
 
   class UInt8Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 8) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -144,6 +150,9 @@ module ArrowFormat
   end
 
   class Int16Type < IntType
+    MIN_VALUE = -(2 ** 15)
+    MAX_VALUE = (2 ** 15) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -172,6 +181,9 @@ module ArrowFormat
   end
 
   class UInt16Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 16) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -200,6 +212,9 @@ module ArrowFormat
   end
 
   class Int32Type < IntType
+    MIN_VALUE = -(2 ** 31)
+    MAX_VALUE = (2 ** 31) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -228,6 +243,9 @@ module ArrowFormat
   end
 
   class UInt32Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 32) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -256,6 +274,9 @@ module ArrowFormat
   end
 
   class Int64Type < IntType
+    MIN_VALUE = -(2 ** 63)
+    MAX_VALUE = (2 ** 63) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -284,6 +305,9 @@ module ArrowFormat
   end
 
   class UInt64Type < IntType
+    MIN_VALUE = 0
+    MAX_VALUE = (2 ** 64) - 1
+
     class << self
       def singleton
         @singleton ||= new
@@ -559,7 +583,7 @@ module ArrowFormat
         case value
         when Symbol
           unit = value
-          new(unit, nil)
+          new(unit)
         when ::Array
           unit, time_zone = value
           new(unit, time_zone)
@@ -573,7 +597,7 @@ module ArrowFormat
 
     attr_reader :unit
     attr_reader :time_zone
-    def initialize(unit, time_zone)
+    def initialize(unit, time_zone=nil)
       super()
       @unit = unit
       @time_zone = time_zone
