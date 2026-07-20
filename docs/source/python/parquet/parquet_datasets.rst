@@ -176,7 +176,7 @@ the same:
 Reading from Partitioned Datasets
 ---------------------------------
 
-The :class:`~.ParquetDataset` class accepts either a directory name or a list
+The :class:`~pyarrow.parquet.ParquetDataset` class accepts either a directory name or a list
 of file paths, and can discover and infer some common partition structures,
 such as those produced by Hive:
 

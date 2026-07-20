@@ -33,7 +33,7 @@ Management Service (KMS) of user’s choice.
 
 Reading and writing encrypted Parquet files involves passing file encryption
 and decryption properties to :class:`~pyarrow.parquet.ParquetWriter` and to
-:class:`~.ParquetFile`, respectively.
+:class:`~pyarrow.parquet.ParquetFile`, respectively.
 
 Writing an encrypted Parquet file:
 
