@@ -285,8 +285,10 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
       std::vector<UnsignedT> unsigned_values(num_elements);
       // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
       // then unpack_exact for the remainder.
-      arrow::internal::unpack(read_ptr, unsigned_values.data(),
-                              static_cast<int>(num_elements), info.bit_width());
+      arrow::internal::unpack(
+          read_ptr, unsigned_values.data(),
+          arrow::internal::UnpackOptions{static_cast<int>(num_elements),
+                                         info.bit_width()});
 
       // Add FOR and convert to signed output via SafeCopy
 #pragma GCC unroll PforConstants::kLoopUnrolls

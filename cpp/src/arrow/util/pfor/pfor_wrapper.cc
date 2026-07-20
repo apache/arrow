@@ -26,6 +26,7 @@
 #include "arrow/util/pfor/pfor_wrapper.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstring>
 #include <vector>
 
@@ -94,7 +95,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
   ARROW_DCHECK(num_values > 0);
   ARROW_DCHECK(comp != nullptr);
   ARROW_DCHECK(comp_size != nullptr);
-  ARROW_DCHECK(bit_util::IsPowerOf2(static_cast<int64_t>(vector_size)));
+  ARROW_DCHECK(std::has_single_bit(static_cast<uint32_t>(vector_size)));
 
   const int32_t num_vectors =
       static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
