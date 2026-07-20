@@ -713,4 +713,112 @@ TEST(PforOutputOrderTest, TransposedConstantVector) {
   }
 }
 
+// ============================================================================
+// FastLanesOrdered: FastLanes interleaved bit-packing WITHOUT the FL_ORDER
+// reorder. Decodes to flat (original) order at full speed, no gather.
+// ============================================================================
+
+TEST(PforOrderedModeTest, RoundTripInOriginalOrderWithExceptions) {
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(55);
+  std::uniform_int_distribution<int32_t> dist(1000, 2000);
+  for (auto& v : values) v = dist(rng);
+  values[3] = 999999;  // outlier -> exception path
+  values[900] = -7;    // drives FOR negative
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::FastLanesOrdered);
+  ASSERT_EQ(encoded.info().packing_mode(), PackingMode::FastLanesOrdered);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  // Default (Flat) decode returns values in original order.
+  std::vector<int32_t> decoded(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024));
+  EXPECT_EQ(values, decoded);
+
+  // OutputOrder::Transposed is a no-op for the ordered mode (still in order).
+  std::vector<int32_t> decoded_t(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded_t.data(), buffer, 1024,
+                                                   OutputOrder::Transposed));
+  EXPECT_EQ(values, decoded_t);
+}
+
+TEST(PforOrderedModeTest, SameCompressedSizeAsFastLanes) {
+  // Layout change only: identical bit width and serialized size to FastLanes.
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(77);
+  std::uniform_int_distribution<int32_t> dist(0, 100000);
+  for (auto& v : values) v = dist(rng);
+
+  auto fl = PforCompression<int32_t>::EncodeVector(values.data(), 1024,
+                                                   PackingMode::FastLanes);
+  auto ord = PforCompression<int32_t>::EncodeVector(values.data(), 1024,
+                                                    PackingMode::FastLanesOrdered);
+  EXPECT_EQ(fl.info().bit_width(), ord.info().bit_width());
+  EXPECT_EQ(PforCompression<int32_t>::SerializedVectorSize(fl, 1024),
+            PforCompression<int32_t>::SerializedVectorSize(ord, 1024));
+}
+
+TEST(PforOrderedModeTest, FullWidthVector) {
+  // bit_width == 32 memcpy path, ordered output.
+  std::vector<int32_t> values(1024);
+  std::mt19937 rng(1234);
+  std::uniform_int_distribution<int32_t> dist(std::numeric_limits<int32_t>::min(),
+                                              std::numeric_limits<int32_t>::max());
+  for (auto& v : values) v = dist(rng);
+  values[0] = std::numeric_limits<int32_t>::min();
+  values[1] = std::numeric_limits<int32_t>::max();
+
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 1024, PackingMode::FastLanesOrdered);
+  ASSERT_EQ(encoded.info().bit_width(), 32);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 1024);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 1024, buffer);
+
+  std::vector<int32_t> decoded(1024);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 1024));
+  EXPECT_EQ(values, decoded);
+}
+
+TEST(PforOrderedModeTest, WrapperManyVectors) {
+  constexpr int32_t kN = 5 * 1024;
+  std::vector<int32_t> values(kN);
+  std::mt19937 rng(88);
+  std::uniform_int_distribution<int32_t> dist(-500, 500);
+  for (auto& v : values) v = dist(rng);
+
+  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(kN);
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size;
+  PforWrapper<int32_t>::Encode(values.data(), kN, compressed.data(), &comp_size,
+                               PackingMode::FastLanesOrdered);
+
+  std::vector<int32_t> decoded(kN);
+  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), kN, compressed.data(),
+                                         comp_size));
+  EXPECT_EQ(values, decoded);
+}
+
+TEST(PforOrderedModeTest, PartialTailFallsBackToBitPack) {
+  // Non-1024 vector cannot use FastLanes; must fall back to BitPack and still
+  // round-trip in order.
+  std::vector<int32_t> values(700);
+  std::iota(values.begin(), values.end(), 3000);
+  auto encoded = PforCompression<int32_t>::EncodeVector(
+      values.data(), 700, PackingMode::FastLanesOrdered);
+  EXPECT_EQ(encoded.info().packing_mode(), PackingMode::BitPack);
+
+  int64_t sz = PforCompression<int32_t>::SerializedVectorSize(encoded, 700);
+  std::vector<uint8_t> buffer(sz);
+  PforCompression<int32_t>::SerializeVector(encoded, 700, buffer);
+  std::vector<int32_t> decoded(700);
+  ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 700));
+  EXPECT_EQ(values, decoded);
+}
+
 }  // namespace arrow::util::pfor

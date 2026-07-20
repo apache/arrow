@@ -161,15 +161,13 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
   auto [bit_width, num_exceptions] =
       FindOptimalBitWidth(deltas.data(), num_elements);
 
-  // FastLanes only applies when the vector matches the FastLanes block size
-  // (1024) and the type is 32-bit. For shorter tails or 64-bit values, fall
-  // back to PackingMode::BitPack.
-  const PackingMode effective_mode =
-      (mode == PackingMode::FastLanes &&
-       num_elements == static_cast<int32_t>(fastlanes::kBlockSize) &&
-       sizeof(T) == 4)
-          ? PackingMode::FastLanes
-          : PackingMode::BitPack;
+  // FastLanes (either variant) only applies when the vector matches the
+  // FastLanes block size (1024) and the type is 32-bit. For shorter tails or
+  // 64-bit values, fall back to PackingMode::BitPack.
+  const bool fastlanes_ok =
+      (mode == PackingMode::FastLanes || mode == PackingMode::FastLanesOrdered) &&
+      num_elements == static_cast<int32_t>(fastlanes::kBlockSize) && sizeof(T) == 4;
+  const PackingMode effective_mode = fastlanes_ok ? mode : PackingMode::BitPack;
 
   // Step 4: Collect exceptions and replace with placeholder (0)
   PforEncodedVector<T> result;
@@ -199,16 +197,25 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
         bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bit_width);
     result.mutable_packed_values().resize(static_cast<size_t>(packed_size), 0);
 
-    if (effective_mode == PackingMode::FastLanes) {
-      // Gather deltas via FL_ORDER into transposed scratch, then pack with
-      // FastLanes' lane-interleaved kernel. The packed payload is exactly
-      // 128 * bit_width bytes — same as the BitPack-encoded size.
-      alignas(64) uint32_t transposed[fastlanes::kBlockSize];
-      for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
-        transposed[t] = static_cast<uint32_t>(deltas[fastlanes::fromTransposed32(t)]);
+    if (effective_mode == PackingMode::FastLanes ||
+        effective_mode == PackingMode::FastLanesOrdered) {
+      // Both variants pack with FastLanes' lane-interleaved kernel (payload is
+      // exactly 128 * bit_width bytes, same as the BitPack size). The only
+      // difference is value placement: FastLanes applies the FL_ORDER reorder
+      // (gather deltas[fromTransposed32(t)]); FastLanesOrdered keeps original
+      // order (no gather), so decode returns flat output with no inverse gather.
+      alignas(64) uint32_t block[fastlanes::kBlockSize];
+      if (effective_mode == PackingMode::FastLanes) {
+        for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
+          block[t] = static_cast<uint32_t>(deltas[fastlanes::fromTransposed32(t)]);
+        }
+      } else {
+        for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
+          block[i] = static_cast<uint32_t>(deltas[i]);
+        }
       }
       FastLanesPackBlockDispatch(
-          bit_width, transposed,
+          bit_width, block,
           reinterpret_cast<uint32_t*>(result.mutable_packed_values().data()));
     } else {
       bit_util::BitWriter writer(result.mutable_packed_values().data(),
@@ -252,32 +259,40 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
   if (info.bit_width() > 0) {
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference());
 
-    if (info.packing_mode() == PackingMode::FastLanes) {
+    const PackingMode mode = info.packing_mode();
+    if (mode == PackingMode::FastLanes || mode == PackingMode::FastLanesOrdered) {
       // FastLanes-packed payload: 128 * bit_width bytes per 1024-block.
-      // Unpack into transposed scratch.
+      // Unpack into lane-interleaved scratch.
       ARROW_DCHECK(num_elements ==
                    static_cast<int32_t>(fastlanes::kBlockSize));
-      alignas(64) uint32_t transposed[fastlanes::kBlockSize];
+      alignas(64) uint32_t scratch[fastlanes::kBlockSize];
       FastLanesUnpackBlockDispatch(
           info.bit_width(),
-          reinterpret_cast<const uint32_t*>(read_ptr), transposed);
+          reinterpret_cast<const uint32_t*>(read_ptr), scratch);
 
-      if (emit_transposed) {
-        // No FL_ORDER inverse: write `values[t] = transposed[t] + FOR`
-        // sequentially. The output is in FastLanes stream order, i.e.
-        // values[t] corresponds to the original input at fromTransposed32(t).
-        // Sequential read + sequential write is auto-vec friendly.
+      if (mode == PackingMode::FastLanesOrdered) {
+        // No FL_ORDER reorder was applied at encode: scratch[i] is already the
+        // delta for original position i. Sequential read + sequential write,
+        // flat (in-order) output at full unpack speed — no gather either side.
+        for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
+          values[i] = util::SafeCopy<T>(
+              static_cast<UnsignedT>(scratch[i]) + unsigned_for);
+        }
+      } else if (emit_transposed) {
+        // FastLanes, transposed output: write `values[t] = scratch[t] + FOR`
+        // sequentially. Output is in FastLanes stream order, i.e. values[t]
+        // corresponds to the original input at fromTransposed32(t).
         for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
           values[t] = util::SafeCopy<T>(
-              static_cast<UnsignedT>(transposed[t]) + unsigned_for);
+              static_cast<UnsignedT>(scratch[t]) + unsigned_for);
         }
       } else {
-        // Fused FL_ORDER inverse + FOR-add + SafeCopy. The gather index is
-        // toTransposed32(i) (the inverse of the encode-side fromTransposed32
-        // gather — the two are mutual inverses, not self-inverse).
+        // FastLanes, flat output: fused FL_ORDER inverse + FOR-add. The gather
+        // index is toTransposed32(i) (inverse of the encode-side gather). This
+        // gather is what FastLanesOrdered avoids.
         for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
           const UnsignedT v =
-              static_cast<UnsignedT>(transposed[fastlanes::toTransposed32(i)]);
+              static_cast<UnsignedT>(scratch[fastlanes::toTransposed32(i)]);
           values[i] = util::SafeCopy<T>(v + unsigned_for);
         }
       }

@@ -49,15 +49,14 @@ namespace pfor {
 ///
 /// The bit_width byte packs two fields:
 ///   bits 0..5 — the actual bit width (range 0..32, fits in 6 bits)
-///   bit  7    — packing-mode flag (0 = PackingMode::BitPack, 1 = PackingMode::FastLanes)
-///   bit  6    — reserved (zero)
+///   bits 6..7 — packing mode (0 = BitPack, 1 = FastLanes, 2 = FastLanesOrdered)
 /// Legacy encoders (which only wrote the bit width) produce vectors with the
 /// high bits clear, so they round-trip through the new Load as BitPack.
 template <typename T>
 class PforVectorInfo {
  public:
-  static constexpr uint8_t kPackingModeFlagMask = 0x80;
   static constexpr uint8_t kBitWidthMask = 0x3F;
+  static constexpr uint8_t kPackingModeShift = 6;  // mode occupies bits 6-7
 
   PforVectorInfo() = default;
   PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions,
@@ -83,9 +82,9 @@ class PforVectorInfo {
   void Store(std::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, frame_of_reference_);
-    const uint8_t mode_bit =
-        (packing_mode_ == PackingMode::FastLanes) ? kPackingModeFlagMask : 0;
-    ptr[sizeof(T)] = static_cast<uint8_t>((bit_width_ & kBitWidthMask) | mode_bit);
+    ptr[sizeof(T)] = static_cast<uint8_t>(
+        (bit_width_ & kBitWidthMask) |
+        (static_cast<uint8_t>(packing_mode_) << kPackingModeShift));
     util::SafeStore(ptr + sizeof(T) + 1, num_exceptions_);
   }
 
@@ -100,9 +99,8 @@ class PforVectorInfo {
     info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
     const uint8_t packed_bw = ptr[sizeof(T)];
     info.bit_width_ = static_cast<uint8_t>(packed_bw & kBitWidthMask);
-    info.packing_mode_ = (packed_bw & kPackingModeFlagMask) != 0
-                             ? PackingMode::FastLanes
-                             : PackingMode::BitPack;
+    info.packing_mode_ =
+        static_cast<PackingMode>((packed_bw >> kPackingModeShift) & 0x3);
     info.num_exceptions_ = util::SafeLoadAs<int16_t>(ptr + sizeof(T) + 1);
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
       return Status::Invalid("PFOR bit_width out of range: ",

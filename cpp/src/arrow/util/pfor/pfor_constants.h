@@ -59,18 +59,31 @@ class PforConstants {
 
 /// \brief Per-vector packing mode for PforCompression::EncodeVector.
 ///
-/// Stored in the high bit of PforVectorInfo::bit_width (bit 7). BitPack = 0
+/// Stored in the high two bits (6-7) of PforVectorInfo::bit_width. BitPack = 0
 /// preserves the prior on-disk layout so existing buffers continue to
-/// round-trip; new values are added with higher numeric codes.
+/// round-trip; new modes are added with higher numeric codes.
 enum class PackingMode : uint8_t {
   /// Sequential little-endian bit-packed stream — the original PFOR layout.
   /// Decoded with arrow::internal::unpack.
   BitPack = 0,
 
-  /// FastLanes lane-interleaved 1024-bit format (Afroozeh & Boncz, VLDB '23).
-  /// Auto-vectorizable kernel; only valid when num_elements equals the
-  /// FastLanes block size (1024). Falls back to BitPack for shorter vectors.
+  /// FastLanes lane-interleaved 1024-bit format (Afroozeh & Boncz, VLDB '23)
+  /// WITH the FL_ORDER (04261537) value reorder. Auto-vectorizable kernel;
+  /// only valid when num_elements equals the FastLanes block size (1024).
+  /// Decoded values are in transposed (stream) order unless the FL_ORDER
+  /// gather is applied on decode. Falls back to BitPack for shorter vectors.
   FastLanes = 1,
+
+  /// FastLanes lane-interleaved bit-packing WITHOUT the FL_ORDER reorder.
+  /// Same SIMD-friendly, auto-vectorized unpack as FastLanes and the same
+  /// compressed size, but values stay in original order — so decode needs no
+  /// FL_ORDER gather and always emits flat (in-order) output at full speed.
+  /// The FL_ORDER reorder only benefits codecs with sequential dependencies
+  /// (DELTA/RLE) and multi-lane-width decoding (FastLanes paper, VLDB '23,
+  /// §2.3-2.4); PFOR/FOR bit-packing needs neither, so this mode gets the
+  /// decode speedup without the transposed-output cost. Only valid for full
+  /// 1024-value u32 vectors; falls back to BitPack otherwise.
+  FastLanesOrdered = 2,
 };
 
 /// \brief Output value order requested by the decoder.
