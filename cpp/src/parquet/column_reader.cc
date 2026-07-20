@@ -784,6 +784,8 @@ class ValueSinkBuffer : private ValueSinkCursor {
 
   value_type* data() const { return values_->mutable_data_as<value_type>(); }
 
+  void OnNewDictionary(auto& /* decoder */) {}
+
   void delete_back(int64_t count) {
     ARROW_DCHECK_LE(count, values_count());
     set_values_count(values_count() - count);
@@ -954,9 +956,6 @@ class ColumnReaderImplBase {
   ::arrow::MemoryPool* pool_;
   SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
   Encoding::type current_encoding_ = Encoding::UNKNOWN;
-  /// Flag to signal when a new dictionary has been set, for the benefit of
-  /// DictionaryRecordReader
-  bool new_dictionary_ = false;
   // The exposed encoding
   ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;
   // Map of encoding type to the respective decoder object. For example, a
@@ -971,6 +970,12 @@ class ColumnReaderImplBase {
   int64_t ReadValues(int64_t batch_size, T* out);
 
   bool HasNextInternal();
+
+  /// Called when a dictionary page has been read and its decoder set up.
+  ///
+  /// Readers accumulating dictionary-encoded values need to know about it, as
+  /// the indices they have read so far refer to the previous dictionary.
+  virtual void OnNewDictionary(DictDecoder<DType>& /* decoder */) {}
 
   // Available values in the current data page, value includes repeated values
   // and nulls.
@@ -1109,13 +1114,13 @@ void ColumnReaderImplBase<DType, LvlDec>::ConfigureDictionary(
 
     std::unique_ptr<DictDecoder<DType>> decoder = MakeDictDecoder<DType>(descr_, pool_);
     decoder->SetDict(dictionary.get());
+    OnNewDictionary(*decoder);
     decoders_[encoding] =
         std::unique_ptr<DecoderType>(dynamic_cast<DecoderType*>(decoder.release()));
   } else {
     ParquetException::NYI("only plain dictionary encoding has been implemented");
   }
 
-  new_dictionary_ = true;
   current_decoder_.SetDecoder(decoders_[encoding].get());
   ARROW_DCHECK(current_decoder_);
 }
@@ -1591,6 +1596,10 @@ class TypedRecordReader : public ColumnReaderImplBase<DType, LevelDecoder>,
 
   // Dictionary decoders must be reset when advancing row groups
   void ResetDecoders() { this->decoders_.clear(); }
+
+  void OnNewDictionary(DictDecoder<DType>& decoder) final {
+    value_sink_.OnNewDictionary(decoder);
+  }
 
   void ReadValuesSpaced(int32_t values_with_nulls, int32_t null_count);
 
@@ -2371,6 +2380,10 @@ class RequiredTypedRecordReader : public ColumnReaderImplBase<DType, LevelDecode
   // Dictionary decoders must be reset when advancing row groups
   void ResetDecoders() { this->decoders_.clear(); }
 
+  void OnNewDictionary(DictDecoder<DType>& decoder) final {
+    value_sink_.OnNewDictionary(decoder);
+  }
+
   void DebugPrintState() final;
 
  protected:
@@ -2509,6 +2522,8 @@ class ArrayValuesSink : private ValueSinkCursor {
   }
 
   void ResetValues() { ValueSinkCursor::operator=({}); }
+
+  void OnNewDictionary(auto& /* decoder */) {}
 
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
     // TODO once we have a validity sink: we can reset the validity to save some space
@@ -2736,7 +2751,6 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
-        MaybeWriteNewDictionary(*dict_decoder);
         return dict_decoder->DecodeIndices(batch_size, builder_.get());
       }
       return decoder.DecodeArrowNonNull(batch_size, builder_.get());
@@ -2751,7 +2765,6 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
-        MaybeWriteNewDictionary(*dict_decoder);
         return dict_decoder->DecodeIndicesSpaced(batch_size, null_count, valid_bits,
                                                  valid_bits_offset, builder_.get());
       }
@@ -2765,11 +2778,12 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
     return decoded + null_count;
   }
 
-  /// Bind the reader's flag signalling that a new dictionary page was read.
-  ///
-  /// The flag belongs to the reader base class, which is only constructed
-  /// once this sink has been handed over to it, hence the late binding.
-  void BindNewDictionaryFlag(bool* new_dictionary) { new_dictionary_ = new_dictionary; }
+  void OnNewDictionary(auto& decoder) {
+    // The indices accumulated so far refer to the previous dictionary
+    FlushBuilder();
+    builder_->ResetFull();
+    decoder.InsertDictionary(builder_.get());
+  }
 
   /// Finish the builder and return all the chunks accumulated so far.
   std::shared_ptr<::arrow::ChunkedArray> FlushChunks() {
@@ -2783,7 +2797,6 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
 
   std::unique_ptr<Builder> builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
-  bool* new_dictionary_ = nullptr;
 
   void FlushBuilder() {
     if (builder_->length() > 0) {
@@ -2793,18 +2806,6 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
 
       // Also clears the dictionary memo table
       builder_->Reset();
-    }
-  }
-
-  void MaybeWriteNewDictionary(BinaryDictDecoder& decoder) {
-    ARROW_DCHECK_NE(new_dictionary_, nullptr);
-    if (*new_dictionary_) {
-      /// If there is a new dictionary, we may need to flush the builder, then
-      /// insert the new dictionary values
-      FlushBuilder();
-      builder_->ResetFull();
-      decoder.InsertDictionary(builder_.get());
-      *new_dictionary_ = false;
     }
   }
 };
@@ -2841,7 +2842,6 @@ class ByteArrayDictionaryRecordReader final
     requires(!kRequired)
       : Base(descr, leaf_info, pool, read_dense_for_nullable, ValueSink(pool)) {
     ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
-    BindNewDictionaryFlag();
   }
 
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
@@ -2851,7 +2851,6 @@ class ByteArrayDictionaryRecordReader final
     ARROW_DCHECK_EQ(descr->physical_type(), Type::BYTE_ARRAY);
     ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
     ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
-    BindNewDictionaryFlag();
   }
 
   std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
@@ -2860,10 +2859,6 @@ class ByteArrayDictionaryRecordReader final
 
  private:
   using ValueSink = typename byte_array_dictionary_record_reader<kRequired>::ValueSink;
-
-  void BindNewDictionaryFlag() {
-    this->value_sink().BindNewDictionaryFlag(&this->new_dictionary_);
-  }
 };
 
 std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
