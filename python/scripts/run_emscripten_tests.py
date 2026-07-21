@@ -31,6 +31,7 @@ from pathlib import Path
 from io import BytesIO
 
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 
 
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
@@ -209,10 +210,21 @@ class BrowserDriver:
         pass
 
     def load_arrow(self):
-        self.execute_python(
-            f"import pyodide_js as pjs\n"
-            f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n"
-        )
+        code = (f"import pyodide_js as pjs\n"
+                f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
+        self.driver.set_script_timeout(300)
+        try:
+            for attempt in range(3):
+                try:
+                    return self.execute_python(code)
+                except TimeoutException:
+                    if attempt == 2:
+                        raise
+                    print("Timed out loading PyArrow in browser. Retrying",
+                          flush=True)
+                    self.driver.refresh()
+        finally:
+            self.driver.set_script_timeout(1200)
 
     def execute_python(self, code, wait_for_terminate=True):
         if wait_for_terminate:
