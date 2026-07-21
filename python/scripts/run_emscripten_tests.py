@@ -207,13 +207,9 @@ class NodeDriver:
 
 class BrowserDriver:
     def __init__(self, hostname, port, driver):
-        self.hostname = hostname
-        self.port = port
+        self.url = f"http://{hostname}:{port}/test.html"
         self.driver = driver
-        self._open_test_page()
-
-    def _open_test_page(self):
-        self.driver.get(f"http://{self.hostname}:{self.port}/test.html")
+        self.driver.get(self.url)
         # Chrome on CI takes longer than locally to compile.
         self.driver.set_script_timeout(1200)
 
@@ -238,7 +234,7 @@ class BrowserDriver:
             self.driver.set_script_timeout(1200)
 
     def restart_browser(self):
-        self._open_test_page()
+        self.driver.get(self.url)
 
     def execute_python(self, code, wait_for_terminate=True):
         if wait_for_terminate:
@@ -299,7 +295,8 @@ class ChromeDriver(BrowserDriver):
     def restart_browser(self):
         self.driver.quit()
         self.driver = self._make_driver()
-        self._open_test_page()
+        self.driver.get(self.url)
+        self.driver.set_script_timeout(1200)
 
 
 class FirefoxDriver(BrowserDriver):
