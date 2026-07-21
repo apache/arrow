@@ -1092,8 +1092,36 @@ TEST_F(TestConvertParquetSchema, ParquetVariantShreddedWithoutValue) {
       ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
                         ::arrow::field("typed_value", ::arrow::int64())});
 
-  ASSERT_NO_FATAL_FAILURE(CheckParquetVariantSchema(
-      "variant_shredded", {metadata, typed_value}, storage_type));
+  {
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("variant_shredded", storage_type)});
+    ASSERT_OK(ConvertSchema(
+        {GroupNode::Make("variant_shredded", Repetition::OPTIONAL,
+                         {metadata, typed_value}, LogicalType::Variant())}));
+    ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
+  }
+
+  auto registered_storage_type =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("value", ::arrow::binary(), false)});
+  auto registered_variant = ::arrow::extension::variant(registered_storage_type);
+  ::arrow::ExtensionTypeGuard guard({registered_variant});
+
+  ArrowReaderProperties props;
+  props.set_arrow_extensions_enabled(true);
+  ASSERT_OK(
+      ConvertSchema({GroupNode::Make("variant_shredded", Repetition::OPTIONAL,
+                                     {metadata, typed_value}, LogicalType::Variant())},
+                    /*metadata=*/nullptr, props));
+
+  auto field = result_schema_->field(0);
+  ASSERT_EQ(::arrow::Type::EXTENSION, field->type()->id());
+  auto variant_type =
+      std::dynamic_pointer_cast<::arrow::extension::VariantExtensionType>(field->type());
+  ASSERT_NE(nullptr, variant_type);
+  ASSERT_EQ(nullptr, variant_type->value());
+  ASSERT_NE(nullptr, variant_type->typed_value());
+  ASSERT_TRUE(variant_type->storage_type()->Equals(storage_type));
 }
 
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowJsonExtension) {
@@ -1594,7 +1622,17 @@ TEST_F(TestConvertArrowSchema, ParquetVariantShreddedWithoutValue) {
   auto storage_type =
       ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
                         ::arrow::field("typed_value", ::arrow::int64())});
-  auto variant_type = ::arrow::extension::variant(storage_type);
+  auto registered_storage_type =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("value", ::arrow::binary(), false)});
+  ASSERT_OK_AND_ASSIGN(
+      auto registered_variant_type,
+      ::arrow::extension::VariantExtensionType::Make(registered_storage_type));
+  auto registered_variant =
+      ::arrow::internal::checked_pointer_cast<::arrow::extension::VariantExtensionType>(
+          registered_variant_type);
+  ASSERT_OK_AND_ASSIGN(auto variant_type,
+                       registered_variant->Deserialize(storage_type, ""));
 
   ASSERT_RAISES(Invalid, ConvertSchema({::arrow::field("variant", variant_type)}));
 }

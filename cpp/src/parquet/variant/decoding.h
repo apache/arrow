@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <functional>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -25,39 +25,15 @@
 #include <vector>
 
 #include "parquet/platform.h"
+#include "parquet/variant/format.h"
 
 namespace parquet::variant {
 
-enum class VariantBasicType : uint8_t {
-  kPrimitive = 0,
-  kShortString = 1,
-  kObject = 2,
-  kArray = 3,
-};
+namespace internal {
 
-enum class VariantPrimitiveType : uint8_t {
-  kNull = 0,
-  kBooleanTrue = 1,
-  kBooleanFalse = 2,
-  kInt8 = 3,
-  kInt16 = 4,
-  kInt32 = 5,
-  kInt64 = 6,
-  kDouble = 7,
-  kDecimal4 = 8,
-  kDecimal8 = 9,
-  kDecimal16 = 10,
-  kDate = 11,
-  kTimestampMicros = 12,
-  kTimestampNTZMicros = 13,
-  kFloat = 14,
-  kBinary = 15,
-  kString = 16,
-  kTimeNTZMicros = 17,
-  kTimestampNanos = 18,
-  kTimestampNTZNanos = 19,
-  kUuid = 20,
-};
+class ViewAccess;
+
+}
 
 struct PARQUET_EXPORT VariantObjectField {
   std::string_view name;
@@ -72,6 +48,13 @@ class PARQUET_EXPORT VariantMetadataView {
   /// The returned view and all string views borrowed from it are valid only while the
   /// input metadata bytes remain alive and unchanged.
   static VariantMetadataView Make(std::string_view metadata);
+
+  /// Parse a Variant metadata prefix without copying it and return bytes consumed.
+  /// The returned view contains exactly the consumed metadata bytes.
+  ///
+  /// \param[out] consumed receives the metadata size when non-null
+  static VariantMetadataView ParsePrefix(std::string_view data,
+                                         size_t* consumed = nullptr);
 
   std::string_view metadata() const { return metadata_; }
   bool sorted_strings() const { return sorted_strings_; }
@@ -93,49 +76,76 @@ class PARQUET_EXPORT VariantMetadataView {
 
 class PARQUET_EXPORT VariantPrimitiveView {
  public:
-  VariantPrimitiveView(VariantPrimitiveType type, std::string_view payload)
-      : type_(type), payload_(payload) {}
+  static constexpr VariantBasicType kBasicType = VariantBasicType::kPrimitive;
 
   VariantPrimitiveType type() const { return type_; }
   std::string_view payload() const { return payload_; }
 
  private:
+  friend class internal::ViewAccess;
+
+  VariantPrimitiveView(VariantPrimitiveType type, std::string_view payload)
+      : type_(type), payload_(payload) {}
+
   VariantPrimitiveType type_ = VariantPrimitiveType::kNull;
   std::string_view payload_;
 };
 
 class PARQUET_EXPORT VariantShortStringView {
  public:
-  explicit VariantShortStringView(std::string_view string) : string_(string) {}
+  static constexpr VariantBasicType kBasicType = VariantBasicType::kShortString;
 
   std::string_view string() const { return string_; }
 
  private:
+  friend class internal::ViewAccess;
+
+  explicit VariantShortStringView(std::string_view string) : string_(string) {}
+
   std::string_view string_;
 };
 
+class VariantValueView;
+
 class PARQUET_EXPORT VariantObjectView {
  public:
-  explicit VariantObjectView(std::vector<VariantObjectField> fields)
-      : fields_(std::move(fields)) {}
+  static constexpr VariantBasicType kBasicType = VariantBasicType::kObject;
 
   const std::vector<VariantObjectField>& fields() const { return fields_; }
-  const VariantObjectField* FindField(std::string_view name) const;
   bool ContainsField(std::string_view name) const;
+  /// Return a field by name, or nullopt if it does not exist.
+  std::optional<VariantValueView> GetField(std::string_view name) const;
+  /// Return a field by index, or nullopt if the index is out of bounds.
+  std::optional<VariantValueView> GetField(size_t index) const;
 
  private:
+  friend class internal::ViewAccess;
+
+  VariantObjectView(std::vector<VariantObjectField> fields,
+                    const VariantMetadataView& metadata)
+      : fields_(std::move(fields)), metadata_(metadata) {}
+
   std::vector<VariantObjectField> fields_;
+  std::reference_wrapper<const VariantMetadataView> metadata_;
 };
 
 class PARQUET_EXPORT VariantArrayView {
  public:
-  explicit VariantArrayView(std::vector<std::string_view> elements)
-      : elements_(std::move(elements)) {}
+  static constexpr VariantBasicType kBasicType = VariantBasicType::kArray;
 
   const std::vector<std::string_view>& elements() const { return elements_; }
+  /// Return an element by index, or nullopt if the index is out of bounds.
+  std::optional<VariantValueView> GetElement(size_t index) const;
 
  private:
+  friend class internal::ViewAccess;
+
+  VariantArrayView(std::vector<std::string_view> elements,
+                   const VariantMetadataView& metadata)
+      : elements_(std::move(elements)), metadata_(metadata) {}
+
   std::vector<std::string_view> elements_;
+  std::reference_wrapper<const VariantMetadataView> metadata_;
 };
 
 class PARQUET_EXPORT VariantValueView {
@@ -143,25 +153,39 @@ class PARQUET_EXPORT VariantValueView {
   using Data = std::variant<VariantPrimitiveView, VariantShortStringView,
                             VariantObjectView, VariantArrayView>;
 
-  VariantValueView(std::string_view value, VariantBasicType basic_type, Data data)
-      : value_(value), basic_type_(basic_type), data_(std::move(data)) {}
-
   /// Parse Variant value bytes without copying them.
   ///
   /// The returned view and any nested object/list/string views are valid only while the
-  /// input value bytes remain alive and unchanged. The metadata view must also remain
-  /// valid while object field names are accessed.
+  /// input value bytes remain alive and unchanged. The metadata view object and its
+  /// underlying bytes must also remain alive and unchanged.
   static VariantValueView Make(std::string_view value,
                                const VariantMetadataView& metadata);
+  static VariantValueView Make(std::string_view value,
+                               VariantMetadataView&& metadata) = delete;
+
+  /// Read the basic type from the value header without validating the remaining bytes.
+  static VariantBasicType PeekBasicType(std::string_view value);
+
   static void Validate(std::string_view value, const VariantMetadataView& metadata);
 
   std::string_view value() const { return value_; }
-  VariantBasicType basic_type() const { return basic_type_; }
+  VariantBasicType basic_type() const {
+    return std::visit([](const auto& view) { return view.kBasicType; }, data_);
+  }
   const Data& data() const { return data_; }
 
  private:
+  friend class internal::ViewAccess;
+  friend class VariantArrayView;
+  friend class VariantObjectView;
+
+  VariantValueView(std::string_view value, Data data)
+      : value_(value), data_(std::move(data)) {}
+
+  static VariantValueView MakeShallow(std::string_view value,
+                                      const VariantMetadataView& metadata);
+
   std::string_view value_;
-  VariantBasicType basic_type_;
   Data data_;
 };
 

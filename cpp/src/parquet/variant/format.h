@@ -17,17 +17,39 @@
 
 #pragma once
 
-#include "arrow/type_fwd.h"
-#include "parquet/platform.h"
+#include <cstdint>
 
 namespace parquet::variant {
 
-/// Validate Variant arrays using strict writer rules or read-compatible rules.
-/// The non-strict mode accepts invalid encodings retained in parquet-testing for
-/// reader compatibility and must not be used to validate values for writing.
-template <bool strict>
-PARQUET_EXPORT void ValidateVariants(
-    const ::arrow::ChunkedArray& data,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+enum class VariantBasicType : uint8_t {
+  kPrimitive = 0,
+  kShortString = 1,
+  kObject = 2,
+  kArray = 3,
+};
+
+enum class VariantPrimitiveType : uint8_t {
+  kNull = 0,
+  kBooleanTrue = 1,
+  kBooleanFalse = 2,
+  kInt8 = 3,
+  kInt16 = 4,
+  kInt32 = 5,
+  kInt64 = 6,
+  kDouble = 7,
+  kDecimal4 = 8,
+  kDecimal8 = 9,
+  kDecimal16 = 10,
+  kDate = 11,
+  kTimestampMicros = 12,
+  kTimestampNTZMicros = 13,
+  kFloat = 14,
+  kBinary = 15,
+  kString = 16,
+  kTimeNTZMicros = 17,
+  kTimestampNanos = 18,
+  kTimestampNTZNanos = 19,
+  kUuid = 20,
+};
 
 }  // namespace parquet::variant

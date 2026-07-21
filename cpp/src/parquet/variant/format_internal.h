@@ -20,13 +20,19 @@
 #include <cstdint>
 #include <string_view>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/utf8.h"
 #include "parquet/exception.h"
-#include "parquet/variant/encoding.h"
+#include "parquet/variant/format.h"
 
-namespace parquet::variant::internal {
+namespace parquet::variant {
 
-namespace util = ::arrow::util;
+class VariantPrimitiveView;
+class VariantShortStringView;
+class VariantObjectView;
+class VariantArrayView;
+
+namespace internal {
 
 inline constexpr uint8_t kVariantVersion = 1;
 inline constexpr uint8_t kMetadataVersionMask = 0x0F;
@@ -74,8 +80,9 @@ inline void ValidateDecimalScale(uint8_t scale) {
 }
 
 inline void ValidateUtf8(std::string_view value, std::string_view context) {
-  util::InitializeUTF8();
-  if (!util::ValidateUTF8(reinterpret_cast<const uint8_t*>(value.data()), value.size())) {
+  ::arrow::util::InitializeUTF8();
+  if (!::arrow::util::ValidateUTF8(reinterpret_cast<const uint8_t*>(value.data()),
+                                   value.size())) {
     throw ParquetInvalidOrCorruptedFileException("Invalid Variant encoding: ", context,
                                                  " is not valid UTF-8");
   }
@@ -123,8 +130,9 @@ struct VariantDecimalPrimitiveTraits {};
     using CType = C_TYPE;                                               \
   };
 
-VARIANT_DECIMAL_PRIMITIVE_TRAITS_DEF(Decimal4, int32_t)
-VARIANT_DECIMAL_PRIMITIVE_TRAITS_DEF(Decimal8, int64_t)
+VARIANT_DECIMAL_PRIMITIVE_TRAITS_DEF(Decimal4, ::arrow::Decimal32)
+VARIANT_DECIMAL_PRIMITIVE_TRAITS_DEF(Decimal8, ::arrow::Decimal64)
+VARIANT_DECIMAL_PRIMITIVE_TRAITS_DEF(Decimal16, ::arrow::Decimal128)
 
 #undef VARIANT_DECIMAL_PRIMITIVE_TRAITS_DEF
 
@@ -137,9 +145,8 @@ concept LengthPrefixedVariantPrimitive =
     type == VariantPrimitiveType::kBinary || type == VariantPrimitiveType::kString;
 
 template <VariantPrimitiveType type>
-concept Decimal16VariantPrimitive = type == VariantPrimitiveType::kDecimal16;
-
-template <VariantPrimitiveType type>
 concept UuidVariantPrimitive = type == VariantPrimitiveType::kUuid;
 
-}  // namespace parquet::variant::internal
+}  // namespace internal
+
+}  // namespace parquet::variant

@@ -52,32 +52,40 @@ using ::arrow::extension::kVariantExtensionName;
 using ::arrow::extension::VariantExtensionType;
 
 TEST(TestVariantType, Storage) {
-  auto unshredded = struct_({field("metadata", binary(), /*nullable=*/false),
-                             field("value", binary(), /*nullable=*/false)});
-  ASSERT_OK_AND_ASSIGN(auto type, VariantExtensionType::Make(unshredded));
-  ASSERT_EQ(
-      kVariantExtensionName,
-      ::arrow::internal::checked_cast<const ExtensionType&>(*type).extension_name());
+  {
+    auto unshredded = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+    ASSERT_OK_AND_ASSIGN(auto type, VariantExtensionType::Make(unshredded));
+    ASSERT_EQ(
+        kVariantExtensionName,
+        ::arrow::internal::checked_cast<const ExtensionType&>(*type).extension_name());
+  }
 
-  auto shredded = struct_({field("metadata", binary(), /*nullable=*/false),
-                           field("value", binary()), field("typed_value", int64())});
-  ASSERT_OK_AND_ASSIGN(auto shredded_type, VariantExtensionType::Make(shredded));
-  auto variant_type =
-      ::arrow::internal::checked_pointer_cast<VariantExtensionType>(shredded_type);
-  ASSERT_EQ("metadata", variant_type->metadata()->name());
-  ASSERT_EQ("value", variant_type->value()->name());
-  ASSERT_EQ("typed_value", variant_type->typed_value()->name());
+  {
+    auto shredded = struct_({field("metadata", binary(), /*nullable=*/false),
+                             field("value", binary()), field("typed_value", int64())});
+    ASSERT_OK_AND_ASSIGN(auto shredded_type, VariantExtensionType::Make(shredded));
+    auto variant_type =
+        ::arrow::internal::checked_pointer_cast<VariantExtensionType>(shredded_type);
+    ASSERT_EQ("metadata", variant_type->metadata()->name());
+    ASSERT_EQ("value", variant_type->value()->name());
+    ASSERT_EQ("typed_value", variant_type->typed_value()->name());
+  }
 
-  auto typed_only = struct_(
-      {field("metadata", binary(), /*nullable=*/false), field("typed_value", int64())});
-  ASSERT_OK(VariantExtensionType::Make(typed_only));
+  {
+    auto typed_only = struct_(
+        {field("metadata", binary(), /*nullable=*/false), field("typed_value", int64())});
+    ASSERT_RAISES(Invalid, VariantExtensionType::Make(typed_only));
+  }
 
-  auto flipped =
-      std::dynamic_pointer_cast<VariantExtensionType>(::arrow::extension::variant(
-          struct_({field("value", binary(), /*nullable=*/false),
-                   field("metadata", binary(), /*nullable=*/false)})));
-  ASSERT_EQ("metadata", flipped->metadata()->name());
-  ASSERT_EQ("value", flipped->value()->name());
+  {
+    auto flipped =
+        std::dynamic_pointer_cast<VariantExtensionType>(::arrow::extension::variant(
+            struct_({field("value", binary(), /*nullable=*/false),
+                     field("metadata", binary(), /*nullable=*/false)})));
+    ASSERT_EQ("metadata", flipped->metadata()->name());
+    ASSERT_EQ("value", flipped->value()->name());
+  }
 
   ASSERT_OK(VariantExtensionType::Make(
       struct_({field("metadata", binary_view(), /*nullable=*/false),
@@ -162,6 +170,25 @@ TEST(TestVariantType, InvalidStorage) {
                  field("value", binary()), field("typed_value", typed_value_type)});
     ASSERT_RAISES(Invalid, VariantExtensionType::Make(std::move(invalid_shredded_type)));
   }
+}
+
+TEST(TestVariantType, ReadStorage) {
+  auto base_storage = struct_({field("metadata", binary(), /*nullable=*/false),
+                               field("value", binary(), /*nullable=*/false)});
+  ASSERT_OK_AND_ASSIGN(auto base_type, VariantExtensionType::Make(base_storage));
+  auto variant_type =
+      ::arrow::internal::checked_pointer_cast<VariantExtensionType>(base_type);
+
+  auto typed_only = struct_(
+      {field("metadata", binary(), /*nullable=*/false), field("typed_value", int64())});
+  ASSERT_OK(variant_type->Deserialize(typed_only, /*serialized_data=*/""));
+
+  auto typed_only_field_group = struct_({field("typed_value", ::arrow::utf8())});
+  auto shredded_object =
+      struct_({field("metadata", binary(), /*nullable=*/false), field("value", binary()),
+               field("typed_value",
+                     struct_({field("a", typed_only_field_group, /*nullable=*/false)}))});
+  ASSERT_OK(variant_type->Deserialize(shredded_object, /*serialized_data=*/""));
 }
 
 }  // namespace parquet::variant
