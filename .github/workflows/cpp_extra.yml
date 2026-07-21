@@ -127,6 +127,7 @@ jobs:
             image: debian-cpp
             run-options: >-
               -e ARROW_SIMD_LEVEL=NONE
+              -e CXXFLAGS=-march=x86-64
             runs-on: ubuntu-latest
             title: AMD64 Debian SIMD Level NONE
     env:
