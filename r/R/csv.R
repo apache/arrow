@@ -933,8 +933,10 @@ write_csv_arrow <- function(
   # every other argument is not supported in arrow and inform those arguments
   # are not yet supported in arrow.
   check_dots_empty(error = function(cnd) {
-    rlang::abort(c(
-      "Arguments not yet supported in Arrow", conditionMessage(cnd)
+    rlang::abort(
+      c(
+        "Arguments not yet supported in Arrow",
+        conditionMessage(cnd)
       ),
       call = call("write_csv_arrow")
     )

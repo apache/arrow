@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-r-assertthat
 r-base
 r-bit64
 r-dplyr

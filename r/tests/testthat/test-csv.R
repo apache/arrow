@@ -490,28 +490,15 @@ test_that("time mapping work as expected (ARROW-13624)", {
 })
 
 test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, append = FALSE)
-  )
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, quote = "all")
-  )
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, escape = "double")
-  )
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, eol = "\n")
-  )
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, num_threads = 8)
-  )
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, progress = FALSE),
-  )
-  expect_snapshot(error = TRUE,
-    write_csv_arrow(tbl, csv_file, append = FALSE, eol = "\n")
-  )
-  expect_snapshot(error = TRUE,
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, append = FALSE))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, quote = "all"))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, escape = "double"))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, eol = "\n"))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, num_threads = 8))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, progress = FALSE), )
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, append = FALSE, eol = "\n"))
+  expect_snapshot(
+    error = TRUE,
     write_csv_arrow(
       tbl,
       csv_file,
