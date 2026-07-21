@@ -382,7 +382,8 @@ class FileWriterImpl : public FileWriter {
                           int64_t size) override {
     RETURN_NOT_OK(CheckClosed());
     if (arrow_properties_->variant_validation_enabled()) {
-      PARQUET_CATCH_NOT_OK(variant::ValidateVariants(*data->Slice(offset, size), pool_));
+      PARQUET_CATCH_NOT_OK(
+          variant::ValidateVariants<true>(*data->Slice(offset, size), pool_));
     }
     if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
         arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
@@ -476,7 +477,7 @@ class FileWriterImpl : public FileWriter {
         ChunkedArray chunked_array{batch.column(i)};
         if (arrow_properties_->variant_validation_enabled()) {
           PARQUET_CATCH_NOT_OK(
-              variant::ValidateVariants(*chunked_array.Slice(offset, size), pool_));
+              variant::ValidateVariants<true>(*chunked_array.Slice(offset, size), pool_));
         }
         ARROW_ASSIGN_OR_RAISE(
             std::unique_ptr<ArrowColumnWriterV2> writer,

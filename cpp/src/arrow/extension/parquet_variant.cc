@@ -29,44 +29,6 @@
 
 namespace arrow::extension {
 
-VariantExtensionType::VariantExtensionType(const std::shared_ptr<DataType>& storage_type)
-    : ExtensionType(storage_type) {
-  // IsSupportedStorageType should have been called already, asserting that
-  // metadata is present and at least one of value / typed_value is present.
-  for (const auto& field : storage_type->fields()) {
-    if (field->name() == "metadata") {
-      metadata_ = field;
-    } else if (field->name() == "value") {
-      value_ = field;
-    } else if (field->name() == "typed_value") {
-      typed_value_ = field;
-    }
-  }
-}
-
-bool VariantExtensionType::ExtensionEquals(const ExtensionType& other) const {
-  return other.extension_name() == this->extension_name() &&
-         other.storage_type()->Equals(this->storage_type());
-}
-
-Result<std::shared_ptr<DataType>> VariantExtensionType::Deserialize(
-    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  if (!serialized.empty()) {
-    return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
-  }
-  return VariantExtensionType::Make(std::move(storage_type));
-}
-
-std::string VariantExtensionType::Serialize() const { return ""; }
-
-std::shared_ptr<Array> VariantExtensionType::MakeArray(
-    std::shared_ptr<ArrayData> data) const {
-  DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ(kVariantExtensionName,
-            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<VariantArray>(data);
-}
-
 namespace {
 
 bool IsSupportedPrimitiveTypedValue(const std::shared_ptr<DataType>& type) {
@@ -109,8 +71,10 @@ bool IsSupportedPrimitiveTypedValue(const std::shared_ptr<DataType>& type) {
   }
 }
 
+template <bool strict>
 bool IsSupportedTypedValue(const std::shared_ptr<Field>& field);
 
+template <bool strict, bool in_object>
 bool IsVariantFieldGroup(const std::shared_ptr<DataType>& type) {
   if (type->id() != Type::STRUCT) {
     return false;
@@ -126,7 +90,7 @@ bool IsVariantFieldGroup(const std::shared_ptr<DataType>& type) {
       }
       value = field;
     } else if (field->name() == "typed_value") {
-      if (typed_value != nullptr || !IsSupportedTypedValue(field)) {
+      if (typed_value != nullptr || !IsSupportedTypedValue<strict>(field)) {
         return false;
       }
       typed_value = field;
@@ -134,36 +98,43 @@ bool IsVariantFieldGroup(const std::shared_ptr<DataType>& type) {
       return false;
     }
   }
-  return value != nullptr || typed_value != nullptr;
+
+  if constexpr (strict && in_object) {
+    return value != nullptr;
+  } else {
+    return value != nullptr || typed_value != nullptr;
+  }
 }
 
+template <bool strict>
 bool IsSupportedTypedValue(const std::shared_ptr<Field>& field) {
   if (!field->nullable()) {
     return false;
   }
-  auto is_variant_field_group = [](const auto& field) {
-    return !field->nullable() && IsVariantFieldGroup(field->type());
-  };
 
   switch (field->type()->id()) {
     case Type::STRUCT:
       return field->type()->num_fields() > 0 &&
-             std::ranges::all_of(field->type()->fields(), is_variant_field_group);
+             std::ranges::all_of(field->type()->fields(), [](const auto& field) {
+               return (!strict || !field->nullable()) &&
+                      IsVariantFieldGroup<strict, /*in_object=*/true>(field->type());
+             });
     case Type::LIST:
     case Type::LARGE_LIST:
     case Type::LIST_VIEW:
     case Type::LARGE_LIST_VIEW:
-    case Type::FIXED_SIZE_LIST:
-      return is_variant_field_group(field->type()->field(0));
+    case Type::FIXED_SIZE_LIST: {
+      auto& inner_field = field->type()->field(0);
+      return !inner_field->nullable() &&
+             IsVariantFieldGroup<strict, /*in_object=*/false>(inner_field->type());
+    }
     default:
       return IsSupportedPrimitiveTypedValue(field->type());
   }
 }
 
-}  // namespace
-
-bool VariantExtensionType::IsSupportedStorageType(
-    const std::shared_ptr<DataType>& storage_type) {
+template <bool strict>
+bool IsSupportedStorageTypeImpl(const std::shared_ptr<DataType>& storage_type) {
   if (storage_type->id() != Type::STRUCT) {
     return false;
   }
@@ -185,7 +156,7 @@ bool VariantExtensionType::IsSupportedStorageType(
       }
       value = field;
     } else if (field->name() == "typed_value") {
-      if (typed_value != nullptr || !IsSupportedTypedValue(field)) {
+      if (typed_value != nullptr || !IsSupportedTypedValue<strict>(field)) {
         return false;
       }
       typed_value = field;
@@ -194,16 +165,68 @@ bool VariantExtensionType::IsSupportedStorageType(
     }
   }
 
-  if (metadata == nullptr || (value == nullptr && typed_value == nullptr)) {
+  if (metadata == nullptr) {
     return false;
   }
-  if (value == nullptr) {
-    return true;
+
+  if constexpr (strict) {
+    if (value == nullptr) {
+      return false;
+    }
+    return (typed_value == nullptr) != value->nullable();
+  } else {
+    bool value_nullable = (value == nullptr) || value->nullable();
+    return (typed_value == nullptr) != value_nullable;
   }
-  if (typed_value == nullptr) {
-    return !value->nullable();
+}
+
+}  // namespace
+
+VariantExtensionType::VariantExtensionType(const std::shared_ptr<DataType>& storage_type)
+    : ExtensionType(storage_type) {
+  // IsSupportedStorageType should have been called already, asserting that
+  // metadata is present and at least one of value / typed_value is present.
+  for (const auto& field : storage_type->fields()) {
+    if (field->name() == "metadata") {
+      metadata_ = field;
+    } else if (field->name() == "value") {
+      value_ = field;
+    } else if (field->name() == "typed_value") {
+      typed_value_ = field;
+    }
   }
-  return value->nullable();
+}
+
+bool VariantExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return other.extension_name() == this->extension_name() &&
+         other.storage_type()->Equals(this->storage_type());
+}
+
+Result<std::shared_ptr<DataType>> VariantExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (!serialized.empty()) {
+    return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
+  }
+  if (!IsSupportedStorageTypeImpl</*strict=*/false>(storage_type)) {
+    return Status::Invalid("Invalid storage type for VariantExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<VariantExtensionType>(std::move(storage_type));
+}
+
+std::string VariantExtensionType::Serialize() const { return ""; }
+
+std::shared_ptr<Array> VariantExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ(kVariantExtensionName,
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<VariantArray>(data);
+}
+
+bool VariantExtensionType::IsSupportedStorageType(
+    const std::shared_ptr<DataType>& storage_type) {
+  return IsSupportedStorageTypeImpl</*strict=*/true>(storage_type);
 }
 
 Result<std::shared_ptr<DataType>> VariantExtensionType::Make(

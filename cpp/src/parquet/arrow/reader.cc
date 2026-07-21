@@ -27,6 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/extension/parquet_variant.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
@@ -54,6 +55,7 @@
 #include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/variant/validate.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -583,6 +585,26 @@ class ExtensionReader : public ColumnReaderImpl {
   std::unique_ptr<ColumnReaderImpl> storage_reader_;
 };
 
+class VariantReader : public ExtensionReader {
+ public:
+  VariantReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
+                std::unique_ptr<ColumnReaderImpl> storage_reader)
+      : ExtensionReader(std::move(field), std::move(storage_reader)),
+        ctx_(std::move(ctx)) {}
+
+  Status BuildArray(int64_t length_upper_bound,
+                    std::shared_ptr<ChunkedArray>* out) override {
+    RETURN_NOT_OK(ExtensionReader::BuildArray(length_upper_bound, out));
+    if (ctx_->reader_properties->variant_validation_enabled()) {
+      PARQUET_CATCH_NOT_OK(variant::ValidateVariants<false>(**out, ctx_->pool));
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<ReaderContext> ctx_;
+};
+
 template <typename IndexType>
 class ListReader : public ColumnReaderImpl {
  public:
@@ -892,8 +914,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
   auto type_id = arrow_field->type()->id();
 
   if (type_id == ::arrow::Type::EXTENSION) {
-    auto storage_field = arrow_field->WithType(
-        checked_cast<const ExtensionType&>(*arrow_field->type()).storage_type());
+    const auto& ext_type = checked_cast<const ExtensionType&>(*arrow_field->type());
+    auto storage_field = arrow_field->WithType(ext_type.storage_type());
     RETURN_NOT_OK(GetReader(field, storage_field, ctx, out));
     if (*out) {
       auto storage_type = (*out)->field()->type();
@@ -902,7 +924,11 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
             "Due to column pruning only part of an extension's storage type was loaded.  "
             "An extension type cannot be created without all of its fields");
       }
-      *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
+      if (ext_type.extension_name() == ::arrow::extension::kVariantExtensionName) {
+        *out = std::make_unique<VariantReader>(ctx, arrow_field, std::move(*out));
+      } else {
+        *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
+      }
     }
     return Status::OK();
   }

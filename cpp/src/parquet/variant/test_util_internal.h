@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -28,7 +27,6 @@
 #include "arrow/type_fwd.h"
 #include "parquet/properties.h"
 #include "parquet/variant/builder.h"
-#include "parquet/variant/encoding.h"
 
 namespace parquet::variant::internal {
 
@@ -37,8 +35,6 @@ using ::arrow::Buffer;
 using ::arrow::DataType;
 using ::arrow::FieldVector;
 using ::arrow::Result;
-
-VariantValueView MakeVariantValueView(const EncodedVariantValue& encoded);
 
 std::shared_ptr<::arrow::Table> VariantTable(
     const std::shared_ptr<DataType>& variant_type,
@@ -56,28 +52,11 @@ Result<std::shared_ptr<Buffer>> WriteVariantTable(
     std::shared_ptr<ArrowWriterProperties> arrow_properties =
         default_arrow_writer_properties());
 
-std::optional<std::string> ShreddedVariantTestingDir();
-
-Result<std::shared_ptr<::arrow::Table>> ReadVariantTestingTable(const std::string& path);
-
 std::shared_ptr<Buffer> EmptyVariantMetadata();
 
 EncodedVariantValue Int8Variant(int8_t value);
 
 std::shared_ptr<Array> BinaryArrayFromValues(
     const std::vector<std::optional<std::string_view>>& values);
-
-std::shared_ptr<Array> BinaryViewArrayFromValues(
-    const std::vector<std::optional<std::string_view>>& values);
-
-std::shared_ptr<Array> Int64ArrayFromValues(
-    const std::vector<std::optional<int64_t>>& values);
-
-std::shared_ptr<Array> Int32ArrayFromValues(const std::vector<int32_t>& values);
-
-std::shared_ptr<Array> StringArrayFromValues(
-    const std::vector<std::optional<std::string>>& values);
-
-std::shared_ptr<Array> UuidArrayFromValues(const std::vector<std::string_view>& values);
 
 }  // namespace parquet::variant::internal

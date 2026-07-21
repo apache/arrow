@@ -18,9 +18,11 @@
 add_parquet_test(variant-test
                  SOURCES
                  builder_test.cc
-                 encoding_test.cc
+                 decoding_test.cc
+                 parquet_testing_test.cc
                  test_util_internal.cc
                  type_test.cc
+                 unshred_test.cc
                  validate_test.cc)
 
 arrow_install_all_headers("parquet/variant")

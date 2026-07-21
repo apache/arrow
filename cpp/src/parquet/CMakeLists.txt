@@ -191,8 +191,11 @@ set(PARQUET_SRCS
     stream_reader.cc
     stream_writer.cc
     types.cc
+    variant/array_internal.cc
     variant/builder.cc
-    variant/encoding.cc
+    variant/decoding.cc
+    variant/slot_internal.cc
+    variant/unshred.cc
     variant/validate.cc
     xxhasher.cc)
 

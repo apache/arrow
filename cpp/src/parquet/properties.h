@@ -1156,6 +1156,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         binary_type_(kArrowDefaultBinaryType),
         list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
+        variant_validation_enabled_(true),
         should_load_statistics_(false),
         smallest_decimal_enabled_(false) {}
 
@@ -1267,6 +1268,16 @@ class PARQUET_EXPORT ArrowReaderProperties {
   }
   bool get_arrow_extensions_enabled() const { return arrow_extensions_enabled_; }
 
+  /// Enable read-side row-level validation for Parquet Variant extension arrays.
+  ///
+  /// When enabled, Variant extension arrays read from Parquet are checked for
+  /// shredded value / typed_value semantic conflicts after the physical Arrow
+  /// storage has been materialized.
+  void set_variant_validation_enabled(bool enabled) {
+    variant_validation_enabled_ = enabled;
+  }
+  bool variant_validation_enabled() const { return variant_validation_enabled_; }
+
   /// \brief Set whether to load statistics as much as possible.
   ///
   /// Default is false.
@@ -1305,6 +1316,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::Type::type binary_type_;
   ::arrow::Type::type list_type_;
   bool arrow_extensions_enabled_;
+  bool variant_validation_enabled_;
   bool should_load_statistics_;
   bool smallest_decimal_enabled_;
 };
