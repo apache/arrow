@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/json/json_writer.h"
+#include "arrow/json/json_writer_internal.h"
 
 namespace arrow::json {
 
@@ -143,7 +143,7 @@ TEST(JsonWriter, StringWithExplicitLength) {
 
   writer.StartObject();
   writer.Key("value");
-  writer.String(value, 3);
+  writer.String(std::string_view(value, 3));
   writer.EndObject();
 
   ASSERT_EQ(writer.GetString(), R"({"value":"abc"})");

@@ -39,11 +39,9 @@ namespace rj = arrow::rapidjson;
 using RjObject = rj::Value::ConstObject;
 using RjArray = rj::Value::ConstArray;
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 class JsonWriter;
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json
 
 #define RETURN_NOT_FOUND(TOK, NAME, PARENT)              \
   if (NAME == (PARENT).MemberEnd()) {                    \

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/json/json_writer.h"
+#include "arrow/json/json_writer_internal.h"
 
 namespace arrow::json {
 
@@ -52,10 +52,6 @@ void JsonWriter::String(std::string_view value) {
   MaybeComma();
   builder_.escape_and_append_with_quotes(value);
   needs_comma_ = true;
-}
-
-void JsonWriter::String(const char* data, size_t length) {
-  String(std::string_view(data, length));
 }
 
 void JsonWriter::RawValue(std::string_view value) {
