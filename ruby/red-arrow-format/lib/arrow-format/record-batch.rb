@@ -26,7 +26,14 @@ module ArrowFormat
     alias_method :length, :n_rows
     attr_reader :columns
     attr_reader :message_metadata
-    def initialize(schema, n_rows, columns, message_metadata: nil)
+    def initialize(*args, message_metadata: nil)
+      n_args = args.size
+      args = build(args[0]) if n_args == 1
+      if args.size != 3
+        message = "wrong number of arguments (given #{n_args}, expected 1 or 3)"
+        raise ArgumentError, message
+      end
+      schema, n_rows, columns = args
       @schema = schema
       @n_rows = n_rows
       @columns = columns
@@ -100,6 +107,58 @@ module ArrowFormat
           end
         end
       end
+    end
+
+    private
+    def build(data)
+      records = nil
+      fields = []
+      columns = []
+      mode = nil
+      i = 0
+      data.each do |name, column|
+        if i.zero?
+          if column.nil?
+            mode = :record
+            records = {}
+          else
+            mode = :column
+          end
+        end
+
+        if mode == :record
+          record = name
+          record.each do |n, value|
+            values = (records[n] ||= [])
+            while values.size < i
+              values << nil
+            end
+            values << value
+          end
+        else
+          fields << Field.new(name, column.type)
+          columns << column
+        end
+        i += 1
+      end
+
+      if mode == :record
+        records.each do |name, values|
+          column = Array.build(values)
+          fields << Field.new(name, column.type)
+          columns << column
+        end
+      end
+
+      raise ArgumentError, "no data" if columns.empty?
+      all_n_rows = columns.collect(&:size)
+      if all_n_rows.uniq.size != 1
+        message =
+          "inconsistent the number of rows: #{all_n_rows.join(", ")}"
+        raise ArgumentError, message
+      end
+
+      return Schema.new(fields), n_rows, columns
     end
   end
 end

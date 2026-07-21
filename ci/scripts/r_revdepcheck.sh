@@ -44,6 +44,7 @@ apt install -y \
   libprotoc-dev \
   libradospp-dev \
   libre2-dev \
+  libsimdjson-dev \
   libsnappy-dev \
   libssl-dev \
   libthrift-dev \

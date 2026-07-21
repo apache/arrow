@@ -59,6 +59,7 @@ RUN apk add \
         re2-dev \
         rsync \
         samurai \
+        simdjson-dev \
         snappy-dev \
         sqlite-dev \
         thrift-dev \

@@ -2255,7 +2255,17 @@ cdef class CsvFileFormat(FileFormat):
         """
         cdef CsvFileWriteOptions opts = \
             <CsvFileWriteOptions> FileFormat.make_write_options(self)
-        opts.write_options = WriteOptions(**kwargs)
+        # Start from the C++ defaults, which carry over fields from the
+        # format's parse_options (e.g. the delimiter), and apply caller
+        # overrides on top instead of replacing the WriteOptions object
+        # and discarding those defaults. None is treated as "unspecified"
+        # to match the previous WriteOptions(**kwargs) semantics.
+        write_options = opts.write_options
+        for key, value in kwargs.items():
+            if value is None:
+                continue
+            setattr(write_options, key, value)
+        opts.write_options = write_options
         return opts
 
     @property
