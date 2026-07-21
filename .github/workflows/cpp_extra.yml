@@ -139,7 +139,7 @@ jobs:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -228,7 +228,7 @@ jobs:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -378,7 +378,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python on hosted runner
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -511,7 +511,7 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
