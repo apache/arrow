@@ -308,6 +308,10 @@ class RleBitPackedToBitmapDecoder {
   /// Whether there is still runs to iterate over.
   bool exhausted() const { return (run_remaining() == 0) && parser_.exhausted(); }
 
+  /// Advance by as many values as provided or until exhaustion of the decoder.
+  /// Return the number of values skipped.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size);
+
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough
   /// values left or if an error occurred.
@@ -447,6 +451,14 @@ auto RleBitPackedToBitmapDecoder::ProcessValues(Callable&& func,
   });
 
   return values_processed;
+}
+
+inline auto RleBitPackedToBitmapDecoder::Advance(rle_size_t batch_size) -> rle_size_t {
+  return ProcessValues(
+      [](auto& decoder, rle_size_t run_batch_size) {
+        return decoder.Advance(run_batch_size);
+      },
+      batch_size);
 }
 
 inline auto RleBitPackedToBitmapDecoder::GetBatch(BitmapSpanMut out,
