@@ -18,4 +18,5 @@ numpy~=1.26.0; python_version == "3.12"
 numpy~=2.1.0; python_version == "3.13"
 numpy~=2.3.3; python_version >= "3.14"
 
-pandas
+# TODO: To be removed once pandas provides wheels for Python 3.15
+pandas; python_version < "3.15"
