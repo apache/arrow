@@ -2582,13 +2582,25 @@ if(ARROW_MIMALLOC)
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_INSTALL_TOPLEVEL=ON
+      # Don't override default malloc
       -DMI_OVERRIDE=OFF
+      -DMI_OSX_INTERPOSE=OFF
+      -DMI_OSX_ZONE=OFF
+      # Allow usage through dlopen (i.e. when libarrow.so itself is dlopen'ed)
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF
       # GH-47229: Force mimalloc to generate armv8.0 binary
       -DMI_NO_OPT_ARCH=ON)
+
+  if(APPLE)
+    list(APPEND
+         MIMALLOC_CMAKE_ARGS
+         # GH-50428: Make sure several mimalloc instances can cohabit in the same process
+         # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
+         -DMI_TLS_MODEL_LOCAL=ON)
+  endif()
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
