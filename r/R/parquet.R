@@ -330,7 +330,7 @@ ParquetWriterPropertiesBuilder <- R6Class(
       )
     },
     set_dictionary = function(column_names, use_dictionary) {
-      assert_that(is.logical(use_dictionary))
+      check_logical(use_dictionary)
       private$.set(
         column_names,
         use_dictionary,
@@ -338,7 +338,7 @@ ParquetWriterPropertiesBuilder <- R6Class(
       )
     },
     set_write_statistics = function(column_names, write_statistics) {
-      assert_that(is.logical(write_statistics))
+      check_logical(write_statistics)
       private$.set(
         column_names,
         write_statistics,

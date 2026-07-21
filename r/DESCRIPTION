@@ -33,7 +33,6 @@ SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl, and
     cmake >= 3.26 (build-time only, and only for full source build)
 Biarch: true
 Imports:
-    assertthat,
     bit64 (>= 0.9-7),
     glue,
     methods,
@@ -136,6 +135,8 @@ Collate:
     'field.R'
     'filesystem.R'
     'flight.R'
+    'import-standalone-obj-type.R'
+    'import-standalone-types-check.R'
     'install-arrow.R'
     'ipc-stream.R'
     'json.R'
