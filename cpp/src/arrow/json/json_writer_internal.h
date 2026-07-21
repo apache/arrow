@@ -39,7 +39,6 @@ class ARROW_EXPORT JsonWriter {
   void Key(std::string_view key);
 
   void String(std::string_view value);
-  void String(const char* data, size_t length);
   void RawValue(std::string_view value);
   void Bool(bool value);
 

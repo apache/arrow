@@ -27,7 +27,7 @@
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/json/json_writer.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"

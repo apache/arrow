@@ -36,7 +36,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/json/json_writer.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -493,9 +493,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(std::string_view v) {
-    writer_->RawValue(v);
-  }
+  void WriteRawNumber(std::string_view v) { writer_->RawValue(v); }
 
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
             typename CType = typename TypeClass::c_type>
@@ -523,11 +521,10 @@ class ArrayWriter {
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
         fmt(arr.Value(i), [&](std::string_view repr) {
-          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
+          writer_->String(std::string_view(repr.data(), repr.size()));
         });
       } else {
-        writer_->String(null_string.data(),
-                        static_cast<rj::SizeType>(null_string.size()));
+        writer_->String(std::string_view(null_string.data(), null_string.size()));
       }
     }
   }
@@ -554,7 +551,7 @@ class ArrayWriter {
       if constexpr (Type::is_utf8) {
         // UTF8 string, write as is
         auto view = arr.GetView(i);
-        writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+        writer_->String(std::string_view(view.data(), view.size()));
       } else {
         // Binary, encode to hexadecimal.
         writer_->String(HexEncode(arr.GetView(i)));
@@ -671,7 +668,7 @@ class ArrayWriter {
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
       auto append = [this](std::string_view v) {
-        writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
+        writer_->String(std::string_view(v.data(), v.size()));
         return Status::OK();
       };
       for (int i = 0; i < length; ++i) {
@@ -693,7 +690,8 @@ class ArrayWriter {
       if (s.is_inline()) {
         writer_->Key("INLINED");
         if constexpr (ArrayType::TypeClass::is_utf8) {
-          writer_->String(reinterpret_cast<const char*>(s.inline_data()), s.size());
+          writer_->String(
+              std::string_view(reinterpret_cast<const char*>(s.inline_data()), s.size()));
         } else {
           writer_->String(HexEncode(s.inline_data(), s.size()));
         }

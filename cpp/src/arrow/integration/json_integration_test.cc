@@ -38,7 +38,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/json/json_writer.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
