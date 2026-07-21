@@ -119,7 +119,9 @@ RecordBatch <- R6Class(
     },
     cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
-      assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
+      if (!identical(self$schema$names, target_schema$names)) {
+        stop("incompatible schemas", call. = FALSE)
+      }
       RecordBatch__cast(self, target_schema, options)
     },
     export_to_c = function(array_ptr, schema_ptr) {

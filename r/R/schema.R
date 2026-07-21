@@ -318,7 +318,9 @@ length.Schema <- function(x) x$num_fields
 
 #' @export
 `[[<-.Schema` <- function(x, i, value) {
-  assert_that(length(i) == 1)
+  if (length(i) != 1) {
+    stop("`i` must have length 1.", call. = FALSE)
+  }
   if (is.character(i)) {
     field_names <- names(x)
     if (anyDuplicated(field_names)) {

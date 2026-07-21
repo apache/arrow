@@ -620,7 +620,9 @@ register_bindings_string_other <- function() {
   )
 
   register_binding("stringr::str_pad", function(string, width, side = c("left", "right", "both"), pad = " ") {
-    assert_that(is_integerish(width))
+    if (!is_integerish(width)) {
+      abort("width must be whole numbers.")
+    }
     side <- match.arg(side)
     check_string(pad)
 

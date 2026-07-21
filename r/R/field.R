@@ -113,7 +113,10 @@ field <- Field$create
 
 .fields <- function(.list, nullable = TRUE) {
   if (length(.list)) {
-    assert_that(!is.null(nms <- names(.list)))
+    nms <- names(.list)
+    if (is.null(nms)) {
+      stop(".list must be named.", call. = FALSE)
+    }
     map2(nms, .list, field)
   } else {
     list()

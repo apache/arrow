@@ -231,7 +231,9 @@ ExtensionType$create <- function(storage_type, extension_name, extension_metadat
     extension_metadata <- charToRaw(enc2utf8(extension_metadata))
   }
   check_string(extension_name)
-  assert_that(is.raw(extension_metadata))
+  if (!is.raw(extension_metadata)) {
+    stop("`extension_metadata` must be raw.", call. = FALSE)
+  }
   assert_is(storage_type, "DataType")
   assert_is(type_class, "R6ClassGenerator")
 

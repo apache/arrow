@@ -101,7 +101,9 @@ Table <- R6Class(
     },
     cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
-      assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
+      if (!identical(self$schema$names, target_schema$names)) {
+        stop("Incompatible schemas", call. = FALSE)
+      }
       Table__cast(self, target_schema, options)
     },
     SelectColumns = function(indices) Table__SelectColumns(self, indices),

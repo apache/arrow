@@ -154,7 +154,9 @@ collect_arrays_from_dots <- function(dots) {
     return(dots[[1]])
   }
 
-  assert_that(all(map_lgl(dots, is.Array)))
+  if (!all(map_lgl(dots, is.Array))) {
+    stop("dots must all be Arrays.", call. = FALSE)
+  }
   arrays <- unlist(lapply(dots, function(x) {
     if (inherits(x, "ChunkedArray")) {
       x$chunks
@@ -178,8 +180,10 @@ quantile.ArrowDatum <- function(
     x <- Array$create(x)
   }
   assert_is(probs, c("numeric", "integer"))
-  assert_that(length(probs) > 0)
-  assert_that(all(probs >= 0 & probs <= 1))
+  # if check_numbers_decimal() gets added in rlang, https://github.com/r-lib/rlang/issues/1714
+  if (length(probs) == 0 || !all(probs >= 0 & probs <= 1)) {
+    stop("probs must be a probability vector between 0 and 1.")
+  }
   if (!na.rm && x$null_count > 0) {
     stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
   }

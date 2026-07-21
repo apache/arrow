@@ -36,14 +36,18 @@ ArrowTabular <- R6Class(
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      assert_that(is.Array(i))
+      if (!is.Array(i)) {
+        stop("`i` must be an Array.")
+      }
       call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      assert_that(is.Array(i, "bool"))
+      if (!is.Array(i, "bool")) {
+        stop("i must be an Array of bool", call. = FALSE)
+      }
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     SortIndices = function(names, descending = FALSE) {

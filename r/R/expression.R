@@ -51,11 +51,15 @@ Expression <- R6Class(
     # schemas in Expression objects (ARROW-13186)
     schema = NULL,
     type = function(schema = self$schema) {
-      assert_that(!is.null(schema))
+      if (is.null(schema)) {
+        stop("schema cannot be NULL.", call. = FALSE)
+      }
       compute___expr__type(self, schema)
     },
     type_id = function(schema = self$schema) {
-      assert_that(!is.null(schema))
+      if (is.null(schema)) {
+        stop("schema cannot be NULL", call. = FALSE)
+      }
       compute___expr__type_id(self, schema)
     },
     is_field_ref = function() {
