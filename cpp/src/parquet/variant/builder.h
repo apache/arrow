@@ -25,7 +25,7 @@
 #include "arrow/buffer.h"
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/memory_pool.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "parquet/platform.h"
 
 namespace parquet::variant {
@@ -38,17 +38,20 @@ using ::arrow::MemoryPool;
 using ::arrow::StructArray;
 using ::arrow::extension::VariantArray;
 
+class VariantMetadataView;
+class VariantObjectBuilder;
+class VariantListBuilder;
+class VariantValueRowBuilder;
+
 struct PARQUET_EXPORT EncodedVariantValue {
   std::shared_ptr<Buffer> metadata;
   std::shared_ptr<Buffer> value;
 };
 
-class VariantObjectBuilder;
-class VariantListBuilder;
-
 class PARQUET_EXPORT VariantBuilder {
  public:
-  explicit VariantBuilder(MemoryPool* pool = ::arrow::default_memory_pool());
+  explicit VariantBuilder(MemoryPool* pool = ::arrow::default_memory_pool(),
+                          bool validate = true);
   ~VariantBuilder();
   VariantBuilder(const VariantBuilder&) = delete;
   VariantBuilder& operator=(const VariantBuilder&) = delete;
@@ -71,13 +74,17 @@ class PARQUET_EXPORT VariantBuilder {
   void AppendDate(int32_t days);
   void AppendTimeNTZMicros(int64_t micros);
   void AppendUuid(std::string_view big_endian_bytes);
-  void AppendDecimal4(int32_t unscaled_value, uint8_t scale);
-  void AppendDecimal8(int64_t unscaled_value, uint8_t scale);
-  void AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendDecimal4(const ::arrow::Decimal32& value, uint8_t scale);
+  void AppendDecimal8(const ::arrow::Decimal64& value, uint8_t scale);
+  void AppendDecimal16(const ::arrow::Decimal128& value, uint8_t scale);
   void AppendShortString(std::string_view value);
   void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
   void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
+  void AppendEncodedValue(std::string_view value);
 
+  /// The returned nested builder borrows this builder's state. This builder must
+  /// outlive it. Finish or destroy the nested builder before calling any other method
+  /// on this builder, including Finish() or Reset().
   VariantObjectBuilder StartObject();
   VariantListBuilder StartList();
 
@@ -114,15 +121,18 @@ class PARQUET_EXPORT VariantObjectBuilder {
   void AppendDate(std::string_view field_name, int32_t days);
   void AppendTimeNTZMicros(std::string_view field_name, int64_t micros);
   void AppendUuid(std::string_view field_name, std::string_view big_endian_bytes);
-  void AppendDecimal4(std::string_view field_name, int32_t unscaled_value, uint8_t scale);
-  void AppendDecimal8(std::string_view field_name, int64_t unscaled_value, uint8_t scale);
-  void AppendDecimal16(std::string_view field_name,
-                       std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendDecimal4(std::string_view field_name, const ::arrow::Decimal32& value,
+                      uint8_t scale);
+  void AppendDecimal8(std::string_view field_name, const ::arrow::Decimal64& value,
+                      uint8_t scale);
+  void AppendDecimal16(std::string_view field_name, const ::arrow::Decimal128& value,
+                       uint8_t scale);
   void AppendShortString(std::string_view field_name, std::string_view value);
   void AppendTimestampMicros(std::string_view field_name, int64_t micros,
                              bool adjusted_to_utc);
   void AppendTimestampNanos(std::string_view field_name, int64_t nanos,
                             bool adjusted_to_utc);
+  void AppendEncodedValue(std::string_view field_name, std::string_view value);
 
   VariantObjectBuilder StartObject(std::string_view field_name);
   VariantListBuilder StartList(std::string_view field_name);
@@ -135,6 +145,7 @@ class PARQUET_EXPORT VariantObjectBuilder {
   friend class VariantBuilder;
   friend class VariantListBuilder;
   friend class VariantArrayBuilder;
+  friend class VariantValueRowBuilder;
 
   explicit VariantObjectBuilder(std::unique_ptr<internal::NestedVariantBuilderImpl> impl);
 
@@ -162,12 +173,13 @@ class PARQUET_EXPORT VariantListBuilder {
   void AppendDate(int32_t days);
   void AppendTimeNTZMicros(int64_t micros);
   void AppendUuid(std::string_view big_endian_bytes);
-  void AppendDecimal4(int32_t unscaled_value, uint8_t scale);
-  void AppendDecimal8(int64_t unscaled_value, uint8_t scale);
-  void AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendDecimal4(const ::arrow::Decimal32& value, uint8_t scale);
+  void AppendDecimal8(const ::arrow::Decimal64& value, uint8_t scale);
+  void AppendDecimal16(const ::arrow::Decimal128& value, uint8_t scale);
   void AppendShortString(std::string_view value);
   void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
   void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
+  void AppendEncodedValue(std::string_view value);
 
   VariantObjectBuilder StartObject();
   VariantListBuilder StartList();
@@ -180,6 +192,7 @@ class PARQUET_EXPORT VariantListBuilder {
   friend class VariantBuilder;
   friend class VariantObjectBuilder;
   friend class VariantArrayBuilder;
+  friend class VariantValueRowBuilder;
 
   explicit VariantListBuilder(std::unique_ptr<internal::NestedVariantBuilderImpl> impl);
 
@@ -209,9 +222,9 @@ class PARQUET_EXPORT VariantArrayBuilder {
   void AppendDate(int32_t days);
   void AppendTimeNTZMicros(int64_t micros);
   void AppendUuid(std::string_view big_endian_bytes);
-  void AppendDecimal4(int32_t unscaled_value, uint8_t scale);
-  void AppendDecimal8(int64_t unscaled_value, uint8_t scale);
-  void AppendDecimal16(std::string_view little_endian_unscaled_value, uint8_t scale);
+  void AppendDecimal4(const ::arrow::Decimal32& value, uint8_t scale);
+  void AppendDecimal8(const ::arrow::Decimal64& value, uint8_t scale);
+  void AppendDecimal16(const ::arrow::Decimal128& value, uint8_t scale);
   void AppendShortString(std::string_view value);
   void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
   void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
@@ -227,6 +240,81 @@ class PARQUET_EXPORT VariantArrayBuilder {
   void Reset();
 
  private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+class PARQUET_EXPORT VariantValueArrayBuilder {
+ public:
+  explicit VariantValueArrayBuilder(MemoryPool* pool = ::arrow::default_memory_pool());
+  ~VariantValueArrayBuilder();
+  VariantValueArrayBuilder(const VariantValueArrayBuilder&) = delete;
+  VariantValueArrayBuilder& operator=(const VariantValueArrayBuilder&) = delete;
+  VariantValueArrayBuilder(VariantValueArrayBuilder&&) noexcept;
+  VariantValueArrayBuilder& operator=(VariantValueArrayBuilder&&) noexcept;
+
+  void AppendNull();
+  void AppendEncodedValue(std::string_view value);
+
+  /// The returned row builder borrows this builder's internal value buffer. This
+  /// builder, the metadata view, and its underlying bytes must remain valid until the
+  /// row builder is finished or destroyed. Do not call any other method on this builder,
+  /// including Finish() or Reset(), while the row builder is unfinished.
+  VariantValueRowBuilder BindMetadata(const VariantMetadataView& metadata);
+  VariantValueRowBuilder BindMetadata(VariantMetadataView&& metadata) = delete;
+
+  std::shared_ptr<BinaryViewArray> Finish();
+  void Reset();
+
+ private:
+  friend class VariantValueRowBuilder;
+
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+class PARQUET_EXPORT VariantValueRowBuilder {
+ public:
+  ~VariantValueRowBuilder();
+  VariantValueRowBuilder(const VariantValueRowBuilder&) = delete;
+  VariantValueRowBuilder& operator=(const VariantValueRowBuilder&) = delete;
+  VariantValueRowBuilder(VariantValueRowBuilder&&) noexcept;
+  VariantValueRowBuilder& operator=(VariantValueRowBuilder&&) noexcept;
+
+  void AppendVariantNull();
+  void AppendBoolean(bool value);
+  void AppendInt8(int8_t value);
+  void AppendInt16(int16_t value);
+  void AppendInt32(int32_t value);
+  void AppendInt64(int64_t value);
+  void AppendFloat(float value);
+  void AppendDouble(double value);
+  void AppendBinary(std::string_view value);
+  void AppendString(std::string_view value);
+  void AppendDate(int32_t days);
+  void AppendTimeNTZMicros(int64_t micros);
+  void AppendUuid(std::string_view big_endian_bytes);
+  void AppendDecimal4(const ::arrow::Decimal32& value, uint8_t scale);
+  void AppendDecimal8(const ::arrow::Decimal64& value, uint8_t scale);
+  void AppendDecimal16(const ::arrow::Decimal128& value, uint8_t scale);
+  void AppendShortString(std::string_view value);
+  void AppendTimestampMicros(int64_t micros, bool adjusted_to_utc);
+  void AppendTimestampNanos(int64_t nanos, bool adjusted_to_utc);
+  void AppendEncodedValue(std::string_view value);
+
+  /// The returned nested builder borrows this row builder's state. This row builder
+  /// must outlive it. Finish or destroy the nested builder before calling any other
+  /// method on this row builder, including Finish().
+  VariantObjectBuilder StartObject();
+  VariantListBuilder StartList();
+  void Finish();
+
+ private:
+  friend class VariantValueArrayBuilder;
+
+  VariantValueRowBuilder(VariantValueArrayBuilder& parent,
+                         const VariantMetadataView& metadata);
+
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };

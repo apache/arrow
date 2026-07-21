@@ -17,18 +17,17 @@
 
 #pragma once
 
+#include "arrow/type_fwd.h"
 #include "parquet/platform.h"
-
-namespace arrow {
-
-class ChunkedArray;
-class MemoryPool;
-
-}  // namespace arrow
 
 namespace parquet::variant {
 
-PARQUET_EXPORT
-void ValidateVariants(const ::arrow::ChunkedArray& data, ::arrow::MemoryPool* pool);
+/// Validate Variant arrays using strict writer rules or read-compatible rules.
+/// The non-strict mode accepts invalid encodings retained in parquet-testing for
+/// reader compatibility and must not be used to validate values for writing.
+template <bool strict>
+PARQUET_EXPORT void ValidateVariants(
+    const ::arrow::ChunkedArray& data,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 }  // namespace parquet::variant

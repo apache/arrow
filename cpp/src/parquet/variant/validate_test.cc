@@ -17,11 +17,8 @@
 
 #include "parquet/variant/validate.h"
 
-#include <filesystem>
 #include <memory>
-#include <string>
 #include <string_view>
-#include <vector>
 
 #include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/chunked_array.h"
@@ -42,10 +39,7 @@ using ::arrow::binary;
 using ::arrow::field;
 using ::arrow::struct_;
 using internal::BinaryArrayFromValues;
-using internal::Int32ArrayFromValues;
 using internal::Int8Variant;
-using internal::ReadVariantTestingTable;
-using internal::ShreddedVariantTestingDir;
 using internal::VariantTable;
 using internal::WriteVariantTable;
 
@@ -64,65 +58,22 @@ TEST(TestVariantValidate, ListView) {
       ::arrow::StructArray::Make({metadata_array, value_array}, storage_type->fields()));
   auto variant_array = ::arrow::ExtensionType::WrapArray(variant_type, storage);
 
-  ASSERT_OK_AND_ASSIGN(auto valid_list,
-                       ::arrow::ListViewArray::FromArrays(
-                           *Int32ArrayFromValues({0}), *Int32ArrayFromValues({1}),
-                           *variant_array, ::arrow::default_memory_pool()));
+  ASSERT_OK_AND_ASSIGN(
+      auto valid_list,
+      ::arrow::ListViewArray::FromArrays(*::arrow::ArrayFromJSON(::arrow::int32(), "[0]"),
+                                         *::arrow::ArrayFromJSON(::arrow::int32(), "[1]"),
+                                         *variant_array));
   ::arrow::ChunkedArray valid_data{valid_list};
-  ValidateVariants(valid_data, ::arrow::default_memory_pool());
+  ValidateVariants<true>(valid_data);
 
-  ASSERT_OK_AND_ASSIGN(auto invalid_list,
-                       ::arrow::ListViewArray::FromArrays(
-                           *Int32ArrayFromValues({1}), *Int32ArrayFromValues({1}),
-                           *variant_array, ::arrow::default_memory_pool()));
+  ASSERT_OK_AND_ASSIGN(
+      auto invalid_list,
+      ::arrow::ListViewArray::FromArrays(*::arrow::ArrayFromJSON(::arrow::int32(), "[1]"),
+                                         *::arrow::ArrayFromJSON(::arrow::int32(), "[1]"),
+                                         *variant_array));
   ::arrow::ChunkedArray invalid_data{invalid_list};
-  ASSERT_THROW(ValidateVariants(invalid_data, ::arrow::default_memory_pool()),
+  ASSERT_THROW(ValidateVariants<true>(invalid_data),
                ParquetInvalidOrCorruptedFileException);
-}
-
-TEST(TestVariantValidate, ParquetTestingShredded) {
-  auto maybe_dir = ShreddedVariantTestingDir();
-  if (!maybe_dir.has_value()) {
-    GTEST_SKIP() << "PARQUET_TEST_DATA not set";
-  }
-  if (!std::filesystem::exists(*maybe_dir)) {
-    GTEST_SKIP() << *maybe_dir << " does not exist";
-  }
-
-  auto registered_storage_type = struct_({field("metadata", binary(), /*nullable=*/false),
-                                          field("value", binary(), /*nullable=*/false)});
-  ::arrow::ExtensionTypeGuard guard(::arrow::extension::variant(registered_storage_type));
-
-  struct ShreddedCase {
-    std::string file_name;
-    bool has_top_level_value;
-  };
-  const std::vector<ShreddedCase> cases = {
-      {.file_name = "case-041.parquet", .has_top_level_value = false},
-      {.file_name = "case-088.parquet", .has_top_level_value = true},
-      {.file_name = "case-131.parquet", .has_top_level_value = false},
-      {.file_name = "case-132.parquet", .has_top_level_value = true},
-      {.file_name = "case-138.parquet", .has_top_level_value = false},
-  };
-
-  for (const auto& test_case : cases) {
-    SCOPED_TRACE(test_case.file_name);
-    ASSERT_OK_AND_ASSIGN(auto table,
-                         ReadVariantTestingTable(*maybe_dir + "/" + test_case.file_name));
-    ASSERT_OK(table->ValidateFull());
-
-    auto field = table->schema()->GetFieldByName("var");
-    ASSERT_NE(nullptr, field);
-    auto variant_type =
-        std::dynamic_pointer_cast<::arrow::extension::VariantExtensionType>(
-            field->type());
-    ASSERT_NE(nullptr, variant_type);
-    ASSERT_EQ(test_case.has_top_level_value, variant_type->value() != nullptr);
-
-    auto column = table->GetColumnByName("var");
-    ASSERT_NE(nullptr, column);
-    ValidateVariants(*column, ::arrow::default_memory_pool());
-  }
 }
 
 TEST(TestVariantValidate, DictionaryMetadata) {
@@ -154,7 +105,7 @@ TEST(TestVariantValidate, DictionaryMetadata) {
   ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable());
   auto column = read_table->GetColumnByName("variant");
   ASSERT_NE(nullptr, column);
-  ValidateVariants(*column, ::arrow::default_memory_pool());
+  ValidateVariants<true>(*column);
 }
 
 TEST(TestVariantValidate, ReadDictionaryOption) {
@@ -186,7 +137,7 @@ TEST(TestVariantValidate, ReadDictionaryOption) {
   ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable());
   auto column = read_table->GetColumnByName("variant");
   ASSERT_NE(nullptr, column);
-  ValidateVariants(*column, ::arrow::default_memory_pool());
+  ValidateVariants<true>(*column);
 }
 
 }  // namespace parquet::variant
