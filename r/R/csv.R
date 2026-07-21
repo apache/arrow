@@ -930,17 +930,15 @@ write_csv_arrow <- function(
     write_options = NULL,
     ...
 ) {
-  unsupported_passed_args <- names(list(...))
-
-  if (length(unsupported_passed_args)) {
-    stop(
-      "The following ",
-      ngettext(length(unsupported_passed_args), "argument is ", "arguments are "),
-      "not yet supported in Arrow: ",
-      oxford_paste(unsupported_passed_args),
-      call. = FALSE
+  # every other argument is not supported in arrow and inform those arguments
+  # are not yet supported in arrow.
+  check_dots_empty(error = function(cnd) {
+    rlang::abort(c(
+      "Arguments not yet supported in Arrow", conditionMessage(cnd)
+      ),
+      call = call("write_csv_arrow")
     )
-  }
+  })
 
   if (!missing(file) && !missing(sink)) {
     stop(

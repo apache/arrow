@@ -49,7 +49,7 @@ data into R. If you have an \code{arrow_not_supported()} error with a \code{>}
 suggestion, when the error is ultimately raised by \code{try_error_dplyr()},
 \verb{Call collect() first to pull data into R} won't be the only suggestion.
 
-You can still use \code{match.arg()} and \code{assert_that()} for simple input
+You can still use \code{match.arg()} and \code{assert_is()} for simple input
 validation inside of the function bindings. \code{arrow_eval()} will catch their
 errors and re-raise them as \code{validation_error}.
 }
