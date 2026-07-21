@@ -19,8 +19,11 @@
 requires = [
     "scikit-build-core >= 1.0",
     "cython >= 3.1",
-    # Needed for build-time stub docstring extraction
-    "libcst>=1.8.6",
+    # Needed for build-time stub docstring extraction.
+    # GH-50575: no libcst wheels for Python 3.15 yet and the source build
+    # requires a PyO3 version that doesn't support 3.15. Stub docstring
+    # extraction is currently disabled anyway (GH-49831), so skip it there.
+    "libcst>=1.8.6; python_version < '3.15'",
     "numpy>=1.25",
     "setuptools_scm[toml]>=8",
 ]
@@ -42,6 +45,7 @@ classifiers  = [
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Programming Language :: Python :: Free Threading :: 2 - Beta',
 ]
 maintainers = [

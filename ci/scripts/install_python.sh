@@ -29,7 +29,9 @@ versions=([3.11]=3.11.9
           [3.12]=3.12.10
           [3.13]=3.13.14
           [3.14]=3.14.6
-          [3.14t]=3.14.6)
+          [3.14t]=3.14.6
+          [3.15]=3.15.0b4
+          [3.15t]=3.15.0b4)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -78,7 +80,7 @@ EOF
     rm "$fname"
 
     python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    if [[ $2 == "3.14t" ]]; then
+    if [[ $2 == "3.14t" ]] || [[ $2 == "3.15t" ]]; then
         base_version="${version%t}"
         python="/Library/Frameworks/PythonT.framework/Versions/${base_version}/bin/python${base_version}t"
     fi

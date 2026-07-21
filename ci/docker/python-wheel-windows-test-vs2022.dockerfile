@@ -31,7 +31,8 @@ ARG python=3.11
 RUN (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PYTHON_CMD "py -3.11") & \
     (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.10" && setx PYTHON_CMD "py -3.12") & \
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.14" && setx PYTHON_CMD "py -3.13") & \
-    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.6" && setx PYTHON_CMD "py -3.14")
+    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.6" && setx PYTHON_CMD "py -3.14") & \
+    (if "%python%"=="3.15" setx PYTHON_VERSION "3.15.0b4" && setx PYTHON_CMD "py -3.15")
 
 # hadolint ignore=DL3059
 RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION%

@@ -1,6 +1,6 @@
 build
 cython>=3.1
-libcst>=1.8.6
+libcst>=1.8.6; python_version < "3.15"
 numpy>=1.25
 scikit-build-core>=1.0
 setuptools_scm>=8
