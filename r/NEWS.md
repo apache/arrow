@@ -19,6 +19,9 @@
 
 # arrow 25.0.0.9000
 
+## Minor improvements and fixes
+- arrow no longer depends on assertthat and has impr (@olivroy, #50525).
+
 # arrow 25.0.0
 
 ## Breaking changes
