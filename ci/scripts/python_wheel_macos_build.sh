@@ -90,7 +90,7 @@ which -a protoc || echo "no protoc on PATH!"
 
 echo "=== Protobuf compiler version from vcpkg ==="
 _pbc="${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc"
-echo "$_pbc: $( $_pbc --version)"
+echo "$_pbc: $($_pbc --version)"
 
 mkdir -p "${build_dir}/build"
 pushd "${build_dir}/build"
