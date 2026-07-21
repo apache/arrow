@@ -249,7 +249,7 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.function <- function(x, ..., schema) {
-  assert_that(inherits(schema, "Schema"))
+  assert_is(schema, "Schema")
   RecordBatchReader__from_function(x, schema)
 }
 

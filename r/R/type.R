@@ -775,9 +775,7 @@ as_type <- function(type, name = "type") {
   if (identical(type, double())) {
     type <- float64()
   }
-  if (!inherits(type, "DataType")) {
-    stop(name, " must be a DataType, not ", class(type), call. = FALSE)
-  }
+  assert_is(type, "DataType", arg = name, call = NULL)
   type
 }
 

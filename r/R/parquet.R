@@ -313,7 +313,7 @@ ParquetWriterPropertiesBuilder <- R6Class(
     },
     set_compression = function(column_names, compression) {
       compression <- compression_from_name(compression)
-      assert_that(is.integer(compression))
+      assert_is(compression, "integer")
       private$.set(
         column_names,
         compression,

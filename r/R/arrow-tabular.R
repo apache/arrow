@@ -146,12 +146,11 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `[[.ArrowTabular` <- function(x, i, ...) {
+  assert_is(i, c("character", "numeric"))
   if (is.character(i)) {
     x$GetColumnByName(i)
   } else if (is.numeric(i)) {
     x$column(i - 1)
-  } else {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
   }
 }
 
@@ -167,9 +166,7 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `[[<-.ArrowTabular` <- function(x, i, value) {
-  if (!is.character(i) && !is.numeric(i)) {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
-  }
+  assert_is(i, c("character", "numeric"))
   if (length(i) != 1 || is.na(i)) {
     stop("`i` must be length 1 and not NA", call. = FALSE)
   }
