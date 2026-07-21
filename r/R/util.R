@@ -136,7 +136,8 @@ assert_is <- function(
       "factor" = "a factor",
       "Array" = "an Array",
       "RandomAccessFile" = "a RandomAccessFile",
-      "DataType" = "a DataType"
+      "DataType" = "a DataType",
+      "data.frame" = "a data frame"
     )
     class <- vctrs::vec_replace_values(
       class,
