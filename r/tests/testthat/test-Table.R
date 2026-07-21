@@ -100,8 +100,8 @@ test_that("[, [[, $ for Table", {
   expect_equal_data_frame(tab[-3], tbl[-3])
 
   expect_error(tab[[c(4, 3)]])
-  expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
-  expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
+  expect_error(tab[[NA]], "`i` must be character or numeric, not `NA`")
+  expect_error(tab[[NULL]], "`i` must be character or numeric, not `NULL`")
   expect_error(tab[[c("asdf", "jkl;")]], "`name` must be", fixed = TRUE)
   expect_error(tab[-3:3], "Invalid column index")
   expect_error(tab[1000], "Invalid column index")
@@ -167,9 +167,9 @@ test_that("[[<- assignment", {
   expect_as_vector(tab$chunked, 1:10)
 
   # nonsense indexes
-  expect_error(tab[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
-  expect_error(tab[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
-  expect_error(tab[[NA_integer_]] <- letters[10:1], "`i` must be length 1 and not NA", fixed = TRUE)
+  expect_error(tab[[NA]] <- letters[10:1], "`i` must be character or numeric, not `NA`")
+  expect_error(tab[[NULL]] <- letters[10:1], "`i` must be character or numeric, not `NULL`")
+  expect_error(tab[[NA_integer_]] <- letters[10:1], "`i` must be character or numeric, not an integer `NA`.", fixed = TRUE)
   expect_error(tab[[NA_real_]] <- letters[10:1], "`i` must be length 1 and not NA", fixed = TRUE)
   expect_error(tab[[NA_character_]] <- letters[10:1], "`i` must be length 1 and not NA", fixed = TRUE)
   expect_error(tab[[c(1, 4)]] <- letters[10:1], "`i` must be length 1 and not NA", fixed = TRUE)

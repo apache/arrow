@@ -130,7 +130,7 @@ test_that("Slice() and RangeEquals()", {
   expect_equal(length(overslice), 15)
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 
-  expect_error(x$RangeEquals(10, 24, 0), 'other must be a "Array"')
+  expect_error(x$RangeEquals(10, 24, 0), '`other` must be an Array')
   expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
@@ -452,7 +452,7 @@ test_that("cast to half float works", {
 
 test_that("cast input validation", {
   a <- arrow_array(1:4)
-  expect_error(a$cast("not a type"), "type must be a DataType, not character")
+  expect_error(a$cast("not a type"), "`type` must be a DataType, not")
 })
 
 test_that("arrow_array() supports the type= argument. conversion from INTSXP and int64 to all int types", {
@@ -473,7 +473,7 @@ test_that("arrow_array() supports the type= argument. conversion from INTSXP and
   # Input validation
   expect_error(
     arrow_array(5, type = "not a type"),
-    "type must be a DataType, not character"
+    "`type` must be a DataType, not"
   )
 })
 
@@ -946,7 +946,7 @@ test_that("Array$View() (ARROW-6542)", {
   expect_equal(length(b), 3L)
 
   # Input validation
-  expect_error(a$View("not a type"), "type must be a DataType, not character")
+  expect_error(a$View("not a type"), "`type` must be a DataType, not")
 })
 
 test_that("Array$Validate()", {

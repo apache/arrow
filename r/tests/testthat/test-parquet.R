@@ -85,7 +85,7 @@ test_that("write_parquet() handles various use_dictionary= specs", {
   )
   expect_error(
     write_parquet(tab, tempfile(), use_dictionary = 12),
-    "is.logical(use_dictionary) is not TRUE",
+    "`use_dictionary` must be a logical vector",
     fixed = TRUE
   )
 })
@@ -312,7 +312,7 @@ test_that("ParquetFileReader raises an error for non-RandomAccessFile source", {
   skip_if_not_available("gzip")
   expect_error(
     ParquetFileReader$create(CompressedInputStream$create(pq_file)),
-    'file must be a "RandomAccessFile"'
+    '`file` must be a RandomAccessFile'
   )
 })
 

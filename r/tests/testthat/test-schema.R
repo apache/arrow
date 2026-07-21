@@ -131,12 +131,12 @@ test_that("Schema modification", {
   expect_equal(schm, schema(b = double(), y = int64(), d = int8()))
 
   # Error handling
-  expect_error(schm$c <- 4, "value must be a DataType")
+  expect_error(schm$c <- 4, "`value` must be a DataType")
   expect_error(schm[[-3]] <- int32(), "`i` must be")
   expect_error(schm[[0]] <- int32(), "`i` must be")
   expect_error(schm[[NA_integer_]] <- int32(), "`i` must be", fixed = TRUE)
   expect_error(schm[[TRUE]] <- int32(), "`i` must be")
-  expect_error(schm[[c(2, 4)]] <- int32(), "length(i) not equal to 1", fixed = TRUE)
+  expect_error(schm[[c(2, 4)]] <- int32(), "`i` must have length 1", fixed = TRUE)
 })
 
 test_that("Metadata can be reassigned as a whole", {

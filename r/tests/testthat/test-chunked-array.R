@@ -393,7 +393,7 @@ test_that("ChunkedArray$View() (ARROW-6542)", {
   expect_equal(length(b), 7L)
   expect_all_true(sapply(b$chunks, function(.x) .x$type == float32()))
   # Input validation
-  expect_error(a$View("not a type"), "type must be a DataType, not character")
+  expect_error(a$View("not a type"), "`type` must be a DataType, not")
 })
 
 test_that("ChunkedArray$Validate()", {
