@@ -727,8 +727,9 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
     const auto* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
     const int32_t list_size = type.list_size();
-    auto validate_offsets = [&](int64_t start, int64_t length, bool valid) -> Status {
-      const int32_t expected_size = valid ? list_size : 0;
+    auto validate_offsets = [&](int64_t start, int64_t length,
+                                bool has_elements) -> Status {
+      const int32_t expected_size = has_elements ? list_size : 0;
       std::span<const int32_t> run_offsets(offsets + start,
                                            static_cast<size_t>(length + 1));
       const auto first_invalid_offset = std::ranges::adjacent_find(
@@ -738,7 +739,7 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
         const int64_t x =
             start + std::ranges::distance(run_offsets.begin(), first_invalid_offset);
         const int32_t size = offsets[x + 1] - offsets[x];
-        if (valid) {
+        if (has_elements) {
           return Status::Invalid("Expected all lists to be of size=", list_size,
                                  " but index ", x + 1, " had size=", size);
         }
@@ -752,13 +753,13 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       // contribute list_size child values in the final layout.
       ::arrow::ArrayVector child_arrays;
 
-      auto visit_run = [&](int64_t start, int64_t length, bool valid) -> Status {
-        RETURN_NOT_OK(validate_offsets(start, length, valid));
+      auto visit_run = [&](int64_t start, int64_t length, bool has_elements) -> Status {
+        RETURN_NOT_OK(validate_offsets(start, length, has_elements));
 
         const int64_t child_length = length * list_size;
         // Valid runs reuse the decoded child slice; null runs materialize null
         // children to preserve the fixed-size list shape.
-        if (!valid) {
+        if (!has_elements) {
           ARROW_ASSIGN_OR_RAISE(
               auto null_array,
               ::arrow::MakeArrayOfNull(type.value_type(), child_length, ctx_->pool));
