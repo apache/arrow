@@ -97,7 +97,7 @@ test_that("Slice() and RangeEquals()", {
 
   y <- x$Slice(10)
   expect_equal(y$type, int32())
-  expect_equal(length(y), 15L)
+  expect_length(y, 15L)
   expect_as_vector(y, c(101:110, 201:205))
   expect_true(x$RangeEquals(y, 10, 24))
   expect_false(x$RangeEquals(y, 9, 23))
@@ -122,7 +122,7 @@ test_that("Slice() and RangeEquals()", {
   expect_error(x$Slice(10, -1), "Slice 'length' cannot be negative")
   expect_error(x$Slice(-1, 10), "Slice 'offset' cannot be negative")
 
-  expect_warning(x$Slice(10, 15), NA)
+  expect_no_warning(x$Slice(10, 15))
   expect_warning(
     overslice <- x$Slice(10, 16),
     "Slice 'length' greater than available length"

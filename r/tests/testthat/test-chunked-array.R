@@ -488,7 +488,7 @@ test_that("Handling string data with embedded nuls", {
   ))
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
 
-  v <- expect_error(as.vector(chunked_array_with_nul), NA)
+  expect_no_error(v <- as.vector(chunked_array_with_nul))
 
   expect_error(
     v[],
@@ -500,7 +500,7 @@ test_that("Handling string data with embedded nuls", {
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
-    v <- expect_warning(as.vector(chunked_array_with_nul), NA)
+    expect_no_warning(v <- as.vector(chunked_array_with_nul))
     expect_warning(
       expect_identical(v[3], "man"),
       "Stripping '\\0' (nul) from character vector",
