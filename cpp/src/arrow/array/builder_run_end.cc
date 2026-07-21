@@ -201,7 +201,6 @@ Status RunEndEncodedBuilder::AppendEmptyValues(int64_t length) {
   UpdateDimensions(committed_logical_length_, 0);
   return Status::OK();
 }
-
 Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
   if (scalar.type->id() == Type::RUN_END_ENCODED) {
     return AppendScalar(*internal::checked_cast<const RunEndEncodedScalar&>(scalar).value,
@@ -212,11 +211,16 @@ Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeat
   return Status::OK();
 }
 
+//<--------------------------------------------------------------------------------->
 Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
-  RETURN_NOT_OK(this->ArrayBuilder::AppendScalars(scalars));
-  UpdateDimensions(committed_logical_length_, value_run_builder_->open_run_length());
-  return Status::OK();
+  if(scalars.empty()) return Status::OK();
+      for (const auto& scalar : scalars) {
+    RETURN_NOT_OK(AppendScalar(*scalar,1));
 }
+  UpdateDimensions(committed_logical_length_,value_run_builder_->open_run_length());
+return Status::OK();
+}
+//<--------------------------------------------------------------------------------->
 
 template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendArraySlice(const ArraySpan& array, int64_t offset,
