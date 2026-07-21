@@ -40,6 +40,7 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/rle_bitmap_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
@@ -217,6 +218,164 @@ int32_t LevelDecoder::Skip(int32_t batch_size) {
 auto LevelDecoder::CountUpTo(int16_t value, int32_t batch_size) -> CountUpToResult {
   const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const auto result = impl_->CountUpTo(value, num_values);
+  ARROW_DCHECK_EQ(num_values, result.processed_count);
+  num_values_remaining_ -= result.processed_count;
+  return {
+      .matching_count = result.matching_count,
+      .processed_count = result.processed_count,
+  };
+}
+
+/**************************
+ *  LevelToBitmapDecoder  *
+ **************************/
+
+/// Decoder for definition levels that writes directly into a validity bitmap.
+///
+/// This is the bitmap counterpart of ``LevelDecoder``, specialized for levels
+/// encoded on a single bit (a max level of 1), such as the definition levels of a
+/// flat, nullable column. Rather than decoding into an ``int16_t`` array and
+/// re-encoding into an Arrow validity bitmap, it decodes straight into the bitmap.
+///
+/// @see LevelDecoder
+class LevelToBitmapDecoder {
+ public:
+  using BitmapSpanMut = ::arrow::util::BitmapSpanMut;
+  using RleBitPackedDecoder = ::arrow::util::RleBitPackedToBitmapDecoder;
+  using BitPackedDecoder = ::arrow::util::BitPackedToBitmapDecoder;
+  using CountUpToResult = LevelDecoder::CountUpToResult;
+
+  // TODO we should factor this with the LevelDecoder
+
+  LevelToBitmapDecoder() = default;
+
+  /// Initialize the decoder state with new data from a legacy (V1) page.
+  ///
+  /// @return the number of bytes consumed
+  int32_t SetData(Encoding::type encoding, int16_t max_level, int32_t num_buffered_values,
+                  const uint8_t* data, int32_t data_size);
+
+  /// Initialize the decoder state with new data from a V2 page.
+  ///
+  /// Repetition and definition levels in V2 pages are always RLE encoded.
+  void SetDataV2(int32_t num_bytes, int16_t max_level, int32_t num_buffered_values,
+                 const uint8_t* data);
+
+  /// Decode a batch of levels into `out` and return the number of levels decoded.
+  int32_t Decode(int32_t batch_size, BitmapSpanMut out);
+
+  /// Advance the decoder and throw away decoded levels.
+  int32_t Skip(int32_t batch_size);
+
+  /// Advance and count the number of occurrences of `value`.
+  ///
+  /// The count is limited to at most the next `batch_size` items.
+  /// @return The matching value count and number of elements that were processed.
+  CountUpToResult CountUpTo(bool value, int32_t batch_size);
+
+  /// Return the max level used in this decoder.
+  int32_t max_level() const { return max_level_; }
+
+  /// Return the number of values left to be decoded.
+  int32_t remaining() const { return num_values_remaining_; }
+
+ private:
+  static void CheckMaxLevel(int16_t max_level);
+
+  std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder_ = {};
+  /// Number of values remaining. The underlying decoder zero pads bit packed values
+  /// up to a multiple of 8 so it cannot know the exact number of remaining values.
+  int32_t num_values_remaining_ = 0;
+  int16_t max_level_ = 0;
+};
+
+void LevelToBitmapDecoder::CheckMaxLevel(int16_t max_level) {
+  if (ARROW_PREDICT_FALSE(max_level != 1)) {
+    throw ParquetException(
+        "LevelToBitmapDecoder only supports levels with a max level of 1.");
+  }
+}
+
+int32_t LevelToBitmapDecoder::SetData(Encoding::type encoding, int16_t max_level,
+                                      int32_t num_buffered_values, const uint8_t* data,
+                                      int32_t data_size) {
+  CheckMaxLevel(max_level);
+  max_level_ = max_level;
+  num_values_remaining_ = num_buffered_values;
+  // Levels with a max level of 1 are encoded on a single bit.
+  constexpr int32_t value_bit_width = 1;
+
+  switch (encoding) {
+    case Encoding::RLE: {
+      if (data_size < 4) {
+        throw ParquetException("Received invalid levels (corrupt data page?)");
+      }
+      const auto num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
+      if (num_bytes < 0 || num_bytes > data_size - 4) {
+        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
+      }
+      decoder_ = RleBitPackedDecoder(
+          /* data= */ data + 4,
+          /* data_size= */ num_bytes);
+      return 4 + num_bytes;
+    }
+    case Encoding::BIT_PACKED: {
+      int32_t num_bits = 0;
+      if (MultiplyWithOverflow(num_buffered_values, value_bit_width, &num_bits)) {
+        throw ParquetException(
+            "Number of buffered values too large (corrupt data page?)");
+      }
+      const auto num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
+      if (num_bytes < 0 || num_bytes > data_size) {
+        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
+      }
+      // Also passing `value_count` so that the decoder works with zero-width runs.
+      decoder_ = BitPackedDecoder(
+          /* data= */ data,
+          /* data_size= */ num_bytes,
+          /* value_count= */ num_buffered_values);
+      return num_bytes;
+    }
+    default:
+      throw ParquetException("Unknown encoding type for levels.");
+  }
+  return -1;
+}
+
+void LevelToBitmapDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
+                                     int32_t num_buffered_values, const uint8_t* data) {
+  CheckMaxLevel(max_level);
+  if (num_bytes < 0) {
+    throw ParquetException("Invalid page header (corrupt data page?)");
+  }
+  max_level_ = max_level;
+  num_values_remaining_ = num_buffered_values;
+  decoder_ = RleBitPackedDecoder(
+      /* data= */ data,
+      /* data_size= */ num_bytes);
+}
+
+int32_t LevelToBitmapDecoder::Decode(int32_t batch_size, BitmapSpanMut out) {
+  const int32_t num_values = std::min(num_values_remaining_, batch_size);
+  const int32_t num_decoded =
+      std::visit([&](auto& dec) { return dec.GetBatch(out, num_values); }, decoder_);
+  num_values_remaining_ -= num_decoded;
+  return num_decoded;
+}
+
+int32_t LevelToBitmapDecoder::Skip(int32_t batch_size) {
+  const int32_t num_values = std::min(num_values_remaining_, batch_size);
+  const int32_t num_advanced =
+      std::visit([&](auto& dec) { return dec.Advance(num_values); }, decoder_);
+  ARROW_DCHECK_EQ(num_values, num_advanced);
+  num_values_remaining_ -= num_advanced;
+  return num_advanced;
+}
+
+auto LevelToBitmapDecoder::CountUpTo(bool value, int32_t batch_size) -> CountUpToResult {
+  const int32_t num_values = std::min(num_values_remaining_, batch_size);
+  const auto result =
+      std::visit([&](auto& dec) { return dec.CountUpTo(value, num_values); }, decoder_);
   ARROW_DCHECK_EQ(num_values, result.processed_count);
   num_values_remaining_ -= result.processed_count;
   return {
