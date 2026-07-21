@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -338,6 +339,51 @@ class RleBitPackedToBitmapDecoder {
   /// Return the number of values processed.
   template <typename Callable>
   rle_size_t ProcessValues(Callable&& func, rle_size_t batch_size);
+};
+
+/// Minimal decoder for legacy bit packed encoding (BIT_PACKED = 4) into a bitmap.
+///
+/// This is the bitmap counterpart of ``BitPackedDecoder``: it decodes a single
+/// bit-packed run of booleans (each value stored on a single bit) directly into an
+/// Arrow validity bitmap, without the RLE framing.
+///
+/// The number of values that the decoder can represent is up to 2^31 - 1.
+class BitPackedToBitmapDecoder : private BitPackedRunToBitmapDecoder {
+ private:
+  using Base = BitPackedRunToBitmapDecoder;
+
+ public:
+  using Base::Advance;
+  using Base::CountUpTo;
+  using Base::Get;
+  using Base::GetBatch;
+  using Base::remaining;
+
+  BitPackedToBitmapDecoder() noexcept = default;
+
+  /// Create a decoder object.
+  ///
+  /// @param data and data_size are the raw bytes to decode.
+  /// @param value_count is the number of values in the run.
+  BitPackedToBitmapDecoder(const uint8_t* data, rle_size_t data_size,
+                           rle_size_t value_count) noexcept {
+    Reset(data, data_size, value_count);
+  }
+
+  void Reset(const uint8_t* data, rle_size_t data_size, rle_size_t value_count) noexcept {
+    ARROW_DCHECK_GE(value_count, 0);
+    ARROW_DCHECK_LE(value_count, std::numeric_limits<rle_size_t>::max());
+    const auto run = BitPackedRun{
+        /* data= */ data,
+        /* value_count= */ value_count,
+        /* value_bit_width= */ 1,
+        /* max_read_bytes= */ data_size,
+    };
+    return Base::Reset(run);
+  }
+
+  /// Whether there is still values to iterate over.
+  bool exhausted() const { return Base::remaining() == 0; }
 };
 
 /************************************************
