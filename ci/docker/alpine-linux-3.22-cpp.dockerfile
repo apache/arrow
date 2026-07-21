@@ -60,6 +60,7 @@ RUN apk add \
         rsync \
         samurai \
         simdjson-dev \
+        simdjson-static \
         snappy-dev \
         sqlite-dev \
         thrift-dev \
