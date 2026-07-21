@@ -227,7 +227,6 @@ TEST_P(TestRunEndEncodedArray, LogicalRunEnds) {
   ASSERT_OK_AND_ASSIGN(logical_run_ends, ree_slice->LogicalRunEnds(pool));
   ASSERT_ARRAYS_EQUAL(*logical_run_ends, *expected_run_ends);
 }
-//<--------------------------------------------------------------------------------->
 TEST_P(TestRunEndEncodedArray, Builder) {
   auto value_type = utf8();
   auto ree_type = run_end_encoded(run_end_type, value_type);
@@ -366,7 +365,6 @@ TEST_P(TestRunEndEncodedArray, Builder) {
     }
   }
 }
-//<--------------------------------------------my function---------------------------------------------------->
 TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsPrimitiveScalar) {
   auto value_type = float32();
   auto ree_type = run_end_encoded(run_end_type, value_type);
@@ -444,7 +442,7 @@ TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsRunEndEncodedScalar) {
   ASSERT_ARRAYS_EQUAL(*expected_values,
                       *ree_array->values());
 }
-//<----------------------------------------------------------------------------------------------------->
+
 
 TEST_P(TestRunEndEncodedArray, BuilderReuseAfterFinish) {
   // GH-45532: RunEndEncodedBuilder should clear dimensions after a Finish() call

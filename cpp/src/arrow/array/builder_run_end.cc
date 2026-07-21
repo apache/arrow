@@ -211,7 +211,6 @@ Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeat
   return Status::OK();
 }
 
-//<--------------------------------------------------------------------------------->
 Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
   if(scalars.empty()) return Status::OK();
       for (const auto& scalar : scalars) {
@@ -220,7 +219,6 @@ Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
   UpdateDimensions(committed_logical_length_,value_run_builder_->open_run_length());
 return Status::OK();
 }
-//<--------------------------------------------------------------------------------->
 
 template <typename RunEndCType>
 Status RunEndEncodedBuilder::DoAppendArraySlice(const ArraySpan& array, int64_t offset,
