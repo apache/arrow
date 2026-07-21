@@ -30,14 +30,61 @@ oxford_paste <- function(x, conjunction = "and", quote = TRUE, quote_symbol = '"
   }
 }
 
-assert_is <- function(object, class) {
-  msg <- paste(substitute(object), "must be a", oxford_paste(class, "or"))
-  assert_that(inherits(object, class), msg = msg)
+check_null <- function(x, msg = NULL, call = rlang::caller_env()) {
+  if (!is.null(x)) {
+    if (is.null(msg)) {
+      rlang::stop_input_type(
+        x,
+        what = "NULL",
+        call = call
+      )
+    } else {
+      abort(msg, call = call)
+    }
+
+  }
+}
+
+assert_is <- function(
+  object,
+  class,
+  call = caller_env(),
+  arg = caller_arg(object),
+  allow_null = FALSE
+) {
+  if (is.null(object) && allow_null) {
+    return(invisible(NULL))
+  }
+
+  if (!inherits(object, class)) {
+    # recode for friendlier error message
+    friendly_types <- c(
+      "factor" = "a factor",
+      "Array" = "an Array",
+      "RandomAccessFile" = "a RandomAccessFile",
+      "DataType" = "a DataType"
+    )
+    class <- vctrs::vec_replace_values(
+      class,
+      from = names(friendly_types),
+      to = unname(friendly_types)
+    )
+    rlang::stop_input_type(
+      x = object,
+      what = class,
+      call = call,
+      arg = arg,
+      allow_null = allow_null,
+      class = "assertError"
+    )
+  }
 }
 
 assert_is_list_of <- function(object, class) {
   msg <- paste(substitute(object), "must be a list of", oxford_paste(class, "or"))
-  assert_that(is_list_of(object, class), msg = msg)
+  if (!is_list_of(object, class)) {
+    stop(msg, call. = FALSE)
+  }
 }
 
 is_list_of <- function(object, class) {
