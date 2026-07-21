@@ -417,7 +417,7 @@ DictionaryArray$create <- function(x, dict = NULL) {
     return(Array$create(x))
   }
 
-  if (is.null(dict)){
+  if (is.null(dict)) {
     stop("dict cannot be `NULL`.", call. = FALSE)
   }
   if (!is.Array(x)) {
