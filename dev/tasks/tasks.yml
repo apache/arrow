@@ -138,13 +138,13 @@ tasks:
 
   ########################### Python Wheels ############################
 
-{% for python_version, python_tag, abi_tag in [("3.11", "cp311", "cp311"),
-                                               ("3.12", "cp312", "cp312"),
-                                               ("3.13", "cp313", "cp313"),
-                                               ("3.14", "cp314", "cp314"),
-                                               ("3.14", "cp314", "cp314t"),
-                                               ("3.15", "cp315", "cp315"),
-                                               ("3.15", "cp315", "cp315t")] %}
+{% for python_version, python_image_tag, python_tag, abi_tag in [("3.11", "3.11", "cp311", "cp311"),
+                                               ("3.12", "3.12", "cp312", "cp312"),
+                                               ("3.13", "3.13", "cp313", "cp313"),
+                                               ("3.14", "3.14", "cp314", "cp314"),
+                                               ("3.14", "3.14", "cp314", "cp314t"),
+                                               ("3.15", "3.15.0b4", "cp315", "cp315"),
+                                               ("3.15", "3.15.0b4", "cp315", "cp315t")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -161,6 +161,7 @@ tasks:
       linux_wheel_version: "{{ version }}"
       python_abi_tag: "{{ abi_tag }}"
       python_version: "{{ python_version }}"
+      python_image_tag: "{{ python_image_tag }}"
       wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
