@@ -33,7 +33,7 @@ function check_arrow_visibility {
     fi
     grep ' T ' nm_arrow.log | grep -v -E "${allowed_symbols}" | cat - > visible_symbols.log
 
-    if [[ -f visible_symbols.log && $(cat visible_symbols.log | wc -l) -eq 0 ]]; then
+    if [[ -f visible_symbols.log && $(wc -l visible_symbols.log) -eq 0 ]]; then
         return 0
     else
         echo "== Unexpected symbols exported by libarrow.so =="
