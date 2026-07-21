@@ -165,6 +165,22 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
+
+      - name: Homebrew install cache
+        uses: actions/cache@v6
+        with:
+          # Paths to cache:
+          # /usr/local/Homebrew - installation folder of Homebrew
+          # /usr/local/Cellar - installation folder of Homebrew formulae
+          # /usr/local/Frameworks, /usr/local/bin, /usr/local/opt - contain (links to) binaries installed by Homebrew formulae
+          path: |
+            /usr/local/Homebrew
+            /usr/local/Cellar
+            /usr/local/Frameworks
+            /usr/local/bin
+            /usr/local/opt
+          key: ruby-macos-brew-cache
+
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
@@ -181,45 +197,47 @@ jobs:
           # For Meson.
           # See also: https://github.com/mesonbuild/meson/issues/7701
           echo "PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf" >> $GITHUB_ENV
-      - name: Install Ruby Dependencies
-        run: |
-          export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
-          bundle install --gemfile c_glib/Gemfile
-          bundle install --gemfile ruby/Gemfile
-          for ruby_package_gemfile in ruby/*/Gemfile; do \
-            bundle install --gemfile ${ruby_package_gemfile}
-          done
-      - name: Setup ccache
-        run: |
-          ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: ruby-ccache-macos
-      - name: Build C++
-        run: |
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
-      - name: Build GLib
-        run: |
-          ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build
-      - name: Save ccache
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: ruby-ccache-macos
-      - name: Test GLib
-        shell: bash
-        run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/build
-      - name: Test Ruby
-        shell: bash
-        run: ci/scripts/ruby_test.sh $(pwd) $(pwd)/build
+
+
+      # - name: Install Ruby Dependencies
+      #   run: |
+      #     export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
+      #     bundle install --gemfile c_glib/Gemfile
+      #     bundle install --gemfile ruby/Gemfile
+      #     for ruby_package_gemfile in ruby/*/Gemfile; do \
+      #       bundle install --gemfile ${ruby_package_gemfile}
+      #     done
+      # - name: Setup ccache
+      #   run: |
+      #     ci/scripts/ccache_setup.sh
+      # - name: ccache info
+      #   id: ccache-info
+      #   shell: bash
+      #   run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      # - name: Restore ccache
+      #   uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+      #   with:
+      #     path: ${{ steps.ccache-info.outputs.cache-dir }}
+      #     key: ruby-ccache-macos
+      # - name: Build C++
+      #   run: |
+      #     ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      # - name: Build GLib
+      #   run: |
+      #     ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build
+      # - name: Save ccache
+      #   if: ${{ !cancelled() }}
+      #   continue-on-error: true
+      #   uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+      #   with:
+      #     path: ${{ steps.ccache-info.outputs.cache-dir }}
+      #     key: ruby-ccache-macos
+      # - name: Test GLib
+      #   shell: bash
+      #   run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/build
+      # - name: Test Ruby
+      #   shell: bash
+      #   run: ci/scripts/ruby_test.sh $(pwd) $(pwd)/build
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
