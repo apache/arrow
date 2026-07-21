@@ -2580,11 +2580,11 @@ if(ARROW_MIMALLOC)
       -DMI_NO_OPT_ARCH=ON)
 
   if(APPLE)
-    set(MIMALLOC_CMAKE_ARGS
-        ${MIMALLOC_CMAKE_ARGS}
-        # GH-50428: Make sure several mimalloc instances can cohabit in the same process
-        # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
-        -DMI_TLS_MODEL_LOCAL=ON)
+    list(APPEND
+         MIMALLOC_CMAKE_ARGS
+         # GH-50428: Make sure several mimalloc instances can cohabit in the same process
+         # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
+         -DMI_TLS_MODEL_LOCAL=ON)
   endif()
 
   externalproject_add(mimalloc_ep
