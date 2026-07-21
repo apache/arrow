@@ -33,7 +33,7 @@ function check_arrow_visibility {
     fi
     grep ' T ' nm_arrow.log | grep -v -E "${allowed_symbols}" | cat - > visible_symbols.log
 
-    if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]; then
+    if [[ -f visible_symbols.log && $(cat visible_symbols.log | wc -l) -eq 0 ]]; then
         return 0
     else
         echo "== Unexpected symbols exported by libarrow.so =="
@@ -54,100 +54,100 @@ rm -rf /arrow/python/pyarrow/*.so
 rm -rf /arrow/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
-: ${ARROW_ACERO:=ON}
-: ${ARROW_AZURE:=ON}
-: ${ARROW_DATASET:=ON}
-: ${ARROW_FLIGHT:=ON}
-: ${ARROW_GANDIVA:=OFF}
-: ${ARROW_GCS:=ON}
-: ${ARROW_HDFS:=ON}
-: ${ARROW_MIMALLOC:=ON}
-: ${ARROW_ORC:=ON}
-: ${ARROW_PARQUET:=ON}
-: ${PARQUET_REQUIRE_ENCRYPTION:=ON}
-: ${ARROW_SUBSTRAIT:=ON}
-: ${ARROW_S3:=ON}
-: ${ARROW_TENSORFLOW:=ON}
-: ${ARROW_USE_MOLD:=OFF}
-: ${ARROW_WITH_BROTLI:=ON}
-: ${ARROW_WITH_BZ2:=ON}
-: ${ARROW_WITH_LZ4:=ON}
-: ${ARROW_WITH_OPENTELEMETRY:=ON}
-: ${ARROW_WITH_SNAPPY:=ON}
-: ${ARROW_WITH_ZLIB:=ON}
-: ${ARROW_WITH_ZSTD:=ON}
-: ${CMAKE_BUILD_TYPE:=release}
-: ${CMAKE_UNITY_BUILD:=ON}
-: ${CMAKE_GENERATOR:=Ninja}
-: ${VCPKG_ROOT:=/opt/vcpkg}
-: ${VCPKG_FEATURE_FLAGS:=-manifests}
-: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
+: "${ARROW_ACERO:=ON}"
+: "${ARROW_AZURE:=ON}"
+: "${ARROW_DATASET:=ON}"
+: "${ARROW_FLIGHT:=ON}"
+: "${ARROW_GANDIVA:=OFF}"
+: "${ARROW_GCS:=ON}"
+: "${ARROW_HDFS:=ON}"
+: "${ARROW_MIMALLOC:=ON}"
+: "${ARROW_ORC:=ON}"
+: "${ARROW_PARQUET:=ON}"
+: "${PARQUET_REQUIRE_ENCRYPTION:=ON}"
+: "${ARROW_SUBSTRAIT:=ON}"
+: "${ARROW_S3:=ON}"
+: "${ARROW_TENSORFLOW:=ON}"
+: "${ARROW_USE_MOLD:=OFF}"
+: "${ARROW_WITH_BROTLI:=ON}"
+: "${ARROW_WITH_BZ2:=ON}"
+: "${ARROW_WITH_LZ4:=ON}"
+: "${ARROW_WITH_OPENTELEMETRY:=ON}"
+: "${ARROW_WITH_SNAPPY:=ON}"
+: "${ARROW_WITH_ZLIB:=ON}"
+: "${ARROW_WITH_ZSTD:=ON}"
+: "${CMAKE_BUILD_TYPE:=release}"
+: "${CMAKE_UNITY_BUILD:=ON}"
+: "${CMAKE_GENERATOR:=Ninja}"
+: "${VCPKG_ROOT:=/opt/vcpkg}"
+: "${VCPKG_FEATURE_FLAGS:=-manifests}"
+: "${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}"
 
 if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
     # Build jemalloc --with-lg-page=16 in order to make the wheel work on both
     # 4k and 64k page arm64 systems. For more context see
     # https://github.com/apache/arrow/issues/10929
     export ARROW_EXTRA_CMAKE_FLAGS="-DARROW_JEMALLOC_LG_PAGE=16"
-    : ${ARROW_JEMALLOC:=OFF}
+    : "${ARROW_JEMALLOC:=OFF}"
 else
-    : ${ARROW_JEMALLOC:=ON}
+    : "${ARROW_JEMALLOC:=ON}"
 fi
 
 if [[ "${LINUX_WHEEL_KIND:-}" == "musllinux" ]]; then
-    : ${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=OFF}
+    : "${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=OFF}"
 else
-    : ${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=ON}
+    : "${CMAKE_INTERPROCEDURAL_OPTIMIZATION:=ON}"
 fi
 
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 
 cmake \
-    -DARROW_ACERO=${ARROW_ACERO} \
-    -DARROW_AZURE=${ARROW_AZURE} \
+    -DARROW_ACERO="${ARROW_ACERO}" \
+    -DARROW_AZURE="${ARROW_AZURE}" \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
-    -DARROW_DATASET=${ARROW_DATASET} \
+    -DARROW_DATASET="${ARROW_DATASET}" \
     -DARROW_DEPENDENCY_SOURCE="VCPKG" \
     -DARROW_DEPENDENCY_USE_SHARED=OFF \
     -DARROW_FILESYSTEM=ON \
-    -DARROW_FLIGHT=${ARROW_FLIGHT} \
-    -DARROW_GANDIVA=${ARROW_GANDIVA} \
-    -DARROW_GCS=${ARROW_GCS} \
-    -DARROW_HDFS=${ARROW_HDFS} \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
+    -DARROW_FLIGHT="${ARROW_FLIGHT}" \
+    -DARROW_GANDIVA="${ARROW_GANDIVA}" \
+    -DARROW_GCS="${ARROW_GCS}" \
+    -DARROW_HDFS="${ARROW_HDFS}" \
+    -DARROW_JEMALLOC="${ARROW_JEMALLOC}" \
     -DARROW_JSON=ON \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC} \
-    -DARROW_ORC=${ARROW_ORC} \
+    -DARROW_MIMALLOC="${ARROW_MIMALLOC}" \
+    -DARROW_ORC="${ARROW_ORC}" \
     -DARROW_PACKAGE_KIND="python-wheel-${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION}" \
-    -DARROW_PARQUET=${ARROW_PARQUET} \
+    -DARROW_PARQUET="${ARROW_PARQUET}" \
     -DARROW_RPATH_ORIGIN=ON \
-    -DARROW_S3=${ARROW_S3} \
-    -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT} \
-    -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
+    -DARROW_S3="${ARROW_S3}" \
+    -DARROW_SUBSTRAIT="${ARROW_SUBSTRAIT}" \
+    -DARROW_TENSORFLOW="${ARROW_TENSORFLOW}" \
     -DARROW_USE_CCACHE=ON \
-    -DARROW_USE_MOLD=${ARROW_USE_MOLD} \
-    -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
-    -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
-    -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
-    -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY} \
-    -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
-    -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
-    -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DARROW_USE_MOLD="${ARROW_USE_MOLD}" \
+    -DARROW_WITH_BROTLI="${ARROW_WITH_BROTLI}" \
+    -DARROW_WITH_BZ2="${ARROW_WITH_BZ2}" \
+    -DARROW_WITH_LZ4="${ARROW_WITH_LZ4}" \
+    -DARROW_WITH_OPENTELEMETRY="${ARROW_WITH_OPENTELEMETRY}" \
+    -DARROW_WITH_SNAPPY="${ARROW_WITH_SNAPPY}" \
+    -DARROW_WITH_ZLIB="${ARROW_WITH_ZLIB}" \
+    -DARROW_WITH_ZSTD="${ARROW_WITH_ZSTD}" \
+    -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
-    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION} \
-    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
-    -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
+    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION="${CMAKE_INTERPROCEDURAL_OPTIMIZATION}" \
+    -DCMAKE_UNITY_BUILD="${CMAKE_UNITY_BUILD}" \
+    -DPARQUET_REQUIRE_ENCRYPTION="${PARQUET_REQUIRE_ENCRYPTION}" \
     -DVCPKG_MANIFEST_MODE=OFF \
-    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -Dxsimd_SOURCE=BUNDLED \
-    ${ARROW_EXTRA_CMAKE_FLAGS} \
-    -G ${CMAKE_GENERATOR} \
+    "${ARROW_EXTRA_CMAKE_FLAGS}" \
+    -G "${CMAKE_GENERATOR}" \
     /arrow/cpp
 cmake --build . --target install
 popd
@@ -159,18 +159,18 @@ echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUNDLE_ARROW_CPP=ON
 # TODO(GH-32609): Re-enable when pyarrow-stubs are shipped in wheels again.
 # export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
-export PYARROW_WITH_ACERO=${ARROW_ACERO}
-export PYARROW_WITH_AZURE=${ARROW_AZURE}
-export PYARROW_WITH_DATASET=${ARROW_DATASET}
-export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
-export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}
-export PYARROW_WITH_GCS=${ARROW_GCS}
-export PYARROW_WITH_HDFS=${ARROW_HDFS}
-export PYARROW_WITH_ORC=${ARROW_ORC}
-export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
-export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
-export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
-export PYARROW_WITH_S3=${ARROW_S3}
+export PYARROW_WITH_ACERO="${ARROW_ACERO}"
+export PYARROW_WITH_AZURE="${ARROW_AZURE}"
+export PYARROW_WITH_DATASET="${ARROW_DATASET}"
+export PYARROW_WITH_FLIGHT="${ARROW_FLIGHT}"
+export PYARROW_WITH_GANDIVA="${ARROW_GANDIVA}"
+export PYARROW_WITH_GCS="${ARROW_GCS}"
+export PYARROW_WITH_HDFS="${ARROW_HDFS}"
+export PYARROW_WITH_ORC="${ARROW_ORC}"
+export PYARROW_WITH_PARQUET="${ARROW_PARQUET}"
+export PYARROW_WITH_PARQUET_ENCRYPTION="${PARQUET_REQUIRE_ENCRYPTION}"
+export PYARROW_WITH_SUBSTRAIT="${ARROW_SUBSTRAIT}"
+export PYARROW_WITH_S3="${ARROW_S3}"
 export ARROW_HOME=/tmp/arrow-dist
 # PyArrow build configuration
 export CMAKE_PREFIX_PATH=/tmp/arrow-dist
@@ -178,7 +178,7 @@ export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 pushd /arrow/python
 python -m build --sdist --wheel . --no-isolation \
     -C build.verbose=true \
-    -C cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
+    -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" \
     -C cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
 
 echo "=== Strip symbols from wheel ==="
@@ -188,15 +188,15 @@ mv dist/pyarrow-*.whl dist/temp-fix-wheel
 pushd dist/temp-fix-wheel
 wheel_name=$(ls pyarrow-*.whl)
 # Unzip and remove old wheel
-unzip $wheel_name
-rm $wheel_name
-for filename in $(ls pyarrow/*.so pyarrow/*.so.*); do
+unzip "$wheel_name"
+rm "$wheel_name"
+for filename in pyarrow/*.so pyarrow/*.so.*; do
     echo "Stripping debug symbols from: $filename";
-    strip --strip-debug $filename
+    strip --strip-debug "$filename"
 done
 # Zip wheel again after stripping symbols
-zip -r $wheel_name .
-mv $wheel_name ..
+zip -r "$wheel_name" .
+mv "$wheel_name" ..
 popd
 
 rm -rf dist/temp-fix-wheel
