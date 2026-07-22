@@ -56,7 +56,8 @@ class Lexer {
 
   // Decide whether it's worth using a bulk filter over the given data area
   bool ShouldUseBulkFilter(const char* data, const char* data_end) {
-    if (!bulk_filter_.CanUseOnBlock(std::string_view(data, static_cast<size_t>(data_end - data)))) {
+    if (!bulk_filter_.CanUseOnBlock(
+            std::string_view(data, static_cast<size_t>(data_end - data)))) {
       return false;
     }
     constexpr int32_t kWordSize = static_cast<int32_t>(sizeof(BulkWordType));
