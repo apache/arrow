@@ -147,6 +147,10 @@ class SSE42Filter {
   // _mm_cmpistrc is an implicit-length compare: it treats a NUL byte as a
   // terminator and can miss a real delimiter/quote/newline sharing an 8-byte
   // word with one. Never use this filter on a block that contains a NUL.
+  // We could instead use the explicit-length compare _mm_cmpestrc but
+  // it comes with a massive performance cost on some CPUs
+  // (some benchmarks were measured to be twice slower in
+  // https://github.com/apache/arrow/pull/50483).
   bool CanUseOnBlock(std::string_view data) const {
     return data.empty() || std::memchr(data.data(), '\0', data.size()) == nullptr;
   }
