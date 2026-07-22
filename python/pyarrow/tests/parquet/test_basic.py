@@ -934,6 +934,113 @@ def test_thrift_size_limits(tempdir):
     assert got == table
 
 
+_SIZE_STATISTICS_LEVELS = ["none", "columnchunk", "pageandcolumnchunk"]
+
+
+def _size_statistics_table(nrows=5000):
+    # Nulls give non-empty definition-level histograms and variable-length
+    # strings give non-zero unencoded byte sizes, so the size statistics are
+    # non-trivial and their presence is observable in the file size.
+    return pa.table({
+        's': pa.array([("x" * 10 if i % 3 else None) for i in range(nrows)],
+                      type=pa.string()),
+        'i': pa.array(range(nrows), type=pa.int64()),
+    })
+
+
+def _write_parquet_bytes(table, **kwargs):
+    buf = io.BytesIO()
+    pq.write_table(table, buf, **kwargs)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("level", _SIZE_STATISTICS_LEVELS)
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_write_size_statistics_levels(tempdir, level, use_writer):
+    """Every level round-trips, via both write_table and ParquetWriter."""
+    table = pa.table({'a': [1, 2, 3, 4], 'b': ['x', 'y', 'z', None]})
+    path = tempdir / f'size_stats_{level}_{use_writer}.parquet'
+    if use_writer:
+        with pq.ParquetWriter(path, table.schema,
+                              write_size_statistics=level) as writer:
+            writer.write_table(table)
+    else:
+        pq.write_table(table, path, write_size_statistics=level)
+    assert pq.read_table(path) == table
+
+
+@pytest.mark.parametrize("level", _SIZE_STATISTICS_LEVELS)
+def test_write_size_statistics_nested_and_null(tempdir, level):
+    """Levels work across nullable, empty, and nested/list columns."""
+    table = pa.table({
+        'str': pa.array(['a', None, 'ccc', ''], pa.string()),
+        'lst': pa.array([[1, 2], None, [], [3]], pa.list_(pa.int64())),
+        'i32': pa.array([1, None, 3, 4], pa.int32()),
+    })
+    path = tempdir / f'size_stats_nested_{level}.parquet'
+    pq.write_table(table, path, write_size_statistics=level)
+    assert pq.read_table(path) == table
+
+
+@pytest.mark.parametrize(
+    "value", ["not-a-level", "None", "COLUMNCHUNK", "page_and_column_chunk", ""])
+def test_write_size_statistics_invalid(value):
+    """Unknown or mis-cased size statistics levels are rejected."""
+    table = pa.table({'a': [1, 2, 3, 4]})
+    with pytest.raises(ValueError, match="size statistics level"):
+        pq.write_table(table, io.BytesIO(), write_size_statistics=value)
+
+
+def test_write_size_statistics_dataset(tempdir):
+    """The option also flows through the dataset write path."""
+    table = pa.table({'a': [1, 2, 3, 4], 'b': ['x', 'y', 'z', None]})
+    pq.write_to_dataset(table, str(tempdir / 'ds'),
+                        write_size_statistics='none')
+    assert pq.read_table(str(tempdir / 'ds')).sort_by('a') == table
+
+
+def test_write_size_statistics_reduces_file_size():
+    """Disabling size statistics measurably shrinks the file, and the
+    column-chunk level omits the page-level statistics that the
+    page-and-column-chunk level adds (only when the page index is written)."""
+    table = _size_statistics_table()
+
+    # Column-chunk size statistics live in the (uncompressed) footer, so
+    # "none" is strictly smaller than "columnchunk" regardless of page index.
+    none = len(_write_parquet_bytes(table, write_size_statistics="none"))
+    cc = len(_write_parquet_bytes(table, write_size_statistics="columnchunk"))
+    assert none < cc
+
+    # Page-level size statistics are only emitted when the page index is on,
+    # so "pageandcolumnchunk" adds bytes over "columnchunk" only in that case.
+    cc_idx = len(_write_parquet_bytes(
+        table, write_size_statistics="columnchunk", write_page_index=True))
+    pcc_idx = len(_write_parquet_bytes(
+        table, write_size_statistics="pageandcolumnchunk",
+        write_page_index=True))
+    assert cc_idx < pcc_idx
+
+    # Without the page index the two levels are indistinguishable.
+    pcc_noidx = len(_write_parquet_bytes(
+        table, write_size_statistics="pageandcolumnchunk"))
+    assert cc == pcc_noidx
+
+
+def test_write_size_statistics_default_writes_statistics():
+    """The default (None) keeps Arrow C++'s default of writing full size
+    statistics: it is byte-identical to explicit "pageandcolumnchunk" and
+    larger than "none"."""
+    table = _size_statistics_table()
+    default = _write_parquet_bytes(table, write_page_index=True)
+    explicit = _write_parquet_bytes(
+        table, write_page_index=True,
+        write_size_statistics="pageandcolumnchunk")
+    off = _write_parquet_bytes(
+        table, write_page_index=True, write_size_statistics="none")
+    assert default == explicit
+    assert len(off) < len(default)
+
+
 def test_page_checksum_verification_write_table(tempdir):
     """Check that checksum verification works for datasets created with
     pq.write_table()"""

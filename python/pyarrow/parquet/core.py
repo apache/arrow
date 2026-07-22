@@ -895,6 +895,17 @@ write_page_checksum : bool, default False
     Whether to write page checksums in general for all columns.
     Page checksums enable detection of data corruption, which might occur during
     transmission or in the storage.
+write_size_statistics : {"none", "columnchunk", "pageandcolumnchunk"}, default None
+    Control the level of size statistics written to the Parquet file. Size
+    statistics record the (unencoded) byte sizes and definition/repetition
+    level histograms of the data. If None, the Arrow C++ default is used
+    (currently "pageandcolumnchunk"). Use "none" to disable writing size
+    statistics entirely, "columnchunk" to write them only at the column-chunk
+    level, or "pageandcolumnchunk" to also write them into the page index.
+    Note that page-level size statistics are only written when the page index
+    is also enabled (see ``write_page_index``); with the default
+    ``write_page_index=False``, "pageandcolumnchunk" behaves like
+    "columnchunk".
 sorting_columns : Sequence of SortingColumn, default None
     Specify the sort order of the data being written. The writer does not sort
     the data nor does it verify that the data is sorted. The sort order is
@@ -1083,6 +1094,7 @@ Examples
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
                  max_rows_per_page=None,
+                 write_size_statistics=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1138,6 +1150,7 @@ Examples
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             max_rows_per_page=max_rows_per_page,
+            write_size_statistics=write_size_statistics,
             **options)
         self.is_open = True
 
@@ -2017,6 +2030,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
                 bloom_filter_options=None,
+                write_size_statistics=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2051,6 +2065,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
                 bloom_filter_options=bloom_filter_options,
+                write_size_statistics=write_size_statistics,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
