@@ -16,6 +16,10 @@
 # under the License.
 
 class TestNullArray < Test::Unit::TestCase
+  def setup
+    @array = ArrowFormat::NullArray.new(3)
+  end
+
   def test_initialize
     assert_equal([nil] * 9,
                  ArrowFormat::NullArray.new(9).to_a)
@@ -33,5 +37,9 @@ class TestNullArray < Test::Unit::TestCase
       array2 = ArrowFormat::NullArray.new(5)
       assert_equal(array1, array2.slice(1, 3))
     end
+  end
+
+  def test_aref
+    assert_nil(@array[1])
   end
 end

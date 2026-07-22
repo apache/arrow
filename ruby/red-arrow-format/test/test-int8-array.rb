@@ -16,6 +16,11 @@
 # under the License.
 
 class TestInt8Array < Test::Unit::TestCase
+  def setup
+    @values = [-(2 ** 7), nil, (2 ** 7) - 1]
+    @array = ArrowFormat::Int8Array.new(@values)
+  end
+
   sub_test_case("#initialize") do
     def test_no_null
       values = [-(2 ** 7), (2 ** 7) - 1]
@@ -50,6 +55,16 @@ class TestInt8Array < Test::Unit::TestCase
       array1 = ArrowFormat::Int8Array.new(values)
       array2 = ArrowFormat::Int8Array.new([0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[3], @array[3])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end
