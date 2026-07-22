@@ -936,37 +936,44 @@ TEST(BlockParser, RowNumberAppendedToError) {
   }
 }
 
-TEST(BlockParser, EmbeddedNulInQuotedFieldAfterBulkFilterActivates) {
-  // Regression test for GH-50481. Once the running average value length
-  // crosses the bulk filter's activation threshold, a NUL byte embedded in a
-  // quoted field could hide the real closing quote if both landed in the
-  // same 8-byte SIMD word, causing the parser to keep consuming subsequent
-  // bytes as if still inside the quoted field.
+TEST(BlockParser, EmbeddedNulBytesDisableBulkFilter) {
+  // Regression test for GH-50481: the bulk filter's implicit-length SIMD
+  // compare can miss a delimiter sharing a word with an embedded NUL byte.
+  // The fix disables the bulk filter for any block containing a NUL, so
+  // every cell here carries one. num_cols is explicit so the bulk filter
+  // isn't delayed by the single-row column-count-inference parse path.
   constexpr int32_t num_cols = 64;
-  constexpr int32_t num_filler_rows = 512;  // = kTargetChunkSize / num_cols
+  // Each ParseChunk call is capped at ~512 rows for num_cols == 64 (from
+  // parser.cc's private kTargetChunkSize). Use 4x that margin so the filler
+  // block still spans multiple calls -- keeping the bulk filter armed
+  // before the trigger row -- even if that constant changes.
+  constexpr int32_t num_filler_rows = 4 * 512;
+
+  // 12 bytes/value, above the bulk filter's 10-byte threshold; the
+  // trailing NUL lands outside the first SIMD word, so it's harmless here.
+  std::string filler_cell = "xxxxxxxxxxx";
+  filler_cell += '\0';
 
   std::string csv;
   for (int32_t r = 0; r < num_filler_rows; ++r) {
     for (int32_t c = 0; c < num_cols; ++c) {
       if (c) csv += ',';
-      // 12 bytes/value, well above the bulk filter's 10-bytes/value
-      // activation threshold.
-      csv += "xxxxxxxxxxxx";
+      csv += filler_cell;
     }
     csv += '\n';
   }
-  // This row's first field carries a real embedded NUL byte immediately
-  // before its closing quote - the byte pattern a misaligned
-  // implicit-length SIMD scan can hide.
+  // Embeds a NUL right before the closing quote - the pattern a
+  // misaligned SIMD scan can hide.
   csv += "\"abc";
   csv += '\0';
   csv += "def\"";
   for (int32_t c = 1; c < num_cols; ++c) {
-    csv += ",xxxxxxxxxxxx";
+    csv += ',';
+    csv += filler_cell;
   }
   csv += '\n';
 
-  BlockParser parser(ParseOptions::Defaults(), /*num_cols=*/num_cols);
+  BlockParser parser(ParseOptions::Defaults(), num_cols, /*first_row=*/0);
   AssertParseFinal(parser, csv);
   ASSERT_EQ(parser.num_rows(), num_filler_rows + 1);
 
@@ -974,6 +981,10 @@ TEST(BlockParser, EmbeddedNulInQuotedFieldAfterBulkFilterActivates) {
   GetLastRow(parser, &last_row);
   ASSERT_EQ(last_row.size(), static_cast<size_t>(num_cols));
   ASSERT_EQ(last_row[0], std::string("abc\0def", 7));
+  // The row's other NUL-bearing fields must come through unmangled too.
+  for (size_t c = 1; c < last_row.size(); ++c) {
+    ASSERT_EQ(last_row[c], filler_cell) << "column " << c;
+  }
 }
 
 }  // namespace csv

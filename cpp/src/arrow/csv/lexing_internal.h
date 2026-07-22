@@ -133,11 +133,8 @@ class SSE42Filter {
   explicit SSE42Filter(const ParseOptions& options) : filter_(MakeFilter(options)) {}
 
   bool Matches(WordType w) const {
-    // Look up every byte in `w` in the SIMD filter. Use the explicit-length
-    // comparison since `w` may contain an embedded NUL byte, which the
-    // implicit-length _mm_cmpistrc would otherwise treat as a terminator.
-    return _mm_cmpestrc(_mm_set1_epi64x(w), static_cast<int>(sizeof(WordType)), filter_,
-                        static_cast<int>(sizeof(BulkFilterType)),
+    // Look up every byte in `w` in the SIMD filter.
+    return _mm_cmpistrc(_mm_set1_epi64x(w), filter_,
                         _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
   }
 
