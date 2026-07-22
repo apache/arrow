@@ -917,6 +917,69 @@ std::vector<Expression> GuaranteeConjunctionMembers(
   return FlattenedAssociativeChain(guaranteed_true_predicate).fringe;
 }
 
+/// \brief Expand guarantees of the form or_(and_(...), is_null(x)) into multiple
+/// guarantees of the form or_(member, is_null(x)).
+///
+/// Parquet statistics for nullable columns generate guarantees like:
+///   or_(and_(field >= min, field <= max), is_null(field))
+///
+/// By expanding this into:
+///   [or_(field >= min, is_null(field)), or_(field <= max, is_null(field))]
+///
+/// each inequality can be extracted by Inequality::ExtractOne and used for
+/// simplification of comparisons, is_in, etc.
+///
+/// This expansion is logically valid because:
+///   (A AND B) OR C  ≡  (A OR C) AND (B OR C)
+///
+/// So treating the expanded forms as separate guarantees (implicitly ANDed)
+/// is equivalent to the original.
+///
+/// Also handles the reversed form: or_(is_null(x), and_(...))
+///
+/// See: https://github.com/apache/arrow/issues/36283
+void ExpandNullableRangeGuarantees(std::vector<Expression>* conjunction_members) {
+  std::vector<Expression> expanded;
+
+  for (const auto& member : *conjunction_members) {
+    auto call = member.call();
+    if (!call || call->function_name != "or_kleene" || call->arguments.size() != 2) {
+      expanded.push_back(member);
+      continue;
+    }
+
+    const auto& lhs = call->arguments[0];
+    const auto& rhs = call->arguments[1];
+    auto lhs_call = lhs.call();
+    auto rhs_call = rhs.call();
+
+    // Detect pattern: or_(and_(...), is_null(x)) or or_(is_null(x), and_(...))
+    const Expression* and_expr = nullptr;
+    const Expression* null_expr = nullptr;
+
+    if (lhs_call && lhs_call->function_name == "and_kleene" &&
+        rhs_call && rhs_call->function_name == "is_null") {
+      and_expr = &lhs;
+      null_expr = &rhs;
+    } else if (lhs_call && lhs_call->function_name == "is_null" &&
+               rhs_call && rhs_call->function_name == "and_kleene") {
+      and_expr = &rhs;
+      null_expr = &lhs;
+    }
+
+    if (and_expr && null_expr) {
+      // Expand: for each member of the and_kleene, create or_(member, is_null(x))
+      for (const auto& and_member : FlattenedAssociativeChain(*and_expr).fringe) {
+        expanded.push_back(or_(and_member, *null_expr));
+      }
+    } else {
+      expanded.push_back(member);
+    }
+  }
+
+  *conjunction_members = std::move(expanded);
+}
+
 /// \brief Extract an equality from an expression.
 ///
 /// Recognizes expressions of the form:
@@ -1434,6 +1497,11 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
   RETURN_NOT_OK(ExtractKnownFieldValues(&conjunction_members, &known_values));
+
+  // Expand or_(and_(...), is_null(x)) guarantees into multiple or_(ineq, is_null(x))
+  // guarantees. This enables predicate pushdown for nullable columns with range
+  // statistics (the common case). See: https://github.com/apache/arrow/issues/36283
+  ExpandNullableRangeGuarantees(&conjunction_members);
 
   ARROW_ASSIGN_OR_RAISE(expr,
                         ReplaceFieldsWithKnownValues(known_values, std::move(expr)));
