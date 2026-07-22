@@ -774,6 +774,9 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       DCHECK_NE(data->buffers[0], nullptr);
       RETURN_NOT_OK(::arrow::internal::VisitBitRuns(
           data->buffers[0]->data(), data->offset, data->length, visit_run));
+
+      // TODO(GH-50271): Build one padded child array directly instead of creating
+      // one temporary Array/ArrayData per validity run and concatenating them.
       ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
                             ::arrow::Concatenate(child_arrays, ctx_->pool));
       data->child_data[0] = child_array_with_padding->data();
