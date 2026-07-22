@@ -26,14 +26,17 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/util/bit_block_counter.h"
+#include "parquet/platform.h"
 
 namespace parquet::variant::internal {
 
+PARQUET_EXPORT
+std::string_view BinaryFieldView(const ::arrow::Array& array, int64_t row);
+
+PARQUET_EXPORT
 std::shared_ptr<::arrow::Array> ValuesArray(const ::arrow::Array& array);
 
 std::pair<int64_t, int64_t> ValuesRangeAt(const ::arrow::Array& array, int64_t row);
-
-std::string_view BinaryFieldView(const ::arrow::Array& array, int64_t row);
 
 std::shared_ptr<::arrow::Buffer> FinishNullBitmap(
     ::arrow::TypedBufferBuilder<bool>& builder);

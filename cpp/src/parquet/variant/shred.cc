@@ -17,7 +17,6 @@
 
 #include "parquet/variant/shred.h"
 
-#include <bit>
 #include <concepts>
 #include <cstdint>
 #include <limits>
@@ -218,14 +217,10 @@ std::shared_ptr<Scalar> DecodeSourceScalar(const VariantValueView& value) {
       return std::make_shared<::arrow::Int32Scalar>(LoadLittleEndian<int32_t>(payload));
     case VariantPrimitiveType::kInt64:
       return std::make_shared<::arrow::Int64Scalar>(LoadLittleEndian<int64_t>(payload));
-    case VariantPrimitiveType::kFloat: {
-      const auto bits = LoadLittleEndian<uint32_t>(payload);
-      return std::make_shared<::arrow::FloatScalar>(std::bit_cast<float>(bits));
-    }
-    case VariantPrimitiveType::kDouble: {
-      const auto bits = LoadLittleEndian<uint64_t>(payload);
-      return std::make_shared<::arrow::DoubleScalar>(std::bit_cast<double>(bits));
-    }
+    case VariantPrimitiveType::kFloat:
+      return std::make_shared<::arrow::FloatScalar>(LoadLittleEndian<float>(payload));
+    case VariantPrimitiveType::kDouble:
+      return std::make_shared<::arrow::DoubleScalar>(LoadLittleEndian<double>(payload));
     case VariantPrimitiveType::kDecimal4: {
       const auto scale = static_cast<uint8_t>(payload[0]);
       auto type = ::arrow::decimal32(/*precision=*/9, scale);
