@@ -1458,16 +1458,15 @@ int64_t ColumnChunkReader<Derived>::Skip(int64_t num_values_to_skip) {
   while (values_to_skip > 0 && ProcessToMoreData()) {
     // If the number of values to skip is more than the number of undecoded values, skip
     // the whole Page without decoding levels or values.
-    const int64_t available_values = this->available_values_current_page();
+    const int32_t available_values = this->available_values_current_page();
     if (values_to_skip >= available_values) {
       values_to_skip -= available_values;
       this->ConsumeBufferedValues(available_values);
     } else {
-      // Skip within the current Page. Since `values_to_skip < available_values`, the
-      // whole batch fits inside this Page and no page boundary is crossed.
-      const int batch_size = static_cast<int>(values_to_skip);
+      // The whole batch fits inside this Page (`<= availables_values`)
+      const auto batch_size = static_cast<int32_t>(values_to_skip);
 
-      int64_t non_null = AdvanceLevels(batch_size);
+      const int32_t non_null = AdvanceLevels(batch_size);
       // Skip the corresponding data values.
       this->current_decoder_.Skip(non_null);
 
