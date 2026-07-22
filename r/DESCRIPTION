@@ -135,8 +135,6 @@ Collate:
     'field.R'
     'filesystem.R'
     'flight.R'
-    'import-standalone-obj-type.R'
-    'import-standalone-types-check.R'
     'install-arrow.R'
     'ipc-stream.R'
     'json.R'
