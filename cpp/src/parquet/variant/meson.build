@@ -32,6 +32,13 @@ exc = executable(
 test('parquet-variant-test', exc)
 
 install_headers(
-    ['builder.h', 'decoding.h', 'format.h', 'shred.h', 'unshred.h', 'validate.h'],
+    [
+        'builder.h',
+        'decoding.h',
+        'format.h',
+        'shred.h',
+        'unshred.h',
+        'validate.h',
+    ],
     subdir: 'parquet/variant',
 )
