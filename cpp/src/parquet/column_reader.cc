@@ -953,6 +953,7 @@ class ValueSinkBuffer : private ValueSinkCursor {
   void OnNewDictionary(auto& /* decoder */) {}
 
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
+    ReserveValues(batch_size);
     const auto decoded = decoder.Decode(write_start(), batch_size);
     set_values_count(values_count() + batch_size);
     return decoded;
@@ -961,6 +962,7 @@ class ValueSinkBuffer : private ValueSinkCursor {
   [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
                                       int32_t null_count, const uint8_t* valid_bits,
                                       int64_t valid_bits_offset) {
+    ReserveValues(batch_size);
     const auto decoded = decoder.DecodeSpaced(write_start(), batch_size, null_count,
                                               valid_bits, valid_bits_offset);
     set_values_count(values_count() + batch_size);
@@ -1029,6 +1031,8 @@ class ValiditySinkBuffer : private ValueSinkCursor {
 
   ReadResult ReadFromLevels(const int16_t* def_levels, int64_t num_def_levels,
                             const internal::LevelInfo& level_info) {
+    // At most one validity bit is written per definition level.
+    ReserveValues(num_def_levels);
     internal::ValidityBitmapInputOutput validity_io{};
     validity_io.values_read_upper_bound = num_def_levels;
     validity_io.valid_bits = data();
@@ -2457,12 +2461,8 @@ void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeated(
 
 template <typename DT, typename VS, bool kDic>
 int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
-  // Conservative upper bound
-  const int64_t possible_num_values =
-      std::max<int64_t>(num_records, levels_written_ - levels_position_);
-  ReserveValues(possible_num_values);
-  ReserveIsValid(possible_num_values);
-
+  // The value and validity sinks reserve their own capacity as they read, so
+  // there is no need to pre-reserve an upper bound here.
   const int64_t start_levels_position = levels_position_;
 
   // To be updated by the function calls below for each of the repetition
@@ -2688,10 +2688,7 @@ int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records
     return 0;
   }
 
-  Reserve(num_records);
-
   int64_t records_read = 0;
-
   do {
     // Is there more data to read in this row group?
     if (!this->ProcessToMoreData()) {
@@ -2777,6 +2774,7 @@ class ArrayValuesSink : private ValueSinkCursor {
   void OnNewDictionary(auto& /* decoder */) {}
 
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
+    ReserveValues(batch_size);
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = decoder.DecodeArrowNonNull(batch_size, &builder_);
     mark_values_as_written(batch_size);
@@ -2786,6 +2784,7 @@ class ArrayValuesSink : private ValueSinkCursor {
   [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
                                       int32_t null_count, const uint8_t* valid_bits,
                                       int64_t valid_bits_offset) {
+    ReserveValues(batch_size);
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = decoder.DecodeArrow(batch_size, null_count, valid_bits,
                                                 valid_bits_offset, &builder_);
@@ -2999,6 +2998,7 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
   void ResetValues() { ValueSinkCursor::operator=({}); }
 
   [[nodiscard]] int64_t ReadValuesDense(auto& decoder, int32_t batch_size) {
+    ReserveValues(batch_size);
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
@@ -3013,6 +3013,7 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
   [[nodiscard]] int64_t ReadValuesSpaced(auto& decoder, int32_t batch_size,
                                          int32_t null_count, const uint8_t* valid_bits,
                                          int64_t valid_bits_offset) {
+    ReserveValues(batch_size);
     // TODO once we have a validity sink: we can reset the validity to save some space
     const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
