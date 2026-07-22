@@ -575,8 +575,10 @@ void ProcessTypedObjectSlot(const VariantMetadataView& metadata,
       throw ParquetInvalidOrCorruptedFileException(
           "Expected object in value field for partially shredded struct");
     }
-    if (strict || target != nullptr) {
+    if (target != nullptr) {
       object_value_view = VariantValueView::Make(*value, metadata);
+    } else if constexpr (strict) {
+      object_value_view = VariantValueView::MakeWithValidate(*value, metadata);
     } else {
       VariantValueView::Validate(*value, metadata);
     }
@@ -613,7 +615,9 @@ bool TryProcessSlot(const VariantMetadataView& metadata,
     if (!value.has_value()) {
       return false;
     }
-    VariantValueView::Validate(*value, metadata);
+    if (target == nullptr) {
+      VariantValueView::Validate(*value, metadata);
+    }
     AppendEncodedValue(target, *value);
     return true;
   }
@@ -632,7 +636,9 @@ bool TryProcessSlot(const VariantMetadataView& metadata,
           if (!value.has_value()) {
             return false;
           }
-          VariantValueView::Validate(*value, metadata);
+          if (target == nullptr) {
+            VariantValueView::Validate(*value, metadata);
+          }
           if constexpr (std::is_same_v<Plan, CompiledVariantRowPlan::Array> ||
                         std::is_same_v<Plan, CompiledVariantRowPlan::Object>) {
             const auto basic_type = VariantValueView::PeekBasicType(*value);

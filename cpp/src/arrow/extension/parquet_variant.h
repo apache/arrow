@@ -31,6 +31,18 @@ inline constexpr std::string_view kVariantExtensionName = "arrow.parquet.variant
 class ARROW_EXPORT VariantArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
+
+  /// \brief The metadata child array.
+  std::shared_ptr<Array> metadata() const;
+
+  /// \brief The residual value child array, or null if it is absent from storage.
+  std::shared_ptr<Array> value() const;
+
+  /// \brief The typed value child array, or null for an unshredded Variant array.
+  std::shared_ptr<Array> typed_value() const;
+
+  /// \brief Whether the storage schema contains a typed value field.
+  bool is_shredded() const;
 };
 
 /// EXPERIMENTAL: Variant is not yet fully supported.

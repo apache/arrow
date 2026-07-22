@@ -24,9 +24,14 @@
 #include <vector>
 
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "parquet/properties.h"
 #include "parquet/variant/builder.h"
+
+namespace arrow::extension {
+class VariantArray;
+}  // namespace arrow::extension
 
 namespace parquet::variant::internal {
 
@@ -35,6 +40,7 @@ using ::arrow::Buffer;
 using ::arrow::DataType;
 using ::arrow::FieldVector;
 using ::arrow::Result;
+using ::arrow::Status;
 
 std::shared_ptr<::arrow::Table> VariantTable(
     const std::shared_ptr<DataType>& variant_type,
@@ -47,10 +53,12 @@ Result<std::shared_ptr<Buffer>> WriteVariantTable(
     std::shared_ptr<ArrowWriterProperties> arrow_properties =
         default_arrow_writer_properties());
 
-::arrow::Status WriteVariantRecordBatch(
-    const std::shared_ptr<::arrow::Table>& table,
-    std::shared_ptr<ArrowWriterProperties> arrow_properties =
-        default_arrow_writer_properties());
+Status WriteVariantRecordBatch(const std::shared_ptr<::arrow::Table>& table,
+                               std::shared_ptr<ArrowWriterProperties> arrow_properties =
+                                   default_arrow_writer_properties());
+
+Result<std::shared_ptr<::arrow::extension::VariantArray>> RoundTripVariantArray(
+    const std::shared_ptr<::arrow::extension::VariantArray>& array);
 
 std::shared_ptr<Buffer> EmptyVariantMetadata();
 
@@ -58,5 +66,15 @@ EncodedVariantValue Int8Variant(int8_t value);
 
 std::shared_ptr<Array> BinaryArrayFromValues(
     const std::vector<std::optional<std::string_view>>& values);
+
+std::shared_ptr<::arrow::StructArray> MakeInt64FieldGroup(
+    const std::vector<std::optional<std::string_view>>& values,
+    std::string_view typed_values, const std::vector<bool>& is_valid = {});
+
+void AssertEncodedRow(const ::arrow::extension::VariantArray& array, int64_t row,
+                      const EncodedVariantValue& expected);
+
+void AssertUnshreddedValue(const ::arrow::extension::VariantArray& array, int64_t row,
+                           const EncodedVariantValue& expected);
 
 }  // namespace parquet::variant::internal

@@ -21,6 +21,7 @@ exc = executable(
         'builder_test.cc',
         'decoding_test.cc',
         'parquet_testing_test.cc',
+        'shred_test.cc',
         'test_util_internal.cc',
         'type_test.cc',
         'unshred_test.cc',
@@ -31,6 +32,6 @@ exc = executable(
 test('parquet-variant-test', exc)
 
 install_headers(
-    ['builder.h', 'decoding.h', 'format.h', 'unshred.h', 'validate.h'],
+    ['builder.h', 'decoding.h', 'format.h', 'shred.h', 'unshred.h', 'validate.h'],
     subdir: 'parquet/variant',
 )

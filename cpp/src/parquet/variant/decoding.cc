@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <utility>
 
 #include "arrow/util/endian.h"
@@ -59,6 +60,24 @@ void CheckAvailable(std::string_view data, size_t offset, size_t size,
     throw ParquetInvalidOrCorruptedFileException("Invalid Variant encoding: truncated ",
                                                  context);
   }
+}
+
+size_t OffsetCount(uint32_t count) {
+  const auto converted_count = static_cast<size_t>(count);
+  if (converted_count == std::numeric_limits<size_t>::max()) {
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: offset count overflow");
+  }
+  return converted_count + 1;
+}
+
+size_t OffsetBytes(size_t offset_count, uint8_t offset_size) {
+  if (offset_count >
+      std::numeric_limits<size_t>::max() / static_cast<size_t>(offset_size)) {
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid Variant encoding: offset table size overflow");
+  }
+  return offset_count * static_cast<size_t>(offset_size);
 }
 
 size_t PrimitivePayloadSize(std::string_view value, size_t offset,
@@ -141,12 +160,12 @@ size_t ParseArray(std::string_view value, const VariantMetadataView& metadata,
   CheckAvailable(value, offset, count_size, "array size");
   const uint32_t num_elements = ReadLittleEndian(value, offset, count_size);
   offset += count_size;
+  const size_t offset_count = OffsetCount(num_elements);
 
-  CheckAvailable(value, offset, (static_cast<size_t>(num_elements) + 1) * offset_size,
-                 "array offsets");
+  CheckAvailable(value, offset, OffsetBytes(offset_count, offset_size), "array offsets");
 
-  std::vector<uint32_t> offsets(num_elements + 1);
-  for (uint32_t i = 0; i <= num_elements; ++i) {
+  std::vector<uint32_t> offsets(offset_count);
+  for (size_t i = 0; i < offset_count; ++i) {
     offsets[i] = ReadLittleEndian(value, offset, offset_size);
     offset += offset_size;
   }
@@ -213,10 +232,11 @@ size_t ParseObject(std::string_view value, const VariantMetadataView& metadata,
     offset += id_size;
   }
 
-  CheckAvailable(value, offset, (static_cast<size_t>(num_elements) + 1) * offset_size,
+  const size_t offset_count = OffsetCount(num_elements);
+  CheckAvailable(value, offset, OffsetBytes(offset_count, offset_size),
                  "object field offsets");
-  std::vector<uint32_t> field_offsets(num_elements + 1);
-  for (uint32_t i = 0; i <= num_elements; ++i) {
+  std::vector<uint32_t> field_offsets(offset_count);
+  for (size_t i = 0; i < offset_count; ++i) {
     field_offsets[i] = ReadLittleEndian(value, offset, offset_size);
     offset += offset_size;
   }
@@ -373,12 +393,12 @@ VariantMetadataView VariantMetadataView::ParsePrefix(std::string_view data,
   CheckAvailable(data, 1, view.offset_size_, "metadata dictionary size");
   const uint32_t dictionary_size = ReadLittleEndian(data, 1, view.offset_size_);
   const size_t offsets_offset = 1 + view.offset_size_;
-  CheckAvailable(data, offsets_offset,
-                 (static_cast<size_t>(dictionary_size) + 1) * view.offset_size_,
-                 "metadata dictionary offsets");
+  const size_t offset_count = OffsetCount(dictionary_size);
+  const size_t offset_bytes = OffsetBytes(offset_count, view.offset_size_);
+  CheckAvailable(data, offsets_offset, offset_bytes, "metadata dictionary offsets");
 
-  std::vector<uint32_t> offsets(dictionary_size + 1);
-  for (uint32_t i = 0; i <= dictionary_size; ++i) {
+  std::vector<uint32_t> offsets(offset_count);
+  for (size_t i = 0; i < offset_count; ++i) {
     offsets[i] =
         ReadLittleEndian(data, offsets_offset + i * view.offset_size_, view.offset_size_);
   }
@@ -394,8 +414,7 @@ VariantMetadataView VariantMetadataView::ParsePrefix(std::string_view data,
     }
   }
 
-  const size_t bytes_offset =
-      offsets_offset + (static_cast<size_t>(dictionary_size) + 1) * view.offset_size_;
+  const size_t bytes_offset = offsets_offset + offset_bytes;
   const size_t bytes_size = offsets[dictionary_size];
   CheckAvailable(data, bytes_offset, bytes_size, "metadata dictionary bytes");
   const size_t metadata_size = bytes_offset + bytes_size;
@@ -463,31 +482,31 @@ std::optional<VariantValueView> VariantObjectView::GetField(std::string_view nam
   if (it == fields_.end() || it->name != name) {
     return std::nullopt;
   }
-  return VariantValueView::MakeShallow(it->value, metadata_.get());
+  return VariantValueView::Make(it->value, metadata_.get());
 }
 
 std::optional<VariantValueView> VariantObjectView::GetField(size_t index) const {
   if (index >= fields_.size()) {
     return std::nullopt;
   }
-  return VariantValueView::MakeShallow(fields_[index].value, metadata_.get());
+  return VariantValueView::Make(fields_[index].value, metadata_.get());
 }
 
 std::optional<VariantValueView> VariantArrayView::GetElement(size_t index) const {
   if (index >= elements_.size()) {
     return std::nullopt;
   }
-  return VariantValueView::MakeShallow(elements_[index], metadata_.get());
+  return VariantValueView::Make(elements_[index], metadata_.get());
 }
 
 VariantValueView VariantValueView::Make(std::string_view value,
                                         const VariantMetadataView& metadata) {
-  return ParseCompleteValue<true>(value, metadata);
+  return ParseCompleteValue<false>(value, metadata);
 }
 
-VariantValueView VariantValueView::MakeShallow(std::string_view value,
-                                               const VariantMetadataView& metadata) {
-  return ParseCompleteValue<false>(value, metadata);
+VariantValueView VariantValueView::MakeWithValidate(std::string_view value,
+                                                    const VariantMetadataView& metadata) {
+  return ParseCompleteValue<true>(value, metadata);
 }
 
 VariantBasicType VariantValueView::PeekBasicType(std::string_view value) {

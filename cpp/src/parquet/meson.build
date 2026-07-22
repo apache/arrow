@@ -58,6 +58,7 @@ parquet_srcs = files(
     'variant/array_internal.cc',
     'variant/builder.cc',
     'variant/decoding.cc',
+    'variant/shred.cc',
     'variant/slot_internal.cc',
     'variant/unshred.cc',
     'variant/validate.cc',
