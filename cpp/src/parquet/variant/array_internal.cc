@@ -28,6 +28,20 @@ namespace parquet::variant::internal {
 using ::arrow::Array;
 using ::arrow::internal::checked_cast;
 
+std::string_view BinaryFieldView(const Array& array, int64_t row) {
+  switch (array.type_id()) {
+    case ::arrow::Type::BINARY:
+      return checked_cast<const ::arrow::BinaryArray&>(array).GetView(row);
+    case ::arrow::Type::LARGE_BINARY:
+      return checked_cast<const ::arrow::LargeBinaryArray&>(array).GetView(row);
+    case ::arrow::Type::BINARY_VIEW:
+      return checked_cast<const ::arrow::BinaryViewArray&>(array).GetView(row);
+    default:
+      throw ParquetInvalidOrCorruptedFileException("Expected binary Variant field, got ",
+                                                   array.type()->ToString());
+  }
+}
+
 std::shared_ptr<Array> ValuesArray(const Array& array) {
   switch (array.type_id()) {
     case ::arrow::Type::LIST_VIEW:
@@ -71,20 +85,6 @@ std::pair<int64_t, int64_t> ValuesRangeAt(const Array& array, int64_t row) {
     default:
       throw ParquetException("Expected list or map storage, got ",
                              array.type()->ToString());
-  }
-}
-
-std::string_view BinaryFieldView(const Array& array, int64_t row) {
-  switch (array.type_id()) {
-    case ::arrow::Type::BINARY:
-      return checked_cast<const ::arrow::BinaryArray&>(array).GetView(row);
-    case ::arrow::Type::LARGE_BINARY:
-      return checked_cast<const ::arrow::LargeBinaryArray&>(array).GetView(row);
-    case ::arrow::Type::BINARY_VIEW:
-      return checked_cast<const ::arrow::BinaryViewArray&>(array).GetView(row);
-    default:
-      throw ParquetInvalidOrCorruptedFileException("Expected binary Variant field, got ",
-                                                   array.type()->ToString());
   }
 }
 
