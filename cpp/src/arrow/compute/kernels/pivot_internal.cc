@@ -23,11 +23,9 @@
 
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/builder_binary.h"
-#include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -81,17 +79,21 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
     }
     // GH-48679: the fast grouper implementation may produce non-monotonic
     // group ids, for example [0,1,2,4,3] rather than [0,1,2,3,4].
-    // Therefore, we need to produce a mapping a mapping of group ids to key indices.
-    auto key_indices_to_group_ids_data = key_indices_to_group_ids.array();
+    // Therefore, we need to produce a mapping of group ids to key indices.
+    // TODO: revisit this if the fast grouper is amended to guarantee monotonic
+    // group ids.
+    auto key_indices_to_group_ids_data = key_indices_to_group_ids.array()->Copy();
     // InversePermutation doesn't allow unsigned integers, patch to signed.
     DCHECK_EQ(key_indices_to_group_ids_data->type->id(), Type::UINT32);
     key_indices_to_group_ids_data->type = int32();
-    ARROW_ASSIGN_OR_RAISE(group_ids_to_key_indices_,
+    ARROW_ASSIGN_OR_RAISE(auto group_ids_to_key_indices,
                           InversePermutation(key_indices_to_group_ids_data,
                                              InversePermutationOptions::Defaults(), ctx));
-    group_ids_to_key_indices_.array()->type = uint32();
-    DCHECK_EQ(group_ids_to_key_indices_.length(), grouper_->num_groups());
-    DCHECK_EQ(group_ids_to_key_indices_.null_count(), 0);
+    auto group_ids_to_key_indices_data = group_ids_to_key_indices.array()->Copy();
+    group_ids_to_key_indices_data->type = uint32();
+    DCHECK_EQ(group_ids_to_key_indices.length(), grouper_->num_groups());
+    DCHECK_EQ(group_ids_to_key_indices.null_count(), 0);
+    group_ids_to_key_indices_ = Datum(std::move(group_ids_to_key_indices_data));
     return Status::OK();
   }
 
