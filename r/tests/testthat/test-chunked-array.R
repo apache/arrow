@@ -86,7 +86,7 @@ test_that("ChunkedArray", {
   expect_error(x$Slice(10, -1), "Slice 'length' cannot be negative")
   expect_error(x$Slice(-1, 10), "Slice 'offset' cannot be negative")
 
-  expect_warning(x$Slice(10, 15), NA)
+  expect_no_warning(x$Slice(10, 15))
   expect_warning(
     overslice <- x$Slice(10, 16),
     "Slice 'length' greater than available length"
@@ -398,7 +398,7 @@ test_that("ChunkedArray$View() (ARROW-6542)", {
 
 test_that("ChunkedArray$Validate()", {
   a <- ChunkedArray$create(1:10)
-  expect_error(a$Validate(), NA)
+  expect_no_error(a$Validate())
 })
 
 test_that("[ ChunkedArray", {

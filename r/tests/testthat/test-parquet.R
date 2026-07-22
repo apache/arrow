@@ -22,8 +22,8 @@ pq_file <- system.file("v0.7.1.parquet", package = "arrow")
 test_that("reading a known Parquet file to tibble", {
   skip_if_not_available("snappy")
   df <- read_parquet(pq_file)
-  expect_true(tibble::is_tibble(df))
-  expect_identical(dim(df), c(10L, 11L))
+  expect_s3_class(df, "tbl_df")
+  expect_shape(df, dim = c(10L, 11L))
   # TODO: assert more about the contents
 })
 
@@ -52,7 +52,7 @@ test_that("read_parquet() with raw data", {
   skip_if_not_available("snappy")
   test_raw <- readBin(pq_file, what = "raw", n = 5000)
   df <- read_parquet(test_raw)
-  expect_identical(dim(df), c(10L, 11L))
+  expect_shape(df, dim = c(10L, 11L))
 })
 
 test_that("write_parquet() handles various compression= specs", {
@@ -489,8 +489,8 @@ test_that("Can read Parquet files from a URL", {
   skip_if_not_available("snappy")
   parquet_url <- "https://github.com/apache/arrow/raw/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet" # nolint
   pu <- read_parquet(parquet_url)
-  expect_true(tibble::is_tibble(pu))
-  expect_identical(dim(pu), c(10L, 11L))
+  expect_s3_class(pu, "tbl_df")
+  expect_shape(pu, dim = c(10L, 11L))
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {

@@ -17,7 +17,7 @@
 
 test_that("list_compute_functions() works", {
   expect_type(list_compute_functions(), "character")
-  expect_all_false(grepl("^hash_", list_compute_functions()))
+  expect_no_match(list_compute_functions(), "^hash_")
 })
 
 test_that("arrow_scalar_function() works", {
@@ -95,8 +95,8 @@ test_that("register_scalar_function() adds a compute function to the registry", 
   )
   on.exit(unregister_binding("times_32"))
 
-  expect_true("times_32" %in% names(asNamespace("arrow")$.cache$functions))
-  expect_true("times_32" %in% list_compute_functions())
+  expect_contains(names(asNamespace("arrow")$.cache$functions), "times_32")
+  expect_contains(list_compute_functions(), "times_32")
 
   expect_equal(
     call_function("times_32", Array$create(1L, int32())),

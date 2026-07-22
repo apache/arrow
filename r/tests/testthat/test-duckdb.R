@@ -236,7 +236,7 @@ test_that("Joining, auto-cleanup enabled", {
       ".int"
     )
   )
-  expect_identical(dim(res), c(9L, 14L))
+  expect_shape(res, dim = c(9L, 14L))
 
   # clean up cleans up the tables
   expect_all_true(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con))

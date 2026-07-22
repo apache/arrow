@@ -333,6 +333,6 @@ test_that("Can read Feather files from a URL", {
   skip_on_cran()
   feather_url <- "https://github.com/apache/arrow-testing/raw/master/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_datetime.arrow_file" # nolint
   fu <- read_feather(feather_url)
-  expect_true(tibble::is_tibble(fu))
-  expect_identical(dim(fu), c(17L, 15L))
+  expect_s3_class(fu, "tbl_df")
+  expect_shape(fu, dim = c(17L, 15L))
 })

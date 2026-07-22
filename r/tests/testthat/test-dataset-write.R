@@ -67,7 +67,7 @@ test_that("Writing a dataset: CSV->IPC", {
     as_data_frame = FALSE
   )
   # It shouldn't be there
-  expect_false("int" %in% names(first))
+  expect_disjoint(names(first), "int")
 })
 
 test_that("Writing a dataset: Parquet->IPC", {
@@ -221,9 +221,7 @@ test_that("Writing a dataset: no format specified", {
     list.files(dst_dir, pattern = "parquet"),
     "part-0.parquet"
   )
-  expect_true(
-    inherits(new_ds$format, "ParquetFileFormat")
-  )
+  expect_s3_class(new_ds$format, "ParquetFileFormat")
   expect_equal(
     new_ds |> collect(),
     example_data
@@ -581,9 +579,7 @@ test_that("max_rows_per_file = 0 does not trigger max_rows_per_group adjustment 
 
   # max_rows_per_file = 0 means "no limit" and should not error
   dst_dir <- make_temp_dir()
-  expect_no_error(
-    write_dataset(df1, dst_dir, max_rows_per_file = 0L)
-  )
+  expect_no_error(write_dataset(df1, dst_dir, max_rows_per_file = 0L))
 })
 
 

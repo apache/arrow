@@ -458,7 +458,7 @@ test_that("Write a CSV with custom NA value", {
   expect_true(file.exists(csv_file))
 
   csv_contents <- readLines(csv_file)
-  expect_true(any(grepl(",,", csv_contents)))
+  expect_match(csv_contents, ",,", all = FALSE)
 
   tbl_in1 <- read_csv_arrow(csv_file)
   expect_identical(tbl_in1, tbl_no_dates)
