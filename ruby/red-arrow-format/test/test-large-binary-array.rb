@@ -16,6 +16,11 @@
 # under the License.
 
 class TestLargeBinaryArray < Test::Unit::TestCase
+  def setup
+    @values = ["\x00\x01".b, nil, "\xff\x10".b]
+    @array = ArrowFormat::LargeBinaryArray.new(@values)
+  end
+
   sub_test_case("#initialize") do
     def test_no_null
       values = ["\x00\x01".b, "\xff\x10".b]
@@ -50,6 +55,16 @@ class TestLargeBinaryArray < Test::Unit::TestCase
       array1 = ArrowFormat::LargeBinaryArray.new(values)
       array2 = ArrowFormat::LargeBinaryArray.new(["".b, "".b, *values, "".b])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[3], @array[3])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end

@@ -61,6 +61,14 @@ module ArrowFormat
       not valid?(i)
     end
 
+    def [](i)
+      if valid?(i)
+        unpack_value(i)
+      else
+        nil
+      end
+    end
+
     def n_nulls
       if @validity_buffer.nil?
         0
@@ -165,6 +173,14 @@ module ArrowFormat
   class NullArray < Array
     def initialize(size)
       super(NullType.singleton, size, nil)
+    end
+
+    def valid?(i)
+      false
+    end
+
+    def null?(i)
+      true
     end
 
     def each_buffer
@@ -294,6 +310,11 @@ module ArrowFormat
       value = 0 if value.nil?
       [value].pack(template)
     end
+
+    def unpack_value(i)
+      offset = element_size * (@offset + i)
+      @values_buffer.get_value(@type.buffer_type, offset)
+    end
   end
 
   class BooleanArray < PrimitiveArray
@@ -361,6 +382,10 @@ module ArrowFormat
       end
       validity_buffer = validity_buffer_builder&.finish(n)
       return n, validity_buffer, values_buffer_builder.finish
+    end
+
+    def unpack_value(i)
+      values_bitmap[i]
     end
   end
 
@@ -600,6 +625,11 @@ module ArrowFormat
         value.pack(template)
       end
     end
+
+    def unpack_value(i)
+      offset = element_size * (@offset + i)
+      @values_buffer.get_values([@type.buffer_type] * 2, offset)
+    end
   end
 
   class MonthDayNanoIntervalArray < IntervalArray
@@ -660,6 +690,13 @@ module ArrowFormat
       else
         value.pack(template)
       end
+    end
+
+    def unpack_value(i)
+      buffer_types = @type.buffer_types
+      value_size = IO::Buffer.size_of(buffer_types)
+      offset = value_size * (@offset + i)
+      @values_buffer.get_values(buffer_types, offset)
     end
   end
 
@@ -767,6 +804,15 @@ module ArrowFormat
 
     def offset_size
       IO::Buffer.size_of(@type.offset_buffer_type)
+    end
+
+    def unpack_value(i)
+      offset_types = [@type.offset_buffer_type] * 2
+      offsets_offset = offset_size * (@offset + i)
+      offset, next_offset = @offsets_buffer.get_values(offset_types,
+                                                       offsets_offset)
+      length = next_offset - offset
+      @values_buffer.get_string(offset, length, @type.encoding)
     end
   end
 

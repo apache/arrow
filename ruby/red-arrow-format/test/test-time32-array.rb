@@ -19,6 +19,8 @@ class TestTime32Array < Test::Unit::TestCase
   def setup
     @time_00_00_10 = 10
     @time_00_01_10 = 60 + 10
+    @values = [@time_00_00_10, nil, @time_00_01_10]
+    @array = ArrowFormat::Time32Array.new(:second, @values)
   end
 
   sub_test_case("#initialize") do
@@ -55,6 +57,16 @@ class TestTime32Array < Test::Unit::TestCase
       array1 = ArrowFormat::Time32Array.new(:second, values)
       array2 = ArrowFormat::Time32Array.new(:second, [0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[3], @array[3])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end

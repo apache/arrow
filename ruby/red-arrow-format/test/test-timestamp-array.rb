@@ -19,6 +19,12 @@ class TestTimestampArray < Test::Unit::TestCase
   def setup
     @timestamp_2019_11_17_15_09_11 = 1574003351
     @timestamp_2025_12_16_05_33_58 = 1765863238
+    @values = [
+      @timestamp_2019_11_17_15_09_11,
+      nil,
+      @timestamp_2025_12_16_05_33_58,
+    ]
+    @array = ArrowFormat::TimestampArray.new(:second, @values)
   end
 
   sub_test_case("#initialize") do
@@ -81,6 +87,16 @@ class TestTimestampArray < Test::Unit::TestCase
       array1 = ArrowFormat::TimestampArray.new(:second, values)
       array2 = ArrowFormat::TimestampArray.new(:second, [0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[3], @array[3])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end
