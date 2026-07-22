@@ -351,6 +351,7 @@ class ArrayCountSorter {
   template <typename CounterType>
   void EmitIndices(const NullLikePartition& p, const ArrayType& values, int64_t offset,
                    CounterType* counts) const {
+    DCHECK(p.nan_range.empty());
     int64_t index = offset;
     CounterType count_nulls = 0;
     VisitRawValuesInline<c_type>(

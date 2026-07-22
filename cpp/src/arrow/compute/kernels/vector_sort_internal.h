@@ -56,6 +56,7 @@ namespace arrow::compute::internal {
 // NOTE: std::partition is usually faster than std::stable_partition.
 
 struct NonStablePartitioner {
+  // this follows std::ranges::partition semantics and returns the right-hand partition
   template <typename Predicate>
   auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
     auto middle = std::partition(indices.data(), indices.data() + indices.size(),
@@ -65,6 +66,7 @@ struct NonStablePartitioner {
 };
 
 struct StablePartitioner {
+  // this follows std::ranges::partition semantics and returns the right-hand partition
   template <typename Predicate>
   auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
     auto middle = std::stable_partition(indices.data(), indices.data() + indices.size(),
@@ -185,6 +187,8 @@ struct NullPartition {
     }
   }
 
+  // Note that we always pass the tail-partition second.
+  // In this function _nulls_ are passed as a second argument.
   static NullPartition NullsAtEnd(std::span<uint64_t> indices,
                                   std::span<uint64_t> null_tail) {
     ARROW_DCHECK_GE(null_tail.data(), indices.data());
@@ -192,6 +196,8 @@ struct NullPartition {
     return {.non_nulls = {indices.data(), null_tail.data()}, .nulls = null_tail};
   }
 
+  // Note that we always pass the tail-partition second.
+  // In this function the _non-nulls_ are passed as a second argument.
   static NullPartition NullsAtStart(std::span<uint64_t> indices,
                                     std::span<uint64_t> non_null_tail) {
     ARROW_DCHECK_GE(non_null_tail.data(), indices.data());
@@ -213,12 +219,12 @@ NullPartition PartitionNullsOnly(std::span<uint64_t> indices, const Array& value
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
     auto non_null_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
-      return values.IsNull(ind - offset);
+      return values.IsNull(static_cast<int64_t>(ind) - offset);
     });
     return NullPartition::NullsAtStart(indices, non_null_tail);
   } else {
     auto null_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
-      return !values.IsNull(ind - offset);
+      return !values.IsNull(static_cast<int64_t>(ind) - offset);
     });
     return NullPartition::NullsAtEnd(indices, null_tail);
   }
@@ -239,13 +245,13 @@ NanPartition PartitionNans(std::span<uint64_t> indices, const ArrayType& values,
     Partitioner partitioner;
     if (null_placement == NullPlacement::AtStart) {
       auto non_null_like_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
-        return std::isnan(values.GetView(ind - offset));
+        return std::isnan(values.GetView(static_cast<int64_t>(ind) - offset));
       });
       return NanPartition{.non_null_like_range = non_null_like_tail,
                           .nan_range = {indices.data(), non_null_like_tail.data()}};
     } else {
       auto nan_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
-        return !std::isnan(values.GetView(ind - offset));
+        return !std::isnan(values.GetView(static_cast<int64_t>(ind) - offset));
       });
       return NanPartition{.non_null_like_range = {indices.data(), nan_tail.data()},
                           .nan_range = nan_tail};
