@@ -115,7 +115,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
       std::vector<ChunkedNullLikePartition> chunk_sorted(num_chunks);
       for (int i = 0; i < num_chunks; ++i) {
-        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices.data());
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_, chunked_indices);
       }
 
       // merge function for merging ranges where the first sort key is equal
@@ -155,7 +155,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
       // Reverse everything
       sorted.resize(1);
-      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices.data(), indices_.data());
+      sorted[0] = chunk_sorted[0].TranslateTo(chunked_indices, indices_);
 
       RETURN_NOT_OK(chunked_mapper.PhysicalToLogical());
     }
@@ -681,7 +681,7 @@ class TableSorter {
 
       std::vector<ChunkedNullLikePartition> chunk_sorted(num_batches);
       for (int64_t i = 0; i < num_batches; ++i) {
-        chunk_sorted[i] = sorted[i].TranslateTo(indices_.data(), chunked_indices.data());
+        chunk_sorted[i] = sorted[i].TranslateTo(indices_, chunked_indices);
       }
 
       struct Visitor {
