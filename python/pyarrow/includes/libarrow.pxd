@@ -776,8 +776,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         )
 
         const int32_t* raw_value_offsets()
-        int32_t value_offset(int i)
-        int32_t value_length(int i)
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CDataType] value_type()
@@ -800,8 +800,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CBuffer] null_bitmap
         )
 
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CDataType] value_type()
@@ -819,8 +819,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CDataType],
             shared_ptr[CBuffer] null_bitmap)
 
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
@@ -850,8 +850,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const int32_t* raw_value_offsets()
         const int32_t* raw_value_sizes()
-        int32_t value_offset(int i)
-        int32_t value_length(int i)
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CArray] sizes()
@@ -881,8 +881,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             CMemoryPool* pool
         )
 
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CArray] sizes()
@@ -911,8 +911,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
         CMapType* map_type()
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
@@ -941,7 +941,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[c_string]& field_names,
             const vector[int8_t]& type_codes)
 
-        int32_t value_offset(int i)
+        int32_t value_offset(int64_t i)
         shared_ptr[CBuffer] value_offsets()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
