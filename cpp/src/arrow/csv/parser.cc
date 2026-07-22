@@ -533,12 +533,12 @@ class BlockParserImpl {
     }
 
     if (batch_.num_rows_ > start_num_rows && batch_.num_cols_ > 0) {
-      // Use bulk filter only if average value length is >= 10 bytes,
-      // as the bulk filter has a fixed cost that isn't compensated
-      // when values are too short.
+      // Use bulk filter only if average value length is >= 10 bytes
+      // (its fixed cost isn't compensated for short values), and the block
+      // has no embedded NUL bytes (see block_has_nul_).
       const int64_t bulk_filter_threshold = static_cast<int64_t>(batch_.num_cols_) *
                                             (batch_.num_rows_ - start_num_rows) * 10;
-      use_bulk_filter_ = (data - *out_data) > bulk_filter_threshold;
+      use_bulk_filter_ = !block_has_nul_ && (data - *out_data) > bulk_filter_threshold;
     }
 
     // Append new buffers and update size
@@ -561,8 +561,16 @@ class BlockParserImpl {
     values_size_ = 0;
 
     size_t total_view_length = 0;
+    block_has_nul_ = false;
     for (const auto& view : views) {
       total_view_length += view.length();
+      if (!block_has_nul_ && !bulk_filter.CanUseOnBlock(view)) {
+        block_has_nul_ = true;
+      }
+    }
+    if (block_has_nul_) {
+      // Clear a bulk filter left on by an earlier NUL-free block.
+      use_bulk_filter_ = false;
     }
     if (total_view_length > std::numeric_limits<uint32_t>::max()) {
       return Status::Invalid("CSV block too large");
@@ -691,6 +699,7 @@ class BlockParserImpl {
   int32_t max_num_rows_;
 
   bool use_bulk_filter_ = false;
+  bool block_has_nul_ = false;
 
   // Unparsed data size
   int32_t values_size_;
