@@ -56,13 +56,16 @@ parquet_srcs = files(
     'stream_writer.cc',
     'types.cc',
     'variant/array_internal.cc',
-    'variant/builder.cc',
     'variant/decoding.cc',
     'variant/shred.cc',
-    'variant/slot_internal.cc',
     'variant/unshred.cc',
     'variant/validate.cc',
     'xxhasher.cc',
+)
+
+parquet_variant_va_opt_srcs = files(
+    'variant/builder.cc',
+    'variant/slot_internal.cc',
 )
 
 thrift_dep = dependency('thrift', allow_fallback: false, required: false)
@@ -124,11 +127,25 @@ else
     parquet_srcs += files('encryption/encryption_internal_nossl.cc')
 endif
 
+parquet_link_whole = []
+if cpp_compiler.get_id() == 'msvc'
+    parquet_variant_va_opt_lib = static_library(
+        'parquet-variant-va-opt',
+        parquet_variant_va_opt_srcs,
+        dependencies: parquet_deps,
+        cpp_args: ['/Zc:preprocessor'],
+    )
+    parquet_link_whole += [parquet_variant_va_opt_lib]
+else
+    parquet_srcs += parquet_variant_va_opt_srcs
+endif
+
 parquet_lib = library(
     'arrow-parquet',
     sources: parquet_srcs,
     dependencies: parquet_deps,
     gnu_symbol_visibility: 'inlineshidden',
+    link_whole: parquet_link_whole,
 )
 
 parquet_dep = declare_dependency(link_with: parquet_lib)

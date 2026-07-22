@@ -45,15 +45,10 @@ using ::arrow::ExtensionArray;
 using ::arrow::StructArray;
 using ::arrow::internal::checked_cast;
 
-#ifdef _MSC_VER
-#  define VARIANT_TARGET_DECL(...) (BuildTarget * target, ##__VA_ARGS__)
-#  define VARIANT_OBJECT_CALL_ARGS(...) destination.field_name, ##__VA_ARGS__
-#else
-#  define VARIANT_TARGET_DECL(...) \
-    (BuildTarget * target __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
-#  define VARIANT_OBJECT_CALL_ARGS(...) \
-    destination.field_name __VA_OPT__(, ) __VA_ARGS__  // NOLINT
-#endif
+#define VARIANT_TARGET_DECL(...) \
+  (BuildTarget * target __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
+#define VARIANT_OBJECT_CALL_ARGS(...) \
+  destination.field_name __VA_OPT__(, ) __VA_ARGS__  // NOLINT
 
 #define DEFINE_TARGET_APPEND(NAME, decl_args, ...)                          \
   void Append##NAME VARIANT_TARGET_DECL decl_args {                         \

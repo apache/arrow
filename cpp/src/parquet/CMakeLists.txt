@@ -200,6 +200,11 @@ set(PARQUET_SRCS
     variant/validate.cc
     xxhasher.cc)
 
+if(MSVC)
+  set_source_files_properties(variant/builder.cc variant/slot_internal.cc
+                              PROPERTIES COMPILE_OPTIONS /Zc:preprocessor)
+endif()
+
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND

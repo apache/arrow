@@ -753,12 +753,8 @@ VariantObjectBuilder::VariantObjectBuilder(VariantObjectBuilder&&) noexcept = de
 VariantObjectBuilder& VariantObjectBuilder::operator=(VariantObjectBuilder&&) noexcept =
     default;
 
-#ifdef _MSC_VER
-#  define VARIANT_OBJECT_DECL(...) (std::string_view field_name, ##__VA_ARGS__)
-#else
-#  define VARIANT_OBJECT_DECL(...) \
-    (std::string_view field_name __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
-#endif
+#define VARIANT_OBJECT_DECL(...) \
+  (std::string_view field_name __VA_OPT__(, ) __VA_ARGS__)  // NOLINT
 
 #define DEFINE_OBJECT_DIRECT_APPEND(NAME, decl_args, ...)                              \
   void VariantObjectBuilder::Append##NAME VARIANT_OBJECT_DECL decl_args {              \
