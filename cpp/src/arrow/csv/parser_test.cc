@@ -937,20 +937,14 @@ TEST(BlockParser, RowNumberAppendedToError) {
 }
 
 TEST(BlockParser, EmbeddedNulBytesDisableBulkFilter) {
-  // Regression test for GH-50481: the bulk filter's implicit-length SIMD
-  // compare can miss a delimiter sharing a word with an embedded NUL byte.
-  // The fix disables the bulk filter for any block containing a NUL, so
-  // every cell here carries one. num_cols is explicit so the bulk filter
-  // isn't delayed by the single-row column-count-inference parse path.
+  // Regression test for GH-50481: disables the bulk filter for any block
+  // with an embedded NUL, so every cell here carries one.
   constexpr int32_t num_cols = 64;
-  // Each ParseChunk call is capped at ~512 rows for num_cols == 64 (from
-  // parser.cc's private kTargetChunkSize). Use 4x that margin so the filler
-  // block still spans multiple calls -- keeping the bulk filter armed
-  // before the trigger row -- even if that constant changes.
+  // 4x the ~512-row ParseChunk cap for num_cols == 64, so the filler block
+  // spans multiple calls even if that internal constant changes.
   constexpr int32_t num_filler_rows = 4 * 512;
 
-  // 12 bytes/value, above the bulk filter's 10-byte threshold; the
-  // trailing NUL lands outside the first SIMD word, so it's harmless here.
+  // 12 bytes/value, above the bulk filter's activation threshold.
   std::string filler_cell = "xxxxxxxxxxx";
   filler_cell += '\0';
 
@@ -962,8 +956,7 @@ TEST(BlockParser, EmbeddedNulBytesDisableBulkFilter) {
     }
     csv += '\n';
   }
-  // Embeds a NUL right before the closing quote - the pattern a
-  // misaligned SIMD scan can hide.
+  // NUL right before the closing quote: the misaligned-SIMD-scan trigger.
   csv += "\"abc";
   csv += '\0';
   csv += "def\"";
@@ -981,7 +974,7 @@ TEST(BlockParser, EmbeddedNulBytesDisableBulkFilter) {
   GetLastRow(parser, &last_row);
   ASSERT_EQ(last_row.size(), static_cast<size_t>(num_cols));
   ASSERT_EQ(last_row[0], std::string("abc\0def", 7));
-  // The row's other NUL-bearing fields must come through unmangled too.
+  // Other NUL-bearing fields in the row must come through unmangled too.
   for (size_t c = 1; c < last_row.size(); ++c) {
     ASSERT_EQ(last_row[c], filler_cell) << "column " << c;
   }
