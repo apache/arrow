@@ -3643,11 +3643,20 @@ cdef class MapArray(ListArray):
         cdef list keys_py = [keys._getitem_py(j, None) for j in range(start, end)]
         cdef dict result = {}
         cdef int64_t k
-        if len(set(keys_py)) == count:
+        cdef bint no_dups
+        try:
+            no_dups = len(set(keys_py)) == count
+        except TypeError:
+            # Unhashable keys (e.g. struct or list keys): the per-key loop
+            # below reproduces MapScalar.as_py exactly, raising TypeError at
+            # the same membership test as the Scalar path does.
+            no_dups = False
+        if no_dups:
             for k in range(count):
                 result[keys_py[k]] = items._getitem_py(start + k, maps_as_pydicts)
             return result
-        # Duplicate keys: per-key loop matching MapScalar.as_py exactly.
+        # Duplicate or unhashable keys: per-key loop matching MapScalar.as_py
+        # exactly.
         for k in range(count):
             key = keys_py[k]
             if key in result:

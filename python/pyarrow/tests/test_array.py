@@ -563,6 +563,20 @@ def test_to_pylist_maps_as_pydicts():
     # matching the Scalar-based behavior
     assert pa.array([1, 2]).to_pylist(maps_as_pydicts="bogus") == [1, 2]
 
+    # Unhashable keys (e.g. struct keys) must fail exactly like the Scalar
+    # path: TypeError from the first dict membership test, in both modes.
+    # The association-list mode involves no hashing and must keep working.
+    struct_keyed = pa.MapArray.from_arrays(
+        [0, 2],
+        pa.array([{"a": 1}, {"a": 2}], type=pa.struct([("a", pa.int32())])),
+        pa.array([10, 20], type=pa.int32()))
+    assert struct_keyed.to_pylist() == [x.as_py() for x in struct_keyed]
+    for mode in ("lossy", "strict"):
+        with pytest.raises(TypeError, match="unhashable"):
+            struct_keyed.to_pylist(maps_as_pydicts=mode)
+        with pytest.raises(TypeError, match="unhashable"):
+            [x.as_py(maps_as_pydicts=mode) for x in struct_keyed]
+
 
 def test_array_slice():
     arr = pa.array(range(10))
