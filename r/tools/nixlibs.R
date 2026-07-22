@@ -589,6 +589,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
   }
 
+  if (Sys.getenv("simdjson_SOURCE") == "") {
+    env_var_list <- c(env_var_list, simdjson_SOURCE = "BUNDLED")
+  }
+
   # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled
   # Necessary due to #39590 for CRAN
   if (on_macos) {
