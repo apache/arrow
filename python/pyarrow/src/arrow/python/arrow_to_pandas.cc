@@ -1293,10 +1293,16 @@ struct ObjectWriterVisitor {
                               PyObject** out) {
       ARROW_DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
 
-      PyDict_SetItemString(kwargs.obj(), "months", PyLong_FromLong(interval.months));
-      PyDict_SetItemString(kwargs.obj(), "days", PyLong_FromLong(interval.days));
-      PyDict_SetItemString(kwargs.obj(), "nanoseconds",
-                           PyLong_FromLongLong(interval.nanoseconds));
+      OwnedRef months(PyLong_FromLong(interval.months));
+      OwnedRef days(PyLong_FromLong(interval.days));
+      OwnedRef nanoseconds(PyLong_FromLongLong(interval.nanoseconds));
+      RETURN_IF_PYERROR();
+      PyDict_SetItemString(kwargs.obj(), "months", months.obj());
+      RETURN_IF_PYERROR();
+      PyDict_SetItemString(kwargs.obj(), "days", days.obj());
+      RETURN_IF_PYERROR();
+      PyDict_SetItemString(kwargs.obj(), "nanoseconds", nanoseconds.obj());
+      RETURN_IF_PYERROR();
       *out =
           PyObject_Call(internal::BorrowPandasDataOffsetType(), args.obj(), kwargs.obj());
       RETURN_IF_PYERROR();
