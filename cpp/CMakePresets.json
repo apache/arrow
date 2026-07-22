@@ -681,6 +681,28 @@
         "PARQUET_REQUIRE_ENCRYPTION": "OFF",
         "re2_SOURCE": "BUNDLED"
       }
+    },
+    {
+      "name": "ninja-release-jni-windows",
+      "inherits": [
+        "base-release"
+      ],
+      "displayName": "Build for JNI on Windows",
+      "cacheVariables": {
+        "ARROW_ACERO": "ON",
+        "ARROW_BUILD_SHARED": "OFF",
+        "ARROW_BUILD_STATIC": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_DATASET": "ON",
+        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
+        "ARROW_ORC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_S3": "ON",
+        "ARROW_SUBSTRAIT": "ON",
+        "PARQUET_BUILD_EXAMPLES": "OFF",
+        "PARQUET_BUILD_EXECUTABLES": "OFF",
+        "PARQUET_REQUIRE_ENCRYPTION": "OFF"
+      }
     }
   ]
 }
