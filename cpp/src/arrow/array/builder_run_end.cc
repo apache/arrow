@@ -201,6 +201,7 @@ Status RunEndEncodedBuilder::AppendEmptyValues(int64_t length) {
   UpdateDimensions(committed_logical_length_, 0);
   return Status::OK();
 }
+
 Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
   if (scalar.type->id() == Type::RUN_END_ENCODED) {
     return AppendScalar(*internal::checked_cast<const RunEndEncodedScalar&>(scalar).value,

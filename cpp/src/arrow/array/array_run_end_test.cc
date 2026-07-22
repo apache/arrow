@@ -384,6 +384,7 @@ TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsPrimitiveScalar) {
   ASSERT_EQ(builder->length(), 5);
 
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+  ASSERT_OK(array->ValidateFull());
 
   auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
 
@@ -417,6 +418,7 @@ TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsRunEndEncodedScalar) {
   ASSERT_EQ(builder->length(), 5);
 
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
+  ASSERT_OK(array->ValidateFull());
 
   auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
 
