@@ -486,6 +486,14 @@ def test_to_pylist_bulk_paths():
                  type=pa.large_string()),
         pa.array([b"a\x00b", None, b"", b"\xff"], type=pa.binary()),
         pa.array([b"a\x00b", None, b""], type=pa.large_binary()),
+        # View types store short values inline and long values out-of-line;
+        # cover both, plus NUL bytes and non-ASCII data.
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}",
+                  "long string exceeding the inline view size"],
+                 type=pa.string_view()),
+        pa.array([b"a\x00b", None, b"", b"\xff",
+                  b"long binary value exceeding the inline view size"],
+                 type=pa.binary_view()),
         pa.array([[b"x", None, b"\x00y"], None, []],
                  type=pa.list_(pa.binary())),
         pa.array([1, None, -(2**62), 2**62], type=pa.int64()),
@@ -511,7 +519,7 @@ def test_to_pylist_bulk_paths():
     # Duplicate struct field names raise like StructScalar.as_py does
     dup = pa.StructArray.from_arrays(
         [pa.array([1, 2]), pa.array(["a", "b"])], names=["x", "x"])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="duplicate field names"):
         dup.to_pylist()
 
 

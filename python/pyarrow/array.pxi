@@ -1868,6 +1868,9 @@ cdef class Array(_PandasConvertible):
         if maps_as_pydicts is not None:
             # Converting maps to dicts has per-entry semantics (duplicate-key
             # detection); use the Scalar-based conversion for exact behavior.
+            # TODO(GH-50429): this falls back to the Scalar path for the whole
+            # array even when the type contains no maps; threading
+            # maps_as_pydicts through _getitem_py keeps the fast paths instead.
             return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
         # TODO(GH-50448): convert per range instead of per element to cut
         # the per-element call overhead further.
