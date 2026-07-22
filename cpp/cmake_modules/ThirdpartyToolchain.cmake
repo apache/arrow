@@ -1451,8 +1451,7 @@ macro(build_snappy)
     # ignore linker flag errors, as Snappy sets
     # -Werror -Wall, and Emscripten doesn't support -soname
     list(APPEND SNAPPY_CMAKE_ARGS
-         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
-         "-Wno-error=linkflags")
+         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}")
   endif()
 
   externalproject_add(snappy_ep
