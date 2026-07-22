@@ -252,6 +252,26 @@ TEST(Cast, SameTypeZeroCopy) {
   AssertBufferSame(*arr, *result, 1);
 }
 
+TEST(Cast, SameNestedTypeWithNullField) {
+  auto type = list(struct_({field("b", null()), field("g", utf8())}));
+  auto array =
+      ArrayFromJSON(type, R"([[{"b": null, "g": null}, {"b": null, "g": "moo"}]])");
+  auto null_field = std::make_shared<NullArray>(4)->Slice(2);
+  array->data()->child_data[0]->child_data[0] = null_field->data();
+  ASSERT_OK(array->ValidateFull());
+  auto input = std::make_shared<ChunkedArray>(ArrayVector{array});
+
+  ASSERT_OK_AND_ASSIGN(Datum result, Cast(input, type));
+  ASSERT_EQ(result.kind(), Datum::CHUNKED_ARRAY);
+  ASSERT_OK(result.chunked_array()->ValidateFull());
+  AssertChunkedEqual(*input, *result.chunked_array());
+
+  const auto& result_null_field =
+      result.chunked_array()->chunk(0)->data()->child_data[0]->child_data[0];
+  ASSERT_EQ(result_null_field->length, 2);
+  ASSERT_EQ(result_null_field->offset, 2);
+}
+
 TEST(Cast, ZeroChunks) {
   auto chunked_i32 = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
   ASSERT_OK_AND_ASSIGN(Datum result, Cast(chunked_i32, utf8()));
