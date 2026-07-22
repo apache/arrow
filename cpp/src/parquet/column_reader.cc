@@ -91,11 +91,31 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
     "Number of decoded rep / def levels do not match num_values in page header";
 
+/// True if a T can hold a V.
+template <typename T, typename U>
+inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
+                                   std::in_range<T>(std::numeric_limits<U>::max());
+
+/// Clamp to a given type.
 template <typename T, typename U>
 constexpr T clamp_to(U val) {
+  if constexpr (can_hold_v<T, U>) {
+    return static_cast<T>(val);
+  }
   constexpr U kMax = std::numeric_limits<T>::max();
   constexpr U kMin = std::numeric_limits<T>::min();
   return static_cast<T>(std::clamp<U>(val, kMin, kMax));
+}
+
+/// Return the int that can be represented by the other.
+template <typename T, typename U>
+using smallest_int_t = std::conditional_t<can_hold_v<T, U>, U, T>;
+
+/// Return the min in the smallest integer size of its inputs.
+template <typename T, typename U>
+constexpr auto narrow_min(T x, U y) -> smallest_int_t<T, U> {
+  using V = smallest_int_t<T, U>;
+  return std::min<V>(clamp_to<V>(x), clamp_to<V>(y));
 }
 
 }  // namespace
@@ -1181,9 +1201,11 @@ class ColumnChunkReader {
         rep_levels_decoder_(std::move(rep_levels_decoder)) {}
 
   void SetPageReader(std::unique_ptr<PageReader> reader) {
+    current_page_ = nullptr;
     pager_ = std::move(reader);
-    // Dictionary decoders must be reset when advancing row groups
+    current_decoder_.SetDecoder(nullptr);
     decoders_.clear();
+    current_encoding_ = Encoding::UNKNOWN;
   }
 
   bool HasPageReader() const { return pager_ != nullptr; }
@@ -1197,14 +1219,6 @@ class ColumnChunkReader {
   /// Check the encoding of the current page or throw an exception.
   void CheckEncodingIs(Encoding::type encoding);
 
- private:
-  // Declared here because `decoders_` below refers to it.
-  using DecoderType = TypedDecoder<DType>;
-
-  Derived& derived() { return static_cast<Derived&>(*this); }
-  const Derived& derived() const { return static_cast<const Derived&>(*this); }
-
- protected:
   int32_t ReadDefinitionLevels(int32_t batch_size, int16_t* levels) {
     if (max_def_level() == 0) {
       return 0;
@@ -1218,10 +1232,6 @@ class ColumnChunkReader {
     }
     return rep_levels_decoder_.Decode(batch_size, levels);
   }
-
-  const ColumnDescriptor* descr_;
-  ::arrow::MemoryPool* pool_;
-  SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
 
   // Available values in the current data page, value includes repeated values and nulls.
   int32_t available_values_current_page() const {
@@ -1238,7 +1248,14 @@ class ColumnChunkReader {
 
   int64_t Skip(int64_t num_values_to_skip);
 
+ protected:
+  const ColumnDescriptor* descr_;
+  ::arrow::MemoryPool* pool_;
+  SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
+
  private:
+  using DecoderType = TypedDecoder<DType>;
+
   LvlDec def_levels_decoder_;
   LvlDec rep_levels_decoder_;
   // Map of encoding type to the respective decoder object. For example, a
@@ -1246,7 +1263,7 @@ class ColumnChunkReader {
   // plain-encoded data.
   std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
   std::unique_ptr<PageReader> pager_;
-  std::shared_ptr<Page> current_page_;
+  std::shared_ptr<DataPage> current_page_;
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
   // non-repeated, required columns, this is equal to the number of encoded
@@ -1259,10 +1276,16 @@ class ColumnChunkReader {
   int32_t num_decoded_values_ = 0;
   Encoding::type current_encoding_ = Encoding::UNKNOWN;
 
+  Derived& derived() { return static_cast<Derived&>(*this); }
+  const Derived& derived() const { return static_cast<const Derived&>(*this); }
+
   // Advance to the next data page
   bool ReadNewPage();
 
   void ConfigureDictionary(const DictionaryPage* page);
+
+  template <typename DP>
+  void InitializeDataPage(std::shared_ptr<DP> page);
 
   // Get a decoder object for this page or create a new decoder if this is the
   // first page with this encoding.
@@ -1305,31 +1328,20 @@ template <typename Derived>
 bool ColumnChunkReader<Derived>::ReadNewPage() {
   // Loop until we find the next data page.
   while (true) {
-    current_page_ = pager_->NextPage();
-    if (!current_page_) {
+    std::shared_ptr<Page> page = pager_->NextPage();
+    if (!page) {
       // EOS
       return false;
     }
 
-    if (current_page_->type() == PageType::DICTIONARY_PAGE) {
-      ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
+    if (page->type() == PageType::DICTIONARY_PAGE) {
+      ConfigureDictionary(static_cast<const DictionaryPage*>(page.get()));
       continue;
-    } else if (current_page_->type() == PageType::DATA_PAGE) {
-      const auto& page = static_cast<const DataPageV1&>(*current_page_);
-      const int64_t levels_byte_size =
-          InitializeV1Levels(page, def_levels_decoder_, rep_levels_decoder_);
-      num_buffered_values_ = page.num_values();
-      num_decoded_values_ = 0;
-      InitializeDataDecoder(page, levels_byte_size);
+    } else if (page->type() == PageType::DATA_PAGE) {
+      InitializeDataPage(std::static_pointer_cast<DataPageV1>(page));
       return true;
-    } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
-      const auto& page = static_cast<const DataPageV2&>(*current_page_);
-      const int64_t levels_byte_size =
-          InitializeV2Levels(page, def_levels_decoder_, rep_levels_decoder_);
-      num_buffered_values_ = page.num_values();
-      num_buffered_values_ = page.num_values();
-      num_decoded_values_ = 0;
-      InitializeDataDecoder(page, levels_byte_size);
+    } else if (page->type() == PageType::DATA_PAGE_V2) {
+      InitializeDataPage(std::static_pointer_cast<DataPageV2>(page));
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data
@@ -1375,6 +1387,24 @@ void ColumnChunkReader<Derived>::ConfigureDictionary(const DictionaryPage* page)
 
   current_decoder_.SetDecoder(decoders_[encoding].get());
   ARROW_DCHECK(current_decoder_);
+}
+
+template <typename Derived>
+template <typename DP>
+void ColumnChunkReader<Derived>::InitializeDataPage(std::shared_ptr<DP> page) {
+  ARROW_DCHECK_NE(page, nullptr);
+  current_page_ = std::static_pointer_cast<DataPage>(page);
+  int64_t byte_size = 0;
+  if constexpr (std::is_same_v<DP, DataPageV1>) {
+    byte_size = InitializeV1Levels(*page, def_levels_decoder_, rep_levels_decoder_);
+  } else if constexpr (std::is_same_v<DP, DataPageV2>) {
+    byte_size = InitializeV2Levels(*page, def_levels_decoder_, rep_levels_decoder_);
+  } else {
+    static_assert(false, "Unknown data page type");
+  }
+  num_buffered_values_ = page->num_values();
+  num_decoded_values_ = 0;
+  InitializeDataDecoder(*page, byte_size);
 }
 
 template <typename Derived>
@@ -2001,10 +2031,8 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
 
     /// We perform multiple batch reads until we either exhaust the row group
     /// or observe the desired number of records
-    const int64_t batch_size_64 =
-        std::min<int64_t>(level_batch_size, this->available_values_current_page());
-    // available_values_current_page fits in int32_t
-    const auto batch_size = static_cast<int32_t>(batch_size_64);
+    const int32_t batch_size =
+        narrow_min(level_batch_size, this->available_values_current_page());
 
     // No more data in column
     if (batch_size == 0) {
@@ -2032,8 +2060,8 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
       records_read += ReadRecordData(num_records - records_read);
     } else {
       // No repetition and definition levels, we can read values directly
-      const auto batch_size = std::min(num_records - records_read, batch_size_64);
-      records_read += ReadRecordData(batch_size);
+      const auto count = narrow_min(num_records - records_read, batch_size);
+      records_read += ReadRecordData(count);
     }
   }
 
@@ -2695,8 +2723,7 @@ int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records
     }
 
     const int32_t batch_size =
-        std::min<int32_t>(clamp_to<int32_t>(num_records - records_read),
-                          this->available_values_current_page());
+        narrow_min(num_records - records_read, this->available_values_current_page());
     ReadValuesDense(batch_size);
     this->ConsumeBufferedValues(batch_size);
 
