@@ -135,19 +135,30 @@ struct GenericNullLikePartition {
     return std::max(non_null_like_end(), null_end());
   }
 
-  // Note that "_begin" is not actually the begin of the stored ranges, but can be much
-  // smaller. I.e. this function can be and is used when the Partition object is pointing
-  // into a larger buffer and translate it into another larger buffer at the same offset
+  // Re-express this partition's ranges as offsets into `target`, at the same
+  // positions they occupy within `source`. `source` and `target` are the (possibly
+  // larger) buffers the partition points into: this partition must lie within `source`,
+  // and the translated partition lies within `target` at the same offsets.
   template <typename TargetIndexType>
   GenericNullLikePartition<TargetIndexType> TranslateTo(
-      IndexType* indices_begin, TargetIndexType* target_indices_begin) const {
-    size_t non_null_offset = non_null_like_range.data() - indices_begin;
-    size_t nan_offset = nan_range.data() - indices_begin;
-    size_t null_offset = null_range.data() - indices_begin;
-    return {.non_null_like_range = {target_indices_begin + non_null_offset,
-                                    non_null_like_range.size()},
-            .nan_range = {target_indices_begin + nan_offset, nan_range.size()},
-            .null_range = {target_indices_begin + null_offset, null_range.size()}};
+      std::span<IndexType> source, std::span<TargetIndexType> target) const {
+    ARROW_DCHECK_EQ(source.size(), target.size());
+    // This partition must lie within `source`.
+    ARROW_DCHECK_GE(overall_begin(), source.data());
+    ARROW_DCHECK_LE(overall_end(), source.data() + source.size());
+
+    size_t non_null_offset = non_null_like_range.data() - source.data();
+    size_t nan_offset = nan_range.data() - source.data();
+    size_t null_offset = null_range.data() - source.data();
+    GenericNullLikePartition<TargetIndexType> result{
+        .non_null_like_range = {target.data() + non_null_offset,
+                                non_null_like_range.size()},
+        .nan_range = {target.data() + nan_offset, nan_range.size()},
+        .null_range = {target.data() + null_offset, null_range.size()}};
+    // The translated partition must lie within `target`.
+    ARROW_DCHECK_GE(result.overall_begin(), target.data());
+    ARROW_DCHECK_LE(result.overall_end(), target.data() + target.size());
+    return result;
   }
 
   static GenericNullLikePartition FromCounts(std::span<IndexType> indices,
