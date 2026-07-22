@@ -1298,9 +1298,7 @@ struct ObjectWriterVisitor {
       OwnedRef nanoseconds(PyLong_FromLongLong(interval.nanoseconds));
       RETURN_IF_PYERROR();
       PyDict_SetItemString(kwargs.obj(), "months", months.obj());
-      RETURN_IF_PYERROR();
       PyDict_SetItemString(kwargs.obj(), "days", days.obj());
-      RETURN_IF_PYERROR();
       PyDict_SetItemString(kwargs.obj(), "nanoseconds", nanoseconds.obj());
       RETURN_IF_PYERROR();
       *out =
