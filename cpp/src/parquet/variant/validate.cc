@@ -59,12 +59,10 @@ struct VariantValidationPlan {
 
 template <bool strict>
 void ValidateVariantArrayRows(const VariantArray& array,
-                              const std::shared_ptr<Buffer>& valid_rows,
-                              MemoryPool* pool) {
-  const auto& storage = checked_cast<const StructArray&>(*array.storage());
-  auto metadata_array = storage.GetFieldByName("metadata");
-  auto value_array = storage.GetFieldByName("value");
-  auto typed_array = storage.GetFieldByName("typed_value");
+                              const std::shared_ptr<Buffer>& valid_rows) {
+  auto metadata_array = array.metadata();
+  auto value_array = array.value();
+  auto typed_array = array.typed_value();
 
   if constexpr (strict) {
     if (value_array == nullptr) {
@@ -90,7 +88,6 @@ void ValidateVariantArrayRows(const VariantArray& array,
   });
 }
 
-template <bool strict>
 std::optional<VariantValidationPlan> BuildVariantValidationPlan(
     std::shared_ptr<Array> array) {
   switch (array->type_id()) {
@@ -100,13 +97,13 @@ std::optional<VariantValidationPlan> BuildVariantValidationPlan(
       if (ext_type.extension_name() == kVariantExtensionName) {
         return VariantValidationPlan{.array = std::move(array), .children = {}};
       }
-      return BuildVariantValidationPlan<strict>(ext_array.storage());
+      return BuildVariantValidationPlan(ext_array.storage());
     }
     case ::arrow::Type::STRUCT: {
       const auto& struct_array = checked_cast<const StructArray&>(*array);
       std::vector<VariantValidationPlan> children;
       for (auto field : struct_array.fields()) {
-        auto child_plan = BuildVariantValidationPlan<strict>(std::move(field));
+        auto child_plan = BuildVariantValidationPlan(std::move(field));
         if (child_plan.has_value()) {
           children.push_back(std::move(*child_plan));
         }
@@ -124,7 +121,7 @@ std::optional<VariantValidationPlan> BuildVariantValidationPlan(
     case ::arrow::Type::FIXED_SIZE_LIST:
     case ::arrow::Type::MAP: {
       auto values = internal::ValuesArray(*array);
-      auto child_plan = BuildVariantValidationPlan<strict>(std::move(values));
+      auto child_plan = BuildVariantValidationPlan(std::move(values));
       if (!child_plan.has_value()) {
         return std::nullopt;
       }
@@ -135,8 +132,7 @@ std::optional<VariantValidationPlan> BuildVariantValidationPlan(
       std::vector<VariantValidationPlan> children;
       for (const auto& child_data : array->data()->child_data) {
         if (child_data != nullptr) {
-          auto child_plan =
-              BuildVariantValidationPlan<strict>(::arrow::MakeArray(child_data));
+          auto child_plan = BuildVariantValidationPlan(::arrow::MakeArray(child_data));
           if (child_plan.has_value()) {
             children.push_back(std::move(*child_plan));
           }
@@ -157,7 +153,7 @@ void ValidateVariantPlan(const VariantValidationPlan& plan, MemoryPool* pool,
   switch (plan.array->type_id()) {
     case ::arrow::Type::EXTENSION:
       ValidateVariantArrayRows<strict>(checked_cast<const VariantArray&>(*plan.array),
-                                       valid_rows, pool);
+                                       valid_rows);
       return;
     case ::arrow::Type::STRUCT: {
       const auto& struct_array = checked_cast<const ::arrow::StructArray&>(*plan.array);
@@ -205,7 +201,7 @@ void ValidateVariantPlan(const VariantValidationPlan& plan, MemoryPool* pool,
 template <bool strict>
 void ValidateVariants(const ::arrow::ChunkedArray& data, MemoryPool* pool) {
   for (const auto& chunk : data.chunks()) {
-    auto plan = BuildVariantValidationPlan<strict>(chunk);
+    auto plan = BuildVariantValidationPlan(chunk);
     if (plan.has_value()) {
       ValidateVariantPlan<strict>(*plan, pool, nullptr);
     }

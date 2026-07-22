@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set(CANONICAL_EXTENSION_TESTS bool8_test.cc json_test.cc uuid_test.cc)
+set(CANONICAL_EXTENSION_TESTS
+    bool8_test.cc
+    json_test.cc
+    parquet_variant_test.cc
+    uuid_test.cc)
 
 if(ARROW_JSON)
   list(APPEND CANONICAL_EXTENSION_TESTS tensor_extension_array_test.cc opaque_test.cc)

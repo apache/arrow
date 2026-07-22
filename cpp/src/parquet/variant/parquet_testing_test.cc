@@ -28,17 +28,16 @@
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/file.h"
-#include "arrow/io/memory.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "parquet/arrow/reader.h"
-#include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
 #include "parquet/variant/builder.h"
 #include "parquet/variant/decoding.h"
+#include "parquet/variant/test_util_internal.h"
 #include "parquet/variant/unshred.h"
 #include "parquet/variant/validate.h"
 
@@ -48,6 +47,8 @@
 namespace parquet::variant {
 
 using ::arrow::internal::checked_pointer_cast;
+using internal::AssertEncodedRow;
+using internal::RoundTripVariantArray;
 
 namespace {
 
@@ -134,35 +135,6 @@ class TestVariantParquetTesting : public ::testing::Test {
       }
     }
     return cases;
-  }
-
-  static std::shared_ptr<::arrow::Table> RoundTripVariantArray(
-      const std::shared_ptr<::arrow::extension::VariantArray>& array) {
-    auto table = ::arrow::Table::Make(
-        ::arrow::schema({::arrow::field("variant", array->type())}), {array});
-    auto arrow_writer_properties =
-        ArrowWriterProperties::Builder().set_variant_validation_enabled(true)->build();
-    PARQUET_ASSIGN_OR_THROW(auto sink, ::arrow::io::BufferOutputStream::Create());
-    PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(
-        *table, ::arrow::default_memory_pool(), sink, /*chunk_size=*/table->num_rows(),
-        default_writer_properties(), std::move(arrow_writer_properties)));
-    PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-
-    std::optional<::arrow::ExtensionTypeGuard> guard;
-    if (::arrow::GetExtensionType(
-            std::string(::arrow::extension::kVariantExtensionName)) == nullptr) {
-      guard.emplace(array->type());
-    }
-    ArrowReaderProperties reader_properties;
-    reader_properties.set_arrow_extensions_enabled(true);
-    reader_properties.set_variant_validation_enabled(true);
-    parquet::arrow::FileReaderBuilder reader_builder;
-    PARQUET_THROW_NOT_OK(reader_builder.Open(
-        std::make_shared<::arrow::io::BufferReader>(std::move(buffer))));
-    reader_builder.properties(reader_properties);
-    PARQUET_ASSIGN_OR_THROW(auto reader, reader_builder.Build());
-    PARQUET_ASSIGN_OR_THROW(auto read_table, reader->ReadTable());
-    return read_table;
   }
 
   void SetUp() override {
@@ -345,22 +317,14 @@ TEST_F(TestVariantParquetTesting, RoundTripsEncoded) {
   }
   auto input = builder.Finish();
 
-  std::shared_ptr<::arrow::Table> table;
-  ASSERT_NO_THROW(table = RoundTripVariantArray(input));
-  ASSERT_NE(nullptr, table);
-  auto column = table->GetColumnByName("variant");
-  ASSERT_NE(nullptr, column);
-  ASSERT_EQ(1, column->num_chunks());
-  const auto& array =
-      checked_pointer_cast<::arrow::extension::VariantArray>(column->chunk(0));
+  ASSERT_OK_AND_ASSIGN(auto array, RoundTripVariantArray(input));
   ASSERT_EQ(static_cast<int64_t>(cases_.size()), array->length());
 
+  auto unshredded = UnshredVariantArray(*array);
   for (size_t row = 0; row < cases_.size(); ++row) {
     const auto& [name, expected] = cases_[row];
     SCOPED_TRACE(name);
-    auto actual = UnshredVariantRow(*array, static_cast<int64_t>(row));
-    ASSERT_EQ(std::string_view{*expected.metadata}, std::string_view{*actual.metadata});
-    ASSERT_EQ(std::string_view{*expected.value}, std::string_view{*actual.value});
+    AssertEncodedRow(*unshredded, static_cast<int64_t>(row), expected);
   }
 }
 
@@ -376,12 +340,10 @@ TEST_F(TestShreddedVariantParquetTesting, UnshredsArrayWithMissingValueColumn) {
   ASSERT_NE(nullptr, variant_array);
 
   auto unshredded = UnshredVariantArray(*variant_array);
-  auto actual = UnshredVariantRow(*unshredded, /*row=*/0);
   ASSERT_EQ(1, test_case.expected_files.size());
   ASSERT_TRUE(test_case.expected_files[0].has_value());
   auto expected = LoadEncodedVariantBinaryFile(*test_case.expected_files[0]);
-  ASSERT_EQ(std::string_view{*expected.metadata}, std::string_view{*actual.metadata});
-  ASSERT_EQ(std::string_view{*expected.value}, std::string_view{*actual.value});
+  AssertEncodedRow(*unshredded, /*row=*/0, expected);
 }
 
 TEST_F(TestShreddedVariantParquetTesting, ReadsShreddedParquetTesting) {
@@ -410,19 +372,18 @@ TEST_F(TestShreddedVariantParquetTesting, ReadsShreddedParquetTesting) {
       continue;
     }
 
+    auto unshredded = UnshredVariantArray(*variant_array);
     ASSERT_EQ(static_cast<int64_t>(test_case.expected_files.size()),
-              variant_array->length());
-    for (int64_t row = 0; row < variant_array->length(); ++row) {
+              unshredded->length());
+    for (int64_t row = 0; row < unshredded->length(); ++row) {
       SCOPED_TRACE(row);
       if (!test_case.expected_files[row].has_value()) {
-        ASSERT_TRUE(variant_array->IsNull(row));
+        ASSERT_TRUE(unshredded->IsNull(row));
         continue;
       }
 
       auto expected = LoadEncodedVariantBinaryFile(*test_case.expected_files[row]);
-      auto actual = UnshredVariantRow(*variant_array, row);
-      ASSERT_EQ(std::string_view{*expected.metadata}, std::string_view{*actual.metadata});
-      ASSERT_EQ(std::string_view{*expected.value}, std::string_view{*actual.value});
+      AssertEncodedRow(*unshredded, row, expected);
     }
   }
   ASSERT_EQ(kSkipUnshreddedCases.size(), skipped_cases);

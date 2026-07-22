@@ -37,6 +37,7 @@
 #include "arrow/util/logging_internal.h"
 #include "parquet/exception.h"
 #include "parquet/variant/append_table_internal.h"
+#include "parquet/variant/array_internal.h"
 #include "parquet/variant/binary_view_column_builder_internal.h"
 #include "parquet/variant/decoding.h"
 #include "parquet/variant/format_internal.h"
@@ -938,10 +939,7 @@ struct VariantArrayBuilder::Impl {
     DCHECK_EQ(metadata_column.length(), validity_builder.length());
 
     const int64_t null_count = validity_builder.false_count();
-    std::shared_ptr<Buffer> null_bitmap;
-    if (null_count > 0) {
-      PARQUET_THROW_NOT_OK(validity_builder.Finish(&null_bitmap));
-    }
+    auto null_bitmap = internal::FinishNullBitmap(validity_builder);
 
     auto metadata = metadata_column.Finish();
     auto value = value_column.Finish();
@@ -1098,10 +1096,7 @@ struct VariantValueArrayBuilder::Impl {
 
   std::shared_ptr<BinaryViewArray> Finish() {
     const int64_t null_count = validity_builder.false_count();
-    std::shared_ptr<Buffer> null_bitmap;
-    if (null_count > 0) {
-      PARQUET_THROW_NOT_OK(validity_builder.Finish(&null_bitmap));
-    }
+    auto null_bitmap = internal::FinishNullBitmap(validity_builder);
     return value_column.Finish(std::move(null_bitmap), null_count);
   }
 

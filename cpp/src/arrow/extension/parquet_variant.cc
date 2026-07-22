@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <string>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -181,6 +182,25 @@ bool IsSupportedStorageTypeImpl(const std::shared_ptr<DataType>& storage_type) {
 }
 
 }  // namespace
+
+std::shared_ptr<Array> VariantArray::metadata() const {
+  return internal::checked_cast<const StructArray&>(*storage())
+      .GetFieldByName("metadata");
+}
+
+std::shared_ptr<Array> VariantArray::value() const {
+  return internal::checked_cast<const StructArray&>(*storage()).GetFieldByName("value");
+}
+
+std::shared_ptr<Array> VariantArray::typed_value() const {
+  return internal::checked_cast<const StructArray&>(*storage())
+      .GetFieldByName("typed_value");
+}
+
+bool VariantArray::is_shredded() const {
+  return internal::checked_cast<const VariantExtensionType&>(*type()).typed_value() !=
+         nullptr;
+}
 
 VariantExtensionType::VariantExtensionType(const std::shared_ptr<DataType>& storage_type)
     : ExtensionType(storage_type) {

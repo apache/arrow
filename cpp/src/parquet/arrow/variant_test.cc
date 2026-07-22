@@ -27,25 +27,54 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
+#include "parquet/variant/array_internal.h"
 #include "parquet/variant/builder.h"
+#include "parquet/variant/shred.h"
 #include "parquet/variant/test_util_internal.h"
+#include "parquet/variant/unshred.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace parquet::arrow {
 
+using ::arrow::Array;
 using ::arrow::binary;
 using ::arrow::field;
 using ::arrow::struct_;
+using ::arrow::StructArray;
+using ::arrow::extension::VariantArray;
+using variant::internal::AssertUnshreddedValue;
 using variant::internal::BinaryArrayFromValues;
 using variant::internal::EmptyVariantMetadata;
 using variant::internal::Int8Variant;
+using variant::internal::MakeInt64FieldGroup;
+using variant::internal::RoundTripVariantArray;
 using variant::internal::VariantTable;
 using variant::internal::WriteVariantRecordBatch;
 using variant::internal::WriteVariantTable;
+
+namespace {
+
+std::shared_ptr<::arrow::DataType> ExpectedShreddedStorageType(
+    const std::shared_ptr<::arrow::DataType>& binary_type,
+    std::string_view list_element_name) {
+  auto primitive_group_type =
+      struct_({field("value", binary_type), field("typed_value", ::arrow::int64())});
+  auto list_type = ::arrow::list(
+      field(std::string(list_element_name), primitive_group_type, /*nullable=*/false));
+  auto list_group_type =
+      struct_({field("value", binary_type), field("typed_value", list_type)});
+  auto typed_type = struct_({field("count", primitive_group_type, false),
+                             field("items", list_group_type, false)});
+  return struct_({field("metadata", binary_type, false), field("value", binary_type),
+                  field("typed_value", typed_type)});
+}
+
+}  // namespace
 
 TEST(TestVariantExtensionType, WriterValidatesUnshreddedVariantBytes) {
   auto encoded = Int8Variant(42);
@@ -353,6 +382,108 @@ TEST(TestVariantExtensionType, WriterValidatesShreddedObjectConflicts) {
       VariantTable(variant_type, {metadata_array, valid_value_array, missing_typed_array},
                    storage_type->fields());
   ASSERT_OK(WriteVariantTable(missing_table));
+}
+
+TEST(TestVariantExtensionType, WriterRoundTripsManualShreddedVariant) {
+  variant::VariantBuilder expected_builder;
+  auto expected_object = expected_builder.StartObject();
+  expected_object.AppendInt64("count", 2);
+  auto expected_items = expected_object.StartList("items");
+  expected_items.AppendInt64(1);
+  expected_items.AppendInt64(2);
+  expected_items.Finish();
+  expected_object.Finish();
+  auto expected = expected_builder.Finish();
+
+  auto count_group = MakeInt64FieldGroup({std::nullopt}, "[2]");
+  auto item_group = MakeInt64FieldGroup({std::nullopt, std::nullopt}, "[1, 2]");
+  auto primitive_group_type = count_group->type();
+  auto list_type = ::arrow::list(field("element", primitive_group_type,
+                                       /*nullable=*/false));
+  ASSERT_OK_AND_ASSIGN(
+      auto items,
+      ::arrow::ListArray::FromArrays(
+          list_type, *::arrow::ArrayFromJSON(::arrow::int32(), "[0, 2]"), *item_group));
+  auto list_group_type =
+      struct_({field("value", binary()), field("typed_value", list_type)});
+  ASSERT_OK_AND_ASSIGN(auto items_group,
+                       StructArray::Make({BinaryArrayFromValues({std::nullopt}), items},
+                                         list_group_type->fields()));
+
+  auto typed_type = struct_({field("count", primitive_group_type, false),
+                             field("items", list_group_type, false)});
+  ASSERT_OK_AND_ASSIGN(
+      auto typed, StructArray::Make({count_group, items_group}, typed_type->fields()));
+  auto storage_type =
+      struct_({field("metadata", binary(), false), field("value", binary()),
+               field("typed_value", typed_type)});
+  auto input = variant::MakeVariantArrayFromChildren(
+      storage_type, {BinaryArrayFromValues({std::string_view{*expected.metadata}}),
+                     BinaryArrayFromValues({std::nullopt}), typed});
+
+  ASSERT_OK_AND_ASSIGN(auto actual, RoundTripVariantArray(input));
+  ASSERT_TRUE(actual->is_shredded());
+  auto expected_storage_type =
+      ExpectedShreddedStorageType(binary(), /*list_element_name=*/"element");
+  ASSERT_TRUE(actual->storage()->type()->Equals(expected_storage_type))
+      << "Expected: " << expected_storage_type->ToString()
+      << "\nActual: " << actual->storage()->type()->ToString();
+  ASSERT_TRUE(::arrow::extension::VariantExtensionType::IsSupportedStorageType(
+      actual->storage()->type()));
+  AssertUnshreddedValue(*actual, 0, expected);
+}
+
+TEST(TestVariantExtensionType, WriterRoundTripsShredVariantArray) {
+  variant::VariantArrayBuilder input_builder;
+  input_builder.AppendNull();
+  auto object = input_builder.StartObject();
+  object.AppendInt64("count", 2);
+  auto items = object.StartList("items");
+  items.AppendInt64(1);
+  items.AppendString("residual");
+  items.Finish();
+  object.AppendBoolean("extra", true);
+  object.Finish();
+
+  variant::VariantBuilder list_builder;
+  list_builder.AddFieldName("count");
+  list_builder.AddFieldName("items");
+  auto list = list_builder.StartList();
+  list.AppendInt64(3);
+  list.Finish();
+  input_builder.AppendEncoded(list_builder.Finish());
+  auto input = input_builder.Finish();
+
+  auto target = struct_({field("count", ::arrow::int64()),
+                         field("items", ::arrow::list(::arrow::int64()))});
+  auto shredded = variant::ShredVariantArray(*input, target);
+  auto expected_shredded_storage_type =
+      ExpectedShreddedStorageType(::arrow::binary_view(), /*list_element_name=*/"item");
+  ASSERT_TRUE(shredded->storage()->type()->Equals(expected_shredded_storage_type))
+      << "Expected: " << expected_shredded_storage_type->ToString()
+      << "\nActual: " << shredded->storage()->type()->ToString();
+  ASSERT_TRUE(shredded->is_shredded());
+
+  ASSERT_OK_AND_ASSIGN(auto actual, RoundTripVariantArray(shredded));
+  ASSERT_EQ(input->length(), actual->length());
+  auto expected_read_storage_type =
+      ExpectedShreddedStorageType(binary(), /*list_element_name=*/"element");
+  ASSERT_TRUE(actual->storage()->type()->Equals(expected_read_storage_type))
+      << "Expected: " << expected_read_storage_type->ToString()
+      << "\nActual: " << actual->storage()->type()->ToString();
+  ASSERT_TRUE(actual->is_shredded());
+
+  auto unshredded = variant::UnshredVariantArray(*actual);
+  ASSERT_FALSE(unshredded->is_shredded());
+  for (int64_t row = 0; row < actual->length(); ++row) {
+    ASSERT_EQ(input->IsNull(row), unshredded->IsNull(row));
+    if (!input->IsNull(row)) {
+      ASSERT_EQ(variant::internal::BinaryFieldView(*input->metadata(), row),
+                variant::internal::BinaryFieldView(*unshredded->metadata(), row));
+      ASSERT_EQ(variant::internal::BinaryFieldView(*input->value(), row),
+                variant::internal::BinaryFieldView(*unshredded->value(), row));
+    }
+  }
 }
 
 }  // namespace parquet::arrow

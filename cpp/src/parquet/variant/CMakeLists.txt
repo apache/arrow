@@ -20,6 +20,7 @@ add_parquet_test(variant-test
                  builder_test.cc
                  decoding_test.cc
                  parquet_testing_test.cc
+                 shred_test.cc
                  test_util_internal.cc
                  type_test.cc
                  unshred_test.cc

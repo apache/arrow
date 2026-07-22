@@ -357,6 +357,7 @@ TEST(TestVariantBuilder, ArrayBuilder) {
   ASSERT_EQ(8, array->length());
   ASSERT_TRUE(array->IsNull(0));
   ASSERT_FALSE(array->IsNull(1));
+  ASSERT_FALSE(array->is_shredded());
 
   const auto& storage =
       ::arrow::internal::checked_cast<const StructArray&>(*array->storage());
@@ -376,12 +377,10 @@ TEST(TestVariantBuilder, Tags) {
   builder.AppendTimestampNanos(4, false);
 
   auto array = builder.Finish();
-  const auto& storage =
-      ::arrow::internal::checked_cast<const StructArray&>(*array->storage());
   const auto& metadata_values =
-      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(0));
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*array->metadata());
   const auto& values =
-      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(1));
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*array->value());
   const std::array expected = {
       VariantPrimitiveType::kBooleanTrue,     VariantPrimitiveType::kBooleanFalse,
       VariantPrimitiveType::kTimestampMicros, VariantPrimitiveType::kTimestampNTZMicros,
@@ -406,12 +405,10 @@ TEST(TestVariantBuilder, ArrayBuilderViews) {
   object.Finish();
 
   auto array = builder.Finish();
-  const auto& storage =
-      ::arrow::internal::checked_cast<const StructArray&>(*array->storage());
   const auto& metadata =
-      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(0));
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*array->metadata());
   const auto& values =
-      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(1));
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*array->value());
 
   auto* metadata_views = metadata.data()->GetValues<::arrow::BinaryViewType::c_type>(1);
   auto* value_views = values.data()->GetValues<::arrow::BinaryViewType::c_type>(1);
@@ -479,12 +476,10 @@ TEST(TestVariantBuilder, SharedMetadata) {
       std::move(storage_type), {std::move(metadata_values), std::move(values)});
 
   ASSERT_EQ(2, array->length());
-  const auto& storage =
-      ::arrow::internal::checked_cast<const StructArray&>(*array->storage());
   const auto& metadata_array =
-      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(0));
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*array->metadata());
   const auto& value_array =
-      ::arrow::internal::checked_cast<const BinaryViewArray&>(*storage.field(1));
+      ::arrow::internal::checked_cast<const BinaryViewArray&>(*array->value());
   ASSERT_EQ(std::string_view{*metadata_encoded.metadata}, metadata_array.GetView(0));
   ASSERT_EQ(metadata_array.GetView(0), metadata_array.GetView(1));
   ASSERT_EQ(metadata_encoded.metadata, metadata_array.data()->buffers[2]);
@@ -591,6 +586,7 @@ TEST(TestVariantBuilder, FromStorage) {
   auto array = MakeVariantArrayFromStorage(storage);
   ASSERT_EQ(1, array->length());
   ASSERT_TRUE(array->type()->Equals(variant(storage->type())));
+  ASSERT_FALSE(array->is_shredded());
 }
 
 TEST(TestVariantBuilder, FromShredded) {
@@ -608,6 +604,7 @@ TEST(TestVariantBuilder, FromShredded) {
   auto array = MakeVariantArrayFromChildren(storage_type, {metadata, values, typed});
   ASSERT_EQ(2, array->length());
   ASSERT_TRUE(array->type()->Equals(variant(storage_type)));
+  ASSERT_TRUE(array->is_shredded());
 }
 
 }  // namespace parquet::variant
