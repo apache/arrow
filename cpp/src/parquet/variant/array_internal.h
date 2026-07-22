@@ -24,6 +24,7 @@
 
 #include "arrow/array.h"  // IWYU pragma: export
 #include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/util/bit_block_counter.h"
 
 namespace parquet::variant::internal {
@@ -33,6 +34,12 @@ std::shared_ptr<::arrow::Array> ValuesArray(const ::arrow::Array& array);
 std::pair<int64_t, int64_t> ValuesRangeAt(const ::arrow::Array& array, int64_t row);
 
 std::string_view BinaryFieldView(const ::arrow::Array& array, int64_t row);
+
+std::shared_ptr<::arrow::Buffer> FinishNullBitmap(
+    ::arrow::TypedBufferBuilder<bool>& builder);
+
+std::shared_ptr<::arrow::Buffer> NullBitmapForOutput(const ::arrow::Array& array,
+                                                     ::arrow::MemoryPool* pool);
 
 template <typename VisitVisible>
 void VisitVisibleRows(const std::shared_ptr<::arrow::Buffer>& valid_rows,

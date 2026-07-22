@@ -153,7 +153,7 @@ class PARQUET_EXPORT VariantValueView {
   using Data = std::variant<VariantPrimitiveView, VariantShortStringView,
                             VariantObjectView, VariantArrayView>;
 
-  /// Parse Variant value bytes without copying them.
+  /// Parse one Variant value node without copying it.
   ///
   /// The returned view and any nested object/list/string views are valid only while the
   /// input value bytes remain alive and unchanged. The metadata view object and its
@@ -162,6 +162,12 @@ class PARQUET_EXPORT VariantValueView {
                                const VariantMetadataView& metadata);
   static VariantValueView Make(std::string_view value,
                                VariantMetadataView&& metadata) = delete;
+
+  /// Parse and recursively validate Variant value bytes without copying them.
+  static VariantValueView MakeWithValidate(std::string_view value,
+                                           const VariantMetadataView& metadata);
+  static VariantValueView MakeWithValidate(std::string_view value,
+                                           VariantMetadataView&& metadata) = delete;
 
   /// Read the basic type from the value header without validating the remaining bytes.
   static VariantBasicType PeekBasicType(std::string_view value);
@@ -181,9 +187,6 @@ class PARQUET_EXPORT VariantValueView {
 
   VariantValueView(std::string_view value, Data data)
       : value_(value), data_(std::move(data)) {}
-
-  static VariantValueView MakeShallow(std::string_view value,
-                                      const VariantMetadataView& metadata);
 
   std::string_view value_;
   Data data_;

@@ -194,6 +194,7 @@ set(PARQUET_SRCS
     variant/array_internal.cc
     variant/builder.cc
     variant/decoding.cc
+    variant/shred.cc
     variant/slot_internal.cc
     variant/unshred.cc
     variant/validate.cc

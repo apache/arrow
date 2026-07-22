@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/type.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "parquet/exception.h"
 
@@ -85,6 +86,29 @@ std::string_view BinaryFieldView(const Array& array, int64_t row) {
       throw ParquetInvalidOrCorruptedFileException("Expected binary Variant field, got ",
                                                    array.type()->ToString());
   }
+}
+
+std::shared_ptr<::arrow::Buffer> FinishNullBitmap(
+    ::arrow::TypedBufferBuilder<bool>& builder) {
+  if (builder.false_count() == 0) {
+    return nullptr;
+  }
+  PARQUET_ASSIGN_OR_THROW(auto bitmap, builder.Finish());
+  return bitmap;
+}
+
+std::shared_ptr<::arrow::Buffer> NullBitmapForOutput(const Array& array,
+                                                     ::arrow::MemoryPool* pool) {
+  if (array.null_count() == 0) {
+    return nullptr;
+  }
+  if (array.offset() == 0) {
+    return array.null_bitmap();
+  }
+  PARQUET_ASSIGN_OR_THROW(auto null_bitmap,
+                          ::arrow::internal::CopyBitmap(pool, array.null_bitmap_data(),
+                                                        array.offset(), array.length()));
+  return null_bitmap;
 }
 
 }  // namespace parquet::variant::internal

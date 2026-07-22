@@ -46,16 +46,12 @@ using ::arrow::field;
 using ::arrow::int64;
 using ::arrow::struct_;
 using ::arrow::internal::checked_pointer_cast;
+using internal::AssertEncodedRow;
+using internal::AssertUnshreddedValue;
 using internal::BinaryArrayFromValues;
+using internal::MakeInt64FieldGroup;
 
 namespace {
-
-void AssertUnshreddedRow(const ::arrow::extension::VariantArray& array,
-                         const EncodedVariantValue& expected) {
-  auto actual = UnshredVariantRow(array, /*row=*/0);
-  ASSERT_EQ(std::string_view{*expected.metadata}, std::string_view{*actual.metadata});
-  ASSERT_EQ(std::string_view{*expected.value}, std::string_view{*actual.value});
-}
 
 EncodedVariantValue ObjectWithInt64(std::string_view field_name, int64_t value) {
   VariantBuilder builder;
@@ -71,23 +67,6 @@ EncodedVariantValue EmptyObjectWithField(std::string_view field_name) {
   auto object = builder.StartObject();
   object.Finish();
   return builder.Finish();
-}
-
-std::shared_ptr<::arrow::StructArray> MakeInt64FieldGroup(
-    const std::vector<std::optional<std::string_view>>& values,
-    std::string_view typed_values, const std::vector<bool>& is_valid = {}) {
-  auto field_group_type =
-      struct_({field("value", binary()), field("typed_value", int64())});
-  std::shared_ptr<::arrow::Buffer> null_bitmap;
-  if (!is_valid.empty()) {
-    ::arrow::BitmapFromVector(is_valid, &null_bitmap);
-  }
-  PARQUET_ASSIGN_OR_THROW(
-      auto field_group, ::arrow::StructArray::Make(
-                            {BinaryArrayFromValues(values),
-                             ::arrow::ArrayFromJSON(int64(), std::string(typed_values))},
-                            field_group_type->fields(), std::move(null_bitmap)));
-  return field_group;
 }
 
 std::shared_ptr<::arrow::extension::VariantArray> MakeSingleRowVariantArray(
@@ -110,23 +89,10 @@ TEST(TestVariantUnshred, FastPathKeepsStorage) {
   auto array = builder.Finish();
 
   auto unshredded = UnshredVariantArray(*array);
-  const auto& input_storage =
-      checked_pointer_cast<::arrow::StructArray>(array->storage());
-  const auto& output_storage =
-      checked_pointer_cast<::arrow::StructArray>(unshredded->storage());
-  ASSERT_EQ(nullptr, output_storage->GetFieldByName("typed_value").get());
-
-  const auto& input_metadata = checked_pointer_cast<::arrow::BinaryViewArray>(
-      input_storage->GetFieldByName("metadata"));
-  const auto& input_value = checked_pointer_cast<::arrow::BinaryViewArray>(
-      input_storage->GetFieldByName("value"));
-  const auto& output_metadata = checked_pointer_cast<::arrow::BinaryViewArray>(
-      output_storage->GetFieldByName("metadata"));
-  const auto& output_value = checked_pointer_cast<::arrow::BinaryViewArray>(
-      output_storage->GetFieldByName("value"));
-
-  ASSERT_EQ(input_metadata->data().get(), output_metadata->data().get());
-  ASSERT_EQ(input_value->data().get(), output_value->data().get());
+  ASSERT_FALSE(array->is_shredded());
+  ASSERT_FALSE(unshredded->is_shredded());
+  ASSERT_EQ(array->metadata()->data().get(), unshredded->metadata()->data().get());
+  ASSERT_EQ(array->value()->data().get(), unshredded->value()->data().get());
 }
 
 TEST(TestVariantUnshred, UnshredsValuesWithoutCopyingMetadata) {
@@ -152,12 +118,12 @@ TEST(TestVariantUnshred, UnshredsValuesWithoutCopyingMetadata) {
       input_storage_type, {input_metadata, input_values, input_typed_values});
   auto unshredded = UnshredVariantArray(*input_array);
 
-  const auto& output_storage =
-      checked_pointer_cast<::arrow::StructArray>(unshredded->storage());
-  const auto& output_metadata = output_storage->GetFieldByName("metadata");
+  ASSERT_TRUE(input_array->is_shredded());
+  ASSERT_FALSE(unshredded->is_shredded());
+  const auto& output_metadata = unshredded->metadata();
   ASSERT_EQ(input_metadata->data().get(), output_metadata->data().get());
-  const auto& output_values = checked_pointer_cast<::arrow::BinaryViewArray>(
-      output_storage->GetFieldByName("value"));
+  const auto& output_values =
+      checked_pointer_cast<::arrow::BinaryViewArray>(unshredded->value());
   ASSERT_EQ(2, output_values->length());
   ASSERT_EQ(std::string_view{*typed_only_row.value}, output_values->GetView(0));
   ASSERT_EQ(std::string_view{*residual_value_row.value}, output_values->GetView(1));
@@ -174,7 +140,7 @@ TEST(TestVariantUnshred, UnshredsDecimalTypedValues) {
     auto array = MakeSingleRowVariantArray(std::string_view{*expected.metadata},
                                            std::nullopt, typed_value);
 
-    AssertUnshreddedRow(*array, expected);
+    AssertUnshreddedValue(*array, /*row=*/0, expected);
   };
 
   assert_decimal(::arrow::decimal32(/*precision=*/9, /*scale=*/2), R"(["-1234567.89"])",
@@ -218,7 +184,7 @@ TEST(TestVariantUnshred, MissingTopLevelValue) {
 
   ASSERT_THROW(ValidateVariants<true>(chunked), ParquetInvalidOrCorruptedFileException);
   ValidateVariants<false>(chunked);
-  AssertUnshreddedRow(*array, expected);
+  AssertUnshreddedValue(*array, /*row=*/0, expected);
 }
 
 TEST(TestVariantUnshred, MissingObjectField) {
@@ -234,7 +200,7 @@ TEST(TestVariantUnshred, MissingObjectField) {
 
   ValidateVariants<true>(chunked);
   ValidateVariants<false>(chunked);
-  AssertUnshreddedRow(*array, expected);
+  AssertUnshreddedValue(*array, /*row=*/0, expected);
 }
 
 TEST(TestVariantUnshred, NullObjectFieldGroup) {
@@ -250,7 +216,7 @@ TEST(TestVariantUnshred, NullObjectFieldGroup) {
 
   ASSERT_THROW(ValidateVariants<true>(chunked), ParquetInvalidOrCorruptedFileException);
   ValidateVariants<false>(chunked);
-  AssertUnshreddedRow(*array, expected);
+  AssertUnshreddedValue(*array, /*row=*/0, expected);
 }
 
 TEST(TestVariantUnshred, MissingListElements) {
@@ -275,15 +241,7 @@ TEST(TestVariantUnshred, MissingListElements) {
 
   ASSERT_THROW(ValidateVariants<true>(chunked), ParquetInvalidOrCorruptedFileException);
   ValidateVariants<false>(chunked);
-  AssertUnshreddedRow(*array, expected);
-}
-
-TEST(TestVariantUnshred, RejectsNullRow) {
-  VariantArrayBuilder builder;
-  builder.AppendNull();
-  auto array = builder.Finish();
-
-  ASSERT_THROW(UnshredVariantRow(*array, /*row=*/0), ParquetException);
+  AssertUnshreddedValue(*array, /*row=*/0, expected);
 }
 
 TEST(TestVariantUnshred, PreservesSliceNullBitmap) {
@@ -309,10 +267,7 @@ TEST(TestVariantUnshred, PreservesSliceNullBitmap) {
   ASSERT_EQ(2, unshredded->length());
   ASSERT_TRUE(unshredded->IsNull(0));
   ASSERT_FALSE(unshredded->IsNull(1));
-  ASSERT_THROW(UnshredVariantRow(*unshredded, /*row=*/0), ParquetException);
-  auto actual = UnshredVariantRow(*unshredded, /*row=*/1);
-  ASSERT_EQ(std::string_view{*encoded.metadata}, std::string_view{*actual.metadata});
-  ASSERT_EQ(std::string_view{*encoded.value}, std::string_view{*actual.value});
+  AssertEncodedRow(*unshredded, /*row=*/1, encoded);
 }
 
 TEST(TestVariantUnshred, RejectsDuplicateResidualOnUnshred) {
@@ -327,8 +282,6 @@ TEST(TestVariantUnshred, RejectsDuplicateResidualOnUnshred) {
   ::arrow::ChunkedArray chunked(::arrow::ArrayVector{array});
 
   ValidateVariants<false>(chunked);
-  ASSERT_THROW(UnshredVariantRow(*array, /*row=*/0),
-               ParquetInvalidOrCorruptedFileException);
   ASSERT_THROW(UnshredVariantArray(*array), ParquetInvalidOrCorruptedFileException);
 }
 
@@ -347,8 +300,6 @@ TEST(TestVariantUnshred, DuplicateFields) {
 
   ASSERT_THROW(ValidateVariants<true>(chunked), ParquetInvalidOrCorruptedFileException);
   ASSERT_THROW(ValidateVariants<false>(chunked), ParquetInvalidOrCorruptedFileException);
-  ASSERT_THROW(UnshredVariantRow(*array, /*row=*/0),
-               ParquetInvalidOrCorruptedFileException);
   ASSERT_THROW(UnshredVariantArray(*array), ParquetInvalidOrCorruptedFileException);
 }
 

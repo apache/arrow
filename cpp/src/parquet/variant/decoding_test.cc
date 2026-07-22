@@ -40,6 +40,15 @@ concept CanMakeVariantValueView = (requires(std::string_view value, Metadata&& m
 static_assert(CanMakeVariantValueView<const VariantMetadataView&>);
 static_assert(!CanMakeVariantValueView<VariantMetadataView>);
 
+template <typename Metadata>
+concept CanMakeValidatedVariantValueView =
+    (requires(std::string_view value, Metadata&& metadata) {
+      VariantValueView::MakeWithValidate(value, std::forward<Metadata>(metadata));
+    });
+
+static_assert(CanMakeValidatedVariantValueView<const VariantMetadataView&>);
+static_assert(!CanMakeValidatedVariantValueView<VariantMetadataView>);
+
 TEST(TestVariantEncoding, EmptyMetadata) {
   VariantBuilder builder;
   builder.AppendVariantNull();
@@ -222,8 +231,15 @@ TEST(TestVariantEncoding, InvalidValue) {
   ASSERT_THROW(VariantValueView::Make("\x02\x01\x00\x00\x01\x00"sv, metadata),
                ParquetInvalidOrCorruptedFileException);
   // The outer and inner array offsets are valid, but the grandchild primitive tag is
-  // unknown. Make must recursively validate the entire value before returning.
-  ASSERT_THROW(VariantValueView::Make("\x03\x01\x00\x05\x03\x01\x00\x01\x54"sv, metadata),
+  // unknown. Shallow parsing accepts the root and rejects the child when accessed.
+  constexpr auto invalid_grandchild = "\x03\x01\x00\x05\x03\x01\x00\x01\x54"sv;
+  auto root = VariantValueView::Make(invalid_grandchild, metadata);
+  const auto& outer = std::get<VariantArrayView>(root.data());
+  auto inner_value = outer.GetElement(0);
+  ASSERT_TRUE(inner_value.has_value());
+  const auto& inner = std::get<VariantArrayView>(inner_value->data());
+  ASSERT_THROW(inner.GetElement(0), ParquetInvalidOrCorruptedFileException);
+  ASSERT_THROW(VariantValueView::MakeWithValidate(invalid_grandchild, metadata),
                ParquetInvalidOrCorruptedFileException);
 }
 

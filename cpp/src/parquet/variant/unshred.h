@@ -17,25 +17,14 @@
 
 #pragma once
 
+#include "arrow/type_fwd.h"
 #include "parquet/platform.h"
-#include "parquet/variant/builder.h"
 
 namespace arrow::extension {
 class VariantArray;
 }  // namespace arrow::extension
 
 namespace parquet::variant {
-
-/// Materialize a non-null Variant row into independently owned encoded buffers.
-///
-/// The row index must be in bounds and the parent row must be non-null. When the input
-/// is already unshredded, the encoded metadata and value are copied without validation.
-/// Invalid or corrupted storage detected during materialization raises a Parquet
-/// exception.
-PARQUET_EXPORT
-EncodedVariantValue UnshredVariantRow(
-    const ::arrow::extension::VariantArray& array, int64_t row,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 /// Materialize a Variant array while preserving parent nulls.
 ///
