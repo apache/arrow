@@ -39,6 +39,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/table.h"
@@ -315,7 +316,8 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
       Declaration::Sequence(
           {
               {"source",
-               SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false)}},
+               SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false),
+                                 Ordering::Implicit()}},
               {"aggregate", AggregateNodeOptions{aggregates, std::move(keys),
                                                  std::move(segment_keys)}},
               {"sink", SinkNodeOptions{&sink_gen}},

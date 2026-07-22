@@ -33,6 +33,7 @@ set(ARROW_ACERO_REQUIRED_DEPENDENCIES Arrow ArrowCompute)
 
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
+    backpressure.cc
     scalar_aggregate_node.cc
     groupby_aggregate_node.cc
     aggregate_internal.cc
@@ -173,6 +174,7 @@ function(add_arrow_acero_test REL_TEST_NAME)
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+add_arrow_acero_test(backpressure_test SOURCES backpressure_test.cc)
 add_arrow_acero_test(plan_test SOURCES plan_test.cc test_nodes_test.cc)
 add_arrow_acero_test(source_node_test SOURCES source_node_test.cc)
 add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc)
