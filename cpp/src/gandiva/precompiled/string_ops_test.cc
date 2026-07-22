@@ -1664,6 +1664,35 @@ TEST(TestStringOps, TestPadMalformedUtf8KeepsValidGlyph) {
   EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
 }
 
+TEST(TestStringOps, TestPadMalformedUtf8FillNoOverread) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // {0xE0, 'a', 'a'}: a 3-byte lead byte whose continuation bytes are missing.
+  // utf8_length_ignore_invalid() counts it as three glyphs, so the partial fill
+  // loop in evaluate_return_char_length() runs twice while its first step used
+  // to consume all three bytes and read past the end. The fill text is held in
+  // an exactly-sized heap buffer so any over-read trips AddressSanitizer.
+  const char bytes[] = {'\xE0', 'a', 'a'};
+  const auto fill_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> fill(new char[fill_len]);
+  std::memcpy(fill.get(), bytes, fill_len);
+  const std::string fill_str(fill.get(), fill_len);
+
+  // "ab" padded to width 7 takes 5 fill glyphs, each one byte wide here.
+  const std::string padding = fill_str + fill_str.substr(0, 2);
+
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, "ab", 2, 7, fill.get(), fill_len, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), padding + "ab");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "ab", 2, 7, fill.get(), fill_len, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "ab" + padding);
+}
+
 TEST(TestStringOps, TestRtrim) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
