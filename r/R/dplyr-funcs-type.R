@@ -277,7 +277,7 @@ register_bindings_type_elementwise <- function() {
   register_binding("base::is.nan", function(x) {
     if (
       is.double(x) ||
-      (inherits(x, "Expression") && x$type_id() %in% TYPES_WITH_NAN)
+        (inherits(x, "Expression") && x$type_id() %in% TYPES_WITH_NAN)
     ) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
       # use that to simplify the code here (ARROW-13366)

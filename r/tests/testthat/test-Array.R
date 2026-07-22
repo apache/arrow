@@ -130,7 +130,7 @@ test_that("Slice() and RangeEquals()", {
   expect_equal(length(overslice), 15)
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
 
-  expect_error(x$RangeEquals(10, 24, 0), '`other` must be an Array')
+  expect_error(x$RangeEquals(10, 24, 0), "`other` must be an Array")
   expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")

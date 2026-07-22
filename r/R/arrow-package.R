@@ -27,7 +27,8 @@
 #' @importFrom rlang quo_set_env quo_get_env is_formula quo_is_call f_rhs parse_expr f_env new_quosure
 #' @importFrom rlang new_quosures expr_text caller_env check_dots_empty check_dots_empty0 dots_list is_string inform
 #' @importFrom rlang is_bare_list call_name check_string check_number_whole check_number_decimal check_bool
-#' @importFrom rlang is_logical caller_env caller_arg stop_input_type is_null is_closure is_environment is_na is_vector is_missing
+#' @importFrom rlang is_logical caller_env caller_arg stop_input_type is_null is_closure
+#' @importFrom rlang is_environment is_na is_vector is_missing
 #' @importFrom tidyselect vars_pull eval_select eval_rename
 #' @importFrom glue glue
 #' @importFrom bit64 integer64

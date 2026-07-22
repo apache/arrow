@@ -41,7 +41,6 @@ check_null <- function(x, msg = NULL, call = rlang::caller_env()) {
     } else {
       abort(msg, call = call)
     }
-
   }
 }
 
