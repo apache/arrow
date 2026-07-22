@@ -336,6 +336,7 @@ repos:
           ?^ci/scripts/python_test_type_annotations\.sh$|
           ?^ci/scripts/python_test\.sh$|
           ?^ci/scripts/python_wheel_macos_build\.sh$|
+          ?^ci/scripts/python_wheel_xlinux_build\.sh$|
           ?^ci/scripts/r_build\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
           ?^ci/scripts/release_test\.sh$|
