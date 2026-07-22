@@ -53,6 +53,20 @@ struct JitterNodeOptions : public ExecNodeOptions {
   static constexpr std::string_view kName = "jitter";
 };
 
+struct BackpressureCounters {
+  std::atomic<int32_t> pause_count = 0;
+  std::atomic<int32_t> resume_count = 0;
+  std::atomic<bool> paused = false;
+
+  bool is_paused() { return paused; }
+};
+
+struct BackpressureCountingNodeOptions : public ExecNodeOptions {
+  BackpressureCountingNodeOptions(BackpressureCounters* counters) : counters(counters) {}
+  BackpressureCounters* counters;
+  static constexpr const char* kName = "backpressure_count";
+};
+
 class GateImpl;
 
 class Gate {
