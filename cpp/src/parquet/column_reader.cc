@@ -952,11 +952,6 @@ class ValueSinkBuffer : private ValueSinkCursor {
 
   void OnNewDictionary(auto& /* decoder */) {}
 
-  void delete_back(int64_t count) {
-    ARROW_DCHECK_LE(count, values_count());
-    set_values_count(values_count() - count);
-  }
-
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
     const auto decoded = decoder.Decode(write_start(), batch_size);
     set_values_count(values_count() + batch_size);
@@ -1010,6 +1005,85 @@ class ValueSinkBuffer : private ValueSinkCursor {
   }
 
   value_type* write_start() { return data() + values_count(); }
+};
+
+/************************
+ *  ValiditySinkBuffer  *
+ ************************/
+
+class ValiditySinkBuffer : private ValueSinkCursor {
+ public:
+  using ValueSinkCursor::capacity;
+  using ValueSinkCursor::values_count;
+
+  ValiditySinkBuffer() = default;
+
+  explicit ValiditySinkBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
+
+  uint8_t* data() const { return values_->mutable_data_as<uint8_t>(); }
+
+  struct ReadResult {
+    int64_t values_read = 0;
+    int64_t null_count = 0;
+  };
+
+  ReadResult ReadFromLevels(const int16_t* def_levels, int64_t num_def_levels,
+                            const internal::LevelInfo& level_info) {
+    internal::ValidityBitmapInputOutput validity_io{};
+    validity_io.values_read_upper_bound = num_def_levels;
+    validity_io.valid_bits = data();
+    validity_io.valid_bits_offset = values_count();
+    DefLevelsToBitmap(def_levels, num_def_levels, level_info, &validity_io);
+    ARROW_DCHECK_GE(validity_io.values_read, 0);
+    ARROW_DCHECK_GE(validity_io.null_count, 0);
+
+    // Advance by the number of leaf values (one validity bit each), not by the
+    // number of definition levels: for repeated/nested columns some def levels
+    // describe empty or absent lists that produce no leaf value, so
+    // values_read <= num_def_levels.
+    set_values_count(values_count() + validity_io.values_read);
+    return {
+        .values_read = validity_io.values_read,
+        .null_count = validity_io.null_count,
+    };
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
+    // TODO should we set values_written to zero?
+    auto result = values_;
+    const auto byte_count = bytes_for_values(values_count());
+    PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
+    values_ = AllocateBuffer(pool);
+    reset_capacity();
+    return result;
+  }
+
+  void ReserveValues(int64_t extra_values) {
+    const auto old_capacity = fit_capacity_for_extra(extra_values);
+    if (capacity() > old_capacity) {
+      const auto byte_count = bytes_for_values(capacity());
+      PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
+      // Zero the newly grown region so that appending bits at a non-byte-aligned
+      // offset never reads uninitialized memory (avoids Valgrind/MSAN warnings).
+      const auto old_byte_count = bytes_for_values(old_capacity);
+      std::memset(data() + old_byte_count, 0,
+                  static_cast<std::size_t>(byte_count - old_byte_count));
+    }
+  }
+
+  void ResetValues() {
+    if (values_count() > 0) {
+      PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
+      ValueSinkCursor::operator=({});
+    }
+  }
+
+ private:
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
+
+  static int64_t bytes_for_values(int64_t num_values) {
+    return bit_util::BytesForBits(num_values);
+  }
 };
 
 /***********************
@@ -1689,12 +1763,10 @@ class TypedRecordReader
                     bool read_dense_for_nullable, ValueSink value_sink)
       : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
              LevelDecoder(descr->max_repetition_level())),
-        valid_bits_(AllocateBuffer(pool)),
         value_sink_(std::move(value_sink)),
         leaf_info_(leaf_info),
         def_levels_(AllocateBuffer(pool)),
         rep_levels_(AllocateBuffer(pool)),
-        nullable_values_(leaf_info.HasNullableValues()),
         read_dense_for_nullable_(read_dense_for_nullable) {
     TypedRecordReader::Reset();
   }
@@ -1713,7 +1785,9 @@ class TypedRecordReader
 
   int64_t null_count() const final { return null_count_; }
 
-  bool nullable_values() const final { return nullable_values_; }
+  /// \brief Indicates if we can have nullable values. Note that repeated fields
+  /// may or may not be nullable.
+  bool nullable_values() const final { return leaf_info_.HasNullableValues(); }
 
   bool read_dictionary() const final { return kReadDictionary; }
 
@@ -1797,7 +1871,8 @@ class TypedRecordReader
     value_sink_.OnNewDictionary(decoder);
   }
 
-  void ReadValuesSpaced(int32_t values_with_nulls, int32_t null_count);
+  void ReadValuesSpaced(int64_t valid_bits_offset, int32_t values_with_nulls,
+                        int32_t null_count);
 
   void ReadValuesDense(int32_t values_to_read);
 
@@ -1828,17 +1903,17 @@ class TypedRecordReader
   void ResetValues();
 
  protected:
-  /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null.
-  ///
-  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
-  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
-
   auto value_sink() -> ValueSink& { return value_sink_; }
   auto value_sink() const -> const ValueSink& { return value_sink_; }
 
  private:
   ValueSink value_sink_;
+  /// \brief Each bit corresponds to one element in 'values_' and specifies if it
+  /// is null or not null.
+  ///
+  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
+  // TODO make optional where abscense means read_dense_for_optional
+  ValiditySinkBuffer valid_bits_;
   LevelInfo leaf_info_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -1864,10 +1939,6 @@ class TypedRecordReader
   /// \brief Position of the next level that should be consumed.
   int64_t levels_position_ = 0;
   int64_t levels_capacity_ = 0;
-
-  /// \brief Indicates if we can have nullable values. Note that repeated fields
-  /// may or may not be nullable.
-  bool nullable_values_;
 
   bool at_record_start_ = true;
 
@@ -2161,12 +2232,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecords(int64_t num_records) {
 template <typename DT, typename VS, bool kDic>
 std::shared_ptr<ResizableBuffer> TypedRecordReader<DT, VS, kDic>::ReleaseIsValid() {
   if (nullable_values()) {
-    const auto bit_count = bit_util::BytesForBits(values_written());
-    auto result = valid_bits_;
-    PARQUET_THROW_NOT_OK(result->Resize(bit_count,
-                                        /*shrink_to_fit=*/true));
-    valid_bits_ = AllocateBuffer(this->pool_);
-    return result;
+    return valid_bits_.ReleaseValues(this->pool_);
   } else {
     return nullptr;
   }
@@ -2264,25 +2330,16 @@ void TypedRecordReader<DT, VS, kDic>::ReserveLevels(int64_t extra_levels) {
 template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::ReserveIsValid(int64_t extra_values) {
   if (nullable_values() && !read_dense_for_nullable_) {
-    const int64_t current_byte_capacity = valid_bits_->size();
-    const int64_t bit_capacity = compute_capacity_pow2(
-        /* capacity= */ 8 * current_byte_capacity,
-        /* size= */ values_written(),
-        /* extra_size= */ extra_values);
-    const int64_t byte_capacity = bit_util::BytesForBits(bit_capacity);
-    if (current_byte_capacity < byte_capacity) {
-      PARQUET_THROW_NOT_OK(valid_bits_->Resize(byte_capacity, /*shrink_to_fit=*/false));
-      // Avoid valgrind warnings
-      const int64_t old_valid_bytes = bit_util::BytesForBits(values_written());
-      std::memset(valid_bits_->mutable_data() + old_valid_bytes, 0,
-                  static_cast<size_t>(byte_capacity - old_valid_bytes));
-    }
+    valid_bits_.ReserveValues(extra_values);
   }
 }
 
 template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::Reset() {
   ResetValues();
+  if (!read_dense_for_nullable()) {
+    valid_bits_ = ValiditySinkBuffer(this->pool_);
+  }
 
   if (levels_written_ > 0) {
     // Throw away levels from 0 to levels_position_.
@@ -2299,12 +2356,13 @@ void TypedRecordReader<DT, VS, kDic>::SetPageReader(std::unique_ptr<PageReader> 
 }
 
 template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ReadValuesSpaced(int32_t values_with_nulls,
+void TypedRecordReader<DT, VS, kDic>::ReadValuesSpaced(int64_t valid_bits_offset,
+                                                       int32_t values_with_nulls,
                                                        int32_t null_count) {
   const auto decoded = value_sink_.ReadValuesSpaced(
       *this->current_decoder_.get(), values_with_nulls, null_count,
-      /* valid_bits= */ valid_bits_->mutable_data(), /* valid_bits_offset= */
-      values_written());
+      /* valid_bits= */ valid_bits_.data(),
+      /* valid_bits_offset= */ valid_bits_offset);
   CheckNumberDecoded(decoded, values_with_nulls);
 }
 
@@ -2383,20 +2441,17 @@ void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeated(
     int64_t start_levels_position, int64_t* values_to_read, int64_t* null_count) {
   // levels_position_ must already be incremented based on number of records
   // read.
-  ARROW_DCHECK_GE(levels_position_, start_levels_position);
-  ValidityBitmapInputOutput validity_io;
-  validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
-  validity_io.valid_bits = valid_bits_->mutable_data();
-  validity_io.valid_bits_offset = values_written();
+  const int64_t valid_bits_offset = valid_bits_.values_count();
+  ARROW_DCHECK_EQ(values_written(), valid_bits_offset);
+  const auto result = valid_bits_.ReadFromLevels(  //
+      def_levels() + start_levels_position, levels_position_ - start_levels_position,
+      leaf_info_);
 
-  DefLevelsToBitmap(def_levels() + start_levels_position,
-                    levels_position_ - start_levels_position, leaf_info_, &validity_io);
-  *values_to_read = validity_io.values_read - validity_io.null_count;
-  *null_count = validity_io.null_count;
-  ARROW_DCHECK_GE(*values_to_read, 0);
-  ARROW_DCHECK_GE(*null_count, 0);
+  *values_to_read = result.values_read - result.null_count;
+  *null_count = result.null_count;
+
   // This is only reading in the current page so this fits in an int32.
-  ReadValuesSpaced(clamp_to<int32_t>(validity_io.values_read),
+  ReadValuesSpaced(valid_bits_offset, clamp_to<int32_t>(result.values_read),
                    clamp_to<int32_t>(*null_count));
 }
 
@@ -2495,7 +2550,7 @@ template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::ResetValues() {
   if (values_written() > 0) {
     value_sink_.ResetValues();
-    PARQUET_THROW_NOT_OK(valid_bits_->Resize(0, /*shrink_to_fit=*/false));
+    valid_bits_.ResetValues();
     null_count_ = 0;
   }
 }
