@@ -49,10 +49,8 @@ if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
     fname="python-${full_version}-macos11.pkg"
-    if [[ $2 == "3.15" ]]; then
-        fname="python-${full_version}b4-macos11-t.pkg"
-    elif [[ $2 == "3.15t" ]]; then
-        fname="python-${full_version}b4-macos11-t.pkg"
+    if [[ $2 == "3.15" ]] || [[ $2 == "3.15t" ]]; then
+        fname="python-${full_version}b4-macos11.pkg"
     fi
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
