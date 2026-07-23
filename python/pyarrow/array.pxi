@@ -3613,8 +3613,7 @@ cdef class MapArray(ListArray):
 
     cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef CListArray* arr = <CListArray*> self.ap
-        cdef bint as_dicts = maps_as_pydicts is not None
-        if as_dicts and maps_as_pydicts != "lossy" and maps_as_pydicts != "strict":
+        if maps_as_pydicts not in (None, "lossy", "strict"):
             # Matches MapScalar.as_py, which validates before the null check.
             raise ValueError(
                 "Invalid value for 'maps_as_pydicts': "
@@ -3628,7 +3627,7 @@ cdef class MapArray(ListArray):
         cdef Array keys = <Array> (<tuple> self._children_cache)[0]
         cdef Array items = <Array> (<tuple> self._children_cache)[1]
         cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
-        if not as_dicts:
+        if maps_as_pydicts is None:
             # Matches MapScalar.as_py with the default maps_as_pydicts=None:
             # an association list of (key, value) tuples.
             return [
