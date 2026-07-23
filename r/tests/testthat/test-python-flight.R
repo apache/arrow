@@ -34,7 +34,7 @@ if (process_is_running("demo_flight_server")) {
     expect_true(flight_obj %in% list_flights(client))
     expect_error(
       flight_put(client, Array$create(c(1:3)), path = flight_obj),
-      regexp = '`data` must be a data frame, Table, or RecordBatch'
+      regexp = "`data` must be a data frame, Table, or RecordBatch"
     )
   })
 
@@ -48,7 +48,7 @@ if (process_is_running("demo_flight_server")) {
     )
     expect_error(
       flight_put(client, Array$create(c(1:3)), path = flight_obj),
-      regexp = '`data` must be a data frame, Table, or RecordBatch'
+      regexp = "`data` must be a data frame, Table, or RecordBatch"
     )
   })
 

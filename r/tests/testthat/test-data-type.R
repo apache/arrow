@@ -469,8 +469,8 @@ test_that("DictionaryType validation", {
     dictionary(utf8(), int32()),
     "Dictionary index type should be .*integer, got string"
   )
-  expect_error(dictionary(4, utf8()), '`index_type` must be a DataType')
-  expect_error(dictionary(int8(), "strings"), '`value_type` must be a DataType')
+  expect_error(dictionary(4, utf8()), "`index_type` must be a DataType")
+  expect_error(dictionary(int8(), "strings"), "`value_type` must be a DataType")
 })
 
 test_that("decimal type and validation", {

@@ -209,7 +209,7 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
   skip_if_not_available("gzip")
   expect_error(
     read_feather(CompressedInputStream$create(feather_file)),
-    '`file` must be a RandomAccessFile'
+    "`file` must be a RandomAccessFile"
   )
 })
 

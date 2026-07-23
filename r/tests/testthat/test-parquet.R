@@ -312,7 +312,7 @@ test_that("ParquetFileReader raises an error for non-RandomAccessFile source", {
   skip_if_not_available("gzip")
   expect_error(
     ParquetFileReader$create(CompressedInputStream$create(pq_file)),
-    '`file` must be a RandomAccessFile'
+    "`file` must be a RandomAccessFile"
   )
 })
 
