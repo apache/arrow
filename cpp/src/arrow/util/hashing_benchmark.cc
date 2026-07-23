@@ -26,18 +26,10 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
 #include "arrow/util/hashing.h"
 
 namespace arrow {
 namespace internal {
-
-namespace {
-// copied from scalar_string_benchmark
-constexpr auto kSeed = 0x94378165;
-
-static random::RandomArrayGenerator hashing_rng(kSeed);
-}  // namespace
 
 template <class Integer>
 static std::vector<Integer> MakeIntegers(int32_t n_values) {
