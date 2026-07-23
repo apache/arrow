@@ -255,6 +255,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
       ARROW_CMAKE_PACKAGE_NAME
       ARROW_PC_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
+      FALLBACK_TO_BUNDLED_ON_OLD_SYSTEM_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
       REQUIRED_VERSION
@@ -310,10 +311,26 @@ macro(resolve_dependency DEPENDENCY_NAME)
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
-    find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
-    if(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
+    if(ARG_FALLBACK_TO_BUNDLED_ON_OLD_SYSTEM_VERSION)
+      find_package(${FIND_PACKAGE_ARGUMENTS} QUIET)
+    else()
+      find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
+    endif()
+    if(NOT ${PACKAGE_NAME}_FOUND)
+      message(STATUS "System ${DEPENDENCY_NAME} not found; falling back to bundled.")
+      build_dependency(${DEPENDENCY_NAME})
+      set(${DEPENDENCY_NAME}_SOURCE "BUNDLED")
+    elseif(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
       if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
-        message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}")
+        if(ARG_FALLBACK_TO_BUNDLED_ON_OLD_SYSTEM_VERSION)
+          message(STATUS "System ${DEPENDENCY_NAME} ${${PACKAGE_NAME}_VERSION} is older than "
+                         "required ${ARG_REQUIRED_VERSION}; falling back to bundled.")
+          build_dependency(${DEPENDENCY_NAME})
+          set(${DEPENDENCY_NAME}_SOURCE "BUNDLED")
+        else()
+          message(FATAL_ERROR "Couldn't find ${DEPENDENCY_NAME} >= ${ARG_REQUIRED_VERSION}"
+          )
+        endif()
       endif()
     endif()
   endif()
@@ -2825,9 +2842,11 @@ function(build_simdjson)
 endfunction()
 
 if(ARROW_WITH_SIMDJSON)
-  set(ARROW_SIMDJSON_REQUIRED_VERSION "3.0.0")
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.0.0")
   resolve_dependency(simdjson
                      FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     FALLBACK_TO_BUNDLED_ON_OLD_SYSTEM_VERSION
                      TRUE
                      REQUIRED_VERSION
                      ${ARROW_SIMDJSON_REQUIRED_VERSION}
