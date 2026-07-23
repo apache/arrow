@@ -107,8 +107,7 @@ struct FastHashScalar {
     return combined;
   }
 
-  static Result<std::shared_ptr<ArrayData>> HashChild(const ArraySpan& array,
-                                                      const ArraySpan& child,
+  static Result<std::shared_ptr<ArrayData>> HashChild(const ArraySpan& child,
                                                       LightContext* hash_ctx,
                                                       MemoryPool* memory_pool) {
     auto arrow_type = TypeTraits<ArrowType>::type_singleton();
@@ -117,7 +116,7 @@ struct FastHashScalar {
     ARROW_RETURN_NOT_OK(
         HashArray(child, hash_ctx, memory_pool, buffer->mutable_data_as<c_type>()));
     return ArrayData::Make(arrow_type, child.length,
-                           {array.GetBuffer(0), std::move(buffer)}, array.null_count);
+                           {child.GetBuffer(0), std::move(buffer)}, child.null_count);
   }
 
   static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
@@ -140,8 +139,7 @@ struct FastHashScalar {
       for (size_t i = 0; i < array.child_data.size(); i++) {
         auto child = array.child_data[i];
         if (is_nested(child.type->id())) {
-          ARROW_ASSIGN_OR_RAISE(child_hashes[i],
-                                HashChild(array, child, hash_ctx, memory_pool));
+          ARROW_ASSIGN_OR_RAISE(child_hashes[i], HashChild(child, hash_ctx, memory_pool));
           ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
         } else {
           ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
@@ -158,8 +156,7 @@ struct FastHashScalar {
       // child hashes down to one value directly, rather than routing through
       // Hasher::HashMultiColumn.
       auto values = array.child_data[0];
-      ARROW_ASSIGN_OR_RAISE(auto value_hashes,
-                            HashChild(array, values, hash_ctx, memory_pool));
+      ARROW_ASSIGN_OR_RAISE(auto value_hashes, HashChild(values, hash_ctx, memory_pool));
       const c_type* value_hash_data = value_hashes->buffers[1]->data_as<c_type>();
 
       // Fold every row unconditionally, then zero nulls in a separate pass below;
