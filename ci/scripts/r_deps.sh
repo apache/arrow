@@ -52,6 +52,6 @@ fi
 
 # Separately install the optional/test dependencies but don't error on them,
 # they're not available everywhere and that's ok
-"${R_BIN}" -e "remotes::install_deps(dependencies = TRUE, INSTALL_opts = '""${INSTALL_ARGS}""')"
+"${R_BIN}" -e "remotes::install_deps(dependencies = TRUE, INSTALL_opts = '\"${INSTALL_ARGS}\"')"
 
 popd
