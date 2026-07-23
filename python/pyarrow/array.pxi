@@ -4399,9 +4399,18 @@ cdef class StructArray(Array):
         fields = (<tuple> self._children_cache)[1]
         cdef Array field_arr
         result = {}
-        for k in range(num_fields):
-            field_arr = <Array> fields[k]
-            result[names[k]] = field_arr._getitem_py(i, maps_as_pydicts)
+        try:
+            for k in range(num_fields):
+                field_arr = <Array> fields[k]
+                result[names[k]] = field_arr._getitem_py(i, maps_as_pydicts)
+        except KeyError:
+            # StructScalar.as_py translates any KeyError raised while
+            # converting the field values (e.g. a nested map in 'strict'
+            # mode) into its duplicate-field-names ValueError; reproduce
+            # that translation exactly.
+            raise ValueError(
+                "Converting to Python dictionary is not supported when "
+                "duplicate field names are present")
         return result
 
     def field(self, index):
