@@ -149,6 +149,18 @@ static void Hash64StructLargeStrings(
   state.SetItemsProcessed(state.iterations() * 3 * values_array->length());
 }
 
+static void Hash64ListInt64(benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int64_t test_size = 10000;
+  auto test_vals = hashing_rng.ArrayOf(list(int64()), test_size, null_prob);
+
+  while (state.KeepRunning()) {
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {test_vals}));
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetItemsProcessed(state.iterations() * test_size);
+}
+
 static void Hash64Map(benchmark::State& state) {  // NOLINT non-const reference
   constexpr int64_t test_size = 10000;
   auto test_keys = hashing_rng.String(test_size, 2, 20, /*null_probability=*/0);
@@ -180,6 +192,7 @@ BENCHMARK(Hash64StructMediumStrings);
 BENCHMARK(Hash64StructLargeStrings);
 
 BENCHMARK(Hash64Map);
+BENCHMARK(Hash64ListInt64);
 
 }  // namespace internal
 }  // namespace arrow
