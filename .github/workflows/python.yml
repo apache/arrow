@@ -112,7 +112,7 @@ jobs:
           path: .docker
           key: python-${{ matrix.name }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -194,7 +194,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Install Dependencies
@@ -203,11 +203,6 @@ jobs:
           # Workaround for https://github.com/grpc/grpc/issues/41755
           # Remove once the runner ships a newer Homebrew.
           brew update
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
@@ -283,7 +278,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.13
       - name: Install ccache

@@ -15,39 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp=1.11.68
-azure-core-cpp>=1.10.3
-azure-identity-cpp>=1.6.0
-azure-storage-blobs-cpp>=12.10.0
-azure-storage-common-cpp>=12.5.0
-azure-storage-files-datalake-cpp>=12.9.0
-benchmark>=1.6.0,!=1.8.4,<1.9.5
-brotli
-bzip2
-c-ares
-cmake
-gflags
-glog
-gmock>=1.10.0
-google-cloud-cpp>=1.34.0
-gtest>=1.10.0
-libboost-devel
-libgrpc
-libprotobuf
-libutf8proc
-lz4-c
-make
-meson
-ninja
-nodejs>=16
-orc<2.1.0
-pkg-config
-python
-rapidjson
-re2
-simdjson
-snappy
-thrift-cpp>=0.11.0
-xsimd>=14.2
-zlib
-zstd
+[Apache Arrow Flight SQL ODBC Driver]
+Description=An ODBC Driver for Apache Arrow Flight SQL
+Driver=@ARROW_FLIGHT_SQL_ODBC_SO@

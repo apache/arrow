@@ -494,14 +494,23 @@ Libraries and header files for Apache Arrow Flight SQL.
 Summary:	C++ library for interacting with SQL databases via ODBC.
 License:	Apache-2.0
 Requires:	%{name}%{so_version}-flight-sql-libs = %{version}-%{release}
+Requires(post):	/usr/bin/odbcinst
+Requires(postun):	/usr/bin/odbcinst
 
 %description -n %{name}%{so_version}-flight-sql-odbc-libs
 This package contains the libraries for Apache Arrow Flight SQL ODBC driver.
+
+%post -n %{name}%{so_version}-flight-sql-odbc-libs
+odbcinst -i -d -f %{_datadir}/arrow/flight/sql/odbc/arrow-flight-sql-odbc-template.ini
+
+%postun -n %{name}%{so_version}-flight-sql-odbc-libs
+odbcinst -u -d -n "Apache Arrow Flight SQL ODBC Driver"
 
 %files -n %{name}%{so_version}-flight-sql-odbc-libs
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow/flight/sql/odbc/arrow-flight-sql-odbc-template.ini
 %{_libdir}/libarrow_flight_sql_odbc.so.*
 
 %package flight-sql-odbc-devel
