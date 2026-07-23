@@ -24,11 +24,10 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/hashing.h"
-
-#include "arrow/array/builder_primitive.h"
 
 namespace arrow {
 namespace internal {

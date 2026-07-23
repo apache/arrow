@@ -1299,7 +1299,8 @@ array as input.
 +---------------+-------+-------------+-------------+---------------+-------+
 
 * \(1) The implementation doesn't guarantee hash stability across different versions of
-       the library. Union-, view- and run end encoded types are not supported yet.
+       the library. Union, view and run end encoded types are not supported yet. Null
+       values do not hash to null; they hash to a fixed sentinel value.
 
 
 Categorizations
