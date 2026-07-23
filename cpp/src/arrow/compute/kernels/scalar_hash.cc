@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/light_array_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/result.h"
 
@@ -37,60 +38,61 @@ namespace {
 // Kernel implementations
 // It is expected that HashArrowType is either UInt32Type or UInt64Type (default)
 
+// Not dependent on the ArrowType/Hasher template arguments below, so defined
+// as a free function to avoid unnecessary code generation per instantiation.
+Result<KeyColumnArray> ToColumnArray(const ArraySpan& array,
+                                     const uint8_t* list_values_buffer = nullptr) {
+  KeyColumnMetadata metadata;
+  const uint8_t* validity_buffer = nullptr;
+  const uint8_t* fixed_length_buffer = nullptr;
+  const uint8_t* var_length_buffer = nullptr;
+
+  if (array.GetBuffer(0) != nullptr) {
+    validity_buffer = array.GetBuffer(0)->data();
+  }
+  if (array.GetBuffer(1) != nullptr) {
+    fixed_length_buffer = array.GetBuffer(1)->data();
+  }
+
+  auto type = array.type;
+  auto type_id = type->id();
+  if (type_id == Type::NA) {
+    metadata = KeyColumnMetadata(true, 0, true);
+  } else if (type_id == Type::BOOL) {
+    metadata = KeyColumnMetadata(true, 0);
+  } else if (is_fixed_width(type_id)) {
+    metadata = KeyColumnMetadata(true, type->bit_width() / 8);
+  } else if (is_binary_like(type_id)) {
+    metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+    var_length_buffer = array.GetBuffer(2)->data();
+  } else if (is_large_binary_like(type_id)) {
+    metadata = KeyColumnMetadata(false, sizeof(uint64_t));
+    var_length_buffer = array.GetBuffer(2)->data();
+  } else if (type_id == Type::MAP) {
+    metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+    var_length_buffer = list_values_buffer;
+  } else if (type_id == Type::LIST) {
+    metadata = KeyColumnMetadata(false, sizeof(uint32_t));
+    var_length_buffer = list_values_buffer;
+  } else if (type_id == Type::LARGE_LIST) {
+    metadata = KeyColumnMetadata(false, sizeof(uint64_t));
+    var_length_buffer = list_values_buffer;
+  } else if (type_id == Type::FIXED_SIZE_LIST) {
+    auto list_type = checked_cast<const FixedSizeListType*>(type);
+    metadata = KeyColumnMetadata(true, list_type->list_size());
+    fixed_length_buffer = list_values_buffer;
+  } else {
+    return Status::TypeError("Unsupported column data type ", type->name(),
+                             " used with hash32/hash64 compute kernel");
+  }
+
+  return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
+                        var_length_buffer);
+}
+
 template <typename ArrowType, typename Hasher>
 struct FastHashScalar {
   using c_type = typename ArrowType::c_type;
-
-  static Result<KeyColumnArray> ToColumnArray(
-      const ArraySpan& array, LightContext* ctx,
-      const uint8_t* list_values_buffer = nullptr) {
-    KeyColumnMetadata metadata;
-    const uint8_t* validity_buffer = nullptr;
-    const uint8_t* fixed_length_buffer = nullptr;
-    const uint8_t* var_length_buffer = nullptr;
-
-    if (array.GetBuffer(0) != nullptr) {
-      validity_buffer = array.GetBuffer(0)->data();
-    }
-    if (array.GetBuffer(1) != nullptr) {
-      fixed_length_buffer = array.GetBuffer(1)->data();
-    }
-
-    auto type = array.type;
-    auto type_id = type->id();
-    if (type_id == Type::NA) {
-      metadata = KeyColumnMetadata(true, 0, true);
-    } else if (type_id == Type::BOOL) {
-      metadata = KeyColumnMetadata(true, 0);
-    } else if (is_fixed_width(type_id)) {
-      metadata = KeyColumnMetadata(true, type->bit_width() / 8);
-    } else if (is_binary_like(type_id)) {
-      metadata = KeyColumnMetadata(false, sizeof(uint32_t));
-      var_length_buffer = array.GetBuffer(2)->data();
-    } else if (is_large_binary_like(type_id)) {
-      metadata = KeyColumnMetadata(false, sizeof(uint64_t));
-      var_length_buffer = array.GetBuffer(2)->data();
-    } else if (type_id == Type::MAP) {
-      metadata = KeyColumnMetadata(false, sizeof(uint32_t));
-      var_length_buffer = list_values_buffer;
-    } else if (type_id == Type::LIST) {
-      metadata = KeyColumnMetadata(false, sizeof(uint32_t));
-      var_length_buffer = list_values_buffer;
-    } else if (type_id == Type::LARGE_LIST) {
-      metadata = KeyColumnMetadata(false, sizeof(uint64_t));
-      var_length_buffer = list_values_buffer;
-    } else if (type_id == Type::FIXED_SIZE_LIST) {
-      auto list_type = checked_cast<const FixedSizeListType*>(type);
-      metadata = KeyColumnMetadata(true, list_type->list_size());
-      fixed_length_buffer = list_values_buffer;
-    } else {
-      return Status::TypeError("Unsupported column data type ", type->name(),
-                               " used with hash32/hash64 compute kernel");
-    }
-
-    return KeyColumnArray(metadata, array.length, validity_buffer, fixed_length_buffer,
-                          var_length_buffer);
-  }
 
   static Result<std::shared_ptr<ArrayData>> HashChild(const ArraySpan& array,
                                                       const ArraySpan& child,
@@ -127,9 +129,9 @@ struct FastHashScalar {
         if (is_nested(child.type->id())) {
           ARROW_ASSIGN_OR_RAISE(child_hashes[i],
                                 HashChild(array, child, hash_ctx, memory_pool));
-          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i], hash_ctx));
+          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
         } else {
-          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child, hash_ctx));
+          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
         }
         columns[i] = column.Slice(array.offset, array.length);
       }
@@ -138,12 +140,12 @@ struct FastHashScalar {
       auto values = array.child_data[0];
       ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                             HashChild(array, values, hash_ctx, memory_pool));
-      ARROW_ASSIGN_OR_RAISE(
-          column, ToColumnArray(array, hash_ctx, value_hashes->buffers[1]->data()));
+      ARROW_ASSIGN_OR_RAISE(column,
+                            ToColumnArray(array, value_hashes->buffers[1]->data()));
       columns[0] = column.Slice(array.offset, array.length);
       Hasher::HashMultiColumn(columns, hash_ctx, out);
     } else {
-      ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(array, hash_ctx));
+      ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(array));
       columns[0] = column.Slice(array.offset, array.length);
       Hasher::HashMultiColumn(columns, hash_ctx, out);
     }
