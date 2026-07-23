@@ -452,7 +452,7 @@ void CheckIdenticalRowsHashEqually(const std::string& func,
 }
 
 TEST_F(TestScalarHash, ListLikeDuplicateRowsHashEqually) {
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     CheckIdenticalRowsHashEqually(
         func,
         ArrayFromJSON(fixed_size_list(int32(), 3),
@@ -507,7 +507,7 @@ TEST_F(TestScalarHash, ListLikeDuplicateRowsFarApartHashEqually) {
   }
   ASSERT_OK_AND_ASSIGN(auto arr, list_builder.Finish());
 
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     CheckIdenticalRowsHashEqually(func, arr, kRowA, kRowB);
   }
 }
@@ -526,7 +526,7 @@ void CheckRowsHashDifferently(const std::string& func, const std::shared_ptr<Arr
 // looks at the first/last element) that would satisfy the "identical content hashes
 // identically" tests above while still being a broken hash function.
 TEST_F(TestScalarHash, ListLikeDistinctContentHashesDifferently) {
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     // Reordering elements should (in practice) change the hash.
     CheckRowsHashDifferently(func, ArrayFromJSON(list(int32()), "[[1, 2, 3], [3, 2, 1]]"),
                              0, 1);
@@ -550,7 +550,7 @@ TEST_F(TestScalarHash, ListLikeDistinctContentHashesDifferently) {
 // non-null) list doesn't collide with a null list, which hashes to 0 (see
 // NullHashIsZero).
 TEST_F(TestScalarHash, ListLikeEmptyDiffersFromNull) {
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     for (auto arr : {
              ArrayFromJSON(list(int32()), "[[], null]"),
              ArrayFromJSON(large_list(int32()), "[[], null]"),
@@ -571,7 +571,7 @@ TEST_F(TestScalarHash, ListLikeEmptyDiffersFromNull) {
 // dedicated masking pass in HashArray's is_list_like branch rather than the
 // generic path the other types go through.
 TEST_F(TestScalarHash, ListLikeNullHashIsZero) {
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     for (auto arr : {
              ArrayFromJSON(fixed_size_list(int32(), 2), "[null, [1, 2]]"),
              ArrayFromJSON(list(int32()), "[null, [1, 2]]"),
@@ -608,7 +608,7 @@ TEST_F(TestScalarHash, ListNullWithNonEmptyOffsetRangeHashesToZero) {
                                       /*null_count=*/1));
   ASSERT_TRUE(arr->IsNull(1));
 
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
     auto hashes = result.make_array();
     ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
@@ -624,7 +624,7 @@ TEST_F(TestScalarHash, ListNullWithNonEmptyOffsetRangeHashesToZero) {
 // into HashMultiColumn. Check they all agree on the same sentinel (0), not just each
 // individually hashing null to *something* self-consistent.
 TEST_F(TestScalarHash, NullHashIsZeroAcrossTypes) {
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
     for (auto arr : {
              ArrayFromJSON(boolean(), "[null]"),
@@ -650,7 +650,7 @@ TEST_F(TestScalarHash, NullHashIsZeroAcrossTypes) {
 // hash data got re-hashed via HashFixed as if it were ordinary (non-null) data,
 // silently producing a non-zero result instead of the documented 0 sentinel.
 TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
-  for (const std::string& func : {"hash32", "hash64"}) {
+  for (const std::string func : {"hash32", "hash64"}) {
     auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
 
     // Plain (non-nested) null field, for comparison: already correct beforehand.
