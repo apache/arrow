@@ -19,6 +19,8 @@ class TestDate64Array < Test::Unit::TestCase
   def setup
     @date_2017_08_28_00_00_00 = 1503878400000
     @date_2025_12_10_00_00_00 = 1765324800000
+    @values = [@date_2017_08_28_00_00_00, nil, @date_2025_12_10_00_00_00]
+    @array = ArrowFormat::Date64Array.new(@values)
   end
 
   sub_test_case("#initialize") do
@@ -55,6 +57,16 @@ class TestDate64Array < Test::Unit::TestCase
       array1 = ArrowFormat::Date64Array.new(values)
       array2 = ArrowFormat::Date64Array.new([0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[2], @array[2])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end

@@ -95,6 +95,7 @@ RUN apt-get update -y -q && \
         libradospp-dev \
         libre2-dev \
         librtmp-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssh-dev \

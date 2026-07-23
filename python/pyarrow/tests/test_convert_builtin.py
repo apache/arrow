@@ -128,6 +128,29 @@ def test_failing_iterator():
         pa.array((1 // 0 for x in range(10)), size=10)
 
 
+def test_failing_iterator_does_not_leak():
+    # GH-50591
+    import gc
+    import sys
+
+    # Create an arbitrary long int that is hopefully not cached by the interpreter
+    value = 10**20
+
+    def raising_iter():
+        for _ in range(5):
+            yield value
+        raise ValueError("boom")
+
+    gc.collect()
+    original_refcount = sys.getrefcount(value)
+
+    with pytest.raises(ValueError, match="boom"):
+        pa.array(raising_iter(), size=100)
+
+    gc.collect()
+    assert sys.getrefcount(value) == original_refcount
+
+
 class ObjectWithOnlyGetitem:
     def __getitem__(self, key):
         return 3

@@ -21,10 +21,44 @@
 
 # arrow 25.0.0
 
+## Breaking changes
+
 - Arrow `uint64` types are now always converted to R `double` (numeric) vectors,
   regardless of the values. Previously, small `uint64` values were converted to
-  R `integer`, which could cause inconsistent types within list columns when
+  R `integer`, which could cause inconsistent types within list-columns when
   different list elements had different value ranges (#50339).
+
+## New features
+
+- `Field` objects now support field-level metadata via `$metadata` and
+  `$with_metadata()` (@max-romagnoli, #33390).
+- Parquet files now support list-columns of ordered factors (ordered
+  dictionaries) (#49689).
+
+## Minor improvements and fixes
+
+- `Array$create()` now gives a clearer error message when given a `POSIXct`
+  object with an invalid timezone (#40886).
+- Dictionary arrays with `large_string` value types now convert correctly to R
+  factors (#39603).
+- `open_dataset()` now gives a clearer error message when providing a mix of
+  `readr` and Arrow options (@Rich-T-kid, #33420).
+- `read_parquet()` no longer triggers a C++ alignment warning from the Acero
+  source node (#46178).
+- `Schema` metadata partial matching on `$metadata$r` no longer errors when
+  other metadata keys start with "r" (#50163).
+- `to_arrow()` now preserves `group_by()` when converting from a dbplyr lazy
+  table (#40640).
+- `write_parquet()` now correctly validates that `max_rows_per_group` is a
+  positive number (#40742).
+- Stale S3 connections no longer cause a segfault during garbage collection
+  (#50009).
+- Spurious warnings are no longer emitted when reading files with custom schema
+  metadata (#48712).
+
+## Installation
+
+- The R package now builds under `r-universe/r-wasm` (#49981).
 
 # arrow 24.0.0
 

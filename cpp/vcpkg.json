@@ -48,6 +48,7 @@
     "protobuf",
     "rapidjson",
     "re2",
+    "simdjson",
     "snappy",
     "sqlite3",
     "thrift",

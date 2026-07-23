@@ -34,6 +34,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -135,37 +136,17 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmapImpl(
     // data bitmap together.
     DCHECK_EQ(null_selection, FilterOptions::DROP);
 
-    // The position relative to the start of the filter
-    T position = 0;
-    // The current position taking the filter offset into account
-    int64_t position_with_offset = filter.offset;
-
-    BinaryBitBlockCounter filter_counter(filter_data, filter.offset, filter_is_valid,
-                                         filter.offset, filter.length);
-    while (position < filter.length) {
-      BitBlockCount and_block = filter_counter.NextAndWord();
-      RETURN_NOT_OK(builder.Reserve(and_block.popcount));
-      if (and_block.AllSet()) {
-        // All the values are selected and non-null
-        for (int64_t i = 0; i < and_block.length; ++i) {
-          builder.UnsafeAppend(position++);
-        }
-        position_with_offset += and_block.length;
-      } else if (!and_block.NoneSet()) {
-        // Some of the values are false or null
-        for (int64_t i = 0; i < and_block.length; ++i) {
-          if (bit_util::GetBit(filter_is_valid, position_with_offset) &&
-              bit_util::GetBit(filter_data, position_with_offset)) {
-            builder.UnsafeAppend(position);
-          }
-          ++position;
-          ++position_with_offset;
-        }
-      } else {
-        position += and_block.length;
-        position_with_offset += and_block.length;
+    auto visit_run = [&](int64_t position, int64_t run_length) {
+      RETURN_NOT_OK(builder.Reserve(run_length));
+      for (int64_t i = 0; i < run_length; ++i) {
+        builder.UnsafeAppend(static_cast<T>(position + i));
       }
-    }
+      return Status::OK();
+    };
+
+    RETURN_NOT_OK(::arrow::internal::VisitTwoSetBitRuns(filter_data, filter.offset,
+                                                        filter_is_valid, filter.offset,
+                                                        filter.length, visit_run));
   } else {
     // The filter has no nulls, so we need only look for true values
     RETURN_NOT_OK(::arrow::internal::VisitSetBitRuns(

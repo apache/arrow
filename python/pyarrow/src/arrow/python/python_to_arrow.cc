@@ -1258,6 +1258,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     OwnedRef iter_ref(iter);
     PyObject* lst = PyList_New(n);
     RETURN_IF_PYERROR();
+    OwnedRef lst_ref(lst);
     for (i = 0; i < n; i++) {
       PyObject* item = PyIter_Next(iter);
       if (!item) {
@@ -1269,10 +1270,9 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     }
     // Shrink list if len(iterator) < size
     if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
-      Py_DECREF(lst);
       RETURN_IF_PYERROR();
     }
-    *seq = lst;
+    *seq = lst_ref.detach();
     *size = std::min<int64_t>(i, *size);
   }
   return Status::OK();

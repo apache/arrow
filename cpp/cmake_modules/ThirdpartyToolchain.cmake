@@ -64,6 +64,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     re2
     Protobuf
     RapidJSON
+    simdjson
     Snappy
     Substrait
     Thrift
@@ -209,6 +210,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
     build_rapidjson()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "simdjson")
+    build_simdjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
@@ -409,6 +412,10 @@ endif()
 
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
+endif()
+
+if(ARROW_JSON)
+  set(ARROW_WITH_SIMDJSON ON)
 endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT)
@@ -761,6 +768,14 @@ else()
   set_urls(RAPIDJSON_SOURCE_URL
            "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_SIMDJSON_URL})
+  set(SIMDJSON_SOURCE_URL "$ENV{ARROW_SIMDJSON_URL}")
+else()
+  set_urls(SIMDJSON_SOURCE_URL
+           "https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_S2N_TLS_URL})
@@ -2073,7 +2088,9 @@ function(build_protobuf)
         "-DCMAKE_C_FLAGS="
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
+        -Dprotobuf_DEBUG_POSTFIX=
+        # OFF to avoid conda include dirs leaking into vendored Abseil
+        -Dprotobuf_WITH_ZLIB=OFF)
     if(ABSL_VENDORED)
       # Force protobuf to reuse Arrow's already-extracted absl source
       # so we don't re-download and we don't have issues with multiple abseil.
@@ -2565,13 +2582,25 @@ if(ARROW_MIMALLOC)
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_INSTALL_TOPLEVEL=ON
+      # Don't override default malloc
       -DMI_OVERRIDE=OFF
+      -DMI_OSX_INTERPOSE=OFF
+      -DMI_OSX_ZONE=OFF
+      # Allow usage through dlopen (i.e. when libarrow.so itself is dlopen'ed)
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF
       # GH-47229: Force mimalloc to generate armv8.0 binary
       -DMI_NO_OPT_ARCH=ON)
+
+  if(APPLE)
+    list(APPEND
+         MIMALLOC_CMAKE_ARGS
+         # GH-50428: Make sure several mimalloc instances can cohabit in the same process
+         # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
+         -DMI_TLS_MODEL_LOCAL=ON)
+  endif()
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
@@ -2778,6 +2807,42 @@ if(ARROW_BUILD_BENCHMARKS)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
+endif()
+
+function(build_simdjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "simdjson: ")
+  message(STATUS "Building simdjson from source")
+
+  fetchcontent_declare(simdjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${SIMDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  fetchcontent_makeavailable(simdjson)
+
+  set(SIMDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson::simdjson)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+if(ARROW_WITH_SIMDJSON)
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "3.0.0")
+  resolve_dependency(simdjson
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_SIMDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
 endif()
