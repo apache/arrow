@@ -2438,6 +2438,7 @@ def test_cast_struct_nested_nullability():
     with pytest.raises(pa.ArrowInvalid, match="has nulls"):
         pc.cast(arr_large.slice(1, 2), target_type)
 
+
 # Cannot test float32 as case generators above assume float64
 @pytest.mark.numpy
 @pytest.mark.parametrize('float_ty', [pa.float64()], ids=str)

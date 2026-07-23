@@ -4197,7 +4197,7 @@ TEST(Cast, StructNestedNullabilitySliced) {
     null,
     {"inner": {"a": 5}}
   ])");
-  
+
   CheckCast(src->Slice(3, 2), expected->Slice(3, 2));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -4205,7 +4205,7 @@ TEST(Cast, StructNestedNullabilitySliced) {
       Cast(src->Slice(2, 2), CastOptions::Safe(outer_type_dest)));
 }
 
-TEST(Cast, StructNestedNullabilityAbsentChild) {
+TEST(Cast, StructNestedNullabilityNoChildNulls) {
   auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
   auto outer_type_dest = struct_({field("inner", inner_type_dest)});
   auto inner_type_src = struct_({field("a", int32())});
@@ -4220,6 +4220,31 @@ TEST(Cast, StructNestedNullabilityAbsentChild) {
     {"inner": {"a": 2}}
   ])");
   CheckCast(src, expected);
+}
+
+TEST(Cast, StructNestedNullabilityNoChildBitmapConservativelyRejected) {
+  // NullType (and other child types without a validity buffer of their own,
+  // e.g. RunEndEncoded/Union) have no bitmap to distinguish masked from
+  // unmasked nulls, so any reported null is conservatively rejected -- even
+  // when the parent row is itself null and the value would otherwise be
+  // masked.
+  auto inner_type_dest = struct_({field("a", null(), /*nullable=*/false)});
+  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
+  auto inner_type_src = struct_({field("a", null())});
+  auto outer_type_src = struct_({field("inner", inner_type_src)});
+
+  auto src = ArrayFromJSON(outer_type_src, R"([
+    {"inner": {"a": null}},
+    null
+  ])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
+      Cast(src, CastOptions::Safe(outer_type_dest)));
+
+  // Slicing to only the masked (fully-null outer) row is still rejected.
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
+      Cast(src->Slice(1, 1), CastOptions::Safe(outer_type_dest)));
 }
 
 TEST(Cast, StructNestedNullabilityDeep) {

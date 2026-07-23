@@ -29,7 +29,6 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
 
@@ -388,40 +387,35 @@ struct CastStruct {
 
         if (in_field->nullable() && !out_field->nullable() &&
             in_values->GetNullCount() > 0) {
-          bool has_nulls = false;
           const uint8_t* parent_bitmap = in_array.buffers[0].data;
-          const uint8_t* child_bitmap = in_values->buffers.empty() ? nullptr : (in_values->buffers[0] ? in_values->buffers[0]->data() : nullptr);
+          const uint8_t* child_bitmap =
+              in_values->buffers.empty() || !in_values->buffers[0]
+                  ? nullptr
+                  : in_values->buffers[0]->data();
 
+          int64_t unmasked_null_count;
           if (parent_bitmap == nullptr) {
-            // Parent has no nulls. Since child has nulls, they are unmasked.
-            has_nulls = true;
+            // Parent has no nulls, so any child null is unmasked.
+            unmasked_null_count = in_values->GetNullCount();
           } else if (child_bitmap == nullptr) {
-            // Child has nulls but no bitmap (e.g. NullArray, RunEndEncoded, Union).
-            // We must semantically check if any valid parent element corresponds to a null child.
-            for (int64_t i = 0; i < in_array.length; ++i) {
-              if (arrow::bit_util::GetBit(parent_bitmap, in_array.offset + i) &&
-                  in_values->IsNull(i)) {
-                has_nulls = true;
-                break;
-              }
-            }
+            // Child reports nulls but has no validity buffer of its own (e.g.
+            // NullArray, RunEndEncoded, Union). There is no cheap, bitmap-only way
+            // to tell which of those nulls are masked by the parent, so
+            // conservatively reject rather than reason about logical nulls (which
+            // would be inconsistent with the bitmap-only check below).
+            unmasked_null_count = in_values->GetNullCount();
           } else {
-            // Both parent and child have bitmaps. Check if parent is valid AND child is null.
-            arrow::internal::BinaryBitBlockCounter bit_counter(
-                parent_bitmap, in_array.offset,
-                child_bitmap, in_values->offset, in_array.length);
-            int64_t position = 0;
-            while (position < in_array.length) {
-              arrow::internal::BitBlockCount block = bit_counter.NextAndNotWord();
-              if (block.popcount > 0) {
-                has_nulls = true;
-                break;
-              }
-              position += block.length;
-            }
+            // Both parent and child have bitmaps: an unmasked null is a position
+            // where the parent is valid but the child is null, i.e. parent bits
+            // set that aren't also set in the child.
+            unmasked_null_count = arrow::internal::CountSetBits(
+                                      parent_bitmap, in_array.offset, in_array.length) -
+                                  arrow::internal::CountAndSetBits(
+                                      parent_bitmap, in_array.offset, child_bitmap,
+                                      in_values->offset, in_array.length);
           }
 
-          if (has_nulls) {
+          if (unmasked_null_count > 0) {
             return Status::Invalid(
                 "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
                 " has nulls. Can't cast to non-nullable field '", out_field->name(),
@@ -431,7 +425,17 @@ struct CastStruct {
         ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(in_values, out_field_type, options,
                                                       ctx->exec_context()));
         DCHECK(cast_values.is_array());
-        out_array->child_data.push_back(cast_values.array());
+        auto cast_array_data = cast_values.array();
+        if (!out_field->nullable() && cast_array_data->buffers[0] != nullptr) {
+          // The child may still carry nulls that were only masked by the parent's
+          // validity bitmap (see the check above). Strip them so a non-nullable
+          // field never exposes a validity buffer -- otherwise extracting this
+          // field on its own (e.g. via struct_field/flatten) would surface nulls
+          // in a field whose type claims none are possible.
+          cast_array_data->buffers[0] = nullptr;
+          cast_array_data->null_count = 0;
+        }
+        out_array->child_data.push_back(std::move(cast_array_data));
       }
     }
 
