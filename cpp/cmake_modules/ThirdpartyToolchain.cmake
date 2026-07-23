@@ -2816,7 +2816,7 @@ function(build_simdjson)
       TRUE
       PARENT_SCOPE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson::simdjson)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
       PARENT_SCOPE)
@@ -2833,6 +2833,11 @@ if(ARROW_WITH_SIMDJSON)
                      ${ARROW_SIMDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
+  if(SIMDJSON_VENDORED)
+    add_library(arrow::simdjson ALIAS simdjson)
+  else()
+    add_library(arrow::simdjson ALIAS simdjson::simdjson)
+  endif()
 endif()
 
 function(build_rapidjson)
