@@ -222,7 +222,7 @@ class BrowserDriver:
         code = (f"import pyodide_js as pjs\n"
                 f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
         for attempt in range(3):
-            # Set temporary timeout for every attempt as Chrome restart creates a new driver
+            # Set temporary timeout each attempt as Chrome restart creates a driver
             self.driver.set_script_timeout(300)
             try:
                 self.execute_python(code)
