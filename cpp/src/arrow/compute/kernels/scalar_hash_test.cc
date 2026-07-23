@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 #include <unordered_set>
 
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
@@ -30,6 +32,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -429,6 +432,225 @@ TEST_F(TestScalarHash, RandomList) {
       }
     }
   }
+}
+
+// GH-17211: hashing nested (list-like) child values reused the parent's element
+// offsets directly as byte offsets into the hashed-child buffer, without
+// rescaling by the width of the hashed code (4 bytes for hash32, 8 for hash64).
+// This corrupted results in a way that depended on row position, so two
+// occurrences of the exact same nested value at different rows would hash
+// differently.
+void CheckIdenticalRowsHashEqually(const std::string& func,
+                                   const std::shared_ptr<Array>& arr, int64_t row_a,
+                                   int64_t row_b) {
+  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+  ASSERT_OK_AND_ASSIGN(auto scalar_a, result.make_array()->GetScalar(row_a));
+  ASSERT_OK_AND_ASSIGN(auto scalar_b, result.make_array()->GetScalar(row_b));
+  ASSERT_TRUE(scalar_a->Equals(*scalar_b))
+      << "row " << row_a << " and row " << row_b << " have the same value in "
+      << arr->ToString() << " and should hash identically";
+}
+
+TEST_F(TestScalarHash, ListLikeDuplicateRowsHashEqually) {
+  for (const std::string& func : {"hash32", "hash64"}) {
+    CheckIdenticalRowsHashEqually(
+        func,
+        ArrayFromJSON(fixed_size_list(int32(), 3),
+                      "[[7, 8, 9], [100, 101, 102], [7, 8, 9], [200, 201, 202]]"),
+        0, 2);
+    CheckIdenticalRowsHashEqually(
+        func,
+        ArrayFromJSON(list(int32()),
+                      "[[7, 8, 9], [100, 101], [7, 8, 9], [200, 201, 202, 203]]"),
+        0, 2);
+    CheckIdenticalRowsHashEqually(
+        func,
+        ArrayFromJSON(large_list(int32()),
+                      "[[7, 8, 9], [100, 101], [7, 8, 9], [200, 201, 202, 203]]"),
+        0, 2);
+    CheckIdenticalRowsHashEqually(
+        func,
+        ArrayFromJSON(list(list(int16())),
+                      "[[[7, 8], [9]], [[1], [2, 3]], [[7, 8], [9]], [[4]]]"),
+        0, 2);
+    CheckIdenticalRowsHashEqually(
+        func,
+        ArrayFromJSON(
+            map(utf8(), int32()),
+            R"([[["a", 1], ["b", 2]], [["c", 3]], [["a", 1], ["b", 2]], [["d", 4]]])"),
+        0, 2);
+    CheckIdenticalRowsHashEqually(
+        func,
+        ArrayFromJSON(
+            struct_({field("f0", list(int32()))}),
+            R"([{"f0": [7, 8, 9]}, {"f0": [1, 2]}, {"f0": [7, 8, 9]}, {"f0": [4]}])"),
+        0, 2);
+  }
+}
+
+// Same as above, but with a large array and the duplicated rows far apart, as a
+// stress test of the row-folding loop in HashArray's is_list_like branch beyond
+// the handful of rows exercised above.
+TEST_F(TestScalarHash, ListLikeDuplicateRowsFarApartHashEqually) {
+  constexpr int64_t kRowA = 10;
+  constexpr int64_t kRowB = 2 * util::MiniBatch::kMiniBatchLength + 10;
+  constexpr int64_t kLength = kRowB + 100;
+
+  Int32Builder value_builder;
+  ListBuilder list_builder(default_memory_pool(), std::make_shared<Int32Builder>());
+  auto* values = checked_cast<Int32Builder*>(list_builder.value_builder());
+  for (int64_t row = 0; row < kLength; row++) {
+    ASSERT_OK(list_builder.Append());
+    int64_t content = row == kRowB ? kRowA : row;
+    ASSERT_OK(values->Append(static_cast<int32_t>(content)));
+    ASSERT_OK(values->Append(static_cast<int32_t>(content + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto arr, list_builder.Finish());
+
+  for (const std::string& func : {"hash32", "hash64"}) {
+    CheckIdenticalRowsHashEqually(func, arr, kRowA, kRowB);
+  }
+}
+
+void CheckRowsHashDifferently(const std::string& func, const std::shared_ptr<Array>& arr,
+                              int64_t row_a, int64_t row_b) {
+  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+  ASSERT_OK_AND_ASSIGN(auto scalar_a, result.make_array()->GetScalar(row_a));
+  ASSERT_OK_AND_ASSIGN(auto scalar_b, result.make_array()->GetScalar(row_b));
+  ASSERT_FALSE(scalar_a->Equals(*scalar_b))
+      << "row " << row_a << " and row " << row_b << " have different values in "
+      << arr->ToString() << " and should (in practice) hash differently";
+}
+
+// Guards against a degenerate fold (e.g. one that ignores element order, or only
+// looks at the first/last element) that would satisfy the "identical content hashes
+// identically" tests above while still being a broken hash function.
+TEST_F(TestScalarHash, ListLikeDistinctContentHashesDifferently) {
+  for (const std::string& func : {"hash32", "hash64"}) {
+    // Reordering elements should (in practice) change the hash.
+    CheckRowsHashDifferently(func, ArrayFromJSON(list(int32()), "[[1, 2, 3], [3, 2, 1]]"),
+                             0, 1);
+    // Changing one element's value should (in practice) change the hash.
+    CheckRowsHashDifferently(func, ArrayFromJSON(list(int32()), "[[1, 2, 3], [1, 2, 4]]"),
+                             0, 1);
+    // A shorter list shouldn't be a prefix-consistent truncation of a longer one.
+    CheckRowsHashDifferently(func, ArrayFromJSON(list(int32()), "[[1, 2], [1, 2, 3]]"), 0,
+                             1);
+    // Swapping map values between keys should (in practice) change the hash.
+    CheckRowsHashDifferently(
+        func,
+        ArrayFromJSON(map(utf8(), int32()),
+                      R"([[["a", 1], ["b", 2]], [["a", 2], ["b", 1]]])"),
+        0, 1);
+  }
+}
+
+// The seed used to fold a list-like row's child hashes together (see
+// FastHashScalar::CombineRange) is deliberately not 0, so that an empty (but
+// non-null) list doesn't collide with a null list, which hashes to 0 (see
+// NullHashIsZero).
+TEST_F(TestScalarHash, ListLikeEmptyDiffersFromNull) {
+  for (const std::string& func : {"hash32", "hash64"}) {
+    for (auto arr : {
+             ArrayFromJSON(list(int32()), "[[], null]"),
+             ArrayFromJSON(large_list(int32()), "[[], null]"),
+             ArrayFromJSON(map(utf8(), int32()), "[[], null]"),
+         }) {
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+      auto hashes = result.make_array();
+      ASSERT_OK_AND_ASSIGN(auto empty_hash, hashes->GetScalar(0));
+      ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
+      ASSERT_FALSE(empty_hash->Equals(*null_hash))
+          << "hash of an empty " << arr->type()->ToString()
+          << " should not collide with hash of a null one";
+    }
+  }
+}
+
+// Mirrors NullHashIsZero, but for list-like types, whose null handling is a
+// dedicated masking pass in HashArray's is_list_like branch rather than the
+// generic path the other types go through.
+TEST_F(TestScalarHash, ListLikeNullHashIsZero) {
+  for (const std::string& func : {"hash32", "hash64"}) {
+    for (auto arr : {
+             ArrayFromJSON(fixed_size_list(int32(), 2), "[null, [1, 2]]"),
+             ArrayFromJSON(list(int32()), "[null, [1, 2]]"),
+             ArrayFromJSON(large_list(int32()), "[null, [1, 2]]"),
+             ArrayFromJSON(map(utf8(), int32()), R"([null, [["a", 1]]])"),
+         }) {
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+      auto hashes = result.make_array();
+      ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(0));
+      ASSERT_OK_AND_ASSIGN(auto non_null_hash, hashes->GetScalar(1));
+      auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+      ASSERT_TRUE(null_hash->Equals(*zero))
+          << "null " << arr->type()->ToString() << " should hash to 0";
+      ASSERT_FALSE(non_null_hash->Equals(*zero))
+          << "non-null " << arr->type()->ToString() << " should not hash to 0";
+    }
+  }
+}
+
+// Per the columnar format spec, a null slot may have a positive slot length over
+// undefined memory. Build a LIST array where the null row's offsets span 3 real
+// (non-garbage, but logically "don't care") values instead of the canonical empty
+// range, to make sure CombineRange's output for that row is still discarded by the
+// masking pass rather than leaking into the result.
+TEST_F(TestScalarHash, ListNullWithNonEmptyOffsetRangeHashesToZero) {
+  auto offsets = ArrayFromJSON(int32(), "[0, 2, 5, 6]");
+  auto values = ArrayFromJSON(int32(), "[10, 20, 30, 40, 50, 60]");
+  ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(3));
+  bit_util::SetBit(validity->mutable_data(), 0);
+  // Row 1 is null but its offset range [2, 5) is non-empty.
+  bit_util::SetBit(validity->mutable_data(), 2);
+  ASSERT_OK_AND_ASSIGN(
+      auto arr, ListArray::FromArrays(*offsets, *values, default_memory_pool(), validity,
+                                      /*null_count=*/1));
+  ASSERT_TRUE(arr->IsNull(1));
+
+  for (const std::string& func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+    auto hashes = result.make_array();
+    ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
+    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+    ASSERT_TRUE(null_hash->Equals(*zero))
+        << "null row with a non-empty offset range should still hash to 0";
+  }
+}
+
+// The generic path (bool, int, string, ...) zeroes nulls via HashMultiColumn, while
+// list-like types are zeroed by HashArray's own is_list_like branch (see
+// ListLikeNullHashIsZero) and struct by recursing into per-field columns fed back
+// into HashMultiColumn. Check they all agree on the same sentinel (0), not just each
+// individually hashing null to *something* self-consistent.
+TEST_F(TestScalarHash, NullHashIsZeroAcrossTypes) {
+  for (const std::string& func : {"hash32", "hash64"}) {
+    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+    for (auto arr : {
+             ArrayFromJSON(boolean(), "[null]"),
+             ArrayFromJSON(int32(), "[null]"),
+             ArrayFromJSON(utf8(), "[null]"),
+             ArrayFromJSON(list(int32()), "[null]"),
+             ArrayFromJSON(struct_({field("f0", int32())}), "[null]"),
+             ArrayFromJSON(map(utf8(), int32()), "[null]"),
+         }) {
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+      ASSERT_OK_AND_ASSIGN(auto null_hash, result.make_array()->GetScalar(0));
+      ASSERT_TRUE(null_hash->Equals(*zero))
+          << "null " << arr->type()->ToString() << " should hash to the same 0 "
+          << "sentinel as every other type";
+    }
+  }
+}
+
+// The EXTENSION unwrapping at the top of HashArray should compose with the
+// is_list_like recursion; this combination was otherwise untested (ExtensionType
+// above only wraps a primitive).
+TEST_F(TestScalarHash, ExtensionTypeWrappingList) {
+  auto storage = ArrayFromJSON(list(int32()), "[[7, 8, 9], [1, 2], [7, 8, 9]]");
+  auto extension = ExtensionType::WrapArray(list_extension_type(), storage);
+  CheckIdenticalRowsHashEqually("hash32", extension, 0, 2);
+  CheckIdenticalRowsHashEqually("hash64", extension, 0, 2);
 }
 
 TEST_F(TestScalarHash, RandomStruct) {
