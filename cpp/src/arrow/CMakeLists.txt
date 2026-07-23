@@ -98,7 +98,7 @@ if(ARROW_S3)
          aws-cpp-sdk-identity-management
          aws-cpp-sdk-sts
          aws-cpp-sdk-cognito-identity
-         aws-cpp-sdk-s3
+         aws-cpp-sdk-s3-crt
          aws-cpp-sdk-core)
   elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
     if(UNIX)
