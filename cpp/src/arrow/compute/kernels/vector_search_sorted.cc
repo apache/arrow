@@ -258,9 +258,8 @@ struct SearchSortedCompare {
 
 class SearchWindow {
  public:
-  SearchWindow(int64_t length, NonNullValuesRange non_null_range)
-      : offset_(non_null_range.offset),
-        length_(non_null_range.is_identity(length) ? length : non_null_range.length) {}
+  explicit SearchWindow(NonNullValuesRange non_null_range)
+      : offset_(non_null_range.offset), length_(non_null_range.length) {}
 
   int64_t length() const { return length_; }
 
@@ -287,7 +286,7 @@ class PlainArrayAccessor : public SearchWindow {
   /// to a non-null subrange.
   explicit PlainArrayAccessor(const std::shared_ptr<ArrayData>& array_data,
                               NonNullValuesRange non_null_range = {})
-      : SearchWindow(array_data->length, non_null_range), array_(array_data) {}
+      : SearchWindow(non_null_range), array_(array_data) {}
 
   /// Return the logical value at the given position within the search window.
   ValueType Value(int64_t index) const {
@@ -416,7 +415,7 @@ class ChunkedArrayAccessor : public SearchWindow {
   /// without concatenating the input, optionally restricted to a subrange.
   explicit ChunkedArrayAccessor(const ChunkedArray& chunked_array,
                                 NonNullValuesRange non_null_range = {})
-      : SearchWindow(chunked_array.length(), non_null_range),
+      : SearchWindow(non_null_range),
         chunked_array_(chunked_array),
         resolver_(chunked_array.chunks()) {
     chunks_.reserve(static_cast<size_t>(chunked_array.num_chunks()));
@@ -504,10 +503,10 @@ class ChunkedRunEndEncodedValuesAccessorBase {
 
   int64_t PhysicalRunIndex(int64_t index) const { return offset_ + index; }
 
-  std::pair<size_t, int64_t> ResolveRunIndex(int64_t index) const {
+  std::pair<int64_t, int64_t> ResolveRunIndex(int64_t index) const {
     DCHECK_LT(index, total_run_count_);
     const auto location = run_resolver_.Resolve(index);
-    return {static_cast<size_t>(location.chunk_index), location.index_in_chunk};
+    return {location.chunk_index, location.index_in_chunk};
   }
 
   int64_t total_run_count() const { return total_run_count_; }
@@ -568,16 +567,12 @@ class ChunkedRunEndEncodedValuesAccessor : public ChunkedRunEndEncodedValuesAcce
     return accessors_[chunk_index].Value(local_index);
   }
 
-  /// Count leading null physical runs across chunks. Validation guarantees that
-  /// any null runs are clustered entirely at one end of the logical values.
+  /// Count null physical runs across chunks. Validation guarantees that any
+  /// null runs are clustered entirely at one end of the logical values.
   int64_t NullCount() const {
     int64_t null_run_count = 0;
     for (const auto& accessor : accessors_) {
-      const auto local_null_run_count = accessor.NullCount();
-      null_run_count += local_null_run_count;
-      if (local_null_run_count != accessor.length()) {
-        break;
-      }
+      null_run_count += accessor.NullCount();
     }
     return null_run_count;
   }
@@ -598,25 +593,14 @@ class ChunkedRunEndEncodedValuesAccessor : public ChunkedRunEndEncodedValuesAcce
 
 /// Validate the supplied null counts and produce the logical non-null window
 /// that will actually participate in binary search.
-inline Result<NonNullValuesRange> MakeNonNullValuesRange(int64_t full_length,
-                                                         int64_t null_count,
-                                                         int64_t leading_null_count,
-                                                         int64_t trailing_null_count) {
-  NonNullValuesRange non_null_values_range{.offset = 0, .length = full_length};
-
-  if (leading_null_count == full_length) {
-    non_null_values_range.length = 0;
-    return non_null_values_range;
-  }
-
+inline NonNullValuesRange MakeNonNullValuesRange(int64_t full_length, int64_t null_count,
+                                                 int64_t leading_null_count,
+                                                 int64_t trailing_null_count) {
   if (leading_null_count > 0) {
-    non_null_values_range.offset = leading_null_count;
-    non_null_values_range.length = full_length - leading_null_count;
-    return non_null_values_range;
+    return {.offset = leading_null_count, .length = full_length - leading_null_count};
+  } else {
+    return {.offset = 0, .length = full_length - trailing_null_count};
   }
-
-  non_null_values_range.length = full_length - trailing_null_count;
-  return non_null_values_range;
 }
 
 /// Build the searchable non-null window once the side containing clustered
@@ -691,6 +675,16 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
   const auto null_count = values.ComputeLogicalNullCount();
   if (null_count == 0) {
     return non_null_values_range;
+  }
+
+  if (values.type->id() == Type::RUN_END_ENCODED) {
+    const ArraySpan values_span(values);
+    return FindNonNullValuesRangeFromNullCount(
+        values.length, null_count, [&](int64_t index) {
+          const auto physical_index =
+              ree_util::FindPhysicalIndex(values_span, index, values_span.offset);
+          return ree_util::ValuesArray(values_span).IsNull(physical_index);
+        });
   }
 
   return FindNonNullValuesRangeFromNullCount(
