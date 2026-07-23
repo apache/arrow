@@ -32,5 +32,6 @@ FLATC="flatc --cpp --cpp-std c++11 --scoped-enums"
 OUT_DIR="$SOURCE_DIR/generated"
 FILES=($(find $FORMAT_DIR -name '*.fbs'))
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
+FILES+=("$SOURCE_DIR/parquet/parquet3.fbs")
 
 $FLATC -o "$OUT_DIR" "${FILES[@]}"
