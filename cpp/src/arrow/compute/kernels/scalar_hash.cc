@@ -66,10 +66,14 @@ Result<KeyColumnArray> ToColumnArray(const ArraySpan& array) {
     metadata = KeyColumnMetadata(true, type->bit_width() / 8);
   } else if (is_binary_like(type_id)) {
     metadata = KeyColumnMetadata(false, sizeof(uint32_t));
-    var_length_buffer = array.GetBuffer(2)->data();
+    if (array.GetBuffer(2) != nullptr) {
+      var_length_buffer = array.GetBuffer(2)->data();
+    }
   } else if (is_large_binary_like(type_id)) {
     metadata = KeyColumnMetadata(false, sizeof(uint64_t));
-    var_length_buffer = array.GetBuffer(2)->data();
+    if (array.GetBuffer(2) != nullptr) {
+      var_length_buffer = array.GetBuffer(2)->data();
+    }
   } else {
     return Status::TypeError("Unsupported column data type ", type->name(),
                              " used with hash32/hash64 compute kernel");
