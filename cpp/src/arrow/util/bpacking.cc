@@ -34,7 +34,6 @@ struct UnpackDynamicFunction {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&bpacking::unpack_scalar<Uint>)    //
         ARROW_DISPATCH_TARGET_NEON(&bpacking::unpack_neon<Uint>)      //
-        ARROW_DISPATCH_TARGET_SVE128(&bpacking::unpack_sve128<Uint>)  //
         ARROW_DISPATCH_TARGET_SVE256(&bpacking::unpack_sve256<Uint>)  //
         ARROW_DISPATCH_TARGET_SSE4_2(&bpacking::unpack_sse4_2<Uint>)  //
         ARROW_DISPATCH_TARGET_AVX2(&bpacking::unpack_avx2<Uint>)      //
