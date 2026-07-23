@@ -1821,7 +1821,7 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// \param[in] ctx function execution context, optional
 /// \return elementwise hash values
 ///
-/// \since 21.0.0
+/// \since 26.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
@@ -1839,7 +1839,7 @@ Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx function execution context, optional
 /// \return elementwise hash values
 ///
-/// \since 21.0.0
+/// \since 26.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Hash64(const Datum& input_array, ExecContext* ctx = NULLPTR);
