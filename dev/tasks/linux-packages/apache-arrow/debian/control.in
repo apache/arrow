@@ -249,7 +249,7 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow-s3-2500 (= ${binary:Version}),
+  libarrow-s3-2600 (= ${binary:Version}),
   libarrow-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
