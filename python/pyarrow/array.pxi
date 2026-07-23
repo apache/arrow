@@ -3635,28 +3635,13 @@ cdef class MapArray(ListArray):
                 (keys._getitem_py(j, None), items._getitem_py(j, maps_as_pydicts))
                 for j in range(start, end)
             ]
-        # Convert all keys first (as MapScalar.as_py does via keys()) and
-        # detect duplicates before converting any value, so that the 'lossy'
-        # warnings and the 'strict' KeyError are emitted at the same point as
-        # in MapScalar.as_py even when a later value conversion raises.
+        # MapScalar.as_py converts every key before processing values, then
+        # checks each key immediately before converting its corresponding value.
         cdef int64_t count = end - start
-        cdef list keys_py = [keys._getitem_py(j, None) for j in range(start, end)]
+        cdef list keys_py = [keys._getitem_py(j, None)
+                             for j in range(start, end)]
         cdef dict result = {}
         cdef int64_t k
-        cdef bint no_dups
-        try:
-            no_dups = len(set(keys_py)) == count
-        except TypeError:
-            # Unhashable keys (e.g. struct or list keys): the per-key loop
-            # below reproduces MapScalar.as_py exactly, raising TypeError at
-            # the same membership test as the Scalar path does.
-            no_dups = False
-        if no_dups:
-            for k in range(count):
-                result[keys_py[k]] = items._getitem_py(start + k, maps_as_pydicts)
-            return result
-        # Duplicate or unhashable keys: per-key loop matching MapScalar.as_py
-        # exactly.
         for k in range(count):
             key = keys_py[k]
             if key in result:
@@ -3665,9 +3650,8 @@ cdef class MapArray(ListArray):
                         "Converting to Python dictionary is not supported in strict mode "
                         f"when duplicate keys are present (duplicate key was '{key}')."
                     )
-                else:
-                    warnings.warn(
-                        f"Encountered key '{key}' which was already encountered.")
+                warnings.warn(
+                    f"Encountered key '{key}' which was already encountered.")
             result[key] = items._getitem_py(start + k, maps_as_pydicts)
         return result
 
