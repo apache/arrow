@@ -70,6 +70,19 @@ foreach(LIB_TARGET ${ARROW_SUBSTRAIT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
 endforeach()
 
+message(STATUS "=== ARROW_SUBSTRAIT_LIBRARIES ===")
+
+foreach(LIB_TARGET ${ARROW_SUBSTRAIT_LIBRARIES})
+  get_target_property(DEFS ${LIB_TARGET} COMPILE_DEFINITIONS)
+  get_target_property(IFACE_DEFS ${LIB_TARGET} INTERFACE_COMPILE_DEFINITIONS)
+  get_target_property(LINK_LIBS ${LIB_TARGET} LINK_LIBRARIES)
+
+  message(STATUS "${LIB_TARGET}")
+  message(STATUS "  COMPILE_DEFINITIONS=${DEFS}")
+  message(STATUS "  INTERFACE_COMPILE_DEFINITIONS=${IFACE_DEFS}")
+  message(STATUS "  LINK_LIBRARIES=${LINK_LIBS}")
+endforeach()
+
 set(ARROW_SUBSTRAIT_TEST_LINK_LIBS ${ARROW_SUBSTRAIT_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static
@@ -94,3 +107,13 @@ add_arrow_test(substrait_test
                "arrow_substrait")
 
 add_subdirectory(substrait)
+
+get_target_property(TEST_DEFS substrait_test COMPILE_DEFINITIONS)
+get_target_property(TEST_IFACE substrait_test INTERFACE_COMPILE_DEFINITIONS)
+
+message(STATUS "=== substrait_test ===")
+message(STATUS "COMPILE_DEFINITIONS=${TEST_DEFS}")
+message(STATUS "INTERFACE_COMPILE_DEFINITIONS=${TEST_IFACE}")
+
+get_target_property(TEST_LIBS substrait_test LINK_LIBRARIES)
+message(STATUS "LINK_LIBRARIES=${TEST_LIBS}")
