@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/python/numpy_interop.h"
@@ -114,6 +115,11 @@ Status PyUnicode_AsStdString(PyObject* obj, std::string* out);
 // \brief Convert a Python bytes object to a std::string
 ARROW_PYTHON_EXPORT
 std::string PyBytes_AsStdString(PyObject* obj);
+
+// \brief Return a std::string_view over a Python bytes object's buffer
+// \note The view is only valid while a reference to \c obj is held
+ARROW_PYTHON_EXPORT
+std::string_view PyBytes_AsStdStringView(PyObject* obj);
 
 // \brief Call str() on the given object and return the result as a std::string
 ARROW_PYTHON_EXPORT

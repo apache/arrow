@@ -690,11 +690,9 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
     return Status::Invalid("failed converting UTF32 to UTF8");
   }
 
-  const int32_t length = static_cast<int32_t>(PyBytes_Size(utf8_obj.obj()));
-  RETURN_IF_PYERROR();
-  const char* utf8_data = PyBytes_AsString(utf8_obj.obj());
-  RETURN_IF_PYERROR();
-  return builder->Append(reinterpret_cast<const uint8_t*>(utf8_data), length);
+  const std::string_view utf8_view = internal::PyBytes_AsStdStringView(utf8_obj.obj());
+  return builder->Append(reinterpret_cast<const uint8_t*>(utf8_view.data()),
+                         static_cast<int32_t>(utf8_view.size()));
 }
 
 }  // namespace

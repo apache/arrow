@@ -98,7 +98,18 @@ namespace internal {
 
 std::string PyBytes_AsStdString(PyObject* obj) {
   ARROW_DCHECK(PyBytes_Check(obj));
-  return std::string(PyBytes_AsString(obj), PyBytes_Size(obj));
+  char* buffer = nullptr;
+  Py_ssize_t length = 0;
+  PyBytes_AsStringAndSize(obj, &buffer, &length);
+  return std::string(buffer, length);
+}
+
+std::string_view PyBytes_AsStdStringView(PyObject* obj) {
+  ARROW_DCHECK(PyBytes_Check(obj));
+  char* buffer = nullptr;
+  Py_ssize_t length = 0;
+  PyBytes_AsStringAndSize(obj, &buffer, &length);
+  return std::string_view(buffer, length);
 }
 
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
@@ -134,13 +145,12 @@ std::string PyObject_StdStringTypeName(PyObject* obj) {
     PyErr_Clear();
     return "?";
   }
-  Py_ssize_t size;
-  const char* data = PyUnicode_AsUTF8AndSize(name_ref.obj(), &size);
-  if (data == nullptr) {
+  std::string result;
+  if (!PyUnicode_AsStdString(name_ref.obj(), &result).ok()) {
     PyErr_Clear();
     return "?";
   }
-  return std::string(data, size);
+  return result;
 }
 
 Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
