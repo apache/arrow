@@ -1180,16 +1180,17 @@ int64_t InitializeV2Levels(const DataPageV2& page, LvlDec& def_dec, LvlDec& rep_
   return total_levels_length;
 }
 
-/// Traits of a concrete column chunk reader, for use by `ColumnChunkReader`.
-template <typename Derived>
-struct reader_trait;
-
 /// Read through the multiple pages of a column chunk.
-template <typename Derived>
+///
+/// `Traits` must provide two member types:
+///   - `DType`: the physical Parquet type of the column;
+///   - `level_decoder`: the decoder type used for definition/repetition levels.
+/// Each concrete reader defines its own trait struct.
+template <typename Traits>
 class ColumnChunkReader {
  public:
-  using DType = typename reader_trait<Derived>::DType;
-  using LvlDec = typename reader_trait<Derived>::level_decoder;
+  using DType = typename Traits::DType;
+  using LvlDec = typename Traits::level_decoder;
   using value_type = typename DType::c_type;
 
   ColumnChunkReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
@@ -1214,7 +1215,7 @@ class ColumnChunkReader {
   ///
   /// If the current page is exhausted, it will process more pages until some data
   /// page is found.
-  bool ProcessToMoreData();
+  bool EnsureDataPage();
 
   /// Check the encoding of the current page or throw an exception.
   void CheckEncodingIs(Encoding::type encoding);
@@ -1244,7 +1245,7 @@ class ColumnChunkReader {
 
   int16_t max_rep_level() const;
 
-  void ConsumeBufferedValues(int64_t num_values) { num_decoded_values_ += num_values; }
+  void MarkValuesAsConsumed(int64_t num_values) { num_decoded_values_ += num_values; }
 
   int64_t Skip(int64_t num_values_to_skip);
 
@@ -1276,9 +1277,6 @@ class ColumnChunkReader {
   int32_t num_decoded_values_ = 0;
   Encoding::type current_encoding_ = Encoding::UNKNOWN;
 
-  Derived& derived() { return static_cast<Derived&>(*this); }
-  const Derived& derived() const { return static_cast<const Derived&>(*this); }
-
   // Advance to the next data page
   bool ReadNewPage();
 
@@ -1302,8 +1300,8 @@ class ColumnChunkReader {
  *  ColumnChunkReader Implementation  *
  **************************************/
 
-template <typename Derived>
-void ColumnChunkReader<Derived>::CheckEncodingIs(Encoding::type encoding) {
+template <typename Traits>
+void ColumnChunkReader<Traits>::CheckEncodingIs(Encoding::type encoding) {
   if (current_encoding_ != encoding) {
     auto msg =
         std::format("Unexpected data page encoding. Expected {}, got {}",
@@ -1312,8 +1310,8 @@ void ColumnChunkReader<Derived>::CheckEncodingIs(Encoding::type encoding) {
   }
 }
 
-template <typename Derived>
-bool ColumnChunkReader<Derived>::ProcessToMoreData() {
+template <typename Traits>
+bool ColumnChunkReader<Traits>::EnsureDataPage() {
   // Either there is no data page available yet, or the data page has been
   // exhausted
   if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
@@ -1324,8 +1322,8 @@ bool ColumnChunkReader<Derived>::ProcessToMoreData() {
   return true;
 }
 
-template <typename Derived>
-bool ColumnChunkReader<Derived>::ReadNewPage() {
+template <typename Traits>
+bool ColumnChunkReader<Traits>::ReadNewPage() {
   // Loop until we find the next data page.
   while (true) {
     std::shared_ptr<Page> page = pager_->NextPage();
@@ -1352,8 +1350,8 @@ bool ColumnChunkReader<Derived>::ReadNewPage() {
   return true;
 }
 
-template <typename Derived>
-void ColumnChunkReader<Derived>::ConfigureDictionary(const DictionaryPage* page) {
+template <typename Traits>
+void ColumnChunkReader<Traits>::ConfigureDictionary(const DictionaryPage* page) {
   int encoding = static_cast<int>(page->encoding());
   if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
       page->encoding() == Encoding::PLAIN) {
@@ -1378,7 +1376,6 @@ void ColumnChunkReader<Derived>::ConfigureDictionary(const DictionaryPage* page)
 
     std::unique_ptr<DictDecoder<DType>> decoder = MakeDictDecoder<DType>(descr_, pool_);
     decoder->SetDict(dictionary.get());
-    derived().OnNewDictionary(*decoder);
     decoders_[encoding] =
         std::unique_ptr<DecoderType>(dynamic_cast<DecoderType*>(decoder.release()));
   } else {
@@ -1389,9 +1386,9 @@ void ColumnChunkReader<Derived>::ConfigureDictionary(const DictionaryPage* page)
   ARROW_DCHECK(current_decoder_);
 }
 
-template <typename Derived>
+template <typename Traits>
 template <typename DP>
-void ColumnChunkReader<Derived>::InitializeDataPage(std::shared_ptr<DP> page) {
+void ColumnChunkReader<Traits>::InitializeDataPage(std::shared_ptr<DP> page) {
   ARROW_DCHECK_NE(page, nullptr);
   current_page_ = std::static_pointer_cast<DataPage>(page);
   int64_t byte_size = 0;
@@ -1407,9 +1404,9 @@ void ColumnChunkReader<Derived>::InitializeDataPage(std::shared_ptr<DP> page) {
   InitializeDataDecoder(*page, byte_size);
 }
 
-template <typename Derived>
-void ColumnChunkReader<Derived>::InitializeDataDecoder(const DataPage& page,
-                                                       int64_t levels_byte_size) {
+template <typename Traits>
+void ColumnChunkReader<Traits>::InitializeDataDecoder(const DataPage& page,
+                                                      int64_t levels_byte_size) {
   const uint8_t* buffer = page.data() + levels_byte_size;
   const int64_t data_size = page.size() - levels_byte_size;
 
@@ -1454,18 +1451,18 @@ void ColumnChunkReader<Derived>::InitializeDataDecoder(const DataPage& page,
                             static_cast<int>(data_size));
 }
 
-template <typename Derived>
-int16_t ColumnChunkReader<Derived>::max_def_level() const {
+template <typename Traits>
+int16_t ColumnChunkReader<Traits>::max_def_level() const {
   return def_levels_decoder_.max_level();
 }
 
-template <typename Derived>
-int16_t ColumnChunkReader<Derived>::max_rep_level() const {
+template <typename Traits>
+int16_t ColumnChunkReader<Traits>::max_rep_level() const {
   return rep_levels_decoder_.max_level();
 }
 
-template <typename Derived>
-int32_t ColumnChunkReader<Derived>::AdvanceLevels(int32_t num_levels) {
+template <typename Traits>
+int32_t ColumnChunkReader<Traits>::AdvanceLevels(int32_t num_levels) {
   int max_count = num_levels;
   // Advance the definition levels, counting how many correspond to present
   // (non-null) values that must be skipped in the data decoder.
@@ -1481,17 +1478,17 @@ int32_t ColumnChunkReader<Derived>::AdvanceLevels(int32_t num_levels) {
   return max_count;
 }
 
-template <typename Derived>
-int64_t ColumnChunkReader<Derived>::Skip(int64_t num_values_to_skip) {
+template <typename Traits>
+int64_t ColumnChunkReader<Traits>::Skip(int64_t num_values_to_skip) {
   int64_t values_to_skip = num_values_to_skip;
   // Optimization: Do not call HasNext() when values_to_skip == 0.
-  while (values_to_skip > 0 && ProcessToMoreData()) {
+  while (values_to_skip > 0 && EnsureDataPage()) {
     // If the number of values to skip is more than the number of undecoded values, skip
     // the whole Page without decoding levels or values.
     const int32_t available_values = this->available_values_current_page();
     if (values_to_skip >= available_values) {
       values_to_skip -= available_values;
-      this->ConsumeBufferedValues(available_values);
+      this->MarkValuesAsConsumed(available_values);
     } else {
       // The whole batch fits inside this Page (`<= availables_values`)
       const auto batch_size = static_cast<int32_t>(values_to_skip);
@@ -1500,7 +1497,7 @@ int64_t ColumnChunkReader<Derived>::Skip(int64_t num_values_to_skip) {
       // Skip the corresponding data values.
       this->current_decoder_.Skip(non_null);
 
-      this->ConsumeBufferedValues(batch_size);
+      this->MarkValuesAsConsumed(batch_size);
       values_to_skip -= batch_size;
     }
   }
@@ -1511,39 +1508,34 @@ int64_t ColumnChunkReader<Derived>::Skip(int64_t num_values_to_skip) {
  *  TypedColumnReaderImpl  *
  ***************************/
 
-template <typename DType>
-class TypedColumnReaderImpl;
-
 template <typename D>
-struct reader_trait<TypedColumnReaderImpl<D>> {
+struct TypedColumnReaderImplTraits {
   using DType = D;
   using level_decoder = LevelDecoder;
 };
 
 template <typename DType>
-class TypedColumnReaderImpl : public TypedColumnReader<DType>,
-                              public ColumnChunkReader<TypedColumnReaderImpl<DType>> {
+class TypedColumnReaderImpl
+    : public TypedColumnReader<DType>,
+      public ColumnChunkReader<TypedColumnReaderImplTraits<DType>> {
  public:
   using T = typename DType::c_type;
+  using Base = ColumnChunkReader<TypedColumnReaderImplTraits<DType>>;
 
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
                         ::arrow::MemoryPool* pool)
-      : ColumnChunkReader<TypedColumnReaderImpl<DType>>(
-            descr, pool, LevelDecoder(descr->max_definition_level()),
-            LevelDecoder(descr->max_repetition_level())) {
+      : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
+             LevelDecoder(descr->max_repetition_level())) {
     this->SetPageReader(std::move(pager));
   }
 
-  bool HasNext() override { return this->ProcessToMoreData(); }
-
-  /// Called by ColumnChunkReader.
-  void OnNewDictionary(DictDecoder<DType>& /* decoder */) {}
+  bool HasNext() override { return this->EnsureDataPage(); }
 
   int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                     T* values, int64_t* values_read) override;
 
   int64_t Skip(int64_t num_values_to_skip) override {
-    return ColumnChunkReader<TypedColumnReaderImpl<DType>>::Skip(num_values_to_skip);
+    return Base::Skip(num_values_to_skip);
   }
 
   Type::type type() const override { return this->descr_->physical_type(); }
@@ -1660,7 +1652,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
     ss << "Read 0 values, expected " << expected_values;
     ParquetException::EofException(ss.str());
   }
-  this->ConsumeBufferedValues(total_indices);
+  this->MarkValuesAsConsumed(total_indices);
 
   return total_indices;
 }
@@ -1706,7 +1698,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size_64,
     ss << "Read 0 values, expected " << expected_values;
     ParquetException::EofException(ss.str());
   }
-  this->ConsumeBufferedValues(total_values);
+  this->MarkValuesAsConsumed(total_values);
   return total_values;
 }
 
@@ -1769,28 +1761,18 @@ concept can_cout = requires(std::ostream& os, const T& value) {
 template <typename DType, typename ValueSink, bool kReadDictionary>
 class TypedRecordReader;
 
-// `reader_trait` can only be specialized in the namespace it is declared in.
-}  // namespace
-}  // namespace internal
-
-namespace {
-template <typename D, typename ValueSink, bool kReadDictionary>
-struct reader_trait<internal::TypedRecordReader<D, ValueSink, kReadDictionary>> {
+template <typename D>
+struct TypedRecordReaderTraits {
   using DType = D;
   using level_decoder = LevelDecoder;
 };
-}  // namespace
-
-namespace internal {
-namespace {
 
 template <typename DType, typename ValueSink, bool kReadDictionary>
-class TypedRecordReader
-    : public ColumnChunkReader<TypedRecordReader<DType, ValueSink, kReadDictionary>>,
-      virtual public RecordReader {
+class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType>>,
+                          virtual public RecordReader {
  public:
   using T = typename DType::c_type;
-  using Base = ColumnChunkReader<TypedRecordReader<DType, ValueSink, kReadDictionary>>;
+  using Base = ColumnChunkReader<TypedRecordReaderTraits<DType>>;
 
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable, ValueSink value_sink)
@@ -1900,10 +1882,6 @@ class TypedRecordReader
 
   const ColumnDescriptor* descr() const override { return this->descr_; }
 
-  void OnNewDictionary(DictDecoder<DType>& decoder) {
-    value_sink_.OnNewDictionary(decoder);
-  }
-
   void ReadValuesSpaced(int64_t valid_bits_offset, int32_t values_with_nulls,
                         int32_t null_count);
 
@@ -1989,7 +1967,7 @@ class TypedRecordReader
 
 template <typename DT, typename VS, bool kDic>
 const void* TypedRecordReader<DT, VS, kDic>::ReadDictionary(int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->ProcessToMoreData()) {
+  if (!this->current_decoder_ && !this->EnsureDataPage()) {
     *dictionary_length = 0;
     return nullptr;
   }
@@ -2018,7 +1996,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
   // enough records
   while (!at_record_start_ || records_read < num_records) {
     // Is there more data to read in this row group?
-    if (!this->ProcessToMoreData()) {
+    if (!this->EnsureDataPage()) {
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
         // the end of yet. So increment the record count for the last record in
@@ -2129,7 +2107,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsInBufferNonRepeated(
   ReadAndThrowAwayValues(values_to_read);
 
   // Mark the levels as read in the underlying column reader.
-  this->ConsumeBufferedValues(skipped_records);
+  this->MarkValuesAsConsumed(skipped_records);
 
   return skipped_records;
 }
@@ -2149,7 +2127,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::DelimitAndSkipRecordsInBuffer(
   // Mark those levels and values as consumed in the underlying page.
   // This must be done before we throw away levels since it updates
   // levels_position_ and levels_written_.
-  this->ConsumeBufferedValues(levels_position_ - start_levels_position);
+  this->MarkValuesAsConsumed(levels_position_ - start_levels_position);
   // Updated levels_position_ and levels_written_.
   ThrowAwayLevels(start_levels_position);
   return skipped_records;
@@ -2175,7 +2153,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsRepeated(int64_t num_records
   while (!at_record_start_ || skipped_records < num_records) {
     // Is there more data to read in this row group?
     // HasNextInternal() will advance to the next page if necessary.
-    if (!this->ProcessToMoreData()) {
+    if (!this->EnsureDataPage()) {
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
         // the end of yet. So increment the record count for the last record
@@ -2384,6 +2362,12 @@ template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::SetPageReader(std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
   Base::SetPageReader(std::move(reader));
+  // At most one dictionary in Parquet column chunk and it has to be the first page.
+  if (this->HasPageReader() && this->EnsureDataPage()) {
+    if (auto* dict = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get())) {
+      value_sink_.OnNewDictionary(*dict);
+    }
+  }
 }
 
 template <typename DT, typename VS, bool kDic>
@@ -2528,10 +2512,10 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
   // Total values, including null spaces, if any
   if (this->max_def_level() > 0) {
     // Optional, repeated, or some mix thereof
-    this->ConsumeBufferedValues(levels_position_ - start_levels_position);
+    this->MarkValuesAsConsumed(levels_position_ - start_levels_position);
   } else {
     // Flat, non-repeated
-    this->ConsumeBufferedValues(values_to_read);
+    this->MarkValuesAsConsumed(values_to_read);
   }
 
   return records_read;
@@ -2590,31 +2574,20 @@ void TypedRecordReader<DT, VS, kDic>::ResetValues() {
 template <typename DType, typename ValueSink, bool kReadDictionary>
 class RequiredTypedRecordReader;
 
-// `reader_trait` can only be specialized in the namespace it is declared in.
-}  // namespace
-}  // namespace internal
-
-namespace {
-template <typename D, typename ValueSink, bool kReadDictionary>
-struct reader_trait<internal::RequiredTypedRecordReader<D, ValueSink, kReadDictionary>> {
+template <typename D>
+struct RequiredTypedRecordReaderTraits {
   using DType = D;
   using level_decoder = LevelDecoder;
 };
-}  // namespace
-
-namespace internal {
-namespace {
 
 template <typename DType, typename ValueSink = ValueSinkBuffer<typename DType::c_type>,
           bool kReadDictionary = false>
 class RequiredTypedRecordReader
-    : public ColumnChunkReader<
-          RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>>,
+    : public ColumnChunkReader<RequiredTypedRecordReaderTraits<DType>>,
       virtual public RecordReader {
  public:
   using T = typename DType::c_type;
-  using Base =
-      ColumnChunkReader<RequiredTypedRecordReader<DType, ValueSink, kReadDictionary>>;
+  using Base = ColumnChunkReader<RequiredTypedRecordReaderTraits<DType>>;
 
   RequiredTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                             ValueSink value_sink)
@@ -2663,7 +2636,13 @@ class RequiredTypedRecordReader
   void Reset() final;
 
   void SetPageReader(std::unique_ptr<PageReader> reader) final {
-    return Base::SetPageReader(std::move(reader));
+    Base::SetPageReader(std::move(reader));
+    // At most one dictionary in Parquet column chunk and it has to be the first page.
+    if (this->HasPageReader() && this->EnsureDataPage()) {
+      if (auto* dict = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get())) {
+        value_sink_.OnNewDictionary(*dict);
+      }
+    }
   }
 
   bool HasMoreData() const override {
@@ -2671,10 +2650,6 @@ class RequiredTypedRecordReader
   }
 
   const ColumnDescriptor* descr() const final { return this->descr_; }
-
-  void OnNewDictionary(DictDecoder<DType>& decoder) {
-    value_sink_.OnNewDictionary(decoder);
-  }
 
   void DebugPrintState() final;
 
@@ -2697,7 +2672,7 @@ class RequiredTypedRecordReader
 template <typename DT, typename VS, bool kDic>
 const void* RequiredTypedRecordReader<DT, VS, kDic>::ReadDictionary(
     int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->ProcessToMoreData()) {
+  if (!this->current_decoder_ && !this->EnsureDataPage()) {
     *dictionary_length = 0;
     return nullptr;
   }
@@ -2718,14 +2693,14 @@ int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records
   int64_t records_read = 0;
   do {
     // Is there more data to read in this row group?
-    if (!this->ProcessToMoreData()) {
+    if (!this->EnsureDataPage()) {
       break;
     }
 
     const int32_t batch_size =
         narrow_min(num_records - records_read, this->available_values_current_page());
     ReadValuesDense(batch_size);
-    this->ConsumeBufferedValues(batch_size);
+    this->MarkValuesAsConsumed(batch_size);
 
     records_read += batch_size;
   } while (records_read < num_records);
