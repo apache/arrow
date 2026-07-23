@@ -40,8 +40,10 @@ namespace {
 
 // Not dependent on the ArrowType/Hasher template arguments below, so defined
 // as a free function to avoid unnecessary code generation per instantiation.
-Result<KeyColumnArray> ToColumnArray(const ArraySpan& array,
-                                     const uint8_t* list_values_buffer = nullptr) {
+// Never called with a nested (list-like or struct) array: HashArray handles those
+// itself, either via HashChild (which reduces them to a plain UInt32/UInt64 array
+// before it ever reaches here) or the is_list_like branch directly.
+Result<KeyColumnArray> ToColumnArray(const ArraySpan& array) {
   KeyColumnMetadata metadata;
   const uint8_t* validity_buffer = nullptr;
   const uint8_t* fixed_length_buffer = nullptr;
@@ -68,19 +70,6 @@ Result<KeyColumnArray> ToColumnArray(const ArraySpan& array,
   } else if (is_large_binary_like(type_id)) {
     metadata = KeyColumnMetadata(false, sizeof(uint64_t));
     var_length_buffer = array.GetBuffer(2)->data();
-  } else if (type_id == Type::MAP) {
-    metadata = KeyColumnMetadata(false, sizeof(uint32_t));
-    var_length_buffer = list_values_buffer;
-  } else if (type_id == Type::LIST) {
-    metadata = KeyColumnMetadata(false, sizeof(uint32_t));
-    var_length_buffer = list_values_buffer;
-  } else if (type_id == Type::LARGE_LIST) {
-    metadata = KeyColumnMetadata(false, sizeof(uint64_t));
-    var_length_buffer = list_values_buffer;
-  } else if (type_id == Type::FIXED_SIZE_LIST) {
-    auto list_type = checked_cast<const FixedSizeListType*>(type);
-    metadata = KeyColumnMetadata(true, list_type->list_size());
-    fixed_length_buffer = list_values_buffer;
   } else {
     return Status::TypeError("Unsupported column data type ", type->name(),
                              " used with hash32/hash64 compute kernel");
