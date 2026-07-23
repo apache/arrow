@@ -39,6 +39,8 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
         try:
             super().handle()
         except (BrokenPipeError, ConnectionResetError):
+            # Browser restart while downloading wheel closes connection
+            # before server response is written so ignore harmless errors
             pass
 
     def log_request(self, code="-", size="-"):
@@ -219,19 +221,20 @@ class BrowserDriver:
     def load_arrow(self):
         code = (f"import pyodide_js as pjs\n"
                 f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
-        self.driver.set_script_timeout(300)
-        try:
-            for attempt in range(3):
-                try:
-                    return self.execute_python(code)
-                except TimeoutException:
-                    if attempt == 2:
-                        raise
-                    print("Timed out loading PyArrow in browser. Restarting browser",
-                          flush=True)
-                    self.restart_browser()
-        finally:
-            self.driver.set_script_timeout(1200)
+        for attempt in range(3):
+            # Set temporary timeout for every attempt as Chrome restart creates a new driver
+            self.driver.set_script_timeout(300)
+            try:
+                self.execute_python(code)
+            except TimeoutException:
+                if attempt == 2:
+                    raise
+                print("Timed out loading PyArrow in browser. Restarting browser",
+                      flush=True)
+                self.restart_browser()
+            else:
+                self.driver.set_script_timeout(1200)
+                return
 
     def restart_browser(self):
         self.driver.get(self.url)
