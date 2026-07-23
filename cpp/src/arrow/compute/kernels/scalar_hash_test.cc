@@ -643,6 +643,36 @@ TEST_F(TestScalarHash, NullHashIsZeroAcrossTypes) {
   }
 }
 
+// GH-17211: a nested (list-like or struct) field that is independently null within
+// an otherwise-valid struct row must still hash as null (0), same as a plain field.
+// HashChild used to attach the *parent* struct's validity to the child hash buffer
+// instead of the field's own, so an independently-null nested field's already-zeroed
+// hash data got re-hashed via HashFixed as if it were ordinary (non-null) data,
+// silently producing a non-zero result instead of the documented 0 sentinel.
+TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
+  for (const std::string& func : {"hash32", "hash64"}) {
+    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+
+    // Plain (non-nested) null field, for comparison: already correct beforehand.
+    auto plain = ArrayFromJSON(struct_({field("f0", int32())}), R"([{"f0": null}])");
+    ASSERT_OK_AND_ASSIGN(Datum plain_result, CallFunction(func, {plain}));
+    ASSERT_OK_AND_ASSIGN(auto plain_hash, plain_result.make_array()->GetScalar(0));
+    ASSERT_TRUE(plain_hash->Equals(*zero));
+
+    for (auto nested : {
+             ArrayFromJSON(struct_({field("f0", list(int32()))}), R"([{"f0": null}])"),
+             ArrayFromJSON(struct_({field("f0", struct_({field("g0", int32())}))}),
+                           R"([{"f0": null}])"),
+         }) {
+      ASSERT_OK_AND_ASSIGN(Datum nested_result, CallFunction(func, {nested}));
+      ASSERT_OK_AND_ASSIGN(auto nested_hash, nested_result.make_array()->GetScalar(0));
+      ASSERT_TRUE(nested_hash->Equals(*zero))
+          << "independently-null " << nested->type()->ToString()
+          << " field should hash to 0, same as a plain null field";
+    }
+  }
+}
+
 // The EXTENSION unwrapping at the top of HashArray should compose with the
 // is_list_like recursion; this combination was otherwise untested (ExtensionType
 // above only wraps a primitive).
