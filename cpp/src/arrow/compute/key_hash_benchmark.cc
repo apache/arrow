@@ -59,13 +59,13 @@ static void KeyHashIntegers32(benchmark::State& state) {  // NOLINT non-const re
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> hash_buffer,
                        AllocateBuffer(test_vals->length() * sizeof(int32_t)));
 
+  // Prepare input data structure for propagation to hash function
+  ASSERT_OK_AND_ASSIGN(
+      compute::KeyColumnArray input_keycol,
+      compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
+
   // run the benchmark
   while (state.KeepRunning()) {
-    // Prepare input data structure for propagation to hash function
-    ASSERT_OK_AND_ASSIGN(
-        compute::KeyColumnArray input_keycol,
-        compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
-
     compute::Hashing32::HashMultiColumn(
         {input_keycol}, &hash_ctx,
         reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
@@ -92,13 +92,13 @@ static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const re
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> hash_buffer,
                        AllocateBuffer(test_vals->length() * sizeof(int64_t)));
 
+  // Prepare input data structure for propagation to hash function
+  ASSERT_OK_AND_ASSIGN(
+      compute::KeyColumnArray input_keycol,
+      compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
+
   // run the benchmark
   while (state.KeepRunning()) {
-    // Prepare input data structure for propagation to hash function
-    ASSERT_OK_AND_ASSIGN(
-        compute::KeyColumnArray input_keycol,
-        compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
-
     compute::Hashing64::HashMultiColumn(
         {input_keycol}, &hash_ctx,
         reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
