@@ -127,7 +127,8 @@ class TestScalarHash : public ::testing::Test {
       ASSERT_OK_AND_ASSIGN(Datum out1, CallFunction(func, {in1}));
       ValidateOutput(out1);
       AssertArraysEqual(*out1.make_array(), *hashes->Slice(1));
-    } else if (arr->length() >= 4) {
+    }
+    if (arr->length() >= 4) {
       auto in2 = arr->Slice(2, 2);
       ASSERT_OK_AND_ASSIGN(Datum out2, CallFunction(func, {in2}));
       ValidateOutput(out2);
