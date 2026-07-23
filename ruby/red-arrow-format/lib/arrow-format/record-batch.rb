@@ -1,3 +1,4 @@
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -15,6 +16,7 @@
 # under the License.
 
 require_relative "buffer-alignable"
+require_relative "record"
 
 module ArrowFormat
   class RecordBatch
@@ -44,12 +46,43 @@ module ArrowFormat
       @n_rows.zero?
     end
 
-    def to_h
-      hash = {}
-      @schema.fields.zip(@columns) do |field, column|
-        hash[field.name] = column
+    def find_column(name_or_index)
+      case name_or_index
+      when Integer
+        @columns[name_or_index]
+      when Symbol
+        name_to_column[name_or_index.to_s]
+      else
+        name_to_column[name_or_index.to_str]
       end
-      hash
+    end
+
+    def each_record(reuse_record: false)
+      unless block_given?
+        return to_enum(__method__, reuse_record: reuse_record)
+      end
+
+      if reuse_record
+        record = Record.new(self, nil)
+        @n_rows.times do |i|
+          record.index = i
+          yield(record)
+        end
+      else
+        @n_rows.times do |i|
+          yield(Record.new(self, i))
+        end
+      end
+    end
+
+    def records
+      size.times.collect do |i|
+        Record.new(self, i)
+      end
+    end
+
+    def to_h
+      name_to_column.dup
     end
 
     def to_flatbuffers
@@ -158,7 +191,20 @@ module ArrowFormat
         raise ArgumentError, message
       end
 
-      return Schema.new(fields), n_rows, columns
+      return Schema.new(fields), all_n_rows[0], columns
+    end
+
+    def name_to_column
+      @name_to_column ||= build_name_to_column
+    end
+
+    def build_name_to_column
+      name_to_column = {}
+      @schema.fields.zip(@columns) do |field, column|
+        name_to_column[field.name] = column
+      end
+      name_to_column.freeze
+      name_to_column
     end
   end
 end
