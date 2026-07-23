@@ -22,4 +22,6 @@ namespace gandiva {
 
 std::string Expression::ToString() { return root()->ToString(); }
 
+std::string Expression::ToCacheKeyString() {return root()->ToCacheKeyString();}
+
 }  // namespace gandiva
