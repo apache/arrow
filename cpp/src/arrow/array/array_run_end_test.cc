@@ -227,6 +227,7 @@ TEST_P(TestRunEndEncodedArray, LogicalRunEnds) {
   ASSERT_OK_AND_ASSIGN(logical_run_ends, ree_slice->LogicalRunEnds(pool));
   ASSERT_ARRAYS_EQUAL(*logical_run_ends, *expected_run_ends);
 }
+
 TEST_P(TestRunEndEncodedArray, Builder) {
   auto value_type = utf8();
   auto ree_type = run_end_encoded(run_end_type, value_type);
@@ -380,22 +381,15 @@ TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsPrimitiveScalar) {
   ScalarVector scalars = {v1, v2, v3, v4, v5};
 
   ASSERT_OK(builder->AppendScalars(scalars));
-
   ASSERT_EQ(builder->length(), 5);
-
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
   ASSERT_OK(array->ValidateFull());
 
   auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
-
   ASSERT_NE(ree_array, NULLPTR);
-
   auto expected_run_ends = ArrayFromJSON(run_end_type, "[2,4,5]");
-
   auto expected_values = ArrayFromJSON(float32(), "[1,2,3]");
-
   ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
-
   ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
 }
 
@@ -414,22 +408,15 @@ TEST_P(TestRunEndEncodedArray, BuilderAppendScalarsRunEndEncodedScalar) {
   ScalarVector scalars = {s1, s2, s3, s4, s5};
 
   ASSERT_OK(builder->AppendScalars(scalars));
-
   ASSERT_EQ(builder->length(), 5);
-
   ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
   ASSERT_OK(array->ValidateFull());
 
   auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
-
   ASSERT_NE(ree_array, NULLPTR);
-
   auto expected_run_ends = ArrayFromJSON(run_end_type, "[2,4,5]");
-
   auto expected_values = ArrayFromJSON(float32(), "[1,2,3]");
-
   ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
-
   ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
 }
 
