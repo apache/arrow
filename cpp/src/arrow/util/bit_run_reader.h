@@ -26,8 +26,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -547,8 +545,7 @@ inline void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t o
 template <typename Visit>
 inline Status VisitTwoSetBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
                                  const uint8_t* right_bitmap, int64_t right_offset,
-                                 int64_t length, Visit&& visit,
-                                 MemoryPool* pool = default_memory_pool()) {
+                                 int64_t length, Visit&& visit) {
   if (length == 0) {
     return Status::OK();
   }
@@ -584,8 +581,7 @@ inline Status VisitTwoSetBitRuns(const uint8_t* left_bitmap, int64_t left_offset
 template <typename Visit>
 inline Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
                               const uint8_t* right_bitmap, int64_t right_offset,
-                              int64_t length, Visit&& visit,
-                              MemoryPool* pool = default_memory_pool()) {
+                              int64_t length, Visit&& visit) {
   int64_t output_position = 0;
   ARROW_RETURN_NOT_OK(VisitTwoSetBitRuns(
       left_bitmap, left_offset, right_bitmap, right_offset, length,
@@ -596,8 +592,7 @@ inline Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
         ARROW_RETURN_NOT_OK(visit(position, run_length, true));
         output_position = position + run_length;
         return Status::OK();
-      },
-      pool));
+      }));
   if (output_position < length) {
     return visit(output_position, length - output_position, false);
   }
@@ -607,29 +602,23 @@ inline Status VisitTwoBitRuns(const uint8_t* left_bitmap, int64_t left_offset,
 template <typename Visit>
 inline void VisitTwoBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
                                 const uint8_t* right_bitmap, int64_t right_offset,
-                                int64_t length, Visit&& visit,
-                                MemoryPool* pool = default_memory_pool()) {
-  ARROW_CHECK_OK(VisitTwoBitRuns(
-      left_bitmap, left_offset, right_bitmap, right_offset, length,
-      [&](int64_t position, int64_t length, bool set) {
-        visit(position, length, set);
-        return Status::OK();
-      },
-      pool));
+                                int64_t length, Visit&& visit) {
+  ARROW_CHECK_OK(VisitTwoBitRuns(left_bitmap, left_offset, right_bitmap, right_offset,
+                                 length, [&](int64_t position, int64_t length, bool set) {
+                                   visit(position, length, set);
+                                   return Status::OK();
+                                 }));
 }
 
 template <typename Visit>
 inline void VisitTwoSetBitRunsVoid(const uint8_t* left_bitmap, int64_t left_offset,
                                    const uint8_t* right_bitmap, int64_t right_offset,
-                                   int64_t length, Visit&& visit,
-                                   MemoryPool* pool = default_memory_pool()) {
-  ARROW_CHECK_OK(VisitTwoSetBitRuns(
-      left_bitmap, left_offset, right_bitmap, right_offset, length,
-      [&](int64_t position, int64_t length) {
-        visit(position, length);
-        return Status::OK();
-      },
-      pool));
+                                   int64_t length, Visit&& visit) {
+  ARROW_CHECK_OK(VisitTwoSetBitRuns(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length, [&](int64_t position, int64_t length) {
+                                      visit(position, length);
+                                      return Status::OK();
+                                    }));
 }
 
 }  // namespace internal
