@@ -336,6 +336,44 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                          {"letter": [1, 1], "digit": [2, 1]}])",
                      &options);
   }
+
+  // On non-UTF8 input types, case insensitive matches should only account for
+  // ASCII letters.
+  // (this stresses that the "is_utf8" option is passed down correctly to RE2)
+  auto letters_array = this->MakeArray({"1ab2AB3", "1àb2ÀB3"});
+  {
+    MatchSubstringOptions options("(?i)(A|À)B");
+    // 5 is the byte index of "ÀB" in "1àb2ÀB3"
+    this->CheckUnary("find_substring_regex", letters_array, this->offset_type(), "[1, 5]",
+                     &options);
+    this->CheckUnary("count_substring_regex", letters_array, this->offset_type(),
+                     "[2, 1]", &options);
+    this->CheckUnary("match_substring_regex", letters_array, boolean(), "[true, true]",
+                     &options);
+  }
+  {
+    SplitPatternOptions options("(?i)(A|À)B");
+    this->CheckUnary("split_pattern_regex", letters_array, list(this->type()),
+                     R"([["1", "2", "3"], ["1àb2", "3"]])", &options);
+  }
+  {
+    ReplaceSubstringOptions options("(?i)(A|À)B", "XY");
+    this->CheckUnary("replace_substring_regex", letters_array,
+                     this->MakeArray({"1XY2XY3", "1àb2XY3"}), &options);
+  }
+  {
+    ExtractRegexOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", this->type()}});
+    this->CheckUnary("extract_regex", letters_array, out_type,
+                     R"([{"letters": "ab"}, {"letters": "ÀB"}])", &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", fixed_size_list(this->offset_type(), 2)}});
+    // 5 is the byte index of "ÀB" in "1àb2ÀB3", 3 is its byte length
+    this->CheckUnary("extract_regex_span", letters_array, out_type,
+                     R"([{"letters": [1, 2]}, {"letters": [5, 3]}])", &options);
+  }
 }
 
 TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
@@ -1038,6 +1076,48 @@ TEST_F(TestFixedSizeBinaryKernels, FindSubstringIgnoreCase) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
                                   ::testing::HasSubstr("ignore_case requires RE2"),
                                   CallFunction("find_substring", {input}, &options));
+}
+#endif
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, Utf8Regex) {
+  // On UTF8 input types, case insensitive matches should account for all letters.
+  // (this stresses that the "is_utf8" option is passed down correctly to RE2)
+  auto letters_array = this->MakeArray({"🙂ab2AB3", "🙂àb2ÀB3"});
+  {
+    MatchSubstringOptions options("(?i)(A|À)B");
+    // 4 is the byte index of "ab" in "🙂ab2AB3"
+    this->CheckUnary("find_substring_regex", letters_array, this->offset_type(), "[4, 4]",
+                     &options);
+    this->CheckUnary("count_substring_regex", letters_array, this->offset_type(),
+                     "[2, 2]", &options);
+    this->CheckUnary("match_substring_regex", letters_array, boolean(), "[true, true]",
+                     &options);
+  }
+  {
+    SplitPatternOptions options("(?i)(A|À)B");
+    this->CheckUnary("split_pattern_regex", letters_array, list(this->type()),
+                     R"([["🙂", "2", "3"], ["🙂", "2", "3"]])", &options);
+  }
+  {
+    ReplaceSubstringOptions options("(?i)(A|À)B", "XY");
+    this->CheckUnary("replace_substring_regex", letters_array,
+                     this->MakeArray({"🙂XY2XY3", "🙂XY2XY3"}), &options);
+  }
+  {
+    ExtractRegexOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", this->type()}});
+    this->CheckUnary("extract_regex", letters_array, out_type,
+                     R"([{"letters": "ab"}, {"letters": "àb"}])", &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", fixed_size_list(this->offset_type(), 2)}});
+    // 4 is the byte index of "ab" in "🙂ab2AB3"
+    // 3 is the byte length of "àb"
+    this->CheckUnary("extract_regex_span", letters_array, out_type,
+                     R"([{"letters": [4, 2]}, {"letters": [4, 3]}])", &options);
+  }
 }
 #endif
 
