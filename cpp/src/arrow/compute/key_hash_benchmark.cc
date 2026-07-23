@@ -47,9 +47,8 @@ static void KeyHashIntegers32(benchmark::State& state) {  // NOLINT non-const re
 
   // initialize the stack allocator
   util::TempVectorStack stack_memallocator;
-  ASSERT_OK(
-      stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
-                              3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
+  ASSERT_OK(stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
+                                    compute::Hashing32::kHashBatchTempStackUsage));
 
   // prepare the execution context for Hashing32
   compute::LightContext hash_ctx;
@@ -81,11 +80,10 @@ static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const re
 
   // initialize the stack allocator
   util::TempVectorStack stack_memallocator;
-  ASSERT_OK(
-      stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
-                              3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
+  ASSERT_OK(stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
+                                    compute::Hashing64::kHashBatchTempStackUsage));
 
-  // prepare the execution context for Hashing32
+  // prepare the execution context for Hashing64
   compute::LightContext hash_ctx;
   hash_ctx.hardware_flags = compute::default_exec_context()->cpu_info()->hardware_flags();
   hash_ctx.stack = &stack_memallocator;
