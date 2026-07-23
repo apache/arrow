@@ -27,6 +27,7 @@
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -400,15 +401,13 @@ struct PyBytesView {
   Status ParseBinary(PyObject* obj) {
     if (PyBytes_Check(obj)) {
       bytes = PyBytes_AsString(obj);
-      RETURN_IF_PYERROR();
       size = PyBytes_Size(obj);
-      RETURN_IF_PYERROR();
+      ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyByteArray_Check(obj)) {
       bytes = PyByteArray_AsString(obj);
-      RETURN_IF_PYERROR();
       size = PyByteArray_Size(obj);
-      RETURN_IF_PYERROR();
+      ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
       PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
