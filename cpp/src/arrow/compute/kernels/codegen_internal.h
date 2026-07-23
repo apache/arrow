@@ -1307,10 +1307,14 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   }
 }
 
-// similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
-template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
-          typename... Args>
-KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+// Similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
+//
+// Note that we don't offer to generate separate code for String types, because
+// the utf8-ness of a type can be retrieved and handled efficiently at runtime.
+// This helps cut down on code generation (see GH-50615).
+template <template <typename...> class Generator, typename... Args>
+auto GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+  using KernelType = decltype(&Generator<BinaryType, Args...>::Exec);
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1321,24 +1325,6 @@ KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
     default:
       ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
-  }
-}
-
-// Generate a kernel given a templated functor for binary and string types
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::BINARY:
-      return Generator<BinaryType, Args...>::Exec;
-    case Type::STRING:
-      return Generator<StringType, Args...>::Exec;
-    case Type::LARGE_BINARY:
-      return Generator<LargeBinaryType, Args...>::Exec;
-    case Type::LARGE_STRING:
-      return Generator<LargeStringType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
   }
 }
 
@@ -1357,24 +1343,6 @@ ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
-    default:
-      ARROW_DCHECK(false);
-      return nullptr;
-  }
-}
-
-// See BaseBinary documentation
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::BINARY:
-      return Generator<Type0, BinaryType, Args...>::Exec;
-    case Type::STRING:
-      return Generator<Type0, StringType, Args...>::Exec;
-    case Type::LARGE_BINARY:
-      return Generator<Type0, LargeBinaryType, Args...>::Exec;
-    case Type::LARGE_STRING:
-      return Generator<Type0, LargeStringType, Args...>::Exec;
     default:
       ARROW_DCHECK(false);
       return nullptr;
