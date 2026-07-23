@@ -529,17 +529,21 @@ def test_to_pylist_maps_as_pydicts():
     map_type = pa.map_(pa.string(), pa.int32())
     flat = pa.array(
         [None, [("k1", 1), ("k2", None)], []], type=map_type)
-    arrays = [
-        flat,
-        flat.slice(1),
-        pa.array([[[('k', 1)], None], None], type=pa.list_(map_type)),
-        pa.array([[("o", [("i", 5)])]],
-                 type=pa.map_(pa.string(), map_type)),
-        pa.array([{"m": [("k", 1)]}, None],
-                 type=pa.struct([("m", map_type)])),
+    # Expected values are written out literally so the reference stays
+    # independent of Array.to_pylist (ListScalar.as_py delegates to it).
+    cases = [
+        (flat, [None, {"k1": 1, "k2": None}, {}]),
+        (flat.slice(1), [{"k1": 1, "k2": None}, {}]),
+        (pa.array([[[('k', 1)], None], None], type=pa.list_(map_type)),
+         [[{"k": 1}, None], None]),
+        (pa.array([[("o", [("i", 5)])]],
+                  type=pa.map_(pa.string(), map_type)),
+         [{"o": {"i": 5}}]),
+        (pa.array([{"m": [("k", 1)]}, None],
+                  type=pa.struct([("m", map_type)])),
+         [{"m": {"k": 1}}, None]),
     ]
-    for arr in arrays:
-        expected = [x.as_py(maps_as_pydicts="strict") for x in arr]
+    for arr, expected in cases:
         assert arr.to_pylist(maps_as_pydicts="strict") == expected
 
     dup = pa.array([[("k", 1), ("k", 2)]], type=map_type)
