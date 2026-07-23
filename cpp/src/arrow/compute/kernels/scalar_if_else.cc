@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include "arrow/array/builder_nested.h"
@@ -1607,26 +1608,14 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 
     if (cond_array.GetNullCount() == 0) {
       // If no valid buffer, visit mask & cond bitmap simultaneously
-      BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values, cond_offset,
-                                    batch.length);
-      while (offset < batch.length) {
-        const auto block = counter.NextAndWord();
-        if (block.AllSet()) {
-          CopyValues<Type>(value, offset, block.length, out_valid, out_values,
-                           out_offset + offset);
-          bit_util::SetBitsTo(mask, offset, block.length, false);
-        } else if (block.popcount) {
-          for (int64_t j = 0; j < block.length; ++j) {
-            if (bit_util::GetBit(mask, offset + j) &&
-                bit_util::GetBit(cond_values, cond_offset + offset + j)) {
-              CopyValues<Type>(value, offset + j, /*length=*/1, out_valid, out_values,
-                               out_offset + offset + j);
-              bit_util::SetBitTo(mask, offset + j, false);
-            }
-          }
-        }
-        offset += block.length;
-      }
+      auto visit_run = [&](int64_t position, int64_t run_length) {
+        CopyValues<Type>(value, position, run_length, out_valid, out_values,
+                         out_offset + position);
+        bit_util::SetBitsTo(mask, position, run_length, false);
+        return Status::OK();
+      };
+      RETURN_NOT_OK(::arrow::internal::VisitTwoSetBitRuns(
+          mask, /*start_offset=*/0, cond_values, cond_offset, batch.length, visit_run));
     } else {
       // Visit mask & cond bitmap & cond validity
       const uint8_t* cond_valid = cond_array.buffers[0].data;
@@ -1657,32 +1646,20 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   }
   if (!have_else_arg) {
     // Need to initialize any remaining null slots (uninitialized memory)
-    BitBlockCounter counter(mask, /*offset=*/0, batch.length);
-    int64_t offset = 0;
     auto bit_width = checked_cast<const FixedWidthType&>(*out->type()).bit_width();
     auto byte_width = bit_util::BytesForBits(bit_width);
-    while (offset < batch.length) {
-      const auto block = counter.NextWord();
-      if (block.AllSet()) {
-        if (bit_width == 1) {
-          bit_util::SetBitsTo(out_values, out_offset + offset, block.length, false);
-        } else {
-          std::memset(out_values + (out_offset + offset) * byte_width, 0x00,
-                      byte_width * block.length);
-        }
-      } else if (!block.NoneSet()) {
-        for (int64_t j = 0; j < block.length; ++j) {
-          if (bit_util::GetBit(out_valid, out_offset + offset + j)) continue;
-          if (bit_width == 1) {
-            bit_util::ClearBit(out_values, out_offset + offset + j);
-          } else {
-            std::memset(out_values + (out_offset + offset + j) * byte_width, 0x00,
-                        byte_width);
-          }
-        }
+
+    auto visit_run = [&](int64_t position, int64_t run_length) {
+      if (bit_width == 1) {
+        bit_util::SetBitsTo(out_values, out_offset + position, run_length, false);
+      } else {
+        std::memset(out_values + (out_offset + position) * byte_width, 0x00,
+                    byte_width * run_length);
       }
-      offset += block.length;
-    }
+      bit_util::SetBitsTo(mask, position, run_length, false);
+    };
+
+    ::arrow::internal::VisitSetBitRunsVoid(mask, /*offset=*/0, batch.length, visit_run);
   }
   return Status::OK();
 }

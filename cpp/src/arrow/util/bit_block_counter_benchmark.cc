@@ -23,22 +23,24 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 
 namespace arrow {
 namespace internal {
 
-struct UnaryBitBlockBenchmark {
+struct UnaryBitmapTraversalBenchmark {
   benchmark::State& state;
   int64_t offset;
   int64_t bitmap_length;
   std::shared_ptr<Array> arr;
   int64_t expected;
 
-  explicit UnaryBitBlockBenchmark(benchmark::State& state, int64_t offset = 0)
+  explicit UnaryBitmapTraversalBenchmark(benchmark::State& state, int64_t offset = 0)
       : state(state), offset(offset), bitmap_length(1 << 20) {
     random::RandomArrayGenerator rng(/*seed=*/0);
     // State parameter is the average number of total values for each null
@@ -111,9 +113,57 @@ struct UnaryBitBlockBenchmark {
     }
     state.SetItemsProcessed(state.iterations() * bitmap_length);
   }
+
+  void BenchVisitBitRuns() {
+    const auto& int8_arr = static_cast<const Int8Array&>(*arr);
+    const uint8_t* bitmap = arr->null_bitmap_data();
+    for (auto _ : state) {
+      int64_t result = 0;
+      ABORT_NOT_OK(VisitBitRuns(bitmap, this->offset, bitmap_length - this->offset,
+                                [&](int64_t position, int64_t length, bool set) {
+                                  if (set) {
+                                    int64_t run_sum = 0;
+                                    const int64_t end = position + length;
+                                    for (int64_t i = position; i < end; ++i) {
+                                      run_sum += int8_arr.Value(this->offset + i);
+                                    }
+                                    result += run_sum;
+                                  }
+                                  return Status::OK();
+                                }));
+      // Sanity check
+      if (result != expected) {
+        std::abort();
+      }
+    }
+    state.SetItemsProcessed(state.iterations() * bitmap_length);
+  }
+
+  void BenchVisitSetBitRuns() {
+    const auto& int8_arr = static_cast<const Int8Array&>(*arr);
+    const uint8_t* bitmap = arr->null_bitmap_data();
+    for (auto _ : state) {
+      int64_t result = 0;
+      ABORT_NOT_OK(VisitSetBitRuns(bitmap, this->offset, bitmap_length - this->offset,
+                                   [&](int64_t position, int64_t length) {
+                                     int64_t run_sum = 0;
+                                     const int64_t end = position + length;
+                                     for (int64_t i = position; i < end; ++i) {
+                                       run_sum += int8_arr.Value(this->offset + i);
+                                     }
+                                     result += run_sum;
+                                     return Status::OK();
+                                   }));
+      // Sanity check
+      if (result != expected) {
+        std::abort();
+      }
+    }
+    state.SetItemsProcessed(state.iterations() * bitmap_length);
+  }
 };
 
-struct BinaryBitBlockBenchmark {
+struct BinaryBitmapTraversalBenchmark {
   benchmark::State& state;
   int64_t offset;
   int64_t bitmap_length;
@@ -123,7 +173,7 @@ struct BinaryBitBlockBenchmark {
   const Int8Array* left_int8;
   const Int8Array* right_int8;
 
-  explicit BinaryBitBlockBenchmark(benchmark::State& state, int64_t offset = 0)
+  explicit BinaryBitmapTraversalBenchmark(benchmark::State& state, int64_t offset = 0)
       : state(state), offset(offset), bitmap_length(1 << 20) {
     random::RandomArrayGenerator rng(/*seed=*/0);
 
@@ -202,52 +252,134 @@ struct BinaryBitBlockBenchmark {
     }
     state.SetItemsProcessed(state.iterations() * bitmap_length);
   }
+
+  void BenchVisitTwoBitRuns() {
+    const uint8_t* left_bitmap = left->null_bitmap_data();
+    const uint8_t* right_bitmap = right->null_bitmap_data();
+    for (auto _ : state) {
+      int64_t result = 0;
+      VisitTwoBitRunsVoid(left_bitmap, this->offset, right_bitmap, this->offset,
+                          bitmap_length - this->offset,
+                          [&](int64_t position, int64_t length, bool set) {
+                            if (set) {
+                              int64_t run_sum = 0;
+                              const int64_t end = position + length;
+                              for (int64_t i = position; i < end; ++i) {
+                                run_sum += left_int8->Value(this->offset + i) +
+                                           right_int8->Value(this->offset + i);
+                              }
+                              result += run_sum;
+                            }
+                          });
+      // Sanity check
+      if (result != expected) {
+        std::abort();
+      }
+    }
+    state.SetItemsProcessed(state.iterations() * bitmap_length);
+  }
+
+  void BenchVisitTwoSetBitRuns() {
+    const uint8_t* left_bitmap = left->null_bitmap_data();
+    const uint8_t* right_bitmap = right->null_bitmap_data();
+    for (auto _ : state) {
+      int64_t result = 0;
+      VisitTwoSetBitRunsVoid(left_bitmap, this->offset, right_bitmap, this->offset,
+                             bitmap_length - this->offset,
+                             [&](int64_t position, int64_t length) {
+                               int64_t run_sum = 0;
+                               const int64_t end = position + length;
+                               for (int64_t i = position; i < end; ++i) {
+                                 run_sum += left_int8->Value(this->offset + i) +
+                                            right_int8->Value(this->offset + i);
+                               }
+                               result += run_sum;
+                             });
+      // Sanity check
+      if (result != expected) {
+        std::abort();
+      }
+    }
+    state.SetItemsProcessed(state.iterations() * bitmap_length);
+  }
 };
 
 static void BitBlockCounterSum(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/0)
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/0)
       .BenchBitBlockCounter([](BitBlockCounter* counter) { return counter->NextWord(); });
 }
 
 static void BitBlockCounterSumWithOffset(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/4)
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/4)
       .BenchBitBlockCounter([](BitBlockCounter* counter) { return counter->NextWord(); });
 }
 
 static void BitBlockCounterFourWordsSum(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/0)
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/0)
       .BenchBitBlockCounter(
           [](BitBlockCounter* counter) { return counter->NextFourWords(); });
 }
 
 static void BitBlockCounterFourWordsSumWithOffset(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/4)
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/4)
       .BenchBitBlockCounter(
           [](BitBlockCounter* counter) { return counter->NextFourWords(); });
 }
 
 static void BitmapReaderSum(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/0).BenchBitmapReader();
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchBitmapReader();
 }
 
 static void BitmapReaderSumWithOffset(benchmark::State& state) {
-  UnaryBitBlockBenchmark(state, /*offset=*/4).BenchBitmapReader();
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchBitmapReader();
+}
+
+static void VisitBitRunsSum(benchmark::State& state) {
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchVisitBitRuns();
+}
+
+static void VisitBitRunsSumWithOffset(benchmark::State& state) {
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchVisitBitRuns();
+}
+
+static void VisitSetBitRunsSum(benchmark::State& state) {
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchVisitSetBitRuns();
+}
+
+static void VisitSetBitRunsSumWithOffset(benchmark::State& state) {
+  UnaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchVisitSetBitRuns();
 }
 
 static void BinaryBitBlockCounterSum(benchmark::State& state) {
-  BinaryBitBlockBenchmark(state, /*offset=*/0).BenchBitBlockCounter();
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchBitBlockCounter();
 }
 
 static void BinaryBitBlockCounterSumWithOffset(benchmark::State& state) {
-  BinaryBitBlockBenchmark(state, /*offset=*/4).BenchBitBlockCounter();
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchBitBlockCounter();
 }
 
 static void BinaryBitmapReaderSum(benchmark::State& state) {
-  BinaryBitBlockBenchmark(state, /*offset=*/0).BenchBitmapReader();
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchBitmapReader();
 }
 
 static void BinaryBitmapReaderSumWithOffset(benchmark::State& state) {
-  BinaryBitBlockBenchmark(state, /*offset=*/4).BenchBitmapReader();
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchBitmapReader();
+}
+
+static void BinaryVisitTwoBitRunsSum(benchmark::State& state) {
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchVisitTwoBitRuns();
+}
+
+static void BinaryVisitTwoBitRunsSumWithOffset(benchmark::State& state) {
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchVisitTwoBitRuns();
+}
+
+static void BinaryVisitTwoSetBitRunsSum(benchmark::State& state) {
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/0).BenchVisitTwoSetBitRuns();
+}
+
+static void BinaryVisitTwoSetBitRunsSumWithOffset(benchmark::State& state) {
+  BinaryBitmapTraversalBenchmark(state, /*offset=*/4).BenchVisitTwoSetBitRuns();
 }
 
 // Range value: average number of total values per null
@@ -257,10 +389,18 @@ BENCHMARK(BitBlockCounterFourWordsSum)->Range(2, 1 << 16);
 BENCHMARK(BitBlockCounterFourWordsSumWithOffset)->Range(2, 1 << 16);
 BENCHMARK(BitmapReaderSum)->Range(2, 1 << 16);
 BENCHMARK(BitmapReaderSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(VisitBitRunsSum)->Range(2, 1 << 16);
+BENCHMARK(VisitBitRunsSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(VisitSetBitRunsSum)->Range(2, 1 << 16);
+BENCHMARK(VisitSetBitRunsSumWithOffset)->Range(2, 1 << 16);
 BENCHMARK(BinaryBitBlockCounterSum)->Range(2, 1 << 16);
 BENCHMARK(BinaryBitBlockCounterSumWithOffset)->Range(2, 1 << 16);
 BENCHMARK(BinaryBitmapReaderSum)->Range(2, 1 << 16);
 BENCHMARK(BinaryBitmapReaderSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(BinaryVisitTwoBitRunsSum)->Range(2, 1 << 16);
+BENCHMARK(BinaryVisitTwoBitRunsSumWithOffset)->Range(2, 1 << 16);
+BENCHMARK(BinaryVisitTwoSetBitRunsSum)->Range(2, 1 << 16);
+BENCHMARK(BinaryVisitTwoSetBitRunsSumWithOffset)->Range(2, 1 << 16);
 
 }  // namespace internal
 }  // namespace arrow

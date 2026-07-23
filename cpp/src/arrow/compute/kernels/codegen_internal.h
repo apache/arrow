@@ -38,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_reader.h"
@@ -509,18 +510,24 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
   ArrayIterator<Arg0Type> arr0_it(arr0);
   ArrayIterator<Arg1Type> arr1_it(arr1);
 
-  auto visit_valid = [&](int64_t i) {
-    valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
-               GetViewType<Arg1Type>::LogicalValue(arr1_it()));
+  auto visit_run = [&](int64_t position, int64_t run_length, bool is_set) {
+    if (is_set) {
+      for (int64_t i = 0; i < run_length; ++i) {
+        valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
+                   GetViewType<Arg1Type>::LogicalValue(arr1_it()));
+      }
+    } else {
+      for (int64_t i = 0; i < run_length; ++i) {
+        arr0_it();
+        arr1_it();
+        null_func();
+      }
+    }
   };
-  auto visit_null = [&]() {
-    arr0_it();
-    arr1_it();
-    null_func();
-  };
-  VisitTwoBitBlocksVoid(arr0.buffers[0].data, arr0.offset, arr1.buffers[0].data,
-                        arr1.offset, arr0.length, std::move(visit_valid),
-                        std::move(visit_null));
+
+  ::arrow::internal::VisitTwoBitRunsVoid(arr0.buffers[0].data, arr0.offset,
+                                         arr1.buffers[0].data, arr1.offset, arr0.length,
+                                         std::move(visit_run));
 }
 
 // ----------------------------------------------------------------------
