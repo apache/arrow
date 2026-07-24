@@ -660,6 +660,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_checksum=self._properties["write_page_checksum"],
             sorting_columns=self._properties["sorting_columns"],
             store_decimal_as_integer=self._properties["store_decimal_as_integer"],
+            write_size_statistics=self._properties["write_size_statistics"],
         )
 
     def _set_arrow_properties(self):
@@ -713,6 +714,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_checksum=False,
             sorting_columns=None,
             store_decimal_as_integer=False,
+            write_size_statistics=None,
         )
 
         self._set_properties()

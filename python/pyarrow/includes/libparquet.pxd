@@ -516,6 +516,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_bloom_filter(const c_string& path)
             Builder* enable_bloom_filter(const c_string& path,
                                          BloomFilterOptions bloom_filter_options)
+            Builder* set_size_statistics_level(SizeStatisticsLevel level)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -599,6 +600,14 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
 
 cdef extern from "parquet/properties.h" namespace "parquet" nogil:
+    cdef enum SizeStatisticsLevel:
+        SizeStatisticsLevel_None \
+            " parquet::SizeStatisticsLevel::None"
+        SizeStatisticsLevel_ColumnChunk \
+            " parquet::SizeStatisticsLevel::ColumnChunk"
+        SizeStatisticsLevel_PageAndColumnChunk \
+            " parquet::SizeStatisticsLevel::PageAndColumnChunk"
+
     cdef enum ArrowWriterEngineVersion:
         V1 "parquet::ArrowWriterProperties::V1",
         V2 "parquet::ArrowWriterProperties::V2"
