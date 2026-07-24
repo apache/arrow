@@ -21,7 +21,9 @@
 #include <memory>
 #include <sstream>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
@@ -294,6 +296,118 @@ struct FunctionExecutorImpl : public FunctionExecutor {
 };
 
 }  // namespace detail
+
+namespace {
+
+struct DictionaryUnaryKernelState : KernelState {
+  DictionaryUnaryKernelState(const ScalarFunction* function,
+                             const FunctionOptions* options)
+      : function(function), options(options) {}
+
+  const ScalarFunction* function;
+  const FunctionOptions* options;
+};
+
+class DictionaryUnaryTypeMatcher : public TypeMatcher {
+ public:
+  explicit DictionaryUnaryTypeMatcher(const ScalarFunction* function)
+      : function_(function) {}
+
+  bool Matches(const DataType& type) const override {
+    if (type.id() != Type::DICTIONARY) {
+      return false;
+    }
+    const auto& dictionary_type = checked_cast<const DictionaryType&>(type);
+    std::vector<TypeHolder> value_types = {dictionary_type.value_type()};
+    return function_->DispatchBest(&value_types).ok();
+  }
+
+  std::string ToString() const override {
+    return "dictionary with values accepted by " + function_->name();
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    const auto* other_matcher = dynamic_cast<const DictionaryUnaryTypeMatcher*>(&other);
+    return other_matcher != nullptr && function_ == other_matcher->function_;
+  }
+
+ private:
+  const ScalarFunction* function_;
+};
+
+Result<TypeHolder> ResolveDictionaryUnaryOutput(const ScalarFunction& function,
+                                                KernelContext* ctx,
+                                                const std::vector<TypeHolder>& types) {
+  DCHECK_EQ(types.size(), 1);
+  DCHECK_EQ(types[0].id(), Type::DICTIONARY);
+
+  const auto& dictionary_type =
+      checked_cast<const DictionaryType&>(*types[0].GetSharedPtr());
+  std::vector<TypeHolder> value_types = {dictionary_type.value_type()};
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function.DispatchBest(&value_types));
+
+  const FunctionOptions* options = function.default_options();
+  if (ctx->state() != nullptr) {
+    options = checked_cast<DictionaryUnaryKernelState*>(ctx->state())->options;
+  }
+
+  KernelContext value_ctx(ctx->exec_context(), kernel);
+  std::unique_ptr<KernelState> value_state;
+  if (kernel->init) {
+    ARROW_ASSIGN_OR_RAISE(value_state,
+                          kernel->init(&value_ctx, {kernel, value_types, options}));
+    value_ctx.SetState(value_state.get());
+  }
+  return kernel->signature->out_type().Resolve(&value_ctx, value_types);
+}
+
+Status ExecuteDictionaryUnary(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
+  const auto& state = checked_cast<const DictionaryUnaryKernelState&>(*ctx->state());
+  DictionaryArray input(batch[0].array.ToArrayData());
+
+  ARROW_ASSIGN_OR_RAISE(
+      Datum transformed_values,
+      state.function->Execute({input.dictionary()}, state.options, ctx->exec_context()));
+  if (!transformed_values.is_array()) {
+    return Status::Invalid("Unary scalar function '", state.function->name(),
+                           "' returned a non-array result for dictionary values");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(transformed_values, input.indices(),
+                                           TakeOptions::Defaults(), ctx->exec_context()));
+  DCHECK(result.is_array());
+  out->value = result.array();
+  return Status::OK();
+}
+
+ScalarKernel MakeDictionaryUnaryKernel(const ScalarFunction* function) {
+  ScalarKernel kernel(
+      {InputType(std::make_shared<DictionaryUnaryTypeMatcher>(function))},
+      OutputType([function](KernelContext* ctx, const std::vector<TypeHolder>& types) {
+        return ResolveDictionaryUnaryOutput(*function, ctx, types);
+      }),
+      ExecuteDictionaryUnary,
+      [function](KernelContext*,
+                 const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
+        return std::make_unique<DictionaryUnaryKernelState>(function, args.options);
+      });
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  return kernel;
+}
+
+}  // namespace
+
+ScalarFunction::ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
+                               const FunctionOptions* default_options, bool is_pure)
+    : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
+                                         std::move(doc), default_options),
+      is_pure_(is_pure) {
+  if (is_pure && !arity.is_varargs && arity.num_args == 1) {
+    DCHECK_OK(AddKernel(MakeDictionaryUnaryKernel(this)));
+  }
+}
 
 Result<const Kernel*> Function::DispatchExact(
     const std::vector<TypeHolder>& values) const {

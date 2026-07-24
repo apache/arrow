@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
@@ -294,6 +295,53 @@ TEST(ScalarVectorFunction, DispatchExact) {
 
   // ARROW-16576: will migrate later to new span-based kernel exec API
   CheckAddDispatch(&func2, ExecNYI);
+}
+
+namespace {
+
+struct DictionaryValuesCounter : KernelState {
+  int64_t values_processed = 0;
+};
+
+Status CountAndCastDictionaryValues(KernelContext* ctx, const ExecSpan& args,
+                                    ExecResult* out) {
+  auto& counter = checked_cast<DictionaryValuesCounter&>(*ctx->kernel()->data);
+  counter.values_processed += args.length;
+  ARROW_ASSIGN_OR_RAISE(Datum result, Cast(args[0].array.ToArrayData(), int64(),
+                                           CastOptions::Safe(), ctx->exec_context()));
+  out->value = result.array();
+  return Status::OK();
+}
+
+}  // namespace
+
+TEST(ScalarFunction, DictionaryUnaryAppliesToDictionaryValues) {
+  ScalarFunction func("dictionary_unary_test", Arity::Unary(), FunctionDoc::Empty());
+  auto counter = std::make_shared<DictionaryValuesCounter>();
+  ScalarKernel kernel({int32()}, int64(), CountAndCastDictionaryValues);
+  kernel.data = counter;
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  ASSERT_OK(func.AddKernel(std::move(kernel)));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto input, DictionaryArray::FromArrays(ArrayFromJSON(int8(), "[0, 1, 0, null, 1]"),
+                                              ArrayFromJSON(int32(), "[10, 20, 999]")));
+  ASSERT_OK_AND_ASSIGN(Datum result, func.Execute({input}, nullptr, nullptr));
+
+  ASSERT_TRUE(result.is_array());
+  AssertArraysEqual(*ArrayFromJSON(int64(), "[10, 20, 10, null, 20]"),
+                    *result.make_array());
+  ASSERT_EQ(counter->values_processed, 3);
+  ASSERT_RAISES(NotImplemented, func.DispatchExact({dictionary(int8(), utf8())}));
+}
+
+TEST(ScalarFunction, ImpureUnaryRejectsDictionaryInput) {
+  ScalarFunction func("impure_unary_test", Arity::Unary(), FunctionDoc::Empty(),
+                      /*default_options=*/nullptr, /*is_pure=*/false);
+  ASSERT_OK(func.AddKernel({int32()}, int32(), ExecNYI));
+
+  ASSERT_RAISES(NotImplemented, func.DispatchExact({dictionary(int8(), int32())}));
 }
 
 TEST(ArrayFunction, VarArgs) {
