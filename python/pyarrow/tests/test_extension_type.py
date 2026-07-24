@@ -1885,6 +1885,55 @@ def test_tensor_type_cast():
 
 
 @pytest.mark.pandas
+@pytest.mark.parametrize("value_type", [pa.int8(), pa.float32(), pa.float64()])
+@pytest.mark.parametrize("shape,permutation", [
+    ([2, 2], None),
+    ([2, 3], None),
+    ([2, 2, 3], [0, 2, 1]),
+])
+def test_tensor_type_to_pandas(value_type, shape, permutation):
+    # GH-49907: to_pandas_dtype should return a pandas dtype instead of
+    # raising NotImplementedError, and enable Table.to_pandas(split_blocks=True)
+    import pandas as pd
+
+    if Version(pd.__version__) < Version("2.1.0"):
+        # pd.ArrowDtype extension blocks are only reliable from 2.1.0,
+        # see GH-35821
+        pytest.skip("requires pandas >= 2.1.0")
+
+    tensor_type = pa.fixed_shape_tensor(
+        value_type, shape, permutation=permutation)
+
+    # The type maps to a pandas ArrowDtype wrapping the extension type
+    dtype = tensor_type.to_pandas_dtype()
+    assert isinstance(dtype, pd.ArrowDtype)
+    assert dtype.pyarrow_dtype == tensor_type
+
+    # Build an extension array of a few tensors via the storage type so the
+    # explicit permutation is preserved exactly
+    size = 3
+    n = int(np.prod(shape))
+    storage = pa.array(
+        [list(range(i * n, (i + 1) * n)) for i in range(size)],
+        pa.list_(value_type, n))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+    # Array.to_pandas uses the ArrowDtype
+    series = arr.to_pandas()
+    assert isinstance(series.dtype, pd.ArrowDtype)
+    assert series.dtype.pyarrow_dtype == tensor_type
+    assert len(series) == size
+
+    # Table.to_pandas, including the split_blocks=True path from GH-49907
+    table = pa.table({"tensor": arr})
+    for split_blocks in [False, True]:
+        result = table.to_pandas(split_blocks=split_blocks)
+        assert isinstance(result["tensor"].dtype, pd.ArrowDtype)
+        assert result["tensor"].dtype.pyarrow_dtype == tensor_type
+        assert len(result) == size
+
+
+@pytest.mark.pandas
 def test_extension_to_pandas_storage_type(registered_period_type):
     period_type, _ = registered_period_type
     np_arr = np.array([1, 2, 3, 4], dtype='i8')
