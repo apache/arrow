@@ -47,7 +47,7 @@ Codec <- R6Class(
   )
 )
 Codec$create <- function(type = "gzip", compression_level = NA) {
-  if (is.string(type)) {
+  if (is_string(type)) {
     type <- util___Codec__Create(
       compression_from_name(type),
       compression_level
@@ -104,7 +104,7 @@ compression_from_name <- function(name) {
 CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
 CompressedOutputStream$create <- function(stream, codec = "gzip", compression_level = NA) {
   codec <- Codec$create(codec, compression_level = compression_level)
-  if (is.string(stream)) {
+  if (is_string(stream)) {
     stream <- FileOutputStream$create(stream)
   }
   assert_is(stream, "OutputStream")
@@ -118,7 +118,7 @@ CompressedOutputStream$create <- function(stream, codec = "gzip", compression_le
 CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
 CompressedInputStream$create <- function(stream, codec = "gzip", compression_level = NA) {
   codec <- Codec$create(codec, compression_level = compression_level)
-  if (is.string(stream)) {
+  if (is_string(stream)) {
     stream <- ReadableFile$create(stream)
   }
   assert_is(stream, "InputStream")

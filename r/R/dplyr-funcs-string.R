@@ -292,7 +292,7 @@ register_bindings_string_regex <- function() {
     "stringr::str_count",
     function(string, pattern) {
       opts <- get_stringr_pattern_options(enquo(pattern))
-      if (!is.string(pattern)) {
+      if (!is_string(pattern)) {
         arrow_not_supported("`pattern` must be a length 1 character vector; other values")
       }
       arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
@@ -422,7 +422,7 @@ register_bindings_string_regex <- function() {
   })
 
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE) {
-    assert_that(is.string(split))
+    check_string(split)
 
     arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
     # warn when the user specifies both fixed = TRUE and perl = TRUE, for
@@ -620,9 +620,11 @@ register_bindings_string_other <- function() {
   )
 
   register_binding("stringr::str_pad", function(string, width, side = c("left", "right", "both"), pad = " ") {
-    assert_that(is_integerish(width))
+    if (!is_integerish(width)) {
+      abort("width must be whole numbers.")
+    }
     side <- match.arg(side)
-    assert_that(is.string(pad))
+    check_string(pad)
 
     if (side == "left") {
       pad_func <- "utf8_lpad"

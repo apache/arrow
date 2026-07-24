@@ -690,16 +690,8 @@ test_that("scalar aggregates with many batches (ARROW-16904)", {
   ds <- open_dataset(tf)
   replicate(100, ds |> summarize(min(x)) |> pull())
 
-  expect_true(
-    all(
-      replicate(100, ds |> summarize(min(x)) |> pull() |> as.vector()) == 1
-    )
-  )
-  expect_true(
-    all(
-      replicate(100, ds |> summarize(max(x)) |> pull() |> as.vector()) == 100
-    )
-  )
+  expect_all_true(replicate(100, ds |> summarize(min(x)) |> pull() |> as.vector()) == 1)
+  expect_all_true(replicate(100, ds |> summarize(max(x)) |> pull() |> as.vector()) == 100)
 })
 
 test_that("streaming map_batches into an ExecPlan", {
@@ -1446,7 +1438,7 @@ test_that("FileSystemFactoryOptions input validation", {
       partitioning = "part",
       factory_options = list(partition_base_dir = 42)
     ),
-    "factory_options$partition_base_dir is not a string",
+    "`factory_options$partition_base_dir` must be a single string",
     fixed = TRUE
   )
   expect_error(

@@ -233,18 +233,14 @@ FileSystemDatasetFactory$create <- function(
   factory_options = list()
 ) {
   assert_is(filesystem, "FileSystem")
-  is.null(selector) || assert_is(selector, "FileSelector")
-  is.null(paths) || assert_is(paths, "character")
-  assert_that(
-    xor(is.null(selector), is.null(paths)),
-    msg = "Either selector or paths must be specified"
-  )
+  assert_is(selector, "FileSelector", allow_null = TRUE)
+  assert_is(paths, "character", allow_null = TRUE)
+  if (!xor(is.null(selector), is.null(paths))) {
+    stop("Either selector or paths must be specified")
+  }
   assert_is(format, "FileFormat")
   if (!is.null(paths)) {
-    assert_that(
-      is.null(partitioning),
-      msg = "Partitioning not supported with paths"
-    )
+    check_null(partitioning, msg = "Partitioning not supported with paths")
     # Validate that exclude_invalid_files is only option provided
     # All other options are only relevant for the FileSelector method
     invalid_opts <- setdiff(names(factory_options), "exclude_invalid_files")
@@ -285,15 +281,14 @@ fsf_options <- function(factory_options, partitioning) {
   if (!is.null(factory_options$partition_base_dir)) {
     if (
       inherits(partitioning, "HivePartitioning") ||
-        (inherits(partitioning, "PartitioningFactory") &&
-          identical(partitioning$type_name, "hive"))
+        (inherits(partitioning, "PartitioningFactory") && identical(partitioning$type_name, "hive"))
     ) {
       warning(
         "factory_options$partition_base_dir is not meaningful for Hive partitioning",
         call. = FALSE
       )
     } else {
-      assert_that(is.string(factory_options$partition_base_dir))
+      check_string(factory_options$partition_base_dir)
     }
   }
 

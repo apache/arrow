@@ -76,7 +76,7 @@ write_feather <- function(
 ) {
   # Handle and validate options before touching data
   version <- as.integer(version)
-  assert_that(version %in% 1:2)
+  check_number_whole(version, min = 1, max = 2)
 
   if (isTRUE(compression)) {
     compression <- "default"
@@ -88,7 +88,7 @@ write_feather <- function(
   # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
   compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
-  assert_that(chunk_size > 0)
+  check_number_whole(chunk_size, min = 1)
   if (compression == "default") {
     if (version == 2 && codec_is_available("lz4")) {
       compression <- "lz4"

@@ -20,7 +20,6 @@ test_that("default_memory_pool and its attributes", {
   # Not integer bc can be >2gb, so we cast to double
   expect_type(pool$bytes_allocated, "double")
   expect_type(pool$max_memory, "double")
-  expect_true(pool$backend_name %in% c("system", "jemalloc", "mimalloc"))
-
-  expect_all_true(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc"))
+  expect_in(pool$backend_name, c("system", "jemalloc", "mimalloc"))
+  expect_in(supported_memory_backends(), c("system", "jemalloc", "mimalloc"))
 })

@@ -227,7 +227,7 @@ prepare_key_value_metadata <- function(metadata) {
 
 # Alternative to Schema__ToString that doesn't print metadata
 print_schema_fields <- function(s, truncate = FALSE, max_fields = 20L) {
-  assert_that(max_fields > 0)
+  check_number_whole(max_fields, min = 1)
   num_fields <- length(s$fields)
   if (truncate && num_fields > max_fields) {
     fields_out <- paste(map_chr(s$fields[seq_len(max_fields)], ~ .$ToString()), collapse = "\n")
@@ -318,7 +318,9 @@ length.Schema <- function(x) x$num_fields
 
 #' @export
 `[[<-.Schema` <- function(x, i, value) {
-  assert_that(length(i) == 1)
+  if (length(i) != 1) {
+    stop("`i` must have length 1.", call. = FALSE)
+  }
   if (is.character(i)) {
     field_names <- names(x)
     if (anyDuplicated(field_names)) {
@@ -333,7 +335,7 @@ length.Schema <- function(x) x$num_fields
     # No match means we're adding to the end
     i <- match(i, field_names, nomatch = length(field_names) + 1L)
   } else {
-    assert_that(is.numeric(i), !is.na(i), i > 0)
+    check_number_whole(i, min = 1, allow_na = FALSE)
     # If i is numeric and we have a type,
     # we need to grab the existing field name for the new one
     if (!is.null(value) && !inherits(value, "Field")) {
@@ -384,7 +386,7 @@ length.Schema <- function(x) x$num_fields
 
 #' @export
 `$.Schema` <- function(x, name, ...) {
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(x)) {
     get(name, x)
   } else {

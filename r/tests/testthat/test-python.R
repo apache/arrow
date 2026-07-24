@@ -30,7 +30,7 @@ test_that("install_pyarrow", {
   venv <- try(reticulate::virtualenv_create("arrow-test"))
   # Bail out if virtualenv isn't available
   skip_if(inherits(venv, "try-error"))
-  expect_error(install_pyarrow("arrow-test", nightly = TRUE), NA)
+  expect_no_error(install_pyarrow("arrow-test", nightly = TRUE))
   # Set this up for the following tests
   reticulate::use_virtualenv("arrow-test")
 })

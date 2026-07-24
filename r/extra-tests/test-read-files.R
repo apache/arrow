@@ -38,10 +38,7 @@ pq_file <- "files/ex_data.parquet"
 
 test_that("Can read the file (parquet)", {
   # We can read with no error, we assert metadata below
-  expect_error(
-    df <- read_parquet(pq_file),
-    NA
-  )
+  expect_no_error(df <- read_parquet(pq_file))
 })
 
 ### Parquet
@@ -83,10 +80,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
 
   test_that(paste0("Can read the file (feather ", comp, ")"), {
     # We can read with no error, we assert metadata below
-    expect_error(
-      df <- read_feather(feather_file),
-      NA
-    )
+    expect_no_error(df <- read_feather(feather_file))
   })
 
   test_that(paste0("Can see the metadata (feather ", comp, ")"), {

@@ -85,8 +85,7 @@ Table <- R6Class(
     nbytes = function() Table__ReferencedBufferSize(self),
     RenameColumns = function(value) Table__RenameColumns(self, value),
     GetColumnByName = function(name) {
-      assert_is(name, "character")
-      assert_that(length(name) == 1)
+      check_string(name)
       Table__GetColumnByName(self, name)
     },
     RemoveColumn = function(i) Table__RemoveColumn(self, i),
@@ -102,7 +101,9 @@ Table <- R6Class(
     },
     cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")
-      assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
+      if (!identical(self$schema$names, target_schema$names)) {
+        stop("Incompatible schemas", call. = FALSE)
+      }
       Table__cast(self, target_schema, options)
     },
     SelectColumns = function(indices) Table__SelectColumns(self, indices),

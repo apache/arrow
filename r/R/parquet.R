@@ -251,7 +251,7 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
     version <- format(version, nsmall = 1)
   }
 
-  if (!is.string(version)) {
+  if (!is_string(version)) {
     stop(
       "`version` must be one of ",
       oxford_paste(names(valid_versions), "or"),
@@ -313,7 +313,7 @@ ParquetWriterPropertiesBuilder <- R6Class(
     },
     set_compression = function(column_names, compression) {
       compression <- compression_from_name(compression)
-      assert_that(is.integer(compression))
+      assert_is(compression, "integer")
       private$.set(
         column_names,
         compression,
@@ -330,7 +330,7 @@ ParquetWriterPropertiesBuilder <- R6Class(
       )
     },
     set_dictionary = function(column_names, use_dictionary) {
-      assert_that(is.logical(use_dictionary))
+      check_logical(use_dictionary)
       private$.set(
         column_names,
         use_dictionary,
@@ -338,7 +338,7 @@ ParquetWriterPropertiesBuilder <- R6Class(
       )
     },
     set_write_statistics = function(column_names, write_statistics) {
-      assert_that(is.logical(write_statistics))
+      check_logical(write_statistics)
       private$.set(
         column_names,
         write_statistics,

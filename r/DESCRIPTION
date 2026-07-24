@@ -33,13 +33,12 @@ SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl, and
     cmake >= 3.26 (build-time only, and only for full source build)
 Biarch: true
 Imports:
-    assertthat,
     bit64 (>= 0.9-7),
     glue,
     methods,
     purrr,
     R6,
-    rlang (>= 1.0.0),
+    rlang (>= 1.2.0),
     stats,
     tidyselect (>= 1.0.0),
     utils,

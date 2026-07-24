@@ -47,7 +47,7 @@ arrow_eval <- function(expr, mask) {
       stop(e)
     }
 
-    # 2. Error is from assert_that: raise as validation_error
+    # 2. Error is from assert_is: raise as validation_error
     if (inherits(e, "assertError")) {
       validation_error(msg, call = expr)
     }
@@ -171,7 +171,7 @@ i18ize_error_messages <- function() {
 #' suggestion, when the error is ultimately raised by `try_error_dplyr()`,
 #' `Call collect() first to pull data into R` won't be the only suggestion.
 #'
-#' You can still use `match.arg()` and `assert_that()` for simple input
+#' You can still use `match.arg()` and `assert_is()` for simple input
 #' validation inside of the function bindings. `arrow_eval()` will catch their
 #' errors and re-raise them as `validation_error`.
 #'

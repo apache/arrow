@@ -440,7 +440,7 @@ csv_read_options <- function(
   encoding = "UTF-8",
   skip_rows_after_names = 0L
 ) {
-  assert_that(is.string(encoding))
+  check_string(encoding)
 
   options <- csv___ReadOptions__initialize(
     list(
@@ -646,14 +646,14 @@ csv_write_options <- function(
   quoting_style_opts <- c("Needed", "AllValid", "None")
   quoting_style <- match(quoting_style, quoting_style_opts) - 1L
 
-  assert_that(is.logical(include_header))
-  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
-  assert_that(is.character(delimiter))
-  assert_that(is.character(null_string))
-  assert_that(!is.na(null_string))
-  assert_that(length(null_string) == 1)
-  assert_that(!grepl('"', null_string), msg = "na argument must not contain quote characters.")
-  assert_that(is.character(eol))
+  check_bool(include_header)
+  check_number_whole(batch_size, min = 1, allow_infinite = FALSE)
+  check_string(delimiter)
+  check_string(null_string, allow_na = FALSE)
+  if (grepl('"', null_string)) {
+    stop("na argument must not contain quote characters.", call. = FALSE)
+  }
+  check_string(eol)
 
   csv___WriteOptions__initialize(
     list(
@@ -930,17 +930,17 @@ write_csv_arrow <- function(
   write_options = NULL,
   ...
 ) {
-  unsupported_passed_args <- names(list(...))
-
-  if (length(unsupported_passed_args)) {
-    stop(
-      "The following ",
-      ngettext(length(unsupported_passed_args), "argument is ", "arguments are "),
-      "not yet supported in Arrow: ",
-      oxford_paste(unsupported_passed_args),
-      call. = FALSE
+  # every other argument is not supported in arrow and inform those arguments
+  # are not yet supported in arrow.
+  check_dots_empty(error = function(cnd) {
+    rlang::abort(
+      c(
+        "Arguments not yet supported in Arrow",
+        conditionMessage(cnd)
+      ),
+      call = call("write_csv_arrow")
     )
-  }
+  })
 
   if (!missing(file) && !missing(sink)) {
     stop(

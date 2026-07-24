@@ -372,7 +372,7 @@ head.ExecPlanReader <- function(x, n = 6L, ...) {
 }
 
 do_exec_plan_substrait <- function(substrait_plan) {
-  if (is.string(substrait_plan)) {
+  if (is_string(substrait_plan)) {
     substrait_plan <- substrait__internal__SubstraitFromJSON(substrait_plan)
   } else if (is.raw(substrait_plan)) {
     substrait_plan <- buffer(substrait_plan)

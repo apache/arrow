@@ -78,7 +78,7 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("methods::is", function(object, class2) {
-    if (is.string(class2)) {
+    if (is_string(class2)) {
       switch(
         class2,
         # for R data types, pass off to is.*() functions
@@ -245,26 +245,26 @@ register_bindings_type_inspect <- function() {
 
   # rlang::is_* type functions
   register_binding("rlang::is_character", function(x, n = NULL) {
-    assert_that(is.null(n))
+    check_null(n)
     call_binding("is.character", x)
   })
   register_binding("rlang::is_double", function(x, n = NULL, finite = NULL) {
-    assert_that(is.null(n))
+    check_null(n)
     if (!is.null(finite)) {
       arrow_not_supported("`finite` argument")
     }
     call_binding("is.double", x)
   })
   register_binding("rlang::is_integer", function(x, n = NULL) {
-    assert_that(is.null(n))
+    check_null(n)
     call_binding("is.integer", x)
   })
   register_binding("rlang::is_list", function(x, n = NULL) {
-    assert_that(is.null(n))
+    check_null(n)
     call_binding("is.list", x)
   })
   register_binding("rlang::is_logical", function(x, n = NULL) {
-    assert_that(is.null(n))
+    check_null(n)
     call_binding("is.logical", x)
   })
 }
@@ -277,8 +277,7 @@ register_bindings_type_elementwise <- function() {
   register_binding("base::is.nan", function(x) {
     if (
       is.double(x) ||
-        (inherits(x, "Expression") &&
-          x$type_id() %in% TYPES_WITH_NAN)
+        (inherits(x, "Expression") && x$type_id() %in% TYPES_WITH_NAN)
     ) {
       # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
       # use that to simplify the code here (ARROW-13366)
@@ -312,11 +311,8 @@ register_bindings_type_format <- function() {
     if (!inherits(x, "Expression")) {
       return(format(x, ...))
     }
-
-    if (
-      inherits(x, "Expression") &&
-        x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]
-    ) {
+    accepted_types <- Type[c("TIMESTAMP", "DATE32", "DATE64")]
+    if (inherits(x, "Expression") && x$type_id() %in% accepted_types) {
       binding_format_datetime(x, ...)
     } else {
       cast(x, string())

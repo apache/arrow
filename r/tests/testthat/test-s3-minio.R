@@ -124,7 +124,7 @@ test_that("Confirm s3_bucket works with endpoint_override", {
   os <- bucket$OpenOutputStream("bucket-test.csv")
   write_csv_arrow(example_data, os)
   os$close()
-  expect_true("bucket-test.csv" %in% bucket$ls())
+  expect_contains(bucket$ls(), "bucket-test.csv")
   bucket$DeleteFile("bucket-test.csv")
 })
 

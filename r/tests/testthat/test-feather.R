@@ -209,7 +209,7 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
   skip_if_not_available("gzip")
   expect_error(
     read_feather(CompressedInputStream$create(feather_file)),
-    'file must be a "RandomAccessFile"'
+    "`file` must be a RandomAccessFile"
   )
 })
 
@@ -254,7 +254,7 @@ test_that("read_feather closes connection to file", {
   write_feather(tib, sink = tf)
   expect_true(file.exists(tf))
   read_feather(tf)
-  expect_error(file.remove(tf), NA)
+  expect_no_error(file.remove(tf))
   expect_false(file.exists(tf))
 })
 
@@ -333,6 +333,6 @@ test_that("Can read Feather files from a URL", {
   skip_on_cran()
   feather_url <- "https://github.com/apache/arrow-testing/raw/master/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_datetime.arrow_file" # nolint
   fu <- read_feather(feather_url)
-  expect_true(tibble::is_tibble(fu))
-  expect_identical(dim(fu), c(17L, 15L))
+  expect_s3_class(fu, "tbl_df")
+  expect_shape(fu, dim = c(17L, 15L))
 })

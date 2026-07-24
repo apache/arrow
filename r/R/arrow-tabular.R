@@ -36,26 +36,34 @@ ArrowTabular <- R6Class(
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      assert_that(is.Array(i))
+      if (!is.Array(i)) {
+        stop("`i` must be an Array.")
+      }
       call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      assert_that(is.Array(i, "bool"))
+      if (!is.Array(i, "bool")) {
+        stop("i must be an Array of bool", call. = FALSE)
+      }
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     SortIndices = function(names, descending = FALSE) {
-      assert_that(is.character(names))
-      assert_that(length(names) > 0)
-      assert_that(!anyNA(names))
+      # if rlang adds allow_empty argument https://github.com/r-lib/rlang/pull/1745
+      # use allow_empty = FALSE instead
+      check_character(names, allow_na = FALSE)
+      if (length(names) == 0) {
+        stop("names can't be empty.", call. = FALSE)
+      }
       if (length(descending) == 1L) {
         descending <- rep_len(descending, length(names))
       }
-      assert_that(is.logical(descending))
-      assert_that(identical(length(names), length(descending)))
-      assert_that(!anyNA(descending))
+      check_logical(descending, allow_na = FALSE)
+      if (length(names) != length(descending)) {
+        stop("names and descending must have a common length", call. = FALSE)
+      }
       call_function(
         "sort_indices",
         self,
@@ -142,18 +150,17 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `[[.ArrowTabular` <- function(x, i, ...) {
+  assert_is(i, c("character", "numeric"))
   if (is.character(i)) {
     x$GetColumnByName(i)
   } else if (is.numeric(i)) {
     x$column(i - 1)
-  } else {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
   }
 }
 
 #' @export
 `$.ArrowTabular` <- function(x, name, ...) {
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(x)) {
     get(name, x)
   } else {
@@ -163,10 +170,10 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `[[<-.ArrowTabular` <- function(x, i, value) {
-  if (!is.character(i) && !is.numeric(i)) {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
+  assert_is(i, c("character", "numeric"))
+  if (length(i) != 1 || is.na(i)) {
+    stop("`i` must be length 1 and not NA", call. = FALSE)
   }
-  assert_that(length(i) == 1, !is.na(i))
 
   if (is.null(value)) {
     if (is.character(i)) {
@@ -209,7 +216,7 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `$<-.ArrowTabular` <- function(x, i, value) {
-  assert_that(is.string(i))
+  check_string(i)
   # We need to check if `i` is in names in case it is an active binding (e.g.
   # `metadata`, in which case we use assign to change the active binding instead
   # of the column in the table)

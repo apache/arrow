@@ -134,10 +134,8 @@ as.data.frame.RecordBatchReader <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.RecordBatchReader <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires consuming the whole RBR
-  assert_that(n >= 0)
+  check_number_decimal(n, min = 0)
   if (!is.integer(n)) {
     n <- floor(n)
   }
@@ -251,7 +249,7 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 #' @rdname as_record_batch_reader
 #' @export
 as_record_batch_reader.function <- function(x, ..., schema) {
-  assert_that(inherits(schema, "Schema"))
+  assert_is(schema, "Schema")
   RecordBatchReader__from_function(x, schema)
 }
 

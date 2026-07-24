@@ -59,7 +59,7 @@ if (run_these) {
   test_that("RandomAccessFile$ReadMetadata() works for S3FileSystem", {
     file <- bucket$OpenInputFile(paste0(now, "/", "test.parquet"))
     metadata <- file$ReadMetadata()
-    expect_true(is.list(metadata))
-    expect_true("ETag" %in% names(metadata))
+    expect_type(metadata, "list")
+    expect_contains(names(metadata), "ETag")
   })
 }

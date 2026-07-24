@@ -417,7 +417,9 @@ DictionaryArray$create <- function(x, dict = NULL) {
     return(Array$create(x))
   }
 
-  assert_that(!is.null(dict))
+  if (is.null(dict)) {
+    stop("dict cannot be `NULL`.", call. = FALSE)
+  }
   if (!is.Array(x)) {
     x <- Array$create(x)
   }
@@ -450,18 +452,17 @@ StructArray$create <- function(...) {
 
 #' @export
 `[[.StructArray` <- function(x, i, ...) {
+  assert_is(i, c("character", "numeric", "integer"))
   if (is.character(i)) {
     x$GetFieldByName(i)
   } else if (is.numeric(i)) {
     x$field(i - 1)
-  } else {
-    stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
   }
 }
 
 #' @export
 `$.StructArray` <- function(x, name, ...) {
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(x)) {
     get(name, x)
   } else {

@@ -72,7 +72,7 @@
 #'   head()
 #'
 register_scalar_function <- function(name, fun, in_type, out_type, auto_convert = FALSE) {
-  assert_that(is.string(name))
+  check_string(name)
 
   scalar_function <- arrow_scalar_function(
     fun,
@@ -99,7 +99,9 @@ register_scalar_function <- function(name, fun, in_type, out_type, auto_convert 
 }
 
 arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) {
-  assert_that(is.function(fun))
+  if (!is.function(fun)) {
+    stop("`fun` must be a function.")
+  }
 
   # Create a small wrapper function that is easier to call from C++.
   # TODO(ARROW-17148): This wrapper could be implemented in C/C++ to

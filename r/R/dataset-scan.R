@@ -160,10 +160,8 @@ names.Scanner <- function(x) names(x$schema)
 
 #' @export
 head.Scanner <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
-  assert_that(n >= 0)
+  check_number_decimal(n, min = 0)
   if (!is.integer(n)) {
     n <- floor(n)
   }
@@ -176,10 +174,8 @@ tail.Scanner <- function(x, n = 6L, ...) {
 }
 
 tail_from_batches <- function(batches, n) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
   # Negative n requires knowing nrow(x), which requires a scan itself
-  assert_that(n >= 0)
+  check_number_decimal(n, min = 0)
   if (!is.integer(n)) {
     n <- floor(n)
   }

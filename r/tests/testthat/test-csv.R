@@ -430,7 +430,7 @@ test_that("Write a CSV file with invalid input type", {
 test_that("Write a CSV file with invalid batch size", {
   expect_error(
     write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
-    regexp = "batch_size not greater than 0"
+    regexp = "`batch_size` must be"
   )
 })
 
@@ -440,7 +440,7 @@ test_that("Write a CSV with custom NA value", {
   expect_identical(tbl_out1, tbl_no_dates)
 
   csv_contents <- readLines(csv_file)
-  expect_true(any(grepl("NULL_VALUE", csv_contents)))
+  expect_match(csv_contents, "NULL_VALUE", all = FALSE)
 
   tbl_in1 <- read_csv_arrow(csv_file, na = "NULL_VALUE")
   expect_identical(tbl_in1, tbl_no_dates)
@@ -448,7 +448,7 @@ test_that("Write a CSV with custom NA value", {
   # Also can use null_value in CsvWriteOptions
   tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file, write_options = csv_write_options(null_string = "another_null"))
   csv_contents <- readLines(csv_file)
-  expect_true(any(grepl("another_null", csv_contents)))
+  expect_match(csv_contents, "another_null", all = FALSE)
 
   tbl_in1 <- read_csv_arrow(csv_file, na = "another_null")
   expect_identical(tbl_in1, tbl_no_dates)
@@ -458,7 +458,7 @@ test_that("Write a CSV with custom NA value", {
   expect_true(file.exists(csv_file))
 
   csv_contents <- readLines(csv_file)
-  expect_true(any(grepl(",,", csv_contents)))
+  expect_match(csv_contents, ",,", all = FALSE)
 
   tbl_in1 <- read_csv_arrow(csv_file)
   expect_identical(tbl_in1, tbl_no_dates)
@@ -490,35 +490,15 @@ test_that("time mapping work as expected (ARROW-13624)", {
 })
 
 test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
-  expect_error(
-    write_csv_arrow(tbl, csv_file, append = FALSE),
-    "The following argument is not yet supported in Arrow: \"append\""
-  )
-  expect_error(
-    write_csv_arrow(tbl, csv_file, quote = "all"),
-    "The following argument is not yet supported in Arrow: \"quote\""
-  )
-  expect_error(
-    write_csv_arrow(tbl, csv_file, escape = "double"),
-    "The following argument is not yet supported in Arrow: \"escape\""
-  )
-  expect_error(
-    write_csv_arrow(tbl, csv_file, eol = "\n"),
-    "The following argument is not yet supported in Arrow: \"eol\""
-  )
-  expect_error(
-    write_csv_arrow(tbl, csv_file, num_threads = 8),
-    "The following argument is not yet supported in Arrow: \"num_threads\""
-  )
-  expect_error(
-    write_csv_arrow(tbl, csv_file, progress = FALSE),
-    "The following argument is not yet supported in Arrow: \"progress\""
-  )
-  expect_error(
-    write_csv_arrow(tbl, csv_file, append = FALSE, eol = "\n"),
-    "The following arguments are not yet supported in Arrow: \"append\" and \"eol\""
-  )
-  expect_error(
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, append = FALSE))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, quote = "all"))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, escape = "double"))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, eol = "\n"))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, num_threads = 8))
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, progress = FALSE), )
+  expect_snapshot(error = TRUE, write_csv_arrow(tbl, csv_file, append = FALSE, eol = "\n"))
+  expect_snapshot(
+    error = TRUE,
     write_csv_arrow(
       tbl,
       csv_file,
@@ -526,10 +506,6 @@ test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
       quote = "all",
       escape = "double",
       eol = "\n"
-    ),
-    paste(
-      "The following arguments are not yet supported in Arrow: \"append\",",
-      "\"quote\", \"escape\", and \"eol\""
     )
   )
 })

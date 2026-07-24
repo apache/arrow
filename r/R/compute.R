@@ -44,8 +44,10 @@
 #' @include chunked-array.R
 #' @include scalar.R
 call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
-  assert_that(is.string(function_name))
-  assert_that(is.list(options), !is.null(names(options)))
+  check_string(function_name)
+  if (!is.list(options) || is.null(names(options))) {
+    stop("options must be a named list.", call. = FALSE)
+  }
 
   datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
   valid_args <- map_lgl(args, ~ inherits(., datum_classes))
@@ -152,7 +154,9 @@ collect_arrays_from_dots <- function(dots) {
     return(dots[[1]])
   }
 
-  assert_that(all(map_lgl(dots, is.Array)))
+  if (!all(map_lgl(dots, is.Array))) {
+    stop("dots must all be Arrays.", call. = FALSE)
+  }
   arrays <- unlist(lapply(dots, function(x) {
     if (inherits(x, "ChunkedArray")) {
       x$chunks
@@ -176,8 +180,10 @@ quantile.ArrowDatum <- function(
     x <- Array$create(x)
   }
   assert_is(probs, c("numeric", "integer"))
-  assert_that(length(probs) > 0)
-  assert_that(all(probs >= 0 & probs <= 1))
+  # if check_numbers_decimal() gets added in rlang, https://github.com/r-lib/rlang/issues/1714
+  if (length(probs) == 0 || !all(probs >= 0 & probs <= 1)) {
+    stop("probs must be a probability vector between 0 and 1.")
+  }
   if (!na.rm && x$null_count > 0) {
     stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
   }

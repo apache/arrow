@@ -22,8 +22,8 @@ pq_file <- system.file("v0.7.1.parquet", package = "arrow")
 test_that("reading a known Parquet file to tibble", {
   skip_if_not_available("snappy")
   df <- read_parquet(pq_file)
-  expect_true(tibble::is_tibble(df))
-  expect_identical(dim(df), c(10L, 11L))
+  expect_s3_class(df, "tbl_df")
+  expect_shape(df, dim = c(10L, 11L))
   # TODO: assert more about the contents
 })
 
@@ -35,7 +35,7 @@ test_that("simple int column roundtrip", {
   df_read <- read_parquet(pq_tmp_file, mmap = FALSE)
   expect_equal(df, df_read)
   # Make sure file connection is cleaned up
-  expect_error(file.remove(pq_tmp_file), NA)
+  expect_no_error(file.remove(pq_tmp_file))
   expect_false(file.exists(pq_tmp_file))
 })
 
@@ -52,7 +52,7 @@ test_that("read_parquet() with raw data", {
   skip_if_not_available("snappy")
   test_raw <- readBin(pq_file, what = "raw", n = 5000)
   df <- read_parquet(test_raw)
-  expect_identical(dim(df), c(10L, 11L))
+  expect_shape(df, dim = c(10L, 11L))
 })
 
 test_that("write_parquet() handles various compression= specs", {
@@ -85,7 +85,7 @@ test_that("write_parquet() handles various use_dictionary= specs", {
   )
   expect_error(
     write_parquet(tab, tempfile(), use_dictionary = 12),
-    "is.logical(use_dictionary) is not TRUE",
+    "`use_dictionary` must be a logical vector",
     fixed = TRUE
   )
 })
@@ -312,7 +312,7 @@ test_that("ParquetFileReader raises an error for non-RandomAccessFile source", {
   skip_if_not_available("gzip")
   expect_error(
     ParquetFileReader$create(CompressedInputStream$create(pq_file)),
-    'file must be a "RandomAccessFile"'
+    "`file` must be a RandomAccessFile"
   )
 })
 
@@ -489,8 +489,8 @@ test_that("Can read Parquet files from a URL", {
   skip_if_not_available("snappy")
   parquet_url <- "https://github.com/apache/arrow/raw/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet" # nolint
   pu <- read_parquet(parquet_url)
-  expect_true(tibble::is_tibble(pu))
-  expect_identical(dim(pu), c(10L, 11L))
+  expect_s3_class(pu, "tbl_df")
+  expect_shape(pu, dim = c(10L, 11L))
 })
 
 test_that("thrift string and container size can be specified when reading Parquet files", {

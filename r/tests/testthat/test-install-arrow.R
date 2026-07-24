@@ -35,6 +35,5 @@ test_that("arrow_repos", {
 })
 
 test_that("on_rosetta() does not warn", {
-  # There is no warning
-  expect_warning(on_rosetta(), NA)
+  expect_no_warning(on_rosetta())
 })

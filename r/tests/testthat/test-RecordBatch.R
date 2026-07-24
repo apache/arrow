@@ -161,9 +161,9 @@ test_that("[[ and $ on RecordBatch", {
   expect_null(batch$qwerty)
   expect_null(batch[["asdf"]])
   expect_error(batch[[c(4, 3)]])
-  expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
-  expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(batch[[c("asdf", "jkl;")]], "name is not a string", fixed = TRUE)
+  expect_error(batch[[NA]], "`i` must be character or numeric, not `NA`")
+  expect_error(batch[[NULL]], "`i` must be character or numeric, not `NULL`")
+  expect_error(batch[[c("asdf", "jkl;")]], "`name` must be a single string", fixed = TRUE)
 })
 
 test_that("[[<- assignment", {
@@ -224,12 +224,12 @@ test_that("[[<- assignment", {
   expect_as_vector(batch$array, 10:1)
 
   # nonsense indexes
-  expect_error(batch[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
-  expect_error(batch[[NULL]] <- letters[10:1], "'i' must be character or numeric, not NULL")
-  expect_error(batch[[NA_integer_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
-  expect_error(batch[[NA_real_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
-  expect_error(batch[[NA_character_]] <- letters[10:1], "!is.na(i) is not TRUE", fixed = TRUE)
-  expect_error(batch[[c(1, 4)]] <- letters[10:1], "length(i) not equal to 1", fixed = TRUE)
+  expect_error(batch[[NA]] <- letters[10:1], "`i` must be character or numeric, not `NA`")
+  expect_error(batch[[NULL]] <- letters[10:1], "`i` must be character or numeric, not `NULL`")
+  expect_error(batch[[NA_integer_]] <- letters[10:1], "`i` must be", fixed = TRUE)
+  expect_error(batch[[NA_real_]] <- letters[10:1], "`i` must be", fixed = TRUE)
+  expect_error(batch[[NA_character_]] <- letters[10:1], "`i` must be", fixed = TRUE)
+  expect_error(batch[[c(1, 4)]] <- letters[10:1], "`i` must be", fixed = TRUE)
 })
 
 test_that("head and tail on RecordBatch", {

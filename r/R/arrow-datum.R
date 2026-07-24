@@ -29,9 +29,7 @@ ArrowDatum <- R6Class(
       call_function("cast", self, options = opts)
     },
     SortIndices = function(descending = FALSE) {
-      assert_that(is.logical(descending))
-      assert_that(length(descending) == 1L)
-      assert_that(!is.na(descending))
+      check_bool(descending, allow_na = FALSE)
       call_function(
         "sort_indices",
         self,
@@ -285,8 +283,7 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
 #' @importFrom utils head
 #' @export
 head.ArrowDatum <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
+  check_number_decimal(n)
   len <- NROW(x)
   if (n < 0) {
     # head(x, negative) means all but the last n rows
@@ -306,8 +303,7 @@ head.ArrowDatum <- function(x, n = 6L, ...) {
 #' @importFrom utils tail
 #' @export
 tail.ArrowDatum <- function(x, n = 6L, ...) {
-  assert_is(n, c("numeric", "integer"))
-  assert_that(length(n) == 1)
+  check_number_decimal(n)
   if (!is.integer(n)) {
     n <- floor(n)
   }

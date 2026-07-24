@@ -367,7 +367,7 @@ FileSystem <- R6Class(
   )
 )
 FileSystem$from_uri <- function(uri) {
-  assert_that(is.string(uri))
+  check_string(uri)
   fs___FileSystemFromUri(uri)
 }
 
@@ -377,7 +377,9 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
   if (inherits(x, "SubTreeFileSystem")) {
     return(list(fs = x$base_fs, path = x$base_path))
   }
-  assert_that(is.character(x))
+  if (!is.character(x)) {
+    stop("x must be a character vector.", call. = FALSE)
+  }
   are_urls <- are_urls(x)
   if (any(are_urls)) {
     if (!all(are_urls)) {
@@ -412,12 +414,14 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
 # variant of the above function that asserts that x is either a scalar string
 # or a SubTreeFileSystem
 get_path_and_filesystem <- function(x, filesystem = NULL) {
-  assert_that(is.string(x) || inherits(x, "SubTreeFileSystem"))
+  if (!is_string(x) && !inherits(x, "SubTreeFileSystem")) {
+    stop("x must be a string or SubTreeFileSystem.")
+  }
   get_paths_and_filesystem(x, filesystem)
 }
 
-is_url <- function(x) is.string(x) && grepl("://", x)
-is_http_url <- function(x) is_url(x) && grepl("^http", x)
+is_url <- function(x) is_string(x) && grepl("://", x)
+is_http_url <- function(x) is_url(x) && startsWith(x, "http")
 are_urls <- function(x) if (!is.character(x)) FALSE else grepl("://", x)
 
 #' @usage NULL
@@ -538,7 +542,7 @@ default_s3_options <- list(
 #'
 #' @export
 s3_bucket <- function(bucket, ...) {
-  assert_that(is.string(bucket))
+  check_string(bucket)
   args <- list2(...)
 
   # If user specifies args, they must specify region as arg, env var, or config
@@ -573,7 +577,7 @@ s3_bucket <- function(bucket, ...) {
 #' bucket <- gs_bucket("arrow-datasets")
 #' @export
 gs_bucket <- function(bucket, ...) {
-  assert_that(is.string(bucket))
+  check_string(bucket)
   args <- list2(...)
 
   fs <- exec(GcsFileSystem$create, !!!args)
@@ -755,7 +759,7 @@ AzureFileSystem$create <- function(account_name, ...) {
 #' )
 #' @export
 az_container <- function(container_path, ...) {
-  assert_that(is.string(container_path))
+  check_string(container_path)
   args <- list2(...)
 
   fs <- exec(AzureFileSystem$create, !!!args)
@@ -798,7 +802,7 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
 #' @export
 `$.SubTreeFileSystem` <- function(x, name, ...) {
   # This is to allow delegating methods/properties to the base_fs
-  assert_that(is.string(name))
+  check_string(name)
   if (name %in% ls(envir = x)) {
     get(name, x)
   } else if (name %in% ls(envir = x$base_fs)) {

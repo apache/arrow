@@ -1,4 +1,4 @@
 # arrow_scalar_function() works
 
-    fun is not a function
+    `fun` must be a function.
 

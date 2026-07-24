@@ -86,7 +86,7 @@ test_that("ChunkedArray", {
   expect_error(x$Slice(10, -1), "Slice 'length' cannot be negative")
   expect_error(x$Slice(-1, 10), "Slice 'offset' cannot be negative")
 
-  expect_warning(x$Slice(10, 15), NA)
+  expect_no_warning(x$Slice(10, 15))
   expect_warning(
     overslice <- x$Slice(10, 16),
     "Slice 'length' greater than available length"
@@ -393,12 +393,12 @@ test_that("ChunkedArray$View() (ARROW-6542)", {
   expect_equal(length(b), 7L)
   expect_all_true(sapply(b$chunks, function(.x) .x$type == float32()))
   # Input validation
-  expect_error(a$View("not a type"), "type must be a DataType, not character")
+  expect_error(a$View("not a type"), "`type` must be a DataType, not")
 })
 
 test_that("ChunkedArray$Validate()", {
   a <- ChunkedArray$create(1:10)
-  expect_error(a$Validate(), NA)
+  expect_no_error(a$Validate())
 })
 
 test_that("[ ChunkedArray", {
@@ -488,7 +488,7 @@ test_that("Handling string data with embedded nuls", {
   ))
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
 
-  v <- expect_error(as.vector(chunked_array_with_nul), NA)
+  expect_no_error(v <- as.vector(chunked_array_with_nul))
 
   expect_error(
     v[],
@@ -500,7 +500,7 @@ test_that("Handling string data with embedded nuls", {
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
-    v <- expect_warning(as.vector(chunked_array_with_nul), NA)
+    expect_no_warning(v <- as.vector(chunked_array_with_nul))
     expect_warning(
       expect_identical(v[3], "man"),
       "Stripping '\\0' (nul) from character vector",

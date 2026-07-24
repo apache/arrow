@@ -275,7 +275,7 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
 
   expect_r6_class(tab5, "Table")
   # mutate() was evaluated
-  expect_true("negint" %in% names(tab5))
+  expect_contains(names(tab5), "negint")
 })
 
 test_that("head/tail on query on dataset", {

@@ -33,7 +33,7 @@ test_that("Field with nullable values", {
 })
 
 test_that("Field validation", {
-  expect_error(schema(b = 32), "b must be a DataType, not numeric")
+  expect_error(schema(b = 32), "`b` must be a DataType")
 })
 
 test_that("Print method for field", {
