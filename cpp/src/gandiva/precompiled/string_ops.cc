@@ -1901,7 +1901,14 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
 
   for (; text_index <= text_len - from_str_len;) {
     if (memcmp(text + text_index, from_str, from_str_len) == 0) {
-      if (out_index + text_index - last_match_index + to_str_len > max_length) {
+      // Compute the prospective length in gdv_int64: now that the wrapper may
+      // pass a max_length near INT_MAX, out_index can approach INT_MAX and a
+      // 32-bit sum would overflow before this guard runs -- precisely the case
+      // the guard exists to catch. (text_index - last_match_index) is a bounded
+      // non-negative span.
+      gdv_int64 prospective_len = static_cast<gdv_int64>(out_index) +
+                                  (text_index - last_match_index) + to_str_len;
+      if (prospective_len > max_length) {
         gdv_fn_context_set_error_msg(context,
                                      "REPLACE: Buffer overflow for output string");
         *out_len = 0;
@@ -1937,7 +1944,8 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
     return text;
   }
 
-  if (out_index + text_len - last_match_index > max_length) {
+  gdv_int64 final_len = static_cast<gdv_int64>(out_index) + (text_len - last_match_index);
+  if (final_len > max_length) {
     gdv_fn_context_set_error_msg(context, "REPLACE: Buffer overflow for output string");
     *out_len = 0;
     return "";
@@ -1953,9 +1961,55 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 text_len, const char* from_str,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len) {
+  // Size the output buffer so large results are not capped by an arbitrary
+  // limit, while avoiding a second pass over the input in the common case.
+  //   - No replacement possible, or the result can only shrink/stay equal:
+  //     text_len is a safe exact-or-upper bound, no scan.
+  //   - Small expansion (replacement at most ~2x the match): use an O(1) upper
+  //     bound that assumes every position matches. This over-allocates by at
+  //     most ~text_len bytes but skips the match-counting scan entirely.
+  //   - Large expansion: that upper bound could be many times the input for
+  //     sparse matches, so count non-overlapping matches for the exact size.
+  gdv_int64 max_length;
+  if (from_str_len <= 0 || from_str_len > text_len || to_str_len <= from_str_len) {
+    max_length = text_len;
+  } else {
+    gdv_int32 delta = to_str_len - from_str_len;  // > 0
+    gdv_int64 upper_bound = static_cast<gdv_int64>(text_len) +
+                            (static_cast<gdv_int64>(text_len) / from_str_len) * delta;
+    if (delta <= from_str_len && upper_bound <= INT_MAX) {
+      max_length = upper_bound;
+    } else {
+      gdv_int64 num_matches = 0;
+      for (gdv_int32 i = 0; i <= text_len - from_str_len;) {
+        if (memcmp(text + i, from_str, from_str_len) == 0) {
+          num_matches++;
+          i += from_str_len;
+        } else {
+          i++;
+        }
+      }
+      // No matches: the result is the input unchanged; return it without calling
+      // the helper (which would otherwise scan the text a second time).
+      if (num_matches == 0) {
+        *out_len = text_len;
+        return text;
+      }
+      max_length = static_cast<gdv_int64>(text_len) + num_matches * delta;
+    }
+  }
+  // Gandiva variable-length output uses int32 offsets, so a single output string
+  // cannot exceed INT_MAX bytes. Report this explicitly instead of letting the
+  // cast below wrap silently.
+  if (max_length > INT_MAX) {
+    gdv_fn_context_set_error_msg(context,
+                                 "REPLACE: output string exceeds maximum size of 2GB");
+    *out_len = 0;
+    return "";
+  }
   return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
-                                             from_str_len, to_str, to_str_len, 65535,
-                                             out_len);
+                                             from_str_len, to_str, to_str_len,
+                                             static_cast<gdv_int32>(max_length), out_len);
 }
 
 // Returns the quoted string (Includes escape character for any single quotes)
