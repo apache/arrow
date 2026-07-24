@@ -135,31 +135,10 @@ class ARROW_EXPORT DictionaryMemoTable {
 namespace internal {
 
 /// \brief Return the unsigned integer type of the same width when an unsigned
-/// dictionary index type was requested.
-///
-/// The adaptive indices builder only ever produces signed integer types. Dictionary
-/// indices are non-negative, so the signed and unsigned integer types of a given
-/// width have identical memory layout and reporting one as the other is
-/// value-preserving (GH-37476). The width itself stays adaptive, exactly as it is
-/// for signed index types; only the signedness of the requested type is preserved.
-inline std::shared_ptr<DataType> MaybeUnsignedIndexType(
-    const std::shared_ptr<DataType>& index_type, bool unsigned_index) {
-  if (!unsigned_index) {
-    return index_type;
-  }
-  switch (index_type->id()) {
-    case Type::INT8:
-      return ::arrow::uint8();
-    case Type::INT16:
-      return ::arrow::uint16();
-    case Type::INT32:
-      return ::arrow::uint32();
-    case Type::INT64:
-      return ::arrow::uint64();
-    default:
-      return index_type;
-  }
-}
+/// dictionary index type was requested. Defined in builder.cc; see there for why
+/// this is value-preserving and why the width widens on the signed threshold.
+ARROW_EXPORT std::shared_ptr<DataType> MaybeUnsignedIndexType(
+    const std::shared_ptr<DataType>& index_type, bool use_unsigned_index);
 
 /// \brief Array builder for created encoded DictionaryArray from
 /// dense array
@@ -182,7 +161,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
                             value_type,
                         MemoryPool* pool = default_memory_pool(),
                         int64_t alignment = kDefaultBufferAlignment, bool ordered = false,
-                        bool unsigned_index = false)
+                        bool use_unsigned_index = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
@@ -190,7 +169,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         indices_builder_(start_int_size, pool, alignment),
         value_type_(value_type),
         ordered_(ordered),
-        unsigned_index_(unsigned_index) {}
+        use_unsigned_index_(use_unsigned_index) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -229,7 +208,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
                             value_type,
                         MemoryPool* pool = default_memory_pool(),
                         int64_t alignment = kDefaultBufferAlignment, bool ordered = false,
-                        bool unsigned_index = false)
+                        bool use_unsigned_index = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
@@ -237,7 +216,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         indices_builder_(start_int_size, pool, alignment),
         value_type_(value_type),
         ordered_(ordered),
-        unsigned_index_(unsigned_index) {}
+        use_unsigned_index_(use_unsigned_index) {}
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
@@ -275,7 +254,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                                  MemoryPool* pool = default_memory_pool(),
                                  int64_t alignment = kDefaultBufferAlignment,
-                                 bool ordered = false, bool unsigned_index = false)
+                                 bool ordered = false, bool use_unsigned_index = false)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, dictionary)),
         delta_offset_(0),
@@ -283,7 +262,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         indices_builder_(pool, alignment),
         value_type_(dictionary->type()),
         ordered_(ordered),
-        unsigned_index_(unsigned_index) {}
+        use_unsigned_index_(use_unsigned_index) {}
 
   ~DictionaryBuilderBase() override = default;
 
@@ -518,7 +497,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
     std::shared_ptr<ArrayData> indices_data;
     std::shared_ptr<ArrayData> delta_data;
     ARROW_RETURN_NOT_OK(FinishWithDictOffset(delta_offset_, &indices_data, &delta_data));
-    indices_data->type = MaybeUnsignedIndexType(indices_data->type, unsigned_index_);
+    indices_data->type = MaybeUnsignedIndexType(indices_data->type, use_unsigned_index_);
     *out_indices = MakeArray(indices_data);
     *out_delta = MakeArray(delta_data);
     return Status::OK();
@@ -532,7 +511,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override {
     return ::arrow::dictionary(
-        MaybeUnsignedIndexType(indices_builder_.type(), unsigned_index_), value_type_,
+        MaybeUnsignedIndexType(indices_builder_.type(), use_unsigned_index_), value_type_,
         ordered_);
   }
 
@@ -605,7 +584,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   BuilderType indices_builder_;
   std::shared_ptr<DataType> value_type_;
   bool ordered_ = false;
-  bool unsigned_index_ = false;
+  bool use_unsigned_index_ = false;
 };
 
 template <typename BuilderType>
@@ -618,11 +597,11 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
       const std::shared_ptr<DataType>& value_type,
       MemoryPool* pool = default_memory_pool(),
       int64_t alignment = kDefaultBufferAlignment, bool ordered = false,
-      bool unsigned_index = false)
+      bool use_unsigned_index = false)
       : ArrayBuilder(pool, alignment),
         indices_builder_(start_int_size, pool, alignment),
         ordered_(ordered),
-        unsigned_index_(unsigned_index) {}
+        use_unsigned_index_(use_unsigned_index) {}
 
   explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
                                  MemoryPool* pool = default_memory_pool(),
@@ -661,11 +640,11 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
                                  MemoryPool* pool = default_memory_pool(),
                                  int64_t alignment = kDefaultBufferAlignment,
-                                 bool ordered = false, bool unsigned_index = false)
+                                 bool ordered = false, bool use_unsigned_index = false)
       : ArrayBuilder(pool, alignment),
         indices_builder_(pool, alignment),
         ordered_(ordered),
-        unsigned_index_(unsigned_index) {}
+        use_unsigned_index_(use_unsigned_index) {}
 
   /// \brief Append a scalar null value
   Status AppendNull() final {
@@ -717,7 +696,7 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
-    (*out)->type = dictionary(MaybeUnsignedIndexType((*out)->type, unsigned_index_),
+    (*out)->type = dictionary(MaybeUnsignedIndexType((*out)->type, use_unsigned_index_),
                               null(), ordered_);
     (*out)->dictionary = NullArray(0).data();
     return Status::OK();
@@ -731,14 +710,14 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   std::shared_ptr<DataType> type() const override {
     return ::arrow::dictionary(
-        MaybeUnsignedIndexType(indices_builder_.type(), unsigned_index_), null(),
+        MaybeUnsignedIndexType(indices_builder_.type(), use_unsigned_index_), null(),
         ordered_);
   }
 
  protected:
   BuilderType indices_builder_;
   bool ordered_ = false;
-  bool unsigned_index_ = false;
+  bool use_unsigned_index_ = false;
 };
 
 }  // namespace internal
