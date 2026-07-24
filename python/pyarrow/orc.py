@@ -20,7 +20,7 @@ from numbers import Integral
 import warnings
 
 from pyarrow.lib import Table
-import pyarrow._orc as _orc
+import pyarrow._orc as _orc  # type: ignore[reportMissingModuleSource]
 from pyarrow.fs import _resolve_filesystem_and_path
 
 
@@ -255,9 +255,11 @@ where : str or pyarrow.io.NativeFile
             file_version=file_version,
             batch_size=batch_size,
             stripe_size=stripe_size,
-            compression=compression,
+            compression=compression,  # type: ignore[reportArgumentType]
             compression_block_size=compression_block_size,
-            compression_strategy=compression_strategy,
+            compression_strategy=(
+                compression_strategy  # type: ignore[reportArgumentType]
+            ),
             row_index_stride=row_index_stride,
             padding_tolerance=padding_tolerance,
             dictionary_key_size_threshold=dictionary_key_size_threshold,
