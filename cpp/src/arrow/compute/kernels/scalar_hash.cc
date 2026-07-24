@@ -165,20 +165,24 @@ struct FastHashScalar {
     KeyColumnArray column;
     for (size_t i = 0; i < array.child_data.size(); i++) {
       auto child = array.child_data[i];
-      int64_t slice_offset = array.offset;
+      // `child` may have its own offset independent of the struct's (a struct field
+      // can itself be a slice; see StructArray::GetFlattenedField), so both compose:
+      // struct row r reads child row (child.offset + array.offset + r).
       if (is_nested(child.type->id())) {
-        ARROW_ASSIGN_OR_RAISE(
-            child_hashes[i],
-            HashChild(child, child.offset, child.length, hash_ctx, memory_pool));
+        // StructArray::Slice() doesn't reslice child_data, so `child` may be far
+        // larger than what this slice of `array` references. Hash only the
+        // referenced range instead of all of `child` (same idea as the list/map
+        // paths above).
+        ARROW_ASSIGN_OR_RAISE(child_hashes[i],
+                              HashChild(child, child.offset + array.offset, array.length,
+                                        hash_ctx, memory_pool));
         ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
-        // child_hashes[i] starts at offset 0; only the struct's own offset applies.
+        // child_hashes[i] already covers exactly [0, array.length): no further slice.
+        columns[i] = column.Slice(0, array.length);
       } else {
         ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
-        // `child` may have its own offset independent of the struct's (a struct field
-        // can itself be a slice; see StructArray::GetFlattenedField), so add both.
-        slice_offset += child.offset;
+        columns[i] = column.Slice(child.offset + array.offset, array.length);
       }
-      columns[i] = column.Slice(slice_offset, array.length);
     }
     Hasher::HashMultiColumn(columns, hash_ctx, out);
     // A null struct row's children may still look valid, so force 0 explicitly.
