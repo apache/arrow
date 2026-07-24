@@ -2801,13 +2801,13 @@ def test_assume_timezone():
         timezone, nonexistent="shift_forward"))
     result = pc.assume_timezone(
         nonexistent_array, options=options_nonexistent_latest)
-    expected.equals(result)
+    assert expected.equals(result)
 
     expected = pa.array(nonexistent.tz_localize(
         timezone, nonexistent="shift_backward"))
     result = pc.assume_timezone(
         nonexistent_array, options=options_nonexistent_earliest)
-    expected.equals(result)
+    assert expected.equals(result)
 
     options_ambiguous_raise = pc.AssumeTimezoneOptions(timezone)
     options_ambiguous_latest = pc.AssumeTimezoneOptions(
@@ -2823,12 +2823,12 @@ def test_assume_timezone():
     expected = ambiguous.tz_localize(timezone, ambiguous=[True, True, True])
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_earliest)
-    result.equals(pa.array(expected))
+    assert result.equals(pa.array(expected))
 
     expected = ambiguous.tz_localize(timezone, ambiguous=[False, False, False])
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_latest)
-    result.equals(pa.array(expected))
+    assert result.equals(pa.array(expected))
 
 
 def _check_temporal_rounding(ts, values, unit):
