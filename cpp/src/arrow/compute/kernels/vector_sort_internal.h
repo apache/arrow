@@ -25,7 +25,9 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/chunked_internal.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -54,19 +56,22 @@ namespace arrow::compute::internal {
 // NOTE: std::partition is usually faster than std::stable_partition.
 
 struct NonStablePartitioner {
-  template <typename Predicate, typename IndexType>
-  IndexType* operator()(IndexType* indices_begin, IndexType* indices_end,
-                        Predicate&& pred) {
-    return std::partition(indices_begin, indices_end, std::forward<Predicate>(pred));
+  // this follows std::ranges::partition semantics and returns the right-hand partition
+  template <typename Predicate>
+  auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
+    auto middle = std::partition(indices.data(), indices.data() + indices.size(),
+                                 std::forward<Predicate>(pred));
+    return std::span<uint64_t>{middle, indices.data() + indices.size()};
   }
 };
 
 struct StablePartitioner {
-  template <typename Predicate, typename IndexType>
-  IndexType* operator()(IndexType* indices_begin, IndexType* indices_end,
-                        Predicate&& pred) {
-    return std::stable_partition(indices_begin, indices_end,
-                                 std::forward<Predicate>(pred));
+  // this follows std::ranges::partition semantics and returns the right-hand partition
+  template <typename Predicate>
+  auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
+    auto middle = std::stable_partition(indices.data(), indices.data() + indices.size(),
+                                        std::forward<Predicate>(pred));
+    return std::span<uint64_t>{middle, indices.data() + indices.size()};
   }
 };
 
@@ -106,382 +111,352 @@ int CompareTypeValues(Value&& left, Value&& right, SortOrder order,
 }
 
 template <typename IndexType>
-struct GenericNullPartitionResult {
-  IndexType* non_nulls_begin;
-  IndexType* non_nulls_end;
-  IndexType* nulls_begin;
-  IndexType* nulls_end;
+struct GenericNullLikePartition {
+  std::span<IndexType> non_null_like_range;
+  std::span<IndexType> nan_range;
+  std::span<IndexType> null_range;
 
-  IndexType* overall_begin() const { return std::min(nulls_begin, non_nulls_begin); }
+  IndexType* non_null_like_begin() const { return non_null_like_range.data(); }
+  IndexType* non_null_like_end() const {
+    return non_null_like_range.data() + non_null_like_range.size();
+  }
+  IndexType* nan_begin() const { return nan_range.data(); }
+  IndexType* nan_end() const { return nan_range.data() + nan_range.size(); }
+  IndexType* null_begin() const { return null_range.data(); }
+  IndexType* null_end() const { return null_range.data() + null_range.size(); }
 
-  IndexType* overall_end() const { return std::max(nulls_end, non_nulls_end); }
-
-  int64_t non_null_count() const { return non_nulls_end - non_nulls_begin; }
-
-  int64_t null_count() const { return nulls_end - nulls_begin; }
-
-  static GenericNullPartitionResult NoNulls(IndexType* indices_begin,
-                                            IndexType* indices_end,
-                                            NullPlacement null_placement) {
-    if (null_placement == NullPlacement::AtStart) {
-      return {indices_begin, indices_end, indices_begin, indices_begin};
-    } else {
-      return {indices_begin, indices_end, indices_end, indices_end};
-    }
+  IndexType* overall_begin() const {
+    // nans are always in the middle
+    return std::min(non_null_like_begin(), null_begin());
   }
 
-  static GenericNullPartitionResult NullsOnly(IndexType* indices_begin,
-                                              IndexType* indices_end,
-                                              NullPlacement null_placement) {
-    if (null_placement == NullPlacement::AtStart) {
-      return {indices_end, indices_end, indices_begin, indices_end};
-    } else {
-      return {indices_begin, indices_begin, indices_begin, indices_end};
-    }
+  IndexType* overall_end() const {
+    // nans are always in the middle
+    return std::max(non_null_like_end(), null_end());
   }
 
-  static GenericNullPartitionResult NullsAtEnd(IndexType* indices_begin,
-                                               IndexType* indices_end,
-                                               IndexType* midpoint) {
-    ARROW_DCHECK_GE(midpoint, indices_begin);
-    ARROW_DCHECK_LE(midpoint, indices_end);
-    return {indices_begin, midpoint, midpoint, indices_end};
-  }
-
-  static GenericNullPartitionResult NullsAtStart(IndexType* indices_begin,
-                                                 IndexType* indices_end,
-                                                 IndexType* midpoint) {
-    ARROW_DCHECK_GE(midpoint, indices_begin);
-    ARROW_DCHECK_LE(midpoint, indices_end);
-    return {midpoint, indices_end, indices_begin, midpoint};
-  }
-
+  // Re-express this partition's ranges as offsets into `target`, at the same
+  // positions they occupy within `source`. `source` and `target` are the (possibly
+  // larger) buffers the partition points into: this partition must lie within `source`,
+  // and the translated partition lies within `target` at the same offsets.
   template <typename TargetIndexType>
-  GenericNullPartitionResult<TargetIndexType> TranslateTo(
-      IndexType* indices_begin, TargetIndexType* target_indices_begin) const {
-    return {
-        (non_nulls_begin - indices_begin) + target_indices_begin,
-        (non_nulls_end - indices_begin) + target_indices_begin,
-        (nulls_begin - indices_begin) + target_indices_begin,
-        (nulls_end - indices_begin) + target_indices_begin,
-    };
+  GenericNullLikePartition<TargetIndexType> TranslateTo(
+      std::span<IndexType> source, std::span<TargetIndexType> target) const {
+    ARROW_DCHECK_EQ(source.size(), target.size());
+    // This partition must lie within `source`.
+    ARROW_DCHECK_GE(overall_begin(), source.data());
+    ARROW_DCHECK_LE(overall_end(), source.data() + source.size());
+
+    size_t non_null_offset = non_null_like_range.data() - source.data();
+    size_t nan_offset = nan_range.data() - source.data();
+    size_t null_offset = null_range.data() - source.data();
+    GenericNullLikePartition<TargetIndexType> result{
+        .non_null_like_range = {target.data() + non_null_offset,
+                                non_null_like_range.size()},
+        .nan_range = {target.data() + nan_offset, nan_range.size()},
+        .null_range = {target.data() + null_offset, null_range.size()}};
+    // The translated partition must lie within `target`.
+    ARROW_DCHECK_GE(result.overall_begin(), target.data());
+    ARROW_DCHECK_LE(result.overall_end(), target.data() + target.size());
+    return result;
+  }
+
+  static GenericNullLikePartition FromCounts(std::span<IndexType> indices,
+                                             int64_t non_null_like_count,
+                                             int64_t nan_count, int64_t null_count,
+                                             NullPlacement null_placement) {
+    GenericNullLikePartition p;
+    ARROW_DCHECK_EQ(non_null_like_count + nan_count + null_count,
+                    static_cast<int64_t>(indices.size()));
+    if (null_placement == NullPlacement::AtEnd) {
+      p.non_null_like_range = indices.subspan(0, non_null_like_count);
+      p.nan_range = indices.subspan(non_null_like_count, nan_count);
+      p.null_range = indices.subspan(non_null_like_count + nan_count, null_count);
+    } else {
+      p.null_range = indices.subspan(0, null_count);
+      p.nan_range = indices.subspan(null_count, nan_count);
+      p.non_null_like_range =
+          indices.subspan(null_count + nan_count, non_null_like_count);
+    }
+    return p;
   }
 };
 
-using NullPartitionResult = GenericNullPartitionResult<uint64_t>;
-using ChunkedNullPartitionResult = GenericNullPartitionResult<CompressedChunkLocation>;
+using NullLikePartition = GenericNullLikePartition<uint64_t>;
+using ChunkedNullLikePartition = GenericNullLikePartition<CompressedChunkLocation>;
+
+struct NullPartition {
+  std::span<uint64_t> non_nulls;
+  std::span<uint64_t> nulls;
+
+  static NullPartition NoNulls(std::span<uint64_t> indices,
+                               NullPlacement null_placement) {
+    if (null_placement == NullPlacement::AtStart) {
+      return {.non_nulls = indices, .nulls = indices.subspan(0, 0)};
+    } else {
+      return {.non_nulls = indices, .nulls = indices.subspan(indices.size(), 0)};
+    }
+  }
+
+  // Note that we always pass the tail-partition second.
+  // In this function _nulls_ are passed as a second argument.
+  static NullPartition NullsAtEnd(std::span<uint64_t> indices,
+                                  std::span<uint64_t> null_tail) {
+    ARROW_DCHECK_GE(null_tail.data(), indices.data());
+    ARROW_DCHECK_EQ(null_tail.data() + null_tail.size(), indices.data() + indices.size());
+    return {.non_nulls = {indices.data(), null_tail.data()}, .nulls = null_tail};
+  }
+
+  // Note that we always pass the tail-partition second.
+  // In this function the _non-nulls_ are passed as a second argument.
+  static NullPartition NullsAtStart(std::span<uint64_t> indices,
+                                    std::span<uint64_t> non_null_tail) {
+    ARROW_DCHECK_GE(non_null_tail.data(), indices.data());
+    ARROW_DCHECK_EQ(non_null_tail.data() + non_null_tail.size(),
+                    indices.data() + indices.size());
+    return {.non_nulls = non_null_tail, .nulls = {indices.data(), non_null_tail.data()}};
+  }
+};
 
 // Move nulls (not null-like values) to end of array.
 //
 // `offset` is used when this is called on a chunk of a chunked array
 template <typename Partitioner>
-NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indices_end,
-                                       const Array& values, int64_t offset,
-                                       NullPlacement null_placement) {
+NullPartition PartitionNullsOnly(std::span<uint64_t> indices, const Array& values,
+                                 int64_t offset, NullPlacement null_placement) {
   if (values.null_count() == 0) {
-    return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
+    return NullPartition::NoNulls(indices, null_placement);
   }
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
-    auto nulls_end = partitioner(
-        indices_begin, indices_end,
-        [&values, &offset](uint64_t ind) { return values.IsNull(ind - offset); });
-    return NullPartitionResult::NullsAtStart(indices_begin, indices_end, nulls_end);
+    auto non_null_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
+      return values.IsNull(static_cast<int64_t>(ind) - offset);
+    });
+    return NullPartition::NullsAtStart(indices, non_null_tail);
   } else {
-    auto nulls_begin = partitioner(
-        indices_begin, indices_end,
-        [&values, &offset](uint64_t ind) { return !values.IsNull(ind - offset); });
-    return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, nulls_begin);
+    auto null_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
+      return !values.IsNull(static_cast<int64_t>(ind) - offset);
+    });
+    return NullPartition::NullsAtEnd(indices, null_tail);
   }
 }
+
+struct NanPartition {
+  std::span<uint64_t> non_null_like_range;
+  std::span<uint64_t> nan_range;
+};
 
 // Move non-null null-like values to end of array.
 //
 // `offset` is used when this is called on a chunk of a chunked array
 template <typename ArrayType, typename Partitioner>
-NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
-                                       const ArrayType& values, int64_t offset,
-                                       NullPlacement null_placement) {
+NanPartition PartitionNans(std::span<uint64_t> indices, const ArrayType& values,
+                           int64_t offset, NullPlacement null_placement) {
   if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
     Partitioner partitioner;
     if (null_placement == NullPlacement::AtStart) {
-      auto null_likes_end =
-          partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
-            return std::isnan(values.GetView(ind - offset));
-          });
-      return NullPartitionResult::NullsAtStart(indices_begin, indices_end,
-                                               null_likes_end);
+      auto non_null_like_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
+        return std::isnan(values.GetView(static_cast<int64_t>(ind) - offset));
+      });
+      return NanPartition{.non_null_like_range = non_null_like_tail,
+                          .nan_range = {indices.data(), non_null_like_tail.data()}};
     } else {
-      auto null_likes_begin =
-          partitioner(indices_begin, indices_end, [&values, &offset](uint64_t ind) {
-            return !std::isnan(values.GetView(ind - offset));
-          });
-      return NullPartitionResult::NullsAtEnd(indices_begin, indices_end,
-                                             null_likes_begin);
+      auto nan_tail = partitioner(indices, [&values, &offset](uint64_t ind) {
+        return !std::isnan(values.GetView(static_cast<int64_t>(ind) - offset));
+      });
+      return NanPartition{.non_null_like_range = {indices.data(), nan_tail.data()},
+                          .nan_range = nan_tail};
     }
   } else {
-    return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
-  }
-}
-
-// Move nulls to end of array.
-//
-// `offset` is used when this is called on a chunk of a chunked array
-template <typename ArrayType, typename Partitioner>
-NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-                                   const ArrayType& values, int64_t offset,
-                                   NullPlacement null_placement) {
-  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
-                                                          values, offset, null_placement);
-  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
-      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
-  return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
-                             std::min(q.nulls_begin, p.nulls_begin),
-                             std::max(q.nulls_end, p.nulls_end)};
-}
-
-//
-// Null partitioning on chunked arrays, in two flavors:
-// 1) with uint64_t indices and ChunkedArrayResolver
-// 2) with CompressedChunkLocation and span of chunks
-//
-
-template <typename Partitioner>
-NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indices_end,
-                                       const ChunkedArrayResolver& resolver,
-                                       int64_t null_count, NullPlacement null_placement) {
-  if (null_count == 0) {
-    return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
-  }
-  Partitioner partitioner;
-  if (null_placement == NullPlacement::AtStart) {
-    auto nulls_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
-      return chunk.IsNull();
-    });
-    return NullPartitionResult::NullsAtStart(indices_begin, indices_end, nulls_end);
-  } else {
-    auto nulls_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
-      return !chunk.IsNull();
-    });
-    return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, nulls_begin);
-  }
-}
-
-template <typename Partitioner>
-ChunkedNullPartitionResult PartitionNullsOnly(CompressedChunkLocation* locations_begin,
-                                              CompressedChunkLocation* locations_end,
-                                              std::span<const Array* const> chunks,
-                                              int64_t null_count,
-                                              NullPlacement null_placement) {
-  if (null_count == 0) {
-    return ChunkedNullPartitionResult::NoNulls(locations_begin, locations_end,
-                                               null_placement);
-  }
-  Partitioner partitioner;
-  if (null_placement == NullPlacement::AtStart) {
-    auto nulls_end =
-        partitioner(locations_begin, locations_end, [&](CompressedChunkLocation loc) {
-          return chunks[loc.chunk_index()]->IsNull(
-              static_cast<int64_t>(loc.index_in_chunk()));
-        });
-    return ChunkedNullPartitionResult::NullsAtStart(locations_begin, locations_end,
-                                                    nulls_end);
-  } else {
-    auto nulls_begin =
-        partitioner(locations_begin, locations_end, [&](CompressedChunkLocation loc) {
-          return !chunks[loc.chunk_index()]->IsNull(
-              static_cast<int64_t>(loc.index_in_chunk()));
-        });
-    return ChunkedNullPartitionResult::NullsAtEnd(locations_begin, locations_end,
-                                                  nulls_begin);
-  }
-}
-
-template <typename ArrayType, typename Partitioner,
-          typename TypeClass = typename ArrayType::TypeClass>
-NullPartitionResult PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
-                                       const ChunkedArrayResolver& resolver,
-                                       NullPlacement null_placement) {
-  if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
-    Partitioner partitioner;
     if (null_placement == NullPlacement::AtStart) {
-      auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-        const auto chunk = resolver.Resolve(ind);
-        return std::isnan(chunk.Value<TypeClass>());
-      });
-      return NullPartitionResult::NullsAtStart(indices_begin, indices_end,
-                                               null_likes_end);
+      return NanPartition{.non_null_like_range = indices,
+                          .nan_range = {indices.data(), indices.data()}};
     } else {
-      auto null_likes_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-        const auto chunk = resolver.Resolve(ind);
-        return !std::isnan(chunk.Value<TypeClass>());
-      });
-      return NullPartitionResult::NullsAtEnd(indices_begin, indices_end,
-                                             null_likes_begin);
+      return NanPartition{.non_null_like_range = indices,
+                          .nan_range = indices.subspan(indices.size())};
     }
-  } else {
-    return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
   }
 }
 
 template <typename ArrayType, typename Partitioner>
-NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end,
-                                   const ChunkedArrayResolver& resolver,
-                                   int64_t null_count, NullPlacement null_placement) {
+NullLikePartition PartitionNullsAndNans(std::span<uint64_t> indices,
+                                        const ArrayType& values, int64_t offset,
+                                        NullPlacement null_placement) {
   // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(
-      indices_begin, indices_end, resolver, null_count, null_placement);
-  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
-      p.non_nulls_begin, p.non_nulls_end, resolver, null_placement);
-  return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
-                             std::min(q.nulls_begin, p.nulls_begin),
-                             std::max(q.nulls_end, p.nulls_end)};
+  NullPartition p =
+      PartitionNullsOnly<Partitioner>(indices, values, offset, null_placement);
+  auto q =
+      PartitionNans<ArrayType, Partitioner>(p.non_nulls, values, offset, null_placement);
+  return NullLikePartition{.non_null_like_range = q.non_null_like_range,
+                           .nan_range = q.nan_range,
+                           .null_range = p.nulls};
 }
 
-template <typename IndexType, typename NullPartitionResultType>
-struct GenericMergeImpl {
-  using MergeNullsFunc = std::function<void(IndexType* nulls_begin,
-                                            IndexType* nulls_middle, IndexType* nulls_end,
-                                            IndexType* temp_indices, int64_t null_count)>;
+template <typename ArrayType, typename Partitioner>
+NullLikePartition PartitionNansOnly(std::span<uint64_t> indices, const ArrayType& values,
+                                    int64_t offset, NullPlacement null_placement) {
+  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
+  NullPartition p = NullPartition::NoNulls(indices, null_placement);
+  auto q =
+      PartitionNans<ArrayType, Partitioner>(p.non_nulls, values, offset, null_placement);
+  return NullLikePartition{.non_null_like_range = q.non_null_like_range,
+                           .nan_range = q.nan_range,
+                           .null_range = p.nulls};
+}
 
-  using MergeNonNullsFunc =
-      std::function<void(IndexType* range_begin, IndexType* range_middle,
-                         IndexType* range_end, IndexType* temp_indices)>;
+struct ChunkedMergeImpl {
+  using MergeFunc =
+      std::function<void(std::span<CompressedChunkLocation> merge_range, size_t middle,
+                         CompressedChunkLocation* temp_indices)>;
 
-  GenericMergeImpl(NullPlacement null_placement, MergeNullsFunc&& merge_nulls,
-                   MergeNonNullsFunc&& merge_non_nulls)
+  ChunkedMergeImpl(NullPlacement null_placement, MergeFunc&& merge_remaining_sort_keys,
+                   MergeFunc&& merge_non_nulls)
       : null_placement_(null_placement),
-        merge_nulls_(std::move(merge_nulls)),
+        merge_remaining_sort_keys_(std::move(merge_remaining_sort_keys)),
         merge_non_nulls_(std::move(merge_non_nulls)) {}
 
   Status Init(ExecContext* ctx, int64_t temp_indices_length) {
-    ARROW_ASSIGN_OR_RAISE(
-        temp_buffer_,
-        AllocateBuffer(sizeof(IndexType) * temp_indices_length, ctx->memory_pool()));
-    temp_indices_ = reinterpret_cast<IndexType*>(temp_buffer_->mutable_data());
+    ARROW_ASSIGN_OR_RAISE(temp_buffer_, AllocateBuffer(sizeof(CompressedChunkLocation) *
+                                                           temp_indices_length,
+                                                       ctx->memory_pool()));
+    temp_indices_ =
+        reinterpret_cast<CompressedChunkLocation*>(temp_buffer_->mutable_data());
     return Status::OK();
   }
 
-  NullPartitionResultType Merge(const NullPartitionResultType& left,
-                                const NullPartitionResultType& right,
-                                int64_t null_count) const {
+  ChunkedNullLikePartition Merge(const ChunkedNullLikePartition& left,
+                                 const ChunkedNullLikePartition& right) const {
     if (null_placement_ == NullPlacement::AtStart) {
-      return MergeNullsAtStart(left, right, null_count);
+      return MergeNullsAtStart(left, right);
     } else {
-      return MergeNullsAtEnd(left, right, null_count);
+      return MergeNullsAtEnd(left, right);
     }
   }
 
-  NullPartitionResultType MergeNullsAtStart(const NullPartitionResultType& left,
-                                            const NullPartitionResultType& right,
-                                            int64_t null_count) const {
+  ChunkedNullLikePartition MergeNullsAtStart(
+      const ChunkedNullLikePartition& left, const ChunkedNullLikePartition& right) const {
     // Input layout:
-    // [left nulls .... left non-nulls .... right nulls .... right non-nulls]
-    ARROW_DCHECK_EQ(left.nulls_end, left.non_nulls_begin);
-    ARROW_DCHECK_EQ(left.non_nulls_end, right.nulls_begin);
-    ARROW_DCHECK_EQ(right.nulls_end, right.non_nulls_begin);
+    // [left nul .. left nan .. left non-nul .. right nul .. right nan .. right non-nul]
+    ARROW_DCHECK_EQ(left.null_end(), left.nan_begin());
+    ARROW_DCHECK_EQ(left.nan_end(), left.non_null_like_begin());
+    ARROW_DCHECK_EQ(left.non_null_like_end(), right.null_begin());
+    ARROW_DCHECK_EQ(right.null_end(), right.nan_begin());
+    ARROW_DCHECK_EQ(right.nan_end(), right.non_null_like_begin());
 
-    // Mutate the input, stably, to obtain the following layout:
-    // [left nulls .... right nulls .... left non-nulls .... right non-nulls]
-    std::rotate(left.non_nulls_begin, right.nulls_begin, right.nulls_end);
+    // Mutate the input, stably in two steps, to obtain the following layouts:
+    // [left nul .. left nan .. left non-nul .. right nul .. right nan .. right non-nul]
+    //                          ┬────────────┴┴──────────────────────┬
+    // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nul]
+    std::rotate(left.non_null_like_begin(), right.null_begin(), right.nan_end());
 
-    const auto p = NullPartitionResultType::NullsAtStart(
-        left.nulls_begin, right.non_nulls_end,
-        left.nulls_begin + left.null_count() + right.null_count());
+    // only use sizes of ranges that are at a different position now
+    // [left nul .. left nan .. right nul .. right nan .. left non-nul .. right non-nul]
+    //              ┬────────┴┴─────────┬
+    // [left nul .. right nul .. left nan .. right nan .. left non-nul .. right non-nul]
+    // this is a no-op if no nan values are present
+    std::rotate(left.nan_begin(), left.nan_end(),
+                left.nan_end() + right.null_range.size());
 
-    // If the type has null-like values (such as NaN), ensure those plus regular
-    // nulls are partitioned in the right order.  Note this assumes that all
-    // null-like values (e.g. NaN) are ordered equally.
-    if (p.null_count()) {
-      merge_nulls_(p.nulls_begin, p.nulls_begin + left.null_count(), p.nulls_end,
-                   temp_indices_, null_count);
-    }
+    std::span<CompressedChunkLocation> full_span{left.overall_begin(),
+                                                 right.overall_end()};
+    const auto p = ChunkedNullLikePartition::FromCounts(
+        full_span, left.non_null_like_range.size() + right.non_null_like_range.size(),
+        left.nan_range.size() + right.nan_range.size(),
+        left.null_range.size() + right.null_range.size(), NullPlacement::AtStart);
 
-    // Merge the non-null values into temp area
-    ARROW_DCHECK_EQ(right.non_nulls_begin - p.non_nulls_begin, left.non_null_count());
-    ARROW_DCHECK_EQ(p.non_nulls_end - right.non_nulls_begin, right.non_null_count());
-    if (p.non_null_count()) {
-      merge_non_nulls_(p.non_nulls_begin, right.non_nulls_begin, p.non_nulls_end,
+    if (!p.non_null_like_range.empty()) {
+      merge_non_nulls_(p.non_null_like_range, left.non_null_like_range.size(),
                        temp_indices_);
+    }
+    if (!p.nan_range.empty()) {
+      merge_remaining_sort_keys_(p.nan_range, left.nan_range.size(), temp_indices_);
+    }
+    if (!p.null_range.empty()) {
+      merge_remaining_sort_keys_(p.null_range, left.null_range.size(), temp_indices_);
     }
     return p;
   }
 
-  NullPartitionResultType MergeNullsAtEnd(const NullPartitionResultType& left,
-                                          const NullPartitionResultType& right,
-                                          int64_t null_count) const {
+  ChunkedNullLikePartition MergeNullsAtEnd(const ChunkedNullLikePartition& left,
+                                           const ChunkedNullLikePartition& right) const {
     // Input layout:
-    // [left non-nulls .... left nulls .... right non-nulls .... right nulls]
-    ARROW_DCHECK_EQ(left.non_nulls_end, left.nulls_begin);
-    ARROW_DCHECK_EQ(left.nulls_end, right.non_nulls_begin);
-    ARROW_DCHECK_EQ(right.non_nulls_end, right.nulls_begin);
+    // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nul]
+    ARROW_DCHECK_EQ(left.non_null_like_end(), left.nan_begin());
+    ARROW_DCHECK_EQ(left.nan_end(), left.null_begin());
+    ARROW_DCHECK_EQ(left.null_end(), right.non_null_like_begin());
+    ARROW_DCHECK_EQ(right.non_null_like_end(), right.nan_begin());
+    ARROW_DCHECK_EQ(right.nan_end(), right.null_begin());
 
-    // Mutate the input, stably, to obtain the following layout:
-    // [left non-nulls .... right non-nulls .... left nulls .... right nulls]
-    std::rotate(left.nulls_begin, right.non_nulls_begin, right.non_nulls_end);
+    // Mutate the input, stably in two steps, to obtain the following layouts:
+    // [left non-nul .. left nan .. left nul .. right non-nul .. right nan .. right nul]
+    //                  ┬────────────────────┴┴─────────────┬
+    // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
+    std::rotate(left.nan_begin(), right.non_null_like_begin(), right.non_null_like_end());
 
-    const auto p = NullPartitionResultType::NullsAtEnd(
-        left.non_nulls_begin, right.nulls_end,
-        left.non_nulls_begin + left.non_null_count() + right.non_null_count());
+    // only use sizes of ranges that are at a different position now
+    // [left non-nul .. right non-nul .. left nan .. left nul .. right nan .. right nul]
+    //                                               ┬────────┴┴─────────┬
+    // [left non-nul .. right non-nul .. left nan .. right nan .. left nul .. right nul]
+    // this is a no-op if no nan values are present
+    auto new_left_null_range_begin = left.non_null_like_end() +
+                                     right.non_null_like_range.size() +
+                                     left.nan_range.size();
+    std::rotate(
+        new_left_null_range_begin, new_left_null_range_begin + left.null_range.size(),
+        new_left_null_range_begin + left.null_range.size() + right.nan_range.size());
 
-    // If the type has null-like values (such as NaN), ensure those plus regular
-    // nulls are partitioned in the right order.  Note this assumes that all
-    // null-like values (e.g. NaN) are ordered equally.
-    if (p.null_count()) {
-      merge_nulls_(p.nulls_begin, p.nulls_begin + left.null_count(), p.nulls_end,
-                   temp_indices_, null_count);
-    }
+    std::span<CompressedChunkLocation> full_span{left.overall_begin(),
+                                                 right.overall_end()};
+    const auto p = ChunkedNullLikePartition::FromCounts(
+        full_span, left.non_null_like_range.size() + right.non_null_like_range.size(),
+        left.nan_range.size() + right.nan_range.size(),
+        left.null_range.size() + right.null_range.size(), NullPlacement::AtEnd);
 
     // Merge the non-null values into temp area
-    ARROW_DCHECK_EQ(left.non_nulls_end - p.non_nulls_begin, left.non_null_count());
-    ARROW_DCHECK_EQ(p.non_nulls_end - left.non_nulls_end, right.non_null_count());
-    if (p.non_null_count()) {
-      merge_non_nulls_(p.non_nulls_begin, left.non_nulls_end, p.non_nulls_end,
+    if (!p.non_null_like_range.empty()) {
+      merge_non_nulls_(p.non_null_like_range, left.non_null_like_range.size(),
                        temp_indices_);
+    }
+    if (!p.nan_range.empty()) {
+      merge_remaining_sort_keys_(p.nan_range, left.nan_range.size(), temp_indices_);
+    }
+    if (!p.null_range.empty()) {
+      merge_remaining_sort_keys_(p.null_range, left.null_range.size(), temp_indices_);
     }
     return p;
   }
 
  private:
   NullPlacement null_placement_;
-  MergeNullsFunc merge_nulls_;
-  MergeNonNullsFunc merge_non_nulls_;
+  MergeFunc merge_remaining_sort_keys_;
+  MergeFunc merge_non_nulls_;
   std::unique_ptr<Buffer> temp_buffer_;
-  IndexType* temp_indices_ = nullptr;
+  CompressedChunkLocation* temp_indices_ = nullptr;
 };
-
-using MergeImpl = GenericMergeImpl<uint64_t, NullPartitionResult>;
-using ChunkedMergeImpl =
-    GenericMergeImpl<CompressedChunkLocation, ChunkedNullPartitionResult>;
 
 // TODO make this usable if indices are non trivial on input
 // (see ConcreteRecordBatchColumnSorter)
 // `offset` is used when this is called on a chunk of a chunked array
-using ArraySortFunc = std::function<Result<NullPartitionResult>(
-    uint64_t* indices_begin, uint64_t* indices_end, const Array& values, int64_t offset,
+using ArraySortFunc = std::function<Result<NullLikePartition>(
+    std::span<uint64_t> indices, const Array& values, int64_t offset,
     const ArraySortOptions& options, ExecContext* ctx)>;
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
-Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
-                                             uint64_t* indices_end,
-                                             const ChunkedArray& chunked_array,
-                                             SortOrder sort_order,
-                                             NullPlacement null_placement);
+Result<NullLikePartition> SortChunkedArray(ExecContext* ctx, std::span<uint64_t> indices,
+                                           const ChunkedArray& chunked_array,
+                                           SortOrder sort_order,
+                                           NullPlacement null_placement);
 
-Result<NullPartitionResult> SortChunkedArray(
-    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-    const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
-    SortOrder sort_order, NullPlacement null_placement);
+Result<NullLikePartition> SortChunkedArray(ExecContext* ctx, std::span<uint64_t> indices,
+                                           const std::shared_ptr<DataType>& physical_type,
+                                           const ArrayVector& physical_chunks,
+                                           SortOrder sort_order,
+                                           NullPlacement null_placement);
 
-Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_begin,
-                                            uint64_t* indices_end,
-                                            const StructArray& array,
-                                            SortOrder sort_order,
-                                            NullPlacement null_placement);
+Result<NullLikePartition> SortStructArray(ExecContext* ctx, std::span<uint64_t> indices,
+                                          const StructArray& array, SortOrder sort_order,
+                                          NullPlacement null_placement);
 
 // ----------------------------------------------------------------------
 // Helpers for Sort/SelectK/Rank implementations

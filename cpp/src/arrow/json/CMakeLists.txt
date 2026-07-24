@@ -23,6 +23,7 @@ add_arrow_test(test
                from_string_test.cc
                parser_test.cc
                reader_test.cc
+               object_parser_test.cc
                PREFIX
                "arrow-json"
                EXTRA_LINK_LIBS

@@ -1,3 +1,4 @@
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -15,6 +16,7 @@
 # under the License.
 
 require_relative "buffer-alignable"
+require_relative "record"
 
 module ArrowFormat
   class RecordBatch
@@ -26,7 +28,14 @@ module ArrowFormat
     alias_method :length, :n_rows
     attr_reader :columns
     attr_reader :message_metadata
-    def initialize(schema, n_rows, columns, message_metadata: nil)
+    def initialize(*args, message_metadata: nil)
+      n_args = args.size
+      args = build(args[0]) if n_args == 1
+      if args.size != 3
+        message = "wrong number of arguments (given #{n_args}, expected 1 or 3)"
+        raise ArgumentError, message
+      end
+      schema, n_rows, columns = args
       @schema = schema
       @n_rows = n_rows
       @columns = columns
@@ -37,12 +46,43 @@ module ArrowFormat
       @n_rows.zero?
     end
 
-    def to_h
-      hash = {}
-      @schema.fields.zip(@columns) do |field, column|
-        hash[field.name] = column
+    def find_column(name_or_index)
+      case name_or_index
+      when Integer
+        @columns[name_or_index]
+      when Symbol
+        name_to_column[name_or_index.to_s]
+      else
+        name_to_column[name_or_index.to_str]
       end
-      hash
+    end
+
+    def each_record(reuse_record: false)
+      unless block_given?
+        return to_enum(__method__, reuse_record: reuse_record)
+      end
+
+      if reuse_record
+        record = Record.new(self, nil)
+        @n_rows.times do |i|
+          record.index = i
+          yield(record)
+        end
+      else
+        @n_rows.times do |i|
+          yield(Record.new(self, i))
+        end
+      end
+    end
+
+    def records
+      size.times.collect do |i|
+        Record.new(self, i)
+      end
+    end
+
+    def to_h
+      name_to_column.dup
     end
 
     def to_flatbuffers
@@ -100,6 +140,71 @@ module ArrowFormat
           end
         end
       end
+    end
+
+    private
+    def build(data)
+      records = nil
+      fields = []
+      columns = []
+      mode = nil
+      i = 0
+      data.each do |name, column|
+        if i.zero?
+          if column.nil?
+            mode = :record
+            records = {}
+          else
+            mode = :column
+          end
+        end
+
+        if mode == :record
+          record = name
+          record.each do |n, value|
+            values = (records[n] ||= [])
+            while values.size < i
+              values << nil
+            end
+            values << value
+          end
+        else
+          fields << Field.new(name, column.type)
+          columns << column
+        end
+        i += 1
+      end
+
+      if mode == :record
+        records.each do |name, values|
+          column = Array.build(values)
+          fields << Field.new(name, column.type)
+          columns << column
+        end
+      end
+
+      raise ArgumentError, "no data" if columns.empty?
+      all_n_rows = columns.collect(&:size)
+      if all_n_rows.uniq.size != 1
+        message =
+          "inconsistent the number of rows: #{all_n_rows.join(", ")}"
+        raise ArgumentError, message
+      end
+
+      return Schema.new(fields), all_n_rows[0], columns
+    end
+
+    def name_to_column
+      @name_to_column ||= build_name_to_column
+    end
+
+    def build_name_to_column
+      name_to_column = {}
+      @schema.fields.zip(@columns) do |field, column|
+        name_to_column[field.name] = column
+      end
+      name_to_column.freeze
+      name_to_column
     end
   end
 end

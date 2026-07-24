@@ -112,7 +112,7 @@ jobs:
           key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: extra-${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery

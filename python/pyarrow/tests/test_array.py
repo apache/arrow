@@ -465,6 +465,64 @@ def test_array_getitem_numpy_scalars():
         assert arr[np.int32(idx)].as_py() == lst[idx]
 
 
+def test_to_pylist_bulk_paths():
+    # GH-50326: to_pylist converts through scalar-free _getitem_py
+    # specializations; the result must match the per-scalar conversion
+    # exactly.
+    arrays = [
+        pa.array([[1, None, 3], None, [], [4]], type=pa.list_(pa.int32())),
+        pa.array([["a", None], None, [], ["bcd", ""]],
+                 type=pa.list_(pa.string())),
+        pa.array([["a", None], None, [], ["bcd", ""]],
+                 type=pa.large_list(pa.large_string())),
+        pa.array([[1, None], None, [3, 4]], type=pa.list_(pa.int32(), 2)),
+        pa.array([[[1], [2, None]], None, [None, [3]]],
+                 type=pa.list_(pa.list_(pa.int32()))),
+        pa.array([[("k1", 1), ("k2", None)], None, []],
+                 type=pa.map_(pa.string(), pa.int32())),
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
+                 type=pa.string()),
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
+                 type=pa.large_string()),
+        pa.array([b"a\x00b", None, b"", b"\xff"], type=pa.binary()),
+        pa.array([b"a\x00b", None, b""], type=pa.large_binary()),
+        # View types store short values inline and long values out-of-line;
+        # cover both, plus NUL bytes and non-ASCII data.
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}",
+                  "long string exceeding the inline view size"],
+                 type=pa.string_view()),
+        pa.array([b"a\x00b", None, b"", b"\xff",
+                  b"long binary value exceeding the inline view size"],
+                 type=pa.binary_view()),
+        pa.array([[b"x", None, b"\x00y"], None, []],
+                 type=pa.list_(pa.binary())),
+        pa.array([1, None, -(2**62), 2**62], type=pa.int64()),
+        pa.array([0, None, 2**63 + 7], type=pa.uint64()),
+        pa.array([-128, 127, None], type=pa.int8()),
+        pa.array([1.5, None, -0.5], type=pa.float64()),
+        pa.array([1.5, None], type=pa.float32()),
+        pa.array([True, None, False], type=pa.bool_()),
+        pa.array([{"a": 1, "b": "x"}, None, {"a": None, "b": None}],
+                 type=pa.struct([("a", pa.int32()), ("b", pa.string())])),
+        pa.array([], type=pa.list_(pa.int32())),
+        pa.array([None, None], type=pa.list_(pa.string())),
+    ]
+    for arr in arrays:
+        for view in (arr, arr.slice(1), arr.slice(0, 2), arr.slice(2)):
+            assert view.to_pylist() == [x.as_py() for x in view]
+
+    # Values inside numeric lists must stay Python ints/None, never floats
+    result = pa.array([[1, None, 3]], type=pa.list_(pa.int32())).to_pylist()
+    assert result == [[1, None, 3]]
+    assert [type(x) for x in result[0]] == [int, type(None), int]
+
+    # Duplicate struct field names raise like StructScalar.as_py does
+    dup = pa.StructArray.from_arrays(
+        [pa.array([1, 2]), pa.array(["a", "b"])], names=["x", "x"])
+    with pytest.raises(ValueError, match="duplicate field names"):
+        dup.to_pylist()
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
@@ -2762,11 +2820,10 @@ def test_interval_array_from_relativedelta():
     assert arr.equals(expected)
     assert arr.to_pandas().tolist() == [
         None, DateOffset(months=13, days=8,
-                         microseconds=(
+                         nanoseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
                                                 minutes=1, hours=1) //
-                             datetime.timedelta(microseconds=1)),
-                         nanoseconds=0)]
+                             datetime.timedelta(microseconds=1)) * 1000)]
     with pytest.raises(ValueError):
         pa.array([DateOffset(years=((1 << 32) // 12), months=100)])
     with pytest.raises(ValueError):
@@ -2814,12 +2871,11 @@ def test_interval_array_from_dateoffset():
     assert arr.equals(expected)
     expected_from_pandas = [
         None, DateOffset(months=13, days=8,
-                         microseconds=(
+                         nanoseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
                                                 minutes=1, hours=1) //
-                             datetime.timedelta(microseconds=1)),
-                         nanoseconds=1),
-        DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
+                             datetime.timedelta(microseconds=1) * 1000) + 1),
+        DateOffset(months=0, days=0, nanoseconds=0)]
 
     assert arr.to_pandas().tolist() == expected_from_pandas
 

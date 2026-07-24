@@ -784,6 +784,38 @@ def test_cast_to_extension_with_nested_storage():
     assert result.equals(expected)
 
 
+def test_cast_table_with_extension_type_in_struct():
+    # https://github.com/apache/arrow/issues/37004
+
+    # fixed-size list
+    array = pa.array([[1, 2], [3, 4], [5, 6]], pa.list_(pa.int32(), 2))
+    ext_type = MyFixedListType(pa.list_(pa.int32(), 2))
+    ext_array = pa.ExtensionArray.from_storage(ext_type, array)
+    struct_array = pa.StructArray.from_arrays([ext_array], "x")
+
+    table = pa.Table.from_arrays([struct_array], ["field1"])
+    result = table.cast(table.schema)
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+    result = struct_array.cast(struct_array.type)
+    assert result.equals(struct_array)
+
+    # variable-size list
+    array = pa.array([[1, 2], [3, 4, 5], [6]], pa.list_(pa.int32()))
+    ext_type = MyListType(pa.list_(pa.int32()))
+    ext_array = pa.ExtensionArray.from_storage(ext_type, array)
+    struct_array = pa.StructArray.from_arrays([ext_array], "x")
+
+    table = pa.Table.from_arrays([struct_array], ["field1"])
+    result = table.cast(table.schema)
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+    result = struct_array.cast(struct_array.type)
+    assert result.equals(struct_array)
+
+
 def test_concat():
     arr1 = pa.array([1, 2, 3], IntegerType())
     arr2 = pa.array([4, 5, 6], IntegerType())
