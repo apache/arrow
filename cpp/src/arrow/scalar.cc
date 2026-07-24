@@ -770,6 +770,30 @@ DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
                             0)
                 .ValueOrDie()} {}
 
+namespace {
+
+struct DictionaryIndexValueImpl {
+  int64_t value = 0;
+
+  Status Visit(const Scalar&) {
+    return Status::TypeError("Not implemented dictionary index type");
+  }
+
+  template <typename ScalarType, typename Type = typename ScalarType::TypeClass>
+  enable_if_integer<Type, Status> Visit(const ScalarType& scalar) {
+    value = static_cast<int64_t>(scalar.value);
+    return Status::OK();
+  }
+};
+
+Result<int64_t> DictionaryIndexValue(const Scalar& index) {
+  DictionaryIndexValueImpl impl;
+  RETURN_NOT_OK(VisitScalarInline(index, &impl));
+  return impl.value;
+}
+
+}  // namespace
+
 Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
   const auto& dict_type = checked_cast<DictionaryType&>(*type);
 
@@ -777,45 +801,23 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
     return MakeNullScalar(dict_type.value_type());
   }
 
-  int64_t index_value = 0;
-  switch (dict_type.index_type()->id()) {
-    case Type::UINT8:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt8Scalar&>(*value.index).value);
-      break;
-    case Type::INT8:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int8Scalar&>(*value.index).value);
-      break;
-    case Type::UINT16:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt16Scalar&>(*value.index).value);
-      break;
-    case Type::INT16:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int16Scalar&>(*value.index).value);
-      break;
-    case Type::UINT32:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt32Scalar&>(*value.index).value);
-      break;
-    case Type::INT32:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int32Scalar&>(*value.index).value);
-      break;
-    case Type::UINT64:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt64Scalar&>(*value.index).value);
-      break;
-    case Type::INT64:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int64Scalar&>(*value.index).value);
-      break;
-    default:
-      return Status::TypeError("Not implemented dictionary index type");
-      break;
-  }
+  ARROW_ASSIGN_OR_RAISE(int64_t index_value, DictionaryIndexValue(*value.index));
   return value.dictionary->GetScalar(index_value);
+}
+
+bool DictionaryScalar::IsLogicalNull() const {
+  if (!is_valid) {
+    return true;
+  }
+  const auto& dict = value.dictionary;
+  if (value.index == nullptr || dict == nullptr) {
+    return false;
+  }
+  auto index_value = DictionaryIndexValue(*value.index);
+  if (!index_value.ok() || *index_value < 0 || *index_value >= dict->length()) {
+    return false;
+  }
+  return dict->IsNull(*index_value);
 }
 
 std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,

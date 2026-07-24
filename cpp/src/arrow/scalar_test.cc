@@ -1685,6 +1685,12 @@ TEST(TestDictionaryScalar, Basics) {
     ASSERT_OK(encoded_gamma->ValidateFull());
     ASSERT_TRUE(encoded_gamma->Equals(*MakeScalar("gamma")));
 
+    ASSERT_FALSE(scalar_alpha.IsLogicalNull());
+    ASSERT_FALSE(scalar_gamma.IsLogicalNull());
+    ASSERT_TRUE(scalar_null->IsLogicalNull());
+    // The index is valid but refers to a null dictionary value
+    ASSERT_TRUE(scalar_null_value.IsLogicalNull());
+
     // test Array.GetScalar
     DictionaryArray arr(ty, ArrayFromJSON(index_ty, "[2, 0, 1, null]"), dict);
     ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
@@ -1763,6 +1769,9 @@ TEST(TestDictionaryScalar, ValidateErrors) {
     scalar = DictionaryScalar(invalid, dict_ty);
     ASSERT_OK(scalar.Validate());
     ASSERT_RAISES(Invalid, scalar.ValidateFull());
+    // The dictionary value cannot be resolved, so IsLogicalNull falls back
+    // to !is_valid
+    ASSERT_FALSE(scalar.IsLogicalNull());
   }
 }
 

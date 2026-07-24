@@ -23,6 +23,8 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_run_end.h"
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -137,6 +139,89 @@ TEST(Datum, NullCount) {
 
   Datum val3(ArrayFromJSON(int8(), "[1, null, null, null]"));
   ASSERT_EQ(3, val3.null_count());
+}
+
+TEST(Datum, ComputeLogicalNullCount) {
+  // For most scalars, is_valid already reflects logical validity.
+  Datum valid_scalar(std::make_shared<Int8Scalar>(1));
+  ASSERT_EQ(0, valid_scalar.ComputeLogicalNullCount());
+
+  Datum null_scalar(MakeNullScalar(int8()));
+  ASSERT_EQ(1, null_scalar.ComputeLogicalNullCount());
+
+  // Arrays and scalars of type null() are entirely null.
+  Datum null_type_arr(ArrayFromJSON(null(), "[null, null, null]"));
+  ASSERT_EQ(3, null_type_arr.null_count());
+  ASSERT_EQ(3, null_type_arr.ComputeLogicalNullCount());
+
+  Datum null_type_scalar(MakeNullScalar(null()));
+  ASSERT_EQ(1, null_type_scalar.null_count());
+  ASSERT_EQ(1, null_type_scalar.ComputeLogicalNullCount());
+
+  // For arrays with a validity bitmap, the logical null count matches
+  // null_count().
+  Datum int8_arr(ArrayFromJSON(int8(), "[1, null, null, null]"));
+  ASSERT_EQ(3, int8_arr.null_count());
+  ASSERT_EQ(3, int8_arr.ComputeLogicalNullCount());
+
+  // Union arrays carry logical nulls in their children without a top-level
+  // validity bitmap, so null_count() is 0 while the logical null count is not.
+  auto union_type = sparse_union({field("a", int8()), field("b", boolean())});
+  auto union_arr =
+      ArrayFromJSON(union_type, R"([[0, null], [1, true], [0, 5], [1, null]])");
+  Datum union_datum(union_arr);
+  ASSERT_EQ(0, union_datum.null_count());
+  ASSERT_EQ(2, union_datum.ComputeLogicalNullCount());
+
+  // Scalars extracted from an array preserve its logical validity.
+  auto scalar_logical_null_count = [](const Array& arr,
+                                      int64_t index) -> Result<int64_t> {
+    ARROW_ASSIGN_OR_RAISE(auto scalar, arr.GetScalar(index));
+    return Datum(scalar).ComputeLogicalNullCount();
+  };
+  ASSERT_OK_AND_EQ(1, scalar_logical_null_count(*union_arr, 0));
+  ASSERT_OK_AND_EQ(0, scalar_logical_null_count(*union_arr, 1));
+
+  // Chunked arrays sum the logical null count over the chunks.
+  auto union_chunk = ArrayFromJSON(union_type, R"([[0, 1], [1, null]])");
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({union_arr, union_chunk}));
+  Datum chunked_datum(chunked);
+  ASSERT_EQ(0, chunked_datum.null_count());
+  ASSERT_EQ(3, chunked_datum.ComputeLogicalNullCount());
+
+  // Run-end encoded arrays carry logical nulls in their values child, also
+  // without a top-level validity bitmap.
+  auto pool = default_memory_pool();
+  auto ree_type = run_end_encoded(int32(), int32());
+  RunEndEncodedBuilder ree_builder(pool, std::make_shared<Int32Builder>(pool),
+                                   std::make_shared<Int32Builder>(pool), ree_type);
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(7), 2));
+  ASSERT_OK(ree_builder.AppendNulls(3));
+  ASSERT_OK_AND_ASSIGN(auto ree_arr, ree_builder.Finish());
+  Datum ree_datum(ree_arr);
+  ASSERT_EQ(0, ree_datum.null_count());
+  ASSERT_EQ(3, ree_datum.ComputeLogicalNullCount());
+  ASSERT_OK_AND_EQ(0, scalar_logical_null_count(*ree_arr, 0));
+  ASSERT_OK_AND_EQ(1, scalar_logical_null_count(*ree_arr, 2));
+
+  // Dictionary arrays have a validity bitmap on the indices, but a valid
+  // index referencing a null dictionary value is also a logical null.
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_arr = DictArrayFromJSON(dict_type, /*indices=*/"[0, 1, null, 1]",
+                                    /*dictionary=*/R"([null, "a"])");
+  Datum dict_datum(dict_arr);
+  ASSERT_EQ(1, dict_datum.null_count());
+  ASSERT_EQ(2, dict_datum.ComputeLogicalNullCount());
+
+  // A DictionaryScalar's is_valid only reflects index validity, but the
+  // logical null count also accounts for a valid index referencing a null
+  // dictionary value, consistently with the array path.
+  ASSERT_OK_AND_ASSIGN(auto dict_scalar, dict_arr->GetScalar(0));
+  Datum dict_scalar_datum(dict_scalar);
+  ASSERT_EQ(0, dict_scalar_datum.null_count());
+  ASSERT_EQ(1, dict_scalar_datum.ComputeLogicalNullCount());
+  ASSERT_OK_AND_EQ(0, scalar_logical_null_count(*dict_arr, 1));
+  ASSERT_OK_AND_EQ(1, scalar_logical_null_count(*dict_arr, 2));
 }
 
 TEST(Datum, MutableArray) {

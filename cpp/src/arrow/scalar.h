@@ -59,7 +59,26 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   std::shared_ptr<DataType> type;
 
   /// \brief Whether the value is valid (not null) or not
+  ///
+  /// Note that this may not reflect logical nullness for all types; see
+  /// IsLogicalNull().
   bool is_valid = false;
+
+  /// \brief Whether the value is logically null
+  ///
+  /// For most types this is simply !is_valid. For dictionary scalars, however,
+  /// is_valid only reflects the validity of the index: a valid index can still
+  /// refer to a null dictionary value, in which case the scalar is logically
+  /// null. For an ill-formed dictionary scalar whose dictionary value cannot
+  /// be resolved (for example an out-of-bounds index), this falls back to
+  /// !is_valid.
+  ///
+  /// Like the array-level logical null computation, this does not recurse into
+  /// nested values: a dictionary value wrapped in a union, run-end encoded or
+  /// extension scalar is reported according to the wrapper's own is_valid.
+  ///
+  /// \see ArraySpan::ComputeLogicalNullCount
+  virtual bool IsLogicalNull() const { return !is_valid; }
 
   bool Equals(const Scalar& other,
               const EqualOptions& options = EqualOptions::Defaults()) const;
@@ -860,7 +879,8 @@ struct ARROW_EXPORT RunEndEncodedScalar
 /// \brief A Scalar value for DictionaryType
 ///
 /// `is_valid` denotes the validity of the `index`, regardless of
-/// the corresponding value in the `dictionary`.
+/// the corresponding value in the `dictionary`; use IsLogicalNull()
+/// to also account for the referenced dictionary value.
 struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
   using TypeClass = DictionaryType;
   struct ValueType {
@@ -878,6 +898,8 @@ struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
                                                 std::shared_ptr<Array> dict);
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
+
+  bool IsLogicalNull() const override;
 
   const void* data() const override {
     return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index).data();
