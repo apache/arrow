@@ -3556,7 +3556,6 @@ struct AwsInstance {
               event_loop_group, /*maxHosts=*/8, /*maxTTL=*/30);
           auto client_bootstrap = Aws::MakeShared<Aws::Crt::Io::ClientBootstrap>(
               "Aws_Init_Cleanup", event_loop_group, default_host_resolver);
-          client_bootstrap->EnableBlockingShutdown();
           return client_bootstrap;
         };
     aws_options_.loggingOptions.logLevel = aws_log_level;
