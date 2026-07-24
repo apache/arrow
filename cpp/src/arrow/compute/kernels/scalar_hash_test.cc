@@ -804,6 +804,51 @@ TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
   }
 }
 
+// Guards against HashChild reusing a nested field's raw (unshifted) validity buffer
+// without rebasing it: the buffer requires bit `child.offset + i` to read logical row
+// i, but the returned ArrayData has offset 0 and its buffer is read directly (bit 0 =
+// row 0) once wrapped in a KeyColumnArray. If a struct's nested field is itself an
+// offset slice of a larger array (e.g. GH-17211), this misreads validity by
+// `child.offset` bits -- here, a valid row would be misread as null (or vice versa)
+// unless the buffer is rebased to be self-consistent with the fresh hash values.
+TEST_F(TestScalarHash, NestedFieldWithOwnOffsetHashesCorrectly) {
+  ListBuilder list_builder(default_memory_pool(), std::make_shared<Int32Builder>());
+  auto* values = checked_cast<Int32Builder*>(list_builder.value_builder());
+  ASSERT_OK(list_builder.AppendNull());
+  for (int32_t row = 1; row < 10; row++) {
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(values->Append(row));
+    ASSERT_OK(values->Append(row + 1));
+  }
+  ASSERT_OK_AND_ASSIGN(auto base, list_builder.Finish());
+  auto sliced_field = base->Slice(3, 5);  // offset=3, length=5; logical row 0 = valid
+
+  ASSERT_OK_AND_ASSIGN(auto struct_with_offset_field,
+                       StructArray::Make({sliced_field}, {field("f0", list(int32()))}));
+
+  ListBuilder independent_builder(default_memory_pool(),
+                                  std::make_shared<Int32Builder>());
+  auto* independent_values =
+      checked_cast<Int32Builder*>(independent_builder.value_builder());
+  for (int32_t row = 3; row < 8; row++) {
+    ASSERT_OK(independent_builder.Append());
+    ASSERT_OK(independent_values->Append(row));
+    ASSERT_OK(independent_values->Append(row + 1));
+  }
+  ASSERT_OK_AND_ASSIGN(auto independent_field, independent_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto independent_struct,
+      StructArray::Make({independent_field}, {field("f0", list(int32()))}));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum offset_result,
+                         CallFunction(func, {struct_with_offset_field}));
+    ASSERT_OK_AND_ASSIGN(Datum independent_result,
+                         CallFunction(func, {independent_struct}));
+    AssertDatumsEqual(offset_result, independent_result);
+  }
+}
+
 // The EXTENSION unwrapping at the top of HashArray should compose with the
 // is_list_like recursion; this combination was otherwise untested (ExtensionType
 // above only wraps a primitive).
