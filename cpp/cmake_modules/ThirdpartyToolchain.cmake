@@ -413,8 +413,8 @@ endif()
 if(ARROW_JSON
    AND CMAKE_OSX_SYSROOT
    AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
-  message(STATUS "Disabling ARROW_JSON for macOS SDK 11.3")
-  set(ARROW_JSON OFF)
+  message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+  add_compile_definitions(SIMDJSON_CONCEPT_DISABLED=1)
 endif()
 
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
