@@ -1325,13 +1325,16 @@ TEST_F(TestProjector, TestChr) {
   auto status = Projector::Make(schema, {chr_expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  // Create a row-batch with some sample data
+  // Create a row-batch with code points spanning 1- to 4-byte UTF-8 encodings.
+  // 65 -> "A", 237 -> "í" (U+00ED), 8364 -> "€" (U+20AC), 26085 -> "日" (U+65E5),
+  // 128512 -> "😀" (U+1F600).
   int num_records = 5;
   auto array0 =
-      MakeArrowArrayInt64({65, 84, 255, 340, -5}, {true, true, true, true, true});
-  // expected output
-  auto exp_chr =
-      MakeArrowArrayUtf8({"A", "T", "\xFF", "T", "\xFB"}, {true, true, true, true, true});
+      MakeArrowArrayInt64({65, 237, 8364, 26085, 128512}, {true, true, true, true, true});
+  // expected UTF-8 output
+  auto exp_chr = MakeArrowArrayUtf8(
+      {"A", "\xC3\xAD", "\xE2\x82\xAC", "\xE6\x97\xA5", "\xF0\x9F\x98\x80"},
+      {true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -1343,6 +1346,37 @@ TEST_F(TestProjector, TestChr) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_chr, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestChrInvalidCodePoint) {
+  // schema for input fields
+  auto field0 = field("f0", int64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_chr = field("chr", arrow::utf8());
+
+  // Build expression
+  auto chr_expr = TreeExprBuilder::MakeExpression("chr", {field0}, field_chr);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {chr_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // A code point outside the valid Unicode range (here, a negative value) must
+  // fail evaluation rather than wrap around.
+  int num_records = 1;
+  auto array0 = MakeArrowArrayInt64({-5}, {true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("not a valid Unicode code point"), std::string::npos)
+      << status.message();
+  // The message should include the offending value for debuggability.
+  EXPECT_NE(status.message().find("-5"), std::string::npos) << status.message();
 }
 
 TEST_F(TestProjector, TestBase64) {

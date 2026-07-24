@@ -1417,12 +1417,32 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   return static_cast<gdv_int32>(static_cast<signed char>(data[0]));
 }
 
-// Returns the ASCII character having the binary equivalent to A.
-// If A is larger than 256 the result is equivalent to chr(A % 256).
+// Returns the UTF-8 encoding of the Unicode code point A.
+// Raises an error if A is not a valid code point, i.e. it is negative, greater
+// than 0x10FFFF, or falls within the UTF-16 surrogate range 0xD800-0xDFFF.
 FORCE_INLINE
-const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
-  in = in % 256;
-  *out_len = 1;
+const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
+  if (in < 0 || in > 0x10FFFF || (in >= 0xD800 && in <= 0xDFFF)) {
+    const char* fmt =
+        "Input %" PRId64 " is not a valid Unicode code point in the range 0 to 1114111";
+    int size = static_cast<int>(strlen(fmt)) + 32;
+    char* error = reinterpret_cast<char*>(malloc(size));
+    snprintf(error, size, fmt, static_cast<int64_t>(in));
+    gdv_fn_context_set_error_msg(context, error);
+    free(error);
+    *out_len = 0;
+    return "";
+  }
+
+  if (in <= 0x7F) {
+    *out_len = 1;
+  } else if (in <= 0x7FF) {
+    *out_len = 2;
+  } else if (in <= 0xFFFF) {
+    *out_len = 3;
+  } else {
+    *out_len = 4;
+  }
 
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
@@ -1430,25 +1450,34 @@ const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
     *out_len = 0;
     return "";
   }
-  ret[0] = char(in);
+
+  switch (*out_len) {
+    case 1:
+      ret[0] = static_cast<char>(in);
+      break;
+    case 2:
+      ret[0] = static_cast<char>(0xC0 | (in >> 6));
+      ret[1] = static_cast<char>(0x80 | (in & 0x3F));
+      break;
+    case 3:
+      ret[0] = static_cast<char>(0xE0 | (in >> 12));
+      ret[1] = static_cast<char>(0x80 | ((in >> 6) & 0x3F));
+      ret[2] = static_cast<char>(0x80 | (in & 0x3F));
+      break;
+    case 4:
+      ret[0] = static_cast<char>(0xF0 | (in >> 18));
+      ret[1] = static_cast<char>(0x80 | ((in >> 12) & 0x3F));
+      ret[2] = static_cast<char>(0x80 | ((in >> 6) & 0x3F));
+      ret[3] = static_cast<char>(0x80 | (in & 0x3F));
+      break;
+  }
   return ret;
 }
 
-// Returns the ASCII character having the binary equivalent to A.
-// If A is larger than 256 the result is equivalent to chr(A % 256).
+// Returns the UTF-8 encoding of the Unicode code point A. See chr_int64.
 FORCE_INLINE
-const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
-  in = in % 256;
-  *out_len = 1;
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  ret[0] = char(in);
-  return ret;
+const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
+  return chr_int64(context, in, out_len);
 }
 
 FORCE_INLINE
