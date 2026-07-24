@@ -45,7 +45,7 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
                                         FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);
+    auto exec = GenerateTypeAgnosticVarBinaryBase<Transformer>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec)));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -1144,7 +1144,7 @@ void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
                                                utf8_replace_slice_doc);
 
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
+    auto exec = GenerateTypeAgnosticVarBinaryBase<Utf8ReplaceSlice>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec),
                               ReplaceStringSliceTransformBase::State::Init));
   }
@@ -1340,7 +1340,7 @@ void AddUtf8StringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
                                                utf8_slice_codeunits_doc);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
+    auto exec = GenerateTypeAgnosticVarBinaryBase<SliceCodeunits>(ty);
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceCodeunitsTransform::State::Init));
   }
@@ -1355,7 +1355,8 @@ void AddUtf8StringSlice(FunctionRegistry* registry) {
 struct SplitWhitespaceUtf8Finder : public StringSplitFinderBase<SplitOptions> {
   using Options = SplitOptions;
 
-  Status PreExec(const SplitOptions& options) override {
+  Status PreExec(const SplitOptions& options, bool is_utf8) override {
+    DCHECK(is_utf8);
     EnsureUtf8LookupTablesFilled();
     return Status::OK();
   }
@@ -1426,7 +1427,7 @@ void AddUtf8StringSplitWhitespace(FunctionRegistry* registry) {
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
                                        utf8_split_whitespace_doc, &default_options);
   for (const auto& ty : StringTypes()) {
-    auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
+    auto exec = GenerateTypeAgnosticVarBinaryBase<SplitWhitespaceUtf8Exec, ListType>(ty);
     DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));

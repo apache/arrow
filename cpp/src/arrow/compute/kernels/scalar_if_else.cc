@@ -1328,7 +1328,7 @@ void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
                             const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec =
-        internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec, ArrayKernelExec,
+        internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec,
                                                     /*AllocateMem=*/std::true_type>(
             *type);
     // cond array needs to be boolean always
