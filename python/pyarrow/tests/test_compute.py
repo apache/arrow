@@ -4372,3 +4372,30 @@ def test_hash64(arr):
     result2 = pc.hash64(arr)
     assert result1.type == pa.uint64()
     assert result1.equals(result2)
+
+
+@st.composite
+def hash_arrays_with_slice(draw):
+    arr = draw(past.arrays(hash_types))
+    offset = draw(st.integers(min_value=0, max_value=len(arr)))
+    length = draw(st.integers(min_value=0, max_value=len(arr) - offset))
+    return arr, offset, length
+
+
+# Hashing a slice must match slicing the hash of the unsliced array: nested child
+# arrays aren't resliced by Array.slice, so this exercises the offset handling for
+# list/map/struct fields, not just plain values.
+@pytest.mark.numpy
+@h.given(hash_arrays_with_slice())
+def test_hash32_slice_consistency(args):
+    arr, offset, length = args
+    sliced = arr.slice(offset, length)
+    assert pc.hash32(sliced).equals(pc.hash32(arr).slice(offset, length))
+
+
+@pytest.mark.numpy
+@h.given(hash_arrays_with_slice())
+def test_hash64_slice_consistency(args):
+    arr, offset, length = args
+    sliced = arr.slice(offset, length)
+    assert pc.hash64(sliced).equals(pc.hash64(arr).slice(offset, length))
