@@ -259,6 +259,17 @@ struct FastHashScalar {
       ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(array));
       std::vector<KeyColumnArray> columns{column.Slice(array.offset, array.length)};
       Hasher::HashMultiColumn(columns, hash_ctx, out);
+      // HashIntImp (used for fixed-width types up to 8 bytes) doesn't special-case an
+      // all-zero-bits key (e.g. integer 0, float 0.0), so it can legitimately produce
+      // the same 0 that HashMultiColumn uses as the null sentinel for actually-null
+      // rows. Remap valid rows that collide with 0 here, scoped to this kernel's
+      // output, rather than changing the shared hashing engine used by hash-join and
+      // group-by too.
+      for (int64_t i = 0; i < array.length; i++) {
+        if (out[i] == 0 && array.IsValid(i)) {
+          out[i] = Hasher::CombineHashes(0, 0);
+        }
+      }
       return Status::OK();
     }
   }

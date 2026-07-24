@@ -75,6 +75,18 @@ class TestScalarHash : public ::testing::Test {
                            arr->data()->GetValues<uint8_t>(1), hashes.data(), nullptr);
     }
 
+    // Matches scalar_hash.cc's remap: a valid row whose raw hash happens to be 0 would
+    // otherwise be indistinguishable from an actually-null row (also hashed to 0).
+    for (int64_t i = 0; i < arr->length(); i++) {
+      if (hashes[i] == 0 && arr->IsValid(i)) {
+        if constexpr (std::is_same_v<c_type, uint64_t>) {
+          hashes[i] = Hashing64::CombineHashes(0, 0);
+        } else {
+          hashes[i] = Hashing32::CombineHashes(0, 0);
+        }
+      }
+    }
+
     return hashes;
   }
 
