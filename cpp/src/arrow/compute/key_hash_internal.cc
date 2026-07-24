@@ -299,11 +299,10 @@ void Hashing32::HashBit(bool combine_hashes, int64_t bit_offset, uint32_t num_ke
 
 template <bool T_COMBINE_HASHES, typename T>
 void Hashing32::HashIntImp(uint32_t num_keys, const T* keys, uint32_t* hashes) {
-  constexpr uint64_t kMultiplier = 11400714785074694791ULL;
-  constexpr uint64_t kAddend = 9756277977048271785ULL;
+  constexpr uint64_t multiplier = 11400714785074694791ULL;
   for (uint32_t ikey = 0; ikey < num_keys; ++ikey) {
-    uint64_t x = static_cast<uint64_t>(keys[ikey]) + kAddend;
-    uint32_t hash = static_cast<uint32_t>(BYTESWAP(x * kMultiplier));
+    uint64_t x = static_cast<uint64_t>(keys[ikey]);
+    uint32_t hash = static_cast<uint32_t>(BYTESWAP(x * multiplier));
 
     if (T_COMBINE_HASHES) {
       hashes[ikey] = CombineHashesImp(hashes[ikey], hash);
@@ -753,11 +752,10 @@ void Hashing64::HashBit(bool combine_hashes, int64_t bit_offset, uint32_t num_ke
 
 template <bool T_COMBINE_HASHES, typename T>
 void Hashing64::HashIntImp(uint32_t num_keys, const T* keys, uint64_t* hashes) {
-  constexpr uint64_t kMultiplier = 11400714785074694791ULL;
-  constexpr uint64_t kAddend = 9756277977048271785ULL;
+  constexpr uint64_t multiplier = 11400714785074694791ULL;
   for (uint32_t ikey = 0; ikey < num_keys; ++ikey) {
-    uint64_t x = static_cast<uint64_t>(keys[ikey]) + kAddend;
-    uint64_t hash = static_cast<uint64_t>(BYTESWAP(x * kMultiplier));
+    uint64_t x = static_cast<uint64_t>(keys[ikey]);
+    uint64_t hash = static_cast<uint64_t>(BYTESWAP(x * multiplier));
 
     if (T_COMBINE_HASHES) {
       hashes[ikey] = CombineHashesImp(hashes[ikey], hash);
