@@ -440,7 +440,7 @@ jobs:
           set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
 
           set exclude_tests=arrow-acero-asof-join-node-test
-          set exclude_tests=%exclude_tests%|arrow-acero-hash-join-node-test
+          set exclude_tests=%exclude_tests%^|arrow-acero-hash-join-node-test
 
           ctest ^
             --exclude-regex "%exclude_tests%" ^
