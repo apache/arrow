@@ -913,11 +913,6 @@ test_that("Writing a flat file dataset without a delimiter throws an error.", {
     write_dataset(df, dst_dir, format = "txt"),
     "A delimiter must be given for a txt format."
   )
-
-  expect_error(
-    write_dataset(df, dst_dir, format = "text"),
-    "A delimiter must be given for a txt format."
-  )
 })
 
 test_that("Dataset can write flat files using readr::write_csv() options.", {
@@ -1047,4 +1042,24 @@ test_that("Row order is preserved when writing large parquet dataset", {
 
   # But ordered is exactly equal.
   expect_equal(ordered_ds$x, df$x)
+})
+
+test_that("write_dataset maps format 'text' to 'csv' (GH-38217)", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "text")
+  expect_true(dir.exists(dst_dir))
+
+  # Files should have .csv extension, not .text
+  written_files <- list.files(dst_dir)
+  expect_match(written_files, "\\.csv$")
+
+  # Data should round-trip correctly
+  result <- open_dataset(dst_dir, format = "csv") |> collect()
+  expect_equal(result, df)
 })
