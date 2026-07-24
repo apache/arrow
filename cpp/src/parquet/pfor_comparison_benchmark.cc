@@ -231,6 +231,131 @@ std::vector<int32_t> GenTpcdsQuantity(int64_t n) {
   return v;
 }
 
+// --- TPC-H (lineitem) top-queried numeric columns (Q1/Q3/Q5/Q6) ------------
+// l_quantity: integer [1, 50], uniform. Small range, min 1.
+std::vector<int32_t> GenTpchLQuantity(int64_t n) {
+  std::vector<int32_t> v(n);
+  std::mt19937 rng(301);
+  std::uniform_int_distribution<int32_t> dist(1, 50);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// l_extendedprice (cents): l_quantity * p_retailprice. p_retailprice spans
+// ~$900.00..$2099.00, so cents in [90000, 10495000]. Wide range, nonzero min.
+std::vector<int32_t> GenTpchLExtendedPrice(int64_t n) {
+  std::vector<int32_t> v(n);
+  std::mt19937 rng(302);
+  std::uniform_int_distribution<int32_t> qty(1, 50);
+  std::uniform_int_distribution<int32_t> retail_cents(90000, 209900);
+  for (auto& x : v) x = qty(rng) * retail_cents(rng);
+  return v;
+}
+
+// l_discount (x100): integer [0, 10] i.e. 0.00..0.10. Genuinely includes 0
+// (0% discount is a real value), so this one legitimately starts at 0.
+std::vector<int32_t> GenTpchLDiscount(int64_t n) {
+  std::vector<int32_t> v(n);
+  std::mt19937 rng(303);
+  std::uniform_int_distribution<int32_t> dist(0, 10);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// l_shipdate (days since 1970-01-01): 1992-01-01..1998-12 span. Base 8036,
+// range ~7 years. Large nonzero min -> exercises frame-of-reference.
+std::vector<int32_t> GenTpchLShipDate(int64_t n) {
+  std::vector<int32_t> v(n);
+  const int32_t kBase = 8036;  // days since epoch for 1992-01-01
+  std::mt19937 rng(304);
+  std::uniform_int_distribution<int32_t> dist(0, 2557);
+  for (auto& x : v) x = kBase + dist(rng);
+  return v;
+}
+
+// --- TPC-DS (store_sales / date_dim) further top-queried numeric columns ---
+// ss_customer_sk: surrogate key, uniform [1, 2,000,000]. Big range, min 1.
+std::vector<int32_t> GenTpcdsCustomerSk(int64_t n) {
+  std::vector<int32_t> v(n);
+  std::mt19937 rng(311);
+  std::uniform_int_distribution<int32_t> dist(1, 2000000);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// ss_ext_sales_price (cents): skewed price, exponential mean ~$50, floored at
+// $1.00 (a sale has a nonzero price), capped at $20,000. Long tail -> patches.
+std::vector<int32_t> GenTpcdsExtSalesPrice(int64_t n) {
+  std::vector<int32_t> v(n);
+  const int32_t kMin = 100, kMax = 2000000;
+  std::mt19937 rng(312);
+  std::exponential_distribution<double> exp_dist(1.0 / 5000.0);
+  for (auto& x : v) {
+    int32_t val = kMin + static_cast<int32_t>(exp_dist(rng));
+    x = std::min(val, kMax);
+  }
+  return v;
+}
+
+// ss_net_profit (cents): usually a small profit, sometimes a loss -> negative
+// values, so the frame of reference is negative (not zero).
+std::vector<int32_t> GenTpcdsNetProfit(int64_t n) {
+  std::vector<int32_t> v(n);
+  std::mt19937 rng(313);
+  std::uniform_int_distribution<int32_t> dist(-10000, 300000);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// d_year: queried date_dim year range [1998, 2003]. Low cardinality, min 1998.
+std::vector<int32_t> GenTpcdsDYear(int64_t n) {
+  std::vector<int32_t> v(n);
+  std::mt19937 rng(314);
+  std::uniform_int_distribution<int32_t> dist(1998, 2003);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// --- NYC yellow-taxi trip numeric columns ----------------------------------
+// pickup timestamp (unix seconds): 2015-01, base 1,420,070,400 + ~31 days.
+// Very large min -> frame-of-reference is essential.
+std::vector<int32_t> GenTaxiPickupUnixTime(int64_t n) {
+  std::vector<int32_t> v(n);
+  const int32_t kBase = 1420070400;  // 2015-01-01 UTC
+  std::mt19937 rng(321);
+  std::uniform_int_distribution<int32_t> dist(0, 2678400);  // ~31 days
+  for (auto& x : v) x = kBase + dist(rng);
+  return v;
+}
+
+// trip_distance (x100 miles): exponential mean ~1.8 mi, floored at 0.10 mi
+// (no zero-distance trips), capped at 100 mi. Long tail -> patches.
+std::vector<int32_t> GenTaxiTripDistanceX100(int64_t n) {
+  std::vector<int32_t> v(n);
+  const int32_t kMin = 10, kMax = 10000;
+  std::mt19937 rng(322);
+  std::exponential_distribution<double> exp_dist(1.0 / 180.0);
+  for (auto& x : v) {
+    int32_t val = kMin + static_cast<int32_t>(exp_dist(rng));
+    x = std::min(val, kMax);
+  }
+  return v;
+}
+
+// fare_amount (cents): $2.50 base + exponential mean ~$10, capped at $150.
+// Nonzero floor at the base fare, skewed with a long tail.
+std::vector<int32_t> GenTaxiFareCents(int64_t n) {
+  std::vector<int32_t> v(n);
+  const int32_t kBase = 250, kMax = 15000;
+  std::mt19937 rng(323);
+  std::exponential_distribution<double> exp_dist(1.0 / 1000.0);
+  for (auto& x : v) {
+    int32_t val = kBase + static_cast<int32_t>(exp_dist(rng));
+    x = std::min(val, kMax);
+  }
+  return v;
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -984,6 +1109,19 @@ REGISTER_DATASET(TpcdsSoldDateSk, GenTpcdsSoldDateSk)
 REGISTER_DATASET(TpcdsStoreSk, GenTpcdsStoreSk)
 REGISTER_DATASET(TpcdsItemSk, GenTpcdsItemSk)
 REGISTER_DATASET(TpcdsQuantity, GenTpcdsQuantity)
+REGISTER_DATASET(TpcdsCustomerSk, GenTpcdsCustomerSk)
+REGISTER_DATASET(TpcdsExtSalesPrice, GenTpcdsExtSalesPrice)
+REGISTER_DATASET(TpcdsNetProfit, GenTpcdsNetProfit)
+REGISTER_DATASET(TpcdsDYear, GenTpcdsDYear)
+// TPC-H datasets
+REGISTER_DATASET(TpchLQuantity, GenTpchLQuantity)
+REGISTER_DATASET(TpchLExtendedPrice, GenTpchLExtendedPrice)
+REGISTER_DATASET(TpchLDiscount, GenTpchLDiscount)
+REGISTER_DATASET(TpchLShipDate, GenTpchLShipDate)
+// NYC taxi datasets
+REGISTER_DATASET(TaxiPickupUnixTime, GenTaxiPickupUnixTime)
+REGISTER_DATASET(TaxiTripDistanceX100, GenTaxiTripDistanceX100)
+REGISTER_DATASET(TaxiFareCents, GenTaxiFareCents)
 
 }  // namespace
 }  // namespace parquet
