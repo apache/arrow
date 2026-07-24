@@ -2726,6 +2726,36 @@ TEST(TestCaseWhen, UnionBoolStringRandom) {
 }
 
 TEST(TestCaseWhen, DispatchExact) {
+  // Matching parameterized types should exact-match.
+  CheckDispatchExact("case_when", {struct_({field("", boolean())}), fixed_size_binary(4),
+                                   fixed_size_binary(4)});
+  CheckDispatchExact("case_when",
+                     {struct_({field("", boolean())}), list(int32()), list(int32())});
+  CheckDispatchExact("case_when",
+                     {struct_({field("", boolean())}), fixed_size_list(int32(), 2),
+                      fixed_size_list(int32(), 2)});
+  CheckDispatchExact("case_when",
+                     {struct_({field("", boolean())}), dictionary(int8(), utf8()),
+                      dictionary(int8(), utf8())});
+
+  // Mismatched parameterized types should not exact-match.
+  CheckDispatchExactFails("case_when", {struct_({field("", boolean())}),
+                                        fixed_size_binary(4), fixed_size_binary(5)});
+  CheckDispatchExactFails(
+      "case_when", {struct_({field("", boolean())}), list(int16()), list(int32())});
+  CheckDispatchExactFails("case_when",
+                          {struct_({field("", boolean())}), fixed_size_list(int32(), 2),
+                           fixed_size_list(int32(), 3)});
+  CheckDispatchExactFails(
+      "case_when", {struct_({field("", boolean())}), struct_({field("a", int32())}),
+                    struct_({field("a", int64())})});
+  CheckDispatchExactFails("case_when",
+                          {struct_({field("", boolean())}), dictionary(int8(), utf8()),
+                           dictionary(int8(), large_utf8())});
+  CheckDispatchExactFails("case_when",
+                          {struct_({field("", boolean())}), dictionary(int8(), utf8()),
+                           dictionary(int16(), utf8())});
+
   // Decimal types with same (p, s)
   CheckDispatchExact("case_when", {struct_({field("", boolean())}), decimal128(20, 3),
                                    decimal128(20, 3)});
@@ -2823,6 +2853,28 @@ TEST(TestCaseWhen, DispatchBest) {
       "case_when",
       {struct_({field("", boolean())}), decimal256(20, 3), decimal256(21, 1)},
       {struct_({field("", boolean())}), decimal256(23, 3), decimal256(23, 3)});
+}
+
+TEST(TestCaseWhen, ParameterizedValueTypeMismatch) {
+  auto cond = MakeStruct({ArrayFromJSON(boolean(), "[true]")});
+
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("case_when", {cond, ArrayFromJSON(fixed_size_binary(4), R"(["abcd"])"),
+                                 ArrayFromJSON(fixed_size_binary(5), R"(["efghi"])")}));
+  ASSERT_RAISES(NotImplemented,
+                CallFunction("case_when", {cond, ArrayFromJSON(list(int16()), "[[1, 2]]"),
+                                           ArrayFromJSON(list(int32()), "[[3, 4]]")}));
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("case_when",
+                   {cond, ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2]]"),
+                    ArrayFromJSON(fixed_size_list(int32(), 3), "[[3, 4, 5]]")}));
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("case_when",
+                   {cond, ArrayFromJSON(struct_({field("a", int32())}), R"([{"a": 1}])"),
+                    ArrayFromJSON(struct_({field("a", int64())}), R"([{"a": 2}])")}));
 }
 
 template <typename Type>
