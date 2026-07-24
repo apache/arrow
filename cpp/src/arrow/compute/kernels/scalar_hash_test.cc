@@ -855,6 +855,16 @@ TEST_F(TestScalarHash, UnsupportedTypes) {
   }
 }
 
+// HashableMatcher only saw the top-level EXTENSION type id, so an extension wrapping
+// an unsupported storage type (e.g. binary_view) passed dispatch and only failed
+// later with a raw TypeError from ToColumnArray instead of a clean NotImplemented.
+TEST_F(TestScalarHash, UnsupportedExtensionStorageType) {
+  auto storage = ArrayFromJSON(binary_view(), R"(["a", "b"])");
+  auto extension = ExtensionType::WrapArray(binary_view_extension_type(), storage);
+  ASSERT_RAISES(NotImplemented, CallFunction("hash32", {extension}));
+  ASSERT_RAISES(NotImplemented, CallFunction("hash64", {extension}));
+}
+
 // copied from cpp/src/arrow/util/hashing_test.cc
 template <typename Integer>
 static std::unordered_set<Integer> MakeSequentialIntegers(int32_t n_values) {
