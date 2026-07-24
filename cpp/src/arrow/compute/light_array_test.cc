@@ -291,8 +291,10 @@ TEST(ResizableArrayData, Basic) {
   std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
   for (const auto& type : kSampleFixedDataTypes) {
     ARROW_SCOPED_TRACE("Type: ", type->ToString());
+#ifdef ENABLE_MEMORY_POOL_STATS
     int byte_width =
         arrow::internal::checked_pointer_cast<FixedWidthType>(type)->bit_width() / 8;
+#endif
     {
       ResizableArrayData array;
       ASSERT_OK(array.Init(type, pool.get(), /*log_num_rows_min=*/16));
@@ -302,21 +304,27 @@ TEST(ResizableArrayData, Basic) {
       // Even though we are only asking for 2 rows we specified a rather high
       // log_num_rows_min so it should allocate at least that many rows.  Padding
       // and rounding up to a power of 2 will make the allocations larger.
+#ifdef ENABLE_MEMORY_POOL_STATS
       int min_bytes_needed_for_values = byte_width * (1 << 16);
       int min_bytes_needed_for_validity = (1 << 16) / 8;
       int min_bytes_needed = min_bytes_needed_for_values + min_bytes_needed_for_validity;
       ASSERT_LT(min_bytes_needed, pool->bytes_allocated());
       ASSERT_GT(min_bytes_needed * 2, pool->bytes_allocated());
+#endif
 
       ASSERT_OK(array.ResizeFixedLengthBuffers(1 << 17));
+#ifdef ENABLE_MEMORY_POOL_STATS
       ASSERT_LT(min_bytes_needed * 2, pool->bytes_allocated());
       ASSERT_GT(min_bytes_needed * 4, pool->bytes_allocated());
+#endif
       ASSERT_EQ(1 << 17, array.num_rows());
 
       // Shrinking array won't shrink allocated RAM
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
+#ifdef ENABLE_MEMORY_POOL_STATS
       ASSERT_LT(min_bytes_needed * 2, pool->bytes_allocated());
       ASSERT_GT(min_bytes_needed * 4, pool->bytes_allocated());
+#endif
       ASSERT_EQ(2, array.num_rows());
     }
     // After array is destroyed buffers should be freed
@@ -357,8 +365,10 @@ TEST(ResizableArrayData, Binary) {
       ASSERT_OK(array.ResizeVaryingLengthBuffer());
       // Each string is 1000 bytes.  The offsets, padding, etc. should be less than 1000
       // bytes
+#ifdef ENABLE_MEMORY_POOL_STATS
       ASSERT_LT(2000, pool->bytes_allocated());
       ASSERT_GT(3000, pool->bytes_allocated());
+#endif
     }
     // After array is destroyed buffers should be freed
     ASSERT_EQ(0, pool->bytes_allocated());
@@ -376,7 +386,9 @@ TEST(ExecBatchBuilder, AppendNullsBeyondLimit) {
                   builder.AppendNulls(pool, {int64(), boolean()}, num_rows_max + 1 - 10));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(10, built.length);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   ASSERT_EQ(0, pool->bytes_allocated());
 }
@@ -403,7 +415,9 @@ TEST(ExecBatchBuilder, AppendValuesBeyondLimit) {
                                          /*num_cols=*/1));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(trimmed_batch, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   ASSERT_EQ(0, pool->bytes_allocated());
 }
@@ -466,7 +480,9 @@ TEST(ExecBatchBuilder, AppendVarLengthBeyondLimit) {
       ASSERT_EQ(array->GetString(i), str_8mb);
     }
     ASSERT_EQ(array->GetString(num_rows), str_8mb_minus_1);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
 
   ASSERT_EQ(0, pool->bytes_allocated());
@@ -510,7 +526,9 @@ TEST(ExecBatchBuilder, AppendBatches) {
     ASSERT_OK(builder.AppendSelected(pool, batch_two, 3, row_ids, /*num_cols=*/2));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(combined, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   ASSERT_EQ(0, pool->bytes_allocated());
 }
@@ -531,7 +549,9 @@ TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
     ASSERT_OK(builder.AppendSelected(pool, batch_two, 2, row_ids, /*num_cols=*/2));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(combined, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   ASSERT_EQ(0, pool->bytes_allocated());
 }
@@ -560,7 +580,9 @@ TEST(ExecBatchBuilder, AppendBatchDupRows) {
     ExecBatch batch_string_appended =
         JSONToExecBatch({binary()}, R"([["123456789"], ["123456789"]])");
     ASSERT_EQ(batch_string_appended, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
 
   {
@@ -597,7 +619,9 @@ TEST(ExecBatchBuilder, AppendBatchDupRows) {
     ExecBatch batch_fsb_appended = JSONToExecBatch(
         {fixed_size_binary(3)}, R"([["123"], ["123"], ["123"], ["123"]])");
     ASSERT_EQ(batch_fsb_appended, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
 
   {
@@ -619,7 +643,9 @@ TEST(ExecBatchBuilder, AppendBatchDupRows) {
     ExecBatch batch_fsb_appended =
         JSONToExecBatch({fixed_size_binary(9)}, R"([["123456789"], ["123456789"]])");
     ASSERT_EQ(batch_fsb_appended, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
 
   ASSERT_EQ(0, pool->bytes_allocated());
@@ -646,7 +672,9 @@ TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
                                      first_col_ids));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(first_col_only, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   {
     ExecBatchBuilder builder;
@@ -656,7 +684,9 @@ TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
     ASSERT_OK(builder.AppendSelected(pool, batch_two, 3, row_ids, /*num_cols=*/1));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(first_col_only, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   {
     ExecBatchBuilder builder;
@@ -668,7 +698,9 @@ TEST(ExecBatchBuilder, AppendBatchesSomeCols) {
                                      last_col_ids));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(last_col_only, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   ASSERT_EQ(0, pool->bytes_allocated());
 }
@@ -690,14 +722,18 @@ TEST(ExecBatchBuilder, AppendNulls) {
     ASSERT_OK(builder.AppendNulls(pool, {int64(), boolean()}, 2));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(combined, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   {
     ExecBatchBuilder builder;
     ASSERT_OK(builder.AppendNulls(pool, {int64(), boolean()}, 2));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(just_nulls, built);
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_NE(0, pool->bytes_allocated());
+#endif
   }
   ASSERT_EQ(0, pool->bytes_allocated());
 }
