@@ -47,44 +47,37 @@ namespace pfor {
 /// For INT32 (7 bytes): [frame_of_reference(4B)] [bit_width(1B)] [num_exceptions(2B)]
 /// For INT64 (11 bytes): [frame_of_reference(8B)] [bit_width(1B)] [num_exceptions(2B)]
 ///
-/// The bit_width byte packs two fields:
-///   bits 0..5 — the actual bit width (range 0..32, fits in 6 bits)
-///   bits 6..7 — packing mode (0 = BitPack, 1 = FastLanes, 2 = FastLanesOrdered)
-/// Legacy encoders (which only wrote the bit width) produce vectors with the
-/// high bits clear, so they round-trip through the new Load as BitPack.
+/// The bit_width byte stores the actual bit width in bits 0..5 (range 0..64,
+/// masked to 6 bits); bits 6..7 are reserved (always written as 0 and ignored
+/// on load), leaving room for a future packing-mode field without changing the
+/// layout of existing buffers.
 template <typename T>
 class PforVectorInfo {
  public:
   static constexpr uint8_t kBitWidthMask = 0x3F;
-  static constexpr uint8_t kPackingModeShift = 6;  // mode occupies bits 6-7
 
   PforVectorInfo() = default;
-  PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions,
-                 PackingMode packing_mode = PackingMode::BitPack)
+  PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions)
       : frame_of_reference_(frame_of_reference),
         bit_width_(bit_width),
-        num_exceptions_(num_exceptions),
-        packing_mode_(packing_mode) {}
+        num_exceptions_(num_exceptions) {}
 
   T frame_of_reference() const { return frame_of_reference_; }
   uint8_t bit_width() const { return bit_width_; }
   int16_t num_exceptions() const { return num_exceptions_; }
-  PackingMode packing_mode() const { return packing_mode_; }
 
   void set_frame_of_reference(T frame_of_reference) {
     frame_of_reference_ = frame_of_reference;
   }
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
   void set_num_exceptions(int16_t num_exceptions) { num_exceptions_ = num_exceptions; }
-  void set_packing_mode(PackingMode mode) { packing_mode_ = mode; }
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(std::span<uint8_t> dest) const {
     uint8_t* ptr = dest.data();
     util::SafeStore(ptr, frame_of_reference_);
-    ptr[sizeof(T)] = static_cast<uint8_t>(
-        (bit_width_ & kBitWidthMask) |
-        (static_cast<uint8_t>(packing_mode_) << kPackingModeShift));
+    // bits 0..5 = bit width; bits 6..7 reserved (0).
+    ptr[sizeof(T)] = static_cast<uint8_t>(bit_width_ & kBitWidthMask);
     util::SafeStore(ptr + sizeof(T) + 1, num_exceptions_);
   }
 
@@ -97,10 +90,8 @@ class PforVectorInfo {
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
     info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
-    const uint8_t packed_bw = ptr[sizeof(T)];
-    info.bit_width_ = static_cast<uint8_t>(packed_bw & kBitWidthMask);
-    info.packing_mode_ =
-        static_cast<PackingMode>((packed_bw >> kPackingModeShift) & 0x3);
+    // Mask off the reserved high bits (6..7).
+    info.bit_width_ = static_cast<uint8_t>(ptr[sizeof(T)] & kBitWidthMask);
     info.num_exceptions_ = util::SafeLoadAs<int16_t>(ptr + sizeof(T) + 1);
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
       return Status::Invalid("PFOR bit_width out of range: ",
@@ -120,7 +111,6 @@ class PforVectorInfo {
   T frame_of_reference_ = 0;
   uint8_t bit_width_ = 0;
   int16_t num_exceptions_ = 0;
-  PackingMode packing_mode_ = PackingMode::BitPack;
 };
 
 // ----------------------------------------------------------------------
@@ -240,28 +230,17 @@ class PforCompression {
   ///
   /// \param[in] values input integer values
   /// \param[in] num_elements number of elements (up to vector_size)
-  /// \param[in] mode bit-packing layout for the payload. PackingMode::FastLanes
-  ///            requires num_elements == kPforVectorSize (1024); otherwise
-  ///            falls back to PackingMode::BitPack for this vector. 64-bit
-  ///            types always fall back to BitPack (FastLanes is u32-only).
   /// \return the encoded vector with all sections
-  static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements,
-                                           PackingMode mode = PackingMode::BitPack);
+  static PforEncodedVector<T> EncodeVector(const T* values, int32_t num_elements);
 
   /// \brief Decode a single vector from compressed data
   ///
   /// \param[out] values output buffer for decoded integers
   /// \param[in] data span over the compressed vector data
   /// \param[in] num_elements number of elements in this vector
-  /// \param[in] order output value order. Default OutputOrder::Flat returns
-  ///            values in their original input positions. OutputOrder::
-  ///            Transposed only affects FastLanes-encoded vectors (skips the
-  ///            FL_ORDER gather on decode); BitPack vectors always return
-  ///            flat output regardless of `order`.
   /// \return number of bytes consumed from data, or error
   static Result<int64_t> DecodeVector(T* values, std::span<const uint8_t> data,
-                                      int32_t num_elements,
-                                      OutputOrder order = OutputOrder::Flat);
+                                      int32_t num_elements);
 
   /// \brief Calculate the serialized size of an encoded vector
   static int64_t SerializedVectorSize(const PforEncodedVector<T>& vec,

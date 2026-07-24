@@ -91,7 +91,7 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
 
 template <typename T>
 void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
-                            uint8_t* comp, int64_t* comp_size, PackingMode mode) {
+                            uint8_t* comp, int64_t* comp_size) {
   ARROW_DCHECK(num_values > 0);
   ARROW_DCHECK(comp != nullptr);
   ARROW_DCHECK(comp_size != nullptr);
@@ -135,7 +135,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
     // Encode vector (EncodeVector itself falls back to BitPack for partial
     // tails or 64-bit T, so it's safe to pass `mode` unconditionally).
     auto encoded = PforCompression<T>::EncodeVector(
-        values + start_idx, elements_in_vector, mode);
+        values + start_idx, elements_in_vector);
 
     // Serialize to output
     int64_t bytes_written = PforCompression<T>::SerializeVector(
@@ -149,8 +149,8 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
 
 template <typename T>
 void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
-                            int64_t* comp_size, PackingMode mode) {
-  Encode(values, num_values, kVectorSize, comp, comp_size, mode);
+                            int64_t* comp_size) {
+  Encode(values, num_values, kVectorSize, comp, comp_size);
 }
 
 // ----------------------------------------------------------------------
@@ -158,7 +158,7 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
 
 template <typename T>
 Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp,
-                              int64_t comp_size, OutputOrder order) {
+                              int64_t comp_size) {
   if (num_values <= 0) {
     return Status::Invalid("PFOR num_values must be positive: ", num_values);
   }
@@ -194,7 +194,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
     ARROW_RETURN_NOT_OK(PforCompression<T>::DecodeVector(
         values + start_idx,
         std::span<const uint8_t>(vector_data, src + comp_size - vector_data),
-        elements_in_vector, order));
+        elements_in_vector));
   }
 
   return Status::OK();

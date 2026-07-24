@@ -50,17 +50,12 @@ class PforWrapper {
   ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
   /// \param[out] comp pointer to output buffer (caller must ensure sufficient size)
   /// \param[in,out] comp_size input: available buffer size; output: bytes written
-  /// \param[in] mode per-vector bit-packing layout. PackingMode::FastLanes is
-  ///            applied only to full-size 32-bit vectors; tails and 64-bit
-  ///            values fall back to PackingMode::BitPack per vector.
   static void Encode(const T* values, int32_t num_values, int32_t vector_size,
-                     uint8_t* comp, int64_t* comp_size,
-                     PackingMode mode = PackingMode::BitPack);
+                     uint8_t* comp, int64_t* comp_size);
 
   /// Convenience overload with default vector_size = kPforVectorSize
   static void Encode(const T* values, int32_t num_values, uint8_t* comp,
-                     int64_t* comp_size,
-                     PackingMode mode = PackingMode::BitPack);
+                     int64_t* comp_size);
 
   /// \brief Decode a PFOR-compressed page
   ///
@@ -68,17 +63,9 @@ class PforWrapper {
   /// \param[in] num_values number of values to decode (from page context)
   /// \param[in] comp pointer to compressed data
   /// \param[in] comp_size size of compressed data
-  /// \param[in] order output value order. Default OutputOrder::Flat returns
-  ///            values in their original input positions. OutputOrder::
-  ///            Transposed only affects FastLanes-encoded vectors (skips
-  ///            their FL_ORDER gather on decode); BitPack vectors always
-  ///            produce flat output regardless of `order`, so a mixed page
-  ///            will have BitPack tails in flat order and FastLanes vectors
-  ///            in transposed order.
   /// \return Status::OK on success, or an error if the data is malformed
   static Status Decode(T* values, int32_t num_values, const uint8_t* comp,
-                       int64_t comp_size,
-                       OutputOrder order = OutputOrder::Flat);
+                       int64_t comp_size);
 
   /// \brief Get the maximum compressed size for a given number of values
   ///

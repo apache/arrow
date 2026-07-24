@@ -35,7 +35,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/fastlanes/fastlanes_kernels.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
@@ -101,56 +100,12 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   return {best_bit_width, best_num_exceptions};
 }
 
-namespace {
-
-// Dispatch by runtime bit_width into the templated FastLanes pack/unpack
-// kernels. Only used when use_fastlanes && num_elements == kPforVectorSize
-// (the FastLanes block size matches PFOR's vector size of 1024).
-inline void FastLanesPackBlockDispatch(uint8_t bit_width, const uint32_t* in,
-                                       uint32_t* out) {
-  switch (bit_width) {
-#define CASE_W(N) \
-  case N:         \
-    fastlanes::PackBlock<N>(in, out); \
-    break
-    CASE_W(1);  CASE_W(2);  CASE_W(3);  CASE_W(4);  CASE_W(5);  CASE_W(6);
-    CASE_W(7);  CASE_W(8);  CASE_W(9);  CASE_W(10); CASE_W(11); CASE_W(12);
-    CASE_W(13); CASE_W(14); CASE_W(15); CASE_W(16); CASE_W(17); CASE_W(18);
-    CASE_W(19); CASE_W(20); CASE_W(21); CASE_W(22); CASE_W(23); CASE_W(24);
-    CASE_W(25); CASE_W(26); CASE_W(27); CASE_W(28); CASE_W(29); CASE_W(30);
-    CASE_W(31); CASE_W(32);
-#undef CASE_W
-    default: break;
-  }
-}
-
-inline void FastLanesUnpackBlockDispatch(uint8_t bit_width, const uint32_t* packed,
-                                          uint32_t* out) {
-  switch (bit_width) {
-#define CASE_W(N) \
-  case N:         \
-    fastlanes::UnpackBlock<N>(packed, out); \
-    break
-    CASE_W(1);  CASE_W(2);  CASE_W(3);  CASE_W(4);  CASE_W(5);  CASE_W(6);
-    CASE_W(7);  CASE_W(8);  CASE_W(9);  CASE_W(10); CASE_W(11); CASE_W(12);
-    CASE_W(13); CASE_W(14); CASE_W(15); CASE_W(16); CASE_W(17); CASE_W(18);
-    CASE_W(19); CASE_W(20); CASE_W(21); CASE_W(22); CASE_W(23); CASE_W(24);
-    CASE_W(25); CASE_W(26); CASE_W(27); CASE_W(28); CASE_W(29); CASE_W(30);
-    CASE_W(31); CASE_W(32);
-#undef CASE_W
-    default: break;
-  }
-}
-
-}  // namespace
-
 // ----------------------------------------------------------------------
 // EncodeVector
 
 template <typename T>
 PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
-                                                      int32_t num_elements,
-                                                      PackingMode mode) {
+                                                      int32_t num_elements) {
   ARROW_DCHECK(num_elements > 0);
 
   // Step 1: Find min (frame of reference)
@@ -177,18 +132,9 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
   // Step 3: Find optimal bit width
   auto [bit_width, num_exceptions] = FindOptimalBitWidth(deltas, num_elements);
 
-  // FastLanes (either variant) only applies when the vector matches the
-  // FastLanes block size (1024) and the type is 32-bit. For shorter tails or
-  // 64-bit values, fall back to PackingMode::BitPack.
-  const bool fastlanes_ok =
-      (mode == PackingMode::FastLanes || mode == PackingMode::FastLanesOrdered) &&
-      num_elements == static_cast<int32_t>(fastlanes::kBlockSize) && sizeof(T) == 4;
-  const PackingMode effective_mode = fastlanes_ok ? mode : PackingMode::BitPack;
-
   // Step 4: Collect exceptions and replace with placeholder (0)
   PforEncodedVector<T> result;
-  result.set_info(
-      PforVectorInfo<T>(min_val, bit_width, num_exceptions, effective_mode));
+  result.set_info(PforVectorInfo<T>(min_val, bit_width, num_exceptions));
 
   if (num_exceptions > 0) {
     result.mutable_exception_positions().reserve(num_exceptions);
@@ -213,34 +159,12 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
         bit_util::BytesForBits(static_cast<int64_t>(num_elements) * bit_width);
     result.mutable_packed_values().resize(static_cast<size_t>(packed_size), 0);
 
-    if (effective_mode == PackingMode::FastLanes ||
-        effective_mode == PackingMode::FastLanesOrdered) {
-      // Both variants pack with FastLanes' lane-interleaved kernel (payload is
-      // exactly 128 * bit_width bytes, same as the BitPack size). The only
-      // difference is value placement: FastLanes applies the FL_ORDER reorder
-      // (gather deltas[fromTransposed32(t)]); FastLanesOrdered keeps original
-      // order (no gather), so decode returns flat output with no inverse gather.
-      alignas(64) uint32_t block[fastlanes::kBlockSize];
-      if (effective_mode == PackingMode::FastLanes) {
-        for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
-          block[t] = static_cast<uint32_t>(deltas[fastlanes::fromTransposed32(t)]);
-        }
-      } else {
-        for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
-          block[i] = static_cast<uint32_t>(deltas[i]);
-        }
-      }
-      FastLanesPackBlockDispatch(
-          bit_width, block,
-          reinterpret_cast<uint32_t*>(result.mutable_packed_values().data()));
-    } else {
-      bit_util::BitWriter writer(result.mutable_packed_values().data(),
-                                 static_cast<int>(packed_size));
-      for (int32_t i = 0; i < num_elements; ++i) {
-        writer.PutValue(static_cast<uint64_t>(deltas[i]), bit_width);
-      }
-      writer.Flush();
+    bit_util::BitWriter writer(result.mutable_packed_values().data(),
+                               static_cast<int>(packed_size));
+    for (int32_t i = 0; i < num_elements; ++i) {
+      writer.PutValue(static_cast<uint64_t>(deltas[i]), bit_width);
     }
+    writer.Flush();
   }
 
   return result;
@@ -252,18 +176,10 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 template <typename T>
 Result<int64_t> PforCompression<T>::DecodeVector(T* values,
                                                   std::span<const uint8_t> data,
-                                                  int32_t num_elements,
-                                                  OutputOrder order) {
+                                                  int32_t num_elements) {
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
-
-  // OutputOrder::Transposed is only meaningful for FastLanes-encoded vectors.
-  // BitPack vectors have no transposition to skip, so they always emit flat
-  // output regardless of `order`.
-  const bool emit_transposed =
-      (order == OutputOrder::Transposed) &&
-      (info.packing_mode() == PackingMode::FastLanes);
 
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width() == 0 && info.num_exceptions() == 0) {
@@ -275,44 +191,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
   if (info.bit_width() > 0) {
     const auto unsigned_for = static_cast<UnsignedT>(info.frame_of_reference());
 
-    const PackingMode mode = info.packing_mode();
-    if (mode == PackingMode::FastLanes || mode == PackingMode::FastLanesOrdered) {
-      // FastLanes-packed payload: 128 * bit_width bytes per 1024-block.
-      // Unpack into lane-interleaved scratch.
-      ARROW_DCHECK(num_elements ==
-                   static_cast<int32_t>(fastlanes::kBlockSize));
-      alignas(64) uint32_t scratch[fastlanes::kBlockSize];
-      FastLanesUnpackBlockDispatch(
-          info.bit_width(),
-          reinterpret_cast<const uint32_t*>(read_ptr), scratch);
-
-      if (mode == PackingMode::FastLanesOrdered) {
-        // No FL_ORDER reorder was applied at encode: scratch[i] is already the
-        // delta for original position i. Sequential read + sequential write,
-        // flat (in-order) output at full unpack speed — no gather either side.
-        for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
-          values[i] = util::SafeCopy<T>(
-              static_cast<UnsignedT>(scratch[i]) + unsigned_for);
-        }
-      } else if (emit_transposed) {
-        // FastLanes, transposed output: write `values[t] = scratch[t] + FOR`
-        // sequentially. Output is in FastLanes stream order, i.e. values[t]
-        // corresponds to the original input at fromTransposed32(t).
-        for (size_t t = 0; t < fastlanes::kBlockSize; ++t) {
-          values[t] = util::SafeCopy<T>(
-              static_cast<UnsignedT>(scratch[t]) + unsigned_for);
-        }
-      } else {
-        // FastLanes, flat output: fused FL_ORDER inverse + FOR-add. The gather
-        // index is toTransposed32(i) (inverse of the encode-side gather). This
-        // gather is what FastLanesOrdered avoids.
-        for (size_t i = 0; i < fastlanes::kBlockSize; ++i) {
-          const UnsignedT v =
-              static_cast<UnsignedT>(scratch[fastlanes::toTransposed32(i)]);
-          values[i] = util::SafeCopy<T>(v + unsigned_for);
-        }
-      }
-    } else if (unsigned_for == 0) {
+    if (unsigned_for == 0) {
       // FOR is zero: there is no bias to add, so unpack straight into the
       // output. T and UnsignedT are the same width, so the unsigned bits the
       // unpacker writes ARE the signed values — no scratch buffer and no
@@ -372,8 +251,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
     std::fill(values, values + num_elements, info.frame_of_reference());
   }
 
-  // Step 4: Patch exceptions (stored as original values at FLAT positions).
-  // When emitting transposed output, redirect each patch to toTransposed32(pos).
+  // Step 4: Patch exceptions (stored as original values at their positions).
   const int16_t num_exceptions = info.num_exceptions();
   if (num_exceptions > 0) {
     const uint8_t* positions_ptr = read_ptr;
@@ -387,10 +265,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
     for (int16_t i = 0; i < num_exceptions; ++i) {
       int16_t pos = util::SafeLoadAs<int16_t>(positions_ptr + i * sizeof(int16_t));
       T value = util::SafeLoadAs<T>(values_ptr + i * sizeof(T));
-      const size_t out_pos =
-          emit_transposed ? fastlanes::toTransposed32(static_cast<size_t>(pos))
-                          : static_cast<size_t>(pos);
-      values[out_pos] = value;
+      values[static_cast<size_t>(pos)] = value;
     }
   }
 
