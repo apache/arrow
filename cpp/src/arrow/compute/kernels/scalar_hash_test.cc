@@ -453,9 +453,15 @@ TEST_F(TestScalarHash, RandomPrimitive) {
         CheckPrimitive("hash32", arr);
         CheckPrimitive("hash64", arr);
         if (type->bit_width() >= 16) {
-          // the generated arrays contain unique values at the given lengths
-          CheckHashQuality("hash32", arr, 0.98);
-          CheckHashQuality("hash64", arr, 0.98);
+          // The generated arrays are usually all-unique at these lengths, but
+          // RandomArrayGenerator's std::uniform_int_distribution is platform-defined
+          // (not just seed-defined), so an occasional incidental duplicate value --
+          // and thus a duplicate hash, correctly -- is expected on some platforms
+          // (e.g. MinGW). A tighter tolerance would make this test flaky rather than
+          // meaningful; HashQuality below already covers hash quality rigorously
+          // using inputs that are unique by construction.
+          CheckHashQuality("hash32", arr, 0.9);
+          CheckHashQuality("hash64", arr, 0.9);
         }
       }
     }
