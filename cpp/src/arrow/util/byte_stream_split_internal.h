@@ -286,10 +286,30 @@ void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
   }
 }
 
-#  if defined(ARROW_HAVE_RUNTIME_AVX2)
-
 // The extern template declaration are used internally and need export
 // to be used in tests and benchmarks.
+
+#  if defined(ARROW_HAVE_RUNTIME_SSE4_2) && !defined(ARROW_HAVE_SSE4_2)
+
+// instantiated in byte_stream_split_internal_sse4_2.cc
+
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::sse4_2, 2>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::sse4_2, 4>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::sse4_2, 8>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimd<xsimd::sse4_2, 2>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimd<xsimd::sse4_2, 4>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimd<xsimd::sse4_2, 8>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+
+#  endif
+
+#  if defined(ARROW_HAVE_RUNTIME_AVX2)
 
 extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::avx2, 2>(
     const uint8_t*, int, int64_t, int64_t, uint8_t*);
