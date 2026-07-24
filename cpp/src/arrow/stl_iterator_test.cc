@@ -248,6 +248,68 @@ TEST(ArrayIterator, StdMerge) {
   ASSERT_EQ(values, expected);
 }
 
+// Custom ValueAccessor for DictionaryArray that decodes values
+struct TestDictionaryValueAccessor {
+  using ValueType = std::string_view;
+
+  inline ValueType operator()(const DictionaryArray& array, int64_t index) const {
+    // Get the dictionary index for this position
+    int64_t dict_index = array.GetValueIndex(index);
+
+    // Get the dictionary and cast it to StringArray
+    auto dict = checked_pointer_cast<StringArray>(array.dictionary());
+
+    // Return the decoded string value
+    return dict->GetView(dict_index);
+  }
+};
+
+TEST(ArrayIterator, CustomValueAccessorDictionary) {
+  // Create a dictionary array with string values
+  auto dict = ArrayFromJSON(utf8(), R"(["apple", "banana", "cherry", "date"])");
+  auto indices = ArrayFromJSON(int32(), "[0, 1, 2, 3, 2, 1, 0, null, 3]");
+
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_array = std::make_shared<DictionaryArray>(dict_type, indices, dict);
+
+  // Use custom accessor to iterate over decoded values
+  ArrayIterator<DictionaryArray, TestDictionaryValueAccessor> it(*dict_array);
+
+  // Test basic access
+  ASSERT_EQ(*it, "apple");
+  ASSERT_EQ(it[1], "banana");
+  ASSERT_EQ(it[2], "cherry");
+  ASSERT_EQ(it[3], "date");
+  ASSERT_EQ(it[4], "cherry");
+  ASSERT_EQ(it[5], "banana");
+  ASSERT_EQ(it[6], "apple");
+  ASSERT_EQ(it[7], nullopt);  // null index
+  ASSERT_EQ(it[8], "date");
+
+  // Test iteration
+  std::vector<optional<std::string_view>> values;
+  for (auto end = it + 9; it != end; ++it) {
+    values.push_back(*it);
+  }
+
+  std::vector<optional<std::string_view>> expected{
+      "apple", "banana", "cherry", "date", "cherry", "banana", "apple", nullopt, "date"};
+  ASSERT_EQ(values, expected);
+
+  // Test with algorithms - find a specific value
+  ArrayIterator<DictionaryArray, TestDictionaryValueAccessor> begin(*dict_array);
+  ArrayIterator<DictionaryArray, TestDictionaryValueAccessor> end(*dict_array,
+                                                                  dict_array->length());
+
+  auto found = std::find(begin, end, "cherry");
+  ASSERT_NE(found, end);
+  ASSERT_EQ(found.index(), 2);  // First occurrence of "cherry"
+
+  // Count occurrences of "banana"
+  auto count = std::count(begin, end, "banana");
+  ASSERT_EQ(count, 2);
+}
+
 TEST(ChunkedArrayIterator, Basics) {
   auto result = ChunkedArrayFromJSON(int32(), {R"([4, 5, null])", R"([6])"});
   auto it = Begin<Int32Type>(*result);
@@ -543,6 +605,177 @@ TEST(ChunkedArrayIterator, ForEachIterator) {
     }
   }
   ASSERT_EQ(values, expected);
+}
+
+TEST(ChunkedArrayIterator, CustomValueAccessorDictionary) {
+  // Create multiple dictionary arrays with the same dictionary
+  auto dict = ArrayFromJSON(utf8(), R"(["red", "green", "blue", "yellow"])");
+
+  auto indices1 = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto indices2 = ArrayFromJSON(int32(), "[3, 2, null]");
+  auto indices3 = ArrayFromJSON(int32(), "[1, 0, 3, 2]");
+
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_array1 = std::make_shared<DictionaryArray>(dict_type, indices1, dict);
+  auto dict_array2 = std::make_shared<DictionaryArray>(dict_type, indices2, dict);
+  auto dict_array3 = std::make_shared<DictionaryArray>(dict_type, indices3, dict);
+
+  // Create chunked array from dictionary arrays
+  auto chunked_array = std::make_shared<ChunkedArray>(
+      std::vector<std::shared_ptr<Array>>{dict_array1, dict_array2, dict_array3},
+      dict_type);
+
+  // Use custom accessor to iterate over decoded values across chunks
+  auto it =
+      Begin<DictionaryType, DictionaryArray, TestDictionaryValueAccessor>(*chunked_array);
+  auto end =
+      End<DictionaryType, DictionaryArray, TestDictionaryValueAccessor>(*chunked_array);
+
+  // Test sequential access across chunks
+  ASSERT_EQ(*it, "red");           // chunk 0, index 0
+  ASSERT_EQ(*(it + 1), "green");   // chunk 0, index 1
+  ASSERT_EQ(*(it + 2), "blue");    // chunk 0, index 2
+  ASSERT_EQ(*(it + 3), "yellow");  // chunk 1, index 0
+  ASSERT_EQ(*(it + 4), "blue");    // chunk 1, index 1
+  ASSERT_EQ(*(it + 5), nullopt);   // chunk 1, index 2 (null)
+  ASSERT_EQ(*(it + 6), "green");   // chunk 2, index 0
+  ASSERT_EQ(*(it + 7), "red");     // chunk 2, index 1
+  ASSERT_EQ(*(it + 8), "yellow");  // chunk 2, index 2
+  ASSERT_EQ(*(it + 9), "blue");    // chunk 2, index 3
+
+  // Collect all values
+  std::vector<optional<std::string_view>> values;
+
+  for (auto elem : Iterate<DictionaryType, DictionaryArray, TestDictionaryValueAccessor>(
+           *chunked_array)) {
+    values.push_back(elem);
+  }
+
+  std::vector<optional<std::string_view>> expected{"red",    "green", "blue",  "yellow",
+                                                   "blue",   nullopt, "green", "red",
+                                                   "yellow", "blue"};
+  ASSERT_EQ(values, expected);
+
+  // Test with algorithms - count occurrences of "blue"
+  auto count = std::count(it, end, "blue");
+  ASSERT_EQ(count, 3);
+
+  // Find first occurrence of "yellow"
+  auto found = std::find(it, end, "yellow");
+  ASSERT_NE(found, end);
+  ASSERT_EQ(found.index(), 3);
+}
+
+TEST(ChunkedArrayIterator, CustomValueAccessorDeducedType) {
+  // Create multiple dictionary arrays with the same dictionary
+  auto dict = ArrayFromJSON(utf8(), R"(["alpha", "beta", "gamma", "delta"])");
+
+  auto indices1 = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto indices2 = ArrayFromJSON(int32(), "[3, 2, null]");
+  auto indices3 = ArrayFromJSON(int32(), "[1, 0, 2]");
+
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_array1 = std::make_shared<DictionaryArray>(dict_type, indices1, dict);
+  auto dict_array2 = std::make_shared<DictionaryArray>(dict_type, indices2, dict);
+  auto dict_array3 = std::make_shared<DictionaryArray>(dict_type, indices3, dict);
+
+  // Create chunked array from dictionary arrays
+  auto chunked_array = std::make_shared<ChunkedArray>(
+      std::vector<std::shared_ptr<Array>>{dict_array1, dict_array2, dict_array3},
+      dict_type);
+
+  // Create a simple accessor struct inline
+  // This demonstrates the simplified API where ArrayType is deduced from the accessor
+  struct LocalAccessor {
+    using ValueType = std::string_view;
+
+    ValueType operator()(const DictionaryArray& array, int64_t index) const {
+      int64_t dict_index = array.GetValueIndex(index);
+      const auto& dict = checked_cast<const StringArray&>(*array.dictionary());
+      return dict.GetView(dict_index);
+    }
+  };
+
+  // Test using the simplified Iterate API that deduces ArrayType from the accessor
+  std::vector<optional<std::string_view>> values;
+  for (auto elem : Iterate(*chunked_array, LocalAccessor{})) {
+    values.push_back(elem);
+  }
+
+  std::vector<optional<std::string_view>> expected{
+      "alpha", "beta", "gamma", "delta", "gamma", nullopt, "beta", "alpha", "gamma"};
+  ASSERT_EQ(values, expected);
+
+  // Test that we can use std::find with the iterator
+  auto range = Iterate(*chunked_array, LocalAccessor{});
+  auto it = std::find(range.begin(), range.end(), "delta");
+  ASSERT_NE(it, range.end());
+  ASSERT_EQ(it.index(), 3);
+
+  // Test std::count
+  auto count = std::count(range.begin(), range.end(), "gamma");
+  ASSERT_EQ(count, 3);
+}
+
+TEST(ChunkedArrayIterator, LambdaAccessor) {
+  // Create multiple dictionary arrays with the same dictionary
+  auto dict = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz", "qux"])");
+
+  auto indices1 = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto indices2 = ArrayFromJSON(int32(), "[3, null, 1]");
+  auto indices3 = ArrayFromJSON(int32(), "[2, 0]");
+
+  auto dict_type = dictionary(int32(), utf8());
+  auto dict_array1 = std::make_shared<DictionaryArray>(dict_type, indices1, dict);
+  auto dict_array2 = std::make_shared<DictionaryArray>(dict_type, indices2, dict);
+  auto dict_array3 = std::make_shared<DictionaryArray>(dict_type, indices3, dict);
+
+  // Create chunked array from dictionary arrays
+  auto chunked_array = std::make_shared<ChunkedArray>(
+      std::vector<std::shared_ptr<Array>>{dict_array1, dict_array2, dict_array3},
+      dict_type);
+
+  // Use a lambda as the accessor - demonstrates the simplified lambda API
+  auto accessor = [](const DictionaryArray& array, int64_t index) -> std::string_view {
+    int64_t dict_index = array.GetValueIndex(index);
+    const auto& dict = checked_cast<const StringArray&>(*array.dictionary());
+    return dict.GetView(dict_index);
+  };
+
+  // Test using the simplified Iterate API with lambda
+  std::vector<optional<std::string_view>> values;
+  for (auto elem : Iterate(*chunked_array, accessor)) {
+    values.push_back(elem);
+  }
+
+  std::vector<optional<std::string_view>> expected{"foo",   "bar", "baz", "qux",
+                                                   nullopt, "bar", "baz", "foo"};
+  ASSERT_EQ(values, expected);
+
+  // Test with std::find
+  auto range = Iterate(*chunked_array, accessor);
+  auto found = std::find(range.begin(), range.end(), "qux");
+  ASSERT_NE(found, range.end());
+  ASSERT_EQ(found.index(), 3);
+
+  // Test with std::count
+  auto bar_count = std::count(range.begin(), range.end(), "bar");
+  ASSERT_EQ(bar_count, 2);
+
+  // Test that we can use inline lambda directly in range-for
+  int non_null_count = 0;
+  for (auto elem :
+       Iterate(*chunked_array,
+               [](const DictionaryArray&array, int64_t index) -> std::string_view {
+                 int64_t dict_index = array.GetValueIndex(index);
+                 const auto& dict = checked_cast<const StringArray&>(*array.dictionary());
+                 return dict.GetView(dict_index);
+               })) {
+    if (elem.has_value()) {
+      non_null_count++;
+    }
+  }
+  ASSERT_EQ(non_null_count, 7);  // 8 total - 1 null
 }
 
 }  // namespace stl
