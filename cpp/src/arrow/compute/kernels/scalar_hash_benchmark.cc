@@ -161,6 +161,41 @@ static void Hash64ListInt64(benchmark::State& state) {  // NOLINT non-const refe
   state.SetItemsProcessed(state.iterations() * test_size);
 }
 
+// Hashing a small slice of a much larger list array; child_data isn't sliced by
+// ArrayData::Slice(), so this used to cost proportionally to the whole array.
+static void Hash64ListInt64HeavilySliced(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int64_t total_size = 1000000;
+  constexpr int64_t slice_size = 100;
+  auto test_vals = hashing_rng.ArrayOf(list(int64()), total_size, null_prob);
+  auto sliced = test_vals->Slice(total_size / 2, slice_size);
+
+  while (state.KeepRunning()) {
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {sliced}));
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetItemsProcessed(state.iterations() * slice_size);
+}
+
+// Unlike lists (see Hash64ListInt64HeavilySliced), binary-like arrays scale with the
+// slice, not the underlying array: KeyColumnArray::Slice() narrows the offsets buffer
+// itself, so there's no unsliced "child" to worry about.
+static void Hash64StringHeavilySliced(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int64_t total_size = 1000000;
+  constexpr int64_t slice_size = 100;
+  auto test_vals = hashing_rng.String(total_size, 2, 20, null_prob);
+  auto sliced = test_vals->Slice(total_size / 2, slice_size);
+
+  while (state.KeepRunning()) {
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {sliced}));
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetItemsProcessed(state.iterations() * slice_size);
+}
+
 static void Hash64Map(benchmark::State& state) {  // NOLINT non-const reference
   constexpr int64_t test_size = 10000;
   auto test_keys = hashing_rng.String(test_size, 2, 20, /*null_probability=*/0);
@@ -193,6 +228,8 @@ BENCHMARK(Hash64StructLargeStrings);
 
 BENCHMARK(Hash64Map);
 BENCHMARK(Hash64ListInt64);
+BENCHMARK(Hash64ListInt64HeavilySliced);
+BENCHMARK(Hash64StringHeavilySliced);
 
 }  // namespace internal
 }  // namespace arrow
