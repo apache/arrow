@@ -110,6 +110,25 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)
 endforeach()
 
+if(NOT WIN32)
+  if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(ARROW_FLIGHT_SQL_ODBC_SO "${CMAKE_INSTALL_LIBDIR}")
+  else()
+    set(ARROW_FLIGHT_SQL_ODBC_SO "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+  endif()
+  string(APPEND ARROW_FLIGHT_SQL_ODBC_SO
+         "/$<TARGET_FILE_NAME:arrow_flight_sql_odbc_shared>")
+  # Expand only @...@. $<...> aren't expanded.
+  configure_file("arrow-flight-sql-odbc-template.ini.in"
+                 "arrow-flight-sql-odbc-template.ini.generate.in" @ONLY)
+  # Expand only $<...>.
+  file(GENERATE
+       OUTPUT "$<CONFIG>/arrow-flight-sql-odbc-template.ini"
+       INPUT "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight-sql-odbc-template.ini.generate.in")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/arrow-flight-sql-odbc-template.ini"
+          DESTINATION "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/flight/sql/odbc")
+endif()
+
 # Construct ODBC Windows installer. Only Release installer is supported
 if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 

@@ -16,6 +16,11 @@
 # under the License.
 
 class TestYearMonthIntervalArray < Test::Unit::TestCase
+  def setup
+    @values = [0, nil, 100]
+    @array = ArrowFormat::YearMonthIntervalArray.new(@values)
+  end
+
   sub_test_case("#initialize") do
     def test_no_null
       values = [0, 100]
@@ -50,6 +55,16 @@ class TestYearMonthIntervalArray < Test::Unit::TestCase
       array1 = ArrowFormat::YearMonthIntervalArray.new(values)
       array2 = ArrowFormat::YearMonthIntervalArray.new([0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[2], @array[2])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end

@@ -1044,7 +1044,7 @@ if(ARROW_JSON)
                            json/parser.cc
                            json/reader.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})
-    target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON)
+    target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON arrow::simdjson)
   endforeach()
 else()
   set(ARROW_JSON_TARGET_SHARED)
