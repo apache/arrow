@@ -849,6 +849,49 @@ TEST_F(TestScalarHash, NestedFieldWithOwnOffsetHashesCorrectly) {
   }
 }
 
+// Same idea as ListLikeSliceOfLargerArrayMatchesIndependentArray, but for a nested
+// field within a struct: StructArray::Slice() also doesn't reslice child_data, so a
+// small slice of a struct with a large nested list field must still hash identically
+// to an equivalent, independently-built struct.
+TEST_F(TestScalarHash, StructWithNestedFieldSliceOfLargerArrayMatchesIndependentArray) {
+  constexpr int64_t kTotalRows = 1000;
+  constexpr int64_t kSliceOffset = 137;
+  constexpr int64_t kSliceLength = 10;
+
+  ListBuilder list_builder(default_memory_pool(), std::make_shared<Int32Builder>());
+  auto* values = checked_cast<Int32Builder*>(list_builder.value_builder());
+  for (int64_t row = 0; row < kTotalRows; row++) {
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(values->Append(static_cast<int32_t>(row)));
+    ASSERT_OK(values->Append(static_cast<int32_t>(row + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto large_list, list_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto large_struct,
+                       StructArray::Make({large_list}, {field("f0", list(int32()))}));
+  auto sliced = large_struct->Slice(kSliceOffset, kSliceLength);
+
+  ListBuilder independent_builder(default_memory_pool(),
+                                  std::make_shared<Int32Builder>());
+  auto* independent_values =
+      checked_cast<Int32Builder*>(independent_builder.value_builder());
+  for (int64_t row = kSliceOffset; row < kSliceOffset + kSliceLength; row++) {
+    ASSERT_OK(independent_builder.Append());
+    ASSERT_OK(independent_values->Append(static_cast<int32_t>(row)));
+    ASSERT_OK(independent_values->Append(static_cast<int32_t>(row + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto independent_list, independent_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(
+      auto independent_struct,
+      StructArray::Make({independent_list}, {field("f0", list(int32()))}));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum sliced_result, CallFunction(func, {sliced}));
+    ASSERT_OK_AND_ASSIGN(Datum independent_result,
+                         CallFunction(func, {independent_struct}));
+    AssertDatumsEqual(sliced_result, independent_result);
+  }
+}
+
 // The EXTENSION unwrapping at the top of HashArray should compose with the
 // is_list_like recursion; this combination was otherwise untested (ExtensionType
 // above only wraps a primitive).
