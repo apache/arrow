@@ -461,7 +461,10 @@ jobs:
             -GNinja ^
             -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
 
-          cmake --build cpp/examples/minimal_build.build
+          type cpp\examples\minimal_build.build\CMakeCache.txt | findstr CMAKE_BUILD_TYPE
+          type cpp\examples\minimal_build.build\CMakeCache.txt | findstr CMAKE_MSVC_RUNTIME_LIBRARY
+
+          cmake --build cpp/examples/minimal_build.build --verbose
 
           call cpp\examples\minimal_build.build\arrow-example.exe
 
