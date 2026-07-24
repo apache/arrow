@@ -97,6 +97,23 @@ void ZeroNulls(const ArraySpan& array, c_type* out) {
   }
 }
 
+// Since the kernel declares OUTPUT_NOT_NULL, a null row's hash is a literal 0 (see
+// ZeroNulls) rather than a separate validity bit -- so a valid row whose combined hash
+// happens to be 0 would otherwise be indistinguishable from a null row. Remap it to a
+// fixed nonzero sentinel instead, scoped to this kernel's output rather than changing
+// the shared hashing engine used by hash-join and group-by too. Must run after
+// ZeroNulls, and after any children (e.g. struct fields, list values) already had their
+// own such remap applied, so this only catches collisions introduced by this array's
+// own combine step.
+template <typename c_type, typename Hasher>
+void RemapValidZeroHashes(const ArraySpan& array, c_type* out) {
+  for (int64_t i = 0; i < array.length; i++) {
+    if (out[i] == 0 && array.IsValid(i)) {
+      out[i] = Hasher::CombineHashes(0, 0);
+    }
+  }
+}
+
 // Folds one row's child hashes into a single hash. Seeded with CombineHashes(0, 0),
 // not 0, so an empty list doesn't collide with a null list (zeroed separately below).
 // Free function since it only depends on c_type/Hasher, not ArrowType.
@@ -162,6 +179,11 @@ struct FastHashScalar {
     }
     std::vector<std::shared_ptr<ArrayData>> child_hashes(array.child_data.size());
     std::vector<KeyColumnArray> columns(array.child_data.size());
+    // A field independently null within an otherwise-valid struct row must still hash
+    // to 0 (GH-17211: see NestedNullFieldWithinValidStructHashesToZero), same as a
+    // struct row that's null itself -- so the collision remap below must not touch
+    // those rows, only rows where a 0 combined hash is a genuine coincidence.
+    std::vector<bool> any_child_null(array.length, false);
     KeyColumnArray column;
     for (size_t i = 0; i < array.child_data.size(); i++) {
       auto child = array.child_data[i];
@@ -176,10 +198,26 @@ struct FastHashScalar {
         ARROW_ASSIGN_OR_RAISE(child_hashes[i],
                               HashChild(child, child.offset + array.offset, array.length,
                                         hash_ctx, memory_pool));
+        // child_hashes[i] is guaranteed (by this same remap, applied recursively) to
+        // be 0 for row r iff that field's row is null OR contains a null somewhere
+        // within it -- a direct child.IsNull(r) check isn't enough here, since a
+        // nested field can propagate a *deeper* null (e.g. struct<f0: struct<g0:
+        // null>>) while looking valid at this level.
+        const c_type* child_hash_data = child_hashes[i]->buffers[1]->data_as<c_type>();
+        for (int64_t r = 0; r < array.length; r++) {
+          if (child_hash_data[r] == 0) {
+            any_child_null[r] = true;
+          }
+        }
         ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
         // child_hashes[i] already covers exactly [0, array.length): no further slice.
         columns[i] = column.Slice(0, array.length);
       } else {
+        for (int64_t r = 0; r < array.length; r++) {
+          if (child.IsNull(array.offset + r)) {
+            any_child_null[r] = true;
+          }
+        }
         ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
         columns[i] = column.Slice(child.offset + array.offset, array.length);
       }
@@ -187,6 +225,11 @@ struct FastHashScalar {
     Hasher::HashMultiColumn(columns, hash_ctx, out);
     // A null struct row's children may still look valid, so force 0 explicitly.
     ZeroNulls(array, out);
+    for (int64_t i = 0; i < array.length; i++) {
+      if (out[i] == 0 && array.IsValid(i) && !any_child_null[i]) {
+        out[i] = Hasher::CombineHashes(0, 0);
+      }
+    }
     return Status::OK();
   }
 
@@ -220,6 +263,7 @@ struct FastHashScalar {
     // Required: a null row's offset range isn't guaranteed empty, and even an empty
     // one would collide with CombineRange's seed for a real empty list.
     ZeroNulls(array, out);
+    RemapValidZeroHashes<c_type, Hasher>(array, out);
     return Status::OK();
   }
 
@@ -275,14 +319,8 @@ struct FastHashScalar {
       // HashIntImp (used for fixed-width types up to 8 bytes) doesn't special-case an
       // all-zero-bits key (e.g. integer 0, float 0.0), so it can legitimately produce
       // the same 0 that HashMultiColumn uses as the null sentinel for actually-null
-      // rows. Remap valid rows that collide with 0 here, scoped to this kernel's
-      // output, rather than changing the shared hashing engine used by hash-join and
-      // group-by too.
-      for (int64_t i = 0; i < array.length; i++) {
-        if (out[i] == 0 && array.IsValid(i)) {
-          out[i] = Hasher::CombineHashes(0, 0);
-        }
-      }
+      // rows.
+      RemapValidZeroHashes<c_type, Hasher>(array, out);
       return Status::OK();
     }
   }
