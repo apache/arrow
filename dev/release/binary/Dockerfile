@@ -40,6 +40,8 @@ RUN \
 
 RUN gem install apt-dists-merge -v ">= 1.0.2"
 
+RUN chmod 1777 /var/lib/rpm
+
 RUN locale-gen en_US.UTF-8
 
 RUN mkdir -p /run/sshd
