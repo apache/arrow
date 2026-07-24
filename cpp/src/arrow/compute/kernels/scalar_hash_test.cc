@@ -256,6 +256,48 @@ TEST_F(TestScalarHash, NullHashIsZero) {
   ASSERT_NE(buf2[1], buf2[2]);
 }
 
+// HashIntImp (used for any fixed-width type whose byte width is a power of 2 up to 8:
+// ints, floats, dates, times, timestamps, durations) doesn't special-case an
+// all-zero-bits key, so a legitimately valid "zero" value would otherwise hash to the
+// same 0 scalar_hash.cc uses as the null sentinel. Checked across every affected byte
+// width, not just int8/int32 (see NullHashIsZero).
+TEST_F(TestScalarHash, ZeroValueDoesNotCollideWithNull) {
+  std::vector<std::pair<std::shared_ptr<DataType>, std::string>> cases{
+      {int8(), R"([null, 0, 1])"},
+      {int16(), R"([null, 0, 1])"},
+      {int32(), R"([null, 0, 1])"},
+      {int64(), R"([null, 0, 1])"},
+      {uint8(), R"([null, 0, 1])"},
+      {uint16(), R"([null, 0, 1])"},
+      {uint32(), R"([null, 0, 1])"},
+      {uint64(), R"([null, 0, 1])"},
+      {float32(), R"([null, 0.0, 1.0])"},
+      {float64(), R"([null, 0.0, 1.0])"},
+      {date32(), R"([null, 0, 1])"},
+      {date64(), R"([null, 0, 86400000])"},
+      {time32(TimeUnit::SECOND), R"([null, 0, 1])"},
+      {time64(TimeUnit::NANO), R"([null, 0, 1])"},
+      {timestamp(TimeUnit::SECOND), R"([null, 0, 1])"},
+      {duration(TimeUnit::MILLI), R"([null, 0, 1])"},
+  };
+  for (const std::string func : {"hash32", "hash64"}) {
+    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+    for (const auto& type_and_json : cases) {
+      auto arr = ArrayFromJSON(type_and_json.first, type_and_json.second);
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+      auto hashes = result.make_array();
+      ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(0));
+      ASSERT_OK_AND_ASSIGN(auto zero_hash, hashes->GetScalar(1));
+      ASSERT_OK_AND_ASSIGN(auto one_hash, hashes->GetScalar(2));
+      ASSERT_TRUE(null_hash->Equals(*zero)) << type_and_json.first->ToString();
+      ASSERT_FALSE(zero_hash->Equals(*zero))
+          << "valid zero-valued " << type_and_json.first->ToString()
+          << " should not collide with the null sentinel";
+      ASSERT_FALSE(zero_hash->Equals(*one_hash)) << type_and_json.first->ToString();
+    }
+  }
+}
+
 TEST_F(TestScalarHash, Boolean) {
   Datum result;
   std::shared_ptr<Array> array;
@@ -546,6 +588,45 @@ TEST_F(TestScalarHash, ListLikeSliceOfLargerArrayMatchesIndependentArray) {
 
   ListBuilder independent_builder(default_memory_pool(),
                                   std::make_shared<Int32Builder>());
+  auto* independent_values =
+      checked_cast<Int32Builder*>(independent_builder.value_builder());
+  for (int64_t row = kSliceOffset; row < kSliceOffset + kSliceLength; row++) {
+    ASSERT_OK(independent_builder.Append());
+    ASSERT_OK(independent_values->Append(static_cast<int32_t>(row)));
+    ASSERT_OK(independent_values->Append(static_cast<int32_t>(row + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto independent_arr, independent_builder.Finish());
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum sliced_result, CallFunction(func, {sliced}));
+    ASSERT_OK_AND_ASSIGN(Datum independent_result, CallFunction(func, {independent_arr}));
+    AssertDatumsEqual(sliced_result, independent_result);
+  }
+}
+
+// Same as ListLikeSliceOfLargerArrayMatchesIndependentArray, but for FIXED_SIZE_LIST,
+// which computes its referenced range via arithmetic (offset * list_size) rather than
+// reading an offsets buffer, so it's a genuinely different code path worth covering
+// on its own.
+TEST_F(TestScalarHash, FixedSizeListSliceOfLargerArrayMatchesIndependentArray) {
+  constexpr int64_t kTotalRows = 1000;
+  constexpr int64_t kSliceOffset = 137;
+  constexpr int64_t kSliceLength = 10;
+  constexpr int32_t kListSize = 2;
+
+  FixedSizeListBuilder list_builder(default_memory_pool(),
+                                    std::make_shared<Int32Builder>(), kListSize);
+  auto* values = checked_cast<Int32Builder*>(list_builder.value_builder());
+  for (int64_t row = 0; row < kTotalRows; row++) {
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(values->Append(static_cast<int32_t>(row)));
+    ASSERT_OK(values->Append(static_cast<int32_t>(row + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto large_arr, list_builder.Finish());
+  auto sliced = large_arr->Slice(kSliceOffset, kSliceLength);
+
+  FixedSizeListBuilder independent_builder(default_memory_pool(),
+                                           std::make_shared<Int32Builder>(), kListSize);
   auto* independent_values =
       checked_cast<Int32Builder*>(independent_builder.value_builder());
   for (int64_t row = kSliceOffset; row < kSliceOffset + kSliceLength; row++) {
