@@ -2660,4 +2660,160 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   }
 }
 
+// ----------------------------------------------------------------------
+// Dense FIXED_LEN_BYTE_ARRAY decode tests
+//
+// FLBADecoder::Decode(uint8_t*, int) writes decoded values back to back into a
+// densely packed buffer, with no per-value FixedLenByteArray pointers. Verify
+// it for every encoding that overrides it: PLAIN, RLE_DICTIONARY,
+// DELTA_BYTE_ARRAY and BYTE_STREAM_SPLIT.
+
+class TestFLBADenseDecode : public ::testing::Test {
+ public:
+  void SetUp() override {
+    descr_ = ExampleDescr<FLBAType>();
+    type_length_ = descr_->type_length();
+    draws_.resize(kNumValues);
+    GenerateData<FLBA>(kNumValues, draws_.data(), &data_buffer_);
+  }
+
+  // Decode densely and compare each value against the original draw.
+  void CheckDenseDecode(FLBADecoder* decoder, const std::vector<int>& decode_sizes) {
+    ASSERT_NE(nullptr, decoder);
+    std::vector<uint8_t> dense(static_cast<size_t>(type_length_) * kNumValues);
+
+    int values_decoded = 0;
+    for (int decode_size : decode_sizes) {
+      const int expected_decoded = std::min(decode_size, kNumValues - values_decoded);
+      ASSERT_EQ(expected_decoded,
+                decoder->Decode(
+                    dense.data() + static_cast<int64_t>(values_decoded) * type_length_,
+                    decode_size));
+      values_decoded += expected_decoded;
+      ASSERT_EQ(kNumValues - values_decoded, decoder->values_left());
+    }
+    ASSERT_EQ(kNumValues, values_decoded);
+    ASSERT_EQ(0, decoder->Decode(dense.data(), /*max_values=*/1));
+    ASSERT_EQ(0, decoder->values_left());
+
+    for (int i = 0; i < kNumValues; ++i) {
+      ASSERT_EQ(0, memcmp(dense.data() + static_cast<int64_t>(i) * type_length_,
+                          draws_[i].ptr, type_length_))
+          << "mismatch at value " << i;
+    }
+  }
+
+  void CheckDenseDecode(FLBADecoder* decoder) {
+    CheckDenseDecode(decoder, {1, 17, kNumValues / 2, kNumValues});
+  }
+
+ protected:
+  static constexpr int kNumValues = 1000;
+  int type_length_;
+  std::vector<FLBA> draws_;
+  std::vector<uint8_t> data_buffer_;
+  std::shared_ptr<ColumnDescriptor> descr_;
+};
+
+TEST_F(TestFLBADenseDecode, Plain) {
+  auto encoder =
+      MakeTypedEncoder<FLBAType>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
+  encoder->Put(draws_.data(), kNumValues);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::PLAIN, descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+}
+
+TEST_F(TestFLBADenseDecode, Dictionary) {
+  auto base_encoder = MakeEncoder(::parquet::Type::FIXED_LEN_BYTE_ARRAY, Encoding::PLAIN,
+                                  /*use_dictionary=*/true, descr_.get());
+  auto encoder = dynamic_cast<TypedEncoder<FLBAType>*>(base_encoder.get());
+  auto dict_traits = dynamic_cast<DictEncoder<FLBAType>*>(base_encoder.get());
+
+  encoder->Put(draws_.data(), kNumValues);
+  auto dict_buffer =
+      AllocateBuffer(default_memory_pool(), dict_traits->dict_encoded_size());
+  dict_traits->WriteDict(dict_buffer->mutable_data());
+  auto indices = encoder->FlushValues();
+
+  auto dict_decoder = MakeTypedDecoder<FLBAType>(Encoding::PLAIN, descr_.get());
+  dict_decoder->SetData(dict_traits->num_entries(), dict_buffer->data(),
+                        static_cast<int>(dict_buffer->size()));
+
+  auto decoder = MakeDictDecoder<FLBAType>(descr_.get());
+  decoder->SetDict(dict_decoder.get());
+  decoder->SetData(kNumValues, indices->data(), static_cast<int>(indices->size()));
+  // dict_decoder must outlive the decode: the decoded bytes are owned by it.
+  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+}
+
+TEST_F(TestFLBADenseDecode, DeltaByteArray) {
+  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY,
+                                            /*use_dictionary=*/false, descr_.get());
+  encoder->Put(draws_.data(), kNumValues);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+}
+
+TEST_F(TestFLBADenseDecode, ByteStreamSplit) {
+  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT,
+                                            /*use_dictionary=*/false, descr_.get());
+  encoder->Put(draws_.data(), kNumValues);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+}
+
+TEST_F(TestFLBADenseDecode, PlainRejectsTruncatedDenseBuffer) {
+  auto encoder =
+      MakeTypedEncoder<FLBAType>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
+  encoder->Put(draws_.data(), kNumValues);
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::PLAIN, descr_.get());
+  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size() - 1));
+
+  std::vector<uint8_t> dense(static_cast<size_t>(type_length_) * kNumValues);
+  ASSERT_THROW(decoder->Decode(dense.data(), kNumValues), ParquetException);
+}
+
+TEST_F(TestFLBADenseDecode, DictionaryRejectsOutOfBoundsDenseIndex) {
+  auto dict_decoder = MakeTypedDecoder<FLBAType>(Encoding::PLAIN, descr_.get());
+  dict_decoder->SetData(/*num_values=*/1, draws_[0].ptr, type_length_);
+
+  auto decoder = MakeDictDecoder<FLBAType>(descr_.get());
+  decoder->SetDict(dict_decoder.get());
+
+  // RLE_DICTIONARY data: bit width 1, followed by an RLE run of one index value
+  // 1. The dictionary has only one entry, so the index is out of bounds.
+  const std::vector<uint8_t> indices = {1, 2, 1};
+  decoder->SetData(/*num_values=*/1, indices.data(), static_cast<int>(indices.size()));
+
+  auto flba_decoder = dynamic_cast<FLBADecoder*>(decoder.get());
+  ASSERT_NE(nullptr, flba_decoder);
+  std::vector<uint8_t> dense(static_cast<size_t>(type_length_));
+  ASSERT_THROW(flba_decoder->Decode(dense.data(), /*max_values=*/1), ParquetException);
+}
+
+TEST_F(TestFLBADenseDecode, DeltaByteArrayRejectsWrongFLBALengthDense) {
+  std::string suffix(static_cast<size_t>(type_length_ - 1), 'x');
+  auto buffer =
+      ::arrow::ConcatenateBuffers({DeltaEncode({0}), DeltaEncode({type_length_ - 1}),
+                                   std::make_shared<Buffer>(suffix)})
+          .ValueOrDie();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
+  decoder->SetData(/*num_values=*/1, buffer->data(), static_cast<int>(buffer->size()));
+
+  std::vector<uint8_t> dense(static_cast<size_t>(type_length_));
+  ASSERT_THROW(decoder->Decode(dense.data(), /*max_values=*/1), ParquetException);
+}
+
 }  // namespace parquet::test
