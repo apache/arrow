@@ -768,10 +768,9 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
   bool IsOrHasRepeatedChild() const final { return has_repeated_child_; }
 
   Status LoadBatch(int64_t records_to_read) override {
-    for (const std::unique_ptr<ColumnReaderImpl>& reader : children_) {
-      RETURN_NOT_OK(reader->LoadBatch(records_to_read));
-    }
-    return Status::OK();
+    return ::arrow::internal::OptionalParallelFor(
+        ctx_->reader_properties->use_threads(), static_cast<int>(children_.size()),
+        [&](int i) { return children_[i]->LoadBatch(records_to_read); });
   }
   Status BuildArray(int64_t length_upper_bound,
                     std::shared_ptr<ChunkedArray>* out) override;
@@ -858,10 +857,17 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
 
   END_PARQUET_CATCH_EXCEPTIONS
   // Gather children arrays and def levels
-  for (auto& child : children_) {
-    std::shared_ptr<ChunkedArray> field;
-    RETURN_NOT_OK(child->BuildArray(validity_io.values_read, &field));
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array_data, ChunksToSingle(*field));
+  const int num_children = static_cast<int>(children_.size());
+  std::vector<std::shared_ptr<ChunkedArray>> chunked_fields(num_children);
+
+  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+      ctx_->reader_properties->use_threads(), num_children, [&](int i) {
+        return children_[i]->BuildArray(validity_io.values_read, &chunked_fields[i]);
+      }));
+  children_array_data.reserve(num_children);
+  for (int i = 0; i < num_children; ++i) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array_data,
+                          ChunksToSingle(*chunked_fields[i]));
     children_array_data.push_back(std::move(array_data));
   }
 
