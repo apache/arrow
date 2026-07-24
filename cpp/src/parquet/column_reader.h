@@ -63,43 +63,58 @@ struct PARQUET_EXPORT DataPageStats {
   std::optional<int32_t> num_rows;
 };
 
+/// Decoder for repetition of definition level.
+///
+/// This decoder is used with either a deprecated bit packed (`BIT_PACKED = 4`)
+/// encoding or a mixed bit packed and RLE one (`RLE = 3`).
+/// Because it take as input a single buffer, `SetData` and `Decode` are typically
+/// used on each of the parquet `DataPage`.
+/// The number of levels is guaranteed to fit into an `int32_t` by the specification.
+///
+/// @see https://research.google.com/pubs/archive/36632.pdf
 class PARQUET_EXPORT LevelDecoder {
  public:
   explicit LevelDecoder(int16_t max_level = 0);
+
+  LevelDecoder(LevelDecoder&&) = default;
+  LevelDecoder& operator=(LevelDecoder&&) = default;
 
   ~LevelDecoder();
 
   /// Initialize the LevelDecoder state with new data from a legacy (V1) page.
   ///
   /// @return the number of bytes consumed
-  int SetData(Encoding::type encoding, int16_t max_level, int num_buffered_values,
-              const uint8_t* data, int32_t data_size);
+  int32_t SetData(Encoding::type encoding, int16_t max_level, int32_t num_buffered_values,
+                  const uint8_t* data, int32_t data_size);
 
   /// Initialize the LevelDecoder state with new data from a V2 page.
   ///
   /// Repetition and definition levels in V2 pages are always RLE encoded.
-  void SetDataV2(int32_t num_bytes, int16_t max_level, int num_buffered_values,
+  void SetDataV2(int32_t num_bytes, int16_t max_level, int32_t num_buffered_values,
                  const uint8_t* data);
 
-  /// Decode a batch of levels into an array and returns the number of levels decoded.
-  int Decode(int batch_size, int16_t* levels);
+  /// Decode a batch of levels int32_to an array and returns the number of levels decoded.
+  int32_t Decode(int32_t batch_size, int16_t* levels);
 
   /// Advance the decoder and throw away decoder levels.
-  int Skip(int batch_size);
+  int32_t Skip(int32_t batch_size);
 
   struct CountUpToResult {
-    int matching_count;
-    int processed_count;
+    int32_t matching_count;
+    int32_t processed_count;
   };
 
   /// Advance and count the number of occurrences of `value`.
   ///
   /// The count is limited to at most the next `batch_size` items.
   /// @return The matching value count and number of elements that were processed.
-  CountUpToResult CountUpTo(int16_t value, int batch_size);
+  CountUpToResult CountUpTo(int16_t value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
-  int max_level() const { return max_level_; }
+  int32_t max_level() const { return max_level_; }
+
+  /// Return the number of values left to be decoded.
+  int32_t remaining() const { return num_values_remaining_; }
 
  private:
   struct Impl;
@@ -107,7 +122,7 @@ class PARQUET_EXPORT LevelDecoder {
   std::unique_ptr<Impl> impl_;
   /// Number of value remaining. The underlying decoder zero pads bit packed values
   /// up to a multiple of 8 so it cannot know the exact number of remaining values.
-  int num_values_remaining_ = 0;
+  int32_t num_values_remaining_ = 0;
   int16_t max_level_;
 };
 
@@ -351,105 +366,46 @@ class PARQUET_EXPORT RecordReader {
   virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
-  int16_t* def_levels() const {
-    return reinterpret_cast<int16_t*>(def_levels_->mutable_data());
-  }
+  virtual int16_t* def_levels() const = 0;
 
   /// \brief Decoded repetition levels
-  int16_t* rep_levels() const {
-    return reinterpret_cast<int16_t*>(rep_levels_->mutable_data());
-  }
+  virtual int16_t* rep_levels() const = 0;
 
   /// \brief Decoded values, including nulls, if any
   /// FLBA and ByteArray types do not use this array and read into their own
   /// builders.
-  uint8_t* values() const { return values_->mutable_data(); }
+  virtual uint8_t* values() const = 0;
 
   /// \brief Number of values written, including space left for nulls if any.
   /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
   /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
   /// FLBA and ByteArray types this value reflects the values written with the last
   /// ReadRecords call since those readers will reset the values after each call.
-  int64_t values_written() const { return values_written_; }
+  virtual int64_t values_written() const = 0;
 
   /// \brief Number of definition / repetition levels (from those that have
   /// been decoded) that have been consumed inside the reader.
-  int64_t levels_position() const { return levels_position_; }
+  virtual int64_t levels_position() const = 0;
 
   /// \brief Number of definition / repetition levels that have been written
   /// internally in the reader. This may be larger than values_written() because
   /// for repeated fields we need to look at the levels in advance to figure out
   /// the record boundaries.
-  int64_t levels_written() const { return levels_written_; }
+  virtual int64_t levels_written() const = 0;
 
   /// \brief Number of nulls in the leaf that we have read so far into the
   /// values vector. This is only valid when !read_dense_for_nullable(). When
   /// read_dense_for_nullable() it will always be 0.
-  int64_t null_count() const { return null_count_; }
+  virtual int64_t null_count() const = 0;
 
   /// \brief True if the leaf values are nullable
-  bool nullable_values() const { return nullable_values_; }
+  virtual bool nullable_values() const = 0;
 
   /// \brief True if reading directly as Arrow dictionary-encoded
-  bool read_dictionary() const { return read_dictionary_; }
+  virtual bool read_dictionary() const = 0;
 
   /// \brief True if reading dense for nullable columns.
-  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
-
- protected:
-  /// \brief Indicates if we can have nullable values. Note that repeated fields
-  /// may or may not be nullable.
-  bool nullable_values_;
-
-  bool at_record_start_;
-  int64_t records_read_;
-
-  /// \brief Stores values. These values are populated based on each ReadRecords
-  /// call. No extra values are buffered for the next call. SkipRecords will not
-  /// add any value to this buffer.
-  std::shared_ptr<::arrow::ResizableBuffer> values_;
-  /// \brief False for FIXED_LEN_BYTE_ARRAY and BYTE_ARRAY, in which case we
-  /// don't allocate the values buffer and we directly read into builder classes.
-  bool uses_values_;
-
-  /// \brief Values that we have read into 'values_' + 'null_count_'.
-  int64_t values_written_;
-  int64_t values_capacity_;
-  int64_t null_count_;
-
-  /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null.
-  ///
-  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
-  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
-
-  /// \brief Buffer for definition levels. May contain more levels than
-  /// is actually read. This is because we read levels ahead to
-  /// figure out record boundaries for repeated fields.
-  /// For flat required fields, 'def_levels_' and 'rep_levels_' are not
-  ///  populated. For non-repeated fields 'rep_levels_' is not populated.
-  /// 'def_levels_' and 'rep_levels_' must be of the same size if present.
-  std::shared_ptr<::arrow::ResizableBuffer> def_levels_;
-  /// \brief Buffer for repetition levels. Only populated for repeated
-  /// fields.
-  std::shared_ptr<::arrow::ResizableBuffer> rep_levels_;
-
-  /// \brief Number of definition / repetition levels that have been written
-  /// internally in the reader. This may be larger than values_written() since
-  /// for repeated fields we need to look at the levels in advance to figure out
-  /// the record boundaries.
-  int64_t levels_written_;
-  /// \brief Position of the next level that should be consumed.
-  int64_t levels_position_;
-  int64_t levels_capacity_;
-
-  bool read_dictionary_ = false;
-  // If true, we will not leave any space for the null values in the values_
-  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
-  //
-  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
-  // might still populate the validity bitmap buffer.
-  bool read_dense_for_nullable_ = false;
+  virtual bool read_dense_for_nullable() const = 0;
 };
 
 class BinaryRecordReader : virtual public RecordReader {
