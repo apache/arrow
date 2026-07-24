@@ -871,6 +871,66 @@ TEST(TestCodecLZ4Hadoop, Compatibility) {
   std::vector<uint8_t> data = MakeRandomData(100);
   CheckCodecRoundtrip(c1, c2, data, /*check_reverse=*/false);
 }
+
+TEST(TestCodecLZ4Hadoop, MultiBlockRoundtrip) {
+  // Verify multi-block Hadoop-framed LZ4 compression:
+  // 1. MaxCompressedLen provides a sufficient buffer (even for incompressible data)
+  // 2. Compress -> Decompress round-trips correctly
+  // 3. No block exceeds Hadoop's 256 KiB decompressed limit
+  //    (Hadoop's Lz4Decompressor allocates a fixed output buffer of that size;
+  //    exceeding it causes LZ4Exception on JVM readers.)
+  //
+  // Check (3) fails without the multi-block splitting fix.
+  ASSERT_OK_AND_ASSIGN(auto codec, Codec::Create(Compression::LZ4_HADOOP));
+  constexpr int kHadoopBlockSize = 256 * 1024;
+
+  for (int data_size :
+       {0, 1, 10000, 256 * 1024, 256 * 1024 + 1, 320000, 512 * 1024, 1024 * 1024}) {
+    ARROW_SCOPED_TRACE("data_size = ", data_size);
+    std::vector<uint8_t> data = MakeRandomData(data_size);
+
+    // (1) MaxCompressedLen must be sufficient — Compress fails if not.
+    int64_t max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
+    std::vector<uint8_t> compressed(max_compressed_len);
+
+    ASSERT_OK_AND_ASSIGN(
+        int64_t compressed_len,
+        codec->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
+    ASSERT_LE(compressed_len, max_compressed_len);
+
+    // (2) Round-trip: decompress and verify data integrity.
+    std::vector<uint8_t> decompressed(data.size());
+    ASSERT_OK_AND_ASSIGN(int64_t decompressed_len,
+                         codec->Decompress(compressed_len, compressed.data(), data.size(),
+                                           decompressed.data()));
+    ASSERT_EQ(decompressed_len, static_cast<int64_t>(data.size()));
+    ASSERT_EQ(data, decompressed);
+
+    // (3) Walk Hadoop-framed blocks and verify each decompressed_size <= 256 KiB.
+    const uint8_t* ptr = compressed.data();
+    int64_t remaining = compressed_len;
+    int block_count = 0;
+    while (remaining > 0) {
+      ASSERT_GE(remaining, 8) << "truncated block header";
+      uint32_t block_decompressed_size =
+          static_cast<uint32_t>(ptr[0]) << 24 | static_cast<uint32_t>(ptr[1]) << 16 |
+          static_cast<uint32_t>(ptr[2]) << 8 | static_cast<uint32_t>(ptr[3]);
+      uint32_t block_compressed_size =
+          static_cast<uint32_t>(ptr[4]) << 24 | static_cast<uint32_t>(ptr[5]) << 16 |
+          static_cast<uint32_t>(ptr[6]) << 8 | static_cast<uint32_t>(ptr[7]);
+      ASSERT_LE(static_cast<int>(block_decompressed_size), kHadoopBlockSize)
+          << "block " << block_count << " exceeds Hadoop's 256 KiB limit";
+      ASSERT_GE(remaining, 8 + static_cast<int64_t>(block_compressed_size));
+      ptr += 8 + block_compressed_size;
+      remaining -= 8 + block_compressed_size;
+      ++block_count;
+    }
+    ASSERT_EQ(remaining, 0);
+    if (data_size > kHadoopBlockSize) {
+      ASSERT_GE(block_count, 2) << "expected multiple blocks for data > 256 KiB";
+    }
+  }
+}
 #endif
 
 }  // namespace util
