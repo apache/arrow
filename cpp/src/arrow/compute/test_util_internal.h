@@ -39,4 +39,8 @@ ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
 
 void ValidateOutput(const Datum& output);
 
+std::shared_ptr<SelectionVector> SelectionVectorFromJSON(const std::string& json);
+
+std::shared_ptr<SelectionVector> MakeSelectionVectorTo(int64_t length);
+
 }  // namespace arrow::compute
