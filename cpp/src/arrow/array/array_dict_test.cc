@@ -1041,6 +1041,110 @@ TYPED_TEST(TestDictionaryBuilderIndexByteWidth, MakeBuilder) {
 }
 
 // ----------------------------------------------------------------------
+// GH-37476: the requested dictionary index type's signedness must be preserved.
+
+TEST(TestDictionaryBuilderIndexType, PreservesRequestedIndexType) {
+  // Both the builder's reported type and the finished array must carry the requested
+  // index type, for signed and unsigned widths alike.
+  for (auto index_type :
+       {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64()}) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    auto dict_type = dictionary(index_type, utf8());
+    ASSERT_OK_AND_ASSIGN(auto builder, MakeBuilder(dict_type));
+    AssertTypeEqual(*index_type,
+                    *checked_cast<const DictionaryType&>(*builder->type()).index_type());
+
+    auto& dict_builder = checked_cast<DictionaryBuilder<StringType>&>(*builder);
+    ASSERT_OK(dict_builder.Append("a"));
+    ASSERT_OK(dict_builder.Append("b"));
+    ASSERT_OK(dict_builder.AppendNull());
+    ASSERT_OK(dict_builder.Append("a"));
+    ASSERT_OK_AND_ASSIGN(auto result, dict_builder.Finish());
+    ASSERT_OK(result->ValidateFull());
+
+    auto ex_dict = ArrayFromJSON(utf8(), R"(["a", "b"])");
+    auto ex_indices = ArrayFromJSON(index_type, "[0, 1, null, 0]");
+    DictionaryArray expected(dict_type, ex_indices, ex_dict);
+    AssertTypeEqual(*dict_type, *result->type());
+    AssertArraysEqual(expected, *result);
+  }
+}
+
+TEST(TestDictionaryBuilderIndexType, WidthStillAdaptsWhenUnsigned) {
+  // The width stays adaptive, as it does for signed indices. The underlying builder is
+  // signed, so it widens after 128 distinct values rather than the 256 a uint8 could
+  // hold, but the widened type stays unsigned rather than falling back to a signed type.
+  auto dict_type = dictionary(uint8(), utf8());
+  ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+
+  for (int i = 0; i < 200; ++i) {
+    ASSERT_OK(builder.Append(std::to_string(i)));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto result, builder.Finish());
+  ASSERT_OK(result->ValidateFull());
+  AssertTypeEqual(*uint16(),
+                  *checked_cast<const DictionaryType&>(*result->type()).index_type());
+}
+
+TEST(TestDictionaryBuilderIndexType, NullValueTypePreservesUnsignedIndexType) {
+  // The NullType value builder is a separate specialization with its own type() and
+  // FinishInternal, so it needs its own guard.
+  auto dict_type = dictionary(uint32(), null());
+  ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
+  auto& builder = checked_cast<DictionaryBuilder<NullType>&>(*boxed_builder);
+  AssertTypeEqual(*uint32(),
+                  *checked_cast<const DictionaryType&>(*builder.type()).index_type());
+
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto result, builder.Finish());
+  ASSERT_OK(result->ValidateFull());
+  AssertTypeEqual(*uint32(),
+                  *checked_cast<const DictionaryType&>(*result->type()).index_type());
+}
+
+TEST(TestDictionaryBuilderIndexType, FinishDeltaPreservesUnsignedIndexType) {
+  // FinishDelta is a distinct path from Finish and must carry the requested index type
+  // too, not the signed type the adaptive builder produces internally.
+  auto dict_type = dictionary(uint32(), utf8());
+  ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+
+  ASSERT_OK(builder.Append("a"));
+  ASSERT_OK(builder.Append("b"));
+
+  std::shared_ptr<Array> result_indices, result_delta;
+  ASSERT_OK(builder.FinishDelta(&result_indices, &result_delta));
+  ASSERT_OK(result_indices->ValidateFull());
+  AssertTypeEqual(*uint32(), *result_indices->type());
+  AssertArraysEqual(*ArrayFromJSON(uint32(), "[0, 1]"), *result_indices);
+}
+
+TEST(TestDictionaryBuilderIndexType, SuppliedDictionaryPreservesUnsignedIndexType) {
+  // The supplied-dictionary constructor starts the adaptive builder at its default width
+  // rather than the requested one, so a requested uint32 reports uint8. The width is not
+  // honoured on this path (a signed request behaves the same way), but the signedness
+  // must survive regardless: uint8, not int8.
+  auto dict_values = ArrayFromJSON(utf8(), R"(["a", "b"])");
+  ASSERT_OK_AND_ASSIGN(auto builder,
+                       MakeDictionaryBuilder(dictionary(uint32(), utf8()), dict_values));
+  AssertTypeEqual(*uint8(),
+                  *checked_cast<const DictionaryType&>(*builder->type()).index_type());
+}
+
+TEST(TestDictionaryBuilderIndexType, ExactIndexBuilderPreservesUnsignedIndexType) {
+  // MakeBuilderExactIndex is a separate builder that honours unsigned index types on its
+  // own; guard that it keeps doing so.
+  auto dict_type = dictionary(uint16(), utf8());
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilderExactIndex(default_memory_pool(), dict_type, &boxed_builder));
+  AssertTypeEqual(
+      *uint16(),
+      *checked_cast<const DictionaryType&>(*boxed_builder->type()).index_type());
+}
+
+// ----------------------------------------------------------------------
 // DictionaryArray tests
 
 TEST(TestDictionary, Equals) {

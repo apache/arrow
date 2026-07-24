@@ -38,6 +38,38 @@ class MemoryPool;
 
 using arrow::internal::checked_cast;
 
+namespace internal {
+
+/// Return the unsigned integer type of the same width when an unsigned dictionary
+/// index type was requested (GH-37476).
+///
+/// The adaptive indices builder only ever produces signed integer types. Dictionary
+/// indices are non-negative, so the signed and unsigned integer types of a given width
+/// have identical memory layout and reporting one as the other is value-preserving. The
+/// width stays adaptive, as it is for signed index types, and it widens on the signed
+/// threshold: a uint8 index widens after 128 distinct values rather than the 256 a real
+/// uint8 could hold, so the extra bit does not delay widening.
+std::shared_ptr<DataType> MaybeUnsignedIndexType(
+    const std::shared_ptr<DataType>& index_type, bool use_unsigned_index) {
+  if (!use_unsigned_index) {
+    return index_type;
+  }
+  switch (index_type->id()) {
+    case Type::INT8:
+      return ::arrow::uint8();
+    case Type::INT16:
+      return ::arrow::uint16();
+    case Type::INT32:
+      return ::arrow::uint32();
+    case Type::INT64:
+      return ::arrow::uint64();
+    default:
+      return index_type;
+  }
+}
+
+}  // namespace internal
+
 // Generic int builder that delegates to the builder for a specific
 // type. Used to reduce the number of template instantiations in the
 // exact_index_type case below, to reduce build time and memory usage.
@@ -170,9 +202,10 @@ struct DictionaryBuilderCase {
     using AdaptiveBuilderType = DictionaryBuilder<ValueType>;
     using ExactBuilderType =
         internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>;
+    const bool unsigned_index = is_unsigned_integer(index_type->id());
     if (dictionary != nullptr) {
-      out->reset(
-          new AdaptiveBuilderType(dictionary, pool, kDefaultBufferAlignment, ordered));
+      out->reset(new AdaptiveBuilderType(dictionary, pool, kDefaultBufferAlignment,
+                                         ordered, unsigned_index));
     } else if (exact_index_type) {
       if (!is_integer(index_type->id())) {
         return Status::TypeError("MakeBuilder: invalid index type ", *index_type);
@@ -182,7 +215,8 @@ struct DictionaryBuilderCase {
     } else {
       auto start_int_size = index_type->byte_width();
       out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool,
-                                         kDefaultBufferAlignment, ordered));
+                                         kDefaultBufferAlignment, ordered,
+                                         unsigned_index));
     }
     return Status::OK();
   }
