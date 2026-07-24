@@ -485,8 +485,8 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             % Create a Schema with zero fields
-            schema3 = arrow.recordBatch(table).Schema;
-            schema4 = arrow.recordBatch(table).Schema;
+            schema3 = arrow.recordBatch(table()).Schema;
+            schema4 = arrow.recordBatch(table()).Schema;
             
             testCase.verifyTrue(isequal(schema1, schema2));
             testCase.verifyTrue(isequal(schema3, schema4));
@@ -514,7 +514,7 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             % Create a Schema with zero fields
-            schema5 = arrow.recordBatch(table).Schema;
+            schema5 = arrow.recordBatch(table()).Schema;
             
             % Have different number of fields
             testCase.verifyFalse(isequal(schema1, schema2));
