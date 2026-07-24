@@ -180,7 +180,6 @@ set(PARQUET_SRCS
     level_comparison.cc
     level_conversion.cc
     metadata.cc
-    xxhasher.cc
     page_index.cc
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
@@ -191,7 +190,20 @@ set(PARQUET_SRCS
     statistics.cc
     stream_reader.cc
     stream_writer.cc
-    types.cc)
+    types.cc
+    variant/array_internal.cc
+    variant/builder.cc
+    variant/decoding.cc
+    variant/shred.cc
+    variant/slot_internal.cc
+    variant/unshred.cc
+    variant/validate.cc
+    xxhasher.cc)
+
+if(MSVC)
+  set_source_files_properties(variant/builder.cc variant/slot_internal.cc
+                              PROPERTIES COMPILE_OPTIONS /Zc:preprocessor)
+endif()
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
@@ -363,6 +375,7 @@ add_subdirectory(api)
 add_subdirectory(arrow)
 add_subdirectory(encryption)
 add_subdirectory(geospatial)
+add_subdirectory(variant)
 
 arrow_install_all_headers("parquet")
 
@@ -409,7 +422,8 @@ add_parquet_test(arrow-reader-writer-test
                  SOURCES
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
-                 arrow/variant_test.cc)
+                 arrow/variant_test.cc
+                 variant/test_util_internal.cc)
 
 add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
 

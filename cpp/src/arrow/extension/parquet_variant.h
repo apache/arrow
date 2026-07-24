@@ -18,15 +18,31 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "arrow/extension_type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow::extension {
 
+/// \brief The extension name for the Variant extension type.
+inline constexpr std::string_view kVariantExtensionName = "arrow.parquet.variant";
+
 class ARROW_EXPORT VariantArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
+
+  /// \brief The metadata child array.
+  std::shared_ptr<Array> metadata() const;
+
+  /// \brief The residual value child array, or null if it is absent from storage.
+  std::shared_ptr<Array> value() const;
+
+  /// \brief The typed value child array, or null for an unshredded Variant array.
+  std::shared_ptr<Array> typed_value() const;
+
+  /// \brief Whether the storage schema contains a typed value field.
+  bool is_shredded() const;
 };
 
 /// EXPERIMENTAL: Variant is not yet fully supported.
@@ -43,13 +59,25 @@ class ARROW_EXPORT VariantArray : public ExtensionArray {
 /// To read more about variant encoding, see the variant encoding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
 ///
+/// Shredded variant representation:
+/// optional group shredded_variant_name (VARIANT) {
+///   required binary metadata;
+///   optional binary value;
+///   optional <type> typed_value;
+/// }
+///
+/// The value and typed_value fields are optional in the schema, but at least one
+/// must be present.
+///
 /// To read more about variant shredding, see the variant shredding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantShredding.md
 class ARROW_EXPORT VariantExtensionType : public ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<DataType>& storage_type);
 
-  std::string extension_name() const override { return "arrow.parquet.variant"; }
+  std::string extension_name() const override {
+    return std::string(kVariantExtensionName);
+  }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -69,10 +97,12 @@ class ARROW_EXPORT VariantExtensionType : public ExtensionType {
 
   std::shared_ptr<Field> value() const { return value_; }
 
+  std::shared_ptr<Field> typed_value() const { return typed_value_; }
+
  private:
-  // TODO GH-45948 added shredded_value
   std::shared_ptr<Field> metadata_;
   std::shared_ptr<Field> value_;
+  std::shared_ptr<Field> typed_value_;
 };
 
 /// \brief Return a VariantExtensionType instance.

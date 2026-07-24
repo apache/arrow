@@ -50,6 +50,8 @@ using arrow::Field;
 using arrow::FieldVector;
 using arrow::KeyValueMetadata;
 using arrow::Status;
+using arrow::extension::kVariantExtensionName;
+using arrow::extension::VariantExtensionType;
 using arrow::internal::checked_cast;
 using arrow::internal::ToChars;
 
@@ -112,6 +114,239 @@ Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
   return Status::OK();
 }
 
+static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
+
+int FieldIdFromMetadata(
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  if (!metadata) {
+    return -1;
+  }
+  int key = metadata->FindKey(FIELD_ID_KEY);
+  if (key < 0) {
+    return -1;
+  }
+  const std::string& field_id_str = metadata->value(key);
+  int field_id;
+  if (::arrow::internal::ParseValue<::arrow::Int32Type>(
+          field_id_str.c_str(), field_id_str.length(), &field_id)) {
+    if (field_id < 0) {
+      // Thrift should convert any negative value to null but normalize to -1 here in
+      // case we later check this in logic.
+      return -1;
+    }
+    return field_id;
+  } else {
+    return -1;
+  }
+}
+
+Status VariantTypedValueToNode(const std::shared_ptr<Field>& field,
+                               const WriterProperties& properties,
+                               const ArrowWriterProperties& arrow_properties,
+                               NodePtr* out);
+
+Status VariantFieldGroupToNode(const std::shared_ptr<Field>& field,
+                               const WriterProperties& properties,
+                               const ArrowWriterProperties& arrow_properties,
+                               NodePtr* out) {
+  const int field_id = FieldIdFromMetadata(field->metadata());
+  const auto& type = field->type();
+  if (type->id() != ArrowTypeId::STRUCT) {
+    return Status::Invalid("Invalid Variant shredded field group: ", type->ToString());
+  }
+
+  std::vector<NodePtr> children;
+  children.reserve(type->num_fields());
+  for (const auto& child : type->fields()) {
+    NodePtr node;
+    if (child->name() == "value") {
+      RETURN_NOT_OK(
+          FieldToNode(child->name(), child, properties, arrow_properties, &node));
+    } else if (child->name() == "typed_value") {
+      RETURN_NOT_OK(VariantTypedValueToNode(child, properties, arrow_properties, &node));
+    } else {
+      return Status::Invalid("Invalid Variant shredded field group child: ",
+                             child->name());
+    }
+    children.emplace_back(std::move(node));
+  }
+
+  *out = GroupNode::Make(field->name(), RepetitionFromNullable(field->nullable()),
+                         std::move(children), nullptr, field_id);
+  return Status::OK();
+}
+
+Status VariantObjectToNode(const std::shared_ptr<Field>& field,
+                           const WriterProperties& properties,
+                           const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  const int field_id = FieldIdFromMetadata(field->metadata());
+  const auto& type = field->type();
+  if (type->num_fields() == 0) {
+    return Status::Invalid("Invalid Variant object typed_value: expected at least one ",
+                           "shredded field");
+  }
+
+  std::vector<NodePtr> children(type->num_fields());
+  for (int i = 0; i < type->num_fields(); ++i) {
+    RETURN_NOT_OK(VariantFieldGroupToNode(type->field(i), properties, arrow_properties,
+                                          &children[i]));
+  }
+
+  *out = GroupNode::Make(field->name(), RepetitionFromNullable(field->nullable()),
+                         std::move(children), nullptr, field_id);
+  return Status::OK();
+}
+
+Status VariantListToNode(const std::shared_ptr<Field>& field,
+                         const WriterProperties& properties,
+                         const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  const int field_id = FieldIdFromMetadata(field->metadata());
+  const auto list_type = std::static_pointer_cast<::arrow::BaseListType>(field->type());
+
+  NodePtr element;
+  RETURN_NOT_OK(VariantFieldGroupToNode(list_type->value_field()->WithName("element"),
+                                        properties, arrow_properties, &element));
+
+  NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  *out = GroupNode::Make(field->name(), RepetitionFromNullable(field->nullable()), {list},
+                         LogicalType::List(), field_id);
+  return Status::OK();
+}
+
+Status VariantPrimitiveToNode(const std::shared_ptr<Field>& field, NodePtr* out) {
+  std::shared_ptr<const LogicalType> logical_type = LogicalType::None();
+  ParquetType::type type = ParquetType::UNDEFINED;
+  const int field_id = FieldIdFromMetadata(field->metadata());
+
+  int length = -1;
+  int precision = -1;
+  int scale = -1;
+
+  switch (field->type()->id()) {
+    case ArrowTypeId::BOOL:
+      type = ParquetType::BOOLEAN;
+      break;
+    case ArrowTypeId::INT8:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::Int(8, true);
+      break;
+    case ArrowTypeId::INT16:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::Int(16, true);
+      break;
+    case ArrowTypeId::INT32:
+      type = ParquetType::INT32;
+      break;
+    case ArrowTypeId::INT64:
+      type = ParquetType::INT64;
+      break;
+    case ArrowTypeId::FLOAT:
+      type = ParquetType::FLOAT;
+      break;
+    case ArrowTypeId::DOUBLE:
+      type = ParquetType::DOUBLE;
+      break;
+    case ArrowTypeId::DECIMAL32:
+    case ArrowTypeId::DECIMAL64:
+    case ArrowTypeId::DECIMAL128: {
+      const auto& decimal = checked_cast<const ::arrow::DecimalType&>(*field->type());
+      precision = decimal.precision();
+      scale = decimal.scale();
+      if (precision <= 9) {
+        type = ParquetType::INT32;
+      } else if (precision <= 18) {
+        type = ParquetType::INT64;
+      } else {
+        type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+        length = ::arrow::DecimalType::DecimalSize(precision);
+      }
+      PARQUET_CATCH_NOT_OK(logical_type = LogicalType::Decimal(precision, scale));
+    } break;
+    case ArrowTypeId::DATE32:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::Date();
+      break;
+    case ArrowTypeId::TIME64:
+      type = ParquetType::INT64;
+      logical_type =
+          LogicalType::Time(/*is_adjusted_to_utc=*/false, LogicalType::TimeUnit::MICROS);
+      break;
+    case ArrowTypeId::TIMESTAMP: {
+      type = ParquetType::INT64;
+      const auto& timestamp = checked_cast<const ::arrow::TimestampType&>(*field->type());
+      const bool utc = !timestamp.timezone().empty();
+      switch (timestamp.unit()) {
+        case ::arrow::TimeUnit::MICRO:
+          logical_type = LogicalType::Timestamp(utc, LogicalType::TimeUnit::MICROS,
+                                                /*is_from_converted_type=*/false,
+                                                /*force_set_converted_type=*/true);
+          break;
+        case ::arrow::TimeUnit::NANO:
+          logical_type = LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS,
+                                                /*is_from_converted_type=*/false,
+                                                /*force_set_converted_type=*/false);
+          break;
+        default:
+          return Status::Invalid("Invalid Variant typed_value timestamp unit: ",
+                                 field->type()->ToString());
+      }
+    } break;
+    case ArrowTypeId::LARGE_BINARY:
+    case ArrowTypeId::BINARY:
+    case ArrowTypeId::BINARY_VIEW:
+      type = ParquetType::BYTE_ARRAY;
+      break;
+    case ArrowTypeId::LARGE_STRING:
+    case ArrowTypeId::STRING:
+    case ArrowTypeId::STRING_VIEW:
+      type = ParquetType::BYTE_ARRAY;
+      logical_type = LogicalType::String();
+      break;
+    case ArrowTypeId::FIXED_SIZE_BINARY:
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      logical_type = LogicalType::UUID();
+      length = 16;
+      break;
+    case ArrowTypeId::EXTENSION: {
+      const auto& ext_type = checked_cast<const ::arrow::ExtensionType&>(*field->type());
+      if (ext_type.extension_name() == "arrow.uuid") {
+        type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+        logical_type = LogicalType::UUID();
+        length = 16;
+        break;
+      }
+      return Status::Invalid("Invalid Variant typed_value type: ",
+                             field->type()->ToString());
+    }
+    default:
+      return Status::Invalid("Invalid Variant typed_value type: ",
+                             field->type()->ToString());
+  }
+
+  PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(
+                           field->name(), RepetitionFromNullable(field->nullable()),
+                           std::move(logical_type), type, length, field_id));
+  return Status::OK();
+}
+
+Status VariantTypedValueToNode(const std::shared_ptr<Field>& field,
+                               const WriterProperties& properties,
+                               const ArrowWriterProperties& arrow_properties,
+                               NodePtr* out) {
+  switch (field->type()->id()) {
+    case ArrowTypeId::STRUCT:
+      return VariantObjectToNode(field, properties, arrow_properties, out);
+    case ArrowTypeId::FIXED_SIZE_LIST:
+    case ArrowTypeId::LARGE_LIST:
+    case ArrowTypeId::LIST:
+    case ArrowTypeId::LIST_VIEW:
+    case ArrowTypeId::LARGE_LIST_VIEW:
+      return VariantListToNode(field, properties, arrow_properties, out);
+    default:
+      return VariantPrimitiveToNode(field, out);
+  }
+}
+
 Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::string& name,
                  bool nullable, int field_id, const WriterProperties& properties,
                  const ArrowWriterProperties& arrow_properties, NodePtr* out) {
@@ -131,21 +366,40 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
   return Status::OK();
 }
 
-Status VariantToNode(
-    const std::shared_ptr<::arrow::extension::VariantExtensionType>& type,
-    const std::string& name, bool nullable, int field_id,
-    const WriterProperties& properties, const ArrowWriterProperties& arrow_properties,
-    NodePtr* out) {
-  NodePtr metadata_node;
-  RETURN_NOT_OK(FieldToNode("metadata", type->metadata(), properties, arrow_properties,
-                            &metadata_node));
+Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
+                     const std::string& name, bool nullable, int field_id,
+                     const WriterProperties& properties,
+                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  // `VariantExtensionType` already validates the general storage shape. Writing is
+  // stricter than reading: we keep accepting typed-only Variant schemas on read,
+  // but must not write them.
+  if (type->value() == nullptr) {
+    return Status::Invalid("Invalid Variant write schema: missing top-level value field");
+  }
 
-  NodePtr value_node;
-  RETURN_NOT_OK(
-      FieldToNode("value", type->value(), properties, arrow_properties, &value_node));
+  std::vector<NodePtr> children;
+  children.reserve(type->storage_type()->num_fields());
 
-  *out = GroupNode::Make(name, RepetitionFromNullable(nullable),
-                         {std::move(metadata_node), std::move(value_node)},
+  auto AddChild = [&](const std::shared_ptr<::arrow::Field>& field) {
+    if (field == nullptr) {
+      return Status::OK();
+    }
+    NodePtr child;
+    if (field->name() == "typed_value") {
+      RETURN_NOT_OK(VariantTypedValueToNode(field, properties, arrow_properties, &child));
+    } else {
+      RETURN_NOT_OK(
+          FieldToNode(field->name(), field, properties, arrow_properties, &child));
+    }
+    children.emplace_back(std::move(child));
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(AddChild(type->metadata()));
+  RETURN_NOT_OK(AddChild(type->value()));
+  RETURN_NOT_OK(AddChild(type->typed_value()));
+
+  *out = GroupNode::Make(name, RepetitionFromNullable(nullable), std::move(children),
                          LogicalType::Variant(), field_id);
 
   return Status::OK();
@@ -280,37 +534,11 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
-static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
-
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
   if (field_id >= 0) {
     return ::arrow::key_value_metadata({FIELD_ID_KEY}, {ToChars(field_id)});
   } else {
     return nullptr;
-  }
-}
-
-int FieldIdFromMetadata(
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
-  if (!metadata) {
-    return -1;
-  }
-  int key = metadata->FindKey(FIELD_ID_KEY);
-  if (key < 0) {
-    return -1;
-  }
-  std::string field_id_str = metadata->value(key);
-  int field_id;
-  if (::arrow::internal::ParseValue<::arrow::Int32Type>(
-          field_id_str.c_str(), field_id_str.length(), &field_id)) {
-    if (field_id < 0) {
-      // Thrift should convert any negative value to null but normalize to -1 here in
-      // case we later check this in logic.
-      return -1;
-    }
-    return field_id;
-  } else {
-    return -1;
   }
 }
 
@@ -466,8 +694,15 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     case ArrowTypeId::DICTIONARY: {
       // Parquet has no Dictionary type, dictionary-encoded is handled on
       // the encoding, not the schema level.
-      const ::arrow::DictionaryType& dict_type =
-          static_cast<const ::arrow::DictionaryType&>(*field->type());
+      const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(*field->type());
+      if (dict_type.value_type()->id() == ArrowTypeId::EXTENSION) {
+        const auto& ext_type =
+            checked_cast<const ::arrow::ExtensionType&>(*dict_type.value_type());
+        if (ext_type.extension_name() == kVariantExtensionName) {
+          return Status::NotImplemented(
+              "Dictionary-encoded Variant arrays are not supported");
+        }
+      }
       std::shared_ptr<::arrow::Field> unpacked_field = ::arrow::field(
           name, dict_type.value_type(), field->nullable(), field->metadata());
       return FieldToNode(name, unpacked_field, properties, arrow_properties, out);
@@ -490,10 +725,8 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         ARROW_ASSIGN_OR_RAISE(logical_type,
                               LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
         break;
-      } else if (ext_type->extension_name() == std::string("arrow.parquet.variant")) {
-        auto variant_type =
-            std::static_pointer_cast<::arrow::extension::VariantExtensionType>(
-                field->type());
+      } else if (ext_type->extension_name() == kVariantExtensionName) {
+        auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
 
         return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
                              arrow_properties, out);
@@ -543,6 +776,17 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING;
 }
 
+bool IsInsideVariantLogicalType(const Node& node) {
+  const Node* current = node.parent();
+  while (current != nullptr) {
+    if (current->logical_type()->is_variant()) {
+      return true;
+    }
+    current = current->parent();
+  }
+  return false;
+}
+
 // ----------------------------------------------------------------------
 // Schema logic
 
@@ -552,7 +796,8 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
                         GetArrowType(primitive_node, ctx->properties, ctx->metadata));
   if (ctx->properties.read_dictionary(column_index) &&
-      IsDictionaryReadSupported(*storage_type)) {
+      IsDictionaryReadSupported(*storage_type) &&
+      !IsInsideVariantLogicalType(primitive_node)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
   }
   return storage_type;
@@ -604,7 +849,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   auto struct_type = ::arrow::struct_(arrow_fields);
   if (ctx->properties.get_arrow_extensions_enabled() &&
       node.logical_type()->is_variant()) {
-    auto extension_type = ::arrow::GetExtensionType("arrow.parquet.variant");
+    auto extension_type = ::arrow::GetExtensionType(std::string(kVariantExtensionName));
     if (extension_type) {
       ARROW_ASSIGN_OR_RAISE(
           struct_type,
@@ -1194,10 +1439,10 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
           ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
-    } else if (origin_extension_name == "arrow.parquet.variant") {
+    } else if (origin_extension_name == kVariantExtensionName) {
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
-          ::arrow::extension::VariantExtensionType::IsSupportedStorageType(inferred_type);
+          VariantExtensionType::IsSupportedStorageType(inferred_type);
     } else {
       extension_supports_inferred_storage =
           origin_extension_type.storage_type()->Equals(*inferred_type);
