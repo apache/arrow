@@ -699,6 +699,10 @@
         "ARROW_PARQUET": "ON",
         "ARROW_S3": "ON",
         "ARROW_SUBSTRAIT": "ON",
+        "ARROW_WITH_BROTLI": "ON",
+        "ARROW_WITH_LZ4": "ON",
+        "ARROW_WITH_SNAPPY": "ON",
+        "ARROW_WITH_ZSTD": "ON",
         "PARQUET_BUILD_EXAMPLES": "OFF",
         "PARQUET_BUILD_EXECUTABLES": "OFF",
         "PARQUET_REQUIRE_ENCRYPTION": "OFF"
