@@ -363,6 +363,20 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
+{% for image in ["pixi-cpp",
+                 "pixi-cpp-sanitizer",
+                 "pixi-python",
+                 "pixi-python-sanitizer"] %}
+  test-{{ image }}:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: {{ image }}
+    {% if image == "pixi-python-sanitizer" %}
+      timeout: 120
+    {% endif %}
+{% endfor %}
+
   test-ubuntu-22.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
