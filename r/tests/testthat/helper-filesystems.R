@@ -32,16 +32,16 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
   # like we can do in S3/GCS. Skipping any tests that rely on this feature
   # for name == "azure".
   if (name != "azure") {
-    test_that(sprintf("read/write Feather on %s using URIs", name), {
-      write_feather(example_data, uri_formatter("test.feather"))
-      expect_identical(read_feather(uri_formatter("test.feather")), example_data)
+    test_that(sprintf("read/write IPC on %s using URIs", name), {
+      write_ipc_file(example_data, uri_formatter("test.arrow"))
+      expect_identical(read_ipc_file(uri_formatter("test.arrow")), example_data)
     })
   }
 
-  test_that(sprintf("read/write Feather on %s using Filesystem", name), {
-    write_feather(example_data, fs$path(path_formatter("test2.feather")))
+  test_that(sprintf("read/write IPC on %s using Filesystem", name), {
+    write_ipc_file(example_data, fs$path(path_formatter("test2.arrow")))
     expect_identical(
-      read_feather(fs$path(path_formatter("test2.feather"))),
+      read_ipc_file(fs$path(path_formatter("test2.arrow"))),
       example_data
     )
   })
@@ -105,8 +105,8 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       test_that(sprintf("open_dataset with vector of %s file URIs", name), {
         expect_identical(
           open_dataset(
-            c(uri_formatter("test.feather"), uri_formatter("test2.feather")),
-            format = "feather"
+            c(uri_formatter("test.arrow"), uri_formatter("test2.arrow")),
+            format = "arrow"
           ) |>
             arrange(int) |>
             collect(),
@@ -119,10 +119,10 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
         expect_error(
           open_dataset(
             c(
-              uri_formatter("test.feather"),
-              paste0("file://", file.path(td, "fake.feather"))
+              uri_formatter("test.arrow"),
+              paste0("file://", file.path(td, "fake.arrow"))
             ),
-            format = "feather"
+            format = "arrow"
           ),
           "Vectors of URIs for different file systems are not supported"
         )
