@@ -239,8 +239,5 @@ include "io.pxi"
 # IPC / Messaging
 include "ipc.pxi"
 
-# Micro-benchmark routines
-include "benchmark.pxi"
-
 # Public API
 include "public-api.pxi"

@@ -415,7 +415,7 @@ cdef class NativeFile(_Weakrefable):
         # Allocate empty write space
         obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
-        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AsString(<object> obj)
         with nogil:
             bytes_read = GetResultValue(handle.get().Read(c_nbytes, buf))
 
@@ -488,7 +488,7 @@ cdef class NativeFile(_Weakrefable):
         # Allocate empty write space
         obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
 
-        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AsString(<object> obj)
         with nogil:
             bytes_read = GetResultValue(handle.get().
                                         ReadAt(c_offset, c_nbytes, buf))
@@ -1612,7 +1612,7 @@ cdef class Buffer(_Weakrefable):
         if buffer.buf == NULL:
             # ARROW-16048: Ensure we don't export a NULL address.
             assert buffer.len == 0
-            buffer.buf = cp.PyBytes_AS_STRING(b"")
+            buffer.buf = cp.PyBytes_AsString(b"")
         buffer.format = 'b'
         buffer.internal = NULL
         buffer.itemsize = 1
@@ -2641,7 +2641,7 @@ cdef class Codec(_Weakrefable):
 
         if asbytes:
             pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
-            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
+            output_buffer = <uint8_t*> cp.PyBytes_AsString(<object> pyobj)
         else:
             out_buf = allocate_buffer(
                 max_output_size, memory_pool=memory_pool, resizable=True
@@ -2703,7 +2703,7 @@ cdef class Codec(_Weakrefable):
 
         if asbytes:
             pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
-            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
+            output_buffer = <uint8_t*> cp.PyBytes_AsString(pybuf)
         else:
             out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
             output_buffer = out_buf.buffer.get().mutable_data()

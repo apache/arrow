@@ -1016,8 +1016,8 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
           return CheckPyError();
         },
         [&list_item](int64_t idx, OwnedRef& key_value, OwnedRef& item_value) {
-          PyList_SET_ITEM(list_item.obj(), idx,
-                          PyTuple_Pack(2, key_value.obj(), item_value.obj()));
+          PyList_SetItem(list_item.obj(), idx,
+                         PyTuple_Pack(2, key_value.obj(), item_value.obj()));
           return CheckPyError();
         },
         [&list_item] { return list_item.detach(); }, data, py_keys, py_items, item_arrays,

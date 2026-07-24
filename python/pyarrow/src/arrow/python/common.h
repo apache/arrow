@@ -23,9 +23,11 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/python/helpers.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -398,12 +400,14 @@ struct PyBytesView {
   // View the given Python object as binary-like, i.e. bytes
   Status ParseBinary(PyObject* obj) {
     if (PyBytes_Check(obj)) {
-      bytes = PyBytes_AS_STRING(obj);
-      size = PyBytes_GET_SIZE(obj);
+      bytes = PyBytes_AsString(obj);
+      size = PyBytes_Size(obj);
+      ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyByteArray_Check(obj)) {
-      bytes = PyByteArray_AS_STRING(obj);
-      size = PyByteArray_GET_SIZE(obj);
+      bytes = PyByteArray_AsString(obj);
+      size = PyByteArray_Size(obj);
+      ARROW_DCHECK(!PyErr_Occurred());
       is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
       PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
@@ -413,8 +417,8 @@ struct PyBytesView {
       size = buffer->len;
       is_utf8 = false;
     } else {
-      return Status::TypeError("Expected bytes, got a '", Py_TYPE(obj)->tp_name,
-                               "' object");
+      return Status::TypeError("Expected bytes, got a '",
+                               internal::PyObject_StdStringTypeName(obj), "' object");
     }
     return Status::OK();
   }
@@ -425,10 +429,13 @@ struct PyBytesView {
     RETURN_IF_PYERROR();
     if (!PyBytes_Check(ref.obj())) {
       return Status::TypeError("Expected uuid.UUID.bytes to return bytes, got '",
-                               Py_TYPE(ref.obj())->tp_name, "' object");
+                               internal::PyObject_StdStringTypeName(ref.obj()),
+                               "' object");
     }
-    bytes = PyBytes_AS_STRING(ref.obj());
-    size = PyBytes_GET_SIZE(ref.obj());
+    bytes = PyBytes_AsString(ref.obj());
+    RETURN_IF_PYERROR();
+    size = PyBytes_Size(ref.obj());
+    RETURN_IF_PYERROR();
     is_utf8 = false;
     return Status::OK();
   }
