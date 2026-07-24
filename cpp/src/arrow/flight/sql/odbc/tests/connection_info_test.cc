@@ -622,18 +622,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAlterTable) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoCatalogLocation) {
-  // GH-49482 TODO: resolve inconsitent return value for SQL_CATALOG_LOCATION and change
-  // test type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString(), this->conn);
-
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogLocation) {
   SQLUSMALLINT value;
   GetInfo(this->conn, SQL_CATALOG_LOCATION, &value);
 
   EXPECT_EQ(static_cast<SQLUSMALLINT>(0), value);
-
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogName) {
@@ -758,32 +751,18 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
-  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_SCHEMA and change test
-  // type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString(), this->conn);
-
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
-  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
-
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+  EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DS_DROP_SCHEMA), value);
 }
 
-TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropTable) {
-  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_TABLE and change test
-  // type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString(), this->conn);
-
+TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTable) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_TABLE, &value);
 
-  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
-
-  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+  EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DT_DROP_TABLE), value);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTranslation) {
