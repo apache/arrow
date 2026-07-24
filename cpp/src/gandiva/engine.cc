@@ -543,6 +543,10 @@ Status Engine::FinalizeModule() {
   if (!cached_) {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
+    if (conf_->dump_ir()) {
+      unoptimized_module_ir_ = DumpModuleIR(*module_);
+    }
+
     if (optimize_) {
       auto target_analysis = target_machine_->getTargetIRAnalysis();
 // misc passes to allow for inlining, vectorization, ..
@@ -613,6 +617,12 @@ arrow::Status Engine::AddGlobalMappings() {
 const std::string& Engine::ir() {
   DCHECK(!module_ir_.empty()) << "dump_ir in Configuration must be set for dumping IR";
   return module_ir_;
+}
+
+const std::string& Engine::unoptimized_ir() {
+  DCHECK(!unoptimized_module_ir_.empty())
+      << "dump_ir in Configuration must be set for dumping IR";
+  return unoptimized_module_ir_;
 }
 
 }  // namespace gandiva

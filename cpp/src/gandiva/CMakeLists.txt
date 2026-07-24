@@ -65,6 +65,7 @@ set(SRC_FILES
     engine.cc
     date_utils.cc
     encrypt_utils.cc
+    expr_cse.cc
     expr_decomposer.cc
     expr_validator.cc
     expression.cc
@@ -259,6 +260,7 @@ add_gandiva_test(internals-test
                  annotator_test.cc
                  tree_expr_test.cc
                  encrypt_utils_test.cc
+                 expr_cse_test.cc
                  expr_decomposer_test.cc
                  exported_funcs_registry_test.cc
                  expression_registry_test.cc

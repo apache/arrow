@@ -20,12 +20,23 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include <unordered_set>
 
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
+
+arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry();
+
+namespace {
+
+int32_t CustomIdentity(int32_t value) { return value; }
+
+int32_t CustomAdd(int32_t left, int32_t right) { return left + right; }
+
+}  // namespace
 
 class TestFunctionRegistry : public ::testing::Test {
  protected:
@@ -121,5 +132,36 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
       << "The following signatures are defined more than once possibly pointing to "
          "different precompiled functions:\n"
       << stream.str();
+}
+
+TEST_F(TestFunctionRegistry, TestBuiltInIdentitySurvivesCustomRegistrations) {
+  ASSERT_OK_AND_ASSIGN(auto registry, MakeDefaultFunctionRegistry());
+  FunctionSignature add_signature("add", {arrow::int32(), arrow::int32()},
+                                  arrow::int32());
+  const NativeFunction* built_in_add = registry->LookupSignature(add_signature);
+  ASSERT_NE(nullptr, built_in_add);
+  ASSERT_TRUE(registry->IsBuiltIn(*built_in_add));
+
+  for (int i = 0; i < 64; ++i) {
+    auto name = "custom_identity_" + std::to_string(i);
+    NativeFunction function(name, {}, {arrow::int32()}, arrow::int32(), kResultNullIfNull,
+                            name + "_int32");
+    ASSERT_OK(registry->Register(std::move(function),
+                                 reinterpret_cast<void*>(&CustomIdentity)));
+  }
+
+  EXPECT_EQ(built_in_add, registry->LookupSignature(add_signature));
+  EXPECT_TRUE(registry->IsBuiltIn(*built_in_add));
+  ASSERT_NE(registry->begin(), registry->end());
+  EXPECT_FALSE(registry->IsBuiltIn(*registry->back()));
+
+  NativeFunction shadow_add("add", {}, {arrow::int32(), arrow::int32()}, arrow::int32(),
+                            kResultNullIfNull, "custom_add_int32_int32");
+  ASSERT_OK(
+      registry->Register(std::move(shadow_add), reinterpret_cast<void*>(&CustomAdd)));
+
+  EXPECT_EQ(built_in_add, registry->LookupSignature(add_signature));
+  EXPECT_TRUE(registry->IsBuiltIn(*built_in_add));
+  EXPECT_FALSE(registry->IsBuiltIn(*registry->back()));
 }
 }  // namespace gandiva
