@@ -1495,13 +1495,11 @@ struct CaseWhenFunction : ScalarFunction {
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 
-  static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
+  // For case_when exact dispatch, all value arguments must have identical DataType.
+  static std::shared_ptr<MatchConstraint> AllValueTypesMatchConstraint() {
     static auto constraint =
         MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
           DCHECK_GE(types.size(), 2);
-          DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
-            return is_decimal(type.id());
-          }));
           return std::all_of(
               types.begin() + 2, types.end(),
               [&types](const TypeHolder& type) { return type == types[1]; });
@@ -2738,7 +2736,7 @@ struct ChooseFunction : ScalarFunction {
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec,
-                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
+                       std::shared_ptr<MatchConstraint> constraint) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
                             /*is_varargs=*/true, std::move(constraint)),
@@ -2756,38 +2754,42 @@ void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
 }
 
 void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                                 const std::vector<std::shared_ptr<DataType>>& types) {
+                                 const std::vector<std::shared_ptr<DataType>>& types,
+                                 std::shared_ptr<MatchConstraint> constraint) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
-    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+    AddCaseWhenKernel(scalar_function, type, std::move(exec), constraint);
   }
 }
 
 void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                              const std::vector<std::shared_ptr<DataType>>& types) {
+                              const std::vector<std::shared_ptr<DataType>>& types,
+                              std::shared_ptr<MatchConstraint> constraint) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
-    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+    AddCaseWhenKernel(scalar_function, type, std::move(exec), constraint);
   }
 }
 
 template <typename ArrowNestedType>
-void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                             std::shared_ptr<MatchConstraint> constraint) {
   AddCaseWhenKernel(scalar_function, ArrowNestedType::type_id,
-                    CaseWhenFunctor<ArrowNestedType>::Exec);
+                    CaseWhenFunctor<ArrowNestedType>::Exec, constraint);
 }
 
-void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
-  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function);
-  AddNestedCaseWhenKernel<ListType>(scalar_function);
-  AddNestedCaseWhenKernel<LargeListType>(scalar_function);
-  AddNestedCaseWhenKernel<ListViewType>(scalar_function);
-  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function);
-  AddNestedCaseWhenKernel<MapType>(scalar_function);
-  AddNestedCaseWhenKernel<StructType>(scalar_function);
-  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function);
-  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function);
-  AddNestedCaseWhenKernel<DictionaryType>(scalar_function);
+void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                              std::shared_ptr<MatchConstraint> constraint) {
+  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<ListType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<LargeListType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<ListViewType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<MapType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<StructType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<DictionaryType>(scalar_function, constraint);
 }
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
@@ -2909,19 +2911,21 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<CaseWhenFunction>(
         "case_when", Arity::VarArgs(/*min_args=*/2), case_when_doc);
-    AddPrimitiveCaseWhenKernels(func, NumericTypes());
-    AddPrimitiveCaseWhenKernels(func, TemporalTypes());
-    AddPrimitiveCaseWhenKernels(func, IntervalTypes());
-    AddPrimitiveCaseWhenKernels(func, DurationTypes());
-    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()});
+    auto all_value_types_match = CaseWhenFunction::AllValueTypesMatchConstraint();
+    AddPrimitiveCaseWhenKernels(func, NumericTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, TemporalTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, IntervalTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, DurationTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()},
+                                all_value_types_match);
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
-                      CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+                      CaseWhenFunctor<FixedSizeBinaryType>::Exec, all_value_types_match);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
-                      CaseWhenFunction::DecimalMatchConstraint());
+                      all_value_types_match);
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
-                      CaseWhenFunction::DecimalMatchConstraint());
-    AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
-    AddNestedCaseWhenKernels(func);
+                      all_value_types_match);
+    AddBinaryCaseWhenKernels(func, BaseBinaryTypes(), all_value_types_match);
+    AddNestedCaseWhenKernels(func, all_value_types_match);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
