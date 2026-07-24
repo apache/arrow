@@ -63,12 +63,12 @@ static void KeyHashIntegers32(benchmark::State& state) {  // NOLINT non-const re
   ASSERT_OK_AND_ASSIGN(
       compute::KeyColumnArray input_keycol,
       compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
+  std::vector<compute::KeyColumnArray> columns{input_keycol};
 
   // run the benchmark
   while (state.KeepRunning()) {
     compute::Hashing32::HashMultiColumn(
-        {input_keycol}, &hash_ctx,
-        reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
+        columns, &hash_ctx, reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
   }
 
   state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int32_t));
@@ -96,12 +96,12 @@ static void KeyHashIntegers64(benchmark::State& state) {  // NOLINT non-const re
   ASSERT_OK_AND_ASSIGN(
       compute::KeyColumnArray input_keycol,
       compute::ColumnArrayFromArrayData(test_vals->data(), 0, test_vals->length()));
+  std::vector<compute::KeyColumnArray> columns{input_keycol};
 
   // run the benchmark
   while (state.KeepRunning()) {
     compute::Hashing64::HashMultiColumn(
-        {input_keycol}, &hash_ctx,
-        reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
+        columns, &hash_ctx, reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
   }
 
   state.SetBytesProcessed(state.iterations() * test_vals->length() * sizeof(int64_t));
