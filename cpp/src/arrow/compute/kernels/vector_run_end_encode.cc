@@ -17,6 +17,10 @@
 
 #include <utility>
 
+#include "arrow/array/array_run_end.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/compare.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -289,6 +293,68 @@ struct RunEndEncodeExec {
     return Status::Invalid("Invalid run end type: ", *state->run_end_type);
   }
 
+  template <typename RunEndType>
+  static Status DoExecNested(KernelContext* ctx, const ArraySpan& input_array,
+                             ExecResult* result) {
+    using RunEndCType = typename RunEndType::c_type;
+    const int64_t input_length = input_array.length;
+    auto run_end_type = TypeTraits<RunEndType>::type_singleton();
+    RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_length));
+
+    NumericBuilder<RunEndType> run_ends_builder(ctx->memory_pool());
+    if (input_length > 0) {
+      auto input = input_array.ToArray();
+      // Avoid merging floating-point values whose representations may differ. Signed
+      // zeros compare unequal, and NaNs remain in separate runs to preserve payloads.
+      const auto equal_options =
+          EqualOptions::Defaults().nans_equal(false).signed_zeros_equal(false);
+      for (int64_t i = 1; i < input_length; ++i) {
+        if (!ArrayRangeEquals(*input, *input, i - 1, i, i, equal_options)) {
+          RETURN_NOT_OK(run_ends_builder.Append(static_cast<RunEndCType>(i)));
+        }
+      }
+      RETURN_NOT_OK(run_ends_builder.Append(static_cast<RunEndCType>(input_length)));
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_builder,
+        MakeBuilderExactIndex(input_array.type->GetSharedPtr(), ctx->memory_pool()));
+    RETURN_NOT_OK(values_builder->Reserve(run_ends_builder.length()));
+    int64_t run_start = 0;
+    for (int64_t i = 0; i < run_ends_builder.length(); ++i) {
+      if (input_array.IsNull(run_start)) {
+        RETURN_NOT_OK(values_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(values_builder->AppendArraySlice(input_array, run_start, 1));
+      }
+      run_start = run_ends_builder.GetValue(i);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto run_ends, run_ends_builder.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto values, values_builder->Finish());
+    ARROW_ASSIGN_OR_RAISE(auto output,
+                          RunEndEncodedArray::Make(input_length, run_ends, values));
+    result->value = output->data();
+    return Status::OK();
+  }
+
+  static Status ExecNested(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    DCHECK(span.values[0].is_array());
+    const auto& input_array = span.values[0].array;
+    const auto* state = checked_cast<const RunEndEncodingState*>(ctx->state());
+    switch (state->run_end_type->id()) {
+      case Type::INT16:
+        return DoExecNested<Int16Type>(ctx, input_array, result);
+      case Type::INT32:
+        return DoExecNested<Int32Type>(ctx, input_array, result);
+      case Type::INT64:
+        return DoExecNested<Int64Type>(ctx, input_array, result);
+      default:
+        break;
+    }
+    return Status::Invalid("Invalid run end type: ", *state->run_end_type);
+  }
+
   /// \brief The OutputType::Resolver of the "run_end_decode" function.
   static Result<TypeHolder> ResolveOutputType(
       KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
@@ -470,6 +536,56 @@ struct RunEndDecodeExec {
     return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
   }
 
+  template <typename RunEndType>
+  static Status DoExecNested(KernelContext* ctx, const ArraySpan& input_array,
+                             ExecResult* result) {
+    using RunEndCType = typename RunEndType::c_type;
+    const auto& input_values = arrow::ree_util::ValuesArray(input_array);
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_builder,
+        MakeBuilderExactIndex(input_values.type->GetSharedPtr(), ctx->memory_pool()));
+    RETURN_NOT_OK(output_builder->Reserve(input_array.length));
+
+    const arrow::ree_util::RunEndEncodedArraySpan<RunEndCType> ree_array_span(
+        input_array);
+    if (input_array.length > 0) {
+      for (auto it = ree_array_span.begin(); !it.is_end(ree_array_span); ++it) {
+        const int64_t physical_index = it.index_into_array();
+        const int64_t run_length = it.run_length();
+        if (input_values.IsNull(physical_index)) {
+          RETURN_NOT_OK(output_builder->AppendNulls(run_length));
+          continue;
+        }
+        for (int64_t i = 0; i < run_length; ++i) {
+          RETURN_NOT_OK(
+              output_builder->AppendArraySlice(input_values, physical_index, 1));
+        }
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto output, output_builder->Finish());
+    result->value = output->data();
+    return Status::OK();
+  }
+
+  static Status ExecNested(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    DCHECK(span.values[0].is_array());
+    const auto& input_array = span.values[0].array;
+    const auto& ree_type = checked_cast<const RunEndEncodedType*>(input_array.type);
+    switch (ree_type->run_end_type()->id()) {
+      case Type::INT16:
+        return DoExecNested<Int16Type>(ctx, input_array, result);
+      case Type::INT32:
+        return DoExecNested<Int32Type>(ctx, input_array, result);
+      case Type::INT64:
+        return DoExecNested<Int64Type>(ctx, input_array, result);
+      default:
+        break;
+    }
+    return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
+  }
+
   /// \brief The OutputType::Resolver of the "run_end_decode" function.
   static Result<TypeHolder> ResolveOutputType(KernelContext*,
                                               const std::vector<TypeHolder>& in_types) {
@@ -562,6 +678,15 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   };
 
+  auto add_nested_kernel = [&function](Type::type type_id) {
+    auto sig = KernelSignature::Make({InputType(match::SameTypeId(type_id))},
+                                     OutputType(RunEndEncodeExec::ResolveOutputType));
+    VectorKernel kernel(sig, RunEndEncodeExec::ExecNested, RunEndEncodeInit);
+    // A REE has null_count=0, so no need to allocate a validity bitmap for them.
+    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
+  };
+
   add_kernel(Type::NA);
   add_kernel(Type::BOOL);
   for (const auto& ty : NumericTypes()) {
@@ -585,6 +710,9 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   add_kernel(Type::BINARY);
   add_kernel(Type::LARGE_STRING);
   add_kernel(Type::LARGE_BINARY);
+  add_nested_kernel(Type::FIXED_SIZE_LIST);
+  add_nested_kernel(Type::LIST);
+  add_nested_kernel(Type::STRUCT);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
@@ -601,6 +729,17 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
       auto sig = KernelSignature::Make({InputType(std::move(input_type_matcher))},
                                        OutputType(RunEndDecodeExec::ResolveOutputType));
       VectorKernel kernel(sig, exec);
+      DCHECK_OK(function->AddKernel(std::move(kernel)));
+    }
+  };
+
+  auto add_nested_kernel = [&function](Type::type type_id) {
+    for (const auto& run_end_type_id : {Type::INT16, Type::INT32, Type::INT64}) {
+      auto input_type_matcher = match::RunEndEncoded(match::SameTypeId(run_end_type_id),
+                                                     match::SameTypeId(type_id));
+      auto sig = KernelSignature::Make({InputType(std::move(input_type_matcher))},
+                                       OutputType(RunEndDecodeExec::ResolveOutputType));
+      VectorKernel kernel(sig, RunEndDecodeExec::ExecNested);
       DCHECK_OK(function->AddKernel(std::move(kernel)));
     }
   };
@@ -628,6 +767,9 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   add_kernel(Type::BINARY);
   add_kernel(Type::LARGE_STRING);
   add_kernel(Type::LARGE_BINARY);
+  add_nested_kernel(Type::FIXED_SIZE_LIST);
+  add_nested_kernel(Type::LIST);
+  add_nested_kernel(Type::STRUCT);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
