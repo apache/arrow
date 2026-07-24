@@ -51,7 +51,6 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
-#include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -191,12 +190,9 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   const int num_values = std::min(num_values_remaining_, batch_size);
   const int num_decoded = impl_->GetBatch(levels, num_values);
   if (num_decoded > 0) {
-    internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
-    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
-      std::stringstream ss;
-      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
-         << " out of range.  Max Level: " << max_level_;
-      throw ParquetException(ss.str());
+    if (levels[0] < 0 || levels[0] > max_level_ ||
+        levels[num_decoded - 1] < 0 || levels[num_decoded - 1] > max_level_) {
+      throw ParquetException("Malformed levels");
     }
   }
   num_values_remaining_ -= num_decoded;
