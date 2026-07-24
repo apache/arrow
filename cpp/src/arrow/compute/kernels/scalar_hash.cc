@@ -26,7 +26,6 @@
 #include "arrow/compute/registry_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/result.h"
-#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 namespace compute {
@@ -137,21 +136,15 @@ struct FastHashScalar {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(buffer_size, memory_pool));
     ARROW_RETURN_NOT_OK(
         HashArray(sliced, hash_ctx, memory_pool, buffer->mutable_data_as<c_type>()));
-
-    std::shared_ptr<Buffer> validity;
-    if (sliced.GetBuffer(0) != nullptr) {
-      // sliced.GetBuffer(0) is unshifted: reading logical row i requires bit
-      // `sliced.offset + i`. But the returned ArrayData has offset 0, and callers
-      // build a KeyColumnArray directly from its buffers without applying that
-      // offset themselves (see ToColumnArray, which always treats bit/byte 0 of a
-      // buffer as row 0). Repack into a fresh, 0-based bitmap so it's self-consistent
-      // with the hash values buffer, which is already 0-based.
-      ARROW_ASSIGN_OR_RAISE(validity, ::arrow::internal::CopyBitmap(
-                                          memory_pool, sliced.GetBuffer(0)->data(),
-                                          sliced.offset, sliced.length));
-    }
-    return ArrayData::Make(arrow_type, sliced.length,
-                           {std::move(validity), std::move(buffer)}, sliced.null_count);
+    // No validity buffer needed: HashArray already zeroed out[i] for every
+    // genuinely-null row of `sliced` above (via ZeroNulls or the valid-0 remap, both
+    // of which correctly use sliced's own offset), so null-ness is already fully
+    // encoded in the hash values themselves. A reused validity buffer would need
+    // rebasing anyway, since it's unshifted (reading row i needs bit `sliced.offset +
+    // i`) while this returned ArrayData has offset 0 and callers read its buffers
+    // directly as row-0-based (see ToColumnArray).
+    return ArrayData::Make(arrow_type, sliced.length, {nullptr, std::move(buffer)},
+                           /*null_count=*/0);
   }
 
   static Status HashStructArray(const ArraySpan& array, LightContext* hash_ctx,
