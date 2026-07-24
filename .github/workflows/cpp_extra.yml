@@ -459,14 +459,13 @@ jobs:
             -S cpp/examples/minimal_build ^
             -B cpp/examples/minimal_build.build ^
             -GNinja ^
+            -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
 
-          type cpp\examples\minimal_build.build\CMakeCache.txt | findstr CMAKE_BUILD_TYPE
-          type cpp\examples\minimal_build.build\CMakeCache.txt | findstr CMAKE_MSVC_RUNTIME_LIBRARY
+          cmake --build cpp/examples/minimal_build.build
 
-          cmake --build cpp/examples/minimal_build.build --verbose
-
-          call cpp\examples\minimal_build.build\arrow-example.exe
+          cd cpp\examples\minimal_build
+          call ..\minimal_build.build\arrow-example.exe
 
       - name: Save ccache
         if: ${{ !cancelled() }}
