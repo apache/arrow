@@ -29,7 +29,9 @@ versions=([3.11]=3.11.9
           [3.12]=3.12.10
           [3.13]=3.13.14
           [3.14]=3.14.6
-          [3.14t]=3.14.6)
+          [3.14t]=3.14.6
+          [3.15]=3.15.0
+          [3.15t]=3.15.0)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -47,6 +49,9 @@ if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
     fname="python-${full_version}-macos11.pkg"
+    if [[ $2 == "3.15" ]] || [[ $2 == "3.15t" ]]; then
+        fname="python-${full_version}b4-macos11.pkg"
+    fi
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
@@ -78,7 +83,7 @@ EOF
     rm "$fname"
 
     python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    if [[ $2 == "3.14t" ]]; then
+    if [[ $2 == "3.14t" ]] || [[ $2 == "3.15t" ]]; then
         base_version="${version%t}"
         python="/Library/Frameworks/PythonT.framework/Versions/${base_version}/bin/python${base_version}t"
     fi

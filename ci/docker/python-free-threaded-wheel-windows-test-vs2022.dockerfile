@@ -27,7 +27,8 @@ FROM ${base}
 ARG python=3.14
 
 # hadolint ignore=SC1072
-RUN (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.5")
+RUN (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.5") & \
+    (if "%python%"=="3.15" setx PYTHON_VERSION "3.15.0b4")
 
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 RUN $version = $env:PYTHON_VERSION; \
