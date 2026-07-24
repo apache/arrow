@@ -1038,7 +1038,16 @@ void DictDecoderImpl<Type>::SetDict(TypedDecoder<Type>* dictionary) {
 
 template <>
 void DictDecoderImpl<BooleanType>::SetDict(TypedDecoder<BooleanType>* dictionary) {
-  ParquetException::NYI("Dictionary encoding is not implemented for boolean values");
+  dictionary_length_ = static_cast<int32_t>(dictionary->values_left());
+  PARQUET_THROW_NOT_OK(dictionary_->Resize(
+      static_cast<int64_t>(dictionary_length_) * sizeof(bool), false));
+  if (dictionary->Decode(dictionary_->mutable_data_as<bool>(), dictionary_length_) !=
+      dictionary_length_) {
+    throw ParquetException(
+        "Boolean dictionary decode produced fewer values than the dictionary header "
+        "declared (expected ",
+        dictionary_length_, ")");
+  }
 }
 
 template <>
@@ -1256,6 +1265,31 @@ void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* bui
       dictionary_length_, byte_array_offsets_, byte_array_data_);
   PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));
 }
+
+// Dictionary decoder for boolean column data. Decodes PLAIN_DICTIONARY
+// and RLE_DICTIONARY pages into the callers byte buffer.
+class DictBooleanDecoderImpl : public DictDecoderImpl<BooleanType>,
+                               virtual public BooleanDecoder {
+ public:
+  using BASE = DictDecoderImpl<BooleanType>;
+  using BASE::BASE;
+  using BASE::Decode;
+
+  int Decode(uint8_t* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const auto* dict = dictionary_->data_as<bool>();
+    for (int i = 0; i < max_values; ++i) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+        ParquetException::EofException();
+      }
+      PARQUET_THROW_NOT_OK(IndexInBounds(index));
+      ::arrow::bit_util::SetBitTo(buffer, i, dict[index]);
+    }
+    this->num_values_ -= max_values;
+    return max_values;
+  }
+};
 
 class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
  public:
@@ -2461,7 +2495,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
                                          MemoryPool* pool) {
   switch (type_num) {
     case Type::BOOLEAN:
-      ParquetException::NYI("Dictionary encoding not implemented for boolean type");
+      return std::make_unique<DictBooleanDecoderImpl>(descr, pool);
     case Type::INT32:
       return std::make_unique<DictDecoderImpl<Int32Type>>(descr, pool);
     case Type::INT64:
