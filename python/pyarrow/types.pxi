@@ -1967,6 +1967,14 @@ cdef class JsonType(BaseExtensionType):
         return JsonScalar
 
 
+class _UuidPandasDtype:
+    def __from_arrow__(self, array):
+        # Return a 1-D object array of uuid.UUID values (nulls become None).
+        # Per pandas' __from_arrow__ contract this is 1-D; the table-to-blocks
+        # path reshapes it to the single-column block layout as needed.
+        return np.asarray(array.to_pylist(), dtype=object)
+
+
 cdef class UuidType(BaseExtensionType):
     """
     Concrete class for UUID extension type.
@@ -1984,6 +1992,9 @@ cdef class UuidType(BaseExtensionType):
 
     def __arrow_ext_scalar_class__(self):
         return UuidScalar
+
+    def to_pandas_dtype(self):
+        return _UuidPandasDtype()
 
 
 cdef class FixedShapeTensorType(BaseExtensionType):
