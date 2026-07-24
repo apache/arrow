@@ -1282,7 +1282,6 @@ Containment tests
 * \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
-
 Hash Functions
 ~~~~~~~~~~~~~~
 
@@ -1301,7 +1300,6 @@ array as input.
 * \(1) The implementation doesn't guarantee hash stability across different versions of
        the library. Union, view and run end encoded types are not supported yet. Null
        values do not hash to null; they hash to a fixed sentinel value.
-
 
 Categorizations
 ~~~~~~~~~~~~~~~
