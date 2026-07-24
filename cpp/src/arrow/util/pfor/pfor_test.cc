@@ -411,6 +411,32 @@ TEST(PforWrapperTest, Int32LargeRandom) {
   EXPECT_EQ(values, decoded);
 }
 
+// Covers the FOR==0 fast path (bit_width > 0 with frame_of_reference == 0):
+// decode unpacks straight into the output, skipping the scratch buffer and the
+// add-FOR pass. Forces min == 0, a range that needs bit_width > 0, outliers to
+// exercise the exception patch on that path, and multiple vectors.
+TEST(PforWrapperTest, Int32ZeroMinWithExceptions) {
+  const int32_t n = 3000;
+  std::vector<int32_t> values(n);
+  std::mt19937 rng(2024);
+  std::uniform_int_distribution<int32_t> dist(0, 500);
+  for (auto& v : values) v = dist(rng);
+  values[0] = 0;            // force min == 0 -> FOR == 0
+  values[100] = 1'000'000;  // outliers -> exceptions on the FOR==0 path
+  values[1500] = 999'999;
+  values[2999] = 500'000;
+
+  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(n);
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size;
+  PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
+
+  std::vector<int32_t> decoded(n);
+  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(),
+                                         comp_size));
+  EXPECT_EQ(values, decoded);
+}
+
 // ======================================================================
 // Compression Ratio Test
 

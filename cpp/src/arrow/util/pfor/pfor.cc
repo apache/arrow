@@ -312,6 +312,17 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
           values[i] = util::SafeCopy<T>(v + unsigned_for);
         }
       }
+    } else if (unsigned_for == 0) {
+      // FOR is zero: there is no bias to add, so unpack straight into the
+      // output. T and UnsignedT are the same width, so the unsigned bits the
+      // unpacker writes ARE the signed values — no scratch buffer and no
+      // second (add-FOR) pass. This is the common case (any column whose
+      // minimum is 0) and decodes at the raw unpack speed. Exceptions are
+      // still patched below in Step 4.
+      arrow::internal::unpack(
+          read_ptr, reinterpret_cast<UnsignedT*>(values),
+          arrow::internal::UnpackOptions{static_cast<int>(num_elements),
+                                         info.bit_width()});
     } else {
       // Unpack into a scratch buffer that does NOT alias `values`, then add
       // FOR. Unpacking in place (aliasing the output as the unsigned scratch)
