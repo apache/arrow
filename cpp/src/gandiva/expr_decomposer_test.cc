@@ -19,11 +19,13 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/node.h"
+#include "gandiva/tree_expr_builder.h"
 
 namespace gandiva {
 
@@ -405,4 +407,34 @@ TEST_F(TestExprDecomposer, TestComplexIfCondition) {
   EXPECT_TRUE(decomposer.if_entries_stack_.empty());
 }
 
+TEST_F(TestExprDecomposer, TestGetUsedFunctionsInExpr) {
+  Annotator annotator;
+  ExprDecomposer decomposer(*registry_, annotator);
+  auto field0 = field("f0", int32());
+  auto f0 = std::make_shared<FieldNode>(field0);
+  auto is_not_null_func = TreeExprBuilder::MakeFunction("isnotnull", {f0}, boolean());
+  ValueValidityPairPtr value_validity;
+  ASSERT_OK(decomposer.Decompose(*is_not_null_func, &value_validity));
+  auto used_functions = decomposer.UsedFunctions();
+  ASSERT_EQ(used_functions.size(), 1);
+  ASSERT_EQ(used_functions.find("isnotnull_int32") != used_functions.end(), true);
+}
+
+TEST_F(TestExprDecomposer, TestGetMultipleUsedFunctionsInExpr) {
+  Annotator annotator;
+  ExprDecomposer decomposer(*registry_, annotator);
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto f0 = std::make_shared<FieldNode>(field0);
+  auto f1 = std::make_shared<FieldNode>(field1);
+  auto add_func = TreeExprBuilder::MakeFunction("add", {f0, f1}, int32());
+  auto is_not_null_func =
+      TreeExprBuilder::MakeFunction("isnotnull", {add_func}, boolean());
+  ValueValidityPairPtr value_validity;
+  ASSERT_OK(decomposer.Decompose(*is_not_null_func, &value_validity));
+  auto used_functions = decomposer.UsedFunctions();
+  ASSERT_EQ(used_functions.size(), 2);
+  ASSERT_EQ(used_functions.find("add_int32_int32") != used_functions.end(), true);
+  ASSERT_EQ(used_functions.find("isnotnull_int32") != used_functions.end(), true);
+}
 }  // namespace gandiva
