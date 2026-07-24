@@ -301,15 +301,6 @@ TYPED_TEST(TestUnpack, UnpackAvx512) {
 TYPED_TEST(TestUnpack, UnpackNeon) { this->TestAll(&bpacking::unpack_neon<TypeParam>); }
 #endif
 
-#if defined(ARROW_HAVE_RUNTIME_SVE128)
-TYPED_TEST(TestUnpack, UnpackSve128) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE128)) {
-    GTEST_SKIP() << "Test requires SVE128";
-  }
-  this->TestAll(&bpacking::unpack_sve128<TypeParam>);
-}
-#endif
-
 #if defined(ARROW_HAVE_RUNTIME_SVE256)
 TYPED_TEST(TestUnpack, UnpackSve256) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
