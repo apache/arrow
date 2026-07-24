@@ -410,6 +410,8 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
+# The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
+# simdjson headers from compiling. Disable simdjson concepts for this SDK.
 if(ARROW_JSON
    AND CMAKE_OSX_SYSROOT
    AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
