@@ -2827,6 +2827,13 @@ TEST(TestStringViewPredicates, NullSlotWithUnvalidatedHeader) {
   AssertDatumsEqual(Datum(expected), matched);
   ASSERT_OK_AND_ASSIGN(Datum ascii, CallFunction("string_is_ascii", {arr}));
   AssertDatumsEqual(Datum(expected), ascii);
+
+  // find/count/length reach nulls through the applicator path instead; assert the
+  // same invariant on a numeric-output kernel.
+  ASSERT_OK_AND_ASSIGN(Datum found, CallFunction("find_substring", {arr}, &contains));
+  AssertDatumsEqual(Datum(ArrayFromJSON(int32(), "[0, null]")), found);
+  ASSERT_OK_AND_ASSIGN(Datum length, CallFunction("utf8_length", {arr}));
+  AssertDatumsEqual(Datum(ArrayFromJSON(int32(), "[2, null]")), length);
 }
 
 }  // namespace arrow::compute
