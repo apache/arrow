@@ -411,9 +411,9 @@ if(ARROW_AZURE)
 endif()
 
 if(ARROW_JSON
-   AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22")
-  message(STATUS "Disabling ARROW_JSON for AppleClang < 22")
+   AND CMAKE_OSX_SYSROOT
+   AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
+  message(STATUS "Disabling ARROW_JSON for macOS SDK 11.3")
   set(ARROW_JSON OFF)
 endif()
 
