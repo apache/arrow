@@ -22,6 +22,7 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
@@ -39,17 +40,26 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-static void UnaryStringBenchmark(benchmark::State& state, const std::string& func_name,
-                                 const FunctionOptions* options = nullptr) {
+// Shared dataset for the string benchmarks: ~1M only-ASCII values.
+static std::shared_ptr<Array> MakeBenchmarkStrings() {
   const int64_t array_length = 1 << 20;
   const int64_t value_min_size = 0;
   const int64_t value_max_size = 32;
   const double null_probability = 0.01;
   random::RandomArrayGenerator rng(kSeed);
+  return rng.String(array_length, value_min_size, value_max_size, null_probability);
+}
 
-  // NOTE: this produces only-Ascii data
-  auto values =
-      rng.String(array_length, value_min_size, value_max_size, null_probability);
+static void UnaryStringBenchmark(benchmark::State& state, const std::string& func_name,
+                                 const FunctionOptions* options = nullptr,
+                                 const std::shared_ptr<DataType>& input_type = utf8()) {
+  std::shared_ptr<Array> values = MakeBenchmarkStrings();
+  const int64_t array_length = values->length();
+  // Report throughput based on the raw string bytes, before any conversion.
+  const int64_t data_nbytes = values->data()->buffers[2]->size();
+  if (input_type->id() != Type::STRING) {
+    values = Cast(*values, input_type).ValueOrDie();
+  }
   // Make sure lookup tables are initialized before measuring
   ABORT_NOT_OK(CallFunction(func_name, {values}, options));
 
@@ -57,7 +67,7 @@ static void UnaryStringBenchmark(benchmark::State& state, const std::string& fun
     ABORT_NOT_OK(CallFunction(func_name, {values}, options));
   }
   state.SetItemsProcessed(state.iterations() * array_length);
-  state.SetBytesProcessed(state.iterations() * values->data()->buffers[2]->size());
+  state.SetBytesProcessed(state.iterations() * data_nbytes);
 }
 
 static void AsciiLower(benchmark::State& state) {
@@ -75,6 +85,28 @@ static void IsAlphaNumericAscii(benchmark::State& state) {
 static void MatchSubstring(benchmark::State& state) {
   MatchSubstringOptions options("abac");
   UnaryStringBenchmark(state, "match_substring", &options);
+}
+
+// Predicate run directly on a string_view array (the path added by this PR).
+static void MatchSubstringView(benchmark::State& state) {
+  MatchSubstringOptions options("abac");
+  UnaryStringBenchmark(state, "match_substring", &options, utf8_view());
+}
+
+// Baseline: the pre-PR workaround of casting the view column to utf8 first. The
+// gap vs. MatchSubstringView is the cast that direct view support avoids.
+static void MatchSubstringViewCast(benchmark::State& state) {
+  std::shared_ptr<Array> utf8_values = MakeBenchmarkStrings();
+  const int64_t array_length = utf8_values->length();
+  const int64_t data_nbytes = utf8_values->data()->buffers[2]->size();
+  std::shared_ptr<Array> view_values = Cast(*utf8_values, utf8_view()).ValueOrDie();
+  MatchSubstringOptions options("abac");
+  for (auto _ : state) {
+    ASSIGN_OR_ABORT(auto casted, Cast(*view_values, utf8()));
+    ABORT_NOT_OK(CallFunction("match_substring", {casted}, &options));
+  }
+  state.SetItemsProcessed(state.iterations() * array_length);
+  state.SetBytesProcessed(state.iterations() * data_nbytes);
 }
 
 static void SplitPattern(benchmark::State& state) {
@@ -242,6 +274,8 @@ BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
 BENCHMARK(MatchSubstring);
+BENCHMARK(MatchSubstringView);
+BENCHMARK(MatchSubstringViewCast);
 BENCHMARK(SplitPattern);
 BENCHMARK(TrimSingleAscii);
 BENCHMARK(TrimManyAscii);
