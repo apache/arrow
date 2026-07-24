@@ -297,20 +297,36 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
         }
       }
     } else {
-      std::vector<UnsignedT> unsigned_values(num_elements);
+      // Unpack into a scratch buffer that does NOT alias `values`, then add
+      // FOR. Unpacking in place (aliasing the output as the unsigned scratch)
+      // stops the compiler from vectorizing the FOR-add loop — it can't prove
+      // values[] and (UnsignedT*)values[] don't overlap, even with ivdep — and
+      // the loop collapses to scalar (measured ~100x slower). Keep them
+      // separate; use the stack for the common (<=vector-size) case so there
+      // is still no per-vector heap allocation.
+      constexpr int32_t kStackScratch =
+          static_cast<int32_t>(PforConstants::kPforVectorSize);
+      UnsignedT stack_scratch[kStackScratch];
+      std::vector<UnsignedT> heap_scratch;
+      UnsignedT* scratch = stack_scratch;
+      if (num_elements > kStackScratch) {
+        heap_scratch.resize(num_elements);
+        scratch = heap_scratch.data();
+      }
       // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
       // then unpack_exact for the remainder.
       arrow::internal::unpack(
-          read_ptr, unsigned_values.data(),
+          read_ptr, scratch,
           arrow::internal::UnpackOptions{static_cast<int>(num_elements),
                                          info.bit_width()});
 
-      // Add FOR and convert to signed output via SafeCopy
+      // Add FOR and convert to signed output via SafeCopy (vectorizes: scratch
+      // and values are distinct buffers).
 #pragma GCC unroll PforConstants::kLoopUnrolls
 #pragma GCC ivdep
       for (int32_t i = 0; i < num_elements; ++i) {
-        unsigned_values[i] += unsigned_for;
-        values[i] = util::SafeCopy<T>(unsigned_values[i]);
+        values[i] =
+            util::SafeCopy<T>(static_cast<UnsignedT>(scratch[i]) + unsigned_for);
       }
     }
 
