@@ -248,9 +248,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         ::arrow::bit_util::GetBit(prebuffered_column_chunks_bitmap_->data(), i)) {
       // PARQUET-1698: if read coalescing is enabled, read from pre-buffered
       // segments.
-      PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
-      stream = std::make_shared<::arrow::io::BufferReader>(buffer);
-    } else {
+      auto buffer = cached_source_->Read(col_range);
+      if (!buffer.ok() && !buffer.status().IsInvalid()) {
+        PARQUET_THROW_NOT_OK(buffer.status());
+      }
+      if (buffer.ok()) {
+        stream = std::make_shared<::arrow::io::BufferReader>(*std::move(buffer));
+      }
+    }
+    if (stream == nullptr) {
       stream = properties_.GetStream(source_, col_range.offset, col_range.length);
     }
 
@@ -431,6 +437,13 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
     }
     return cached_source_->WaitFor(ranges);
+  }
+
+  int64_t EvictPreBufferedDataBefore(int64_t end_offset) {
+    if (!cached_source_) {
+      return 0;
+    }
+    return cached_source_->EvictEntriesBefore(end_offset);
   }
 
   // Metadata/footer parsing. Divided up to separate sync/async paths, and to use
@@ -617,6 +630,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
   std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
+
   // Maps row group ordinal and prebuffer status of its column chunks in the form of a
   // bitmap buffer.
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
@@ -907,6 +921,13 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
   file->PreBuffer(row_groups, column_indices, ctx, options);
+}
+
+int64_t ParquetFileReader::EvictPreBufferedDataBefore(int64_t end_offset) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  return file->EvictPreBufferedDataBefore(end_offset);
 }
 
 Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(

@@ -142,6 +142,12 @@ class ARROW_EXPORT ReadRangeCache {
   /// \brief Wait until all given ranges have been cached.
   Future<> WaitFor(std::vector<ReadRange> ranges);
 
+  /// \brief Evict cache entries ending at or before `end_offset`, returning the
+  /// count. An entry straddling `end_offset` is retained (safe when coalescing
+  /// merged ranges). Buffers already returned by Read() stay valid through
+  /// shared ownership.
+  int64_t EvictEntriesBefore(int64_t end_offset);
+
  protected:
   struct Impl;
   struct LazyImpl;

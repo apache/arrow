@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -25,6 +26,7 @@
 #include <ostream>
 #include <random>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -916,6 +918,153 @@ TEST(RangeReadCache, LazyWithPrefetching) {
   ASSERT_RAISES(Invalid, cache.Read({19, 3}));
   ASSERT_RAISES(Invalid, cache.Read({0, 3}));
   ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+}
+
+TEST(RangeReadCache, EvictEntriesBefore) {
+  // GH-39808: entries cached by PreBuffer()-style code need to be evictable so
+  // memory stays bounded while iterating a large Parquet file.
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
+    CacheOptions options = CacheOptions::Defaults();
+    options.hole_size_limit = 0;  // disable coalescing: one entry per range
+    options.range_size_limit = 10;
+    options.lazy = lazy;
+
+    auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
+    internal::ReadRangeCache cache(file, {}, options);
+
+    // Entries: [1,3), [10,14), [20,22).
+    ASSERT_OK(cache.Cache({{1, 2}, {10, 4}, {20, 2}}));
+    ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
+    AssertBufferEqual(*buf, "klmn");
+
+    // An offset that splits no entry frees nothing.
+    ASSERT_EQ(0, cache.EvictEntriesBefore(0));
+    ASSERT_EQ(0, cache.EvictEntriesBefore(2));  // [1,3) extends past 2 -> retained
+
+    // end_offset == an entry's end frees exactly that entry ([1,3) ends at 3).
+    ASSERT_EQ(1, cache.EvictEntriesBefore(3));
+    ASSERT_RAISES(Invalid, cache.Read({1, 2}));
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));  // others intact
+    AssertBufferEqual(*buf, "klmn");
+
+    // An offset inside an entry leaves it in place.
+    ASSERT_EQ(0, cache.EvictEntriesBefore(12));  // [10,14) straddles 12
+
+    // A wide offset frees every remaining entry in one call.
+    ASSERT_EQ(2, cache.EvictEntriesBefore(100));
+    ASSERT_RAISES(Invalid, cache.Read({10, 4}));
+    ASSERT_RAISES(Invalid, cache.Read({20, 2}));
+
+    // Empty cache is a safe no-op.
+    ASSERT_EQ(0, cache.EvictEntriesBefore(100));
+  }
+}
+
+TEST(RangeReadCache, ConcurrentReadAndEvict) {
+  // GH-39808: the Parquet dataset scanner calls EvictEntriesBefore from the
+  // thread-pool continuation that runs after a row group is decoded, while
+  // other threads may still be calling Read() for column chunks of other
+  // in-flight row groups. Exercise that pattern explicitly by slamming the
+  // cache with parallel Read()s interleaved with Evict()s and make sure we
+  // don't hit UB (iterator invalidation, torn reads, etc.).
+  constexpr int kNumRanges = 64;
+  constexpr int kRangeSize = 64;
+  constexpr int kIterations = 50;
+  std::string data(kNumRanges * kRangeSize, 'x');
+
+  for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
+    CacheOptions options = CacheOptions::Defaults();
+    // No coalescing: each range is its own entry so we can evict them
+    // individually without fighting the coalescing heuristic.
+    options.hole_size_limit = 0;
+    options.range_size_limit = kRangeSize;
+    options.lazy = lazy;
+
+    auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
+    internal::ReadRangeCache cache(file, {}, options);
+
+    std::vector<ReadRange> ranges;
+    ranges.reserve(kNumRanges);
+    for (int i = 0; i < kNumRanges; ++i) {
+      ranges.push_back({static_cast<int64_t>(i * kRangeSize), kRangeSize});
+    }
+    ASSERT_OK(cache.Cache(ranges));
+
+    // Half of the threads repeatedly read the upper half of the ranges.
+    // The other half repeatedly evict and re-cache the lower half. Under
+    // the old code this would race on the shared `entries` vector.
+    std::atomic<bool> stop{false};
+    std::atomic<int> failures{0};
+
+    auto reader_fn = [&]() {
+      while (!stop.load(std::memory_order_relaxed)) {
+        for (int i = kNumRanges / 2; i < kNumRanges; ++i) {
+          auto result = cache.Read(ranges[i]);
+          if (!result.ok() || (*result)->size() != kRangeSize) {
+            failures.fetch_add(1, std::memory_order_relaxed);
+          }
+        }
+      }
+    };
+    auto evictor_fn = [&]() {
+      for (int iter = 0; iter < kIterations; ++iter) {
+        // Evict the entire lower half in one call (entries ending before the
+        // midpoint offset).
+        const int64_t mid_offset =
+            ranges[kNumRanges / 2 - 1].offset + ranges[kNumRanges / 2 - 1].length;
+        cache.EvictEntriesBefore(mid_offset);
+        // Re-cache them so the next iteration has something to evict.
+        std::vector<ReadRange> lower(ranges.begin(), ranges.begin() + kNumRanges / 2);
+        if (!cache.Cache(lower).ok()) {
+          failures.fetch_add(1, std::memory_order_relaxed);
+        }
+      }
+      stop.store(true, std::memory_order_relaxed);
+    };
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < 4; ++i) threads.emplace_back(reader_fn);
+    threads.emplace_back(evictor_fn);
+    for (auto& t : threads) t.join();
+    ASSERT_EQ(0, failures.load());
+
+    // Every upper-half range is still readable after the torture loop.
+    for (int i = kNumRanges / 2; i < kNumRanges; ++i) {
+      ASSERT_OK_AND_ASSIGN(auto buf, cache.Read(ranges[i]));
+      ASSERT_EQ(kRangeSize, buf->size());
+    }
+  }
+}
+
+TEST(RangeReadCache, EvictEntriesBeforeSpanningEntry) {
+  // A coalesced entry must not be dropped until end_offset passes its end,
+  // otherwise we drop bytes a later consumer still needs.
+  std::string data(40, 'x');
+
+  CacheOptions options = CacheOptions::Defaults();
+  options.hole_size_limit = 100;  // force coalescing into one entry
+  options.range_size_limit = 200;
+
+  auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
+  internal::ReadRangeCache cache(file, {}, options);
+
+  // {1,3} and {10,4} coalesce into a single entry [1, 14).
+  ASSERT_OK(cache.Cache({{1, 3}, {10, 4}}));
+
+  // An offset inside the entry (e.g. just past the first logical range) keeps it.
+  ASSERT_EQ(0, cache.EvictEntriesBefore(4));
+  ASSERT_EQ(0, cache.EvictEntriesBefore(13));
+  ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
+  ASSERT_EQ(4, buf->size());
+
+  // end_offset at/after the entry's end (14) frees it.
+  ASSERT_EQ(1, cache.EvictEntriesBefore(14));
+  ASSERT_RAISES(Invalid, cache.Read({1, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({10, 4}));
 }
 
 TEST(CacheOptions, Basics) {

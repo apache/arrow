@@ -22,6 +22,8 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -132,6 +134,51 @@ Status TransferColumnData(::parquet::internal::RecordReader* reader,
                           const std::shared_ptr<::arrow::Field>& value_field,
                           const ColumnDescriptor* descr, const ReaderContext* ctx,
                           std::shared_ptr<::arrow::ChunkedArray>* out);
+
+// ----------------------------------------------------------------------
+// Pre-buffer eviction
+
+// GH-39808: as row groups finish decoding (possibly out of order under
+// readahead), advance a watermark over the leading run of completed ones and
+// evict cache entries ending before the lowest byte any remaining one needs.
+class ReadCacheEvictionState {
+ public:
+  // evict_before_offsets[i] = lowest byte offset row groups i..n-1 (in
+  // generator order) still need; evict_before_offsets[n] == INT64_MAX.
+  explicit ReadCacheEvictionState(std::vector<int64_t> evict_before_offsets)
+      : evict_before_offsets_(std::move(evict_before_offsets)),
+        completed_(evict_before_offsets_.size() - 1, false) {}
+
+  void RowGroupDecoded(ParquetFileReader* reader, size_t row_group_index) {
+    if (auto evict_before = MarkDecodedAndGetEvictOffset(row_group_index)) {
+      reader->EvictPreBufferedDataBefore(*evict_before);
+    }
+  }
+
+  // Reader-free half of RowGroupDecoded (so the out-of-order advance is testable):
+  // the evict-before offset when the prefix grows, else nullopt.
+  std::optional<int64_t> MarkDecodedAndGetEvictOffset(size_t row_group_index) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (row_group_index >= completed_.size() || completed_[row_group_index]) {
+      return std::nullopt;
+    }
+    completed_[row_group_index] = true;
+    const size_t old_prefix = completed_prefix_;
+    while (completed_prefix_ < completed_.size() && completed_[completed_prefix_]) {
+      ++completed_prefix_;
+    }
+    if (completed_prefix_ == old_prefix) {
+      return std::nullopt;
+    }
+    return evict_before_offsets_[completed_prefix_];
+  }
+
+ private:
+  std::mutex mutex_;
+  std::vector<int64_t> evict_before_offsets_;
+  std::vector<bool> completed_;
+  size_t completed_prefix_ = 0;
+};
 
 }  // namespace arrow
 }  // namespace parquet
