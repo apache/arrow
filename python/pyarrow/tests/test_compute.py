@@ -4356,22 +4356,55 @@ hash_types = st.deferred(
 )
 
 
+def _contains_null(value):
+    # Whether a Python value produced by Array.as_py() is None, or (for a nested
+    # list/struct/map value) contains a None anywhere within it.
+    if value is None:
+        return True
+    if isinstance(value, dict):
+        return any(_contains_null(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_null(v) for v in value)
+    return False
+
+
+def _check_hash_quality(func, arr):
+    result1 = func(arr)
+    result2 = func(arr)
+    assert result1.equals(result2), "hashing must be deterministic"
+
+    for i in range(len(arr)):
+        h = result1[i].as_py()
+        if not arr[i].is_valid:
+            # A null row always hashes to the documented 0 sentinel (see
+            # NullHashIsZeroAcrossTypes in scalar_hash_test.cc).
+            assert h == 0, f"row {i} is null, expected hash 0"
+        elif not _contains_null(arr[i].as_py()):
+            # A valid row with no null anywhere in its content must never collide
+            # with that sentinel -- this is the property the values-child offset bug
+            # and the struct zero-collision bug (GH-45001) both violated. (A valid
+            # row that *does* contain a nested null, e.g. a null struct field, may
+            # legitimately hash to 0 too -- see
+            # NestedNullFieldWithinValidStructHashesToZero -- so that case isn't
+            # checked either way here.)
+            assert h != 0, (
+                f"row {i} ({arr[i].as_py()!r}) is fully valid but hashed to 0")
+
+
 @pytest.mark.numpy
 @h.given(past.arrays(hash_types))
 def test_hash32(arr):
-    result1 = pc.hash32(arr)
-    result2 = pc.hash32(arr)
-    assert result1.type == pa.uint32()
-    assert result1.equals(result2)
+    result = pc.hash32(arr)
+    assert result.type == pa.uint32()
+    _check_hash_quality(pc.hash32, arr)
 
 
 @pytest.mark.numpy
 @h.given(past.arrays(hash_types))
 def test_hash64(arr):
-    result1 = pc.hash64(arr)
-    result2 = pc.hash64(arr)
-    assert result1.type == pa.uint64()
-    assert result1.equals(result2)
+    result = pc.hash64(arr)
+    assert result.type == pa.uint64()
+    _check_hash_quality(pc.hash64, arr)
 
 
 @st.composite

@@ -859,6 +859,41 @@ TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
   }
 }
 
+// HashStructArray fed raw (unhashed) field columns directly into HashMultiColumn,
+// which -- like the leaf path (see ZeroValueDoesNotCollideWithNull) -- doesn't
+// special-case an all-zero-bits key, so a struct whose fields are all valid could
+// still legitimately combine to the same 0 used as the null-struct sentinel. Unlike
+// the leaf path, the fix can't just remap every 0 to a nonzero sentinel: a field
+// that's independently null must still propagate to 0 (see
+// NestedNullFieldWithinValidStructHashesToZero), so this checks both behaviors hold
+// side by side rather than one regressing the other.
+TEST_F(TestScalarHash, StructOfAllValidZerosDoesNotCollideWithNull) {
+  for (const std::string func : {"hash32", "hash64"}) {
+    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+
+    // A single all-zero-bits field is exactly where HashMultiColumn's underlying
+    // fixed-width hash would otherwise produce a literal 0 for a valid row.
+    auto valid_zero = ArrayFromJSON(struct_({field("f0", int64())}), R"([{"f0": 0}])");
+    ASSERT_OK_AND_ASSIGN(Datum valid_result, CallFunction(func, {valid_zero}));
+    ASSERT_OK_AND_ASSIGN(auto valid_hash, valid_result.make_array()->GetScalar(0));
+    ASSERT_FALSE(valid_hash->Equals(*zero))
+        << "a struct whose only field is a valid zero should not collide with "
+        << "the null-struct sentinel";
+
+    // A null struct and a null field still hash to 0, unaffected by the above.
+    auto null_struct = ArrayFromJSON(struct_({field("f0", int64())}), R"([null])");
+    ASSERT_OK_AND_ASSIGN(Datum null_result, CallFunction(func, {null_struct}));
+    ASSERT_OK_AND_ASSIGN(auto null_hash, null_result.make_array()->GetScalar(0));
+    ASSERT_TRUE(null_hash->Equals(*zero));
+
+    auto null_field = ArrayFromJSON(struct_({field("f0", int64())}), R"([{"f0": null}])");
+    ASSERT_OK_AND_ASSIGN(Datum null_field_result, CallFunction(func, {null_field}));
+    ASSERT_OK_AND_ASSIGN(auto null_field_hash,
+                         null_field_result.make_array()->GetScalar(0));
+    ASSERT_TRUE(null_field_hash->Equals(*zero));
+  }
+}
+
 // Guards against HashChild reusing a nested field's raw (unshifted) validity buffer
 // without rebasing it: the buffer requires bit `child.offset + i` to read logical row
 // i, but the returned ArrayData has offset 0 and its buffer is read directly (bit 0 =
