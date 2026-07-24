@@ -643,6 +643,61 @@ TEST_F(TestScalarHash, FixedSizeListSliceOfLargerArrayMatchesIndependentArray) {
   }
 }
 
+// Guards against a real bug: LIST/LARGE_LIST/FIXED_SIZE_LIST/MAP computed rel_start as
+// `offsets[0] - values.offset` and then passed `values.offset + rel_start` to
+// HashChild -- the values.offset term canceled itself out, so it was never actually
+// applied. This only manifests when `values` (or MAP's items) itself has a
+// pre-existing nonzero offset independent of the parent array -- as opposed to the
+// slicing tests above, which slice the *parent* and leave `values` at offset 0. A
+// values/items child having its own offset is ordinary: e.g. ListArray::FromArrays
+// called with an already-sliced values array.
+TEST_F(TestScalarHash, ValuesChildWithOwnOffsetHashesCorrectly) {
+  auto base_values = ArrayFromJSON(int32(), "[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]");
+  auto sliced_values = base_values->Slice(5, 6);  // offset=5, content [5,6,7,8,9,10]
+  ASSERT_GT(sliced_values->offset(), 0);
+  auto independent_values = ArrayFromJSON(int32(), "[5,6,7,8,9,10]");
+
+  auto offsets32 = ArrayFromJSON(int32(), "[0, 2, 4, 6]");
+  auto offsets64 = ArrayFromJSON(int64(), "[0, 2, 4, 6]");
+
+  ASSERT_OK_AND_ASSIGN(auto list_with_offset,
+                       ListArray::FromArrays(*offsets32, *sliced_values));
+  ASSERT_OK_AND_ASSIGN(auto independent_list,
+                       ListArray::FromArrays(*offsets32, *independent_values));
+
+  ASSERT_OK_AND_ASSIGN(auto large_list_with_offset,
+                       LargeListArray::FromArrays(*offsets64, *sliced_values));
+  ASSERT_OK_AND_ASSIGN(auto independent_large_list,
+                       LargeListArray::FromArrays(*offsets64, *independent_values));
+
+  ASSERT_OK_AND_ASSIGN(auto fsl_with_offset,
+                       FixedSizeListArray::FromArrays(sliced_values, 2));
+  ASSERT_OK_AND_ASSIGN(auto independent_fsl,
+                       FixedSizeListArray::FromArrays(independent_values, 2));
+
+  auto keys = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d", "e", "f"])");
+  ASSERT_OK_AND_ASSIGN(auto map_with_offset,
+                       MapArray::FromArrays(offsets32, keys, sliced_values));
+  ASSERT_OK_AND_ASSIGN(auto independent_map,
+                       MapArray::FromArrays(offsets32, keys, independent_values));
+
+  std::vector<std::pair<std::shared_ptr<Array>, std::shared_ptr<Array>>> cases{
+      {list_with_offset, independent_list},
+      {large_list_with_offset, independent_large_list},
+      {fsl_with_offset, independent_fsl},
+      {map_with_offset, independent_map},
+  };
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& with_offset_and_independent : cases) {
+      ASSERT_OK_AND_ASSIGN(Datum with_offset_result,
+                           CallFunction(func, {with_offset_and_independent.first}));
+      ASSERT_OK_AND_ASSIGN(Datum independent_result,
+                           CallFunction(func, {with_offset_and_independent.second}));
+      AssertDatumsEqual(with_offset_result, independent_result);
+    }
+  }
+}
+
 void CheckRowsHashDifferently(const std::string& func, const std::shared_ptr<Array>& arr,
                               int64_t row_a, int64_t row_b) {
   ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
