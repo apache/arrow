@@ -525,6 +525,45 @@ TEST(Metadata, TestReadPageIndex) {
   }
 }
 
+// A column with max_definition_level == 0 cannot encode nulls, so a positive
+// null_count is contradictory. The reader should drop the bad null_count and
+// still load the metadata.
+TEST(Metadata, SanitizesRequiredColumnWithNonZeroNullCount) {
+  schema::NodeVector fields;
+  fields.push_back(schema::Int32("required_col", Repetition::REQUIRED));
+  auto schema_node = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  SchemaDescriptor schema_descr;
+  schema_descr.Init(schema_node);
+
+  format::ColumnChunk column_chunk;
+  format::ColumnMetaData& column_metadata = column_chunk.meta_data;
+  column_chunk.__isset.meta_data = true;
+
+  column_metadata.type = format::Type::INT32;
+  column_metadata.codec = format::CompressionCodec::UNCOMPRESSED;
+  column_metadata.num_values = 1000;
+  column_metadata.total_uncompressed_size = 4000;
+  column_metadata.total_compressed_size = 4000;
+  column_metadata.data_page_offset = 4;
+  column_metadata.path_in_schema.push_back("required_col");
+
+  column_metadata.statistics.null_count = 105;
+  column_metadata.statistics.__isset.null_count = true;
+  column_metadata.__isset.statistics = true;
+
+  ApplicationVersion writer_version("parquet-cpp-arrow version 1.0.0");
+  std::unique_ptr<ColumnChunkMetaData> col_meta;
+  ASSERT_NO_THROW(
+      col_meta = ColumnChunkMetaData::Make(&column_chunk, schema_descr.Column(0),
+                                           default_reader_properties(), &writer_version));
+
+  auto stats = col_meta->statistics();
+  ASSERT_NE(stats, nullptr);
+  EXPECT_FALSE(stats->HasNullCount());
+}
+
 TEST(Metadata, TestSortingColumns) {
   schema::NodeVector fields;
   fields.push_back(schema::Int32("sort_col", Repetition::REQUIRED));
