@@ -57,12 +57,21 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   constexpr int32_t position_bits = 16;
   constexpr int32_t value_bits = sizeof(T) * 8;
 
-  // Build histogram: histogram[b] = count of deltas requiring exactly b bits
-  std::array<int32_t, 65> histogram{};
-  for (int32_t i = 0; i < num_elements; ++i) {
-    uint8_t bits = PforTypeTraits<T>::BitsRequired(deltas[i]);
-    histogram[bits]++;
+  // Build histogram: histogram[b] = count of deltas requiring exactly b bits.
+  // Use 4 independent accumulators so the read-modify-write doesn't serialize
+  // on repeated bins and the four load->clz->bump chains overlap (this loop is
+  // ~half of encode time; a single histogram array runs scalar and stalls).
+  std::array<int32_t, 65> h0{}, h1{}, h2{}, h3{};
+  int32_t i = 0;
+  for (; i + 4 <= num_elements; i += 4) {
+    ++h0[PforTypeTraits<T>::BitsRequired(deltas[i])];
+    ++h1[PforTypeTraits<T>::BitsRequired(deltas[i + 1])];
+    ++h2[PforTypeTraits<T>::BitsRequired(deltas[i + 2])];
+    ++h3[PforTypeTraits<T>::BitsRequired(deltas[i + 3])];
   }
+  for (; i < num_elements; ++i) ++h0[PforTypeTraits<T>::BitsRequired(deltas[i])];
+  std::array<int32_t, 65> histogram{};
+  for (int b = 0; b <= 64; ++b) histogram[b] = h0[b] + h1[b] + h2[b] + h3[b];
 
   // Evaluate each candidate bit width
   int64_t best_cost = std::numeric_limits<int64_t>::max();
@@ -150,16 +159,23 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
     if (values[i] < min_val) min_val = values[i];
   }
 
-  // Step 2: Compute unsigned deltas
+  // Step 2: Compute unsigned deltas. Use a stack scratch for the common
+  // (<=vector-size) case to avoid a per-vector heap alloc + zero-init.
   const auto unsigned_min = static_cast<UnsignedT>(min_val);
-  std::vector<UnsignedT> deltas(num_elements);
+  constexpr int32_t kFull = static_cast<int32_t>(PforConstants::kPforVectorSize);
+  UnsignedT stack_deltas[kFull];
+  std::vector<UnsignedT> heap_deltas;
+  UnsignedT* deltas = stack_deltas;
+  if (num_elements > kFull) {
+    heap_deltas.resize(num_elements);
+    deltas = heap_deltas.data();
+  }
   for (int32_t i = 0; i < num_elements; ++i) {
     deltas[i] = static_cast<UnsignedT>(values[i]) - unsigned_min;
   }
 
   // Step 3: Find optimal bit width
-  auto [bit_width, num_exceptions] =
-      FindOptimalBitWidth(deltas.data(), num_elements);
+  auto [bit_width, num_exceptions] = FindOptimalBitWidth(deltas, num_elements);
 
   // FastLanes (either variant) only applies when the vector matches the
   // FastLanes block size (1024) and the type is 32-bit. For shorter tails or
