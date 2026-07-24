@@ -429,14 +429,6 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cmake --install cpp.build
 
-      - name: Save ccache
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
-        with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: jni-windows
-
       - name: Test
         shell: cmd
         env:
@@ -457,6 +449,29 @@ jobs:
             --parallel %NUMBER_OF_PROCESSORS% ^
             --test-dir cpp.build ^
             --timeout 300
+
+      - name: Build example
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+
+          cmake ^
+            -S cpp/examples/minimal_build ^
+            -B cpp/examples/minimal_build.build ^
+            -GNinja ^
+            -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
+
+          cmake --build cpp/examples/minimal_build.build
+
+          call cpp\examples\minimal_build.build\arrow-example.exe
+
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: jni-windows
 
   odbc-linux:
     needs: check-enabled
