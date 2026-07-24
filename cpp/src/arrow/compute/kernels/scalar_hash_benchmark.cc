@@ -69,7 +69,7 @@ static void Hash64Int64(benchmark::State& state) {  // NOLINT non-const referenc
   auto test_vals = hashing_rng.Int64(10000, 0, std::numeric_limits<int64_t>::max());
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {test_vals}));
+    Datum hash_result = compute::CallFunction("hash64", {test_vals}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -89,8 +89,7 @@ static void Hash64StructSmallStrings(
   int32_t total_string_size = str_vals->total_values_length();
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash64", {values_array}));
+    Datum hash_result = compute::CallFunction("hash64", {values_array}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -113,8 +112,7 @@ static void Hash64StructMediumStrings(
   int32_t total_string_size = str_vals->total_values_length();
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash64", {values_array}));
+    Datum hash_result = compute::CallFunction("hash64", {values_array}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -137,8 +135,7 @@ static void Hash64StructLargeStrings(
   int32_t total_string_size = str_vals->total_values_length();
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash64", {values_array}));
+    Datum hash_result = compute::CallFunction("hash64", {values_array}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -154,7 +151,7 @@ static void Hash64ListInt64(benchmark::State& state) {  // NOLINT non-const refe
   auto test_vals = hashing_rng.ArrayOf(list(int64()), test_size, null_prob);
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {test_vals}));
+    Datum hash_result = compute::CallFunction("hash64", {test_vals}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -171,7 +168,7 @@ static void Hash64ListInt64HeavilySliced(
   auto sliced = test_vals->Slice(total_size / 2, slice_size);
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {sliced}));
+    Datum hash_result = compute::CallFunction("hash64", {sliced}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -189,7 +186,27 @@ static void Hash64StringHeavilySliced(
   auto sliced = test_vals->Slice(total_size / 2, slice_size);
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result, compute::CallFunction("hash64", {sliced}));
+    Datum hash_result = compute::CallFunction("hash64", {sliced}).ValueOrDie();
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetItemsProcessed(state.iterations() * slice_size);
+}
+
+// Same idea as Hash64ListInt64HeavilySliced, but for a nested field within a struct:
+// StructArray::Slice() also doesn't reslice child_data, so hashing a small slice of a
+// struct with a nested list field used to cost proportionally to the whole array.
+static void Hash64StructWithNestedListHeavilySliced(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int64_t total_size = 1000000;
+  constexpr int64_t slice_size = 100;
+  auto lists = hashing_rng.ArrayOf(list(int64()), total_size, null_prob);
+  ASSERT_OK_AND_ASSIGN(auto struct_arr,
+                       StructArray::Make({lists}, {field("f0", list(int64()))}));
+  auto sliced = struct_arr->Slice(total_size / 2, slice_size);
+
+  while (state.KeepRunning()) {
+    Datum hash_result = compute::CallFunction("hash64", {sliced}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -207,8 +224,7 @@ static void Hash64Map(benchmark::State& state) {  // NOLINT non-const reference
   int32_t total_val_size = test_size * sizeof(int64_t);
 
   while (state.KeepRunning()) {
-    ASSERT_OK_AND_ASSIGN(Datum hash_result,
-                         compute::CallFunction("hash64", {test_keyvals}));
+    Datum hash_result = compute::CallFunction("hash64", {test_keyvals}).ValueOrDie();
     benchmark::DoNotOptimize(hash_result);
   }
 
@@ -230,6 +246,7 @@ BENCHMARK(Hash64Map);
 BENCHMARK(Hash64ListInt64);
 BENCHMARK(Hash64ListInt64HeavilySliced);
 BENCHMARK(Hash64StringHeavilySliced);
+BENCHMARK(Hash64StructWithNestedListHeavilySliced);
 
 }  // namespace internal
 }  // namespace arrow
