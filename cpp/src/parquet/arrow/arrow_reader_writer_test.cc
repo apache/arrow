@@ -3395,22 +3395,54 @@ TEST(ArrowReadWrite, EmptyListView) {
   ASSERT_EQ(0, list_view.value_sizes()->size());
 }
 
-TEST(ArrowReadWrite, FixedSizeList) {
-  using ::arrow::field;
-  using ::arrow::fixed_size_list;
-  using ::arrow::struct_;
+struct FixedSizeListTestCase {
+  std::shared_ptr<DataType> type;
+  std::string json;
+};
 
-  auto type = fixed_size_list(::arrow::int16(), /*size=*/3);
+class TestFixedSizeListRoundTrip
+    : public ::testing::TestWithParam<FixedSizeListTestCase> {};
 
-  const char* json = R"([
-      [1, 2, 3],
-      [4, 5, 6],
-      [7, 8, 9]])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+static const std::vector<FixedSizeListTestCase> kFixedSizeListTestCases = {
+    {.type = ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/3), .json = R"([
+          {"root": [1, 2, 3]},
+          {"root": [4, 5, 6]},
+          {"root": [7, 8, 9]}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/3), .json = R"([
+          {"root": null},
+          {"root": [1, 2, 3]},
+          {"root": null},
+          {"root": [4, 5, 6]},
+          {"root": null}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/3), .json = R"([
+          {"root": null},
+          {"root": null},
+          {"root": null}])"},
+    {.type = ::arrow::fixed_size_list(
+         ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/2),
+         /*list_size=*/2),
+     .json = R"([
+          {"root": [[1, 2], [3, 4]]},
+          {"root": null},
+          {"root": [[5, 6], null]},
+          {"root": [null, [7, 8]]}])"},
+    {.type = ::arrow::list(::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/2)),
+     .json = R"([
+          {"root": [[1, 2], null, [3, 4]]},
+          {"root": null},
+          {"root": [null, [5, 6]]},
+          {"root": []}])"}};
+
+TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {
+  const auto& test_case = GetParam();
+  auto table = ::arrow::TableFromJSON(
+      ::arrow::schema({::arrow::field("root", test_case.type)}), {test_case.json});
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
   CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
+
+INSTANTIATE_TEST_SUITE_P(ArrowReadWrite, TestFixedSizeListRoundTrip,
+                         ::testing::ValuesIn(kFixedSizeListTestCases));
 
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;
