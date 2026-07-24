@@ -95,7 +95,7 @@ TEST(TestColumnReader, DefLevelsToBitmapPowerOfTwo) {
   ASSERT_EQ(0, io.null_count);
 }
 
-#if defined(ARROW_LITTLE_ENDIAN)
+#if ARROW_LITTLE_ENDIAN
 TEST(GreaterThanBitmap, GeneratesExpectedBitmasks) {
   std::vector<int16_t> levels = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,
                                  0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7,

@@ -55,8 +55,14 @@ void ReferenceByteStreamSplitEncode(const uint8_t* src, int width,
                                     const int64_t num_values, uint8_t* dest) {
   for (int64_t i = 0; i < num_values; ++i) {
     for (int stream = 0; stream < width; ++stream) {
-      dest[stream * num_values + i] = *src++;
+#if ARROW_LITTLE_ENDIAN
+      dest[stream * num_values + i] = src[stream];
+#else
+      // On big-endian, reverse byte order: stream 0 gets LSB (at highest address)
+      dest[stream * num_values + i] = src[width - 1 - stream];
+#endif
     }
+    src += width;
   }
 }
 
