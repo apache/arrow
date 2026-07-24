@@ -1810,12 +1810,13 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 
 /// \brief Construct a hash value for each row of the input.
 ///
-/// The result is an Array of length equal to the length of the input; however, the output
-/// shall be a UInt32Array, with each element being a hash constructed from each row of
-/// the input. If the input Array is a NestedArray, this means that each "attribute" or
-/// "field" of the input NestedArray corresponding to the same "row" will collectively
-/// produce a single uint32_t hash. At the moment, this function does not take options,
-/// though these may be added in the future.
+/// The result has the same length and shape as the input (Array in, Array out;
+/// ChunkedArray in, ChunkedArray out), but with element type UInt32. For a nested
+/// input type (struct, list, map, etc.), each row's child values are combined into a
+/// single hash for that row, recursively. Null rows hash to a fixed sentinel value,
+/// never to null (the output itself is never null). Hash values are not guaranteed to
+/// be stable across different versions of the library, and this function does not
+/// currently take options, though these may be added in the future.
 ///
 /// \param[in] input_array input data to hash
 /// \param[in] ctx function execution context, optional
@@ -1828,12 +1829,13 @@ Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
 
 /// \brief Construct a hash value for each row of the input.
 ///
-/// The result is an Array of length equal to the length of the input; however, the output
-/// shall be a UInt64Array, with each element being a hash constructed from each row of
-/// the input. If the input Array is a NestedArray, this means that each "attribute" or
-/// "field" of the input NestedArray corresponding to the same "row" will collectively
-/// produce a single uint64_t hash. At the moment, this function does not take options,
-/// though these may be added in the future.
+/// The result has the same length and shape as the input (Array in, Array out;
+/// ChunkedArray in, ChunkedArray out), but with element type UInt64. For a nested
+/// input type (struct, list, map, etc.), each row's child values are combined into a
+/// single hash for that row, recursively. Null rows hash to a fixed sentinel value,
+/// never to null (the output itself is never null). Hash values are not guaranteed to
+/// be stable across different versions of the library, and this function does not
+/// currently take options, though these may be added in the future.
 ///
 /// \param[in] input_array input data to hash
 /// \param[in] ctx function execution context, optional
