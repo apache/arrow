@@ -2028,6 +2028,31 @@ TEST(TestNestedType, Equals) {
   AssertFieldNotEqual(*u0, *u0_bad);
 }
 
+TEST(TestNestedType, FieldMetadataComparisonWithEmptyFingerprints) {
+  // Manual ListType with empty fingerprints to force TypeEqualsVisitor path
+  class EmptyFingerprintListType : public ListType {
+   public:
+    using ListType::ListType;
+
+   protected:
+    std::string ComputeFingerprint() const override { return ""; }
+    std::string ComputeMetadataFingerprint() const override { return ""; }
+  };
+
+  auto metadata1 = key_value_metadata({{"key", "value1"}});
+  auto metadata2 = key_value_metadata({{"key", "value2"}});
+  auto field1 = field("item", int32(), true, metadata1);
+  auto field2 = field("item", int32(), true, metadata2);
+  auto list1 = std::make_shared<EmptyFingerprintListType>(field1);
+  auto list2 = std::make_shared<EmptyFingerprintListType>(field2);
+
+  ASSERT_TRUE(list1->fingerprint().empty());
+  ASSERT_TRUE(list1->metadata_fingerprint().empty());
+
+  EXPECT_TRUE(list1->Equals(*list2, /* check_metadata = */ false));
+  EXPECT_FALSE(list1->Equals(*list2, /* check_metadata = */ true));
+}
+
 TEST(TestStructType, Basics) {
   auto f0_type = int32();
   auto f0 = field("f0", f0_type);
