@@ -49,6 +49,9 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
+    # The "/arch:SSE4.2" flag is not supported in x86 builds and is
+    # enabled by default in x64. Removed to avoid D9002 nuisance warnings.
+    # See https://learn.microsoft.com/cpp/build/reference/arch-x86
     set(ARROW_SSE4_2_FLAG "")
     # These definitions are needed for xsimd to consider the corresponding instruction
     # sets available, but they are not set by MSVC (unlike other compilers).
