@@ -512,6 +512,44 @@ TEST_F(TestScalarHash, ListLikeDuplicateRowsFarApartHashEqually) {
   }
 }
 
+// Guards against HashChild hashing the entire (unsliced) child values array instead
+// of only the range referenced by this slice of the parent list/map array: since
+// ArrayData::Slice() doesn't slice child_data, a small slice of a much larger list
+// array must still hash identically to an equivalent, independently-built array.
+TEST_F(TestScalarHash, ListLikeSliceOfLargerArrayMatchesIndependentArray) {
+  constexpr int64_t kTotalRows = 1000;
+  constexpr int64_t kSliceOffset = 137;
+  constexpr int64_t kSliceLength = 10;
+
+  Int32Builder value_builder;
+  ListBuilder list_builder(default_memory_pool(), std::make_shared<Int32Builder>());
+  auto* values = checked_cast<Int32Builder*>(list_builder.value_builder());
+  for (int64_t row = 0; row < kTotalRows; row++) {
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(values->Append(static_cast<int32_t>(row)));
+    ASSERT_OK(values->Append(static_cast<int32_t>(row + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto large_arr, list_builder.Finish());
+  auto sliced = large_arr->Slice(kSliceOffset, kSliceLength);
+
+  ListBuilder independent_builder(default_memory_pool(),
+                                  std::make_shared<Int32Builder>());
+  auto* independent_values =
+      checked_cast<Int32Builder*>(independent_builder.value_builder());
+  for (int64_t row = kSliceOffset; row < kSliceOffset + kSliceLength; row++) {
+    ASSERT_OK(independent_builder.Append());
+    ASSERT_OK(independent_values->Append(static_cast<int32_t>(row)));
+    ASSERT_OK(independent_values->Append(static_cast<int32_t>(row + 1)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto independent_arr, independent_builder.Finish());
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum sliced_result, CallFunction(func, {sliced}));
+    ASSERT_OK_AND_ASSIGN(Datum independent_result, CallFunction(func, {independent_arr}));
+    AssertDatumsEqual(sliced_result, independent_result);
+  }
+}
+
 void CheckRowsHashDifferently(const std::string& func, const std::shared_ptr<Array>& arr,
                               int64_t row_a, int64_t row_b) {
   ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
@@ -699,6 +737,74 @@ TEST_F(TestScalarHash, RandomStruct) {
         CheckDeterministic("hash64", arr);
       }
     }
+  }
+}
+
+// Guards against a struct field's own pre-existing offset (independent of the struct
+// array's own offset) being silently ignored. StructArray::Slice() only touches the
+// struct's own top-level offset -- child fields are not resliced (see
+// StructArray::GetFlattenedField, which composes the struct's offset with each child's
+// own offset) -- so a struct built from an already-offset field (e.g. a slice of a
+// larger array) must still hash identically to an equivalent, independently-built
+// struct with a zero-offset field.
+TEST_F(TestScalarHash, StructFieldWithOwnOffsetHashesCorrectly) {
+  Int32Builder base_builder;
+  for (int32_t v = 0; v < 10; v++) {
+    ASSERT_OK(base_builder.Append(v));
+  }
+  ASSERT_OK_AND_ASSIGN(auto base, base_builder.Finish());
+  auto sliced_field = base->Slice(3, 4);  // offset=3, length=4, content [3, 4, 5, 6]
+  ASSERT_GT(sliced_field->offset(), 0);
+
+  Int32Builder second_builder;
+  for (int32_t v : {100, 101, 102, 103}) {
+    ASSERT_OK(second_builder.Append(v));
+  }
+  ASSERT_OK_AND_ASSIGN(auto second_field, second_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto struct_with_offset_field,
+                       StructArray::Make({sliced_field, second_field},
+                                         {field("f0", int32()), field("f1", int32())}));
+
+  Int32Builder independent_builder;
+  for (int32_t v : {3, 4, 5, 6}) {
+    ASSERT_OK(independent_builder.Append(v));
+  }
+  ASSERT_OK_AND_ASSIGN(auto independent_field, independent_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto independent_struct,
+                       StructArray::Make({independent_field, second_field},
+                                         {field("f0", int32()), field("f1", int32())}));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum offset_result,
+                         CallFunction(func, {struct_with_offset_field}));
+    ASSERT_OK_AND_ASSIGN(Datum independent_result,
+                         CallFunction(func, {independent_struct}));
+    AssertDatumsEqual(offset_result, independent_result);
+  }
+}
+
+// Guards against a crash on a zero-field struct: HashMultiColumn requires at least
+// one column (it reads cols[0] unconditionally), so this type needs its own path in
+// HashStructArray rather than falling through to HashMultiColumn with an empty list.
+TEST_F(TestScalarHash, EmptyFieldStructHashesWithoutCrashing) {
+  auto type = struct_({});
+  ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(2));
+  bit_util::SetBit(validity->mutable_data(), 0);  // row 0 valid, row 1 null
+  auto array_data = ArrayData::Make(type, 2, {validity}, /*null_count=*/1);
+  auto arr = MakeArray(array_data);
+  ASSERT_TRUE(arr->IsValid(0));
+  ASSERT_TRUE(arr->IsNull(1));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    CheckDeterministic(func, arr);
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+    auto hashes = result.make_array();
+    ASSERT_OK_AND_ASSIGN(auto valid_hash, hashes->GetScalar(0));
+    ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
+    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
+    ASSERT_FALSE(valid_hash->Equals(*zero));
+    ASSERT_TRUE(null_hash->Equals(*zero));
   }
 }
 

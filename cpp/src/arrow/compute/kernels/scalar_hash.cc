@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <utility>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_primitive.h"
@@ -96,106 +97,170 @@ void ZeroNulls(const ArraySpan& array, c_type* out) {
   }
 }
 
+// Folds one row's child hashes into a single hash. Seeded with CombineHashes(0, 0),
+// not 0, so an empty list doesn't collide with a null list (zeroed separately below).
+// Free function since it only depends on c_type/Hasher, not ArrowType.
+template <typename c_type, typename Hasher>
+c_type CombineRange(const c_type* value_hashes, int64_t start, int64_t end) {
+  c_type combined = Hasher::CombineHashes(0, 0);
+  for (int64_t j = start; j < end; j++) {
+    combined = Hasher::CombineHashes(combined, value_hashes[j]);
+  }
+  return combined;
+}
+
+// Combines rows for LIST/LARGE_LIST/MAP, whose offsets buffers differ only in width.
+// `bias` is values.offset + rel_start, so offsets[i] - bias locates row i.
+template <typename c_type, typename Hasher, typename OffsetT>
+void CombineOffsetRows(int64_t length, const OffsetT* offsets, int64_t bias,
+                       const c_type* value_hash_data, c_type* out) {
+  for (int64_t i = 0; i < length; i++) {
+    out[i] = CombineRange<c_type, Hasher>(value_hash_data, offsets[i] - bias,
+                                          offsets[i + 1] - bias);
+  }
+}
+
 template <typename ArrowType, typename Hasher>
 struct FastHashScalar {
   using c_type = typename ArrowType::c_type;
 
-  // Folds the hashes of one list-like row's children into a single hash. Seeded
-  // with CombineHashes(0, 0) rather than 0 so an empty list doesn't collide with
-  // a null list (zeroed separately below).
-  static c_type CombineRange(const c_type* value_hashes, int64_t start, int64_t end) {
-    c_type combined = Hasher::CombineHashes(0, 0);
-    for (int64_t j = start; j < end; j++) {
-      combined = Hasher::CombineHashes(combined, value_hashes[j]);
-    }
-    return combined;
-  }
-
+  // Hashes the [offset, offset + length) slice of `child`.
   static Result<std::shared_ptr<ArrayData>> HashChild(const ArraySpan& child,
+                                                      int64_t offset, int64_t length,
                                                       LightContext* hash_ctx,
                                                       MemoryPool* memory_pool) {
+    auto sliced = child;
+    sliced.SetSlice(offset, length);
     auto arrow_type = TypeTraits<ArrowType>::type_singleton();
-    auto buffer_size = child.length * sizeof(c_type);
+    auto buffer_size = sliced.length * sizeof(c_type);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(buffer_size, memory_pool));
     ARROW_RETURN_NOT_OK(
-        HashArray(child, hash_ctx, memory_pool, buffer->mutable_data_as<c_type>()));
-    return ArrayData::Make(arrow_type, child.length,
-                           {child.GetBuffer(0), std::move(buffer)}, child.null_count);
+        HashArray(sliced, hash_ctx, memory_pool, buffer->mutable_data_as<c_type>()));
+    return ArrayData::Make(arrow_type, sliced.length,
+                           {sliced.GetBuffer(0), std::move(buffer)}, sliced.null_count);
   }
 
+  static Status HashStructArray(const ArraySpan& array, LightContext* hash_ctx,
+                                MemoryPool* memory_pool, c_type* out) {
+    if (array.child_data.empty()) {
+      // No fields to combine (e.g. struct<>): HashMultiColumn requires at least one
+      // column (it reads cols[0] unconditionally), so give every row the same defined
+      // hash here instead, then let ZeroNulls below zero out the actually-null rows.
+      c_type empty_struct_hash = Hasher::CombineHashes(0, 0);
+      for (int64_t i = 0; i < array.length; i++) {
+        out[i] = empty_struct_hash;
+      }
+      ZeroNulls(array, out);
+      return Status::OK();
+    }
+    std::vector<std::shared_ptr<ArrayData>> child_hashes(array.child_data.size());
+    std::vector<KeyColumnArray> columns(array.child_data.size());
+    KeyColumnArray column;
+    for (size_t i = 0; i < array.child_data.size(); i++) {
+      auto child = array.child_data[i];
+      int64_t slice_offset = array.offset;
+      if (is_nested(child.type->id())) {
+        ARROW_ASSIGN_OR_RAISE(
+            child_hashes[i],
+            HashChild(child, child.offset, child.length, hash_ctx, memory_pool));
+        ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
+        // child_hashes[i] starts at offset 0; only the struct's own offset applies.
+      } else {
+        ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
+        // `child` may have its own offset independent of the struct's (a struct field
+        // can itself be a slice; see StructArray::GetFlattenedField), so add both.
+        slice_offset += child.offset;
+      }
+      columns[i] = column.Slice(slice_offset, array.length);
+    }
+    Hasher::HashMultiColumn(columns, hash_ctx, out);
+    // A null struct row's children may still look valid, so force 0 explicitly.
+    ZeroNulls(array, out);
+    return Status::OK();
+  }
+
+  // Handles FIXED_SIZE_LIST, LARGE_LIST, LIST, and MAP. `offsets` is null for
+  // FIXED_SIZE_LIST, which uses `list_size` as a constant stride instead. HashArray
+  // computes rel_start/rel_end (the range of `values` actually referenced, since
+  // ArrayData::Slice() doesn't slice child_data) since it already branches on type_id.
+  template <typename OffsetT>
+  static Status HashListArray(const ArraySpan& array, int64_t list_size,
+                              const OffsetT* offsets, int64_t rel_start, int64_t rel_end,
+                              LightContext* hash_ctx, MemoryPool* memory_pool,
+                              c_type* out) {
+    auto values = array.child_data[0];
+    ARROW_ASSIGN_OR_RAISE(auto value_hashes,
+                          HashChild(values, values.offset + rel_start,
+                                    rel_end - rel_start, hash_ctx, memory_pool));
+    const c_type* value_hash_data = value_hashes->buffers[1]->data_as<c_type>();
+    // value_hash_data[k] corresponds to original row (values.offset + rel_start + k).
+
+    // Fold every row, then zero nulls separately below; benchmarking showed this beats
+    // branchless masking (masking costs every row; branch prediction handles nulls free).
+    if (offsets != nullptr) {
+      CombineOffsetRows<c_type, Hasher>(array.length, offsets, values.offset + rel_start,
+                                        value_hash_data, out);
+    } else {
+      for (int64_t i = 0; i < array.length; i++) {
+        int64_t start = (array.offset + i) * list_size - values.offset - rel_start;
+        out[i] = CombineRange<c_type, Hasher>(value_hash_data, start, start + list_size);
+      }
+    }
+    // Required: a null row's offset range isn't guaranteed empty, and even an empty
+    // one would collide with CombineRange's seed for a real empty list.
+    ZeroNulls(array, out);
+    return Status::OK();
+  }
+
+  // Routes to the per-shape hashing routine for `array`'s type.
   static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
                           MemoryPool* memory_pool, c_type* out) {
-    // KeyColumnArray objects are being passed to the hashing utility
-    KeyColumnArray column;
-    std::vector<KeyColumnArray> columns(1);
-
     auto type_id = array.type->id();
     if (type_id == Type::EXTENSION) {
       auto extension_type = checked_cast<const ExtensionType*>(array.type);
       auto storage_array = array;
       storage_array.type = extension_type->storage_type().get();
       return HashArray(storage_array, hash_ctx, memory_pool, out);
-    }
-
-    if (type_id == Type::STRUCT) {
-      std::vector<std::shared_ptr<ArrayData>> child_hashes(array.child_data.size());
-      columns.resize(array.child_data.size());
-      for (size_t i = 0; i < array.child_data.size(); i++) {
-        auto child = array.child_data[i];
-        if (is_nested(child.type->id())) {
-          ARROW_ASSIGN_OR_RAISE(child_hashes[i], HashChild(child, hash_ctx, memory_pool));
-          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
-        } else {
-          ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
-        }
-        columns[i] = column.Slice(array.offset, array.length);
-      }
-      Hasher::HashMultiColumn(columns, hash_ctx, out);
-      // A struct's own null bit is independent of its children's; a null struct row
-      // commonly still has valid-looking child data, so it must be forced to 0
-      // explicitly rather than relying on the per-field columns above.
-      ZeroNulls(array, out);
-    } else if (is_list_like(type_id)) {
-      // Each child element is already hashed by HashChild; fold each row's slice of
-      // child hashes down to one value directly, rather than routing through
-      // Hasher::HashMultiColumn.
+    } else if (type_id == Type::STRUCT) {
+      return HashStructArray(array, hash_ctx, memory_pool, out);
+    } else if (type_id == Type::FIXED_SIZE_LIST) {
+      auto list_size = checked_cast<const FixedSizeListType*>(array.type)->list_size();
       auto values = array.child_data[0];
-      ARROW_ASSIGN_OR_RAISE(auto value_hashes, HashChild(values, hash_ctx, memory_pool));
-      const c_type* value_hash_data = value_hashes->buffers[1]->data_as<c_type>();
-
-      // Fold every row unconditionally, then zero nulls in a separate pass below;
-      // benchmarking showed this beats branchlessly masking each row inline (branch
-      // prediction handles the null pattern for free; masking pays on every row).
-      if (type_id == Type::FIXED_SIZE_LIST) {
-        auto list_size = checked_cast<const FixedSizeListType*>(array.type)->list_size();
-        for (int64_t i = 0; i < array.length; i++) {
-          int64_t start = (array.offset + i) * list_size - values.offset;
-          out[i] = CombineRange(value_hash_data, start, start + list_size);
-        }
-      } else if (type_id == Type::LARGE_LIST) {
-        const int64_t* offsets = array.GetValues<int64_t>(1);
-        for (int64_t i = 0; i < array.length; i++) {
-          out[i] = CombineRange(value_hash_data, offsets[i] - values.offset,
-                                offsets[i + 1] - values.offset);
-        }
-      } else {
-        // LIST and MAP both use 32-bit offsets.
-        const int32_t* offsets = array.GetValues<int32_t>(1);
-        for (int64_t i = 0; i < array.length; i++) {
-          out[i] = CombineRange(value_hash_data, offsets[i] - values.offset,
-                                offsets[i + 1] - values.offset);
-        }
+      int64_t rel_start = 0, rel_end = 0;
+      if (array.length > 0) {
+        rel_start = array.offset * list_size - values.offset;
+        rel_end = (array.offset + array.length) * list_size - values.offset;
       }
-      // Not optional: a null row's offset range isn't guaranteed empty (it may span
-      // undefined memory per the columnar format spec), and even an empty range would
-      // otherwise collide with CombineRange's seed for a real empty list.
-      ZeroNulls(array, out);
+      return HashListArray<int32_t>(array, list_size, nullptr, rel_start, rel_end,
+                                    hash_ctx, memory_pool, out);
+    } else if (type_id == Type::LARGE_LIST) {
+      auto offsets = array.GetValues<int64_t>(1);
+      auto values = array.child_data[0];
+      int64_t rel_start = 0, rel_end = 0;
+      if (array.length > 0) {
+        rel_start = offsets[0] - values.offset;
+        rel_end = offsets[array.length] - values.offset;
+      }
+      return HashListArray<int64_t>(array, 0, offsets, rel_start, rel_end, hash_ctx,
+                                    memory_pool, out);
+    } else if (is_list_like(type_id)) {
+      // LIST and MAP both use 32-bit offsets.
+      auto offsets = array.GetValues<int32_t>(1);
+      auto values = array.child_data[0];
+      int64_t rel_start = 0, rel_end = 0;
+      if (array.length > 0) {
+        rel_start = offsets[0] - values.offset;
+        rel_end = offsets[array.length] - values.offset;
+      }
+      return HashListArray<int32_t>(array, 0, offsets, rel_start, rel_end, hash_ctx,
+                                    memory_pool, out);
     } else {
+      KeyColumnArray column;
       ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(array));
-      columns[0] = column.Slice(array.offset, array.length);
+      std::vector<KeyColumnArray> columns{column.Slice(array.offset, array.length)};
       Hasher::HashMultiColumn(columns, hash_ctx, out);
+      return Status::OK();
     }
-    return Status::OK();
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
