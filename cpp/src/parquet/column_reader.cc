@@ -36,6 +36,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
@@ -1059,13 +1060,14 @@ class ValiditySinkBuffer : private ValueSinkCursor {
 
   uint8_t* data() const { return values_->mutable_data_as<uint8_t>(); }
 
+  template <typename Int>
   struct ReadResult {
-    int64_t values_read = 0;
-    int64_t null_count = 0;
+    Int values_read = 0;
+    Int null_count = 0;
   };
 
-  ReadResult ReadFromLevels(const int16_t* def_levels, int64_t num_def_levels,
-                            const internal::LevelInfo& level_info) {
+  ReadResult<int64_t> ReadFromLevels(const int16_t* def_levels, int64_t num_def_levels,
+                                     const internal::LevelInfo& level_info) {
     // At most one validity bit is written per definition level.
     ReserveValues(num_def_levels);
     internal::ValidityBitmapInputOutput validity_io{};
@@ -1084,6 +1086,24 @@ class ValiditySinkBuffer : private ValueSinkCursor {
     return {
         .values_read = validity_io.values_read,
         .null_count = validity_io.null_count,
+    };
+  }
+
+  ReadResult<int32_t> ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
+    using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
+
+    ReserveValues(batch_size);
+    const auto write_pos = BitmapSpanMut(data() + values_count() / 8,
+                                         static_cast<int32_t>(values_count() % 8));
+    const auto decoded = decoder.Decode(batch_size, write_pos);
+    const auto non_null =
+        ::arrow::internal::CountSetBits(write_pos.data(), write_pos.bit_start(), decoded);
+
+    ARROW_DCHECK_LE(non_null, decoded);
+    set_values_count(values_count() + decoded);
+    return {
+        .values_read = decoded,
+        .null_count = static_cast<int32_t>(decoded - non_null),
     };
   }
 
@@ -1134,8 +1154,7 @@ class ValiditySinkBuffer : private ValueSinkCursor {
 /// If the data page includes repetition and definition levels, we initialize the level
 /// decoders and return the number of encoded level bytes.
 /// The return value helps determine the number of bytes in the encoded data.
-template <typename LvlDec>
-int64_t InitializeV1Levels(const DataPageV1& page, LvlDec& def_dec, LvlDec& rep_dec) {
+int64_t InitializeV1Levels(const DataPageV1& page, auto& def_dec, auto& rep_dec) {
   const auto num_values = static_cast<int>(page.num_values());
 
   const uint8_t* buffer = page.data();
@@ -1165,8 +1184,7 @@ int64_t InitializeV1Levels(const DataPageV1& page, LvlDec& def_dec, LvlDec& rep_
 /// If the data page includes repetition and definition levels, we initialize the level
 /// decoders and return the number of encoded level bytes.
 /// The return value helps determine the number of bytes in the encoded data.
-template <typename LvlDec>
-int64_t InitializeV2Levels(const DataPageV2& page, LvlDec& def_dec, LvlDec& rep_dec) {
+int64_t InitializeV2Levels(const DataPageV2& page, auto& def_dec, auto& rep_dec) {
   const auto num_values = static_cast<int>(page.num_values());
 
   const int64_t total_levels_length =
@@ -1196,25 +1214,22 @@ int64_t InitializeV2Levels(const DataPageV2& page, LvlDec& def_dec, LvlDec& rep_
 }
 
 /// Read through the multiple pages of a column chunk.
-///
-/// `Traits` must provide two member types:
-///   - `DType`: the physical Parquet type of the column;
-///   - `level_decoder`: the decoder type used for definition/repetition levels.
-/// Each concrete reader defines its own trait struct.
 template <typename Traits>
 class ColumnChunkReader {
  public:
   using DType = typename Traits::DType;
-  using LvlDec = typename Traits::level_decoder;
+  using DefLevelDecoder = typename Traits::DefLevelDecoder;
+  using RepLevelDecoder = typename Traits::RepLevelDecoder;
   using value_type = typename DType::c_type;
 
   ColumnChunkReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
-                    LvlDec def_levels_decoder, LvlDec rep_levels_decoder)
-      : descr_(descr),
-        pool_(pool),
-        current_decoder_(pool),
+                    DefLevelDecoder def_levels_decoder,
+                    RepLevelDecoder rep_levels_decoder)
+      : current_decoder_(pool),
         def_levels_decoder_(std::move(def_levels_decoder)),
-        rep_levels_decoder_(std::move(rep_levels_decoder)) {}
+        rep_levels_decoder_(std::move(rep_levels_decoder)),
+        descr_(descr),
+        pool_(pool) {}
 
   void SetPageReader(std::unique_ptr<PageReader> reader) {
     current_page_ = nullptr;
@@ -1265,15 +1280,15 @@ class ColumnChunkReader {
   int64_t Skip(int64_t num_values_to_skip);
 
  protected:
+  SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
+  DefLevelDecoder def_levels_decoder_;
+  RepLevelDecoder rep_levels_decoder_;
   const ColumnDescriptor* descr_;
   ::arrow::MemoryPool* pool_;
-  SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
 
  private:
   using DecoderType = TypedDecoder<DType>;
 
-  LvlDec def_levels_decoder_;
-  LvlDec rep_levels_decoder_;
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
@@ -1526,7 +1541,8 @@ int64_t ColumnChunkReader<Traits>::Skip(int64_t num_values_to_skip) {
 template <typename D>
 struct TypedColumnReaderImplTraits {
   using DType = D;
-  using level_decoder = LevelDecoder;
+  using DefLevelDecoder = LevelDecoder;
+  using RepLevelDecoder = LevelDecoder;
 };
 
 template <typename DType>
@@ -1763,12 +1779,6 @@ namespace internal {
 
 namespace {
 
-/// Whether values of type T can be printed to `std::cout`.
-template <typename T>
-concept can_cout = requires(std::ostream& os, const T& value) {
-  os << value;
-};  // NOLINT(readability/braces)
-
 /***********************
  *  TypedRecordReader  *
  ***********************/
@@ -1776,7 +1786,8 @@ concept can_cout = requires(std::ostream& os, const T& value) {
 template <typename D>
 struct TypedRecordReaderTraits {
   using DType = D;
-  using level_decoder = LevelDecoder;
+  using DefLevelDecoder = LevelDecoder;
+  using RepLevelDecoder = LevelDecoder;
 };
 
 template <typename DType, typename ValueSink, bool kReadDictionary>
@@ -2576,7 +2587,8 @@ void TypedRecordReader<DT, VS, kDic>::ResetValues() {
 template <typename D>
 struct RequiredTypedRecordReaderTraits {
   using DType = D;
-  using level_decoder = LevelDecoder;
+  using DefLevelDecoder = LevelDecoder;
+  using RepLevelDecoder = LevelDecoder;
 };
 
 // TODO can we reduce some code share with TypedRecordREader ?
@@ -2724,6 +2736,226 @@ void RequiredTypedRecordReader<DT, VS, kDic>::Reset() {
 
 template <typename DT, typename VS, bool kDic>
 void RequiredTypedRecordReader<DT, VS, kDic>::DebugPrintState() {
+  std::cout << "values: ";
+  value_sink_.DebugPrintState();
+  std::cout << std::endl;
+}
+
+/***********************************
+ *  FlatOptionalTypedRecordReader  *
+ ***********************************/
+
+template <typename DT>
+struct FlatOptionalTypedRecordReaderTraits {
+  using DType = DT;
+  using DefLevelDecoder = LevelToBitmapDecoder;
+  using RepLevelDecoder = LevelDecoder;
+};
+
+template <typename DType>
+class FlatOptionalTypedRecordReader
+    : public ColumnChunkReader<FlatOptionalTypedRecordReaderTraits<DType>>,
+      virtual public RecordReader {
+ public:
+  using T = typename DType::c_type;
+  using Base = ColumnChunkReader<FlatOptionalTypedRecordReaderTraits<DType>>;
+  using ValueSink = ValueSinkBuffer<T>;
+
+  FlatOptionalTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
+                                bool read_dense_for_nullable, ValueSink value_sink)
+      : Base(descr, pool, LevelToBitmapDecoder(), LevelDecoder(0)),
+        value_sink_(std::move(value_sink)),
+        read_dense_for_nullable_(read_dense_for_nullable) {
+    ARROW_DCHECK_EQ(descr->max_definition_level(), 1);
+    ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
+    Reset();
+  }
+
+  uint8_t* values() const final { return reinterpret_cast<uint8_t*>(value_sink_.data()); }
+
+  int64_t values_written() const final { return value_sink_.values_count(); }
+
+  int16_t* def_levels() const final { return nullptr; }
+
+  int16_t* rep_levels() const final { return nullptr; }
+
+  int64_t levels_position() const final { return 0; }
+
+  int64_t levels_written() const final { return 0; }
+
+  int64_t null_count() const final { return null_count_; }
+
+  bool nullable_values() const final { return true; }
+
+  bool read_dictionary() const final { return false; }
+
+  bool read_dense_for_nullable() const final { return read_dense_for_nullable_; }
+
+  const void* ReadDictionary(int32_t* dictionary_length) final;
+
+  int64_t ReadRecords(int64_t num_records) final;
+
+  int64_t SkipRecords(int64_t num_records) final { return this->Skip(num_records); }
+
+  std::shared_ptr<ResizableBuffer> ReleaseValues() final {
+    return value_sink_.ReleaseValues(this->pool_);
+  }
+
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid() final;
+
+  void Reserve(int64_t extra_values) final {
+    ReserveValues(extra_values);
+    ReserveIsValid(extra_values);
+  }
+
+  void Reset() final;
+
+  void SetPageReader(std::unique_ptr<PageReader> reader) final {
+    Base::SetPageReader(std::move(reader));
+    // At most one dictionary in Parquet column chunk and it has to be the first page.
+    if (this->HasPageReader() && this->EnsureDataPage()) {
+      if (auto* dict = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get())) {
+        value_sink_.OnNewDictionary(*dict);
+      }
+    }
+  }
+
+  bool HasMoreData() const override {
+    return Base::HasPageReader();  // Surprising legacy behaviour
+  }
+
+  const ColumnDescriptor* descr() const final { return this->descr_; }
+
+  void OnNewDictionary(DictDecoder<DType>& decoder) {
+    value_sink_.OnNewDictionary(decoder);
+  }
+
+  void DebugPrintState() final;
+
+ protected:
+  auto value_sink() -> ValueSink& { return value_sink_; }
+  auto value_sink() const -> const ValueSink& { return value_sink_; }
+
+ private:
+  ValueSink value_sink_;
+  ValiditySinkBuffer valid_bits_;
+  int64_t null_count_ = 0;
+  /// If true, we will not leave any space for the null values in the values.
+  bool read_dense_for_nullable_ = false;
+
+  void ReserveIsValid(int64_t extra_values);
+
+  void ReserveValues(int64_t extra_values) { value_sink_.ReserveValues(extra_values); }
+
+  void ReadValuesDense(int32_t values_to_read);
+
+  void ReadValuesSpaced(int64_t valid_bits_offset, int32_t values_with_nulls,
+                        int32_t null_count);
+};
+
+/**************************************************
+ *  FlatOptionalTypedRecordReader Implementation  *
+ **************************************************/
+
+template <typename DT>
+const void* FlatOptionalTypedRecordReader<DT>::ReadDictionary(
+    int32_t* dictionary_length) {
+  if (!this->current_decoder_ && !this->EnsureDataPage()) {
+    *dictionary_length = 0;
+    return nullptr;
+  }
+  // Verify the current data page is dictionary encoded.
+  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
+  auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
+  const T* dictionary = nullptr;
+  decoder->GetDictionary(&dictionary, dictionary_length);
+  return reinterpret_cast<const void*>(dictionary);
+}
+
+template <typename DT>
+int64_t FlatOptionalTypedRecordReader<DT>::ReadRecords(int64_t num_records) {
+  if (num_records <= 0) {
+    return 0;
+  }
+
+  int64_t records_read = 0;
+
+  do {
+    // Is there more data to read in this row group?
+    if (!this->EnsureDataPage()) {
+      break;
+    }
+
+    const int32_t batch_size =
+        narrow_min(num_records - records_read, this->available_values_current_page());
+    if (read_dense_for_nullable()) {
+      const auto result = this->def_levels_decoder_.CountUpTo(true, batch_size);
+      ReadValuesDense(result.matching_count);
+      records_read += result.processed_count;
+      this->MarkValuesAsConsumed(result.processed_count);
+    } else {
+      const auto old_valid_bits_start = valid_bits_.values_count();
+      const auto result =
+          valid_bits_.ReadFromDecoder(this->def_levels_decoder_, batch_size);
+      ReadValuesSpaced(old_valid_bits_start, result.values_read, result.null_count);
+      this->MarkValuesAsConsumed(result.values_read);
+      records_read += result.values_read;
+      null_count_ += result.null_count;
+    }
+  } while (records_read < num_records);
+
+  return records_read;
+}
+
+template <typename DT>
+void FlatOptionalTypedRecordReader<DT>::ReadValuesSpaced(int64_t valid_bits_offset,
+                                                         int32_t values_with_nulls,
+                                                         int32_t null_count) {
+  const auto decoded = value_sink_.ReadValuesSpaced(
+      *this->current_decoder_.get(), values_with_nulls, null_count,
+      /* valid_bits= */ valid_bits_.data(),
+      /* valid_bits_offset= */ valid_bits_offset);
+  CheckNumberDecoded(decoded, values_with_nulls);
+}
+
+template <typename DT>
+void FlatOptionalTypedRecordReader<DT>::ReadValuesDense(int32_t batch_size) {
+  const auto decoded =
+      value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
+  CheckNumberDecoded(decoded, batch_size);
+}
+
+template <typename DT>
+std::shared_ptr<ResizableBuffer> FlatOptionalTypedRecordReader<DT>::ReleaseIsValid() {
+  if (!read_dense_for_nullable()) {
+    return valid_bits_.ReleaseValues(this->pool_);
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename DT>
+void FlatOptionalTypedRecordReader<DT>::ReserveIsValid(int64_t extra_values) {
+  if (!read_dense_for_nullable()) {
+    valid_bits_.ReserveValues(extra_values);
+  }
+}
+
+template <typename DT>
+void FlatOptionalTypedRecordReader<DT>::Reset() {
+  null_count_ = 0;
+  // TODO not quite what we want
+  if (!read_dense_for_nullable()) {
+    valid_bits_ = ValiditySinkBuffer(this->pool_);
+  }
+
+  if (values_written() > 0) {
+    value_sink_.ResetValues();
+  }
+}
+
+template <typename DT>
+void FlatOptionalTypedRecordReader<DT>::DebugPrintState() {
   std::cout << "values: ";
   value_sink_.DebugPrintState();
   std::cout << std::endl;
@@ -3149,23 +3381,25 @@ std::shared_ptr<RecordReader> DispatchTypedRecordReader(const ColumnDescriptor* 
                                                         LevelInfo leaf_info,
                                                         MemoryPool* pool,
                                                         bool read_dense_for_nullable) {
-  if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
-    if constexpr (std::is_same_v<DType, FLBAType>) {
+  if constexpr (std::is_same_v<DType, FLBAType>) {
+    if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
       using FLBAReader = FLBARecordReader</*kRequired=*/true>;
       return std::make_shared<FLBAReader>(descr, pool);
-    } else {
-      using c_type = typename DType::c_type;
-      using ValueSink = ValueSinkBuffer<c_type>;
-      using Reader = RequiredTypedRecordReader<DType, ValueSink, false>;
-      return std::make_shared<Reader>(descr, pool, ValueSink(pool));
     }
-  }
-  if constexpr (std::is_same_v<DType, FLBAType>) {
     using FLBAReader = FLBARecordReader</*kRequired=*/false>;
     return std::make_shared<FLBAReader>(descr, leaf_info, pool, read_dense_for_nullable);
   } else {
     using c_type = typename DType::c_type;
     using ValueSink = ValueSinkBuffer<c_type>;
+    if (descr->max_definition_level() == 0 && descr->max_repetition_level() == 0) {
+      using Reader = RequiredTypedRecordReader<DType, ValueSink, false>;
+      return std::make_shared<Reader>(descr, pool, ValueSink(pool));
+    } else if (descr->max_definition_level() == 1 && descr->max_repetition_level() == 0 &&
+               descr->schema_node()->is_optional()) {
+      using Reader = FlatOptionalTypedRecordReader<DType>;
+      return std::make_shared<Reader>(descr, pool, read_dense_for_nullable,
+                                      ValueSink(pool));
+    }
     using Reader = TypedRecordReader<DType, ValueSink, false>;
     return std::make_shared<Reader>(descr, leaf_info, pool, read_dense_for_nullable,
                                     ValueSink(pool));
