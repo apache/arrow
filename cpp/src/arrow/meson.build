@@ -508,6 +508,7 @@ if needs_json
             'sources': [
                 'extension/fixed_shape_tensor.cc',
                 'extension/opaque.cc',
+                'extension/range.cc',
                 'extension/tensor_internal.cc',
                 'extension/variable_shape_tensor.cc',
                 'json/options.cc',

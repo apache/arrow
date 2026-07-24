@@ -1611,6 +1611,17 @@ cdef class Bool8Scalar(ExtensionScalar):
         py_val = super().as_py()
         return None if py_val is None else py_val != 0
 
+
+cdef class RangeScalar(ExtensionScalar):
+    """
+    Concrete class for range extension scalar.
+    """
+
+cdef class RangeIncScalar(ExtensionScalar):
+    """
+    Concrete class for range_inc extension scalar.
+    """
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
