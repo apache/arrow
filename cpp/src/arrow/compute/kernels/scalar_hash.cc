@@ -209,11 +209,11 @@ struct FastHashScalar {
     // Fold every row, then zero nulls separately below; benchmarking showed this beats
     // branchless masking (masking costs every row; branch prediction handles nulls free).
     if (offsets != nullptr) {
-      CombineOffsetRows<c_type, Hasher>(array.length, offsets, values.offset + rel_start,
-                                        value_hash_data, out);
+      CombineOffsetRows<c_type, Hasher>(array.length, offsets, rel_start, value_hash_data,
+                                        out);
     } else {
       for (int64_t i = 0; i < array.length; i++) {
-        int64_t start = (array.offset + i) * list_size - values.offset - rel_start;
+        int64_t start = (array.offset + i) * list_size - rel_start;
         out[i] = CombineRange<c_type, Hasher>(value_hash_data, start, start + list_size);
       }
     }
@@ -236,32 +236,34 @@ struct FastHashScalar {
       return HashStructArray(array, hash_ctx, memory_pool, out);
     } else if (type_id == Type::FIXED_SIZE_LIST) {
       auto list_size = checked_cast<const FixedSizeListType*>(array.type)->list_size();
-      auto values = array.child_data[0];
+      // rel_start/rel_end are logical indices into `values` (i.e. relative to
+      // values.offset, not the physical buffer), matching what HashListArray expects.
       int64_t rel_start = 0, rel_end = 0;
       if (array.length > 0) {
-        rel_start = array.offset * list_size - values.offset;
-        rel_end = (array.offset + array.length) * list_size - values.offset;
+        rel_start = array.offset * list_size;
+        rel_end = (array.offset + array.length) * list_size;
       }
       return HashListArray<int32_t>(array, list_size, nullptr, rel_start, rel_end,
                                     hash_ctx, memory_pool, out);
     } else if (type_id == Type::LARGE_LIST) {
       auto offsets = array.GetValues<int64_t>(1);
-      auto values = array.child_data[0];
+      // offsets[] are already logical indices into `values` (relative to
+      // values.offset), so rel_start/rel_end need no further adjustment here.
       int64_t rel_start = 0, rel_end = 0;
       if (array.length > 0) {
-        rel_start = offsets[0] - values.offset;
-        rel_end = offsets[array.length] - values.offset;
+        rel_start = offsets[0];
+        rel_end = offsets[array.length];
       }
       return HashListArray<int64_t>(array, 0, offsets, rel_start, rel_end, hash_ctx,
                                     memory_pool, out);
     } else if (is_list_like(type_id)) {
-      // LIST and MAP both use 32-bit offsets.
+      // LIST and MAP both use 32-bit offsets, which are already logical indices into
+      // `values` (relative to values.offset).
       auto offsets = array.GetValues<int32_t>(1);
-      auto values = array.child_data[0];
       int64_t rel_start = 0, rel_end = 0;
       if (array.length > 0) {
-        rel_start = offsets[0] - values.offset;
-        rel_end = offsets[array.length] - values.offset;
+        rel_start = offsets[0];
+        rel_end = offsets[array.length];
       }
       return HashListArray<int32_t>(array, 0, offsets, rel_start, rel_end, hash_ctx,
                                     memory_pool, out);
