@@ -109,7 +109,7 @@ ${CMAKE_WRAPPER} ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
     -Dabsl_SOURCE=${absl_SOURCE:-BUNDLED} \
     -Dre2_SOURCE=${re2_SOURCE:-BUNDLED} \
-    -Dsimdjson_SOURCE=${simdjson_SOURCE:-} \
+    -Dsimdjson_SOURCE=${simdjson_SOURCE:-BUNDLED} \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
     -Dzstd_SOURCE=${zstd_SOURCE:-} \
     ${EXTRA_CMAKE_FLAGS} \
