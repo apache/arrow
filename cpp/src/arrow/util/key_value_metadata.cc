@@ -62,12 +62,19 @@ KeyValueMetadata::KeyValueMetadata(
     const std::unordered_map<std::string, std::string>& map)
     : keys_(UnorderedMapKeys(map)), values_(UnorderedMapValues(map)) {
   ARROW_CHECK_EQ(keys_.size(), values_.size());
+  map_.reserve(keys_.size());
+  for (size_t i = 0; i < keys_.size(); i++) {
+    map_[keys_[i]] = i;
+  }
 }
 
 KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
-                                   std::vector<std::string> values)
-    : keys_(std::move(keys)), values_(std::move(values)) {
+                                   std::vector<std::string> values) {
   ARROW_CHECK_EQ(keys.size(), values.size());
+  reserve(static_cast<int64_t>(keys.size()));
+  for (size_t i = 0; i < keys.size(); ++i) {
+    Append(std::move(keys[i]), std::move(values[i]));
+  }
 }
 
 std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Make(
@@ -86,8 +93,15 @@ void KeyValueMetadata::ToUnorderedMap(
 }
 
 void KeyValueMetadata::Append(std::string key, std::string value) {
-  keys_.push_back(std::move(key));
-  values_.push_back(std::move(value));
+  auto it = map_.find(key);
+
+  if (it != map_.end()) {
+    values_[it->second] = std::move(value);
+  } else {
+    map_[key] = keys_.size();
+    keys_.push_back(std::move(key));
+    values_.push_back(std::move(value));
+  }
 }
 
 Result<std::string> KeyValueMetadata::Get(std::string_view key) const {
@@ -106,14 +120,22 @@ Status KeyValueMetadata::Delete(int64_t index) {
                               "of size ",
                               keys_.size());
   }
+  map_.erase(keys_[index]);
   keys_.erase(keys_.begin() + index);
   values_.erase(values_.begin() + index);
+  size_t n = keys_.size();
+  for (size_t i = index; i < n; i++) {
+    map_[keys_[i]] = i;
+  }
   return Status::OK();
 }
 
 Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
   std::sort(indices.begin(), indices.end());
   const int64_t size = static_cast<int64_t>(keys_.size());
+  for (int64_t idx : indices) {
+    map_.erase(keys_[idx]);
+  }
   indices.push_back(size);
 
   int64_t shift = 0;
@@ -128,6 +150,7 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
     for (int64_t index = start; index < stop; ++index) {
       keys_[index - shift] = std::move(keys_[index]);
       values_[index - shift] = std::move(values_[index]);
+      map_[keys_[index - shift]] = index - shift;
     }
   }
   keys_.resize(size - shift);
@@ -162,6 +185,7 @@ void KeyValueMetadata::reserve(int64_t n) {
   const auto m = static_cast<size_t>(n);
   keys_.reserve(m);
   values_.reserve(m);
+  map_.reserve(m);
 }
 
 int64_t KeyValueMetadata::size() const {
@@ -193,10 +217,9 @@ std::vector<std::pair<std::string, std::string>> KeyValueMetadata::sorted_pairs(
 }
 
 int KeyValueMetadata::FindKey(std::string_view key) const {
-  for (size_t i = 0; i < keys_.size(); ++i) {
-    if (keys_[i] == key) {
-      return static_cast<int>(i);
-    }
+  auto it = map_.find(std::string(key));
+  if (it != map_.end()) {
+    return static_cast<int>(it->second);
   }
   return -1;
 }
