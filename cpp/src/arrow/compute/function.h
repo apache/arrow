@@ -299,10 +299,7 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   using KernelType = ScalarKernel;
 
   ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                 const FunctionOptions* default_options = NULLPTR, bool is_pure = true)
-      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                           std::move(doc), default_options),
-        is_pure_(is_pure) {}
+                 const FunctionOptions* default_options = NULLPTR, bool is_pure = true);
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null

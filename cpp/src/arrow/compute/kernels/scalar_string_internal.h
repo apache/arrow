@@ -159,11 +159,11 @@ void MakeUnaryStringBatchKernel(
   ARROW_DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-template <template <typename> class ExecFunctor, typename FunctionType = ScalarFunction>
+template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernelWithState(
     std::string name, FunctionRegistry* registry, FunctionDoc doc,
     MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
-  auto func = std::make_shared<FunctionType>(name, Arity::Unary(), std::move(doc));
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   {
     using t32 = ExecFunctor<StringType>;
     ScalarKernel kernel{{utf8()}, utf8(), t32::Exec, t32::State::Init};

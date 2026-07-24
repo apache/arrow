@@ -726,15 +726,6 @@ void AddUtf8StringReverse(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // String trimming
 
-struct DictionaryDecodingScalarFunction : ScalarFunction {
-  using ScalarFunction::ScalarFunction;
-
-  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
-    EnsureDictionaryDecoded(types);
-    return DispatchExact(*types);
-  }
-};
-
 struct UTF8TrimState {
   TrimOptions options_;
   std::vector<bool> codepoints_;
@@ -891,12 +882,9 @@ const FunctionDoc utf8_rtrim_whitespace_doc(
 #endif  // ARROW_WITH_UTF8PROC
 
 void AddUtf8StringTrim(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernelWithState<UTF8Trim, DictionaryDecodingScalarFunction>(
-      "utf8_trim", registry, utf8_trim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8LTrim, DictionaryDecodingScalarFunction>(
-      "utf8_ltrim", registry, utf8_ltrim_doc);
-  MakeUnaryStringBatchKernelWithState<UTF8RTrim, DictionaryDecodingScalarFunction>(
-      "utf8_rtrim", registry, utf8_rtrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8Trim>("utf8_trim", registry, utf8_trim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8LTrim>("utf8_ltrim", registry, utf8_ltrim_doc);
+  MakeUnaryStringBatchKernelWithState<UTF8RTrim>("utf8_rtrim", registry, utf8_rtrim_doc);
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  utf8_trim_whitespace_doc);
