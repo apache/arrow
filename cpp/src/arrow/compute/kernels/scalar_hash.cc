@@ -309,8 +309,17 @@ class HashableMatcher : public TypeMatcher {
   HashableMatcher() {}
 
   bool Matches(const DataType& type) const override {
-    return !(is_union(type) || is_binary_view_like(type) || is_list_view(type) ||
-             type.id() == Type::RUN_END_ENCODED);
+    // Unwrap extension types (recursively, in case of nesting) so a union/view/REE
+    // storage type is rejected here too, rather than passing dispatch and failing
+    // later with a raw TypeError from HashArray/ToColumnArray.
+    const DataType* physical_type = &type;
+    while (physical_type->id() == Type::EXTENSION) {
+      physical_type =
+          checked_cast<const ExtensionType&>(*physical_type).storage_type().get();
+    }
+    return !(is_union(*physical_type) || is_binary_view_like(*physical_type) ||
+             is_list_view(*physical_type) ||
+             physical_type->id() == Type::RUN_END_ENCODED);
   }
 
   bool Equals(const TypeMatcher& other) const override {
