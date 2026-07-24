@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <format>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -117,6 +118,12 @@ constexpr auto narrow_min(T x, U y) -> smallest_int_t<T, U> {
   using V = smallest_int_t<T, U>;
   return std::min<V>(clamp_to<V>(x), clamp_to<V>(y));
 }
+
+/// Whether values of type T can be printed to `std::cout`.
+template <typename T>
+concept can_cout = requires(std::ostream& os, const T& value) {
+  os << value;
+};  // NOLINT(readability/braces)
 
 }  // namespace
 
@@ -294,7 +301,7 @@ class LevelToBitmapDecoder {
   CountUpToResult CountUpTo(bool value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
-  int32_t max_level() const { return max_level_; }
+  int32_t max_level() const { return 1; }
 
   /// Return the number of values left to be decoded.
   int32_t remaining() const { return num_values_remaining_; }
@@ -306,7 +313,6 @@ class LevelToBitmapDecoder {
   /// Number of values remaining. The underlying decoder zero pads bit packed values
   /// up to a multiple of 8 so it cannot know the exact number of remaining values.
   int32_t num_values_remaining_ = 0;
-  int16_t max_level_ = 0;
 };
 
 void LevelToBitmapDecoder::CheckMaxLevel(int16_t max_level) {
@@ -320,7 +326,6 @@ int32_t LevelToBitmapDecoder::SetData(Encoding::type encoding, int16_t max_level
                                       int32_t num_buffered_values, const uint8_t* data,
                                       int32_t data_size) {
   CheckMaxLevel(max_level);
-  max_level_ = max_level;
   num_values_remaining_ = num_buffered_values;
   // Levels with a max level of 1 are encoded on a single bit.
   constexpr int32_t value_bit_width = 1;
@@ -368,7 +373,6 @@ void LevelToBitmapDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   if (num_bytes < 0) {
     throw ParquetException("Invalid page header (corrupt data page?)");
   }
-  max_level_ = max_level;
   num_values_remaining_ = num_buffered_values;
   decoder_ = RleBitPackedDecoder(
       /* data= */ data,
@@ -1011,6 +1015,17 @@ class ValueSinkBuffer : private ValueSinkCursor {
     if (values_count() > 0) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
       ValueSinkCursor::operator=({});
+    }
+  }
+
+  void DebugPrintState() {
+    const T* vals = data();
+    for (int64_t i = 0; i < values_count(); ++i) {
+      if constexpr (can_cout<T>) {
+        std::cout << vals[i] << ' ';
+      } else {
+        std::cout << "? ";
+      }
     }
   }
 
@@ -1757,9 +1772,6 @@ concept can_cout = requires(std::ostream& os, const T& value) {
 /***********************
  *  TypedRecordReader  *
  ***********************/
-
-template <typename DType, typename ValueSink, bool kReadDictionary>
-class TypedRecordReader;
 
 template <typename D>
 struct TypedRecordReaderTraits {
@@ -2544,16 +2556,7 @@ void TypedRecordReader<DT, VS, kDic>::DebugPrintState() {
   }
 
   std::cout << "values: ";
-  if constexpr (can_cout<T>) {
-    const T* vals = reinterpret_cast<const T*>(this->values());
-    for (int64_t i = 0; i < this->values_written(); ++i) {
-      std::cout << vals[i] << " ";
-    }
-  } else {
-    for (int64_t i = 0; i < this->values_written(); ++i) {
-      std::cout << "? ";
-    }
-  }
+  value_sink_.DebugPrintState();
   std::cout << std::endl;
 }
 
@@ -2570,16 +2573,13 @@ void TypedRecordReader<DT, VS, kDic>::ResetValues() {
  *  RequiredTypedRecordReader  *
  *******************************/
 
-// TODO can we reduce some code share with TypedRecordREader ?
-template <typename DType, typename ValueSink, bool kReadDictionary>
-class RequiredTypedRecordReader;
-
 template <typename D>
 struct RequiredTypedRecordReaderTraits {
   using DType = D;
   using level_decoder = LevelDecoder;
 };
 
+// TODO can we reduce some code share with TypedRecordREader ?
 template <typename DType, typename ValueSink = ValueSinkBuffer<typename DType::c_type>,
           bool kReadDictionary = false>
 class RequiredTypedRecordReader
@@ -2725,16 +2725,7 @@ void RequiredTypedRecordReader<DT, VS, kDic>::Reset() {
 template <typename DT, typename VS, bool kDic>
 void RequiredTypedRecordReader<DT, VS, kDic>::DebugPrintState() {
   std::cout << "values: ";
-  if constexpr (can_cout<T>) {
-    const T* vals = reinterpret_cast<const T*>(this->values());
-    for (int64_t i = 0; i < this->values_written(); ++i) {
-      std::cout << vals[i] << " ";
-    }
-  } else {
-    for (int64_t i = 0; i < this->values_written(); ++i) {
-      std::cout << "? ";
-    }
-  }
+  value_sink_.DebugPrintState();
   std::cout << std::endl;
 }
 
@@ -2798,6 +2789,8 @@ class ArrayValuesSink : private ValueSinkCursor {
 
   auto builder() -> BuilderType& { return builder_; }
   auto builder() const -> const BuilderType& { return builder_; }
+
+  void DebugPrintState() { std::cout << "<values in builder>"; }
 
  private:
   BuilderType builder_;
@@ -2970,12 +2963,16 @@ class ByteArrayChunkedRecordReader final
   auto accumulator() -> Builder& { return this->value_sink().builder(); }
 };
 
+/*****************************
+ *  ValuesSinkByteArrayDict  *
+ *****************************/
+
 /// Decodes byte array values into a ::arrow::BinaryDictionary32Builder.
 ///
 /// If the current decoder is dictionary encoded, the dictionary indices are
 /// decoded directly, otherwise the values are decoded and looked up in the
 /// builder's memo table.
-class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
+class ValuesSinkByteArrayDict : private ValueSinkCursor {
  public:
   using value_type = ByteArray;
   using Builder = ::arrow::BinaryDictionary32Builder;
@@ -2983,7 +2980,7 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
   using ValueSinkCursor::capacity;
   using ValueSinkCursor::values_count;
 
-  explicit ByteArrayDictionaryValuesSink(::arrow::MemoryPool* pool)
+  explicit ValuesSinkByteArrayDict(::arrow::MemoryPool* pool)
       : builder_(std::make_unique<Builder>(pool)) {}
 
   value_type* data() const { return nullptr; }
@@ -3038,6 +3035,8 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
     decoder.InsertDictionary(builder_.get());
   }
 
+  void DebugPrintState() { std::cout << "<values in builder>"; }
+
   /// Finish the builder and return all the chunks accumulated so far.
   std::shared_ptr<::arrow::ChunkedArray> FlushChunks() {
     FlushBuilder();
@@ -3064,10 +3063,14 @@ class ByteArrayDictionaryValuesSink : private ValueSinkCursor {
   }
 };
 
+/*************************************
+ *  ByteArrayDictionaryRecordReader  *
+ *************************************/
+
 template <bool kRequired>
 struct byte_array_dictionary_record_reader {
   using DType = ByteArrayType;
-  using ValueSink = ByteArrayDictionaryValuesSink;
+  using ValueSink = ValuesSinkByteArrayDict;
   using type =
       record_reader_base_t<DType, ValueSink, kRequired, /*kReadDictionary=*/true>;
 };
@@ -3141,9 +3144,6 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
   }
 }
 
-}  // namespace
-
-namespace {
 template <typename DType>
 std::shared_ptr<RecordReader> DispatchTypedRecordReader(const ColumnDescriptor* descr,
                                                         LevelInfo leaf_info,
@@ -3205,9 +3205,8 @@ std::shared_ptr<RecordReader> RecordReader::Make(
                                                  read_dense_for_nullable);
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
-      std::stringstream ss;
-      ss << "Invalid physical column type: " << static_cast<int>(descr->physical_type());
-      throw ParquetException(ss.str());
+      const auto type = static_cast<int>(descr->physical_type());
+      throw ParquetException(std::format("Invalid physical column type: {}", type));
     }
   }
   // Unreachable code, but suppress compiler warning
