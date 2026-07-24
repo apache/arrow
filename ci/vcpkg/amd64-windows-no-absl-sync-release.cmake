@@ -17,10 +17,10 @@
 
 # GH-49465: rebuild gRPC with native sync instead of absl::Mutex to avoid the
 # Windows exit hang. See the ODBC Windows job in cpp_extra.yml
-# Dynamic CRT/linkage and release-only to match that job.
+# Static library linkage, dynamic CRT (/MD), release-only to match that job.
 set(VCPKG_TARGET_ARCHITECTURE x64)
 set(VCPKG_CRT_LINKAGE dynamic)
-set(VCPKG_LIBRARY_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
 set(VCPKG_BUILD_TYPE release)
 
 set(VCPKG_C_FLAGS "/DGPR_DISABLE_ABSEIL_SYNC")
