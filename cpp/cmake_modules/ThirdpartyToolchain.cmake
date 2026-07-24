@@ -2836,7 +2836,7 @@ function(build_simdjson)
 endfunction()
 
 if(ARROW_WITH_SIMDJSON)
-  set(ARROW_SIMDJSON_REQUIRED_VERSION "3.0.0")
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.0.0")
   resolve_dependency(simdjson
                      FORCE_ANY_NEWER_VERSION
                      TRUE

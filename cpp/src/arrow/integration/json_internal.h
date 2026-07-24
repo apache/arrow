@@ -36,9 +36,12 @@
 #include "arrow/util/visibility.h"
 
 namespace rj = arrow::rapidjson;
-using RjWriter = rj::Writer<rj::StringBuffer>;
-using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
+using RjArray = rj::Value::ConstArray;
+
+namespace arrow::json {
+class JsonWriter;
+}  // namespace arrow::json
 
 #define RETURN_NOT_FOUND(TOK, NAME, PARENT)              \
   if (NAME == (PARENT).MemberEnd()) {                    \
@@ -80,17 +83,17 @@ namespace arrow::internal::integration::json {
 /// \brief Append integration test Schema format to rapidjson writer
 ARROW_EXPORT
 Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
-                   RjWriter* writer);
+                   arrow::json::JsonWriter*);
 
 ARROW_EXPORT
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
-                       RjWriter* writer);
+                       arrow::json::JsonWriter*);
 
 ARROW_EXPORT
-Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
+Status WriteRecordBatch(const RecordBatch& batch, arrow::json::JsonWriter*);
 
 ARROW_EXPORT
-Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
+Status WriteArray(const std::string& name, const Array& array, arrow::json::JsonWriter*);
 
 ARROW_EXPORT
 Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_obj, MemoryPool* pool,

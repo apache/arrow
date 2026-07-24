@@ -22,6 +22,7 @@ exc = executable(
         'chunker_test.cc',
         'converter_test.cc',
         'from_string_test.cc',
+        'json_writer_internal_test.cc',
         'parser_test.cc',
         'reader_test.cc',
     ],
