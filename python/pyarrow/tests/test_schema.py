@@ -47,6 +47,11 @@ def test_type_integers():
 
 
 @pytest.mark.pandas
+def test_extension_type_to_pandas_dtype():
+    pa.fixed_shape_tensor(pa.float32(),[2,2]).to_pandas_dtype()
+
+
+@pytest.mark.pandas
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
     cases = [
