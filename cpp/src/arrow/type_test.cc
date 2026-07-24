@@ -2053,8 +2053,27 @@ TEST(TestStructType, Basics) {
   auto t3 = struct_({field("c", int8()), field("b", utf8())});
   ASSERT_TRUE(t1->Equals(t2));
   ASSERT_TRUE(!t1->Equals(t3));
+}
 
-  // TODO(wesm): out of bounds for field(...)
+// Test that out-of-bounds field access returns null
+TEST(TestStructType, FieldAccessOutOfBounds) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", utf8());
+  auto f2 = field("f2", uint8());
+  StructType struct_type({f0, f1, f2});
+
+  ASSERT_EQ(struct_type.num_fields(), 3);
+
+  // Out-of-bounds indices return nullptr
+  ASSERT_EQ(struct_type.field(3), nullptr);
+  ASSERT_EQ(struct_type.field(4), nullptr);
+  ASSERT_EQ(struct_type.field(100), nullptr);
+  ASSERT_EQ(struct_type.field(-1), nullptr);
+
+  // All out-of-bounds accesses return the same static null
+  const auto& null1 = struct_type.field(3);
+  const auto& null2 = struct_type.field(100);
+  EXPECT_EQ(&null1, &null2);
 }
 
 TEST(TestStructType, GetFieldByName) {
