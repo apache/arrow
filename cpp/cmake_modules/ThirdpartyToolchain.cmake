@@ -410,15 +410,6 @@ if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
-# The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
-# simdjson headers from compiling. Disable simdjson concepts for this SDK.
-if(ARROW_JSON
-   AND CMAKE_OSX_SYSROOT
-   AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
-  message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
-  add_compile_definitions(SIMDJSON_CONCEPT_DISABLED=1)
-endif()
-
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
@@ -2831,6 +2822,13 @@ function(build_simdjson)
   prepare_fetchcontent()
 
   fetchcontent_makeavailable(simdjson)
+
+  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
+  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+    target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
+  endif()
 
   set(SIMDJSON_VENDORED
       TRUE
