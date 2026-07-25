@@ -29,6 +29,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "benchmark/benchmark.h"
@@ -53,7 +54,25 @@ namespace {
 // Data Generators — ClickBench-inspired
 // ============================================================================
 
-using Gen32 = std::vector<int32_t> (*)(int64_t);
+// Generator pointer type, parameterized on the column value type.
+template <typename T>
+using GenT = std::vector<T> (*)(int64_t);
+using Gen32 = GenT<int32_t>;
+using Gen64 = GenT<int64_t>;
+
+// Map the C++ value type to its Parquet physical type + descriptor type.
+template <typename T>
+struct PqTraits;
+template <>
+struct PqTraits<int32_t> {
+  using PType = Int32Type;
+  static constexpr Type::type kPhysicalType = Type::INT32;
+};
+template <>
+struct PqTraits<int64_t> {
+  using PType = Int64Type;
+  static constexpr Type::type kPhysicalType = Type::INT64;
+};
 
 std::vector<int32_t> GenClientIP(int64_t n) {
   std::vector<int32_t> v(n);
@@ -356,21 +375,93 @@ std::vector<int32_t> GenTaxiFareCents(int64_t n) {
 }
 
 // ============================================================================
+// Data Generators — int64 / BIGINT columns (values that require 8 bytes,
+// i.e. exceed the int32 range). Covers the common 64-bit analytic cases:
+// nanosecond timestamps, large surrogate keys, scaled-decimal money, monotone
+// IDs, and wide counters.
+// ============================================================================
+
+// Nanosecond epoch timestamp (Parquet TIMESTAMP(NANOS)): 2024-01-01 base plus
+// up to ~1 day of jitter. Min ~1.70e18 -> very large frame of reference; raw
+// values need ~61 bits.
+std::vector<int64_t> GenTsNanos(int64_t n) {
+  std::vector<int64_t> v(n);
+  const int64_t kBase = 1704067200000000000LL;  // 2024-01-01T00:00:00Z in ns
+  std::mt19937_64 rng(401);
+  std::uniform_int_distribution<int64_t> off(0, 86399999999999LL);  // ~1 day
+  for (auto& x : v) x = kBase + off(rng);
+  return v;
+}
+
+// BIGINT surrogate / order key, uniform over [1, 10 billion] (exceeds 2^32).
+std::vector<int64_t> GenOrderKey(int64_t n) {
+  std::vector<int64_t> v(n);
+  std::mt19937_64 rng(402);
+  std::uniform_int_distribution<int64_t> dist(1, 10000000000LL);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// Money as int64 scaled decimal (micro-units): $0.01 .. ~$100k, skewed, with a
+// nonzero floor at one cent.
+std::vector<int64_t> GenPriceMicros(int64_t n) {
+  std::vector<int64_t> v(n);
+  const int64_t kMin = 10000, kMax = 100000000000LL;  // $0.01 .. $100,000
+  std::mt19937_64 rng(403);
+  std::exponential_distribution<double> exp_dist(1.0 / 5000000.0);  // mean ~$5
+  for (auto& x : v) {
+    int64_t val = kMin + static_cast<int64_t>(exp_dist(rng));
+    x = std::min(val, kMax);
+  }
+  return v;
+}
+
+// Snowflake-style monotone ID: large base + jittered per-row increments.
+// Monotone -> ideal for DELTA_BINARY_PACKED; huge min -> ideal for PFOR's FOR.
+std::vector<int64_t> GenSnowflakeId(int64_t n) {
+  std::vector<int64_t> v(n);
+  std::mt19937_64 rng(404);
+  std::uniform_int_distribution<int64_t> step(1, 4096);
+  int64_t id = 1500000000000000000LL;
+  for (auto& x : v) {
+    id += step(rng);
+    x = id;
+  }
+  return v;
+}
+
+// Wide cumulative byte counts, uniform [1024, 5 trillion] (wide 64-bit range).
+std::vector<int64_t> GenByteCount(int64_t n) {
+  std::vector<int64_t> v(n);
+  std::mt19937_64 rng(405);
+  std::uniform_int_distribution<int64_t> dist(1024, 5000000000000LL);
+  for (auto& x : v) x = dist(rng);
+  return v;
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
-static int32_t ComputeBitWidth(const std::vector<int32_t>& values) {
-  uint32_t max_val = 0;
-  for (int32_t v : values) {
-    max_val = std::max(max_val, static_cast<uint32_t>(v));
+template <typename T>
+static int32_t ComputeBitWidth(const std::vector<T>& values) {
+  using U = std::make_unsigned_t<T>;
+  U max_val = 0;
+  for (T v : values) {
+    max_val = std::max(max_val, static_cast<U>(v));
   }
   if (max_val == 0) return 1;
-  return static_cast<int32_t>(32 - __builtin_clz(max_val));
+  if constexpr (sizeof(T) == 8) {
+    return static_cast<int32_t>(64 - __builtin_clzll(static_cast<uint64_t>(max_val)));
+  } else {
+    return static_cast<int32_t>(32 - __builtin_clz(static_cast<uint32_t>(max_val)));
+  }
 }
 
-static std::shared_ptr<ColumnDescriptor> MakeInt32Descriptor() {
-  auto node =
-      schema::PrimitiveNode::Make("col", Repetition::REQUIRED, Type::INT32);
+template <typename T>
+static std::shared_ptr<ColumnDescriptor> MakeDescriptor() {
+  auto node = schema::PrimitiveNode::Make("col", Repetition::REQUIRED,
+                                          PqTraits<T>::kPhysicalType);
   return std::make_shared<ColumnDescriptor>(node, /*max_def_level=*/0,
                                             /*max_rep_level=*/0);
 }
@@ -379,24 +470,24 @@ static std::shared_ptr<ColumnDescriptor> MakeInt32Descriptor() {
 // PFOR Encode/Decode
 // ============================================================================
 
-static void BM_PforEncode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void PforEncodeImpl(benchmark::State& state, GenT<T> gen) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  int64_t max_size =
-      ::arrow::util::pfor::PforWrapper<int32_t>::GetMaxCompressedSize(
-          static_cast<int32_t>(num_values));
+  int64_t max_size = ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(
+      static_cast<int32_t>(num_values));
   std::vector<uint8_t> compressed(max_size);
 
   // Compute comp_size once for the counter
   int64_t comp_size = max_size;
-  ::arrow::util::pfor::PforWrapper<int32_t>::Encode(
+  ::arrow::util::pfor::PforWrapper<T>::Encode(
       values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size);
 
   for (auto _ : state) {
     int64_t sz = max_size;
-    ::arrow::util::pfor::PforWrapper<int32_t>::Encode(
+    ::arrow::util::pfor::PforWrapper<T>::Encode(
         values.data(), static_cast<int32_t>(num_values), compressed.data(), &sz);
     benchmark::DoNotOptimize(sz);
     benchmark::ClobberMemory();
@@ -407,24 +498,29 @@ static void BM_PforEncode(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+static void BM_PforEncode(benchmark::State& state, Gen32 gen) {
+  PforEncodeImpl<int32_t>(state, gen);
+}
+static void BM_Pfor64Encode(benchmark::State& state, Gen64 gen) {
+  PforEncodeImpl<int64_t>(state, gen);
+}
 
-static void BM_PforDecode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  int64_t max_size =
-      ::arrow::util::pfor::PforWrapper<int32_t>::GetMaxCompressedSize(
-          static_cast<int32_t>(num_values));
+  int64_t max_size = ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(
+      static_cast<int32_t>(num_values));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
-  ::arrow::util::pfor::PforWrapper<int32_t>::Encode(
-      values.data(), static_cast<int32_t>(num_values), compressed.data(),
-      &comp_size);
+  ::arrow::util::pfor::PforWrapper<T>::Encode(
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size);
 
-  std::vector<int32_t> decoded(num_values);
+  std::vector<T> decoded(num_values);
   for (auto _ : state) {
-    auto status = ::arrow::util::pfor::PforWrapper<int32_t>::Decode(
+    auto status = ::arrow::util::pfor::PforWrapper<T>::Decode(
         decoded.data(), static_cast<int32_t>(num_values), compressed.data(),
         comp_size);
     ARROW_CHECK_OK(status);
@@ -436,17 +532,25 @@ static void BM_PforDecode(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+static void BM_PforDecode(benchmark::State& state, Gen32 gen) {
+  PforDecodeImpl<int32_t>(state, gen);
+}
+static void BM_Pfor64Decode(benchmark::State& state, Gen64 gen) {
+  PforDecodeImpl<int64_t>(state, gen);
+}
 
 // ============================================================================
 // DeltaBitPack Encode/Decode
 // ============================================================================
 
-static void BM_DeltaBitPackEncode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void DeltaBitPackEncodeImpl(benchmark::State& state, GenT<T> gen) {
+  using PType = typename PqTraits<T>::PType;
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+  auto encoder = MakeTypedEncoder<PType>(Encoding::DELTA_BINARY_PACKED);
 
   // Compute comp_size once for the counter
   encoder->Put(values.data(), static_cast<int>(num_values));
@@ -464,19 +568,27 @@ static void BM_DeltaBitPackEncode(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+static void BM_DeltaBitPackEncode(benchmark::State& state, Gen32 gen) {
+  DeltaBitPackEncodeImpl<int32_t>(state, gen);
+}
+static void BM_DeltaBitPack64Encode(benchmark::State& state, Gen64 gen) {
+  DeltaBitPackEncodeImpl<int64_t>(state, gen);
+}
 
-static void BM_DeltaBitPackDecode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void DeltaBitPackDecodeImpl(benchmark::State& state, GenT<T> gen) {
+  using PType = typename PqTraits<T>::PType;
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+  auto encoder = MakeTypedEncoder<PType>(Encoding::DELTA_BINARY_PACKED);
   encoder->Put(values.data(), static_cast<int>(num_values));
   auto buf = encoder->FlushValues();
   int64_t comp_size = buf->size();
 
-  std::vector<int32_t> decoded(num_values);
-  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+  std::vector<T> decoded(num_values);
+  auto decoder = MakeTypedDecoder<PType>(Encoding::DELTA_BINARY_PACKED);
 
   for (auto _ : state) {
     decoder->SetData(static_cast<int>(num_values), buf->data(),
@@ -490,18 +602,26 @@ static void BM_DeltaBitPackDecode(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+static void BM_DeltaBitPackDecode(benchmark::State& state, Gen32 gen) {
+  DeltaBitPackDecodeImpl<int32_t>(state, gen);
+}
+static void BM_DeltaBitPack64Decode(benchmark::State& state, Gen64 gen) {
+  DeltaBitPackDecodeImpl<int64_t>(state, gen);
+}
 
 // ============================================================================
 // Plain + ZSTD Encode/Decode
 // ============================================================================
 
-static void BM_PlainZstdEncode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void PlainCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
+                                 Compression::type codec_type) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
   const uint8_t* raw = reinterpret_cast<const uint8_t*>(values.data());
 
-  auto codec = *Codec::Create(Compression::ZSTD);
+  auto codec = *Codec::Create(codec_type);
   int64_t max_comp = codec->MaxCompressedLen(uncompressed_size, raw);
   std::vector<uint8_t> compressed(max_comp);
 
@@ -520,13 +640,15 @@ static void BM_PlainZstdEncode(benchmark::State& state, Gen32 gen) {
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
 
-static void BM_PlainZstdDecode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void PlainCodecDecodeImpl(benchmark::State& state, GenT<T> gen,
+                                 Compression::type codec_type) {
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
   const uint8_t* raw = reinterpret_cast<const uint8_t*>(values.data());
 
-  auto codec = *Codec::Create(Compression::ZSTD);
+  auto codec = *Codec::Create(codec_type);
   int64_t max_comp = codec->MaxCompressedLen(uncompressed_size, raw);
   std::vector<uint8_t> compressed(max_comp);
   int64_t comp_size =
@@ -544,6 +666,18 @@ static void BM_PlainZstdDecode(benchmark::State& state, Gen32 gen) {
   state.SetItemsProcessed(state.iterations() * num_values);
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+}
+static void BM_PlainZstdEncode(benchmark::State& state, Gen32 gen) {
+  PlainCodecEncodeImpl<int32_t>(state, gen, Compression::ZSTD);
+}
+static void BM_PlainZstd64Encode(benchmark::State& state, Gen64 gen) {
+  PlainCodecEncodeImpl<int64_t>(state, gen, Compression::ZSTD);
+}
+static void BM_PlainZstdDecode(benchmark::State& state, Gen32 gen) {
+  PlainCodecDecodeImpl<int32_t>(state, gen, Compression::ZSTD);
+}
+static void BM_PlainZstd64Decode(benchmark::State& state, Gen64 gen) {
+  PlainCodecDecodeImpl<int64_t>(state, gen, Compression::ZSTD);
 }
 
 // ============================================================================
@@ -551,65 +685,30 @@ static void BM_PlainZstdDecode(benchmark::State& state, Gen32 gen) {
 // ============================================================================
 
 static void BM_PlainLz4Encode(benchmark::State& state, Gen32 gen) {
-  const int64_t num_values = state.range(0);
-  auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
-  const uint8_t* raw = reinterpret_cast<const uint8_t*>(values.data());
-
-  auto codec = *Codec::Create(Compression::LZ4_FRAME);
-  int64_t max_comp = codec->MaxCompressedLen(uncompressed_size, raw);
-  std::vector<uint8_t> compressed(max_comp);
-
-  int64_t comp_size =
-      *codec->Compress(uncompressed_size, raw, max_comp, compressed.data());
-
-  for (auto _ : state) {
-    auto sz = *codec->Compress(uncompressed_size, raw, max_comp, compressed.data());
-    benchmark::DoNotOptimize(sz);
-  }
-
-  state.SetBytesProcessed(state.iterations() * uncompressed_size);
-  state.SetItemsProcessed(state.iterations() * num_values);
-  state.counters["compression_ratio"] =
-      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+  PlainCodecEncodeImpl<int32_t>(state, gen, Compression::LZ4_FRAME);
 }
-
+static void BM_PlainLz464Encode(benchmark::State& state, Gen64 gen) {
+  PlainCodecEncodeImpl<int64_t>(state, gen, Compression::LZ4_FRAME);
+}
 static void BM_PlainLz4Decode(benchmark::State& state, Gen32 gen) {
-  const int64_t num_values = state.range(0);
-  auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
-  const uint8_t* raw = reinterpret_cast<const uint8_t*>(values.data());
-
-  auto codec = *Codec::Create(Compression::LZ4_FRAME);
-  int64_t max_comp = codec->MaxCompressedLen(uncompressed_size, raw);
-  std::vector<uint8_t> compressed(max_comp);
-  int64_t comp_size =
-      *codec->Compress(uncompressed_size, raw, max_comp, compressed.data());
-
-  std::vector<uint8_t> decompressed(uncompressed_size);
-  for (auto _ : state) {
-    auto result = codec->Decompress(comp_size, compressed.data(), uncompressed_size,
-                                    decompressed.data());
-    ARROW_CHECK_OK(result.status());
-    benchmark::ClobberMemory();
-  }
-
-  state.SetBytesProcessed(state.iterations() * uncompressed_size);
-  state.SetItemsProcessed(state.iterations() * num_values);
-  state.counters["compression_ratio"] =
-      static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
+  PlainCodecDecodeImpl<int32_t>(state, gen, Compression::LZ4_FRAME);
+}
+static void BM_PlainLz464Decode(benchmark::State& state, Gen64 gen) {
+  PlainCodecDecodeImpl<int64_t>(state, gen, Compression::LZ4_FRAME);
 }
 
 // ============================================================================
 // RleBitPackHybrid Encode/Decode
 // ============================================================================
 
-static void BM_RleBitPackEncode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void RleBitPackEncodeImpl(benchmark::State& state, GenT<T> gen) {
+  using U = std::make_unsigned_t<T>;
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  int32_t bit_width = ComputeBitWidth(values);
+  int32_t bit_width = ComputeBitWidth<T>(values);
   int64_t max_buf =
       ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, num_values) +
       ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width);
@@ -621,7 +720,7 @@ static void BM_RleBitPackEncode(benchmark::State& state, Gen32 gen) {
     ::arrow::util::RleBitPackedEncoder enc(buffer.data(),
                                            static_cast<int>(max_buf), bit_width);
     for (int64_t i = 0; i < num_values; ++i) {
-      enc.Put(static_cast<uint64_t>(static_cast<uint32_t>(values[i])));
+      enc.Put(static_cast<uint64_t>(static_cast<U>(values[i])));
     }
     comp_size = enc.Flush();
   }
@@ -630,7 +729,7 @@ static void BM_RleBitPackEncode(benchmark::State& state, Gen32 gen) {
     ::arrow::util::RleBitPackedEncoder encoder(buffer.data(),
                                              static_cast<int>(max_buf), bit_width);
     for (int64_t i = 0; i < num_values; ++i) {
-      encoder.Put(static_cast<uint64_t>(static_cast<uint32_t>(values[i])));
+      encoder.Put(static_cast<uint64_t>(static_cast<U>(values[i])));
     }
     auto sz = encoder.Flush();
     benchmark::DoNotOptimize(sz);
@@ -641,13 +740,21 @@ static void BM_RleBitPackEncode(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+static void BM_RleBitPackEncode(benchmark::State& state, Gen32 gen) {
+  RleBitPackEncodeImpl<int32_t>(state, gen);
+}
+static void BM_RleBitPack64Encode(benchmark::State& state, Gen64 gen) {
+  RleBitPackEncodeImpl<int64_t>(state, gen);
+}
 
-static void BM_RleBitPackDecode(benchmark::State& state, Gen32 gen) {
+template <typename T>
+static void RleBitPackDecodeImpl(benchmark::State& state, GenT<T> gen) {
+  using U = std::make_unsigned_t<T>;
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  int32_t bit_width = ComputeBitWidth(values);
+  int32_t bit_width = ComputeBitWidth<T>(values);
   int64_t max_buf =
       ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, num_values) +
       ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width);
@@ -656,22 +763,22 @@ static void BM_RleBitPackDecode(benchmark::State& state, Gen32 gen) {
   ::arrow::util::RleBitPackedEncoder encoder(buffer.data(),
                                            static_cast<int>(max_buf), bit_width);
   for (int64_t i = 0; i < num_values; ++i) {
-    encoder.Put(static_cast<uint64_t>(static_cast<uint32_t>(values[i])));
+    encoder.Put(static_cast<uint64_t>(static_cast<U>(values[i])));
   }
   int comp_size = encoder.Flush();
 
-  std::vector<int32_t> decoded(num_values);
+  std::vector<T> decoded(num_values);
   for (auto _ : state) {
     ::arrow::util::RleBitPackedParser parser(buffer.data(), comp_size, bit_width);
     int64_t out_idx = 0;
     struct Handler {
-      int32_t* output;
+      T* output;
       int64_t* idx;
       int64_t max_values;
       int32_t bw;
       ::arrow::util::RleBitPackedParser::ControlFlow OnRleRun(
           ::arrow::util::RleRun run) {
-        ::arrow::util::RleRunDecoder<int32_t> dec(run, bw);
+        ::arrow::util::RleRunDecoder<T> dec(run, bw);
         auto want = static_cast<int32_t>(
             std::min(static_cast<int64_t>(run.values_count()), max_values - *idx));
         auto count = dec.GetBatch(output + *idx, want, bw);
@@ -682,7 +789,7 @@ static void BM_RleBitPackDecode(benchmark::State& state, Gen32 gen) {
       }
       ::arrow::util::RleBitPackedParser::ControlFlow OnBitPackedRun(
           ::arrow::util::BitPackedRun run) {
-        ::arrow::util::BitPackedRunDecoder<int32_t> dec(run, bw);
+        ::arrow::util::BitPackedRunDecoder<T> dec(run, bw);
         auto want = static_cast<int32_t>(
             std::min(static_cast<int64_t>(dec.remaining()), max_values - *idx));
         auto count = dec.GetBatch(output + *idx, want, bw);
@@ -702,20 +809,28 @@ static void BM_RleBitPackDecode(benchmark::State& state, Gen32 gen) {
   state.counters["compression_ratio"] =
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
+static void BM_RleBitPackDecode(benchmark::State& state, Gen32 gen) {
+  RleBitPackDecodeImpl<int32_t>(state, gen);
+}
+static void BM_RleBitPack64Decode(benchmark::State& state, Gen64 gen) {
+  RleBitPackDecodeImpl<int64_t>(state, gen);
+}
 
 // ============================================================================
 // ByteStreamSplit + Codec (ZSTD or LZ4)
 // ============================================================================
 
-static void BM_BssCodecEncode(benchmark::State& state, Gen32 gen,
-                              Compression::type codec_type) {
+template <typename T>
+static void BssCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
+                               Compression::type codec_type) {
+  using PType = typename PqTraits<T>::PType;
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  auto descr = MakeInt32Descriptor();
-  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::BYTE_STREAM_SPLIT,
-                                            /*use_dictionary=*/false, descr.get());
+  auto descr = MakeDescriptor<T>();
+  auto encoder = MakeTypedEncoder<PType>(Encoding::BYTE_STREAM_SPLIT,
+                                         /*use_dictionary=*/false, descr.get());
   auto codec = *Codec::Create(codec_type);
 
   encoder->Put(values.data(), static_cast<int>(num_values));
@@ -743,15 +858,17 @@ static void BM_BssCodecEncode(benchmark::State& state, Gen32 gen,
       static_cast<double>(uncompressed_size) / static_cast<double>(comp_size);
 }
 
-static void BM_BssCodecDecode(benchmark::State& state, Gen32 gen,
-                              Compression::type codec_type) {
+template <typename T>
+static void BssCodecDecodeImpl(benchmark::State& state, GenT<T> gen,
+                               Compression::type codec_type) {
+  using PType = typename PqTraits<T>::PType;
   const int64_t num_values = state.range(0);
   auto values = gen(num_values);
-  const int64_t uncompressed_size = num_values * sizeof(int32_t);
+  const int64_t uncompressed_size = num_values * sizeof(T);
 
-  auto descr = MakeInt32Descriptor();
-  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::BYTE_STREAM_SPLIT,
-                                            /*use_dictionary=*/false, descr.get());
+  auto descr = MakeDescriptor<T>();
+  auto encoder = MakeTypedEncoder<PType>(Encoding::BYTE_STREAM_SPLIT,
+                                         /*use_dictionary=*/false, descr.get());
   auto codec = *Codec::Create(codec_type);
 
   encoder->Put(values.data(), static_cast<int>(num_values));
@@ -764,8 +881,8 @@ static void BM_BssCodecDecode(benchmark::State& state, Gen32 gen,
       *codec->Compress(encoded_size, encoded_buf->data(), max_comp, compressed.data());
 
   std::vector<uint8_t> decompressed(encoded_size);
-  std::vector<int32_t> decoded(num_values);
-  auto decoder = MakeTypedDecoder<Int32Type>(Encoding::BYTE_STREAM_SPLIT, descr.get());
+  std::vector<T> decoded(num_values);
+  auto decoder = MakeTypedDecoder<PType>(Encoding::BYTE_STREAM_SPLIT, descr.get());
 
   for (auto _ : state) {
     auto result = codec->Decompress(comp_size, compressed.data(), encoded_size,
@@ -785,18 +902,30 @@ static void BM_BssCodecDecode(benchmark::State& state, Gen32 gen,
 
 // Wrappers for BSS+ZSTD
 static void BM_BssZstdEncode(benchmark::State& state, Gen32 gen) {
-  BM_BssCodecEncode(state, gen, Compression::ZSTD);
+  BssCodecEncodeImpl<int32_t>(state, gen, Compression::ZSTD);
+}
+static void BM_BssZstd64Encode(benchmark::State& state, Gen64 gen) {
+  BssCodecEncodeImpl<int64_t>(state, gen, Compression::ZSTD);
 }
 static void BM_BssZstdDecode(benchmark::State& state, Gen32 gen) {
-  BM_BssCodecDecode(state, gen, Compression::ZSTD);
+  BssCodecDecodeImpl<int32_t>(state, gen, Compression::ZSTD);
+}
+static void BM_BssZstd64Decode(benchmark::State& state, Gen64 gen) {
+  BssCodecDecodeImpl<int64_t>(state, gen, Compression::ZSTD);
 }
 
 // Wrappers for BSS+LZ4
 static void BM_BssLz4Encode(benchmark::State& state, Gen32 gen) {
-  BM_BssCodecEncode(state, gen, Compression::LZ4_FRAME);
+  BssCodecEncodeImpl<int32_t>(state, gen, Compression::LZ4_FRAME);
+}
+static void BM_BssLz464Encode(benchmark::State& state, Gen64 gen) {
+  BssCodecEncodeImpl<int64_t>(state, gen, Compression::LZ4_FRAME);
 }
 static void BM_BssLz4Decode(benchmark::State& state, Gen32 gen) {
-  BM_BssCodecDecode(state, gen, Compression::LZ4_FRAME);
+  BssCodecDecodeImpl<int32_t>(state, gen, Compression::LZ4_FRAME);
+}
+static void BM_BssLz464Decode(benchmark::State& state, Gen64 gen) {
+  BssCodecDecodeImpl<int64_t>(state, gen, Compression::LZ4_FRAME);
 }
 
 // ============================================================================
@@ -821,6 +950,24 @@ static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
   BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);       \
   BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);        \
   BENCHMARK_CAPTURE(BM_BssLz4Decode, Name, &GenFunc)->Apply(CustomArgs);
+
+// Same as REGISTER_DATASET but for int64 (BIGINT) columns; benchmark names get
+// the "64" codec suffix (e.g. BM_Pfor64Encode) to distinguish them.
+#define REGISTER_DATASET64(Name, GenFunc)                                          \
+  BENCHMARK_CAPTURE(BM_Pfor64Encode, Name, &GenFunc)->Apply(CustomArgs);           \
+  BENCHMARK_CAPTURE(BM_Pfor64Decode, Name, &GenFunc)->Apply(CustomArgs);           \
+  BENCHMARK_CAPTURE(BM_DeltaBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);   \
+  BENCHMARK_CAPTURE(BM_DeltaBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);   \
+  BENCHMARK_CAPTURE(BM_PlainZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_PlainZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_PlainLz464Encode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_PlainLz464Decode, Name, &GenFunc)->Apply(CustomArgs);       \
+  BENCHMARK_CAPTURE(BM_RleBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_RleBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_BssZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_BssZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);        \
+  BENCHMARK_CAPTURE(BM_BssLz464Encode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_BssLz464Decode, Name, &GenFunc)->Apply(CustomArgs);
 
 // ClickBench datasets
 REGISTER_DATASET(ClientIP, GenClientIP)
@@ -856,6 +1003,12 @@ REGISTER_DATASET(TpchLShipDate, GenTpchLShipDate)
 REGISTER_DATASET(TaxiPickupUnixTime, GenTaxiPickupUnixTime)
 REGISTER_DATASET(TaxiTripDistanceX100, GenTaxiTripDistanceX100)
 REGISTER_DATASET(TaxiFareCents, GenTaxiFareCents)
+// int64 / BIGINT datasets (8-byte signed values)
+REGISTER_DATASET64(TsNanos, GenTsNanos)
+REGISTER_DATASET64(OrderKey, GenOrderKey)
+REGISTER_DATASET64(PriceMicros, GenPriceMicros)
+REGISTER_DATASET64(SnowflakeId, GenSnowflakeId)
+REGISTER_DATASET64(ByteCount, GenByteCount)
 
 }  // namespace
 }  // namespace parquet
