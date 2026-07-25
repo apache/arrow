@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -23,6 +24,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/util.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
@@ -30,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/config.h"
 #include "arrow/util/value_parsing.h"
 
@@ -2689,5 +2693,147 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
   }
 }
 #endif
+
+// ----------------------------------------------------------------------
+// View type support for scalar string predicate/measurement kernels.
+
+// Mixes empty, inlined (<= 12 bytes), out-of-line (> 12 bytes), and null values
+// to cover the view layout.
+constexpr auto kViewInput =
+    R"(["", "cat", null, "the quick brown fox", "concatenation", "a cat sat", "CAT"])";
+
+TEST(TestStringViewPredicates, MatchSubstring) {
+  MatchSubstringOptions options{"cat"};
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("match_substring", ty, kViewInput, boolean(),
+                     "[false, true, null, false, true, true, false]", &options);
+  }
+}
+
+TEST(TestStringViewPredicates, StartsWithEndsWith) {
+  MatchSubstringOptions starts{"c"};
+  MatchSubstringOptions ends{"t"};
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("starts_with", ty, kViewInput, boolean(),
+                     "[false, true, null, false, true, false, false]", &starts);
+    CheckScalarUnary("ends_with", ty, kViewInput, boolean(),
+                     "[false, true, null, false, false, true, false]", &ends);
+  }
+}
+
+TEST(TestStringViewPredicates, FindSubstring) {
+  MatchSubstringOptions options{"cat"};
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("find_substring", ty, kViewInput, int32(),
+                     "[-1, 0, null, -1, 3, 2, -1]", &options);
+  }
+}
+
+TEST(TestStringViewPredicates, CountSubstring) {
+  MatchSubstringOptions options{"cat"};
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("count_substring", ty, kViewInput, int32(),
+                     "[0, 1, null, 0, 1, 1, 0]", &options);
+  }
+}
+
+TEST(TestStringViewPredicates, BinaryLength) {
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("binary_length", ty, kViewInput, int32(),
+                     "[0, 3, null, 19, 13, 9, 3]");
+  }
+}
+
+#ifdef ARROW_WITH_RE2
+TEST(TestStringViewPredicates, MatchSubstringRegex) {
+  MatchSubstringOptions options{"a+"};
+  const auto* input = R"(["", "cat", null, "aaa banana", "concatenation"])";
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("match_substring_regex", ty, input, boolean(),
+                     "[false, true, null, true, true]", &options);
+    CheckScalarUnary("find_substring_regex", ty, input, int32(), "[-1, 1, null, 0, 4]",
+                     &options);
+    CheckScalarUnary("count_substring_regex", ty, input, int32(), "[0, 1, null, 4, 2]",
+                     &options);
+  }
+}
+
+TEST(TestStringViewPredicates, MatchLike) {
+  MatchSubstringOptions contains{"%cat%"};
+  MatchSubstringOptions prefix{"c%"};
+  const auto* input = R"(["cat", "concatenation", null, "dog", "a cat sat"])";
+  for (const auto& ty : {binary_view(), utf8_view()}) {
+    CheckScalarUnary("match_like", ty, input, boolean(),
+                     "[true, true, null, false, true]", &contains);
+    CheckScalarUnary("match_like", ty, input, boolean(),
+                     "[true, true, null, false, false]", &prefix);
+  }
+}
+
+// utf8_view registers as StringViewType, so ignore_case folds the full Unicode
+// range (É matches é), not just ASCII. This would fail if utf8_view were
+// dispatched through the generic BinaryViewType path and lost that distinction.
+TEST(TestStringViewPredicates, MatchSubstringIgnoreCase) {
+  MatchSubstringOptions options{"aé(", /*ignore_case=*/true};
+  CheckScalarUnary("match_substring", utf8_view(),
+                   R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])", boolean(),
+                   "[false, false, true, true, false, true]", &options);
+}
+#endif
+
+TEST(TestStringViewPredicates, Utf8Length) {
+  CheckScalarUnary("utf8_length", utf8_view(),
+                   R"(["", "café", null, "a long ascii string here", "ÀÉÎ"])", int32(),
+                   "[0, 4, null, 24, 3]");
+}
+
+TEST(TestStringViewPredicates, StringIsAscii) {
+  CheckScalarUnary("string_is_ascii", utf8_view(),
+                   R"(["", "café", null, "a long ascii string here", "ÀÉÎ"])", boolean(),
+                   "[true, false, null, true, false]");
+}
+
+TEST(TestStringViewPredicates, AsciiClassification) {
+  // Exercises the shared AddUnaryStringPredicate view kernel via the ascii path.
+  CheckScalarUnary("ascii_is_alpha", utf8_view(), R"(["cat", "cat123", "", null, "CAT"])",
+                   boolean(), "[true, false, false, null, true]");
+}
+
+#ifdef ARROW_WITH_UTF8PROC
+TEST(TestStringViewPredicates, Utf8Classification) {
+  // Exercises the shared AddUnaryStringPredicate view kernel via the utf8 path.
+  CheckScalarUnary("utf8_is_alpha", utf8_view(), R"(["cat", "café", "cat123", "", null])",
+                   boolean(), "[true, true, false, false, null]");
+}
+#endif  // ARROW_WITH_UTF8PROC
+
+// A validation-passing view array may hold arbitrary bytes in a null slot's
+// header, because ValidateBinaryView skips null slots. The view kernels must not
+// decode those, or they would dereference a bogus buffer_index/offset. Craft
+// ["ok", <null slot with a 0xFF header>] and confirm the kernels ignore the null.
+TEST(TestStringViewPredicates, NullSlotWithUnvalidatedHeader) {
+  auto good = ArrayFromJSON(utf8_view(), R"(["ok", null])");
+  std::vector<BinaryViewType::c_type> views(2);
+  views[0] = util::ToInlineBinaryView("ok");
+  std::memset(&views[1], 0xFF, sizeof(BinaryViewType::c_type));
+  auto data = std::make_shared<ArrayData>(*good->data());
+  data->buffers[1] = Buffer::FromVector(std::move(views));
+  auto arr = MakeArray(data);
+  ASSERT_OK(arr->ValidateFull());  // still valid: the null slot is not checked
+
+  auto expected = ArrayFromJSON(boolean(), "[true, null]");
+  MatchSubstringOptions contains{"o"};
+  ASSERT_OK_AND_ASSIGN(Datum matched, CallFunction("match_substring", {arr}, &contains));
+  AssertDatumsEqual(Datum(expected), matched);
+  ASSERT_OK_AND_ASSIGN(Datum ascii, CallFunction("string_is_ascii", {arr}));
+  AssertDatumsEqual(Datum(expected), ascii);
+
+  // find/count/length reach nulls through the applicator path instead; assert the
+  // same invariant on a numeric-output kernel.
+  ASSERT_OK_AND_ASSIGN(Datum found, CallFunction("find_substring", {arr}, &contains));
+  AssertDatumsEqual(Datum(ArrayFromJSON(int32(), "[0, null]")), found);
+  ASSERT_OK_AND_ASSIGN(Datum length, CallFunction("utf8_length", {arr}));
+  AssertDatumsEqual(Datum(ArrayFromJSON(int32(), "[2, null]")), length);
+}
 
 }  // namespace arrow::compute
