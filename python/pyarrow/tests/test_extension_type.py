@@ -1400,6 +1400,40 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+@pytest.mark.pandas
+def test_uuid_to_pandas():
+    import pandas as pd
+    import pandas.testing as tm
+    values = [uuid4(), None, uuid4()]
+    array = pa.array(values, type=pa.uuid())
+    chunked_array = pa.chunked_array([array.slice(0, 1), array.slice(1)])
+    expected = pd.Series(values, dtype=object)
+    tm.assert_series_equal(array.to_pandas(), expected)
+    tm.assert_series_equal(chunked_array.to_pandas(), expected)
+    tm.assert_frame_equal(
+        pa.table({"uuid": chunked_array}).to_pandas(),
+        expected.to_frame(name="uuid"),
+    )
+
+
+@pytest.mark.pandas
+def test_uuid_to_pandas_options():
+    values = [uuid4(), uuid4()] * 2
+    array = pa.array(values, type=pa.uuid())
+    chunked_array = pa.chunked_array([array.slice(0, 2), array.slice(2)])
+    for obj in [array, chunked_array, pa.table({"uuid": chunked_array})]:
+        with pytest.raises(pa.ArrowInvalid):
+            obj.to_pandas(zero_copy_only=True)
+        result = obj.to_pandas()
+        if result.ndim == 2:
+            result = result["uuid"]
+        assert len({id(value) for value in result}) == 2
+        result = obj.to_pandas(deduplicate_objects=False)
+        if result.ndim == 2:
+            result = result["uuid"]
+        assert len({id(value) for value in result}) == 4
+
+
 def test_uuid_scalar_from_python():
     # Test with explicit type
     py_uuid = uuid4()
