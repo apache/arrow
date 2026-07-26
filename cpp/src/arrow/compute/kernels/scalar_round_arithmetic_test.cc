@@ -507,218 +507,180 @@ TEST(TestUnaryRound, DispatchBestRound) {
   }
 }
 
-class TestUnaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {};
+// Const ndigits test case used by both TestUnaryRoundArithmeticDecimal and
+// TestBinaryRoundArithmeticDecimal
+struct RoundDecimalTestCase {
+  std::string kind;  // "CheckScalar" or "CheckRaises"
+  int32_t ndigits;
+  RoundMode round_mode;
+  std::string expected;  // Expected result array or expected error msg
+};
+
+struct RoundDecimalTestVariant {
+  std::vector<std::shared_ptr<DataType>> decimal_types;
+  std::string input_json;
+  std::vector<RoundDecimalTestCase> cases;
+  bool scientific_data = false;  // Whether to use DecimalArrayFromJSON
+};
+
+std::vector<RoundDecimalTestVariant> GetRoundDecimalTestCases() {
+  return {
+      {{decimal128(4, 3), decimal256(4, 3)},
+       R"(["1.010", "1.012", "1.015", "1.019", "-1.010", "-1.012", "-1.015", "-1.019", null])",
+       {{"CheckScalar", 2, RoundMode::DOWN,
+         R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.020", "-1.020", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::UP,
+         R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.010", null])"},
+        {"CheckScalar", 2, RoundMode::TOWARDS_ZERO,
+         R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.010", "-1.010", "-1.010", null])"},
+        {"CheckScalar", 2, RoundMode::TOWARDS_INFINITY,
+         R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.020", "-1.020", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_DOWN,
+         R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_UP,
+         R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_TOWARDS_ZERO,
+         R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_TOWARDS_INFINITY,
+         R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_TO_EVEN,
+         R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_TO_ODD,
+         R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"}}}};
+}
+
+std::vector<RoundDecimalTestVariant> GetRoundTowardsInfinityDecimalTestCases() {
+  return {{{decimal128(4, 2), decimal256(4, 2)},
+           R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])",
+           {
+               {"CheckScalar", 0, RoundMode::TOWARDS_INFINITY,
+                R"(["1.00", "2.00", "2.00", "-42.00", "-43.00", "-43.00", null])"},
+               {"CheckScalar", 1, RoundMode::TOWARDS_INFINITY,
+                R"(["1.00", "2.00", "1.10", "-42.00", "-43.00", "-42.20", null])"},
+               {"CheckScalar", 2, RoundMode::TOWARDS_INFINITY,
+                R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])"},
+               {"CheckScalar", 4, RoundMode::TOWARDS_INFINITY,
+                R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])"},
+               {"CheckScalar", 100, RoundMode::TOWARDS_INFINITY,
+                R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])"},
+               {"CheckScalar", -1, RoundMode::TOWARDS_INFINITY,
+                R"(["10.00", "10.00", "10.00", "-50.00", "-50.00", "-50.00", null])"},
+               {"CheckRaises", -2, RoundMode::TOWARDS_INFINITY,
+                "Rounding to -2 digits will not fit in precision"},
+           }},
+          {{decimal128(4, 2), decimal256(4, 2)},
+           R"(["99.99"])",
+           {{"CheckRaises", -1, RoundMode::TOWARDS_INFINITY,
+             "Rounded value 100.00 does not fit in precision"}}},
+          {{decimal128(2, -2), decimal256(2, -2)},
+           R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])",
+           {{"CheckScalar", 0, RoundMode::TOWARDS_INFINITY,
+             R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
+            {"CheckScalar", 2, RoundMode::TOWARDS_INFINITY,
+             R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
+            {"CheckScalar", 100, RoundMode::TOWARDS_INFINITY,
+             R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
+            {"CheckScalar", -1, RoundMode::TOWARDS_INFINITY,
+             R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
+            {"CheckScalar", -2, RoundMode::TOWARDS_INFINITY,
+             R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
+            {"CheckScalar", -3, RoundMode::TOWARDS_INFINITY,
+             R"(["10E2", "20E2", "20E2", "-10E2", "-20E2", "-20E2", null])"},
+            {"CheckRaises", -4, RoundMode::TOWARDS_INFINITY,
+             "Rounding to -4 digits will not fit in precision"}},
+           true}};
+}
+
+std::vector<RoundDecimalTestVariant> GetRoundHalfToEvenDecimalTestCases() {
+  return {
+      {{decimal128(4, 2), decimal256(4, 2)},
+       R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])",
+       {
+           {"CheckScalar", 0, RoundMode::HALF_TO_EVEN,
+            R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.00", "2.00", "2.00", "-6.00", "-3.00", null])"},
+           {"CheckScalar", 1, RoundMode::HALF_TO_EVEN,
+            R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.20", "1.50", "2.50", "-5.50", "-2.60", null])"},
+           {"CheckScalar", 2, RoundMode::HALF_TO_EVEN,
+            R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])"},
+           {"CheckScalar", 4, RoundMode::HALF_TO_EVEN,
+            R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])"},
+           {"CheckScalar", 100, RoundMode::HALF_TO_EVEN,
+            R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])"},
+           {"CheckScalar", -1, RoundMode::HALF_TO_EVEN,
+            R"(["0.00", "10.00", "0.00", "-40.00", "-40.00", "-40.00", "0.00", "0.00", "-10.00", "0.00", null])"},
+           {"CheckRaises", -2, RoundMode::HALF_TO_EVEN,
+            "Rounding to -2 digits will not fit in precision"},
+       }},
+      {{decimal128(4, 2), decimal256(4, 2)},
+       R"(["99.99"])",
+       {{"CheckRaises", -1, RoundMode::HALF_TO_EVEN,
+         "Rounded value 100.00 does not fit in precision"}}},
+      {{decimal128(2, -2), decimal256(2, -2)},
+       R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])",
+       {{"CheckScalar", 0, RoundMode::HALF_TO_EVEN,
+         R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
+        {"CheckScalar", 2, RoundMode::HALF_TO_EVEN,
+         R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
+        {"CheckScalar", 100, RoundMode::HALF_TO_EVEN,
+         R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
+        {"CheckScalar", -1, RoundMode::HALF_TO_EVEN,
+         R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
+        {"CheckScalar", -2, RoundMode::HALF_TO_EVEN,
+         R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
+        {"CheckScalar", -3, RoundMode::HALF_TO_EVEN,
+         R"(["0", "10E2", "10E2", "20E2", "20E2", "-10E2", "-10E2", "-20E2", "-20E2", null])"},
+        {"CheckRaises", -4, RoundMode::HALF_TO_EVEN,
+         "Rounding to -4 digits will not fit in precision"}},
+       true}};
+}
+
+class TestUnaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {
+ protected:
+  void RunUnaryRoundDecimalTestVariants(
+      const std::string& round_func,
+      const std::vector<RoundDecimalTestVariant>& decimal_test_variants) {
+    RoundOptions options;
+    for (const auto& variant : decimal_test_variants) {
+      for (std::shared_ptr<DataType> ty : variant.decimal_types) {
+        std::shared_ptr<Array> values;
+        if (variant.scientific_data) {
+          values = DecimalArrayFromJSON(ty, variant.input_json);
+        } else {
+          values = ArrayFromJSON(ty, variant.input_json);
+        }
+
+        for (const auto& test_case : variant.cases) {
+          options.ndigits = test_case.ndigits;
+          options.round_mode = test_case.round_mode;
+
+          if (test_case.kind == "CheckScalar") {
+            std::shared_ptr<Array> expected_arr;
+            if (variant.scientific_data) {
+              expected_arr = DecimalArrayFromJSON(ty, test_case.expected);
+            } else {
+              expected_arr = ArrayFromJSON(ty, test_case.expected);
+            }
+            CheckScalar(round_func, {values}, expected_arr, &options);
+          } else {  // test_case.kind == "CheckRaises"
+            CheckRaises(round_func, {values}, test_case.expected, &options);
+          }
+        }
+      }
+    }
+  }
+};
 
 // Check two modes exhaustively, give all modes a simple test
 TEST_F(TestUnaryRoundArithmeticDecimal, Round) {
-  const auto func = "round";
-  RoundOptions options(2, RoundMode::DOWN);
-  for (const auto& ty : {decimal128(4, 3), decimal256(4, 3)}) {
-    auto values = ArrayFromJSON(
-        ty,
-        R"(["1.010", "1.012", "1.015", "1.019", "-1.010", "-1.012", "-1.015", "-1.019", null])");
-    options.round_mode = RoundMode::DOWN;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.020", "-1.020", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::UP;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.010", null])"),
-        &options);
-    options.round_mode = RoundMode::TOWARDS_ZERO;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.010", "-1.010", "-1.010", null])"),
-        &options);
-    options.round_mode = RoundMode::TOWARDS_INFINITY;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.020", "-1.020", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::HALF_DOWN;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::HALF_UP;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::HALF_TOWARDS_ZERO;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::HALF_TOWARDS_INFINITY;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::HALF_TO_EVEN;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"),
-        &options);
-    options.round_mode = RoundMode::HALF_TO_ODD;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"),
-        &options);
-  }
+  RunUnaryRoundDecimalTestVariants("round", GetRoundDecimalTestCases());
 }
 
 TEST_F(TestUnaryRoundArithmeticDecimal, RoundTowardsInfinity) {
-  const auto func = "round";
-  RoundOptions options(0, RoundMode::TOWARDS_INFINITY);
-  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
-    auto values = ArrayFromJSON(
-        ty, R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])");
-    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
-    options.ndigits = 0;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(ty,
-                      R"(["1.00", "2.00", "2.00", "-42.00", "-43.00", "-43.00", null])"),
-        &options);
-    options.ndigits = 1;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(ty,
-                      R"(["1.00", "2.00", "1.10", "-42.00", "-43.00", "-42.20", null])"),
-        &options);
-    options.ndigits = 2;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 4;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 100;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -1;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty, R"(["10.00", "10.00", "10.00", "-50.00", "-50.00", "-50.00", null])"),
-        &options);
-    options.ndigits = -2;
-    CheckRaises(func, {values}, "Rounding to -2 digits will not fit in precision",
-                &options);
-    options.ndigits = -1;
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
-                "Rounded value 100.00 does not fit in precision", &options);
-  }
-  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
-    auto values = DecimalArrayFromJSON(
-        ty, R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])");
-    options.ndigits = 0;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 2;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 100;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -1;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -2;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -3;
-    CheckScalar(func, {values},
-                DecimalArrayFromJSON(
-                    ty, R"(["10E2", "20E2", "20E2", "-10E2", "-20E2", "-20E2", null])"),
-                &options);
-    options.ndigits = -4;
-    CheckRaises(func, {values}, "Rounding to -4 digits will not fit in precision",
-                &options);
-  }
+  RunUnaryRoundDecimalTestVariants("round", GetRoundTowardsInfinityDecimalTestCases());
 }
 
 TEST_F(TestUnaryRoundArithmeticDecimal, RoundHalfToEven) {
-  const auto func = "round";
-  RoundOptions options(0, RoundMode::HALF_TO_EVEN);
-  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
-    auto values = ArrayFromJSON(
-        ty,
-        R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])");
-    CheckScalar(func, {ArrayFromJSON(ty, R"([])")}, ArrayFromJSON(ty, R"([])"), &options);
-    options.ndigits = 0;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.00", "2.00", "2.00", "-6.00", "-3.00", null])"),
-        &options);
-    options.ndigits = 1;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.20", "1.50", "2.50", "-5.50", "-2.60", null])"),
-        &options);
-    options.ndigits = 2;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 4;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 100;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -1;
-    CheckScalar(
-        func, {values},
-        ArrayFromJSON(
-            ty,
-            R"(["0.00", "10.00", "0.00", "-40.00", "-40.00", "-40.00", "0.00", "0.00", "-10.00", "0.00", null])"),
-        &options);
-    options.ndigits = -2;
-    CheckRaises(func, {values}, "Rounding to -2 digits will not fit in precision",
-                &options);
-    options.ndigits = -1;
-    CheckRaises(func, {ArrayFromJSON(ty, R"(["99.99"])")},
-                "Rounded value 100.00 does not fit in precision", &options);
-  }
-  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
-    auto values = DecimalArrayFromJSON(
-        ty,
-        R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])");
-    options.ndigits = 0;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 2;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = 100;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -1;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -2;
-    CheckScalar(func, {values}, values, &options);
-    options.ndigits = -3;
-    CheckScalar(
-        func, {values},
-        DecimalArrayFromJSON(
-            ty,
-            R"(["0", "10E2", "10E2", "20E2", "20E2", "-10E2", "-10E2", "-20E2", "-20E2", null])"),
-        &options);
-    options.ndigits = -4;
-    CheckRaises(func, {values}, "Rounding to -4 digits will not fit in precision",
-                &options);
-  }
+  RunUnaryRoundDecimalTestVariants("round", GetRoundHalfToEvenDecimalTestCases());
 }
 
 TEST_F(TestUnaryRoundArithmeticDecimal, RoundCeil) {
@@ -1004,6 +966,138 @@ TEST_F(TestUnaryRoundArithmeticDecimal, RoundToMultipleHalfToOdd) {
                 &options);
     set_multiple(ty, 1);
     CheckScalar(func, {values}, values, &options);
+  }
+}
+
+class TestBinaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {
+ protected:
+  void RunBinaryRoundDecimalTestVariants(
+      const std::string& round_func,
+      const std::vector<RoundDecimalTestVariant>& decimal_test_variants) {
+    RoundBinaryOptions options;
+    for (const auto& variant : decimal_test_variants) {
+      for (std::shared_ptr<DataType> ty : variant.decimal_types) {
+        std::shared_ptr<Array> values;
+        if (variant.scientific_data) {
+          values = DecimalArrayFromJSON(ty, variant.input_json);
+        } else {
+          values = ArrayFromJSON(ty, variant.input_json);
+        }
+
+        for (const auto& test_case : variant.cases) {
+          options.round_mode = test_case.round_mode;
+
+          auto ndigits_scalar = *arrow::MakeScalar(int32(), test_case.ndigits);
+          ASSERT_OK_AND_ASSIGN(auto ndigits_arr,
+                               MakeArrayFromScalar(*ndigits_scalar, values->length()));
+
+          if (test_case.kind == "CheckScalar") {
+            std::shared_ptr<Array> expected_arr;
+            if (variant.scientific_data) {
+              expected_arr = DecimalArrayFromJSON(ty, test_case.expected);
+            } else {
+              expected_arr = ArrayFromJSON(ty, test_case.expected);
+            }
+            CheckScalar(round_func, {values, ndigits_arr}, expected_arr, &options);
+          } else {  // test_case.kind == "CheckRaises"
+            CheckRaises(round_func, {values, ndigits_arr}, test_case.expected, &options);
+          }
+        }
+      }
+    }
+  }
+};
+
+// Check two modes exhaustively, give all modes a simple test
+TEST_F(TestBinaryRoundArithmeticDecimal, Round) {
+  RunBinaryRoundDecimalTestVariants("round_binary", GetRoundDecimalTestCases());
+}
+
+TEST_F(TestBinaryRoundArithmeticDecimal, RoundTowardsInfinity) {
+  RunBinaryRoundDecimalTestVariants("round_binary",
+                                    GetRoundTowardsInfinityDecimalTestCases());
+}
+
+TEST_F(TestBinaryRoundArithmeticDecimal, RoundHalfToEven) {
+  RunBinaryRoundDecimalTestVariants("round_binary", GetRoundHalfToEvenDecimalTestCases());
+}
+
+// Test binary round where ndigits varies per element
+TEST_F(TestBinaryRoundArithmeticDecimal, RoundNDigitsArray) {
+  const auto func = "round_binary";
+  RoundBinaryOptions options;
+
+  for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
+    auto values = ArrayFromJSON(
+        ty,
+        R"(["61.55", "61.55", "61.52", "60.50", "65.00", "65.95", "-61.55", "-61.55", "-61.52", "-60.50", "-65.00", "-65.95", null, "32.78"])");
+    auto ndigits_arr =
+        ArrayFromJSON(int32(), "[2, 1, 1, 0, -1, -1, 2, 1, 1, 0, -1, -1, 5, null]");
+
+    std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+        {RoundMode::DOWN,
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "60.00", "-61.55", "-61.60", "-61.60", "-61.00", "-70.00", "-70.00", null, null])"},
+        {RoundMode::UP,
+         R"(["61.55", "61.60", "61.60", "61.00", "70.00", "70.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-60.00", null, null])"},
+        {RoundMode::TOWARDS_ZERO,
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "60.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-60.00", null, null])"},
+        {RoundMode::TOWARDS_INFINITY,
+         R"(["61.55", "61.60", "61.60", "61.00", "70.00", "70.00", "-61.55", "-61.60", "-61.60", "-61.00", "-70.00", "-70.00", null, null])"},
+        {RoundMode::HALF_DOWN,
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "70.00", "-61.55", "-61.60", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
+        {RoundMode::HALF_UP,
+         R"(["61.55", "61.60", "61.50", "61.00", "70.00", "70.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
+        {RoundMode::HALF_TOWARDS_ZERO,
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "70.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
+        {RoundMode::HALF_TOWARDS_INFINITY,
+         R"(["61.55", "61.60", "61.50", "61.00", "70.00", "70.00", "-61.55", "-61.60", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
+        {RoundMode::HALF_TO_EVEN,
+         R"(["61.55", "61.60", "61.50", "60.00", "60.00", "70.00", "-61.55", "-61.60", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
+        {RoundMode::HALF_TO_ODD,
+         R"(["61.55", "61.50", "61.50", "61.00", "70.00", "70.00", "-61.55", "-61.50", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
+    }};
+
+    for (const auto& pair : round_modes_and_expected) {
+      options.round_mode = pair.first;
+      CheckScalar(func, {values, ndigits_arr}, ArrayFromJSON(ty, pair.second), &options);
+    }
+  }
+
+  for (const auto& ty : {decimal128(2, -2), decimal256(2, -2)}) {
+    auto values = DecimalArrayFromJSON(
+        ty,
+        R"(["15E2", "15E2", "5E2", "15E2", "18E2", "-15E2", "-15E2", "-5E2", "-15E2", "-18E2", null, "15E2"])");
+    auto ndigits_arr =
+        ArrayFromJSON(int32(), "[100, -2, -3, -3, -3, 100, -2, -3, -3, -3, 5, null]");
+
+    std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+        {RoundMode::DOWN,
+         R"(["15E2", "15E2", "0", "10E2", "10E2", "-15E2", "-15E2", "-10E2", "-20E2", "-20E2", null, null])"},
+        {RoundMode::UP,
+         R"(["15E2", "15E2", "10E2", "20E2", "20E2", "-15E2", "-15E2", "0", "-10E2", "-10E2", null, null])"},
+        {RoundMode::TOWARDS_ZERO,
+         R"(["15E2", "15E2", "0", "10E2", "10E2", "-15E2", "-15E2", "0", "-10E2", "-10E2", null, null])"},
+        {RoundMode::TOWARDS_INFINITY,
+         R"(["15E2", "15E2", "10E2", "20E2", "20E2", "-15E2", "-15E2", "-10E2", "-20E2", "-20E2", null, null])"},
+        {RoundMode::HALF_DOWN,
+         R"(["15E2", "15E2", "0", "10E2", "20E2", "-15E2", "-15E2", "-10E2", "-20E2", "-20E2", null, null])"},
+        {RoundMode::HALF_UP,
+         R"(["15E2", "15E2", "10E2", "20E2", "20E2", "-15E2", "-15E2", "0", "-10E2", "-20E2", null, null])"},
+        {RoundMode::HALF_TOWARDS_ZERO,
+         R"(["15E2", "15E2", "0", "10E2", "20E2", "-15E2", "-15E2", "0", "-10E2", "-20E2", null, null])"},
+        {RoundMode::HALF_TOWARDS_INFINITY,
+         R"(["15E2", "15E2", "10E2", "20E2", "20E2", "-15E2", "-15E2", "-10E2", "-20E2", "-20E2", null, null])"},
+        {RoundMode::HALF_TO_EVEN,
+         R"(["15E2", "15E2", "0", "20E2", "20E2", "-15E2", "-15E2", "0", "-20E2", "-20E2", null, null])"},
+        {RoundMode::HALF_TO_ODD,
+         R"(["15E2", "15E2", "10E2", "10E2", "20E2", "-15E2", "-15E2", "-10E2", "-10E2", "-20E2", null, null])"},
+    }};
+
+    for (const auto& pair : round_modes_and_expected) {
+      options.round_mode = pair.first;
+      CheckScalar(func, {values, ndigits_arr}, DecimalArrayFromJSON(ty, pair.second),
+                  &options);
+    }
   }
 }
 
