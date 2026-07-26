@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <deque>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -157,7 +158,7 @@ struct ReadRangeCache::Impl {
   // acquires the mutex before delegating to the protected *Locked helpers
   // below, so both the eager and lazy variants are safe to call concurrently
   // from multiple threads.
-  std::vector<RangeCacheEntry> entries;
+  std::deque<RangeCacheEntry> entries;
   std::mutex entry_mutex;
 
   virtual ~Impl() = default;
@@ -194,12 +195,14 @@ struct ReadRangeCache::Impl {
       std::vector<RangeCacheEntry> new_entries = MakeCacheEntries(ranges);
       // Add new entries, themselves ordered by offset
       if (entries.size() > 0) {
-        std::vector<RangeCacheEntry> merged(entries.size() + new_entries.size());
+        std::deque<RangeCacheEntry> merged(entries.size() + new_entries.size());
         std::merge(entries.begin(), entries.end(), new_entries.begin(), new_entries.end(),
                    merged.begin());
         entries = std::move(merged);
       } else {
-        entries = std::move(new_entries);
+        for (auto& entry : new_entries) {
+          entries.push_back(std::move(entry));
+        }
       }
     }
     // Prefetch immediately, regardless of executor availability, if possible.
@@ -267,17 +270,19 @@ struct ReadRangeCache::Impl {
     return AllComplete(futures);
   }
 
-  // `entries` is sorted by offset; an entry that extends past `end_offset`
-  // (coalesced with a range a later consumer still needs) is kept.
+  // Cached ranges are sorted and non-overlapping, so entries ending at or
+  // before `end_offset` form a prefix. Keep a straddling entry.
   int64_t EvictEntriesBefore(int64_t end_offset) {
     std::unique_lock<std::mutex> guard(entry_mutex);
-    const auto first_kept =
-        std::remove_if(entries.begin(), entries.end(),
-                       [end_offset](const RangeCacheEntry& entry) {
-                         return entry.range.offset + entry.range.length <= end_offset;
-                       });
-    const auto n_evicted = static_cast<int64_t>(entries.end() - first_kept);
-    entries.erase(first_kept, entries.end());
+    int64_t n_evicted = 0;
+    while (!entries.empty()) {
+      const auto& range = entries.front().range;
+      if (range.offset + range.length > end_offset) {
+        break;
+      }
+      entries.pop_front();
+      ++n_evicted;
+    }
     return n_evicted;
   }
 
