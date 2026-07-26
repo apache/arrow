@@ -16,7 +16,9 @@
 // under the License.
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <optional>
 
@@ -26,6 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -93,26 +96,6 @@ struct Minimum {
   static string_view Call(string_view left, string_view right) {
     return std::min(left, right);
   }
-
-  template <typename T>
-  static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
-    return std::nanf("");
-  }
-
-  template <typename T>
-  static constexpr enable_if_t<std::is_same<double, T>::value, T> antiextreme() {
-    return std::nan("");
-  }
-
-  template <typename T>
-  static constexpr enable_if_integer_value<T> antiextreme() {
-    return std::numeric_limits<T>::max();
-  }
-
-  template <typename T>
-  static constexpr enable_if_decimal_value<T> antiextreme() {
-    return T::GetMaxSentinel();
-  }
 };
 
 struct Maximum {
@@ -136,26 +119,6 @@ struct Maximum {
 
   static string_view Call(string_view left, string_view right) {
     return std::max(left, right);
-  }
-
-  template <typename T>
-  static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
-    return std::nanf("");
-  }
-
-  template <typename T>
-  static constexpr enable_if_t<std::is_same<double, T>::value, T> antiextreme() {
-    return std::nan("");
-  }
-
-  template <typename T>
-  static constexpr enable_if_integer_value<T> antiextreme() {
-    return std::numeric_limits<T>::min();
-  }
-
-  template <typename T>
-  static constexpr enable_if_decimal_value<T> antiextreme() {
-    return T::GetMinSentinel();
   }
 };
 
@@ -529,108 +492,249 @@ struct ScalarMinMax {
     }
   }
 
+  // Fold left/right into out_values/out_valid a word at a time (validity bitmap
+  // null => all valid). out_values may alias left. Returns the null count
+  static int64_t CombineWordwise(const OutValue* left, const uint8_t* left_valid,
+                                 int64_t left_offset, const OutValue* right,
+                                 const uint8_t* right_valid, int64_t right_offset,
+                                 bool skip_nulls, int64_t length, OutValue* out_values,
+                                 uint8_t* out_valid) {
+    auto left_reader = ::arrow::internal::BitmapUInt64Reader(
+        left_valid, left_valid ? left_offset : 0, left_valid ? length : 0);
+    auto right_reader = ::arrow::internal::BitmapUInt64Reader(
+        right_valid, right_valid ? right_offset : 0, right_valid ? length : 0);
+
+    int64_t null_count = 0;
+    int64_t i = 0;
+    for (int64_t words = length / 64; words > 0; --words) {
+      const uint64_t left_word = left_valid ? left_reader.NextWord() : ~uint64_t(0);
+      const uint64_t right_word = right_valid ? right_reader.NextWord() : ~uint64_t(0);
+      const uint64_t out_word =
+          skip_nulls ? (left_word | right_word) : (left_word & right_word);
+      // out_valid is allocated at bit offset 0, so store the word directly
+      const uint64_t out_word_le = bit_util::ToLittleEndian(out_word);
+      std::memcpy(out_valid + i / 8, &out_word_le, sizeof(out_word_le));
+      null_count += 64 - std::popcount(out_word);
+      if (out_word == 0) {
+        // All null: the values are never read, so skip them
+        i += 64;
+      } else if (left_word == ~uint64_t(0) && right_word == ~uint64_t(0)) {
+        // All valid: no per-lane validity check
+        for (int j = 0; j < 64; ++j, ++i) {
+          out_values[i] =
+              Op::template Call<OutValue, OutValue, OutValue>(left[i], right[i]);
+        }
+      } else if (!skip_nulls) {
+        for (int j = 0; j < 64; ++j, ++i) {
+          out_values[i] =
+              Op::template Call<OutValue, OutValue, OutValue>(left[i], right[i]);
+        }
+      } else {
+        for (int j = 0; j < 64; ++j, ++i) {
+          out_values[i] =
+              CombineOne((left_word >> j) & 1, (right_word >> j) & 1, left[i], right[i]);
+        }
+      }
+    }
+    for (int bit = 0; i < length; ++i, ++bit) {
+      const bool left_bit = !left_valid || bit_util::GetBit(left_valid, left_offset + i);
+      const bool right_bit =
+          !right_valid || bit_util::GetBit(right_valid, right_offset + i);
+      const bool out_bit = skip_nulls ? (left_bit || right_bit) : (left_bit && right_bit);
+      bit_util::SetBitTo(out_valid, i, out_bit);
+      null_count += !out_bit;
+      if (out_bit) out_values[i] = CombineOne(left_bit, right_bit, left[i], right[i]);
+    }
+    return null_count;
+  }
+
+  // Seed the accumulator from the first two arrays in a single pass
+  static Status CombineArrays(KernelContext* ctx, const ArraySpan& lhs,
+                              const ArraySpan& rhs, bool skip_nulls, ArrayData* output) {
+    const int64_t length = output->length;
+    const OutValue* left = lhs.GetValues<OutValue>(1);
+    const OutValue* right = rhs.GetValues<OutValue>(1);
+    OutValue* out_values = output->GetMutableValues<OutValue>(1);
+    const uint8_t* left_valid = lhs.MayHaveNulls() ? lhs.buffers[0].data : nullptr;
+    const uint8_t* right_valid = rhs.MayHaveNulls() ? rhs.buffers[0].data : nullptr;
+
+    if (!left_valid && !right_valid) {
+      for (int64_t i = 0; i < length; ++i) {
+        out_values[i] =
+            Op::template Call<OutValue, OutValue, OutValue>(left[i], right[i]);
+      }
+      output->buffers[0] = nullptr;
+      output->null_count = 0;
+      return Status::OK();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+    // CombineWordwise skips all-null words, so pre-zero the values to keep those
+    // slots initialized for later reads
+    std::memset(out_values, 0, static_cast<size_t>(length) * sizeof(OutValue));
+    output->null_count = CombineWordwise(left, left_valid, lhs.offset, right, right_valid,
+                                         rhs.offset, skip_nulls, length, out_values,
+                                         output->buffers[0]->mutable_data());
+    if (output->null_count == 0) {
+      output->buffers[0] = nullptr;
+    }
+    return Status::OK();
+  }
+
+  // Seed the accumulator from a single array (result == that array)
+  static Status CopyArrayToOutput(KernelContext* ctx, const ArraySpan& arr,
+                                  ArrayData* output) {
+    const int64_t length = output->length;
+    const OutValue* arr_values = arr.GetValues<OutValue>(1);
+    OutValue* out_values = output->GetMutableValues<OutValue>(1);
+    std::copy(arr_values, arr_values + length, out_values);
+    if (arr.MayHaveNulls()) {
+      ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+      ::arrow::internal::CopyBitmap(arr.buffers[0].data, arr.offset, length,
+                                    output->buffers[0]->mutable_data(),
+                                    /*dest_offset=*/0);
+      output->null_count = arr.null_count;
+    } else {
+      output->buffers[0] = nullptr;
+      output->null_count = 0;
+    }
+    return Status::OK();
+  }
+
+  // Fold `arr` into the accumulator already in `output` (buffers[0] null =>
+  // all valid), in place, leaving a result that can be folded again
+  static Status FoldArrayIntoOutput(KernelContext* ctx, const ArraySpan& arr,
+                                    bool skip_nulls, ArrayData* output) {
+    const int64_t length = output->length;
+    OutValue* acc_values = output->GetMutableValues<OutValue>(1);
+    const OutValue* arr_values = arr.GetValues<OutValue>(1);
+    // Keep the current validity buffer alive while CombineWordwise writes a new one
+    std::shared_ptr<Buffer> acc_valid_buf = output->buffers[0];
+    const uint8_t* acc_valid = acc_valid_buf ? acc_valid_buf->data() : nullptr;
+    const uint8_t* arr_valid = arr.MayHaveNulls() ? arr.buffers[0].data : nullptr;
+
+    if (!acc_valid && !arr_valid) {
+      for (int64_t i = 0; i < length; ++i) {
+        acc_values[i] =
+            Op::template Call<OutValue, OutValue, OutValue>(acc_values[i], arr_values[i]);
+      }
+      output->null_count = 0;
+      return Status::OK();
+    }
+
+    // Accumulator all valid with skip_nulls: the result stays all valid, so no
+    // output bitmap is needed. Where the array is null the accumulator already
+    // holds the right value
+    if (!acc_valid && skip_nulls) {
+      auto reader = ::arrow::internal::BitmapUInt64Reader(arr_valid, arr.offset, length);
+      int64_t i = 0;
+      for (int64_t words = length / 64; words > 0; --words) {
+        const uint64_t word = reader.NextWord();
+        if (word == ~uint64_t(0)) {
+          for (int j = 0; j < 64; ++j, ++i) {
+            acc_values[i] = Op::template Call<OutValue, OutValue, OutValue>(
+                acc_values[i], arr_values[i]);
+          }
+        } else if (word == 0) {
+          i += 64;
+        } else {
+          for (int j = 0; j < 64; ++j, ++i) {
+            const OutValue combined = Op::template Call<OutValue, OutValue, OutValue>(
+                acc_values[i], arr_values[i]);
+            acc_values[i] = ((word >> j) & 1) ? combined : acc_values[i];
+          }
+        }
+      }
+      for (; i < length; ++i) {
+        if (bit_util::GetBit(arr_valid, arr.offset + i)) {
+          acc_values[i] = Op::template Call<OutValue, OutValue, OutValue>(acc_values[i],
+                                                                          arr_values[i]);
+        }
+      }
+      output->null_count = 0;
+      return Status::OK();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+    // The accumulator's validity is always stored at bit offset 0
+    output->null_count = CombineWordwise(
+        acc_values, acc_valid, /*left_offset=*/0, arr_values, arr_valid, arr.offset,
+        skip_nulls, length, acc_values, output->buffers[0]->mutable_data());
+    if (output->null_count == 0) {
+      output->buffers[0] = nullptr;
+    }
+    return Status::OK();
+  }
+
+  // Op of both sides when both valid, else the valid side (left if neither, unused)
+  static OutValue CombineOne(uint64_t lhs_valid, uint64_t rhs_valid, OutValue left_value,
+                             OutValue right_value) {
+    if (lhs_valid && rhs_valid) {
+      return Op::template Call<OutValue, OutValue, OutValue>(left_value, right_value);
+    }
+    return rhs_valid ? right_value : left_value;
+  }
+
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
+    const bool skip_nulls = options.skip_nulls;
+    ArrayData* output = out->array_data().get();
+    const int64_t length = output->length;
+
+    // Fold the scalar arguments into one seed, then fold each array into the
+    // output a word at a time
     const size_t scalar_count = static_cast<size_t>(
         std::count_if(batch.values.begin(), batch.values.end(),
                       [](const ExecValue& v) { return v.is_scalar(); }));
 
-    ArrayData* output = out->array_data().get();
-
-    // At least one array, two or more arguments
     std::vector<const ArraySpan*> arrays;
+    arrays.reserve(batch.values.size());
     for (const auto& value : batch.values) {
-      if (!value.is_array()) continue;
-      arrays.push_back(&value.array);
+      if (value.is_array()) arrays.push_back(&value.array);
     }
 
-    bool initialize_output = true;
+    std::optional<OutValue> seed;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
                             ExecScalar(batch, options, out->type()->GetSharedPtr()));
       if (temp_scalar->is_valid) {
-        const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
-        initialize_output = false;
-        OutValue* out = output->GetMutableValues<OutValue>(1);
-        std::fill(out, out + batch.length, value);
-      } else if (!options.skip_nulls) {
-        // Abort early
-        ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
-                                                              ctx->memory_pool()));
+        seed = UnboxScalar<OutType>::Unbox(*temp_scalar);
+      } else if (!skip_nulls) {
+        // A null scalar with skip_nulls=false makes every output slot null
+        ARROW_ASSIGN_OR_RAISE(
+            auto array, MakeArrayFromScalar(*temp_scalar, length, ctx->memory_pool()));
         out->value = std::move(array->data());
         return Status::OK();
       }
     }
 
-    if (initialize_output) {
-      OutValue* out = output->GetMutableValues<OutValue>(1);
-      std::fill(out, out + batch.length, Op::template antiextreme<OutValue>());
-    }
+    OutValue* out_values = output->GetMutableValues<OutValue>(1);
 
-    // Precompute the validity buffer
-    if (options.skip_nulls && initialize_output) {
-      // OR together the validity buffers of all arrays
-      if (std::all_of(arrays.begin(), arrays.end(),
-                      [](const ArraySpan* arr) { return arr->MayHaveNulls(); })) {
-        for (const ArraySpan* arr : arrays) {
-          if (!arr->MayHaveNulls()) continue;
-          if (!output->buffers[0]) {
-            ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-            ::arrow::internal::CopyBitmap(arr->buffers[0].data, arr->offset, batch.length,
-                                          output->buffers[0]->mutable_data(),
-                                          /*dest_offset=*/0);
-          } else {
-            ::arrow::internal::BitmapOr(output->buffers[0]->data(), /*left_offset=*/0,
-                                        arr->buffers[0].data, arr->offset, batch.length,
-                                        /*out_offset=*/0,
-                                        output->buffers[0]->mutable_data());
-          }
-        }
-      }
-    } else if (!options.skip_nulls) {
-      // AND together the validity buffers of all arrays
+    if (seed.has_value()) {
+      std::fill(out_values, out_values + length, *seed);
+      output->buffers[0] = nullptr;
+      output->null_count = 0;
       for (const ArraySpan* arr : arrays) {
-        if (!arr->MayHaveNulls()) continue;
-        if (!output->buffers[0]) {
-          ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-          ::arrow::internal::CopyBitmap(arr->buffers[0].data, arr->offset, batch.length,
-                                        output->buffers[0]->mutable_data(),
-                                        /*dest_offset=*/0);
-        } else {
-          ::arrow::internal::BitmapAnd(output->buffers[0]->data(), /*left_offset=*/0,
-                                       arr->buffers[0].data, arr->offset, batch.length,
-                                       /*out_offset=*/0,
-                                       output->buffers[0]->mutable_data());
-        }
+        RETURN_NOT_OK(FoldArrayIntoOutput(ctx, *arr, skip_nulls, output));
       }
+      return Status::OK();
     }
 
-    for (const ArraySpan* array : arrays) {
-      // TODO(wesm): this got to be a mess in ARROW-16576, clean up
-      ArraySpan out_span(*output);
-      OutputArrayWriter<OutType> writer(&out_span);
-      ArrayIterator<OutType> out_it(out_span);
-      int64_t index = 0;
-      VisitArrayValuesInline<OutType>(
-          *array,
-          [&](OutValue value) {
-            auto u = out_it();
-            if (!output->buffers[0] ||
-                bit_util::GetBit(output->buffers[0]->data(), index)) {
-              writer.Write(Op::template Call<OutValue, OutValue, OutValue>(u, value));
-            } else {
-              writer.Write(value);
-            }
-            index++;
-          },
-          [&]() {
-            // RHS is null, preserve the LHS
-            writer.values++;
-            index++;
-            out_it();
-          });
+    if (arrays.empty()) {
+      // Every argument was a null scalar (skip_nulls): the result is all null
+      if (length > 0) {
+        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+      }
+      output->null_count = length;
+      return Status::OK();
     }
-    output->null_count = output->buffers[0] ? -1 : 0;
+    if (arrays.size() == 1) {
+      return CopyArrayToOutput(ctx, *arrays[0], output);
+    }
+    RETURN_NOT_OK(CombineArrays(ctx, *arrays[0], *arrays[1], skip_nulls, output));
+    for (size_t k = 2; k < arrays.size(); ++k) {
+      RETURN_NOT_OK(FoldArrayIntoOutput(ctx, *arrays[k], skip_nulls, output));
+    }
     return Status::OK();
   }
 };
