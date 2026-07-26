@@ -45,7 +45,6 @@ install_headers(
         'converter.h',
         'from_string.h',
         'object_parser.h',
-        'object_writer.h',
         'options.h',
         'parser.h',
         'rapidjson_defs.h',
