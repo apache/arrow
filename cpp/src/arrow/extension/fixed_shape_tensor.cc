@@ -25,6 +25,7 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/tensor.h"
 #include "arrow/util/logging_internal.h"
@@ -33,9 +34,9 @@
 #include "arrow/util/string.h"
 
 #include <rapidjson/document.h>
-#include <rapidjson/writer.h>
 
 namespace rj = arrow::rapidjson;
+using ::arrow::json::JsonWriter;
 
 namespace arrow::extension {
 
@@ -72,36 +73,38 @@ std::string FixedShapeTensorType::ToString(bool show_metadata) const {
 }
 
 std::string FixedShapeTensorType::Serialize() const {
-  rj::Document document;
-  document.SetObject();
-  rj::Document::AllocatorType& allocator = document.GetAllocator();
+  JsonWriter writer;
 
-  rj::Value shape(rj::kArrayType);
+  writer.StartObject();
+
+  writer.Key("shape");
+  writer.StartArray();
   for (auto v : shape_) {
-    shape.PushBack(v, allocator);
+    writer.Int64(v);
   }
-  document.AddMember(rj::Value("shape", allocator), shape, allocator);
+  writer.EndArray();
 
   if (!permutation_.empty()) {
-    rj::Value permutation(rj::kArrayType);
+    writer.Key("permutation");
+    writer.StartArray();
     for (auto v : permutation_) {
-      permutation.PushBack(v, allocator);
+      writer.Int64(v);
     }
-    document.AddMember(rj::Value("permutation", allocator), permutation, allocator);
+    writer.EndArray();
   }
 
   if (!dim_names_.empty()) {
-    rj::Value dim_names(rj::kArrayType);
-    for (const std::string& v : dim_names_) {
-      dim_names.PushBack(rj::Value{}.SetString(v.c_str(), allocator), allocator);
+    writer.Key("dim_names");
+    writer.StartArray();
+    for (const auto& v : dim_names_) {
+      writer.String(v);
     }
-    document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
+    writer.EndArray();
   }
 
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  document.Accept(writer);
-  return buffer.GetString();
+  writer.EndObject();
+
+  return std::string(writer.GetString());
 }
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
