@@ -26,6 +26,14 @@ version=$(. /etc/os-release && echo ${VERSION_ID})
 
 apt-get update -y -q
 
+python_packages=()
+if [ "${INSTALL_PYTHON:-1}" -gt 0 ]; then
+  python_packages=(python3-dev python3-venv python3-pip)
+  if [ -n "${PYTHON_VERSION:-}" ]; then
+    python_packages=("python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv")
+  fi
+fi
+
 if [ ${version} \> "22.04" ]; then
   # Some tests rely on legacy timezone aliases such as "US/Pacific"
   apt-get install -y -q --no-install-recommends \
@@ -49,9 +57,7 @@ apt-get install -y -q --no-install-recommends \
   ninja-build \
   nlohmann-json3-dev \
   pkg-config \
-  python3-dev \
-  python3-venv \
-  python3-pip \
+  "${python_packages[@]}" \
   ruby-dev \
   tzdata \
   wget
