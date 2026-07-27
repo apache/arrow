@@ -139,8 +139,9 @@ class ConcreteConverter : public JSONConverter {
     int32_t num_elements = 0;
     for (auto element : json_array) {
       sj::value value;
-      if (element.get(value) != simdjson::SUCCESS) {
-        return Status::Invalid("Could not iterate elements of JSON array");
+      if (auto error_code = element.get(value); error_code != simdjson::SUCCESS) {
+        return Status::Invalid("Could not iterate elements of JSON array: ",
+                               simdjson::error_message(error_code));
       }
       RETURN_NOT_OK(self->AppendValue(value));
       num_elements++;
@@ -261,49 +262,45 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(sj::value& json_obj,
 }
 
 // Match the std::string_view against NaN, Inf, Infinity with optional leading minus
-bool NonFiniteDoubleFromString(std::string_view str, double* out) {
-  const bool negative = !str.empty() && str.front() == '-';
-  if (negative) {
-    str.remove_prefix(1);
-  }
+std::optional<double> NonFiniteDoubleFromString(std::string_view str) {
   if (str == "NaN") {
-    *out = std::numeric_limits<double>::quiet_NaN();
+    return std::numeric_limits<double>::quiet_NaN();
+  } else if (str == "-NaN") {
+    return -std::numeric_limits<double>::quiet_NaN();
   } else if (str == "Inf" || str == "Infinity") {
-    *out = std::numeric_limits<double>::infinity();
+    return std::numeric_limits<double>::infinity();
+  } else if (str == "-Inf" || str == "-Infinity") {
+    return -std::numeric_limits<double>::infinity();
   } else {
-    return false;
+    return std::nullopt;
   }
-  if (negative) {
-    *out = -*out;
-  }
-  return true;
 }
 
-bool NonFiniteDoubleFromRawToken(sj::value& json_obj, double* out) {
+std::optional<double> NonFiniteDoubleFromRawToken(sj::value& json_obj) {
   std::string_view token = json_obj.raw_json_token();
   // The raw token includes any trailing whitespace up to the next token
   while (!token.empty() && std::isspace(static_cast<unsigned char>(token.back()))) {
     token.remove_suffix(1);
   }
-  return NonFiniteDoubleFromString(token, out);
+  return NonFiniteDoubleFromString(token);
 }
 
 // Get a double from a JSON value that is either a number, a bare
 // NaN/Inf/-Inf/Infinity/-Infinity token
-bool DoubleFromJsonValue(sj::value& json_obj, double* out) {
-  if (json_obj.get(*out) == simdjson::SUCCESS) {
-    return true;
+std::optional<double> DoubleFromJsonValue(sj::value& json_obj) {
+  double value;
+  if (json_obj.get(value) == simdjson::SUCCESS) {
+    return value;
   }
-  return NonFiniteDoubleFromRawToken(json_obj, out);
+  return NonFiniteDoubleFromRawToken(json_obj);
 }
 
 // Convert float16/HalfFloatType
 template <typename T>
 enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj, const DataType& type,
                                               uint16_t* out) {
-  double f64;
-  if (DoubleFromJsonValue(json_obj, &f64)) {
-    *out = Float16(f64).bits();
+  if (auto f64 = DoubleFromJsonValue(json_obj); f64.has_value()) {
+    *out = Float16(f64.value()).bits();
     return Status::OK();
   }
   *out = static_cast<uint16_t>(0);
@@ -315,9 +312,8 @@ template <typename T>
 enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
                                                            const DataType& type,
                                                            typename T::c_type* out) {
-  double f64;
-  if (DoubleFromJsonValue(json_obj, &f64)) {
-    *out = static_cast<typename T::c_type>(f64);
+  if (auto f64 = DoubleFromJsonValue(json_obj); f64.has_value()) {
+    *out = static_cast<typename T::c_type>(f64.value());
     return Status::OK();
   }
   *out = static_cast<typename T::c_type>(0);
@@ -448,7 +444,7 @@ class DecimalConverter final
       return this->AppendNull();
     }
     std::string_view string_value;
-    if (json_obj.get<std::string_view>(string_value) == simdjson::SUCCESS) {
+    if (json_obj.get(string_value) == simdjson::SUCCESS) {
       int32_t precision, scale;
       DecimalValue d;
       RETURN_NOT_OK(DecimalValue::FromString(string_value, &d, &precision, &scale));
@@ -1125,8 +1121,6 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
   std::shared_ptr<JSONConverter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
-  // TODO we should not copy the whole string. Maybe we can move the requirement of
-  // padding to users of this function
   simdjson::padded_string padded_string{json_string};
 
   sj::parser parser;
