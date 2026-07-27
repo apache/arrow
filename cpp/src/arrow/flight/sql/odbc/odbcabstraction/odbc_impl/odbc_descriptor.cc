@@ -491,7 +491,7 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
     records_[i].name = rsmd->GetName(one_based_index);
     records_[i].schema_name = rsmd->GetSchemaName(one_based_index);
     records_[i].table_name = rsmd->GetTableName(one_based_index);
-    records_[i].type_name = rsmd->GetTypeName(one_based_index, concise_type);
+    records_[i].type_name = rsmd->GetTypeName(one_based_index);
     records_[i].concise_type = GetSqlTypeForODBCVersion(concise_type, is_2x_connection_);
     records_[i].data_ptr = nullptr;
     records_[i].indicator_ptr = nullptr;

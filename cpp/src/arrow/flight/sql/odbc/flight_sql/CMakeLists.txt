@@ -102,6 +102,22 @@ endif()
 target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared
                                                  arrow_compute_shared Boost::locale)
 
+# Suppress clang/macOS warnings that are pre-existing and not relevant on MSVC.
+# See GH-50578.
+target_compile_options(arrow_odbc_spi_impl
+                       PRIVATE
+                       $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:
+                         -Wno-deprecated-declarations
+                         -Wno-deprecated-this-capture
+                         -Wno-reorder-ctor
+                         -Wno-shorten-64-to-32
+                         -Wno-missing-field-initializers
+                         -Wno-pessimizing-move
+                         -Wno-unused-private-field
+                         -Wno-sign-compare
+                         -Wno-unused-variable
+                         -Wno-switch>)
+
 # Link libraries on MINGW64 and macOS
 if(MINGW OR APPLE)
   target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
@@ -134,9 +150,22 @@ add_arrow_test(odbc_spi_impl_test
                accessors/time_array_accessor_test.cc
                accessors/timestamp_array_accessor_test.cc
                flight_sql_connection_test.cc
+               flight_sql_result_set_metadata_test.cc
                parse_table_types_test.cc
                json_converter_test.cc
                record_batch_transformer_test.cc
                utils_test.cc
                EXTRA_LINK_LIBS
                arrow_odbc_spi_impl)
+
+# Same cross-platform warning suppressions for the test binary. See GH-50578.
+if(NOT MSVC)
+  target_compile_options(arrow-odbc-spi-impl-test
+                         PRIVATE
+                         -Wno-deprecated-declarations
+                         -Wno-deprecated-this-capture
+                         -Wno-reorder-ctor
+                         -Wno-shorten-64-to-32
+                         -Wno-missing-field-initializers
+                         -Wno-sign-compare)
+endif()

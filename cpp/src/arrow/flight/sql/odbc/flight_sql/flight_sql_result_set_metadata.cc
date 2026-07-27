@@ -59,7 +59,14 @@ arrow::Result<int32_t> GetFieldPrecision(const std::shared_ptr<Field>& field) {
 }
 }  // namespace
 
-size_t FlightSqlResultSetMetadata::GetColumnCount() { return schema_->num_fields(); }
+size_t FlightSqlResultSetMetadata::GetColumnCount() {
+  // schema_ can be nullptr when the server omits dataset_schema in
+  // ActionCreatePreparedStatementResult (e.g. InfluxDB 3). Return 0 columns
+  // rather than crashing; the ODBC layer will treat this as a non-row-
+  // returning statement. See GH-50578.
+  if (!schema_) return 0;
+  return schema_->num_fields();
+}
 
 std::string FlightSqlResultSetMetadata::GetColumnName(int column_position) {
   return schema_->field(column_position - 1)->name();

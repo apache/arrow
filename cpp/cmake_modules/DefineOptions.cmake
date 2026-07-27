@@ -107,10 +107,9 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
-  # Arrow Flight SQL ODBC is available only for Windows for now.
-  if(NOT MSVC_TOOLCHAIN)
-    set(ARROW_FLIGHT_SQL_ODBC OFF)
-  endif()
+  # Arrow Flight SQL ODBC primarily targets Windows, but the core SPI and tests
+  # can be built on other platforms when ODBC headers are present (e.g. libiodbc).
+  # See GH-50578.
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()

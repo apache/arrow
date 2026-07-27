@@ -116,6 +116,17 @@ boost::optional<std::shared_ptr<ResultSetMetadata>> FlightSqlStatement::Prepare(
 
   prepared_statement_ = *result;
 
+  // dataset_schema is optional in the FlightSQL spec.  Servers such as
+  // InfluxDB 3 may not include it in ActionCreatePreparedStatementResult.
+  // When it is absent we return a metadata object with 0 columns rather than
+  // crashing — the ODBC layer sets is_prepared_=true and populates the IRD
+  // with 0 entries, which is correct: SQLNumResultCols returns 0 and
+  // CommandBehavior.SchemaOnly readers simply see an empty schema instead of
+  // triggering a HY010 Function sequence error.  See GH-50578.
+  if (!prepared_statement_->dataset_schema()) {
+    return boost::none;
+  }
+
   const auto& result_set_metadata = std::make_shared<FlightSqlResultSetMetadata>(
       prepared_statement_->dataset_schema(), metadata_settings_);
   return boost::optional<std::shared_ptr<ResultSetMetadata>>(result_set_metadata);

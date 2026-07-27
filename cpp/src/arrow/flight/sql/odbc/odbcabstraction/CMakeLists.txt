@@ -50,6 +50,17 @@ add_library(odbcabstraction
             odbc_impl/odbc_statement.cc)
 target_include_directories(odbcabstraction PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 target_link_libraries(odbcabstraction PUBLIC ODBC::ODBC Boost::headers)
+# Several warnings fire under clang/macOS but not MSVC; suppress them so the
+# library can be built and tested cross-platform. See GH-50578.
+target_compile_options(odbcabstraction
+                       PRIVATE
+                       $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:
+                         -Wno-deprecated-declarations
+                         -Wno-sign-compare
+                         -Wno-shorten-64-to-32
+                         -Wno-unused-value
+                         -Wno-deprecated-this-capture
+                         -Wno-reorder-ctor>)
 
 set_target_properties(odbcabstraction
                       PROPERTIES ARCHIVE_OUTPUT_DIRECTORY

@@ -330,7 +330,9 @@ WAI_NOINLINE WAI_FUNCSPEC int WAI_PREFIX(getModulePath)(char* out, int capacity,
 #elif defined(__APPLE__)
 
 #  include <dlfcn.h>
+#  include <limits.h>
 #  include <mach-o/dyld.h>
+#  include <string.h>
 
 WAI_FUNCSPEC
 int WAI_PREFIX(getExecutablePath)(char* out, int capacity, int* dirname_length) {
