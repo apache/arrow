@@ -77,10 +77,6 @@ namespace {
 // better vectorized performance when doing many smaller record reads
 constexpr int64_t kMinLevelBatchSize = 1024;
 
-// Batch size for reading and throwing away values during skip.
-// Both RecordReader and the ColumnReader use this for skipping.
-constexpr int64_t kSkipScratchBatchSize = 1024;
-
 // Throws exception if number_decoded does not match expected.
 inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
   if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
@@ -93,7 +89,7 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
     "Number of decoded rep / def levels do not match num_values in page header";
 
-/// True if a T can hold a V.
+/// True if a T can hold a U.
 template <typename T, typename U>
 inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
                                    std::in_range<T>(std::numeric_limits<U>::max());
@@ -206,7 +202,7 @@ int32_t LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
 void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
                              int32_t num_buffered_values, const uint8_t* data) {
   max_level_ = max_level;
-  // Repetition and definition levels always uses RLE encoding
+  // Repetition and definition levels always use RLE encoding
   // in the DataPageV2 format.
   if (num_bytes < 0) {
     throw ParquetException("Invalid page header (corrupt data page?)");
@@ -434,7 +430,7 @@ void CheckNumValuesInHeader(int num_values) {
 
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
-// assembled in a serialized stream for storing in a Parquet files
+// assembled in a serialized stream for storing in a Parquet file
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
@@ -859,13 +855,17 @@ namespace {
 /// avoid decoding, and at worst, decode without intermediary allocation.
 ///
 /// @todo GH-50453
-template <typename DType, int64_t kScratchValueCount>
+template <typename DType>
 class SkippableTypedDecoder {
  public:
   using Decoder = TypedDecoder<DType>;
   using T = typename Decoder::T;
 
+  /// Size in bytes of a single value.
   static constexpr int64_t kValueByteSize = type_traits<DType::type_num>::value_byte_size;
+  /// Batch size for reading and throwing away values during skip.
+  static constexpr int64_t kScratchValueCount = 1024;
+  /// Size in bytes of the scratch batch.
   static constexpr int64_t kScratchByteSize = kScratchValueCount * kValueByteSize;
 
   explicit SkippableTypedDecoder(::arrow::MemoryPool* pool = nullptr) : pool_(pool) {}
@@ -884,6 +884,9 @@ class SkippableTypedDecoder {
 
   explicit operator bool() const { return decoder_ != nullptr; }
 
+  /// Skip the number of values in the decoder.
+  ///
+  /// Initialize reusable buffer to decode the values into before throwing them away.
   int64_t Skip(int64_t num_values) {
     EnsureScratch();
 
@@ -938,6 +941,12 @@ inline int64_t compute_capacity_pow2(int64_t capacity, int64_t size, int64_t ext
   return bit_util::NextPower2(target_size);
 }
 
+/// A simple cursor with a number of values and an available capacity.
+///
+/// This is a reused foundation for creating data sinks.
+/// Since decoders write to an already available buffer, we need to manually track a
+/// capacity where the user is allowed to write (contrary to say `std::vector` where
+/// it is UB to write in range `[size(), capacity()[`).
 class ValueSinkCursor {
  public:
   int64_t capacity() const { return capacity_; }
@@ -963,6 +972,7 @@ class ValueSinkCursor {
  *  ValueSinkBuffer  *
  *********************/
 
+/// A data sink for decoded values that writes into an Arrow buffer.
 template <typename T>
 class ValueSinkBuffer : private ValueSinkCursor {
  public:
@@ -977,6 +987,7 @@ class ValueSinkBuffer : private ValueSinkCursor {
 
   void OnNewDictionary(auto& /* decoder */) {}
 
+  /// Decode values contiguously into the sink buffer.
   [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
     ReserveValues(batch_size);
     const auto decoded = decoder.Decode(write_start(), batch_size);
@@ -984,6 +995,10 @@ class ValueSinkBuffer : private ValueSinkCursor {
     return decoded;
   }
 
+  /// Decode values according to a validity bitmap.
+  ///
+  /// The values are decoded in the buffer where the validity bit is set. The values
+  /// associated to unset bits are skipped and can be set to any arbitrary value.
   [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
                                       int32_t null_count, const uint8_t* valid_bits,
                                       int64_t valid_bits_offset) {
@@ -994,6 +1009,7 @@ class ValueSinkBuffer : private ValueSinkCursor {
     return decoded;
   }
 
+  /// Transfer ownership of the values already decoded to the caller.
   std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
     // TODO should we set values_written to zero?
     auto result = values_;
@@ -1004,6 +1020,7 @@ class ValueSinkBuffer : private ValueSinkCursor {
     return result;
   }
 
+  /// Exponentially reserve more capacity if needed.
   void ReserveValues(int64_t extra_values) {
     const auto old_capacity = fit_capacity_for_extra(extra_values);
     if (capacity() > old_capacity) {
@@ -1049,6 +1066,7 @@ class ValueSinkBuffer : private ValueSinkCursor {
  *  ValiditySinkBuffer  *
  ************************/
 
+/// A data sink for a validity bitmap that writes into an Arrow buffer.
 class ValiditySinkBuffer : private ValueSinkCursor {
  public:
   using ValueSinkCursor::capacity;
@@ -1066,8 +1084,12 @@ class ValiditySinkBuffer : private ValueSinkCursor {
     Int null_count = 0;
   };
 
-  ReadResult<int64_t> ReadFromLevels(const int16_t* def_levels, int64_t num_def_levels,
-                                     const internal::LevelInfo& level_info) {
+  /// Write into the bitmap from already decoded levels.
+  ///
+  /// This method is used when additional computation using the levels is needed.
+  /// It re-encodes definition levels as a validity bitmap.
+  ReadResult<int64_t> ReadFromDefLevels(const int16_t* def_levels, int64_t num_def_levels,
+                                        const internal::LevelInfo& level_info) {
     // At most one validity bit is written per definition level.
     ReserveValues(num_def_levels);
     internal::ValidityBitmapInputOutput validity_io{};
@@ -1089,6 +1111,9 @@ class ValiditySinkBuffer : private ValueSinkCursor {
     };
   }
 
+  /// Write into the bitmap from a bitmap-compatible decoder.
+  ///
+  /// This is a special optimization when the max definition level
   ReadResult<int32_t> ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
     using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
 
@@ -1107,6 +1132,7 @@ class ValiditySinkBuffer : private ValueSinkCursor {
     };
   }
 
+  /// Transfer ownership of the values already decoded to the caller.
   std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
     // TODO should we set values_written to zero?
     auto result = values_;
@@ -1213,7 +1239,12 @@ int64_t InitializeV2Levels(const DataPageV2& page, auto& def_dec, auto& rep_dec)
   return total_levels_length;
 }
 
-/// Read through the multiple pages of a column chunk.
+/// A base reader for iterating through the pages of a column chunk.
+///
+/// It sets the decoders and level decoders appropriately while also providing basic
+/// level counting. The number of records depends on the schema: an optional or
+/// repeated field will use more levels to encode a single record into zero, one, or
+/// more "values" from its encoder.
 template <typename Traits>
 class ColumnChunkReader {
  public:
@@ -1280,7 +1311,7 @@ class ColumnChunkReader {
   int64_t Skip(int64_t num_values_to_skip);
 
  protected:
-  SkippableTypedDecoder<DType, kSkipScratchBatchSize> current_decoder_;
+  SkippableTypedDecoder<DType> current_decoder_;
   DefLevelDecoder def_levels_decoder_;
   RepLevelDecoder rep_levels_decoder_;
   const ColumnDescriptor* descr_;
@@ -1790,6 +1821,13 @@ struct TypedRecordReaderTraits {
   using RepLevelDecoder = LevelDecoder;
 };
 
+/// General record reader for a given data type.
+///
+/// This historical class can read all repetition, at the cost of increased complexity.
+/// The main difficulties are that repeated values will span multiple values (sometimes
+/// across data pages) in Parquet, while nulls are not written.
+/// Decoding levels is therefore critical to reconstruct the delimitation across records,
+/// but makes optimizing simple cases harder.
 template <typename DType, typename ValueSink, bool kReadDictionary>
 class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType>>,
                           virtual public RecordReader {
@@ -1946,7 +1984,7 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   /// is null or not null.
   ///
   /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
-  // TODO make optional where abscense means read_dense_for_optional
+  // TODO make optional where absence means read_dense_for_optional
   ValiditySinkBuffer valid_bits_;
   LevelInfo leaf_info_;
 
@@ -2237,8 +2275,8 @@ template <typename DT, typename VS, bool kDic>
 int64_t TypedRecordReader<DT, VS, kDic>::SkipRecords(int64_t num_records) {
   if (num_records == 0) return 0;
 
-  // Top level required field. Number of records equals to number of levels,
-  // and there is not read-ahead for levels.
+  // Top level required field. Number of records equals number of levels,
+  // and there is no read-ahead for levels.
   if (this->max_rep_level() == 0 && this->max_def_level() == 0) {
     return this->Skip(num_records);
   }
@@ -2284,7 +2322,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::DelimitRecords(int64_t num_records,
   // If at_record_start_ is true, we are seeing the start of a record
   // for the second time, such as after repeated calls to
   // DelimitRecords. In this case we must continue until we find
-  // another record start or exhausting the ColumnChunk
+  // another record start or exhaust the ColumnChunk
   int64_t level = levels_position_;
   if (at_record_start_) {
     if (ARROW_PREDICT_FALSE(rep_levels[levels_position_] != 0)) {
@@ -2481,7 +2519,7 @@ void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeated(
   // read.
   const int64_t valid_bits_offset = valid_bits_.values_count();
   ARROW_DCHECK_EQ(values_written(), valid_bits_offset);
-  const auto result = valid_bits_.ReadFromLevels(  //
+  const auto result = valid_bits_.ReadFromDefLevels(  //
       def_levels() + start_levels_position, levels_position_ - start_levels_position,
       leaf_info_);
 
@@ -2591,7 +2629,12 @@ struct RequiredTypedRecordReaderTraits {
   using RepLevelDecoder = LevelDecoder;
 };
 
-// TODO can we reduce some code share with TypedRecordREader ?
+// TODO can we reduce some code share with TypedRecordReader ?
+
+/// A special type of record reader for required data.
+///
+/// Definition and repetition levels are all null in this case and the data encoded
+/// correspond directly to the
 template <typename DType, typename ValueSink = ValueSinkBuffer<typename DType::c_type>,
           bool kReadDictionary = false>
 class RequiredTypedRecordReader
@@ -2752,6 +2795,11 @@ struct FlatOptionalTypedRecordReaderTraits {
   using RepLevelDecoder = LevelDecoder;
 };
 
+/// A specialized record reader for flat optional data.
+///
+/// In this special case, the max definition level is 1 and these correspond to the arrow
+/// array we are building. A special level decoder is used to bypass decoding completely
+/// and only copy the bitmap into the Arrow buffer.
 template <typename DType>
 class FlatOptionalTypedRecordReader
     : public ColumnChunkReader<FlatOptionalTypedRecordReaderTraits<DType>>,
@@ -2768,6 +2816,7 @@ class FlatOptionalTypedRecordReader
         read_dense_for_nullable_(read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr->max_definition_level(), 1);
     ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
+    ARROW_DCHECK(descr->schema_node()->is_optional());
     Reset();
   }
 
