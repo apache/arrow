@@ -28,12 +28,18 @@ RUN INSTALL_PYTHON=0 /setup-ubuntu.sh && \
 
 # Ubuntu 22.04 only provides Python 3.10. Install a supported Python from
 # conda-forge (without activating Conda env) for non-Conda verify-rc job
+ARG python=3.12
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_conda.sh miniforge3 26.1.1-3 /opt/conda && \
-    /opt/conda/bin/mamba create -y -p /opt/python python=3.12 && \
-    /opt/conda/bin/mamba clean --all --yes
+    /opt/conda/bin/mamba create -y -p /opt/python python=${python} && \
+    rm -rf \
+        /etc/profile.d/conda.sh \
+        /opt/conda \
+        /root/.conda \
+        /root/.condarc \
+        /root/.mamba
 ENV PATH=/opt/python/bin:$PATH \
-    PYTHON_VERSION=3.12
+    PYTHON_VERSION=${python}
 
 ARG cmake
 COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/

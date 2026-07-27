@@ -26,12 +26,12 @@ version=$(. /etc/os-release && echo ${VERSION_ID})
 
 apt-get update -y -q
 
-python_packages=()
+# The Ubuntu 22.04 verification image supplies a supported Python separately.
 if [ "${INSTALL_PYTHON:-1}" -gt 0 ]; then
-  python_packages=(python3-dev python3-venv python3-pip)
-  if [ -n "${PYTHON_VERSION:-}" ]; then
-    python_packages=("python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv")
-  fi
+  apt-get install -y -q --no-install-recommends \
+    python3-dev \
+    python3-pip \
+    python3-venv
 fi
 
 if [ ${version} \> "22.04" ]; then
@@ -57,7 +57,6 @@ apt-get install -y -q --no-install-recommends \
   ninja-build \
   nlohmann-json3-dev \
   pkg-config \
-  "${python_packages[@]}" \
   ruby-dev \
   tzdata \
   wget

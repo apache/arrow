@@ -41,8 +41,8 @@ jobs:
             {% if distro == 'almalinux' and target|upper == 'PYTHON' %}
             -e ARROW_GANDIVA=OFF \
             {% endif %}
-            {# Use a supported Python version on distributions whose default
-             # Python is older, and avoid selecting free-threaded Python in
+            {# Use a supported Python version on distributions with older
+             # default Python and avoid selecting free-threaded Python in
              # the Conda environment.
             #}
             -e PYTHON_VERSION="3.12" \
