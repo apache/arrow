@@ -862,6 +862,19 @@ TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
           << "independently-null " << nested->type()->ToString()
           << " field should hash to 0, same as a plain null field";
     }
+
+    // Same invariant, but for a struct with more than one field: HashMultiColumn only
+    // zeroes column 0's null rows outright, so this also exercises a null in a
+    // non-first column (see HashStructArray).
+    auto multi_field = struct_({field("f0", int64()), field("f1", int64())});
+    for (auto row : {R"([{"f0": 5, "f1": null}])", R"([{"f0": null, "f1": 5}])"}) {
+      auto multi = ArrayFromJSON(multi_field, row);
+      ASSERT_OK_AND_ASSIGN(Datum multi_result, CallFunction(func, {multi}));
+      ASSERT_OK_AND_ASSIGN(auto multi_hash, multi_result.make_array()->GetScalar(0));
+      ASSERT_TRUE(multi_hash->Equals(*zero))
+          << "independently-null field of a multi-field struct (" << row
+          << ") should hash to 0, same as a plain null field";
+    }
   }
 }
 
