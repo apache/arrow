@@ -223,10 +223,15 @@ struct FastHashScalar {
       }
     }
     Hasher::HashMultiColumn(columns, hash_ctx, out);
-    // A null struct row's children may still look valid, so force 0 explicitly.
-    ZeroNulls(array, out);
+    // A null struct row, or one with an independently-null field, must hash to 0.
+    // HashMultiColumn only guarantees that outright for column 0's null rows (a null in
+    // any later column instead combines with the running hash of earlier columns, the
+    // behavior its other caller -- hashing independent key columns -- needs), so this
+    // enforces the struct-level invariant explicitly rather than relying on its output.
     for (int64_t i = 0; i < array.length; i++) {
-      if (out[i] == 0 && array.IsValid(i) && !any_child_null[i]) {
+      if (!array.IsValid(i) || any_child_null[i]) {
+        out[i] = 0;
+      } else if (out[i] == 0) {
         out[i] = Hasher::CombineHashes(0, 0);
       }
     }
