@@ -47,19 +47,14 @@ enum class TypedScalarKind {
   kTimeNTZMicros,
   kTimestampMicros,
   kTimestampNanos,
-  kDecimal4From32,
-  kDecimal4From64,
-  kDecimal8From64,
-  kDecimal4From128,
-  kDecimal8From128,
-  kDecimal16From128,
-  kUuidFixed,
+  kDecimal4,
+  kDecimal8,
+  kDecimal16,
   kUuidExtension,
 };
 
 struct CompiledTypedScalarPlan {
   TypedScalarKind kind;
-  ::arrow::Type::type physical_type = ::arrow::Type::NA;
   uint8_t scale = 0;
   bool adjusted_to_utc = false;
 };

@@ -33,6 +33,8 @@ namespace parquet::variant::internal {
 PARQUET_EXPORT
 std::string_view BinaryFieldView(const ::arrow::Array& array, int64_t row);
 
+std::string_view StringFieldView(const ::arrow::Array& array, int64_t row);
+
 PARQUET_EXPORT
 std::shared_ptr<::arrow::Array> ValuesArray(const ::arrow::Array& array);
 

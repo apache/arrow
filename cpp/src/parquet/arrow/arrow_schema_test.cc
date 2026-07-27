@@ -117,7 +117,9 @@ class TestConvertParquetSchema : public ::testing::Test {
   void CheckParquetVariantSchema(const std::string& name,
                                  std::vector<NodePtr> parquet_children,
                                  const std::shared_ptr<::arrow::DataType>& storage_type,
-                                 bool check_serialized_arrow_schema = false) {
+                                 bool check_serialized_arrow_schema = false,
+                                 const std::shared_ptr<::arrow::DataType>&
+                                     storage_type_without_extensions = nullptr) {
     SCOPED_TRACE(name);
     auto variant = GroupNode::Make(name, Repetition::OPTIONAL,
                                    std::move(parquet_children), LogicalType::Variant());
@@ -125,7 +127,10 @@ class TestConvertParquetSchema : public ::testing::Test {
     auto variant_extension = ::arrow::extension::variant(storage_type);
 
     {
-      auto arrow_schema = ::arrow::schema({::arrow::field(name, storage_type)});
+      auto arrow_schema =
+          ::arrow::schema({::arrow::field(name, storage_type_without_extensions == nullptr
+                                                    ? storage_type
+                                                    : storage_type_without_extensions)});
       ASSERT_OK(ConvertSchema(parquet_fields));
       ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema, /*check_metadata=*/true));
     }
@@ -1124,6 +1129,103 @@ TEST_F(TestConvertParquetSchema, ParquetVariantShreddedWithoutValue) {
   ASSERT_TRUE(variant_type->storage_type()->Equals(storage_type));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetVariantCanonical) {
+  auto FieldGroup = [](const std::string& name, NodePtr typed_value) {
+    return GroupNode::Make(
+        name, Repetition::REQUIRED,
+        {PrimitiveNode::Make("value", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY),
+         std::move(typed_value)});
+  };
+  auto FieldGroupType = [](const std::shared_ptr<::arrow::DataType>& typed_value) {
+    return ::arrow::struct_({::arrow::field("value", ::arrow::binary()),
+                             ::arrow::field("typed_value", typed_value)});
+  };
+
+  auto typed_value = GroupNode::Make(
+      "typed_value", Repetition::OPTIONAL,
+      {FieldGroup("d4",
+                  PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                                      LogicalType::Decimal(8, 2), ParquetType::INT32)),
+       FieldGroup("d8",
+                  PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                                      LogicalType::Decimal(8, 2), ParquetType::INT64)),
+       FieldGroup("d16", PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                                             LogicalType::Decimal(8, 2),
+                                             ParquetType::FIXED_LEN_BYTE_ARRAY,
+                                             ::arrow::DecimalType::DecimalSize(8))),
+       FieldGroup("uuid", PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                                              LogicalType::UUID(),
+                                              ParquetType::FIXED_LEN_BYTE_ARRAY, 16))});
+  auto StorageType = [&](const std::shared_ptr<::arrow::DataType>& uuid_type) {
+    return ::arrow::struct_(
+        {::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false),
+         ::arrow::field("value", ::arrow::binary()),
+         ::arrow::field(
+             "typed_value",
+             ::arrow::struct_(
+                 {::arrow::field("d4", FieldGroupType(::arrow::decimal32(8, 2)), false),
+                  ::arrow::field("d8", FieldGroupType(::arrow::decimal64(8, 2)), false),
+                  ::arrow::field("d16", FieldGroupType(::arrow::decimal128(8, 2)), false),
+                  ::arrow::field("uuid", FieldGroupType(uuid_type), false)}))});
+  };
+  auto storage_type = StorageType(::arrow::extension::uuid());
+  auto storage_type_without_extensions = StorageType(::arrow::fixed_size_binary(16));
+
+  ASSERT_NO_FATAL_FAILURE(CheckParquetVariantSchema(
+      "variant",
+      {PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("value", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY),
+       typed_value},
+      storage_type, /*check_serialized_arrow_schema=*/false,
+      storage_type_without_extensions));
+}
+
+TEST_F(TestConvertParquetSchema, ParquetVariantStoredDecimal) {
+  auto parquet_variant = GroupNode::Make(
+      "variant", Repetition::OPTIONAL,
+      {PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("value", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                           LogicalType::Decimal(8, 2), ParquetType::INT32)},
+      LogicalType::Variant());
+  auto stored_storage =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("value", ::arrow::binary()),
+                        ::arrow::field("typed_value", ::arrow::decimal64(8, 2))});
+  auto stored_variant = ::arrow::extension::variant(stored_storage);
+  auto stored_schema = ::arrow::schema({::arrow::field("variant", stored_variant)});
+  std::shared_ptr<KeyValueMetadata> metadata;
+  ASSERT_OK(ArrowSchemaToParquetMetadata(stored_schema, metadata));
+
+  ::arrow::ExtensionTypeGuard guard(stored_variant);
+  ArrowReaderProperties properties;
+  properties.set_arrow_extensions_enabled(false);
+  ASSERT_OK(ConvertSchema({parquet_variant}, metadata, properties));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(stored_schema, /*check_metadata=*/true));
+}
+
+TEST_F(TestConvertParquetSchema, ParquetVariantStoredMismatch) {
+  auto parquet_variant = GroupNode::Make(
+      "variant", Repetition::OPTIONAL,
+      {PrimitiveNode::Make("metadata", Repetition::REQUIRED, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("value", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY),
+       PrimitiveNode::Make("typed_value", Repetition::OPTIONAL, ParquetType::INT64)},
+      LogicalType::Variant());
+  auto stored_storage =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("value", ::arrow::binary()),
+                        ::arrow::field("typed_value", ::arrow::int16())});
+  auto stored_variant = ::arrow::extension::variant(stored_storage);
+  auto stored_schema = ::arrow::schema({::arrow::field("variant", stored_variant)});
+  std::shared_ptr<KeyValueMetadata> metadata;
+  ASSERT_OK(ArrowSchemaToParquetMetadata(stored_schema, metadata));
+
+  ::arrow::ExtensionTypeGuard guard(stored_variant);
+  ArrowReaderProperties properties;
+  properties.set_arrow_extensions_enabled(false);
+  ASSERT_RAISES(Invalid, ConvertSchema({parquet_variant}, metadata, properties));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowJsonExtension) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
@@ -1673,8 +1775,6 @@ TEST_F(TestConvertArrowSchema, ParquetVariantTypedSchema) {
                       /*nullable=*/false),
        ::arrow::field("time", ShreddedType(::arrow::time64(TimeUnit::MICRO)),
                       /*nullable=*/false),
-       ::arrow::field("id", ShreddedType(::arrow::fixed_size_binary(16)),
-                      /*nullable=*/false),
        ::arrow::field("uuid", ShreddedType(::arrow::extension::uuid()),
                       /*nullable=*/false)});
   auto storage_type =
@@ -1706,14 +1806,17 @@ TEST_F(TestConvertArrowSchema, ParquetVariantTypedSchema) {
                                                     ParquetType::INT64)),
             ShreddedField("d64p8", PrimitiveNode::Make(
                                        "typed_value", Repetition::OPTIONAL,
-                                       LogicalType::Decimal(8, 2), ParquetType::INT32)),
-            ShreddedField("d128p8", PrimitiveNode::Make(
-                                        "typed_value", Repetition::OPTIONAL,
-                                        LogicalType::Decimal(8, 2), ParquetType::INT32)),
-            ShreddedField(
-                "d128p16",
-                PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
-                                    LogicalType::Decimal(16, 4), ParquetType::INT64)),
+                                       LogicalType::Decimal(8, 2), ParquetType::INT64)),
+            ShreddedField("d128p8",
+                          PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                                              LogicalType::Decimal(8, 2),
+                                              ParquetType::FIXED_LEN_BYTE_ARRAY,
+                                              ::arrow::DecimalType::DecimalSize(8))),
+            ShreddedField("d128p16",
+                          PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
+                                              LogicalType::Decimal(16, 4),
+                                              ParquetType::FIXED_LEN_BYTE_ARRAY,
+                                              ::arrow::DecimalType::DecimalSize(16))),
             ShreddedField("d128p32",
                           PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
                                               LogicalType::Decimal(32, 8),
@@ -1728,10 +1831,6 @@ TEST_F(TestConvertArrowSchema, ParquetVariantTypedSchema) {
                               "typed_value", Repetition::OPTIONAL,
                               LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
                               ParquetType::INT64)),
-            ShreddedField("id",
-                          PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
-                                              LogicalType::UUID(),
-                                              ParquetType::FIXED_LEN_BYTE_ARRAY, 16)),
             ShreddedField("uuid",
                           PrimitiveNode::Make("typed_value", Repetition::OPTIONAL,
                                               LogicalType::UUID(),
@@ -1740,6 +1839,16 @@ TEST_F(TestConvertArrowSchema, ParquetVariantTypedSchema) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetVariantRawFixed) {
+  auto storage_type =
+      ::arrow::struct_({::arrow::field("metadata", ::arrow::binary(), false),
+                        ::arrow::field("value", ::arrow::binary()),
+                        ::arrow::field("typed_value", ::arrow::fixed_size_binary(16))});
+  auto variant_type =
+      std::make_shared<::arrow::extension::VariantExtensionType>(storage_type);
+  ASSERT_RAISES(Invalid, ConvertSchema({::arrow::field("variant", variant_type)}));
 }
 
 TEST_F(TestConvertArrowSchema, ParquetVariantShreddedObject) {
@@ -2129,9 +2238,21 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
-  // TODO: Test Decimal Arrow -> Parquet conversion
+  for (const auto& [name, type] :
+       std::vector<std::pair<std::string, std::shared_ptr<::arrow::DataType>>>{
+           {"d32", ::arrow::decimal32(8, 2)},
+           {"d64", ::arrow::decimal64(8, 2)},
+           {"d128", ::arrow::decimal128(8, 2)}}) {
+    arrow_fields.push_back(::arrow::field(name, type));
+    parquet_fields.push_back(PrimitiveNode::Make(
+        name, Repetition::OPTIONAL, LogicalType::Decimal(8, 2), ParquetType::INT32));
+  }
 
-  ASSERT_OK(ConvertSchema(arrow_fields));
+  arrow_schema_ = ::arrow::schema(arrow_fields);
+  auto writer_properties =
+      WriterProperties::Builder().enable_store_decimal_as_integer()->build();
+  ASSERT_OK(ToParquetSchema(arrow_schema_.get(), *writer_properties,
+                            *default_arrow_writer_properties(), &result_schema_));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }

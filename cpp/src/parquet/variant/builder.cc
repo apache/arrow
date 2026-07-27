@@ -311,7 +311,7 @@ class VariantValueWriter {
   }
 
   void AppendShortString(std::string_view value) {
-    if (value.size() >= 64) {
+    if (value.size() > kMaxShortStringSize) {
       throw ParquetException("Variant short string value must be shorter than 64 bytes");
     }
     internal::ValidateUtf8(value, "short string value");

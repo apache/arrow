@@ -158,7 +158,7 @@ TEST(TestVariantType, InvalidStorage) {
       duration(TimeUnit::MICRO),
       timestamp(TimeUnit::MILLI),
       struct_({}),
-      fixed_size_binary(/*byte_width=*/8),
+      fixed_size_binary(/*byte_width=*/16),
       decimal32(/*precision=*/8, /*scale=*/9),
       decimal64(/*precision=*/16, /*scale=*/17),
       decimal128(/*precision=*/32, /*scale=*/-1),

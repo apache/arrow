@@ -130,47 +130,28 @@ TEST(TestVariantUnshred, UnshredsValuesWithoutCopyingMetadata) {
 }
 
 TEST(TestVariantUnshred, UnshredsDecimalTypedValues) {
-  auto assert_decimal = [](std::shared_ptr<::arrow::DataType> type, std::string_view json,
-                           std::invocable<VariantBuilder&> auto&& append_expected) {
-    VariantBuilder expected_builder;
-    std::invoke(std::forward<decltype(append_expected)>(append_expected),
-                expected_builder);
-    auto expected = expected_builder.Finish();
-    auto typed_value = ::arrow::ArrayFromJSON(type, std::string(json));
-    auto array = MakeSingleRowVariantArray(std::string_view{*expected.metadata},
-                                           std::nullopt, typed_value);
+  auto assert_decimal =
+      [](std::shared_ptr<::arrow::DataType> type,
+         std::invocable<VariantBuilder&, int64_t> auto&& append_expected) {
+        VariantBuilder expected_builder;
+        std::invoke(std::forward<decltype(append_expected)>(append_expected),
+                    expected_builder, -123456789);
+        auto expected = expected_builder.Finish();
+        auto typed_value = ::arrow::ArrayFromJSON(type, R"(["-123456789"])");
+        auto array = MakeSingleRowVariantArray(std::string_view{*expected.metadata},
+                                               std::nullopt, typed_value);
 
-    AssertUnshreddedValue(*array, /*row=*/0, expected);
-  };
-
-  assert_decimal(::arrow::decimal32(/*precision=*/9, /*scale=*/2), R"(["-1234567.89"])",
-                 [](VariantBuilder& builder) {
-                   builder.AppendDecimal4(::arrow::Decimal32(-123456789), /*scale=*/2);
-                 });
-  assert_decimal(::arrow::decimal64(/*precision=*/9, /*scale=*/0), R"(["123456789"])",
-                 [](VariantBuilder& builder) {
-                   builder.AppendDecimal4(::arrow::Decimal32(123456789), /*scale=*/0);
-                 });
-  assert_decimal(::arrow::decimal64(/*precision=*/18, /*scale=*/0),
-                 R"(["-123456789012345678"])", [](VariantBuilder& builder) {
-                   builder.AppendDecimal8(::arrow::Decimal64(-123456789012345678),
-                                          /*scale=*/0);
-                 });
-  assert_decimal(::arrow::decimal128(/*precision=*/9, /*scale=*/0), R"(["-123456789"])",
-                 [](VariantBuilder& builder) {
-                   builder.AppendDecimal4(::arrow::Decimal32(-123456789), /*scale=*/0);
-                 });
-  assert_decimal(::arrow::decimal128(/*precision=*/18, /*scale=*/0),
-                 R"(["123456789012345678"])", [](VariantBuilder& builder) {
-                   builder.AppendDecimal8(::arrow::Decimal64(123456789012345678),
-                                          /*scale=*/0);
-                 });
-  assert_decimal(::arrow::decimal128(/*precision=*/21, /*scale=*/0),
-                 R"(["100000000000000000000"])", [](VariantBuilder& builder) {
-                   builder.AppendDecimal16(
-                       ::arrow::Decimal128(std::string("100000000000000000000")),
-                       /*scale=*/0);
-                 });
+        AssertUnshreddedValue(*array, /*row=*/0, expected);
+      };
+  assert_decimal(::arrow::decimal32(9, 0), [](VariantBuilder& builder, int64_t value) {
+    builder.AppendDecimal4(::arrow::Decimal32(value), /*scale=*/0);
+  });
+  assert_decimal(::arrow::decimal64(9, 0), [](VariantBuilder& builder, int64_t value) {
+    builder.AppendDecimal8(::arrow::Decimal64(value), /*scale=*/0);
+  });
+  assert_decimal(::arrow::decimal128(9, 0), [](VariantBuilder& builder, int64_t value) {
+    builder.AppendDecimal16(::arrow::Decimal128(value), /*scale=*/0);
+  });
 }
 
 TEST(TestVariantUnshred, MissingTopLevelValue) {

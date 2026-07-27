@@ -78,6 +78,7 @@ void AssertConverted(const std::shared_ptr<DataType>& target, AppendInput append
 
   ASSERT_TRUE(shredded->value()->IsNull(0));
   ASSERT_FALSE(shredded->typed_value()->IsNull(0));
+  ASSERT_TRUE(shredded->typed_value()->type()->Equals(target));
   ASSERT_TRUE(shredded->is_shredded());
   ValidateVariants<true>(ChunkedArray{shredded});
 
@@ -167,7 +168,6 @@ TEST(TestVariantShred, TargetTypes) {
       ::arrow::utf8(),
       ::arrow::large_utf8(),
       ::arrow::utf8_view(),
-      ::arrow::fixed_size_binary(16),
       ::arrow::extension::uuid(),
       ::arrow::struct_({::arrow::field("a", ::arrow::int64())}),
   };
@@ -192,13 +192,14 @@ TEST(TestVariantShred, InvalidTargets) {
       nullptr,
       ::arrow::null(),
       ::arrow::uint8(),
+      ::arrow::float16(),
       ::arrow::uint64(),
       ::arrow::decimal32(4, -1),
       ::arrow::decimal32(4, 5),
       ::arrow::time32(::arrow::TimeUnit::MILLI),
       ::arrow::time64(::arrow::TimeUnit::NANO),
       ::arrow::timestamp(::arrow::TimeUnit::MILLI),
-      ::arrow::fixed_size_binary(15),
+      ::arrow::fixed_size_binary(16),
       ::arrow::struct_({}),
       ::arrow::struct_(
           {::arrow::field("a", ::arrow::int64()), ::arrow::field("a", ::arrow::utf8())}),
@@ -364,8 +365,24 @@ TEST(TestVariantShred, Decimal) {
         builder.AppendDecimal8(::arrow::Decimal64(12340), /*scale=*/3);
       });
   AssertConverted(
+      ::arrow::decimal64(9, 2),
+      [](VariantBuilder& builder) {
+        builder.AppendDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
+      },
+      [](VariantBuilder& builder) {
+        builder.AppendDecimal8(::arrow::Decimal64(1234), /*scale=*/2);
+      });
+  AssertConverted(
       ::arrow::decimal128(38, 2),
       [](VariantBuilder& builder) { builder.AppendString("12.34"); },
+      [](VariantBuilder& builder) {
+        builder.AppendDecimal16(::arrow::Decimal128(1234), /*scale=*/2);
+      });
+  AssertConverted(
+      ::arrow::decimal128(9, 2),
+      [](VariantBuilder& builder) {
+        builder.AppendDecimal4(::arrow::Decimal32(1234), /*scale=*/2);
+      },
       [](VariantBuilder& builder) {
         builder.AppendDecimal16(::arrow::Decimal128(1234), /*scale=*/2);
       });
@@ -419,10 +436,6 @@ TEST(TestVariantShred, Temporal) {
 
 TEST(TestVariantShred, Uuid) {
   constexpr std::string_view uuid = "0123456789abcdef";
-  AssertConverted(
-      ::arrow::fixed_size_binary(16),
-      [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); },
-      [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); });
   AssertConverted(
       ::arrow::extension::uuid(),
       [uuid](VariantBuilder& builder) { builder.AppendUuid(uuid); },

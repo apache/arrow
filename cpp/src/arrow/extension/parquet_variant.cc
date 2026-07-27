@@ -61,8 +61,6 @@ bool IsSupportedPrimitiveTypedValue(const std::shared_ptr<DataType>& type) {
       const auto unit = internal::checked_cast<const TimestampType&>(*type).unit();
       return unit == TimeUnit::MICRO || unit == TimeUnit::NANO;
     }
-    case Type::FIXED_SIZE_BINARY:
-      return internal::checked_cast<const FixedSizeBinaryType&>(*type).byte_width() == 16;
     case Type::EXTENSION: {
       const auto& ext_type = internal::checked_cast<const ExtensionType&>(*type);
       return ext_type.extension_name() == "arrow.uuid";

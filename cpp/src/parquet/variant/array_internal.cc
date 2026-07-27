@@ -42,6 +42,20 @@ std::string_view BinaryFieldView(const Array& array, int64_t row) {
   }
 }
 
+std::string_view StringFieldView(const Array& array, int64_t row) {
+  switch (array.type_id()) {
+    case ::arrow::Type::STRING:
+      return checked_cast<const ::arrow::StringArray&>(array).GetView(row);
+    case ::arrow::Type::LARGE_STRING:
+      return checked_cast<const ::arrow::LargeStringArray&>(array).GetView(row);
+    case ::arrow::Type::STRING_VIEW:
+      return checked_cast<const ::arrow::StringViewArray&>(array).GetView(row);
+    default:
+      throw ParquetInvalidOrCorruptedFileException("Expected string Variant field, got ",
+                                                   array.type()->ToString());
+  }
+}
+
 std::shared_ptr<Array> ValuesArray(const Array& array) {
   switch (array.type_id()) {
     case ::arrow::Type::LIST_VIEW:

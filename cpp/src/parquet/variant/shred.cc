@@ -761,16 +761,9 @@ void ValidatePrimitiveTarget(const std::shared_ptr<DataType>& target) {
       }
       break;
     }
-    case ::arrow::Type::FIXED_SIZE_BINARY:
-      if (checked_cast<const ::arrow::FixedSizeBinaryType&>(*target).byte_width() == 16) {
-        return;
-      }
-      break;
     case ::arrow::Type::EXTENSION: {
       const auto& extension = checked_cast<const ::arrow::ExtensionType&>(*target);
-      if (extension.extension_name() == "arrow.uuid" &&
-          ::arrow::extension::UuidType::IsSupportedStorageType(
-              extension.storage_type())) {
+      if (extension.extension_name() == "arrow.uuid") {
         return;
       }
       break;

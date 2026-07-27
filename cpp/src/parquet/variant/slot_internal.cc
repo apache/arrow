@@ -30,17 +30,16 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/unreachable.h"
 #include "parquet/exception.h"
 #include "parquet/variant/append_table_internal.h"
 #include "parquet/variant/array_internal.h"
+#include "parquet/variant/format.h"
 
 namespace parquet::variant::internal {
 
 namespace {
 
 using ::arrow::Array;
-using ::arrow::DataType;
 using ::arrow::ExtensionArray;
 using ::arrow::StructArray;
 using ::arrow::internal::checked_cast;
@@ -103,11 +102,6 @@ VariantListBuilder StartList(BuildTarget& target) {
       target.destination);
 }
 
-[[noreturn]] void UnsupportedType(const DataType& type) {
-  throw ParquetInvalidOrCorruptedFileException("Illegal shredded value type: ",
-                                               type.ToString());
-}
-
 std::optional<std::string_view> GetValueSlot(const std::shared_ptr<Array>& value_array,
                                              int64_t row) {
   if (value_array == nullptr || value_array->IsNull(row)) {
@@ -159,19 +153,19 @@ CompiledTypedScalarPlan CompileTypedScalarPlan(
     case ::arrow::Type::BINARY:
     case ::arrow::Type::LARGE_BINARY:
     case ::arrow::Type::BINARY_VIEW:
-      return {.kind = TypedScalarKind::kBinary, .physical_type = typed_array->type_id()};
+      return {.kind = TypedScalarKind::kBinary};
     case ::arrow::Type::STRING:
     case ::arrow::Type::LARGE_STRING:
     case ::arrow::Type::STRING_VIEW:
-      return {.kind = TypedScalarKind::kString, .physical_type = typed_array->type_id()};
+      return {.kind = TypedScalarKind::kString};
     case ::arrow::Type::DATE32:
       return {.kind = TypedScalarKind::kDate};
     case ::arrow::Type::TIME64: {
       const auto& type = checked_cast<const ::arrow::Time64Type&>(*typed_array->type());
-      if (type.unit() != ::arrow::TimeUnit::MICRO) {
-        UnsupportedType(*typed_array->type());
+      if (type.unit() == ::arrow::TimeUnit::MICRO) {
+        return {.kind = TypedScalarKind::kTimeNTZMicros};
       }
-      return {.kind = TypedScalarKind::kTimeNTZMicros};
+      break;
     }
     case ::arrow::Type::TIMESTAMP: {
       const auto& type =
@@ -185,59 +179,41 @@ CompiledTypedScalarPlan CompileTypedScalarPlan(
                   .adjusted_to_utc = !type.timezone().empty()};
         case ::arrow::TimeUnit::SECOND:
         case ::arrow::TimeUnit::MILLI:
-          UnsupportedType(*typed_array->type());
+          break;
       }
-      ::arrow::Unreachable("Unexpected timestamp unit");
+      break;
     }
     case ::arrow::Type::DECIMAL32: {
       const auto& type =
           checked_cast<const ::arrow::Decimal32Type&>(*typed_array->type());
-      return {.kind = TypedScalarKind::kDecimal4From32,
+      return {.kind = TypedScalarKind::kDecimal4,
               .scale = static_cast<uint8_t>(type.scale())};
     }
     case ::arrow::Type::DECIMAL64: {
       const auto& type =
           checked_cast<const ::arrow::Decimal64Type&>(*typed_array->type());
-      if (type.precision() <= 9) {
-        return {.kind = TypedScalarKind::kDecimal4From64,
-                .scale = static_cast<uint8_t>(type.scale())};
-      }
-      return {.kind = TypedScalarKind::kDecimal8From64,
+      return {.kind = TypedScalarKind::kDecimal8,
               .scale = static_cast<uint8_t>(type.scale())};
     }
     case ::arrow::Type::DECIMAL128: {
       const auto& type =
           checked_cast<const ::arrow::Decimal128Type&>(*typed_array->type());
-      if (type.precision() <= 9) {
-        return {.kind = TypedScalarKind::kDecimal4From128,
-                .scale = static_cast<uint8_t>(type.scale())};
-      }
-      if (type.precision() <= 18) {
-        return {.kind = TypedScalarKind::kDecimal8From128,
-                .scale = static_cast<uint8_t>(type.scale())};
-      }
-      return {.kind = TypedScalarKind::kDecimal16From128,
+      return {.kind = TypedScalarKind::kDecimal16,
               .scale = static_cast<uint8_t>(type.scale())};
-    }
-    case ::arrow::Type::FIXED_SIZE_BINARY: {
-      const auto& type =
-          checked_cast<const ::arrow::FixedSizeBinaryType&>(*typed_array->type());
-      if (type.byte_width() != 16) {
-        UnsupportedType(*typed_array->type());
-      }
-      return {.kind = TypedScalarKind::kUuidFixed};
     }
     case ::arrow::Type::EXTENSION: {
       const auto& ext_type =
           checked_cast<const ::arrow::ExtensionType&>(*typed_array->type());
-      if (ext_type.extension_name() != "arrow.uuid") {
-        UnsupportedType(*typed_array->type());
+      if (ext_type.extension_name() == "arrow.uuid") {
+        return {.kind = TypedScalarKind::kUuidExtension};
       }
-      return {.kind = TypedScalarKind::kUuidExtension};
+      break;
     }
     default:
-      UnsupportedType(*typed_array->type());
+      break;
   }
+  throw ParquetInvalidOrCorruptedFileException("Illegal shredded value type: ",
+                                               typed_array->type()->ToString());
 }
 
 CompiledVariantRowPlan CompileVariantRowPlanImpl(
@@ -311,22 +287,6 @@ void ValidateTypedFieldNames(const VariantMetadataView& metadata,
   }
 }
 
-std::string_view GetStringScalarView(const CompiledTypedScalarPlan& plan,
-                                     const std::shared_ptr<Array>& typed_array,
-                                     int64_t row) {
-  switch (plan.physical_type) {
-    case ::arrow::Type::STRING:
-      return checked_cast<const ::arrow::StringArray&>(*typed_array).GetView(row);
-    case ::arrow::Type::LARGE_STRING:
-      return checked_cast<const ::arrow::LargeStringArray&>(*typed_array).GetView(row);
-    case ::arrow::Type::STRING_VIEW:
-      return checked_cast<const ::arrow::StringViewArray&>(*typed_array).GetView(row);
-    default:
-      DCHECK(false);
-      return {};
-  }
-}
-
 void AppendTypedScalar(BuildTarget* target, const CompiledTypedScalarPlan& plan,
                        const std::shared_ptr<Array>& typed_array, int64_t row) {
   if (target == nullptr) {
@@ -365,8 +325,8 @@ void AppendTypedScalar(BuildTarget* target, const CompiledTypedScalarPlan& plan,
       AppendBinary(target, BinaryFieldView(*typed_array, row));
       return;
     case TypedScalarKind::kString: {
-      auto value = GetStringScalarView(plan, typed_array, row);
-      if (value.size() <= 0x3f) {
+      auto value = StringFieldView(*typed_array, row);
+      if (value.size() <= kMaxShortStringSize) {
         AppendShortString(target, value);
       } else {
         AppendString(target, value);
@@ -391,49 +351,22 @@ void AppendTypedScalar(BuildTarget* target, const CompiledTypedScalarPlan& plan,
           target, checked_cast<const ::arrow::TimestampArray&>(*typed_array).Value(row),
           plan.adjusted_to_utc);
       return;
-    case TypedScalarKind::kDecimal4From32: {
+    case TypedScalarKind::kDecimal4: {
       const auto value = ::arrow::Decimal32(
           checked_cast<const ::arrow::Decimal32Array&>(*typed_array).GetValue(row));
       AppendDecimal4(target, value, plan.scale);
       return;
     }
-    case TypedScalarKind::kDecimal4From64: {
-      const auto value = ::arrow::Decimal64(
-          checked_cast<const ::arrow::Decimal64Array&>(*typed_array).GetValue(row));
-      PARQUET_ASSIGN_OR_THROW(auto raw, value.ToInteger<int32_t>());
-      AppendDecimal4(target, ::arrow::Decimal32(raw), plan.scale);
-      return;
-    }
-    case TypedScalarKind::kDecimal8From64: {
+    case TypedScalarKind::kDecimal8: {
       const auto value = ::arrow::Decimal64(
           checked_cast<const ::arrow::Decimal64Array&>(*typed_array).GetValue(row));
       AppendDecimal8(target, value, plan.scale);
       return;
     }
-    case TypedScalarKind::kDecimal4From128: {
-      const auto value = ::arrow::Decimal128(
-          checked_cast<const ::arrow::Decimal128Array&>(*typed_array).GetValue(row));
-      PARQUET_ASSIGN_OR_THROW(auto raw, value.ToInteger<int32_t>());
-      AppendDecimal4(target, ::arrow::Decimal32(raw), plan.scale);
-      return;
-    }
-    case TypedScalarKind::kDecimal8From128: {
-      const auto value = ::arrow::Decimal128(
-          checked_cast<const ::arrow::Decimal128Array&>(*typed_array).GetValue(row));
-      PARQUET_ASSIGN_OR_THROW(auto raw, value.ToInteger<int64_t>());
-      AppendDecimal8(target, ::arrow::Decimal64(raw), plan.scale);
-      return;
-    }
-    case TypedScalarKind::kDecimal16From128: {
+    case TypedScalarKind::kDecimal16: {
       const auto value = ::arrow::Decimal128(
           checked_cast<const ::arrow::Decimal128Array&>(*typed_array).GetValue(row));
       AppendDecimal16(target, value, plan.scale);
-      return;
-    }
-    case TypedScalarKind::kUuidFixed: {
-      auto value =
-          checked_cast<const ::arrow::FixedSizeBinaryArray&>(*typed_array).GetView(row);
-      AppendUuid(target, value);
       return;
     }
     case TypedScalarKind::kUuidExtension: {
