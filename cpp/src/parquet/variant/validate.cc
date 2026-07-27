@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"  // IWYU pragma: keep
@@ -28,6 +29,7 @@
 #include "arrow/extension/parquet_variant.h"
 #include "arrow/extension_type.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -57,6 +59,15 @@ struct VariantValidationPlan {
   std::vector<VariantValidationPlan> children;
 };
 
+template <typename VisitVisibleRun>
+void VisitVisibleRowRuns(const std::shared_ptr<Buffer>& valid_rows, const Array& array,
+                         VisitVisibleRun&& visit_visible_run) {
+  ::arrow::internal::VisitTwoSetBitRunsVoid(
+      valid_rows == nullptr ? nullptr : valid_rows->data(), /*left_offset=*/0,
+      array.data()->MayHaveNulls() ? array.null_bitmap_data() : nullptr, array.offset(),
+      array.length(), std::forward<VisitVisibleRun>(visit_visible_run));
+}
+
 template <bool strict>
 void ValidateVariantArrayRows(const VariantArray& array,
                               const std::shared_ptr<Buffer>& valid_rows) {
@@ -74,17 +85,23 @@ void ValidateVariantArrayRows(const VariantArray& array,
   auto row_plan = internal::CompileVariantRowPlan(value_array, typed_array);
   std::string_view last_metadata_bytes;
   std::optional<VariantMetadataView> last_metadata;
-  internal::VisitVisibleRows(valid_rows, array, [&](int64_t row) {
-    if (metadata_array->IsNull(row)) {
+  VisitVisibleRowRuns(valid_rows, array, [&](int64_t first_row, int64_t row_count) {
+    if (metadata_array->data()->MayHaveNulls() &&
+        ::arrow::internal::CountSetBits(metadata_array->null_bitmap_data(),
+                                        metadata_array->offset() + first_row,
+                                        row_count) != row_count) {
       throw ParquetInvalidOrCorruptedFileException(
           "Invalid Variant extension storage: metadata is null");
     }
-    auto metadata_value = internal::BinaryFieldView(*metadata_array, row);
-    if (!last_metadata.has_value() || last_metadata_bytes != metadata_value) {
-      last_metadata = VariantMetadataView::Make(metadata_value);
-      last_metadata_bytes = metadata_value;
+
+    for (int64_t row = first_row; row < first_row + row_count; ++row) {
+      auto metadata_value = internal::BinaryFieldView(*metadata_array, row);
+      if (!last_metadata.has_value() || last_metadata_bytes != metadata_value) {
+        last_metadata = VariantMetadataView::Make(metadata_value);
+        last_metadata_bytes = metadata_value;
+      }
+      internal::ProcessSlot<strict>(*last_metadata, row_plan, row);
     }
-    internal::ProcessSlot<strict>(*last_metadata, row_plan, row);
   });
 }
 
@@ -180,11 +197,24 @@ void ValidateVariantPlan(const VariantValidationPlan& plan, MemoryPool* pool,
       auto values = internal::ValuesArray(*plan.array);
       PARQUET_ASSIGN_OR_THROW(auto values_valid_rows,
                               ::arrow::AllocateEmptyBitmap(values->length(), pool));
-      internal::VisitVisibleRows(valid_rows, *plan.array, [&](int64_t row) {
-        const auto [offset, length] = internal::ValuesRangeAt(*plan.array, row);
-        ::arrow::bit_util::SetBitsTo(values_valid_rows->mutable_data(), offset, length,
-                                     true);
-      });
+      VisitVisibleRowRuns(
+          valid_rows, *plan.array, [&](int64_t first_row, int64_t row_count) {
+            if (plan.array->type_id() == ::arrow::Type::LIST_VIEW ||
+                plan.array->type_id() == ::arrow::Type::LARGE_LIST_VIEW) {
+              for (int64_t row = first_row; row < first_row + row_count; ++row) {
+                const auto [offset, length] = internal::ValuesRangeAt(*plan.array, row);
+                ::arrow::bit_util::SetBitsTo(values_valid_rows->mutable_data(), offset,
+                                             length, true);
+              }
+              return;
+            }
+
+            const int64_t offset = internal::ValuesRangeAt(*plan.array, first_row).first;
+            const auto [last_offset, last_length] =
+                internal::ValuesRangeAt(*plan.array, first_row + row_count - 1);
+            ::arrow::bit_util::SetBitsTo(values_valid_rows->mutable_data(), offset,
+                                         last_offset + last_length - offset, true);
+          });
       ValidateVariantPlan<strict>(plan.children[0], pool, values_valid_rows);
       return;
     }

@@ -25,7 +25,6 @@
 #include "arrow/array.h"  // IWYU pragma: export
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/util/bit_block_counter.h"
 #include "parquet/platform.h"
 
 namespace parquet::variant::internal {
@@ -45,21 +44,5 @@ std::shared_ptr<::arrow::Buffer> FinishNullBitmap(
 
 std::shared_ptr<::arrow::Buffer> NullBitmapForOutput(const ::arrow::Array& array,
                                                      ::arrow::MemoryPool* pool);
-
-template <typename VisitVisible>
-void VisitVisibleRows(const std::shared_ptr<::arrow::Buffer>& valid_rows,
-                      const ::arrow::Array& array, VisitVisible&& visit_visible) {
-  if (valid_rows == nullptr && !array.data()->MayHaveNulls()) {
-    for (int64_t row = 0; row < array.length(); ++row) {
-      visit_visible(row);
-    }
-    return;
-  }
-
-  ::arrow::internal::VisitTwoBitBlocksVoid(
-      valid_rows == nullptr ? nullptr : valid_rows->data(), /*left_offset=*/0,
-      array.null_bitmap_data(), array.offset(), array.length(),
-      std::forward<VisitVisible>(visit_visible), [] {});
-}
 
 }  // namespace parquet::variant::internal
