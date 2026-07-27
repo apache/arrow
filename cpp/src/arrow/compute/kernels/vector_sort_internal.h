@@ -61,7 +61,7 @@ struct NonStablePartitioner {
   auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
     auto middle = std::partition(indices.data(), indices.data() + indices.size(),
                                  std::forward<Predicate>(pred));
-    return std::span<uint64_t>{middle, indices.data() + indices.size()};
+    return indices.subspan(middle - indices.data());
   }
 };
 
@@ -71,7 +71,7 @@ struct StablePartitioner {
   auto operator()(std::span<uint64_t> indices, Predicate&& pred) {
     auto middle = std::stable_partition(indices.data(), indices.data() + indices.size(),
                                         std::forward<Predicate>(pred));
-    return std::span<uint64_t>{middle, indices.data() + indices.size()};
+    return indices.subspan(middle - indices.data());
   }
 };
 
@@ -357,8 +357,9 @@ struct ChunkedMergeImpl {
     std::rotate(left.nan_begin(), left.nan_end(),
                 left.nan_end() + right.null_range.size());
 
-    std::span<CompressedChunkLocation> full_span{left.overall_begin(),
-                                                 right.overall_end()};
+    std::span<CompressedChunkLocation> full_span{
+        left.overall_begin(),
+        static_cast<size_t>(right.overall_end() - left.overall_begin())};
     const auto p = ChunkedNullLikePartition::FromCounts(
         full_span, left.non_null_like_range.size() + right.non_null_like_range.size(),
         left.nan_range.size() + right.nan_range.size(),
@@ -405,8 +406,9 @@ struct ChunkedMergeImpl {
         new_left_null_range_begin, new_left_null_range_begin + left.null_range.size(),
         new_left_null_range_begin + left.null_range.size() + right.nan_range.size());
 
-    std::span<CompressedChunkLocation> full_span{left.overall_begin(),
-                                                 right.overall_end()};
+    std::span<CompressedChunkLocation> full_span{
+        left.overall_begin(),
+        static_cast<size_t>(right.overall_end() - left.overall_begin())};
     const auto p = ChunkedNullLikePartition::FromCounts(
         full_span, left.non_null_like_range.size() + right.non_null_like_range.size(),
         left.nan_range.size() + right.nan_range.size(),
