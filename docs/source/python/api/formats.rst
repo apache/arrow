@@ -47,7 +47,7 @@ Feather Files (Deprecated)
 
 .. currentmodule:: pyarrow.feather
 
-.. deprecated:: 24.0.0
+.. deprecated:: 25.0.0
    The Feather API is deprecated. Use the :ref:`IPC <ipc>` API instead.
 
 .. autosummary::

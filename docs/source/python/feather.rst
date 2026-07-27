@@ -22,7 +22,7 @@
 Feather File Format
 ===================
 
-.. deprecated:: 24.0.0
+.. deprecated:: 25.0.0
    The ``pyarrow.feather`` module is deprecated. Feather V2 is the Arrow IPC
    file format. Use :mod:`pyarrow.ipc` instead. See :ref:`ipc` for details.
 

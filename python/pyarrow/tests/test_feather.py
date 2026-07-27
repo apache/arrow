@@ -42,9 +42,9 @@ except ImportError:
     pass
 
 # Suppress deprecation warnings for existing tests since pyarrow.feather
-# is deprecated as of 24.0.0
+# is deprecated as of 25.0.0
 pytestmark = pytest.mark.filterwarnings(
-    "ignore:pyarrow.feather:FutureWarning"
+    "ignore:pyarrow.feather:DeprecationWarning"
 )
 
 
@@ -894,39 +894,39 @@ def test_feather_datetime_resolution_arrow_to_pandas(tempdir):
 # --- Deprecation warning tests ---
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+@pytest.mark.filterwarnings("default:pyarrow.feather:DeprecationWarning")
 def test_feather_deprecation_warnings(tempdir):
     table = pa.table({"a": [1, 2, 3]})
     path = str(tempdir / "test.feather")
 
-    with pytest.warns(FutureWarning, match="write_feather is deprecated"):
+    with pytest.warns(DeprecationWarning, match="write_feather is deprecated"):
         write_feather(table, path)
 
-    with pytest.warns(FutureWarning, match="read_table is deprecated"):
+    with pytest.warns(DeprecationWarning, match="read_table is deprecated"):
         read_table(path)
 
-    with pytest.warns(FutureWarning, match="read_feather is deprecated"):
+    with pytest.warns(DeprecationWarning, match="read_feather is deprecated"):
         read_feather(path)
 
 
-@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+@pytest.mark.filterwarnings("default:pyarrow.feather:DeprecationWarning")
 def test_feather_dataset_deprecated():
-    with pytest.warns(FutureWarning, match="FeatherDataset is deprecated"):
+    with pytest.warns(DeprecationWarning, match="FeatherDataset is deprecated"):
         FeatherDataset([])
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+@pytest.mark.filterwarnings("default:pyarrow.feather:DeprecationWarning")
 def test_read_feather_no_double_warning(tempdir):
-    """Verify read_feather emits exactly one FutureWarning, not two."""
+    """Verify read_feather emits exactly one DeprecationWarning, not two."""
     table = pa.table({"a": [1, 2, 3]})
     path = str(tempdir / "test.feather")
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
+        warnings.simplefilter("ignore", DeprecationWarning)
         write_feather(table, path)
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         read_feather(path)
-        future_warnings = [x for x in w if issubclass(x.category,
-                                                      FutureWarning)]
-        assert len(future_warnings) == 1
+        deprecation_warnings = [x for x in w if issubclass(x.category,
+                                                           DeprecationWarning)]
+        assert len(deprecation_warnings) == 1
