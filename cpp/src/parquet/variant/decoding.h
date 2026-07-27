@@ -52,6 +52,7 @@ class PARQUET_EXPORT VariantMetadataView {
   /// Parse a Variant metadata prefix without copying it and return bytes consumed.
   /// The returned view contains exactly the consumed metadata bytes.
   ///
+  /// \param[in] data Metadata bytes to parse
   /// \param[out] consumed receives the metadata size when non-null
   static VariantMetadataView ParsePrefix(std::string_view data,
                                          size_t* consumed = nullptr);
