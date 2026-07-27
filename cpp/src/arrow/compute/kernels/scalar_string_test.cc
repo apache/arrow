@@ -1809,7 +1809,7 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstringRegexInvalid) {
       CallFunction("match_substring_regex", {input}, &options));
 }
 
-TYPED_TEST(TestBinaryKernels, MatchLikeIgnoreCare) {
+TYPED_TEST(TestBinaryKernels, MatchLikeIgnoreCase) {
   // Case-folding is ASCII-only for binary types
   MatchSubstringOptions insensitive_substring{"%e%", /*ignore_case=*/true};
   this->CheckUnary("match_like", R"(["fooebar", "fooEbar", "é"])", boolean(),
