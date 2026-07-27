@@ -329,10 +329,37 @@ TEST(ScalarFunction, DictionaryUnaryAppliesToDictionaryValues) {
                                               ArrayFromJSON(int32(), "[10, 20, 999]")));
   ASSERT_OK_AND_ASSIGN(Datum result, func.Execute({input}, nullptr, nullptr));
 
+  auto expected = ArrayFromJSON(int64(), "[10, 20, 10, null, 20]");
   ASSERT_TRUE(result.is_array());
-  AssertArraysEqual(*ArrayFromJSON(int64(), "[10, 20, 10, null, 20]"),
-                    *result.make_array());
+  AssertArraysEqual(*expected, *result.make_array());
   ASSERT_EQ(counter->values_processed, 3);
+
+  ASSERT_OK_AND_ASSIGN(auto scalar_input, input->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(Datum scalar_result,
+                       func.Execute({scalar_input}, nullptr, nullptr));
+  ASSERT_TRUE(scalar_result.is_scalar());
+  AssertScalarsEqual(Int64Scalar(20), *scalar_result.scalar());
+
+  auto chunked_input =
+      std::make_shared<ChunkedArray>(ArrayVector{input->Slice(0, 2), input->Slice(2)});
+  ASSERT_OK_AND_ASSIGN(Datum chunked_result,
+                       func.Execute({chunked_input}, nullptr, nullptr));
+  ASSERT_TRUE(chunked_result.is_chunked_array());
+  AssertChunkedEqual(*chunked_result.chunked_array(),
+                     ArrayVector{expected->Slice(0, 2), expected->Slice(2)});
+
+  auto empty_chunked_input = std::make_shared<ChunkedArray>(ArrayVector{}, input->type());
+  ASSERT_OK_AND_ASSIGN(Datum empty_chunked_result,
+                       func.Execute({empty_chunked_input}, nullptr, nullptr));
+  ASSERT_TRUE(empty_chunked_result.is_chunked_array());
+  ASSERT_EQ(empty_chunked_result.length(), 0);
+  ASSERT_TRUE(empty_chunked_result.type()->Equals(*int64()));
+
+  ASSERT_RAISES(Invalid,
+                func.Execute(ExecBatch({Datum(scalar_input)}, 2), nullptr, nullptr));
+
+  std::vector<TypeHolder> dictionary_types = {dictionary(int8(), int32())};
+  ASSERT_RAISES(NotImplemented, func.DispatchBest(&dictionary_types));
   ASSERT_RAISES(NotImplemented, func.DispatchExact({dictionary(int8(), utf8())}));
 }
 

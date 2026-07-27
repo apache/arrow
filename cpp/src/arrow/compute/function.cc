@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include "arrow/array/array_dict.h"
+#include "arrow/array/util.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
@@ -299,115 +300,68 @@ struct FunctionExecutorImpl : public FunctionExecutor {
 
 namespace {
 
-struct DictionaryUnaryKernelState : KernelState {
-  DictionaryUnaryKernelState(const ScalarFunction* function,
-                             const FunctionOptions* options)
-      : function(function), options(options) {}
-
-  const ScalarFunction* function;
-  const FunctionOptions* options;
-};
-
-class DictionaryUnaryTypeMatcher : public TypeMatcher {
- public:
-  explicit DictionaryUnaryTypeMatcher(const ScalarFunction* function)
-      : function_(function) {}
-
-  bool Matches(const DataType& type) const override {
-    if (type.id() != Type::DICTIONARY) {
-      return false;
-    }
-    const auto& dictionary_type = checked_cast<const DictionaryType&>(type);
-    std::vector<TypeHolder> value_types = {dictionary_type.value_type()};
-    return function_->DispatchBest(&value_types).ok();
-  }
-
-  std::string ToString() const override {
-    return "dictionary with values accepted by " + function_->name();
-  }
-
-  bool Equals(const TypeMatcher& other) const override {
-    const auto* other_matcher = dynamic_cast<const DictionaryUnaryTypeMatcher*>(&other);
-    return other_matcher != nullptr && function_ == other_matcher->function_;
-  }
-
- private:
-  const ScalarFunction* function_;
-};
-
-Result<TypeHolder> ResolveDictionaryUnaryOutput(const ScalarFunction& function,
-                                                KernelContext* ctx,
-                                                const std::vector<TypeHolder>& types) {
-  DCHECK_EQ(types.size(), 1);
-  DCHECK_EQ(types[0].id(), Type::DICTIONARY);
-
-  const auto& dictionary_type =
-      checked_cast<const DictionaryType&>(*types[0].GetSharedPtr());
-  std::vector<TypeHolder> value_types = {dictionary_type.value_type()};
-  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function.DispatchBest(&value_types));
-
-  const FunctionOptions* options = function.default_options();
-  if (ctx->state() != nullptr) {
-    options = checked_cast<DictionaryUnaryKernelState*>(ctx->state())->options;
-  }
-
-  KernelContext value_ctx(ctx->exec_context(), kernel);
-  std::unique_ptr<KernelState> value_state;
-  if (kernel->init) {
-    ARROW_ASSIGN_OR_RAISE(value_state,
-                          kernel->init(&value_ctx, {kernel, value_types, options}));
-    value_ctx.SetState(value_state.get());
-  }
-  return kernel->signature->out_type().Resolve(&value_ctx, value_types);
+bool CanExecuteDictionaryValues(const ScalarFunction& function,
+                                const std::vector<Datum>& args) {
+  return function.is_pure() && !function.arity().is_varargs &&
+         function.arity().num_args == 1 && args.size() == 1 &&
+         args[0].type()->id() == Type::DICTIONARY;
 }
 
-Status ExecuteDictionaryUnary(KernelContext* ctx, const ExecSpan& batch,
-                              ExecResult* out) {
-  const auto& state = checked_cast<const DictionaryUnaryKernelState&>(*ctx->state());
-  DictionaryArray input(batch[0].array.ToArrayData());
-
-  ARROW_ASSIGN_OR_RAISE(
-      Datum transformed_values,
-      state.function->Execute({input.dictionary()}, state.options, ctx->exec_context()));
+Result<Datum> ExecuteDictionaryArray(const ScalarFunction& function, const Datum& arg,
+                                     const FunctionOptions* options, ExecContext* ctx) {
+  auto input_array = arg.make_array();
+  const auto& input = checked_cast<const DictionaryArray&>(*input_array);
+  ARROW_ASSIGN_OR_RAISE(Datum transformed_values,
+                        function.Execute({input.dictionary()}, options, ctx));
   if (!transformed_values.is_array()) {
-    return Status::Invalid("Unary scalar function '", state.function->name(),
+    return Status::Invalid("Unary scalar function '", function.name(),
                            "' returned a non-array result for dictionary values");
   }
 
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(transformed_values, input.indices(),
-                                           TakeOptions::Defaults(), ctx->exec_context()));
-  DCHECK(result.is_array());
-  out->value = result.array();
-  return Status::OK();
+  return Take(transformed_values, input.indices(), TakeOptions::Defaults(), ctx);
 }
 
-ScalarKernel MakeDictionaryUnaryKernel(const ScalarFunction* function) {
-  ScalarKernel kernel(
-      {InputType(std::make_shared<DictionaryUnaryTypeMatcher>(function))},
-      OutputType([function](KernelContext* ctx, const std::vector<TypeHolder>& types) {
-        return ResolveDictionaryUnaryOutput(*function, ctx, types);
-      }),
-      ExecuteDictionaryUnary,
-      [function](KernelContext*,
-                 const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
-        return std::make_unique<DictionaryUnaryKernelState>(function, args.options);
-      });
-  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  return kernel;
+Result<Datum> ExecuteDictionaryValues(const ScalarFunction& function, const Datum& arg,
+                                      const FunctionOptions* options, ExecContext* ctx) {
+  switch (arg.kind()) {
+    case Datum::ARRAY:
+      return ExecuteDictionaryArray(function, arg, options, ctx);
+    case Datum::SCALAR: {
+      const auto& input = checked_cast<const DictionaryScalar&>(*arg.scalar());
+      ARROW_ASSIGN_OR_RAISE(auto value, input.GetEncodedValue());
+      return function.Execute({std::move(value)}, options, ctx);
+    }
+    case Datum::CHUNKED_ARRAY: {
+      ArrayVector output_chunks;
+      output_chunks.reserve(arg.chunked_array()->num_chunks());
+      std::shared_ptr<DataType> output_type;
+      for (const auto& chunk : arg.chunked_array()->chunks()) {
+        ARROW_ASSIGN_OR_RAISE(
+            Datum output, ExecuteDictionaryArray(function, Datum(chunk), options, ctx));
+        DCHECK(output.is_array());
+        output_type = output.type();
+        output_chunks.push_back(output.make_array());
+      }
+
+      if (output_type == nullptr) {
+        const auto& input_type = checked_cast<const DictionaryType&>(*arg.type());
+        ARROW_ASSIGN_OR_RAISE(auto empty_values, MakeEmptyArray(input_type.value_type()));
+        ARROW_ASSIGN_OR_RAISE(Datum output,
+                              function.Execute({std::move(empty_values)}, options, ctx));
+        if (!output.is_array()) {
+          return Status::Invalid("Unary scalar function '", function.name(),
+                                 "' returned a non-array result for dictionary values");
+        }
+        output_type = output.type();
+      }
+      return ChunkedArray::Make(std::move(output_chunks), std::move(output_type));
+    }
+    default:
+      return Status::Invalid("Unsupported dictionary datum kind");
+  }
 }
 
 }  // namespace
-
-ScalarFunction::ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                               const FunctionOptions* default_options, bool is_pure)
-    : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                         std::move(doc), default_options),
-      is_pure_(is_pure) {
-  if (is_pure && !arity.is_varargs && arity.num_args == 1) {
-    DCHECK_OK(AddKernel(MakeDictionaryUnaryKernel(this)));
-  }
-}
 
 Result<const Kernel*> Function::DispatchExact(
     const std::vector<TypeHolder>& values) const {
@@ -467,6 +421,51 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
                                 ExecContext* ctx) const {
   return ExecuteInternal(*this, batch.values, batch.length, options, ctx);
+}
+
+Result<Datum> ScalarFunction::Execute(const std::vector<Datum>& args,
+                                      const FunctionOptions* options,
+                                      ExecContext* ctx) const {
+  if (!CanExecuteDictionaryValues(*this, args)) {
+    return Function::Execute(args, options, ctx);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto types, internal::GetFunctionArgumentTypes(args));
+  auto direct_kernel = DispatchBest(&types);
+  if (direct_kernel.ok()) {
+    return Function::Execute(args, options, ctx);
+  }
+  if (!direct_kernel.status().IsNotImplemented()) {
+    return direct_kernel.status();
+  }
+  return ExecuteDictionaryValues(*this, args[0], options, ctx);
+}
+
+Result<Datum> ScalarFunction::Execute(const ExecBatch& batch,
+                                      const FunctionOptions* options,
+                                      ExecContext* ctx) const {
+  if (!CanExecuteDictionaryValues(*this, batch.values)) {
+    return Function::Execute(batch, options, ctx);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto types, internal::GetFunctionArgumentTypes(batch.values));
+  auto direct_kernel = DispatchBest(&types);
+  if (direct_kernel.ok()) {
+    return Function::Execute(batch, options, ctx);
+  }
+  if (!direct_kernel.status().IsNotImplemented()) {
+    return direct_kernel.status();
+  }
+  if (batch.length != -1) {
+    ARROW_ASSIGN_OR_RAISE(auto inferred_length, ExecBatch::InferLength(batch.values));
+    if (batch.length != inferred_length) {
+      return Status::Invalid(
+          "Passed batch length for execution did not match actual"
+          " length of values for execution of scalar function '",
+          name(), "'");
+    }
+  }
+  return ExecuteDictionaryValues(*this, batch.values[0], options, ctx);
 }
 
 namespace {
