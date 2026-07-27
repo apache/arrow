@@ -77,56 +77,13 @@ static void Hash64Int64(benchmark::State& state) {  // NOLINT non-const referenc
   state.SetItemsProcessed(state.iterations() * test_vals->length());
 }
 
-static void Hash64StructSmallStrings(
+// Shared by the Hash64StructWithStrings benchmarks below, which only differ in the
+// string column's length range (args: min_strlen, max_strlen).
+static void Hash64StructWithStrings(
     benchmark::State& state) {  // NOLINT non-const reference
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<StructArray> values_array,
-                       MakeStructArray(10000, 2, 20));
-
-  // 2nd column (index 1) is a string column, which has offset type of int32_t
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
-                       values_array->GetFlattenedField(1));
-  auto str_vals = std::static_pointer_cast<StringArray>(values_second);
-  int32_t total_string_size = str_vals->total_values_length();
-
-  while (state.KeepRunning()) {
-    Datum hash_result = compute::CallFunction("hash64", {values_array}).ValueOrDie();
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() *
-                          ((values_array->length() * sizeof(int64_t)) +
-                           (total_string_size) +
-                           (values_array->length() * sizeof(int64_t))));
-  state.SetItemsProcessed(state.iterations() * 3 * values_array->length());
-}
-
-static void Hash64StructMediumStrings(
-    benchmark::State& state) {  // NOLINT non-const reference
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<StructArray> values_array,
-                       MakeStructArray(10000, 20, 120));
-
-  // 2nd column (index 1) is a string column, which has offset type of int32_t
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
-                       values_array->GetFlattenedField(1));
-  auto str_vals = std::static_pointer_cast<StringArray>(values_second);
-  int32_t total_string_size = str_vals->total_values_length();
-
-  while (state.KeepRunning()) {
-    Datum hash_result = compute::CallFunction("hash64", {values_array}).ValueOrDie();
-    benchmark::DoNotOptimize(hash_result);
-  }
-
-  state.SetBytesProcessed(state.iterations() *
-                          ((values_array->length() * sizeof(int64_t)) +
-                           (total_string_size) +
-                           (values_array->length() * sizeof(int64_t))));
-  state.SetItemsProcessed(state.iterations() * 3 * values_array->length());
-}
-
-static void Hash64StructLargeStrings(
-    benchmark::State& state) {  // NOLINT non-const reference
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<StructArray> values_array,
-                       MakeStructArray(10000, 120, 2000));
+                       MakeStructArray(10000, static_cast<int32_t>(state.range(0)),
+                                       static_cast<int32_t>(state.range(1))));
 
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
@@ -238,9 +195,7 @@ static void Hash64Map(benchmark::State& state) {  // NOLINT non-const reference
 // Uses "FastHash" compute functions (wraps KeyHash functions)
 BENCHMARK(Hash64Int64);
 
-BENCHMARK(Hash64StructSmallStrings);
-BENCHMARK(Hash64StructMediumStrings);
-BENCHMARK(Hash64StructLargeStrings);
+BENCHMARK(Hash64StructWithStrings)->Args({2, 20})->Args({20, 120})->Args({120, 2000});
 
 BENCHMARK(Hash64Map);
 BENCHMARK(Hash64ListInt64);
