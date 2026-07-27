@@ -1040,9 +1040,9 @@ if(ARROW_JSON)
                            json/chunker.cc
                            json/converter.cc
                            json/from_string.cc
+                           json/json_writer_internal.cc
                            json/object_parser.cc
                            json/object_writer.cc
-                           json/json_writer_internal.cc
                            json/parser.cc
                            json/reader.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})

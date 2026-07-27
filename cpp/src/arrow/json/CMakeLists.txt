@@ -21,10 +21,10 @@ add_arrow_test(test
                chunker_test.cc
                converter_test.cc
                from_string_test.cc
+               json_writer_internal_test.cc
+               object_parser_test.cc
                parser_test.cc
                reader_test.cc
-               object_parser_test.cc
-               json_writer_internal_test.cc
                PREFIX
                "arrow-json"
                EXTRA_LINK_LIBS
