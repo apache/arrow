@@ -50,15 +50,21 @@ class TestScalarHash : public ::testing::Test {
                          std::vector<c_type> exp) {
     auto res_array = res.array();
     for (int64_t val_ndx = 0; val_ndx < arr->length(); ++val_ndx) {
-      c_type actual_hash = res_array->GetValues<c_type>(1)[val_ndx];
       if (arr->IsNull(val_ndx)) {
-        ASSERT_EQ(0, actual_hash);
+        ASSERT_TRUE(res_array->IsNull(val_ndx))
+            << "row " << val_ndx << " is null and should produce a null hash";
       } else {
+        ASSERT_TRUE(res_array->IsValid(val_ndx))
+            << "row " << val_ndx << " is valid and should not produce a null hash";
+        c_type actual_hash = res_array->GetValues<c_type>(1)[val_ndx];
         ASSERT_EQ(exp[val_ndx], actual_hash);
       }
     }
   }
 
+  // Reference hash for valid rows only -- AssertHashesEqual never reads this vector's
+  // null-row entries, since a null row's validity (not its value) is what's checked
+  // there, and this raw HashFixed call doesn't handle nulls at all.
   template <typename c_type>
   std::vector<c_type> HashPrimitive(const std::shared_ptr<Array>& arr) {
     std::vector<c_type> hashes(arr->length());
@@ -73,18 +79,6 @@ class TestScalarHash : public ::testing::Test {
                            false, static_cast<uint32_t>(arr->length()),
                            arr->type()->bit_width() / 8,
                            arr->data()->GetValues<uint8_t>(1), hashes.data(), nullptr);
-    }
-
-    // Matches scalar_hash.cc's remap: a valid row whose raw hash happens to be 0 would
-    // otherwise be indistinguishable from an actually-null row (also hashed to 0).
-    for (int64_t i = 0; i < arr->length(); i++) {
-      if (hashes[i] == 0 && arr->IsValid(i)) {
-        if constexpr (std::is_same_v<c_type, uint64_t>) {
-          hashes[i] = Hashing64::CombineHashes(0, 0);
-        } else {
-          hashes[i] = Hashing32::CombineHashes(0, 0);
-        }
-      }
     }
 
     return hashes;
@@ -172,9 +166,10 @@ class TestScalarHash : public ::testing::Test {
       auto hashes32 = dynamic_cast<const UInt32Array*>(hashes.get());
       std::unordered_set<uint32_t> hash_set;
       for (int64_t i = 0; i < hashes32->length(); ++i) {
-        if (hashes32->IsValid(i)) {
-          hash_set.insert(hashes32->Value(i));
-        }
+        // Read the raw value regardless of validity: every null row still stores a
+        // deterministic 0 internally, so nulls collapse into exactly one shared bucket
+        // here, matching `expected`'s `null_count - 1` above (same as hash64 below).
+        hash_set.insert(hashes32->Value(i));
       }
       ASSERT_LE(hash_set.size(), expected);
       ASSERT_GE(hash_set.size(), expected * tolerance);
@@ -206,6 +201,17 @@ class TestScalarHash : public ::testing::Test {
       FAIL() << "Unknown function: " << func;
     }
   }
+
+  // hash32/hash64 decode dictionaries to their logical values before hashing (rather
+  // than hashing the index buffer directly), so the result must match hashing the
+  // plain decoded array.
+  void CheckDictionary(const std::string& func, const std::shared_ptr<Array>& dict) {
+    CheckDeterministic(func, dict);
+    ASSERT_OK_AND_ASSIGN(Datum decoded, CallFunction("dictionary_decode", {dict}));
+    ASSERT_OK_AND_ASSIGN(Datum dict_hash, CallFunction(func, {dict}));
+    ASSERT_OK_AND_ASSIGN(Datum decoded_hash, CallFunction(func, {decoded}));
+    AssertDatumsEqual(dict_hash, decoded_hash);
+  }
 };
 
 TEST_F(TestScalarHash, Null) {
@@ -226,42 +232,48 @@ TEST_F(TestScalarHash, Null) {
   CheckDeterministic("hash64", arr);
 
   arr = ArrayFromJSON(null(), R"([null, null, null])");
-  exp = ArrayFromJSON(uint32(), "[0, 0, 0]");
+  exp = ArrayFromJSON(uint32(), "[null, null, null]");
   ASSERT_OK_AND_ASSIGN(res, CallFunction("hash32", {arr}));
   AssertArraysEqual(*res.make_array(), *exp);
   CheckDeterministic("hash32", arr);
 
   arr = ArrayFromJSON(null(), R"([null, null, null])");
-  exp = ArrayFromJSON(uint64(), "[0, 0, 0]");
+  exp = ArrayFromJSON(uint64(), "[null, null, null]");
   ASSERT_OK_AND_ASSIGN(res, CallFunction("hash64", {arr}));
   AssertArraysEqual(*res.make_array(), *exp);
   CheckDeterministic("hash64", arr);
 }
 
-TEST_F(TestScalarHash, NullHashIsZero) {
+TEST_F(TestScalarHash, NullProducesNull) {
   auto arr1 = ArrayFromJSON(int32(), R"([null, 0, 1])");
   ASSERT_OK_AND_ASSIGN(auto res1, CallFunction("hash64", {arr1}));
-  auto buf1 = res1.array()->GetValues<uint64_t>(1);
-  ASSERT_EQ(buf1[0], 0);
-  ASSERT_NE(buf1[1], 0);
-  ASSERT_NE(buf1[2], 0);
+  auto res1_array = res1.array();
+  auto buf1 = res1_array->GetValues<uint64_t>(1);
+  ASSERT_TRUE(res1_array->IsNull(0));
+  ASSERT_TRUE(res1_array->IsValid(1));
+  ASSERT_TRUE(res1_array->IsValid(2));
   ASSERT_NE(buf1[1], buf1[2]);
 
   auto arr2 = ArrayFromJSON(int8(), R"([null, 0, 1])");
   ASSERT_OK_AND_ASSIGN(auto res2, CallFunction("hash32", {arr2}));
-  auto buf2 = res2.array()->GetValues<uint32_t>(1);
-  ASSERT_EQ(buf2[0], 0);
-  ASSERT_NE(buf2[1], 0);
-  ASSERT_NE(buf2[2], 0);
+  auto res2_array = res2.array();
+  auto buf2 = res2_array->GetValues<uint32_t>(1);
+  ASSERT_TRUE(res2_array->IsNull(0));
+  ASSERT_TRUE(res2_array->IsValid(1));
+  ASSERT_TRUE(res2_array->IsValid(2));
   ASSERT_NE(buf2[1], buf2[2]);
 }
 
 // HashIntImp (used for any fixed-width type whose byte width is a power of 2 up to 8:
 // ints, floats, dates, times, timestamps, durations) doesn't special-case an
-// all-zero-bits key, so a legitimately valid "zero" value would otherwise hash to the
-// same 0 scalar_hash.cc uses as the null sentinel. Checked across every affected byte
-// width, not just int8/int32 (see NullHashIsZero).
-TEST_F(TestScalarHash, ZeroValueDoesNotCollideWithNull) {
+// all-zero-bits key, so a legitimately valid "zero" value hashes to a raw 0 -- same as
+// HashMultiColumn's own null handling would produce for an actually-null row. That's
+// fine: nullness is tracked via real, independent validity (see HashArray), not by
+// avoiding any particular hash value, so a valid row landing on 0 is just an ordinary
+// (if slightly more likely) hash collision, not a correctness problem. What must still
+// hold is that such a row is reported valid, not null. Checked across every affected
+// byte width, not just int8/int32 (see NullProducesNull).
+TEST_F(TestScalarHash, ZeroValueIsValid) {
   std::vector<std::pair<std::shared_ptr<DataType>, std::string>> cases{
       {int8(), R"([null, 0, 1])"},
       {int16(), R"([null, 0, 1])"},
@@ -281,7 +293,6 @@ TEST_F(TestScalarHash, ZeroValueDoesNotCollideWithNull) {
       {duration(TimeUnit::MILLI), R"([null, 0, 1])"},
   };
   for (const std::string func : {"hash32", "hash64"}) {
-    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
     for (const auto& type_and_json : cases) {
       auto arr = ArrayFromJSON(type_and_json.first, type_and_json.second);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
@@ -289,10 +300,9 @@ TEST_F(TestScalarHash, ZeroValueDoesNotCollideWithNull) {
       ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(0));
       ASSERT_OK_AND_ASSIGN(auto zero_hash, hashes->GetScalar(1));
       ASSERT_OK_AND_ASSIGN(auto one_hash, hashes->GetScalar(2));
-      ASSERT_TRUE(null_hash->Equals(*zero)) << type_and_json.first->ToString();
-      ASSERT_FALSE(zero_hash->Equals(*zero))
-          << "valid zero-valued " << type_and_json.first->ToString()
-          << " should not collide with the null sentinel";
+      ASSERT_FALSE(null_hash->is_valid) << type_and_json.first->ToString();
+      ASSERT_TRUE(zero_hash->is_valid) << type_and_json.first->ToString();
+      ASSERT_TRUE(one_hash->is_valid) << type_and_json.first->ToString();
       ASSERT_FALSE(zero_hash->Equals(*one_hash)) << type_and_json.first->ToString();
     }
   }
@@ -309,6 +319,9 @@ TEST_F(TestScalarHash, Boolean) {
 
   array = result.make_array();
   auto array32 = checked_cast<const UInt32Array*>(array.get());
+  ASSERT_TRUE(array32->IsValid(0));
+  ASSERT_TRUE(array32->IsValid(1));
+  ASSERT_TRUE(array32->IsNull(2));
   ASSERT_NE(array32->Value(0), array32->Value(1));
   ASSERT_NE(array32->Value(0), array32->Value(2));
   ASSERT_NE(array32->Value(1), array32->Value(2));
@@ -319,6 +332,9 @@ TEST_F(TestScalarHash, Boolean) {
   ASSERT_OK_AND_ASSIGN(result, CallFunction("hash64", {input}));
   array = result.make_array();
   auto array64 = checked_cast<const UInt64Array*>(array.get());
+  ASSERT_TRUE(array64->IsValid(0));
+  ASSERT_TRUE(array64->IsValid(1));
+  ASSERT_TRUE(array64->IsNull(2));
   ASSERT_NE(array64->Value(0), array64->Value(1));
   ASSERT_NE(array64->Value(0), array64->Value(2));
   ASSERT_NE(array64->Value(1), array64->Value(2));
@@ -397,8 +413,35 @@ TEST_F(TestScalarHash, DictionaryType) {
   auto dict_type = dictionary(int8(), utf8());
   auto dict = DictArrayFromJSON(dict_type, "[1, 2, null, 3, 0]",
                                 "[\"A0\", \"A1\", \"C2\", \"C3\"]");
-  CheckPrimitive("hash32", dict);
-  CheckPrimitive("hash64", dict);
+  CheckDictionary("hash32", dict);
+  CheckDictionary("hash64", dict);
+}
+
+TEST_F(TestScalarHash, DictionaryNullValueProducesNull) {
+  // A valid index pointing at a null dictionary entry (legal -- see the comment on
+  // ArrayData::IsNull) must produce a null in the output like any other null row, even
+  // though the index's own validity bit is set.
+  auto dict_type = dictionary(int8(), utf8());
+  auto dict = DictArrayFromJSON(dict_type, "[0, 1]", "[null, \"A1\"]");
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {dict}));
+    auto result_array = result.array();
+    ASSERT_TRUE(result_array->IsNull(0));
+    ASSERT_TRUE(result_array->IsValid(1));
+  }
+}
+
+TEST_F(TestScalarHash, DictionaryHashIndependentOfDictionaryLayout) {
+  // Two dictionary arrays encoding the same logical values via differently-ordered
+  // dictionaries must hash identically -- the hash reflects logical value, not index.
+  auto dict_type = dictionary(int8(), utf8());
+  auto dict1 = DictArrayFromJSON(dict_type, "[0, 1, 2]", "[\"A\", \"B\", \"C\"]");
+  auto dict2 = DictArrayFromJSON(dict_type, "[2, 1, 0]", "[\"C\", \"B\", \"A\"]");
+
+  ASSERT_OK_AND_ASSIGN(Datum hash1, CallFunction("hash64", {dict1}));
+  ASSERT_OK_AND_ASSIGN(Datum hash2, CallFunction("hash64", {dict2}));
+  AssertDatumsEqual(hash1, hash2);
 }
 
 TEST_F(TestScalarHash, RandomBinaryLike) {
@@ -739,8 +782,8 @@ TEST_F(TestScalarHash, ListLikeDistinctContentHashesDifferently) {
 
 // The seed used to fold a list-like row's child hashes together (see
 // FastHashScalar::CombineRange) is deliberately not 0, so that an empty (but
-// non-null) list doesn't collide with a null list, which hashes to 0 (see
-// NullHashIsZero).
+// non-null) list doesn't collide with a null list, which produces a null in the
+// output (see NullProducesNull).
 TEST_F(TestScalarHash, ListLikeEmptyDiffersFromNull) {
   for (const std::string func : {"hash32", "hash64"}) {
     for (auto arr : {
@@ -750,6 +793,9 @@ TEST_F(TestScalarHash, ListLikeEmptyDiffersFromNull) {
          }) {
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
       auto hashes = result.make_array();
+      ASSERT_TRUE(hashes->IsValid(0))
+          << "hash of an empty " << arr->type()->ToString() << " should not be null";
+      ASSERT_TRUE(hashes->IsNull(1));
       ASSERT_OK_AND_ASSIGN(auto empty_hash, hashes->GetScalar(0));
       ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
       ASSERT_FALSE(empty_hash->Equals(*null_hash))
@@ -759,10 +805,10 @@ TEST_F(TestScalarHash, ListLikeEmptyDiffersFromNull) {
   }
 }
 
-// Mirrors NullHashIsZero, but for list-like types, whose null handling is a
+// Mirrors NullProducesNull, but for list-like types, whose null handling is a
 // dedicated masking pass in HashArray's is_list_like branch rather than the
 // generic path the other types go through.
-TEST_F(TestScalarHash, ListLikeNullHashIsZero) {
+TEST_F(TestScalarHash, ListLikeNullProducesNull) {
   for (const std::string func : {"hash32", "hash64"}) {
     for (auto arr : {
              ArrayFromJSON(fixed_size_list(int32(), 2), "[null, [1, 2]]"),
@@ -772,13 +818,10 @@ TEST_F(TestScalarHash, ListLikeNullHashIsZero) {
          }) {
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
       auto hashes = result.make_array();
-      ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(0));
-      ASSERT_OK_AND_ASSIGN(auto non_null_hash, hashes->GetScalar(1));
-      auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
-      ASSERT_TRUE(null_hash->Equals(*zero))
-          << "null " << arr->type()->ToString() << " should hash to 0";
-      ASSERT_FALSE(non_null_hash->Equals(*zero))
-          << "non-null " << arr->type()->ToString() << " should not hash to 0";
+      ASSERT_TRUE(hashes->IsNull(0))
+          << "null " << arr->type()->ToString() << " should produce a null hash";
+      ASSERT_TRUE(hashes->IsValid(1))
+          << "non-null " << arr->type()->ToString() << " should not produce a null hash";
     }
   }
 }
@@ -788,7 +831,7 @@ TEST_F(TestScalarHash, ListLikeNullHashIsZero) {
 // (non-garbage, but logically "don't care") values instead of the canonical empty
 // range, to make sure CombineRange's output for that row is still discarded by the
 // masking pass rather than leaking into the result.
-TEST_F(TestScalarHash, ListNullWithNonEmptyOffsetRangeHashesToZero) {
+TEST_F(TestScalarHash, ListNullWithNonEmptyOffsetRangeProducesNull) {
   auto offsets = ArrayFromJSON(int32(), "[0, 2, 5, 6]");
   auto values = ArrayFromJSON(int32(), "[10, 20, 30, 40, 50, 60]");
   ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(3));
@@ -803,21 +846,68 @@ TEST_F(TestScalarHash, ListNullWithNonEmptyOffsetRangeHashesToZero) {
   for (const std::string func : {"hash32", "hash64"}) {
     ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
     auto hashes = result.make_array();
-    ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
-    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
-    ASSERT_TRUE(null_hash->Equals(*zero))
-        << "null row with a non-empty offset range should still hash to 0";
+    ASSERT_TRUE(hashes->IsNull(1))
+        << "null row with a non-empty offset range should still produce a null hash";
+  }
+}
+
+// A null row's own validity bit makes it null in *this* array's output, but when the
+// array is nested inside a parent list/struct the parent folds the child's hash VALUES
+// into its combined hash -- and per the columnar spec a null slot's underlying bytes are
+// undefined, so they may hold real-looking leftover data. Unless a null child row's hash
+// value is canonicalized (see CanonicalizeInvalidHashes), a null element contributes that
+// garbage and becomes indistinguishable from an element genuinely holding that data.
+TEST_F(TestScalarHash, NestedNullElementDoesNotCollideWithRealContent) {
+  // list<struct<f0: int32>>: row 0 = [{f0: 7}], row 1 = [null], where the null struct's
+  // f0 slot also holds 7. The two rows are logically distinct and must not collide.
+  auto f0 = ArrayFromJSON(int32(), "[7, 7]");
+  ASSERT_OK_AND_ASSIGN(auto struct_validity, AllocateEmptyBitmap(2));
+  bit_util::SetBit(struct_validity->mutable_data(), 0);  // row 0 valid, row 1 null
+  auto struct_data = ArrayData::Make(struct_({field("f0", int32())}), 2,
+                                     {struct_validity}, {f0->data()}, /*null_count=*/1);
+  auto structs = MakeArray(struct_data);
+  ASSERT_TRUE(structs->IsNull(1));
+  ASSERT_OK_AND_ASSIGN(
+      auto struct_lists,
+      ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2]"), *structs));
+
+  // list<list<int32>>: same idea one level deeper -- the null inner list's offset range
+  // covers a real [10, 20] identical to the valid row's contents.
+  auto values = ArrayFromJSON(int32(), "[10, 20, 10, 20]");
+  ASSERT_OK_AND_ASSIGN(auto inner_validity, AllocateEmptyBitmap(2));
+  bit_util::SetBit(inner_validity->mutable_data(), 0);  // inner row 0 valid, row 1 null
+  ASSERT_OK_AND_ASSIGN(
+      auto inner, ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4]"), *values,
+                                        default_memory_pool(), inner_validity,
+                                        /*null_count=*/1));
+  ASSERT_TRUE(inner->IsNull(1));
+  ASSERT_OK_AND_ASSIGN(
+      auto nested_lists,
+      ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 1, 2]"), *inner));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& arr : {struct_lists, nested_lists}) {
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
+      auto hashes = result.make_array();
+      // Both outer rows are valid: a null *element* doesn't null out its container.
+      ASSERT_TRUE(hashes->IsValid(0)) << arr->type()->ToString();
+      ASSERT_TRUE(hashes->IsValid(1)) << arr->type()->ToString();
+      ASSERT_OK_AND_ASSIGN(auto real_content_hash, hashes->GetScalar(0));
+      ASSERT_OK_AND_ASSIGN(auto null_element_hash, hashes->GetScalar(1));
+      ASSERT_FALSE(real_content_hash->Equals(*null_element_hash))
+          << "a " << arr->type()->ToString() << " row holding a null element should not "
+          << "hash the same as one holding that null slot's undefined leftover data";
+    }
   }
 }
 
 // The generic path (bool, int, string, ...) zeroes nulls via HashMultiColumn, while
 // list-like types are zeroed by HashArray's own is_list_like branch (see
-// ListLikeNullHashIsZero) and struct by recursing into per-field columns fed back
-// into HashMultiColumn. Check they all agree on the same sentinel (0), not just each
+// ListLikeNullProducesNull) and struct by recursing into per-field columns fed back
+// into HashMultiColumn. Check they all agree (a null in the output), not just each
 // individually hashing null to *something* self-consistent.
-TEST_F(TestScalarHash, NullHashIsZeroAcrossTypes) {
+TEST_F(TestScalarHash, NullProducesNullAcrossTypes) {
   for (const std::string func : {"hash32", "hash64"}) {
-    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
     for (auto arr : {
              ArrayFromJSON(boolean(), "[null]"),
              ArrayFromJSON(int32(), "[null]"),
@@ -827,29 +917,25 @@ TEST_F(TestScalarHash, NullHashIsZeroAcrossTypes) {
              ArrayFromJSON(map(utf8(), int32()), "[null]"),
          }) {
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
-      ASSERT_OK_AND_ASSIGN(auto null_hash, result.make_array()->GetScalar(0));
-      ASSERT_TRUE(null_hash->Equals(*zero))
-          << "null " << arr->type()->ToString() << " should hash to the same 0 "
-          << "sentinel as every other type";
+      ASSERT_TRUE(result.make_array()->IsNull(0))
+          << "null " << arr->type()->ToString() << " should produce a null hash, "
+          << "same as every other type";
     }
   }
 }
 
 // GH-17211: a nested (list-like or struct) field that is independently null within
-// an otherwise-valid struct row must still hash as null (0), same as a plain field.
-// HashChild used to attach the *parent* struct's validity to the child hash buffer
-// instead of the field's own, so an independently-null nested field's already-zeroed
-// hash data got re-hashed via HashFixed as if it were ordinary (non-null) data,
-// silently producing a non-zero result instead of the documented 0 sentinel.
-TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
+// an otherwise-valid struct row must still produce a null in the output, same as a
+// plain field. HashChild used to attach the *parent* struct's validity to the child
+// hash buffer instead of the field's own, so an independently-null nested field's
+// already-zeroed hash data got re-hashed via HashFixed as if it were ordinary
+// (non-null) data, silently producing a non-null result instead.
+TEST_F(TestScalarHash, NestedNullFieldWithinValidStructProducesNull) {
   for (const std::string func : {"hash32", "hash64"}) {
-    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
-
     // Plain (non-nested) null field, for comparison: already correct beforehand.
     auto plain = ArrayFromJSON(struct_({field("f0", int32())}), R"([{"f0": null}])");
     ASSERT_OK_AND_ASSIGN(Datum plain_result, CallFunction(func, {plain}));
-    ASSERT_OK_AND_ASSIGN(auto plain_hash, plain_result.make_array()->GetScalar(0));
-    ASSERT_TRUE(plain_hash->Equals(*zero));
+    ASSERT_TRUE(plain_result.make_array()->IsNull(0));
 
     for (auto nested : {
              ArrayFromJSON(struct_({field("f0", list(int32()))}), R"([{"f0": null}])"),
@@ -857,10 +943,9 @@ TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
                            R"([{"f0": null}])"),
          }) {
       ASSERT_OK_AND_ASSIGN(Datum nested_result, CallFunction(func, {nested}));
-      ASSERT_OK_AND_ASSIGN(auto nested_hash, nested_result.make_array()->GetScalar(0));
-      ASSERT_TRUE(nested_hash->Equals(*zero))
+      ASSERT_TRUE(nested_result.make_array()->IsNull(0))
           << "independently-null " << nested->type()->ToString()
-          << " field should hash to 0, same as a plain null field";
+          << " field should produce a null hash, same as a plain null field";
     }
 
     // Same invariant, but for a struct with more than one field: HashMultiColumn only
@@ -870,46 +955,61 @@ TEST_F(TestScalarHash, NestedNullFieldWithinValidStructHashesToZero) {
     for (auto row : {R"([{"f0": 5, "f1": null}])", R"([{"f0": null, "f1": 5}])"}) {
       auto multi = ArrayFromJSON(multi_field, row);
       ASSERT_OK_AND_ASSIGN(Datum multi_result, CallFunction(func, {multi}));
-      ASSERT_OK_AND_ASSIGN(auto multi_hash, multi_result.make_array()->GetScalar(0));
-      ASSERT_TRUE(multi_hash->Equals(*zero))
+      ASSERT_TRUE(multi_result.make_array()->IsNull(0))
           << "independently-null field of a multi-field struct (" << row
-          << ") should hash to 0, same as a plain null field";
+          << ") should produce a null hash, same as a plain null field";
     }
   }
 }
 
-// HashStructArray fed raw (unhashed) field columns directly into HashMultiColumn,
-// which -- like the leaf path (see ZeroValueDoesNotCollideWithNull) -- doesn't
-// special-case an all-zero-bits key, so a struct whose fields are all valid could
-// still legitimately combine to the same 0 used as the null-struct sentinel. Unlike
-// the leaf path, the fix can't just remap every 0 to a nonzero sentinel: a field
-// that's independently null must still propagate to 0 (see
-// NestedNullFieldWithinValidStructHashesToZero), so this checks both behaviors hold
-// side by side rather than one regressing the other.
+// A struct field of DICTIONARY type needs the same recursive (decode + validity)
+// treatment HashArray gives dictionaries anywhere else -- before this was routed via
+// NeedsRecursiveHash (rather than is_nested(), which DICTIONARY doesn't satisfy), a
+// dictionary-typed field took the flat ToColumnArray path instead, which has no
+// DICTIONARY case: it silently hashed the raw index buffer and only ever saw the
+// index's own validity, missing a valid index pointing at a null dictionary value
+// (legal -- see the comment on ArrayData::IsNull). Same bug class this session already
+// fixed at the top level (see DictionaryNullValueProducesNull), but for a nested field.
+TEST_F(TestScalarHash, StructFieldDictionaryNullValueProducesNull) {
+  auto dict_type = dictionary(int8(), utf8());
+  auto dict = DictArrayFromJSON(dict_type, "[0, 1]", "[null, \"A1\"]");
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       StructArray::Make({dict}, {field("f0", dict_type)}));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {struct_array}));
+    auto result_array = result.array();
+    ASSERT_TRUE(result_array->IsNull(0))
+        << "a struct row whose only field is a valid index pointing at a null "
+        << "dictionary value should be null, same as any other independently-null field";
+    ASSERT_TRUE(result_array->IsValid(1));
+  }
+}
+
+// HashStructArray's combined hash VALUE for an all-zero-bits field can legitimately be
+// a raw 0 (see ZeroValueIsValid) -- but that must never affect the struct row's real,
+// independently-computed validity (own validity AND every field's, see HashStructArray),
+// which is what actually decides null-vs-valid here. A field that's independently null
+// must still make the row invalid (see NestedNullFieldWithinValidStructProducesNull),
+// so this checks both behaviors hold side by side rather than one regressing the other.
 TEST_F(TestScalarHash, StructOfAllValidZerosDoesNotCollideWithNull) {
   for (const std::string func : {"hash32", "hash64"}) {
-    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
-
     // A single all-zero-bits field is exactly where HashMultiColumn's underlying
     // fixed-width hash would otherwise produce a literal 0 for a valid row.
     auto valid_zero = ArrayFromJSON(struct_({field("f0", int64())}), R"([{"f0": 0}])");
     ASSERT_OK_AND_ASSIGN(Datum valid_result, CallFunction(func, {valid_zero}));
-    ASSERT_OK_AND_ASSIGN(auto valid_hash, valid_result.make_array()->GetScalar(0));
-    ASSERT_FALSE(valid_hash->Equals(*zero))
-        << "a struct whose only field is a valid zero should not collide with "
-        << "the null-struct sentinel";
+    ASSERT_TRUE(valid_result.make_array()->IsValid(0))
+        << "a struct whose only field is a valid zero should not be indistinguishable "
+        << "from a null struct";
 
-    // A null struct and a null field still hash to 0, unaffected by the above.
+    // A null struct and a null field still produce a null hash, unaffected by the above.
     auto null_struct = ArrayFromJSON(struct_({field("f0", int64())}), R"([null])");
     ASSERT_OK_AND_ASSIGN(Datum null_result, CallFunction(func, {null_struct}));
-    ASSERT_OK_AND_ASSIGN(auto null_hash, null_result.make_array()->GetScalar(0));
-    ASSERT_TRUE(null_hash->Equals(*zero));
+    ASSERT_TRUE(null_result.make_array()->IsNull(0));
 
     auto null_field = ArrayFromJSON(struct_({field("f0", int64())}), R"([{"f0": null}])");
     ASSERT_OK_AND_ASSIGN(Datum null_field_result, CallFunction(func, {null_field}));
-    ASSERT_OK_AND_ASSIGN(auto null_field_hash,
-                         null_field_result.make_array()->GetScalar(0));
-    ASSERT_TRUE(null_field_hash->Equals(*zero));
+    ASSERT_TRUE(null_field_result.make_array()->IsNull(0));
   }
 }
 
@@ -1011,6 +1111,30 @@ TEST_F(TestScalarHash, ExtensionTypeWrappingList) {
   CheckIdenticalRowsHashEqually("hash64", extension, 0, 2);
 }
 
+// HashArray unwraps an extension by copying the ArraySpan and swapping only its `type`
+// for the storage type, relying on the two having identical physical layout. That's
+// subtlest when the storage is a DICTIONARY, because the dictionary branch then rebuilds
+// an ArrayData via ArraySpan::ToArrayData(), which relocates child_data[0] into the
+// ArrayData's dedicated `dictionary` field. Check the swap composes with that, and that
+// unwrapping is fully transparent.
+TEST_F(TestScalarHash, ExtensionTypeWrappingDictionary) {
+  auto storage =
+      DictArrayFromJSON(dictionary(int8(), utf8()), "[0, 1, null, 1]", R"(["a", "b"])");
+  auto extension = ExtensionType::WrapArray(dict_extension_type(), storage);
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum extension_result, CallFunction(func, {extension}));
+    ASSERT_OK_AND_ASSIGN(Datum storage_result, CallFunction(func, {storage}));
+    AssertDatumsEqual(extension_result, storage_result);
+
+    auto hashes = extension_result.make_array();
+    ASSERT_TRUE(hashes->IsValid(0));
+    ASSERT_TRUE(hashes->IsNull(2));
+    // Rows 1 and 3 share a dictionary index, so they must hash equally.
+    CheckIdenticalRowsHashEqually(func, extension, 1, 3);
+  }
+}
+
 TEST_F(TestScalarHash, RandomStruct) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {
@@ -1090,11 +1214,8 @@ TEST_F(TestScalarHash, EmptyFieldStructHashesWithoutCrashing) {
     CheckDeterministic(func, arr);
     ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {arr}));
     auto hashes = result.make_array();
-    ASSERT_OK_AND_ASSIGN(auto valid_hash, hashes->GetScalar(0));
-    ASSERT_OK_AND_ASSIGN(auto null_hash, hashes->GetScalar(1));
-    auto zero = func == "hash32" ? MakeScalar(uint32_t{0}) : MakeScalar(uint64_t{0});
-    ASSERT_FALSE(valid_hash->Equals(*zero));
-    ASSERT_TRUE(null_hash->Equals(*zero));
+    ASSERT_TRUE(hashes->IsValid(0));
+    ASSERT_TRUE(hashes->IsNull(1));
   }
 }
 
@@ -1141,6 +1262,18 @@ TEST_F(TestScalarHash, UnsupportedExtensionStorageType) {
   auto extension = ExtensionType::WrapArray(binary_view_extension_type(), storage);
   ASSERT_RAISES(NotImplemented, CallFunction("hash32", {extension}));
   ASSERT_RAISES(NotImplemented, CallFunction("hash64", {extension}));
+}
+
+// Same bug pattern as UnsupportedExtensionStorageType, but for dictionary support:
+// HashableMatcher only saw the top-level DICTIONARY type id, so a dictionary wrapping
+// an unsupported value type (e.g. binary_view) passed dispatch and only failed later
+// with a raw TypeError from deep inside Cast/ToColumnArray instead of a clean
+// NotImplemented.
+TEST_F(TestScalarHash, UnsupportedDictionaryValueType) {
+  auto dict_type = dictionary(int8(), binary_view());
+  auto dict = DictArrayFromJSON(dict_type, "[0, 1]", R"(["a", "b"])");
+  ASSERT_RAISES(NotImplemented, CallFunction("hash32", {dict}));
+  ASSERT_RAISES(NotImplemented, CallFunction("hash64", {dict}));
 }
 
 // copied from cpp/src/arrow/util/hashing_test.cc
