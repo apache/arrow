@@ -2736,10 +2736,10 @@ struct ChooseFunction : ScalarFunction {
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec,
-                       std::shared_ptr<MatchConstraint> constraint) {
+                       const std::shared_ptr<MatchConstraint>& constraint) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
-                            /*is_varargs=*/true, std::move(constraint)),
+                            /*is_varargs=*/true, constraint),
       exec);
   if (is_fixed_width(get_id.id)) {
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -2755,7 +2755,7 @@ void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
 
 void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                                  const std::vector<std::shared_ptr<DataType>>& types,
-                                 std::shared_ptr<MatchConstraint> constraint) {
+                                 const std::shared_ptr<MatchConstraint>& constraint) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
     AddCaseWhenKernel(scalar_function, type, std::move(exec), constraint);
@@ -2764,7 +2764,7 @@ void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar
 
 void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                               const std::vector<std::shared_ptr<DataType>>& types,
-                              std::shared_ptr<MatchConstraint> constraint) {
+                              const std::shared_ptr<MatchConstraint>& constraint) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
     AddCaseWhenKernel(scalar_function, type, std::move(exec), constraint);
@@ -2773,13 +2773,13 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
 
 template <typename ArrowNestedType>
 void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                             std::shared_ptr<MatchConstraint> constraint) {
+                             const std::shared_ptr<MatchConstraint>& constraint) {
   AddCaseWhenKernel(scalar_function, ArrowNestedType::type_id,
                     CaseWhenFunctor<ArrowNestedType>::Exec, constraint);
 }
 
 void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                              std::shared_ptr<MatchConstraint> constraint) {
+                              const std::shared_ptr<MatchConstraint>& constraint) {
   AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function, constraint);
   AddNestedCaseWhenKernel<ListType>(scalar_function, constraint);
   AddNestedCaseWhenKernel<LargeListType>(scalar_function, constraint);
