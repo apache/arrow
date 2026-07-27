@@ -4416,22 +4416,20 @@ def _check_hash_quality(func, arr):
     result2 = func(arr)
     assert result1.equals(result2), "hashing must be deterministic"
 
+    # Nullness is carried by the output's validity bitmap, not by any reserved hash
+    # value (see NullProducesNullAcrossTypes in scalar_hash_test.cc), so the hash of a
+    # valid row is unconstrained here -- 0 is a perfectly legal hash for one.
     for i in range(len(arr)):
-        h = result1[i].as_py()
+        valid = result1[i].is_valid
         if not arr[i].is_valid:
-            # A null row always hashes to the documented 0 sentinel (see
-            # NullHashIsZeroAcrossTypes in scalar_hash_test.cc).
-            assert h == 0, f"row {i} is null, expected hash 0"
+            assert not valid, f"row {i} is null, so its hash must be null"
         elif not _contains_null(arr[i].as_py()):
-            # A valid row with no null anywhere in its content must never collide
-            # with that sentinel -- this is the property the values-child offset bug
-            # and the struct zero-collision bug (GH-45001) both violated. (A valid
-            # row that *does* contain a nested null, e.g. a null struct field, may
-            # legitimately hash to 0 too -- see
-            # NestedNullFieldWithinValidStructHashesToZero -- so that case isn't
-            # checked either way here.)
-            assert h != 0, (
-                f"row {i} ({arr[i].as_py()!r}) is fully valid but hashed to 0")
+            # No null anywhere in the row's content, so nothing can make it null.
+            assert valid, (
+                f"row {i} ({arr[i].as_py()!r}) is fully valid but hashed to null")
+        # Otherwise the row is valid but holds a null somewhere: whether that nulls the
+        # hash depends on where (a null struct field does, a null list element does
+        # not), so this leaves it unconstrained -- scalar_hash_test.cc pins down both.
 
 
 @pytest.mark.numpy
