@@ -18,7 +18,7 @@ Build-Depends:
   libgrpc++-dev,
   libgtest-dev,
   liblz4-dev,
-@USE_SYSTEM_OPEN_TELEMETRY@  libopentelemetry-proto-dev
+@USE_SYSTEM_OPEN_TELEMETRY@  libopentelemetry-proto-dev,
   libprotobuf-dev,
   libprotoc-dev,
   libre2-dev,
