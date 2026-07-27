@@ -272,7 +272,6 @@ tasks:
 
 {% for distribution, version in [("conda", "latest"),
                                  ("almalinux", "10"),
-                                 ("ubuntu", "22.04"),
                                  ("ubuntu", "24.04")] %}
   {% for target in ["cpp",
                     "integration",
@@ -284,6 +283,9 @@ tasks:
     params:
       env:
         {{ distribution.upper() }}: "{{ version }}"
+        {% if distribution == "conda" %}
+        UBUNTU: "24.04"
+        {% endif %}
       target: {{ target }}
       distro: {{ distribution }}
   {% endfor %}
