@@ -98,7 +98,7 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
   end
 
-  def apt_prepare_debian_control_open_telemerty(control, target)
+  def apt_prepare_debian_control_open_telemetry(control, target)
     case target
     when /\Aubuntu-(?:jammy|noble)/
       use_system_open_telemetry = "#"
