@@ -1298,8 +1298,10 @@ array as input.
 +---------------+-------+-------------+-------------+---------------+-------+
 
 * \(1) The implementation doesn't guarantee hash stability across different versions of
-       the library. Union, view and run end encoded types are not supported yet. Null
-       values do not hash to null; they hash to a fixed sentinel value.
+       the library. Union, view and run end encoded types are not supported yet. A null
+       input value produces a null output value. For a struct, a field that is null makes
+       the whole struct row's output null; for a list or map, by contrast, a null element
+       does not, since only the row's own validity matters there.
 
 Categorizations
 ~~~~~~~~~~~~~~~
