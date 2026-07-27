@@ -1937,6 +1937,43 @@ function(build_absl)
     # Cannot use set_property on alias targets (absl::time is an alias)
     target_link_libraries(time INTERFACE ${CoreFoundation})
   endif()
+
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       absl::bad_optional_access
+       absl::bad_variant_access
+       absl::base
+       absl::civil_time
+       absl::cord
+       absl::cord_internal
+       absl::cordz_functions
+       absl::cordz_info
+       absl::cordz_handle
+       absl::crc32c
+       absl::crc_internal
+       absl::crc_cord_state
+       absl::crc_cpu_detect
+       absl::debugging_internal
+       absl::demangle_internal
+       absl::exponential_biased
+       absl::int128
+       absl::log_severity
+       absl::malloc_internal
+       absl::raw_logging_internal
+       absl::spinlock_wait
+       absl::stacktrace
+       absl::str_format_internal
+       absl::strings
+       absl::strings_internal
+       absl::symbolize
+       absl::synchronization
+       absl::throw_delegate
+       absl::time
+       absl::time_zone)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3752,50 +3789,6 @@ function(build_google_cloud_cpp_storage)
        google-cloud-cpp::storage
        google-cloud-cpp::rest_internal
        google-cloud-cpp::common)
-
-  if(ABSL_VENDORED)
-    # Figure out what absl libraries (not header-only) are required by the
-    # google-cloud-cpp libraries above and add them to the bundled_dependencies
-    #
-    #   pkg-config --libs absl_memory absl_strings absl_str_format absl_time absl_variant absl_base absl_memory absl_optional absl_span absl_time absl_variant
-    # (and then some regexing)
-    list(APPEND
-         ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_optional_access
-         absl::bad_variant_access
-         absl::base
-         absl::civil_time
-         absl::cord
-         absl::cord_internal
-         absl::cordz_functions
-         absl::cordz_info
-         absl::cordz_handle
-         absl::crc32c
-         absl::crc_internal
-         absl::crc_cord_state
-         absl::crc_cpu_detect
-         absl::debugging_internal
-         absl::demangle_internal
-         absl::exponential_biased
-         absl::int128
-         absl::log_severity
-         absl::malloc_internal
-         absl::raw_logging_internal
-         absl::spinlock_wait
-         absl::stacktrace
-         absl::str_format_internal
-         absl::strings
-         absl::strings_internal
-         absl::symbolize
-         absl::synchronization
-         absl::throw_delegate
-         absl::time
-         absl::time_zone)
-  endif()
-
-  set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
-      PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
