@@ -30,7 +30,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/config.h"
+#include "arrow/util/type_traits.h"
 #include "arrow/util/value_parsing.h"
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -336,6 +338,44 @@ TYPED_TEST(TestBinaryKernels, NonUtf8Regex) {
                          {"letter": [1, 1], "digit": [2, 1]}])",
                      &options);
   }
+
+  // On non-UTF8 input types, case insensitive matches should only account for
+  // ASCII letters.
+  // (this stresses that the "is_utf8" option is passed down correctly to RE2)
+  auto letters_array = this->MakeArray({"1ab2AB3", "1àb2ÀB3"});
+  {
+    MatchSubstringOptions options("(?i)(A|À)B");
+    // 5 is the byte index of "ÀB" in "1àb2ÀB3"
+    this->CheckUnary("find_substring_regex", letters_array, this->offset_type(), "[1, 5]",
+                     &options);
+    this->CheckUnary("count_substring_regex", letters_array, this->offset_type(),
+                     "[2, 1]", &options);
+    this->CheckUnary("match_substring_regex", letters_array, boolean(), "[true, true]",
+                     &options);
+  }
+  {
+    SplitPatternOptions options("(?i)(A|À)B");
+    this->CheckUnary("split_pattern_regex", letters_array, list(this->type()),
+                     R"([["1", "2", "3"], ["1àb2", "3"]])", &options);
+  }
+  {
+    ReplaceSubstringOptions options("(?i)(A|À)B", "XY");
+    this->CheckUnary("replace_substring_regex", letters_array,
+                     this->MakeArray({"1XY2XY3", "1àb2XY3"}), &options);
+  }
+  {
+    ExtractRegexOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", this->type()}});
+    this->CheckUnary("extract_regex", letters_array, out_type,
+                     R"([{"letters": "ab"}, {"letters": "ÀB"}])", &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", fixed_size_list(this->offset_type(), 2)}});
+    // 5 is the byte index of "ÀB" in "1àb2ÀB3", 3 is its byte length
+    this->CheckUnary("extract_regex_span", letters_array, out_type,
+                     R"([{"letters": [1, 2]}, {"letters": [5, 3]}])", &options);
+  }
 }
 
 TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
@@ -509,6 +549,16 @@ TYPED_TEST(TestBaseBinaryKernels, FindSubstringIgnoreCase) {
   this->CheckUnary("find_substring",
                    R"-(["?aB)c", "acb", "c?Ab)", null, "?aBc", "AB)"])-",
                    this->offset_type(), "[0, -1, 1, null, -1, -1]", &options);
+  options.pattern = "?àb";
+  if (is_string_or_string_view(this->type()->id())) {
+    this->CheckUnary("find_substring",
+                     R"-(["?àB)c", "àcb", "c?Àb)", null, "(?àBc", "ÀB)"])-",
+                     this->offset_type(), "[0, -1, 1, null, 1, -1]", &options);
+  } else {
+    this->CheckUnary("find_substring",
+                     R"-(["?àB)c", "àcb", "c?Àb)", null, "(?àBc", "ÀB)"])-",
+                     this->offset_type(), "[0, -1, -1, null, 1, -1]", &options);
+  }
 }
 
 TYPED_TEST(TestBaseBinaryKernels, FindSubstringRegex) {
@@ -597,6 +647,18 @@ TYPED_TEST(TestBaseBinaryKernels, CountSubstringIgnoreCase) {
   MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
   this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
                    "[1, null, 4]", &options_empty);
+
+  // case-folding is Unicode on string types, ASCII-only on binary types.
+  options.pattern = "àb";
+  if (is_string_or_string_view(this->type()->id())) {
+    this->CheckUnary("count_substring",
+                     R"(["", null, "àb", "àBà", "bÀbÀ", "ÀbàbÀ", "bÀbÀcàbà"])",
+                     this->offset_type(), "[0, null, 1, 1, 1, 2, 2]", &options);
+  } else {
+    this->CheckUnary("count_substring",
+                     R"(["", null, "àb", "àBà", "bÀbÀ", "ÀbàbÀ", "bÀbÀcàbà"])",
+                     this->offset_type(), "[0, null, 1, 1, 0, 1, 1]", &options);
+  }
 }
 
 TYPED_TEST(TestBaseBinaryKernels, CountSubstringRegexIgnoreCase) {
@@ -607,6 +669,17 @@ TYPED_TEST(TestBaseBinaryKernels, CountSubstringRegexIgnoreCase) {
   MatchSubstringOptions options_empty_match{"a*", /*ignore_case=*/true};
   this->CheckUnary("count_substring_regex", R"(["", "bacAaAdaAaA", "c", "AAA"])",
                    this->offset_type(), "[1, 7, 2, 2]", &options_empty_match);
+
+  // case-folding is Unicode on string types, ASCII-only on binary types.
+  options_as.pattern = "à+";
+  if (is_string_or_string_view(this->type()->id())) {
+    this->CheckUnary("count_substring_regex", R"(["", "bàcÀàÀdàÀàÀ", "àà", "ÀÀÀ"])",
+                     this->offset_type(), "[0, 3, 1, 1]", &options_as);
+  } else {
+    // In non-UTF8 mode, "à" is a two-character sequence, so "à+" does not match "àà".
+    this->CheckUnary("count_substring_regex", R"(["", "bàcÀàÀdàÀàÀ", "àà", "ÀÀÀ"])",
+                     this->offset_type(), "[0, 4, 2, 0]", &options_as);
+  }
 }
 #else
 TYPED_TEST(TestBaseBinaryKernels, CountSubstringIgnoreCase) {
@@ -1038,6 +1111,48 @@ TEST_F(TestFixedSizeBinaryKernels, FindSubstringIgnoreCase) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
                                   ::testing::HasSubstr("ignore_case requires RE2"),
                                   CallFunction("find_substring", {input}, &options));
+}
+#endif
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, Utf8Regex) {
+  // On UTF8 input types, case insensitive matches should account for all letters.
+  // (this stresses that the "is_utf8" option is passed down correctly to RE2)
+  auto letters_array = this->MakeArray({"🙂ab2AB3", "🙂àb2ÀB3"});
+  {
+    MatchSubstringOptions options("(?i)(A|À)B");
+    // 4 is the byte index of "ab" in "🙂ab2AB3"
+    this->CheckUnary("find_substring_regex", letters_array, this->offset_type(), "[4, 4]",
+                     &options);
+    this->CheckUnary("count_substring_regex", letters_array, this->offset_type(),
+                     "[2, 2]", &options);
+    this->CheckUnary("match_substring_regex", letters_array, boolean(), "[true, true]",
+                     &options);
+  }
+  {
+    SplitPatternOptions options("(?i)(A|À)B");
+    this->CheckUnary("split_pattern_regex", letters_array, list(this->type()),
+                     R"([["🙂", "2", "3"], ["🙂", "2", "3"]])", &options);
+  }
+  {
+    ReplaceSubstringOptions options("(?i)(A|À)B", "XY");
+    this->CheckUnary("replace_substring_regex", letters_array,
+                     this->MakeArray({"🙂XY2XY3", "🙂XY2XY3"}), &options);
+  }
+  {
+    ExtractRegexOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", this->type()}});
+    this->CheckUnary("extract_regex", letters_array, out_type,
+                     R"([{"letters": "ab"}, {"letters": "àb"}])", &options);
+  }
+  {
+    ExtractRegexSpanOptions options("(?P<letters>(?i:(?:A|À)B))");
+    auto out_type = struct_({{"letters", fixed_size_list(this->offset_type(), 2)}});
+    // 4 is the byte index of "ab" in "🙂ab2AB3"
+    // 3 is the byte length of "àb"
+    this->CheckUnary("extract_regex_span", letters_array, out_type,
+                     R"([{"letters": [4, 2]}, {"letters": [4, 3]}])", &options);
+  }
 }
 #endif
 
@@ -1556,11 +1671,17 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
-TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
+TYPED_TEST(TestBaseBinaryKernels, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
-  this->CheckUnary("match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
-                   boolean(), "[false, false, true, true, false, true]",
-                   &options_insensitive);
+  if (is_string_or_string_view(this->type()->id())) {
+    this->CheckUnary("match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
+                     boolean(), "[false, false, true, true, false, true]",
+                     &options_insensitive);
+  } else {
+    this->CheckUnary("match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
+                     boolean(), "[false, false, false, true, false, true]",
+                     &options_insensitive);
+  }
 }
 #else
 TYPED_TEST(TestBaseBinaryKernels, MatchSubstringIgnoreCase) {
@@ -1598,6 +1719,15 @@ TYPED_TEST(TestBaseBinaryKernels, MatchStartsWithIgnoreCase) {
                    boolean(), "[null, false, false, true, false, true]", &options);
   this->CheckUnary("starts_with", R"(["ABAB", "$ABAB", "ABAB$", "$AbAb", "aBaB$"])",
                    boolean(), "[true, false, true, false, true]", &options);
+
+  options.pattern = "àBÀb";
+  if (is_string_or_string_view(this->type()->id())) {
+    this->CheckUnary("starts_with", R"(["ÀBÀB", "$ÀBÀB", "ÀBÀB$", "$ÀbÀb", "àBÀB$"])",
+                     boolean(), "[true, false, true, false, true]", &options);
+  } else {
+    this->CheckUnary("starts_with", R"(["ÀBÀB", "$ÀBÀB", "ÀBÀB$", "$ÀbÀb", "àBÀB$"])",
+                     boolean(), "[false, false, false, false, true]", &options);
+  }
 }
 
 TYPED_TEST(TestBaseBinaryKernels, MatchEndsWithIgnoreCase) {
@@ -1607,6 +1737,15 @@ TYPED_TEST(TestBaseBinaryKernels, MatchEndsWithIgnoreCase) {
                    boolean(), "[null, false, false, true, true, false]", &options);
   this->CheckUnary("ends_with", R"(["ABAB", "$ABAB", "ABAB$", "$AbAb", "aBaB$"])",
                    boolean(), "[true, true, false, true, false]", &options);
+
+  options.pattern = "àBÀb";
+  if (is_string_or_string_view(this->type()->id())) {
+    this->CheckUnary("ends_with", R"(["ÀBÀB", "$àBÀB", "ÀBÀB$", "$ÀbÀb", "àBÀB$"])",
+                     boolean(), "[true, true, false, true, false]", &options);
+  } else {
+    this->CheckUnary("ends_with", R"(["ÀBÀB", "$àBÀB", "ÀBÀB$", "$ÀbÀb", "àBÀB$"])",
+                     boolean(), "[false, true, false, false, false]", &options);
+  }
 }
 #else
 TYPED_TEST(TestBaseBinaryKernels, MatchStartsWithIgnoreCase) {
@@ -1668,6 +1807,23 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstringRegexInvalid) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
       CallFunction("match_substring_regex", {input}, &options));
+}
+
+TYPED_TEST(TestBinaryKernels, MatchLikeIgnoreCase) {
+  // Case-folding is ASCII-only for binary types
+  MatchSubstringOptions insensitive_substring{"%e%", /*ignore_case=*/true};
+  this->CheckUnary("match_like", R"(["fooebar", "fooEbar", "é"])", boolean(),
+                   "[true, true, false]", &insensitive_substring);
+  insensitive_substring.pattern = "%é%";
+  this->CheckUnary("match_like", R"(["fooébar", "fooÉbar", "e"])", boolean(),
+                   "[true, false, false]", &insensitive_substring);
+
+  MatchSubstringOptions insensitive_regex{"_e%", /*ignore_case=*/true};
+  this->CheckUnary("match_like", R"(["aefoo", "aEfoo", "efoo"])", boolean(),
+                   "[true, true, false]", &insensitive_regex);
+  insensitive_regex.pattern = "_é%";
+  this->CheckUnary("match_like", R"(["aéfoo", "aÉfoo", "éfoo"])", boolean(),
+                   "[true, false, false]", &insensitive_regex);
 }
 
 TYPED_TEST(TestStringKernels, MatchLike) {
