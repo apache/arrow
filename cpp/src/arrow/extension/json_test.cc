@@ -63,10 +63,10 @@ TEST_F(TestJsonExtensionType, JsonRoundtrip) {
 }
 
 TEST_F(TestJsonExtensionType, InvalidUTF8) {
-  const std::vector<std::string> invalid_values = {"Ⱥa\xFFⱭ", "Ɽ\xe1\xbdⱤaA"};
   for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
     auto json_type = json(storage_type);
-    auto invalid_input = BinaryArrayFromStrings(storage_type, invalid_values);
+    auto invalid_input =
+        BinaryArrayFromStrings(storage_type, {"Ⱥa\xFFⱭ", "Ɽ\xe1\xbdⱤaA"});
     auto ext_arr = ExtensionType::WrapArray(json_type, invalid_input);
 
     ASSERT_RAISES_WITH_MESSAGE(Invalid,
