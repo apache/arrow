@@ -2797,17 +2797,18 @@ def test_assume_timezone():
         pc.assume_timezone(nonexistent_array,
                            options=options_nonexistent_raise)
 
-    expected = pa.array(nonexistent.tz_localize(
-        timezone, nonexistent="shift_forward"))
     result = pc.assume_timezone(
         nonexistent_array, options=options_nonexistent_latest)
-    expected.equals(result)
-
+    expected_type = pa.timestamp(nonexistent_array.type.unit, tz=timezone)
     expected = pa.array(nonexistent.tz_localize(
-        timezone, nonexistent="shift_backward"))
+        timezone, nonexistent="shift_forward"), type=expected_type)
+    assert expected.equals(result)
+
     result = pc.assume_timezone(
         nonexistent_array, options=options_nonexistent_earliest)
-    expected.equals(result)
+    expected = pa.array(nonexistent.tz_localize(
+        timezone, nonexistent="shift_backward"), type=expected_type)
+    assert expected.equals(result)
 
     options_ambiguous_raise = pc.AssumeTimezoneOptions(timezone)
     options_ambiguous_latest = pc.AssumeTimezoneOptions(
@@ -2820,15 +2821,18 @@ def test_assume_timezone():
                              f"timezone '{timezone}'"):
         pc.assume_timezone(ambiguous_array, options=options_ambiguous_raise)
 
-    expected = ambiguous.tz_localize(timezone, ambiguous=[True, True, True])
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_earliest)
-    result.equals(pa.array(expected))
+    expected_type = pa.timestamp(ambiguous_array.type.unit, tz=timezone)
+    expected = pa.array(ambiguous.tz_localize(
+        timezone, ambiguous=[True, True, True]), type=expected_type)
+    assert result.equals(expected)
 
-    expected = ambiguous.tz_localize(timezone, ambiguous=[False, False, False])
     result = pc.assume_timezone(
         ambiguous_array, options=options_ambiguous_latest)
-    result.equals(pa.array(expected))
+    expected = pa.array(ambiguous.tz_localize(
+        timezone, ambiguous=[False, False, False]), type=expected_type)
+    assert result.equals(expected)
 
 
 def _check_temporal_rounding(ts, values, unit):
