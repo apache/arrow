@@ -47,8 +47,11 @@ _type_ids = [
     'EXTENSION', 'FIXED_SIZE_LIST', 'DURATION', 'LARGE_STRING',
     'LARGE_BINARY', 'LARGE_LIST', 'INTERVAL_MONTH_DAY_NANO']
 
+_type_id_tuples = [(name, i) for i, name in enumerate(_type_ids)]
+_type_id_tuples.extend([('STRING_VIEW', 39), ('BINARY_VIEW', 40)])
+
 # Mirror the C++ Type::type enum
-Type = enum.IntEnum('Type', _type_ids, start=0)
+Type = enum.IntEnum('Type', _type_id_tuples)
 
 # Mirror the C++ TimeUnit::type enum
 TimeUnit = enum.IntEnum('TimeUnit', ['SECOND', 'MILLI', 'MICRO', 'NANO'],
@@ -1041,8 +1044,10 @@ type_reprs = {
     'Decimal256Type': 'decimal256',
     'StringType': 'utf8',
     'LargeStringType': 'large_utf8',
+    'StringViewType': 'utf8_view',
     'BinaryType': 'binary',
     'LargeBinaryType': 'large_binary',
+    'BinaryViewType': 'binary_view',
     'FixedSizeBinaryType': 'fixed_size_binary',
     'ListType': 'list',
     'LargeListType': 'large_list',
@@ -2042,6 +2047,8 @@ type_traits_by_id = {
     Type.BINARY: DataTypeTraits(BaseBinaryTypeClass, 'BinaryType'),
     Type.LARGE_STRING: DataTypeTraits(BaseBinaryTypeClass, 'LargeStringType'),
     Type.LARGE_BINARY: DataTypeTraits(BaseBinaryTypeClass, 'LargeBinaryType'),
+    Type.STRING_VIEW: DataTypeTraits(BaseBinaryTypeClass, 'StringViewType'),
+    Type.BINARY_VIEW: DataTypeTraits(BaseBinaryTypeClass, 'BinaryViewType'),
 
     Type.FIXED_SIZE_BINARY: DataTypeTraits(FixedSizeBinaryTypeClass,
                                            'FixedSizeBinaryType'),

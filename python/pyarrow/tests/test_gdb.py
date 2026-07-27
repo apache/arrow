@@ -368,6 +368,8 @@ def test_types_stack(gdb_arrow):
     check_stack_repr(gdb_arrow, "string_type", "arrow::utf8()")
     check_stack_repr(gdb_arrow, "large_binary_type", "arrow::large_binary()")
     check_stack_repr(gdb_arrow, "large_string_type", "arrow::large_utf8()")
+    check_stack_repr(gdb_arrow, "binary_view_type", "arrow::binary_view()")
+    check_stack_repr(gdb_arrow, "string_view_type", "arrow::utf8_view()")
     check_stack_repr(gdb_arrow, "fixed_size_binary_type",
                      "arrow::fixed_size_binary(10)")
 
@@ -427,6 +429,8 @@ def test_types_heap(gdb_arrow):
 
     check_heap_repr(gdb_arrow, "heap_decimal128_type",
                     "arrow::decimal128(16, 5)")
+    check_heap_repr(gdb_arrow, "heap_binary_view_type", "arrow::binary_view()")
+    check_heap_repr(gdb_arrow, "heap_string_view_type", "arrow::utf8_view()")
 
     check_heap_repr(gdb_arrow, "heap_list_type",
                     "arrow::list(arrow::uint8())")
@@ -625,6 +629,12 @@ def test_scalars_stack(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "large_binary_scalar_abc",
         'arrow::LargeBinaryScalar of size 3, value "abc"')
+    check_stack_repr(
+        gdb_arrow, "binary_view_scalar_null",
+        "arrow::BinaryViewScalar of null value")
+    check_stack_repr(
+        gdb_arrow, "binary_view_scalar_abc",
+        'arrow::BinaryViewScalar of size 3, value "abc"')
 
     check_stack_repr(
         gdb_arrow, "string_scalar_null",
@@ -645,6 +655,12 @@ def test_scalars_stack(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "large_string_scalar_hehe",
         'arrow::LargeStringScalar of size 6, value "héhé"')
+    check_stack_repr(
+        gdb_arrow, "string_view_scalar_null",
+        "arrow::StringViewScalar of null value")
+    check_stack_repr(
+        gdb_arrow, "string_view_scalar_hehe",
+        'arrow::StringViewScalar of size 6, value "héhé"')
 
     check_stack_repr(
         gdb_arrow, "fixed_size_binary_scalar",
