@@ -27,6 +27,7 @@
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
@@ -1499,12 +1500,11 @@ struct MatchLikeConstants {
   // NOTE: avoid making those constants global to avoid compiling regexes at startup
   RE2::Options regex_options;
   // A LIKE pattern matching this regex can be translated into a substring search.
-  RE2 like_pattern_is_substring_match;
+  RE2 like_pattern_is_substring_match{R"(%+([^%_]*[^\\%_])?%+)", regex_options};
   // A LIKE pattern matching this regex can be translated into a prefix search.
-  RE2 like_pattern_is_starts_with;
+  RE2 like_pattern_is_starts_with{R"(([^%_]*[^\\%_])?%+)", regex_options};
   // A LIKE pattern matching this regex can be translated into a suffix search.
-  RE2 like_pattern_is_ends_with;
-  Status init_status;
+  RE2 like_pattern_is_ends_with{R"(%+([^%_]*))", regex_options};
 
   static Result<const MatchLikeConstants*> Instance(bool is_utf8) {
     static const auto constants = MakeAll();
@@ -1514,25 +1514,17 @@ struct MatchLikeConstants {
  private:
   static Result<std::unique_ptr<MatchLikeConstants>> Make(bool is_utf8) {
     auto constants = std::unique_ptr<MatchLikeConstants>(new MatchLikeConstants(is_utf8));
-    if (constants->init_status.ok()) {
-      return constants;
-    } else {
-      return constants->init_status;
-    }
+    RETURN_NOT_OK(RegexStatus(constants->like_pattern_is_substring_match) &
+                  RegexStatus(constants->like_pattern_is_starts_with) &
+                  RegexStatus(constants->like_pattern_is_ends_with));
+    return constants;
   }
 
   static std::array<Result<std::unique_ptr<MatchLikeConstants>>, 2> MakeAll() {
     return {Make(false), Make(true)};
   }
 
-  explicit MatchLikeConstants(bool is_utf8)
-      : regex_options(MakeRE2Options(is_utf8)),
-        like_pattern_is_substring_match(R"(%+([^%_]*[^\\%_])?%+)", regex_options),
-        like_pattern_is_starts_with(R"(([^%_]*[^\\%_])?%+)", regex_options),
-        like_pattern_is_ends_with(R"(%+([^%_]*))", regex_options),
-        init_status(RegexStatus(like_pattern_is_substring_match) &
-                    RegexStatus(like_pattern_is_starts_with) &
-                    RegexStatus(like_pattern_is_ends_with)) {}
+  explicit MatchLikeConstants(bool is_utf8) : regex_options(MakeRE2Options(is_utf8)) {}
 };
 
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
