@@ -405,6 +405,10 @@ def test_types_stack(gdb_arrow):
                      "arrow::list(arrow::uint8())")
     check_stack_repr(gdb_arrow, "large_list_type",
                      "arrow::large_list(arrow::large_utf8())")
+    check_stack_repr(gdb_arrow, "list_view_type",
+                     "arrow::list_view(arrow::uint8())")
+    check_stack_repr(gdb_arrow, "large_list_view_type",
+                     "arrow::large_list_view(arrow::large_utf8())")
     check_stack_repr(gdb_arrow, "fixed_size_list_type",
                      "arrow::fixed_size_list(arrow::float64(), 3)")
     check_stack_repr(
@@ -466,6 +470,10 @@ def test_types_heap(gdb_arrow):
                     "arrow::list(arrow::uint8())")
     check_heap_repr(gdb_arrow, "heap_large_list_type",
                     "arrow::large_list(arrow::large_utf8())")
+    check_heap_repr(gdb_arrow, "heap_list_view_type",
+                    "arrow::list_view(arrow::uint8())")
+    check_heap_repr(gdb_arrow, "heap_large_list_view_type",
+                    "arrow::large_list_view(arrow::large_utf8())")
     check_heap_repr(gdb_arrow, "heap_fixed_size_list_type",
                     "arrow::fixed_size_list(arrow::float64(), 3)")
     check_heap_repr(
@@ -737,6 +745,22 @@ def test_scalars_stack(gdb_arrow):
         ('arrow::LargeListScalar of type arrow::large_list(arrow::int32()), '
          'null value'))
     check_stack_repr(
+        gdb_arrow, "list_view_scalar",
+        ('arrow::ListViewScalar of value arrow::Int32Array of '
+         'length 3, offset 0, null count 0 = {[0] = 4, [1] = 5, [2] = 6}'))
+    check_stack_repr(
+        gdb_arrow, "list_view_scalar_null",
+        ('arrow::ListViewScalar of type arrow::list_view(arrow::int32()), '
+         'null value'))
+    check_stack_repr(
+        gdb_arrow, "large_list_view_scalar",
+        ('arrow::LargeListViewScalar of value arrow::Int32Array of '
+         'length 3, offset 0, null count 0 = {[0] = 4, [1] = 5, [2] = 6}'))
+    check_stack_repr(
+        gdb_arrow, "large_list_view_scalar_null",
+        ('arrow::LargeListViewScalar of type '
+         'arrow::large_list_view(arrow::int32()), null value'))
+    check_stack_repr(
         gdb_arrow, "fixed_size_list_scalar",
         ('arrow::FixedSizeListScalar of value arrow::Int32Array of '
          'length 3, offset 0, null count 0 = {[0] = 4, [1] = 5, [2] = 6}'))
@@ -827,6 +851,10 @@ def test_arrays_stack(gdb_arrow):
     check_stack_repr(
         gdb_arrow, "list_array",
         ("arrow::ListArray of type arrow::list(arrow::int64()), "
+         "length 3, offset 0, null count 1"))
+    check_stack_repr(
+        gdb_arrow, "list_view_array",
+        ("arrow::ListViewArray of type arrow::list_view(arrow::int64()), "
          "length 3, offset 0, null count 1"))
 
 
@@ -1080,6 +1108,14 @@ def test_arrays_heap(gdb_arrow):
     check_heap_repr(
         gdb_arrow, "heap_list_array",
         ("arrow::ListArray of type arrow::list(arrow::int64()), "
+         "length 3, offset 0, null count 1"))
+    check_heap_repr(
+        gdb_arrow, "heap_list_view_array",
+        ("arrow::ListViewArray of type arrow::list_view(arrow::int64()), "
+         "length 3, offset 0, null count 1"))
+    check_heap_repr(
+        gdb_arrow, "heap_large_list_view_array",
+        ("arrow::LargeListViewArray of type arrow::large_list_view(arrow::int64()), "
          "length 3, offset 0, null count 1"))
 
 
