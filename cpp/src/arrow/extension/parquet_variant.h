@@ -63,7 +63,7 @@ class ARROW_EXPORT VariantArray : public ExtensionArray {
 /// optional group shredded_variant_name (VARIANT) {
 ///   required binary metadata;
 ///   optional binary value;
-///   optional <type> typed_value;
+///   optional &lt;type&gt; typed_value;
 /// }
 ///
 /// The value and typed_value fields are optional in the schema, but at least one
