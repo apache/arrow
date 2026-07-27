@@ -80,7 +80,7 @@ class JsonWriter;
 
 namespace arrow::internal::integration::json {
 
-/// \brief Append integration test Schema format to rapidjson writer
+/// \brief Append integration test Schema format to JSON writer
 ARROW_EXPORT
 Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
                    arrow::json::JsonWriter*);
