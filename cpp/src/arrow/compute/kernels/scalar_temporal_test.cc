@@ -3800,6 +3800,33 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDuration) {
   check_unit(TimeUnit::MICRO, CalendarUnit::MICROSECOND);
   check_unit(TimeUnit::NANO, CalendarUnit::NANOSECOND);
 
+  auto check_second_based_unit = [&](CalendarUnit calendar_unit, const char* values_json,
+                                     const char* ceil_round_json,
+                                     const char* floor_json) {
+    RoundTemporalOptions round_to_2_units(2, calendar_unit);
+    auto values = ArrayFromJSON(duration(TimeUnit::SECOND), values_json);
+
+    CheckScalarUnary("ceil_temporal", values,
+                     ArrayFromJSON(duration(TimeUnit::SECOND), ceil_round_json),
+                     &round_to_2_units);
+    CheckScalarUnary("floor_temporal", values,
+                     ArrayFromJSON(duration(TimeUnit::SECOND), floor_json),
+                     &round_to_2_units);
+    CheckScalarUnary("round_temporal", values,
+                     ArrayFromJSON(duration(TimeUnit::SECOND), ceil_round_json),
+                     &round_to_2_units);
+  };
+
+  check_second_based_unit(CalendarUnit::MINUTE,
+                          "[0, 60, 120, 180, -60, -120, -180, null]",
+                          "[0, 120, 120, 240, 0, -120, -120, null]",
+                          "[0, 0, 120, 120, -120, -120, -240, null]");
+
+  check_second_based_unit(CalendarUnit::HOUR,
+                          "[0, 3600, 7200, 10800, -3600, -7200, -10800, null]",
+                          "[0, 7200, 7200, 14400, 0, -7200, -7200, null]",
+                          "[0, 0, 7200, 7200, -7200, -7200, -14400, null]");
+
   // A day is treated as a physical 24-hour unit for duration values.
   RoundTemporalOptions round_to_day(1, CalendarUnit::DAY);
   auto day_values = ArrayFromJSON(duration(TimeUnit::SECOND),
