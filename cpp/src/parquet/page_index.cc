@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <limits>
 #include <numeric>
 
@@ -977,6 +978,13 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                           BoundaryOrder::UNDEFINED)) {
     // Guard against UB when moving column_index
     throw ParquetException("Invalid ColumnIndex boundary_order");
+  }
+  if (column_index.__isset.null_counts &&
+      column_index.null_counts.size() == column_index.null_pages.size() &&
+      std::ranges::any_of(column_index.null_counts,
+                          [](int64_t null_count) { return null_count < 0; })) {
+    column_index.__isset.null_counts = false;
+    column_index.null_counts.clear();
   }
   switch (descr.physical_type()) {
     case Type::BOOLEAN:

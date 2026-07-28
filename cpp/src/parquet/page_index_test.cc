@@ -259,6 +259,26 @@ TEST(PageIndex, ReadColumnIndexWithNullPage) {
       null_pages, min_values, max_values, has_null_counts, null_counts);
 }
 
+TEST(PageIndex, ReadColumnIndexWithNegativeNullCount) {
+  format::ColumnIndex thrift_index;
+  thrift_index.__set_null_pages({true, true});
+  thrift_index.__set_min_values({"", ""});
+  thrift_index.__set_max_values({"", ""});
+  thrift_index.__set_boundary_order(format::BoundaryOrder::UNORDERED);
+  thrift_index.__set_null_counts({1, -1});
+
+  auto sink = CreateOutputStream();
+  ThriftSerializer{}.Serialize(&thrift_index, sink.get());
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  ColumnDescriptor descr(schema::Int32("c1"), /*max_definition_level=*/1,
+                         /*max_repetition_level=*/0);
+  auto column_index =
+      ColumnIndex::Make(descr, buffer->data(), static_cast<uint32_t>(buffer->size()),
+                        default_reader_properties());
+
+  EXPECT_FALSE(column_index->has_null_counts());
+}
+
 struct PageIndexRanges {
   int64_t column_index_offset;
   int64_t column_index_length;

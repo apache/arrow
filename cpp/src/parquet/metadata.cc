@@ -94,9 +94,11 @@ namespace {
 
 template <typename DType>
 std::shared_ptr<Statistics> MakeTypedColumnStats(const format::ColumnMetaData& metadata,
+                                                 const EncodedStatistics& encoded_stats,
                                                  const ColumnDescriptor* descr,
                                                  ::arrow::MemoryPool* pool) {
   const auto& statistics = metadata.statistics;
+  const int64_t null_count = encoded_stats.has_null_count ? encoded_stats.null_count : 0;
   const std::string kEmpty = "";
   const std::string* encoded_min = &kEmpty;
   const std::string* encoded_max = &kEmpty;
@@ -126,10 +128,9 @@ std::shared_ptr<Statistics> MakeTypedColumnStats(const format::ColumnMetaData& m
   }
 
   return MakeStatistics<DType>(
-      descr, *encoded_min, *encoded_max, metadata.num_values - statistics.null_count,
-      statistics.null_count, statistics.distinct_count, has_min_max,
-      statistics.__isset.null_count, statistics.__isset.distinct_count, min_exact,
-      max_exact, pool);
+      descr, *encoded_min, *encoded_max, metadata.num_values - null_count, null_count,
+      encoded_stats.distinct_count, has_min_max, encoded_stats.has_null_count,
+      encoded_stats.has_distinct_count, min_exact, max_exact, pool);
 }
 
 std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
@@ -144,6 +145,7 @@ std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
+                                            const EncodedStatistics& encoded_stats,
                                             const ColumnDescriptor* descr,
                                             ::arrow::MemoryPool* pool) {
   auto metadata_type = LoadEnumSafe(&meta_data.type);
@@ -154,21 +156,21 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   }
   switch (metadata_type) {
     case Type::BOOLEAN:
-      return MakeTypedColumnStats<BooleanType>(meta_data, descr, pool);
+      return MakeTypedColumnStats<BooleanType>(meta_data, encoded_stats, descr, pool);
     case Type::INT32:
-      return MakeTypedColumnStats<Int32Type>(meta_data, descr, pool);
+      return MakeTypedColumnStats<Int32Type>(meta_data, encoded_stats, descr, pool);
     case Type::INT64:
-      return MakeTypedColumnStats<Int64Type>(meta_data, descr, pool);
+      return MakeTypedColumnStats<Int64Type>(meta_data, encoded_stats, descr, pool);
     case Type::INT96:
-      return MakeTypedColumnStats<Int96Type>(meta_data, descr, pool);
+      return MakeTypedColumnStats<Int96Type>(meta_data, encoded_stats, descr, pool);
     case Type::DOUBLE:
-      return MakeTypedColumnStats<DoubleType>(meta_data, descr, pool);
+      return MakeTypedColumnStats<DoubleType>(meta_data, encoded_stats, descr, pool);
     case Type::FLOAT:
-      return MakeTypedColumnStats<FloatType>(meta_data, descr, pool);
+      return MakeTypedColumnStats<FloatType>(meta_data, encoded_stats, descr, pool);
     case Type::BYTE_ARRAY:
-      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr, pool);
+      return MakeTypedColumnStats<ByteArrayType>(meta_data, encoded_stats, descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return MakeTypedColumnStats<FLBAType>(meta_data, descr, pool);
+      return MakeTypedColumnStats<FLBAType>(meta_data, encoded_stats, descr, pool);
     case Type::UNDEFINED:
       break;
   }
@@ -370,8 +372,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (is_stats_set()) {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
-        possible_stats_ =
-            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
+        possible_stats_ = MakeColumnStats(*column_metadata_, *possible_encoded_stats_,
+                                          descr_, properties_.memory_pool());
       }
       return possible_stats_;
     }

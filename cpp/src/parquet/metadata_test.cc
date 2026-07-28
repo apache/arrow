@@ -361,6 +361,26 @@ TEST(Metadata, UnknownColumnOrderIgnoresMinMax) {
   AssertColumnChunkHasNoMinMax(*metadata, ColumnOrder::UNKNOWN);
 }
 
+TEST(Metadata, NegativeCounts) {
+  format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
+  auto& column_metadata = thrift_metadata.row_groups[0].columns[0].meta_data;
+  column_metadata.__set_num_values(10);
+  column_metadata.statistics.__set_null_count(-1);
+  column_metadata.statistics.__set_distinct_count(-1);
+
+  auto metadata = ParseMetadata(SerializeMetadata(thrift_metadata));
+  auto column = GetOnlyColumnChunk(*metadata, ColumnOrder::TYPE_DEFINED_ORDER);
+  auto encoded_statistics = column->encoded_statistics();
+  ASSERT_NE(nullptr, encoded_statistics);
+  EXPECT_FALSE(encoded_statistics->has_null_count);
+  EXPECT_FALSE(encoded_statistics->has_distinct_count);
+  auto statistics = column->statistics();
+  ASSERT_NE(nullptr, statistics);
+  EXPECT_FALSE(statistics->HasNullCount());
+  EXPECT_FALSE(statistics->HasDistinctCount());
+  EXPECT_EQ(10, statistics->num_values());
+}
+
 TEST(Metadata, MissingColumnOrderUsesLegacyMinMax) {
   format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
   thrift_metadata.column_orders.clear();

@@ -306,10 +306,10 @@ static inline EncodedStatistics FromThrift(const format::Statistics& stats,
       out.set_min(stats.min);
     }
   }
-  if (stats.__isset.null_count) {
+  if (stats.__isset.null_count && stats.null_count >= 0) {
     out.set_null_count(stats.null_count);
   }
-  if (stats.__isset.distinct_count) {
+  if (stats.__isset.distinct_count && stats.distinct_count >= 0) {
     out.set_distinct_count(stats.distinct_count);
   }
 
