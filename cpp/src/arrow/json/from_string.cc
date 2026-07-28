@@ -83,8 +83,8 @@ const char* JsonTypeName(sj::json_type type) {
   }
 }
 
-template <typename>
-inline constexpr bool kAlwaysFalse = false;
+// Empty struct to represent the type of a simdjson null value
+struct SimdjsonNull {};
 
 template <typename SimdjsonClass>
 const char* JsonTypeName() {
@@ -101,18 +101,18 @@ const char* JsonTypeName() {
     return "string";
   } else if constexpr (std::is_same_v<SimdjsonClass, bool>) {
     return "boolean";
-  } else if constexpr (std::is_same_v<SimdjsonClass, std::monostate>) {
+  } else if constexpr (std::is_same_v<SimdjsonClass, SimdjsonNull>) {
     return "null";
   } else {
-    static_assert(kAlwaysFalse<SimdjsonClass>, "unmapped simdjson value type");
+    static_assert(false, "unmapped simdjson value type");
   }
 }
 
 template <typename SimdjsonValueType>
-Result<SimdjsonValueType> GetAs(sj::value& value) {
+Result<SimdjsonValueType> GetJsonAs(sj::value& value) {
   SimdjsonValueType typed_value{};
   simdjson::error_code error_code;
-  if constexpr (std::is_same_v<SimdjsonValueType, std::monostate>) {
+  if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
     // simdjson has no get<>() for null; probe it explicitly
     bool is_null;
     error_code = value.is_null().get(is_null);
@@ -135,8 +135,8 @@ Result<SimdjsonValueType> GetAs(sj::value& value) {
 }
 
 template <typename SimdjsonValueType>
-Result<SimdjsonValueType> Get(simdjson::simdjson_result<SimdjsonValueType> element,
-                              std::string_view error) {
+Result<SimdjsonValueType> GetJsonResult(
+    simdjson::simdjson_result<SimdjsonValueType> element, std::string_view error) {
   SimdjsonValueType typed_value;
   if (auto error_code = std::move(element).get(typed_value);
       error_code != simdjson::SUCCESS) {
@@ -189,9 +189,9 @@ class ConcreteConverter : public JSONConverter {
     auto self = static_cast<Derived*>(this);
     int32_t num_elements = 0;
     for (auto element : json_array) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto value,
-          Get<sj::value>(element, "Could not iterate elements of JSON array: "));
+      ARROW_ASSIGN_OR_RAISE(auto value,
+                            GetJsonResult<sj::value>(
+                                element, "Could not iterate elements of JSON array: "));
       RETURN_NOT_OK(self->AppendValue(value));
       num_elements++;
     }
@@ -226,7 +226,7 @@ class NullConverter final : public ConcreteConverter<NullConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_RETURN_NOT_OK(GetAs<std::monostate>(json_obj));
+    ARROW_RETURN_NOT_OK(GetJsonAs<SimdjsonNull>(json_obj));
     return AppendNull();
   }
 
@@ -254,7 +254,7 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
     if (json_obj.get(int_value) == simdjson::SUCCESS) {
       return builder_->Append(int_value != 0);
     }
-    ARROW_ASSIGN_OR_RAISE(bool bool_value, GetAs<bool>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool bool_value, GetJsonAs<bool>(json_obj));
     return builder_->Append(bool_value);
   }
 
@@ -273,7 +273,7 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(sj::value& json_obj,
                                                            const DataType& type,
                                                            typename T::c_type* out) {
   *out = static_cast<typename T::c_type>(0);
-  ARROW_ASSIGN_OR_RAISE(int64_t v64, GetAs<int64_t>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(int64_t v64, GetJsonAs<int64_t>(json_obj));
   *out = static_cast<typename T::c_type>(v64);
   if (*out == v64) {
     return Status::OK();
@@ -288,7 +288,7 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(sj::value& json_obj,
                                                     const DataType& type,
                                                     typename T::c_type* out) {
   *out = static_cast<typename T::c_type>(0);
-  ARROW_ASSIGN_OR_RAISE(uint64_t v64, GetAs<uint64_t>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(uint64_t v64, GetJsonAs<uint64_t>(json_obj));
   *out = static_cast<typename T::c_type>(v64);
   if (*out == v64) {
     return Status::OK();
@@ -330,7 +330,7 @@ enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj, const DataTyp
     *out = Float16(f64.value()).bits();
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto f64, GetAs<double>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto f64, GetJsonAs<double>(json_obj));
   *out = Float16(f64).bits();
   return arrow::Status::OK();
 }
@@ -345,7 +345,7 @@ enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
     *out = static_cast<typename T::c_type>(f64.value());
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto f64, GetAs<double>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto f64, GetJsonAs<double>(json_obj));
   *out = static_cast<typename T::c_type>(f64);
   return arrow::Status::OK();
 }
@@ -469,7 +469,7 @@ class DecimalConverter final
     if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    ARROW_ASSIGN_OR_RAISE(auto string_value, GetAs<std::string_view>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto string_value, GetJsonAs<std::string_view>(json_obj));
     int32_t precision, scale;
     DecimalValue d;
     RETURN_NOT_OK(DecimalValue::FromString(string_value, &d, &precision, &scale));
@@ -546,7 +546,7 @@ class DayTimeIntervalConverter final
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
     DayTimeIntervalType::DayMilliseconds value;
     RETURN_NOT_OK(ProcessJsonArrayElements(
@@ -579,7 +579,7 @@ class MonthDayNanoIntervalConverter final
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
     MonthDayNanoIntervalType::MonthDayNanos value;
     RETURN_NOT_OK(ProcessJsonArrayElements(
@@ -618,7 +618,7 @@ class StringConverter final
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto view, GetAs<std::string_view>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto view, GetJsonAs<std::string_view>(json_obj));
     return builder_->Append(view);
   }
 
@@ -645,7 +645,7 @@ class FixedSizeBinaryConverter final
     if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    ARROW_ASSIGN_OR_RAISE(auto view, GetAs<std::string_view>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto view, GetJsonAs<std::string_view>(json_obj));
     if (view.length() != static_cast<size_t>(builder_->byte_width())) {
       std::stringstream ss;
       ss << "Invalid string length " << view.length() << " in JSON input for "
@@ -688,7 +688,7 @@ class VarLengthListLikeConverter final
     if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
     size_t num_elements;
     if (array.count_elements().get(num_elements) != simdjson::SUCCESS) {
       return Status::Invalid("Malformed JSON array for type ", this->type_->ToString());
@@ -728,13 +728,14 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
       return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
-    ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
     for (auto json_pair_result : array) {
       ARROW_ASSIGN_OR_RAISE(
           auto json_pair,
-          Get<sj::value>(json_pair_result, "Could not iterate elements of JSON array: "));
-      ARROW_ASSIGN_OR_RAISE(auto json_pair_array, GetAs<sj::array>(json_pair));
+          GetJsonResult<sj::value>(json_pair_result,
+                                   "Could not iterate elements of JSON array: "));
+      ARROW_ASSIGN_OR_RAISE(auto json_pair_array, GetJsonAs<sj::array>(json_pair));
 
       RETURN_NOT_OK(ProcessJsonArrayElements(
           json_pair_array, "key-item pair",
@@ -779,7 +780,7 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
-    ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
     ARROW_ASSIGN_OR_RAISE(int32_t size, child_converter_->AppendValues(array));
     if (size != list_size_) {
       return Status::Invalid("incorrect list size ", size);
@@ -838,15 +839,15 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       }
       size_t i = 0;
       for (auto child : array) {
-        ARROW_ASSIGN_OR_RAISE(
-            auto child_value,
-            Get<sj::value>(child, "Could not iterate elements of JSON array: "));
+        ARROW_ASSIGN_OR_RAISE(auto child_value,
+                              GetJsonResult<sj::value>(
+                                  child, "Could not iterate elements of JSON array: "));
         RETURN_NOT_OK(child_converters_[i]->AppendValue(child_value));
         ++i;
       }
       return builder_->Append();
     }
-    ARROW_ASSIGN_OR_RAISE(auto object, GetAs<sj::object>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto object, GetJsonAs<sj::object>(json_obj));
     // Iterate the object fields in JSON order (the on-demand API is
     // forward-only, so per-field lookups would be quadratic and would also
     // compare against raw, still-escaped keys). Fields absent from the JSON
@@ -855,7 +856,8 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     std::vector<bool> field_seen(num_fields, false);
     for (auto field_result : object) {
       ARROW_ASSIGN_OR_RAISE(
-          auto field, Get<sj::field>(field_result, "Error getting field of object: "));
+          auto field,
+          GetJsonResult<sj::field>(field_result, "Error getting field of object: "));
       std::string_view key;
       if (field.unescaped_key(/*allow_replacement=*/false).get(key) !=
           simdjson::SUCCESS) {
@@ -933,7 +935,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
     int8_t id = 0;
     std::shared_ptr<JSONConverter> child_converter;
@@ -941,7 +943,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     RETURN_NOT_OK(ProcessJsonArrayElements(
         array, "[type_id, value] pair",
         [this, &id, &child_converter](sj::value& id_elem) {
-          ARROW_ASSIGN_OR_RAISE(auto id_value, GetAs<int64_t>(id_elem));
+          ARROW_ASSIGN_OR_RAISE(auto id_value, GetJsonAs<int64_t>(id_elem));
           id = static_cast<int8_t>(id_value);
           auto child_num = type_id_to_child_num_[id];
           if (child_num == -1) {
@@ -1123,7 +1125,7 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
       error_code != simdjson::SUCCESS) {
     return Status::Invalid("JSON parse error: ", simdjson::error_message(error_code));
   }
-  ARROW_ASSIGN_OR_RAISE(auto array, GetAs<sj::array>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
   // The JSON document should be an array, append it
   RETURN_NOT_OK(converter->AppendValues(array));
@@ -1193,7 +1195,7 @@ Result<std::shared_ptr<Scalar>> ScalarFromJSONString(
       error_code != simdjson::SUCCESS) {
     return Status::Invalid("JSON parse error: ", simdjson::error_message(error_code));
   }
-  ARROW_ASSIGN_OR_RAISE(auto singleton_array, GetAs<sj::array>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto singleton_array, GetJsonAs<sj::array>(json_obj));
 
   ARROW_ASSIGN_OR_RAISE(int32_t num_elements, converter->AppendValues(singleton_array));
   if (num_elements != 1) {
