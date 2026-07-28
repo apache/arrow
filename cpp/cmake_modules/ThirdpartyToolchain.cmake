@@ -1956,7 +1956,7 @@ function(build_absl)
        absl::crc_cpu_detect
        absl::debugging_internal
        absl::demangle_internal
-       absl::examin_stack
+       absl::examine_stack
        absl::exponential_biased
        absl::hash
        absl::int128
