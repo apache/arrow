@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -351,44 +353,35 @@ enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
 }
 
 // ------------------------------------------------------------------------
-// Helper to process a JSON array with exactly N elements, calling a handler for each.
-// Each handler is a callable taking sj::value& and returning Status.
-template <typename... Handlers>
-Status ProcessJsonArrayElements(sj::array& json_array, const char* error_context,
-                                Handlers&&... handlers) {
-  constexpr size_t expected_size = sizeof...(Handlers);
+// Helper to process a JSON array with exactly kExpectedSize elements, calling
+// one handler per element, in order.
+using JsonElementHandler = std::function<Status(sj::value&)>;
+
+template <size_t kExpectedSize>
+Status ProcessJsonArrayElements(
+    sj::array& json_array, const char* error_context,
+    const std::array<JsonElementHandler, kExpectedSize>& handlers) {
   auto it = json_array.begin();
   auto end = json_array.end();
 
   size_t index = 0;
-
-  auto process_one = [&](auto&& handler) -> arrow::Status {
+  for (const auto& handler : handlers) {
     if (it == end) {
-      return Status::Invalid(error_context, " must have exactly ", expected_size,
-                             " elements, had more");
+      return Status::Invalid(error_context, " must have exactly ", kExpectedSize,
+                             " elements, had ", index);
     }
 
-    sj::value element;
-    auto error = (*it).get(element);
-    if (error) {
-      return Status::Invalid("Failed to get element ", index, " from ", error_context,
-                             ": ", simdjson::error_message(error));
-    }
-
-    auto result = handler(element);
+    ARROW_ASSIGN_OR_RAISE(
+        sj::value element,
+        GetJsonResult<sj::value>(*it, "Could not iterate elements of JSON array: "));
+    RETURN_NOT_OK(handler(element));
     ++it;
     ++index;
-    return result;
-  };
-
-  // Use fold expression to process all handlers in order
-  auto result = (process_one(std::forward<Handlers>(handlers)) & ...);
-
-  if (!result.ok()) return result;
+  }
 
   if (it != end) {
-    return Status::Invalid(error_context, " must have exactly ", expected_size,
-                           " elements, had ", index);
+    return Status::Invalid(error_context, " must have exactly ", kExpectedSize,
+                           " elements, had more");
   }
   return Status::OK();
 }
@@ -549,14 +542,14 @@ class DayTimeIntervalConverter final
     ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
     DayTimeIntervalType::DayMilliseconds value;
-    RETURN_NOT_OK(ProcessJsonArrayElements(
+    RETURN_NOT_OK(ProcessJsonArrayElements<2>(
         array, "day-time interval",
-        [this, &value](sj::value& elem) {
-          return ConvertNumber<Int32Type>(elem, *this->type_, &value.days);
-        },
-        [this, &value](sj::value& elem) {
-          return ConvertNumber<Int32Type>(elem, *this->type_, &value.milliseconds);
-        }));
+        {[this, &value](sj::value& elem) {
+           return ConvertNumber<Int32Type>(elem, *this->type_, &value.days);
+         },
+         [this, &value](sj::value& elem) {
+           return ConvertNumber<Int32Type>(elem, *this->type_, &value.milliseconds);
+         }}));
     return builder_->Append(value);
   }
 
@@ -582,17 +575,17 @@ class MonthDayNanoIntervalConverter final
     ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
 
     MonthDayNanoIntervalType::MonthDayNanos value;
-    RETURN_NOT_OK(ProcessJsonArrayElements(
+    RETURN_NOT_OK(ProcessJsonArrayElements<3>(
         array, "month-day-nano interval",
-        [this, &value](sj::value& elem) {
-          return ConvertNumber<Int32Type>(elem, *this->type_, &value.months);
-        },
-        [this, &value](sj::value& elem) {
-          return ConvertNumber<Int32Type>(elem, *this->type_, &value.days);
-        },
-        [this, &value](sj::value& elem) {
-          return ConvertNumber<Int64Type>(elem, *this->type_, &value.nanoseconds);
-        }));
+        {[this, &value](sj::value& elem) {
+           return ConvertNumber<Int32Type>(elem, *this->type_, &value.months);
+         },
+         [this, &value](sj::value& elem) {
+           return ConvertNumber<Int32Type>(elem, *this->type_, &value.days);
+         },
+         [this, &value](sj::value& elem) {
+           return ConvertNumber<Int64Type>(elem, *this->type_, &value.nanoseconds);
+         }}));
     return builder_->Append(value);
   }
 
@@ -737,15 +730,15 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
                                    "Could not iterate elements of JSON array: "));
       ARROW_ASSIGN_OR_RAISE(auto json_pair_array, GetJsonAs<sj::array>(json_pair));
 
-      RETURN_NOT_OK(ProcessJsonArrayElements(
+      RETURN_NOT_OK(ProcessJsonArrayElements<2>(
           json_pair_array, "key-item pair",
-          [this](sj::value& key) {
-            if (key.is_null()) {
-              return Status::Invalid("null key is invalid");
-            }
-            return key_converter_->AppendValue(key);
-          },
-          [this](sj::value& item) { return item_converter_->AppendValue(item); }));
+          {[this](sj::value& key) {
+             if (key.is_null()) {
+               return Status::Invalid("null key is invalid");
+             }
+             return key_converter_->AppendValue(key);
+           },
+           [this](sj::value& item) { return item_converter_->AppendValue(item); }}));
     }
     return Status::OK();
   }
@@ -940,32 +933,32 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     int8_t id = 0;
     std::shared_ptr<JSONConverter> child_converter;
 
-    RETURN_NOT_OK(ProcessJsonArrayElements(
+    RETURN_NOT_OK(ProcessJsonArrayElements<2>(
         array, "[type_id, value] pair",
-        [this, &id, &child_converter](sj::value& id_elem) {
-          ARROW_ASSIGN_OR_RAISE(auto id_value, GetJsonAs<int64_t>(id_elem));
-          id = static_cast<int8_t>(id_value);
-          auto child_num = type_id_to_child_num_[id];
-          if (child_num == -1) {
-            return Status::Invalid("type_id ", id, " not found in ", *type_);
-          }
-          child_converter = child_converters_[child_num];
+        {[this, &id, &child_converter](sj::value& id_elem) {
+           ARROW_ASSIGN_OR_RAISE(auto id_value, GetJsonAs<int64_t>(id_elem));
+           id = static_cast<int8_t>(id_value);
+           auto child_num = type_id_to_child_num_[id];
+           if (child_num == -1) {
+             return Status::Invalid("type_id ", id, " not found in ", *type_);
+           }
+           child_converter = child_converters_[child_num];
 
-          if (mode_ == UnionMode::SPARSE) {
-            RETURN_NOT_OK(checked_cast<SparseUnionBuilder&>(*builder_).Append(id));
-            for (auto&& other_converter : child_converters_) {
-              if (other_converter != child_converter) {
-                RETURN_NOT_OK(other_converter->AppendNull());
-              }
-            }
-          } else {
-            RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
-          }
-          return Status::OK();
-        },
-        [&child_converter](sj::value& value_elem) {
-          return child_converter->AppendValue(value_elem);
-        }));
+           if (mode_ == UnionMode::SPARSE) {
+             RETURN_NOT_OK(checked_cast<SparseUnionBuilder&>(*builder_).Append(id));
+             for (auto&& other_converter : child_converters_) {
+               if (other_converter != child_converter) {
+                 RETURN_NOT_OK(other_converter->AppendNull());
+               }
+             }
+           } else {
+             RETURN_NOT_OK(checked_cast<DenseUnionBuilder&>(*builder_).Append(id));
+           }
+           return Status::OK();
+         },
+         [&child_converter](sj::value& value_elem) {
+           return child_converter->AppendValue(value_elem);
+         }}));
     return Status::OK();
   }
 
