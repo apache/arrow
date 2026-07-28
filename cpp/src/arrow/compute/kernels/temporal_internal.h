@@ -200,6 +200,7 @@ struct TimestampFormatter {
 struct WithDates {};
 struct WithTimes {};
 struct WithTimestamps {};
+struct WithDurations {};
 struct WithStringTypes {};
 
 // This helper allows generating temporal kernels for selected type categories
@@ -221,6 +222,20 @@ void AddTemporalKernels(Factory* fac, WithTimes, WithOthers... others) {
   fac->template AddKernel<std::chrono::milliseconds, Time32Type>(time32(TimeUnit::MILLI));
   fac->template AddKernel<std::chrono::microseconds, Time64Type>(time64(TimeUnit::MICRO));
   fac->template AddKernel<std::chrono::nanoseconds, Time64Type>(time64(TimeUnit::NANO));
+  AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
+}
+
+
+template <typename Factory, typename... WithOthers>
+void AddTemporalKernels(Factory* fac, WithDurations, WithOthers... others) {
+  fac->template AddKernel<std::chrono::seconds, DurationType>(
+      duration(TimeUnit::SECOND));
+  fac->template AddKernel<std::chrono::milliseconds, DurationType>(
+      duration(TimeUnit::MILLI));
+  fac->template AddKernel<std::chrono::microseconds, DurationType>(
+      duration(TimeUnit::MICRO));
+  fac->template AddKernel<std::chrono::nanoseconds, DurationType>(
+      duration(TimeUnit::NANO));
   AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
 }
 
