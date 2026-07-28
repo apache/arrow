@@ -371,7 +371,8 @@ Status ProcessJsonArrayElements(sj::array& json_array, const char* error_context
     sj::value element;
     auto error = (*it).get(element);
     if (error) {
-      return Status::Invalid("Failed to get element ", index, " from ", error_context);
+      return Status::Invalid("Failed to get element ", index, " from ", error_context,
+                             ": ", simdjson::error_message(error));
     }
 
     auto result = handler(element);
