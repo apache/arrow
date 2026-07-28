@@ -1976,6 +1976,7 @@ function(build_absl)
        absl::log_internal_proto
        absl::log_internal_structured_proto
        absl::log_severity
+       absl::log_sink
        # absl::log_internal_globals must be after other absl::log_* because
        # other absl::log_* refers symbols in absl::log_internal_globals.
        absl::log_internal_globals
@@ -1995,7 +1996,8 @@ function(build_absl)
        absl::synchronization
        absl::throw_delegate
        absl::time
-       absl::time_zone)
+       absl::time_zone
+       absl::utf8_for_code_point)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
