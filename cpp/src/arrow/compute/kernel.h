@@ -144,6 +144,10 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> LargeBinaryLike();
 // Match any fixed binary type
 ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 
+/// \brief Match any type supported as a value type for run-end encoding
+/// (any non-nested type except Null)
+ARROW_EXPORT std::shared_ptr<TypeMatcher> REEValue();
+
 // \brief Match any primitive type (boolean or any type representable as a C
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();

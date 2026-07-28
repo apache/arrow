@@ -33,11 +33,13 @@
 #include "arrow/chunked_array.h"
 #include "arrow/json/from_string.h"
 #include "arrow/scalar.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/util/value_parsing.h"
 
 #include "arrow/json/rapidjson_defs.h"
@@ -977,6 +979,18 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
 
 Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>& type,
                                                    std::string_view json_string) {
+  // Parse REE types by decoding values then encoding
+  if (type->id() == Type::RUN_END_ENCODED) {
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(*type);
+    ARROW_ASSIGN_OR_RAISE(auto values_array,
+                          ArrayFromJSONString(ree_type.value_type(), json_string));
+    ARROW_ASSIGN_OR_RAISE(
+        auto ree_data,
+        ree_util::RunEndEncodeArray(values_array->data(), ree_type.run_end_type(),
+                                    default_memory_pool()));
+    return MakeArray(ree_data);
+  }
+
   std::shared_ptr<JSONConverter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
