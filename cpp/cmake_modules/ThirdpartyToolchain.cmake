@@ -2823,6 +2823,8 @@ function(build_simdjson)
 
   fetchcontent_makeavailable(simdjson)
 
+  target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
+
   # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
   # simdjson headers from compiling. Disable simdjson concepts for this SDK.
   if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
