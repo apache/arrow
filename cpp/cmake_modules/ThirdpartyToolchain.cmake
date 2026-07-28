@@ -1965,6 +1965,7 @@ function(build_absl)
        absl::spinlock_wait
        absl::stacktrace
        absl::status
+       absl::statusor
        absl::str_format_internal
        absl::strings
        absl::strings_internal
