@@ -18,38 +18,28 @@
 #pragma once
 
 #include <cstdint>
+#include <format>
 
-#include "arrow/util/endian.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
 namespace parquet::internal {
 
 struct PARQUET_EXPORT LevelInfo {
-  LevelInfo()
-      : null_slot_usage(1), def_level(0), rep_level(0), repeated_ancestor_def_level(0) {}
-  LevelInfo(int32_t null_slots, int32_t definition_level, int32_t repetition_level,
+  LevelInfo() = default;
+  LevelInfo(int32_t definition_level, int32_t repetition_level,
             int32_t repeated_ancestor_definition_level)
-      : null_slot_usage(null_slots),
-        def_level(static_cast<int16_t>(definition_level)),
+      : def_level(static_cast<int16_t>(definition_level)),
         rep_level(static_cast<int16_t>(repetition_level)),
         repeated_ancestor_def_level(
             static_cast<int16_t>(repeated_ancestor_definition_level)) {}
 
   bool operator==(const LevelInfo& b) const {
-    return null_slot_usage == b.null_slot_usage && def_level == b.def_level &&
-           rep_level == b.rep_level &&
+    return def_level == b.def_level && rep_level == b.rep_level &&
            repeated_ancestor_def_level == b.repeated_ancestor_def_level;
   }
 
   bool HasNullableValues() const { return repeated_ancestor_def_level < def_level; }
-
-  // How many slots an undefined but present (i.e. null) element in
-  // parquet consumes when decoding to Arrow.
-  // "Slot" is used in the same context as the Arrow specification
-  // (i.e. a value holder).
-  // This is only ever >1 for descendents of FixedSizeList.
-  int32_t null_slot_usage = 1;
 
   // The definition level at which the value for the field
   // is considered not null (definition levels greater than
@@ -143,12 +133,8 @@ struct PARQUET_EXPORT LevelInfo {
     // This print method is to silence valgrind issues.  What's printed
     // is not important because all asserts happen directly on
     // members.
-    os << "{def=" << levels.def_level << ", rep=" << levels.rep_level
-       << ", repeated_ancestor_def=" << levels.repeated_ancestor_def_level;
-    if (levels.null_slot_usage > 1) {
-      os << ", null_slot_usage=" << levels.null_slot_usage;
-    }
-    os << "}";
+    os << std::format("{{def={}, rep={}, repeated_ancestor_def={}}}", levels.def_level,
+                      levels.rep_level, levels.repeated_ancestor_def_level);
     return os;
   }
 };
