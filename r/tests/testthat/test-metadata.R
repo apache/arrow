@@ -260,20 +260,20 @@ test_that("R metadata roundtrip via parquet", {
   expect_identical(read_parquet(tf), example_with_metadata)
 })
 
-test_that("R metadata roundtrip via feather", {
+test_that("R metadata roundtrip via IPC", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  write_feather(example_with_metadata, tf)
-  expect_identical(read_feather(tf), example_with_metadata)
+  write_ipc_file(example_with_metadata, tf)
+  expect_identical(read_ipc_file(tf), example_with_metadata)
 })
 
-test_that("haven types roundtrip via feather", {
+test_that("haven types roundtrip via IPC", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  write_feather(haven_data, tf)
-  expect_identical(read_feather(tf), haven_data)
+  write_ipc_file(haven_data, tf)
+  expect_identical(read_ipc_file(tf), haven_data)
 })
 
 test_that("Date/time type roundtrip", {
