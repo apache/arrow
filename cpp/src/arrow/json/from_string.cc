@@ -176,12 +176,6 @@ class JSONConverter {
 
   Status AppendNull() { return this->builder()->AppendNull(); }
 
-  /// Append all elements of `json_array` to this converter's builder and
-  /// return the number of elements that were appended. The count lets callers
-  /// with a size expectation (e.g. fixed-size lists or single scalars)
-  /// validate it without a second pass over the forward-only JSON input. Note
-  /// that it only counts the elements this call consumed; callers parsing a
-  /// whole document must check `document::at_end()` to detect trailing input.
   virtual Result<int32_t> AppendValues(sj::array& json_array) = 0;
 
   virtual std::shared_ptr<ArrayBuilder> builder() = 0;
