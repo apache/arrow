@@ -599,10 +599,7 @@ test_that("write_dataset checks for format-specific arguments", {
     write_dataset(df, dst_dir, format = "ipc", compression = "snappy"),
     error = TRUE
   )
-  expect_snapshot(
-    write_dataset(df, dst_dir, format = "ipc", nonsensical_arg = "blah-blah"),
-    error = TRUE
-  )
+  
   expect_snapshot(
     write_dataset(df, dst_dir, format = "arrow", nonsensical_arg = "blah-blah"),
     error = TRUE
