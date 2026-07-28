@@ -185,14 +185,20 @@ struct TemporalComponentExtractRound
             "calendar_based_origin is not supported for duration inputs");
       }
 
+      if (options.unit == CalendarUnit::WEEK) {
+        RoundTemporalOptions duration_options = options;
+        duration_options.unit = CalendarUnit::DAY;
+        duration_options.multiple *= 7;
+        return Base::ExecWithOptions(ctx, &duration_options, batch, out);
+      }
+
       switch (options.unit) {
-        case CalendarUnit::WEEK:
         case CalendarUnit::MONTH:
         case CalendarUnit::QUARTER:
         case CalendarUnit::YEAR:
           return Status::Invalid(
-              "Duration values can only be rounded using physical units "
-              "from nanoseconds through days");
+              "Duration values can only be rounded using units "
+              "from nanoseconds through weeks");
         default:
           break;
       }
@@ -2035,20 +2041,23 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   // output type. See TemporalComponentExtractRound for more.
 
   static const auto default_round_temporal_options = RoundTemporalOptions::Defaults();
-  auto floor_temporal = UnaryTemporalFactory<FloorTemporal, TemporalComponentExtractRound,
-                                             TimestampType>::Make<WithDates, WithTimes, WithTimestamps, WithDurations>(
-      "floor_temporal", OutputType(FirstType), floor_temporal_doc,
-      &default_round_temporal_options, RoundTemporalState::Init);
+  auto floor_temporal =
+      UnaryTemporalFactory<FloorTemporal, TemporalComponentExtractRound, TimestampType>::
+          Make<WithDates, WithTimes, WithTimestamps, WithDurations>(
+              "floor_temporal", OutputType(FirstType), floor_temporal_doc,
+              &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(floor_temporal)));
-  auto ceil_temporal = UnaryTemporalFactory<CeilTemporal, TemporalComponentExtractRound,
-                                            TimestampType>::Make<WithDates, WithTimes, WithTimestamps, WithDurations>(
-      "ceil_temporal", OutputType(FirstType), ceil_temporal_doc,
-      &default_round_temporal_options, RoundTemporalState::Init);
+  auto ceil_temporal =
+      UnaryTemporalFactory<CeilTemporal, TemporalComponentExtractRound, TimestampType>::
+          Make<WithDates, WithTimes, WithTimestamps, WithDurations>(
+              "ceil_temporal", OutputType(FirstType), ceil_temporal_doc,
+              &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(ceil_temporal)));
-  auto round_temporal = UnaryTemporalFactory<RoundTemporal, TemporalComponentExtractRound,
-                                             TimestampType>::Make<WithDates, WithTimes, WithTimestamps, WithDurations>(
-      "round_temporal", OutputType(FirstType), round_temporal_doc,
-      &default_round_temporal_options, RoundTemporalState::Init);
+  auto round_temporal =
+      UnaryTemporalFactory<RoundTemporal, TemporalComponentExtractRound, TimestampType>::
+          Make<WithDates, WithTimes, WithTimestamps, WithDurations>(
+              "round_temporal", OutputType(FirstType), round_temporal_doc,
+              &default_round_temporal_options, RoundTemporalState::Init);
   DCHECK_OK(registry->AddFunction(std::move(round_temporal)));
 }
 

@@ -225,11 +225,9 @@ void AddTemporalKernels(Factory* fac, WithTimes, WithOthers... others) {
   AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
 }
 
-
 template <typename Factory, typename... WithOthers>
 void AddTemporalKernels(Factory* fac, WithDurations, WithOthers... others) {
-  fac->template AddKernel<std::chrono::seconds, DurationType>(
-      duration(TimeUnit::SECOND));
+  fac->template AddKernel<std::chrono::seconds, DurationType>(duration(TimeUnit::SECOND));
   fac->template AddKernel<std::chrono::milliseconds, DurationType>(
       duration(TimeUnit::MILLI));
   fac->template AddKernel<std::chrono::microseconds, DurationType>(

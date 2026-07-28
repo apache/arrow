@@ -3782,21 +3782,17 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDate) {
 TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDuration) {
   auto check_unit = [&](TimeUnit::type time_unit, CalendarUnit calendar_unit) {
     RoundTemporalOptions round_to_2_units(2, calendar_unit);
-    auto values =
-        ArrayFromJSON(duration(time_unit), "[0, 1, 2, 3, -1, -2, -3, null]");
+    auto values = ArrayFromJSON(duration(time_unit), "[0, 1, 2, 3, -1, -2, -3, null]");
 
-    CheckScalarUnary(
-        "ceil_temporal", values,
-        ArrayFromJSON(duration(time_unit), "[0, 2, 2, 4, 0, -2, -2, null]"),
-        &round_to_2_units);
-    CheckScalarUnary(
-        "floor_temporal", values,
-        ArrayFromJSON(duration(time_unit), "[0, 0, 2, 2, -2, -2, -4, null]"),
-        &round_to_2_units);
-    CheckScalarUnary(
-        "round_temporal", values,
-        ArrayFromJSON(duration(time_unit), "[0, 2, 2, 4, 0, -2, -2, null]"),
-        &round_to_2_units);
+    CheckScalarUnary("ceil_temporal", values,
+                     ArrayFromJSON(duration(time_unit), "[0, 2, 2, 4, 0, -2, -2, null]"),
+                     &round_to_2_units);
+    CheckScalarUnary("floor_temporal", values,
+                     ArrayFromJSON(duration(time_unit), "[0, 0, 2, 2, -2, -2, -4, null]"),
+                     &round_to_2_units);
+    CheckScalarUnary("round_temporal", values,
+                     ArrayFromJSON(duration(time_unit), "[0, 2, 2, 4, 0, -2, -2, null]"),
+                     &round_to_2_units);
   };
 
   check_unit(TimeUnit::SECOND, CalendarUnit::SECOND);
@@ -3806,36 +3802,48 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDuration) {
 
   // A day is treated as a physical 24-hour unit for duration values.
   RoundTemporalOptions round_to_day(1, CalendarUnit::DAY);
-  auto day_values = ArrayFromJSON(
-      duration(TimeUnit::SECOND),
-      "[0, 43200, 86399, 86400, -1, -43200, null]");
+  auto day_values = ArrayFromJSON(duration(TimeUnit::SECOND),
+                                  "[0, 43200, 86399, 86400, -1, -43200, null]");
 
   CheckScalarUnary(
       "ceil_temporal", day_values,
-      ArrayFromJSON(duration(TimeUnit::SECOND),
-                    "[0, 86400, 86400, 86400, 0, 0, null]"),
+      ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 86400, 86400, 86400, 0, 0, null]"),
       &round_to_day);
   CheckScalarUnary(
       "floor_temporal", day_values,
-      ArrayFromJSON(duration(TimeUnit::SECOND),
-                    "[0, 0, 0, 86400, -86400, -86400, null]"),
+      ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 0, 0, 86400, -86400, -86400, null]"),
       &round_to_day);
   CheckScalarUnary(
       "round_temporal", day_values,
-      ArrayFromJSON(duration(TimeUnit::SECOND),
-                    "[0, 86400, 86400, 86400, 0, 0, null]"),
+      ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 86400, 86400, 86400, 0, 0, null]"),
       &round_to_day);
 
-  auto values =
-      ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, -1, null]");
+  // A week is treated as exactly seven physical days for duration values.
+  RoundTemporalOptions round_to_week(1, CalendarUnit::WEEK);
+  auto week_values =
+      ArrayFromJSON(duration(TimeUnit::SECOND),
+                    "[0, 302400, 604799, 604800, -1, -302400, -604800, null]");
+
+  CheckScalarUnary("ceil_temporal", week_values,
+                   ArrayFromJSON(duration(TimeUnit::SECOND),
+                                 "[0, 604800, 604800, 604800, 0, 0, -604800, null]"),
+                   &round_to_week);
+  CheckScalarUnary("floor_temporal", week_values,
+                   ArrayFromJSON(duration(TimeUnit::SECOND),
+                                 "[0, 0, 0, 604800, -604800, -604800, -604800, null]"),
+                   &round_to_week);
+  CheckScalarUnary("round_temporal", week_values,
+                   ArrayFromJSON(duration(TimeUnit::SECOND),
+                                 "[0, 604800, 604800, 604800, 0, 0, -604800, null]"),
+                   &round_to_week);
+
+  auto values = ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, -1, null]");
 
   RoundTemporalOptions round_to_month(1, CalendarUnit::MONTH);
   for (const auto* function_name :
        {"ceil_temporal", "floor_temporal", "round_temporal"}) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid,
-        ::testing::HasSubstr(
-            "Duration values can only be rounded using physical units"),
+        Invalid, ::testing::HasSubstr("Duration values can only be rounded using units"),
         CallFunction(function_name, {values}, &round_to_month));
   }
 
