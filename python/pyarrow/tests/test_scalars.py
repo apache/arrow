@@ -17,6 +17,7 @@
 
 import datetime
 import decimal
+import operator
 import pytest
 import weakref
 from collections.abc import Sequence, Mapping
@@ -1051,3 +1052,27 @@ def test_dunders_checked_overflow():
         scl ** scl
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         scl * scl
+
+
+@pytest.mark.parametrize("op", [
+    operator.add,
+    operator.sub,
+    operator.mul,
+    operator.truediv,
+    operator.pow,
+    operator.and_,
+    operator.or_,
+    operator.xor,
+    operator.lshift,
+    operator.rshift,
+])
+def test_dunders_return_notimplemented_for_unknown_types(op):
+    # GH-49826
+    class MyObj:
+        def __radd__(self, other):
+            return "reflected"
+
+        __rsub__ = __rmul__ = __rtruediv__ = __rpow__ = __radd__
+        __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
+
+    assert op(pa.scalar(5), MyObj()) == "reflected"
