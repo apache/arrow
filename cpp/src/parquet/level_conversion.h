@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cstdint>
-#include <format>
 
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -133,8 +132,8 @@ struct PARQUET_EXPORT LevelInfo {
     // This print method is to silence valgrind issues.  What's printed
     // is not important because all asserts happen directly on
     // members.
-    os << std::format("{{def={}, rep={}, repeated_ancestor_def={}}}", levels.def_level,
-                      levels.rep_level, levels.repeated_ancestor_def_level);
+    os << "{def=" << levels.def_level << ", rep=" << levels.rep_level
+       << ", repeated_ancestor_def=" << levels.repeated_ancestor_def_level << "}";
     return os;
   }
 };
