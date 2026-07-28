@@ -1949,26 +1949,26 @@ function(build_absl)
        absl::cord
        absl::cord_internal
        absl::cordz_functions
-       absl::cordz_info
        absl::cordz_handle
+       absl::cordz_info
        absl::crc32c
-       absl::crc_internal
        absl::crc_cord_state
        absl::crc_cpu_detect
+       absl::crc_internal
        absl::debugging_internal
+       absl::decode_rust_punycode
        absl::demangle_internal
        absl::demangle_rust
-       # absl::decode_rust_punycode must be after absl::demangle_rust because
-       # absl::demangle_rust uses absl::decode_rust_punycode.
-       absl::decode_rust_punycode
        absl::examine_stack
        absl::exponential_biased
        absl::hash
        absl::int128
        absl::kernel_timeout_internal
        absl::leak_check
+       absl::log_globals
        absl::log_internal_check_op
        absl::log_internal_conditions
+       absl::log_internal_fnmatch
        absl::log_internal_format
        absl::log_internal_globals
        absl::log_internal_log_sink_set
@@ -1976,7 +1976,6 @@ function(build_absl)
        absl::log_internal_nullguard
        absl::log_internal_proto
        absl::log_internal_structured_proto
-       absl::log_globals
        absl::log_severity
        absl::log_sink
        absl::low_level_hash
@@ -1996,7 +1995,8 @@ function(build_absl)
        absl::throw_delegate
        absl::time
        absl::time_zone
-       absl::utf8_for_code_point)
+       absl::utf8_for_code_point
+       absl::vlog_config_internal)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
