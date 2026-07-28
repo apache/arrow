@@ -3886,6 +3886,19 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDuration) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestDurationTemporalWeekMultipleOverflow) {
+  auto values = ArrayFromJSON(duration(TimeUnit::SECOND), "[0]");
+  RoundTemporalOptions options(std::numeric_limits<int>::max(), CalendarUnit::WEEK);
+
+  for (const auto* function_name :
+       {"ceil_temporal", "floor_temporal", "round_temporal"}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("Duration week multiple would not fit in 32-bit integer"),
+        CallFunction(function_name, {values}, &options));
+  }
+}
+
 TEST_F(ScalarTemporalTest, DurationUnaryArithmetics) {
   auto arr = ArrayFromJSON(duration(TimeUnit::SECOND), "[2, -1, null, 3, 0]");
   CheckScalarUnary("negate", arr,

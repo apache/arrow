@@ -27,6 +27,7 @@
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
@@ -188,7 +189,11 @@ struct TemporalComponentExtractRound
       if (options.unit == CalendarUnit::WEEK) {
         RoundTemporalOptions duration_options = options;
         duration_options.unit = CalendarUnit::DAY;
-        duration_options.multiple *= 7;
+        if (::arrow::internal::MultiplyWithOverflow(options.multiple, 7,
+                                                    &duration_options.multiple)) {
+          return Status::Invalid(
+              "Duration week multiple would not fit in 32-bit integer");
+        }
         return Base::ExecWithOptions(ctx, &duration_options, batch, out);
       }
 
