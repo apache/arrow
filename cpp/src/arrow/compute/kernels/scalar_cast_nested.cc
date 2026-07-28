@@ -387,35 +387,25 @@ struct CastStruct {
 
         if (in_field->nullable() && !out_field->nullable() &&
             in_values->GetNullCount() > 0) {
+          // A child null is only observable if the parent element is valid: nulls
+          // sitting under a null parent are masked and don't violate the
+          // non-nullable output field.
+          //
+          // GetNullCount() only counts physical nulls, so a child without a
+          // validity bitmap reports 0 here (unions and run-end encoded arrays
+          // included) and never reaches this branch -- except NullType, which is
+          // all-null by construction and has no bitmap to intersect against the
+          // parent's, so it is always rejected.
           const uint8_t* parent_bitmap = in_array.buffers[0].data;
           const uint8_t* child_bitmap =
-              in_values->buffers.empty() || !in_values->buffers[0]
-                  ? nullptr
-                  : in_values->buffers[0]->data();
+              in_values->buffers[0] ? in_values->buffers[0]->data() : nullptr;
 
-          int64_t unmasked_null_count;
-          if (parent_bitmap == nullptr) {
-            // Parent has no nulls, so any child null is unmasked.
-            unmasked_null_count = in_values->GetNullCount();
-          } else if (child_bitmap == nullptr) {
-            // Child reports nulls but has no validity buffer of its own (e.g.
-            // NullArray, RunEndEncoded, Union). There is no cheap, bitmap-only way
-            // to tell which of those nulls are masked by the parent, so
-            // conservatively reject rather than reason about logical nulls (which
-            // would be inconsistent with the bitmap-only check below).
-            unmasked_null_count = in_values->GetNullCount();
-          } else {
-            // Both parent and child have bitmaps: an unmasked null is a position
-            // where the parent is valid but the child is null, i.e. parent bits
-            // set that aren't also set in the child.
-            unmasked_null_count = arrow::internal::CountSetBits(
-                                      parent_bitmap, in_array.offset, in_array.length) -
-                                  arrow::internal::CountAndSetBits(
-                                      parent_bitmap, in_array.offset, child_bitmap,
-                                      in_values->offset, in_array.length);
-          }
-
-          if (unmasked_null_count > 0) {
+          const bool has_unmasked_nulls =
+              parent_bitmap == nullptr || child_bitmap == nullptr ||
+              arrow::internal::CountAndNotSetBits(parent_bitmap, in_array.offset,
+                                                  child_bitmap, in_values->offset,
+                                                  in_array.length) > 0;
+          if (has_unmasked_nulls) {
             return Status::Invalid(
                 "field '", in_field->name(), "' of type ", in_field->type()->ToString(),
                 " has nulls. Can't cast to non-nullable field '", out_field->name(),

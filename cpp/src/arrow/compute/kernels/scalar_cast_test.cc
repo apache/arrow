@@ -4145,126 +4145,122 @@ TEST(Cast, StructToStructSubsetWithNulls) {
   CheckStructToStructSubsetWithNulls(NumericTypes());
 }
 
-TEST(Cast, StructNestedNullabilityAbsentParent) {
-  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
-  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
-  auto inner_type_src = struct_({field("a", int32())});
-  auto outer_type_src = struct_({field("inner", inner_type_src)});
+// GH-50515: a null in a nested child field is only a violation of an out field
+// declared non-nullable if the enclosing struct element is itself valid.
+namespace {
 
-  auto src = ArrayFromJSON(outer_type_src, R"([
-    {"inner": {"a": 1}},
-    {"inner": {"a": null}}
-  ])");
+std::shared_ptr<DataType> NestedNullabilityDestType() {
+  return struct_({field("inner", struct_({field("a", int32(), /*nullable=*/false)}))});
+}
+
+// Build struct<inner: struct<a: int32>> from an explicit "a" child and explicit
+// validity bitmaps, so that where "a" physically holds nulls is pinned down by
+// the test rather than left to ArrayFromJSON's layout choices.
+Result<std::shared_ptr<Array>> MakeNestedNullabilityArray(
+    const std::string& a_json, const std::vector<int>& inner_is_valid,
+    const std::vector<int>& outer_is_valid) {
+  std::shared_ptr<Buffer> inner_bitmap, outer_bitmap;
+  RETURN_NOT_OK(GetBitmapFromVector(inner_is_valid, &inner_bitmap));
+  RETURN_NOT_OK(GetBitmapFromVector(outer_is_valid, &outer_bitmap));
+  ARROW_ASSIGN_OR_RAISE(auto inner,
+                        StructArray::Make({ArrayFromJSON(int32(), a_json)},
+                                          {field("a", int32())}, inner_bitmap));
+  return StructArray::Make({inner}, {field("inner", inner->type())}, outer_bitmap);
+}
+
+void AssertNestedNullabilityRejected(const std::shared_ptr<Array>& src,
+                                     const std::shared_ptr<DataType>& dest_type) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
-      Cast(src, CastOptions::Safe(outer_type_dest)));
+      Cast(src, CastOptions::Safe(dest_type)));
+}
+
+}  // namespace
+
+TEST(Cast, StructNestedNullabilityUnmasked) {
+  // "a" is null at index 1 while both enclosing structs are valid there, so the
+  // null is observable and the cast must be rejected.
+  ASSERT_OK_AND_ASSIGN(auto src, MakeNestedNullabilityArray("[1, null]", {1, 1}, {1, 1}));
+  AssertNestedNullabilityRejected(src, NestedNullabilityDestType());
 }
 
 TEST(Cast, StructNestedNullabilityMasked) {
-  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
-  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
-  auto inner_type_src = struct_({field("a", int32())});
-  auto outer_type_src = struct_({field("inner", inner_type_src)});
-
-  auto src = ArrayFromJSON(outer_type_src, R"([
+  // "a" is null at index 1, but the enclosing structs are null there too, so the
+  // null is unobservable and the cast must succeed.
+  ASSERT_OK_AND_ASSIGN(auto src, MakeNestedNullabilityArray("[1, null]", {1, 0}, {1, 0}));
+  CheckCast(src, ArrayFromJSON(NestedNullabilityDestType(), R"([
     {"inner": {"a": 1}},
     null
-  ])");
-  auto expected = ArrayFromJSON(outer_type_dest, R"([
-    {"inner": {"a": 1}},
-    null
-  ])");
-  CheckCast(src, expected);
+  ])"));
 }
 
 TEST(Cast, StructNestedNullabilitySliced) {
-  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
-  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
-  auto inner_type_src = struct_({field("a", int32())});
-  auto outer_type_src = struct_({field("inner", inner_type_src)});
+  ASSERT_OK_AND_ASSIGN(
+      auto src, MakeNestedNullabilityArray("[1, 2, null, null, 5]", {1, 1, 1, 0, 1},
+                                           {1, 1, 1, 0, 1}));
+  auto dest_type = NestedNullabilityDestType();
 
-  auto src = ArrayFromJSON(outer_type_src, R"([
-    {"inner": {"a": 1}},
-    {"inner": {"a": 2}},
-    {"inner": {"a": null}},
+  // [3, 5) holds only the null at index 3, which is masked, so the cast succeeds.
+  CheckCast(src->Slice(3, 2), ArrayFromJSON(dest_type, R"([
     null,
     {"inner": {"a": 5}}
-  ])");
-  auto expected = ArrayFromJSON(outer_type_dest, R"([
-    {"inner": {"a": 1}},
-    {"inner": {"a": 2}},
-    {"inner": {"a": null}},
-    null,
-    {"inner": {"a": 5}}
-  ])");
+  ])"));
 
-  CheckCast(src->Slice(3, 2), expected->Slice(3, 2));
+  // [2, 4) still holds the unmasked null at index 2.
+  AssertNestedNullabilityRejected(src->Slice(2, 2), dest_type);
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
-      Cast(src->Slice(2, 2), CastOptions::Safe(outer_type_dest)));
+  // A zero-length slice has nothing to observe, even one taken at the offset of
+  // the unmasked null.
+  CheckCast(src->Slice(2, 0), ArrayFromJSON(dest_type, "[]"));
 }
 
 TEST(Cast, StructNestedNullabilityNoChildNulls) {
-  auto inner_type_dest = struct_({field("a", int32(), /*nullable=*/false)});
-  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
-  auto inner_type_src = struct_({field("a", int32())});
-  auto outer_type_src = struct_({field("inner", inner_type_src)});
-
-  auto src = ArrayFromJSON(outer_type_src, R"([
+  ASSERT_OK_AND_ASSIGN(auto src, MakeNestedNullabilityArray("[1, 2]", {1, 1}, {1, 1}));
+  CheckCast(src, ArrayFromJSON(NestedNullabilityDestType(), R"([
     {"inner": {"a": 1}},
     {"inner": {"a": 2}}
-  ])");
-  auto expected = ArrayFromJSON(outer_type_dest, R"([
-    {"inner": {"a": 1}},
-    {"inner": {"a": 2}}
-  ])");
-  CheckCast(src, expected);
+  ])"));
 }
 
-TEST(Cast, StructNestedNullabilityNoChildBitmapConservativelyRejected) {
-  // NullType (and other child types without a validity buffer of their own,
-  // e.g. RunEndEncoded/Union) have no bitmap to distinguish masked from
-  // unmasked nulls, so any reported null is conservatively rejected -- even
-  // when the parent row is itself null and the value would otherwise be
-  // masked.
-  auto inner_type_dest = struct_({field("a", null(), /*nullable=*/false)});
-  auto outer_type_dest = struct_({field("inner", inner_type_dest)});
-  auto inner_type_src = struct_({field("a", null())});
-  auto outer_type_src = struct_({field("inner", inner_type_src)});
+TEST(Cast, StructNestedNullabilityNullTypeChild) {
+  // NullType is all-null by construction and has no validity bitmap to
+  // intersect against the parent's, so its nulls can never be shown to be
+  // masked and the cast is always rejected. (Other bitmap-less types such as
+  // union and run-end encoded report no physical nulls at all, so they are
+  // unaffected by this check.)
+  auto src_type = struct_({field("inner", struct_({field("a", null())}))});
+  auto dest_type =
+      struct_({field("inner", struct_({field("a", null(), /*nullable=*/false)}))});
 
-  auto src = ArrayFromJSON(outer_type_src, R"([
+  auto src = ArrayFromJSON(src_type, R"([
     {"inner": {"a": null}},
     null
   ])");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
-      Cast(src, CastOptions::Safe(outer_type_dest)));
+  AssertNestedNullabilityRejected(src, dest_type);
 
-  // Slicing to only the masked (fully-null outer) row is still rejected.
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("has nulls. Can't cast to non-nullable field"),
-      Cast(src->Slice(1, 1), CastOptions::Safe(outer_type_dest)));
+  // Slicing to only the row where the outer element is null doesn't help.
+  AssertNestedNullabilityRejected(src->Slice(1, 1), dest_type);
+
+  // A zero-length slice reports no nulls, so it succeeds.
+  CheckCast(src->Slice(1, 0), ArrayFromJSON(dest_type, "[]"));
 }
 
 TEST(Cast, StructNestedNullabilityDeep) {
-  auto deep_inner_dest = struct_({field("a", int32(), /*nullable=*/false)});
-  auto deep_mid_dest = struct_({field("mid", deep_inner_dest)});
-  auto deep_outer_dest = struct_({field("outer", deep_mid_dest)});
+  // Wrap the two-level array in one more struct level, so the masked null is
+  // only reached by recursing rather than at the outermost cast.
+  ASSERT_OK_AND_ASSIGN(auto inner,
+                       MakeNestedNullabilityArray("[1, null]", {1, 0}, {1, 0}));
+  std::shared_ptr<Buffer> outer_bitmap;
+  BitmapFromVector<int>({1, 0}, &outer_bitmap);
+  ASSERT_OK_AND_ASSIGN(
+      auto src,
+      StructArray::Make({inner}, {field("outer", inner->type())}, outer_bitmap));
 
-  auto deep_inner_src = struct_({field("a", int32())});
-  auto deep_mid_src = struct_({field("mid", deep_inner_src)});
-  auto deep_outer_src = struct_({field("outer", deep_mid_src)});
-
-  auto src = ArrayFromJSON(deep_outer_src, R"([
-    {"outer": {"mid": {"a": 1}}},
+  auto dest_type = struct_({field("outer", NestedNullabilityDestType())});
+  CheckCast(src, ArrayFromJSON(dest_type, R"([
+    {"outer": {"inner": {"a": 1}}},
     null
-  ])");
-  auto expected = ArrayFromJSON(deep_outer_dest, R"([
-    {"outer": {"mid": {"a": 1}}},
-    null
-  ])");
-  CheckCast(src, expected);
+  ])"));
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
