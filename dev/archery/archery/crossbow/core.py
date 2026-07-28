@@ -15,20 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import fnmatch
+import glob
+import logging
+import mimetypes
 import os
 import re
 import subprocess
-import fnmatch
-import glob
-import time
-import logging
-import mimetypes
 import textwrap
+import time
 import uuid
+import warnings
+from datetime import date
 from io import StringIO
 from pathlib import Path
-from datetime import date
-import warnings
 
 import jinja2
 from ruamel.yaml import YAML

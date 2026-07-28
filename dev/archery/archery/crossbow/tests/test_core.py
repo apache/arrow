@@ -26,6 +26,7 @@ from archery.crossbow.core import (
 )
 
 import pathlib
+import shutil
 import subprocess
 from datetime import date
 from unittest import mock
@@ -74,6 +75,7 @@ def test_get_version_rejects_unexpected_describe_output():
             get_version("/arrow")
 
 
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
 def test_get_version_from_git_repository(tmp_path):
     def run_git(*args):
         subprocess.run(
@@ -85,28 +87,25 @@ def test_get_version_from_git_repository(tmp_path):
         )
 
     run_git("init")
-    version_file = tmp_path / "version.txt"
-    version_file.write_text("released\n")
-    run_git("add", "version.txt")
     run_git(
         "-c",
         "user.name=Archery Test",
         "-c",
         "user.email=archery@example.com",
         "commit",
+        "--allow-empty",
         "-m",
         "release",
     )
     run_git("tag", "apache-arrow-4.0.0")
 
-    version_file.write_text("development\n")
-    run_git("add", "version.txt")
     run_git(
         "-c",
         "user.name=Archery Test",
         "-c",
         "user.email=archery@example.com",
         "commit",
+        "--allow-empty",
         "-m",
         "development",
     )
