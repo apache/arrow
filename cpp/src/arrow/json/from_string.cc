@@ -88,7 +88,12 @@ inline constexpr bool kAlwaysFalse = false;
 
 template <typename SimdjsonClass>
 const char* JsonTypeName() {
-  if constexpr (std::is_same_v<SimdjsonClass, sj::array>) {
+  constexpr bool isNumber = std::is_same_v<SimdjsonClass, int64_t> ||
+                            std::is_same_v<SimdjsonClass, uint64_t> ||
+                            std::is_same_v<SimdjsonClass, double>;
+  if constexpr (isNumber) {
+    return "number";
+  } else if constexpr (std::is_same_v<SimdjsonClass, sj::array>) {
     return "array";
   } else if constexpr (std::is_same_v<SimdjsonClass, sj::object>) {
     return "object";
@@ -98,10 +103,6 @@ const char* JsonTypeName() {
     return "boolean";
   } else if constexpr (std::is_same_v<SimdjsonClass, std::monostate>) {
     return "null";
-  } else if constexpr (std::is_same_v<SimdjsonClass, int64_t> ||
-                       std::is_same_v<SimdjsonClass, uint64_t> ||
-                       std::is_same_v<SimdjsonClass, double>) {
-    return "number";
   } else {
     static_assert(kAlwaysFalse<SimdjsonClass>, "unmapped simdjson value type");
   }
@@ -360,38 +361,33 @@ Status ProcessJsonArrayElements(sj::array& json_array, const char* error_context
   auto end = json_array.end();
 
   size_t index = 0;
-  Status result = Status::OK();
 
-  auto process_one = [&](auto&& handler) -> bool {
-    if (!result.ok()) return false;
-
+  auto process_one = [&](auto&& handler) -> arrow::Status {
     if (it == end) {
-      result = Status::Invalid(error_context, " must have exactly ", expected_size,
-                               " elements, had ", index);
-      return false;
+      return Status::Invalid(error_context, " must have exactly ", expected_size,
+                             " elements, had more");
     }
 
     sj::value element;
     auto error = (*it).get(element);
     if (error) {
-      result = Status::Invalid("Failed to get element ", index, " from ", error_context);
-      return false;
+      return Status::Invalid("Failed to get element ", index, " from ", error_context);
     }
 
-    result = handler(element);
+    auto result = handler(element);
     ++it;
     ++index;
-    return result.ok();
+    return result;
   };
 
   // Use fold expression to process all handlers in order
-  (process_one(std::forward<Handlers>(handlers)) && ...);
+  auto result = (process_one(std::forward<Handlers>(handlers)) & ...);
 
   if (!result.ok()) return result;
 
   if (it != end) {
     return Status::Invalid(error_context, " must have exactly ", expected_size,
-                           " elements, had more");
+                           " elements, had ", index);
   }
   return Status::OK();
 }
