@@ -52,8 +52,8 @@ git rebase upstream/master
 
 branch="arrow-${version}"
 echo "Creating branch: ${branch}"
-git branch -D ${branch} || :
-git checkout -b ${branch}
+git branch -D "${branch}" || :
+git checkout -b "${branch}"
 
 recipes_arrow=recipes/arrow
 echo "Updating: ${recipes_arrow}"
@@ -84,7 +84,7 @@ git add ${recipes_arrow}/config.yml
 git add ${recipes_arrow}/all/conandata.yml
 git commit -m "arrow: add version ${version}"
 
-git push origin ${branch}
+git push origin "${branch}"
 
 
 owner=$(git remote get-url origin | \

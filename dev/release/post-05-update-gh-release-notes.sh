@@ -41,4 +41,4 @@ WORKFLOW="release.yml"
 # Update the Release Notes section
 RELEASE_NOTES_URL="https://arrow.apache.org/release/${VERSION}.html"
 RELEASE_NOTES="Release Notes URL: ${RELEASE_NOTES_URL}"
-gh release edit ${TAG} --repo ${REPOSITORY} --notes "${RELEASE_NOTES}" --verify-tag
+gh release edit "${TAG}" --repo "${REPOSITORY}" --notes "${RELEASE_NOTES}" --verify-tag
