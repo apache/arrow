@@ -27,6 +27,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -64,7 +65,9 @@ std::shared_ptr<DataType> MaybeUnsignedIndexType(
     case Type::INT64:
       return ::arrow::uint64();
     default:
-      return index_type;
+      // The adaptive index builder only ever produces signed int8/16/32/64, so no
+      // other type reaches this point when an unsigned index was requested.
+      Unreachable("MaybeUnsignedIndexType: adaptive dictionary index type is not signed");
   }
 }
 

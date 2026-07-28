@@ -1070,7 +1070,7 @@ TEST(TestDictionaryBuilderIndexType, PreservesRequestedIndexType) {
   }
 }
 
-TEST(TestDictionaryBuilderIndexType, WidthStillAdaptsWhenUnsigned) {
+TEST(TestDictionaryBuilderIndexType, WidthAdaptsWhenUnsigned) {
   // The width stays adaptive, as it does for signed indices. The underlying builder is
   // signed, so it widens after 128 distinct values rather than the 256 a uint8 could
   // hold, but the widened type stays unsigned rather than falling back to a signed type.
@@ -1131,6 +1131,14 @@ TEST(TestDictionaryBuilderIndexType, SuppliedDictionaryPreservesUnsignedIndexTyp
                        MakeDictionaryBuilder(dictionary(uint32(), utf8()), dict_values));
   AssertTypeEqual(*uint8(),
                   *checked_cast<const DictionaryType&>(*builder->type()).index_type());
+
+  auto& dict_builder = checked_cast<DictionaryBuilder<StringType>&>(*builder);
+  ASSERT_OK(dict_builder.Append("a"));
+  ASSERT_OK(dict_builder.Append("b"));
+  ASSERT_OK_AND_ASSIGN(auto result, dict_builder.Finish());
+  ASSERT_OK(result->ValidateFull());
+  AssertTypeEqual(*uint8(),
+                  *checked_cast<const DictionaryType&>(*result->type()).index_type());
 }
 
 TEST(TestDictionaryBuilderIndexType, ExactIndexBuilderPreservesUnsignedIndexType) {
@@ -1142,6 +1150,11 @@ TEST(TestDictionaryBuilderIndexType, ExactIndexBuilderPreservesUnsignedIndexType
   AssertTypeEqual(
       *uint16(),
       *checked_cast<const DictionaryType&>(*boxed_builder->type()).index_type());
+
+  ASSERT_OK_AND_ASSIGN(auto result, boxed_builder->Finish());
+  ASSERT_OK(result->ValidateFull());
+  AssertTypeEqual(*uint16(),
+                  *checked_cast<const DictionaryType&>(*result->type()).index_type());
 }
 
 // ----------------------------------------------------------------------
