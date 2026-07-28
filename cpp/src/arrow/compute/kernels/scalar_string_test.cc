@@ -1217,7 +1217,7 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
 
   // inputs with malformed utf8 chars would produce garbage output, but the end result
   // would produce arrays with same lengths. Hence checking offset buffer equality
-  auto malformed_input = ArrayFromJSON(this->type(), "[\"ɑ\xFFɑa\", \"ɽ\xe1\xbdɽa\"]");
+  auto malformed_input = this->MakeArray({"ɑ\xFFɑa", "ɽ\xe1\xbdɽa"});
   const Result<Datum>& res = CallFunction("utf8_reverse", {malformed_input});
   ASSERT_TRUE(res->array()->buffers[1]->Equals(*malformed_input->data()->buffers[1]));
 }
@@ -1340,7 +1340,7 @@ TYPED_TEST(TestStringKernels, Utf8Upper) {
   this->CheckUnary("utf8_upper", "[\"ɑɑɑɑ\"]", this->type(), "[\"ⱭⱭⱭⱭ\"]");
 
   // Test invalid data
-  auto invalid_input = ArrayFromJSON(this->type(), "[\"ɑa\xFFɑ\", \"ɽ\xe1\xbdɽaa\"]");
+  auto invalid_input = this->MakeArray({"ɑa\xFFɑ", "ɽ\xe1\xbdɽaa"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_upper", {invalid_input}));
 }
@@ -1362,7 +1362,7 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   this->CheckUnary("utf8_lower", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
 
   // Test invalid data
-  auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  auto invalid_input = this->MakeArray({"Ⱥa\xFFⱭ", "Ɽ\xe1\xbdⱤaA"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_lower", {invalid_input}));
 }
@@ -1382,7 +1382,7 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
                    "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 
   // Test invalid data
-  auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  auto invalid_input = this->MakeArray({"Ⱥa\xFFⱭ", "Ɽ\xe1\xbdⱤaA"});
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_swapcase", {invalid_input}));
 }
@@ -2672,101 +2672,92 @@ TYPED_TEST(TestBinaryKernels, SliceBytesPosPos) {
   SliceOptions options{2, 4};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"ab\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xc2\xa2\", \"\xc2\xff\"]", &options);
+      this->MakeArray({"", "a", "ab", "a\xc2\xa2", "ab\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "", "\xa2", "\xc2\xa2", "\xc2\xff"}), &options);
   SliceOptions options_step{1, 5, 2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"ab\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"b\", \"\xc2\", \"b\xa2\", \"b\xff\"]", &options_step);
+      this->MakeArray({"", "a", "ab", "a\xc2\xa2", "ab\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "b", "\xc2", "b\xa2", "b\xff"}), &options_step);
   SliceOptions options_step_neg{5, 1, -2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"ab\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xa2\", \"Z\xc2\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "a\xc2\xa2", "ab\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "", "\xa2", "\xa2", "Z\xc2"}), &options_step_neg);
   options_step_neg.stop = 0;
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"b\", \"\xa2\", \"\xa2Z\", \"Z\xc2\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "a\xc2\xa2", "aZ\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "b", "\xa2", "\xa2Z", "Z\xc2"}), &options_step_neg);
 }
 
 TYPED_TEST(TestBinaryKernels, SliceBytesPosNeg) {
   SliceOptions options{2, -1};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"\", \"\", \"\xc2\", \"\xc2\xff\"]", &options);
+      this->MakeArray({"", "a", "ab", "a\xc2\xa2", "aZ\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "", "", "\xc2", "\xc2\xff"}), &options);
   SliceOptions options_step{1, -1, 2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"\", \"\xc2\", \"Z\", \"b\xff\"]", &options_step);
+      this->MakeArray({"", "a", "ab", "a\xc2\xa2", "aZ\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "", "\xc2", "Z", "b\xff"}), &options_step);
   SliceOptions options_step_neg{3, -4, -2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"\xff\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "a", "b", "\xa2Z", "\xa2Z", "\xff"}), &options_step_neg);
   options_step_neg.stop = -5;
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"\xffP\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "a", "b", "\xa2Z", "\xa2Z", "\xffP"}), &options_step_neg);
 }
 
 TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
   SliceOptions options{-2, -1};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"a\", \"\xc2\", \"\xc2\", \"\xff\"]", &options);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "ab\xc2\xffZ"}),
+      this->MakeArray({"", "", "a", "\xc2", "\xc2", "\xff"}), &options);
   SliceOptions options_step{-4, -1, 2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"a\", \"Z\", \"a\xc2\", \"P\xff\"]", &options_step);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "", "a", "Z", "a\xc2", "P\xff"}), &options_step);
   SliceOptions options_step_neg{-1, -3, -2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"a\", \"b\", \"\xa2\", \"\xa2\", \"Z\"]", &options_step_neg);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "a", "b", "\xa2", "\xa2", "Z"}), &options_step_neg);
   options_step_neg.stop = -4;
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"Z\xc2\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "a", "b", "\xa2Z", "\xa2Z", "Z\xc2"}), &options_step_neg);
 }
 
 TYPED_TEST(TestBinaryKernels, SliceBytesNegPos) {
   SliceOptions options{-2, 4};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"a\", \"ab\", \"\xc2\xa2\", \"\xc2\xa2\", \"\xff\"]",
-      &options);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "a", "ab", "\xc2\xa2", "\xc2\xa2", "\xff"}), &options);
   SliceOptions options_step{-4, 4, 2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"a\", \"a\", \"Z\xa2\", \"a\xc2\", \"P\xff\"]",
-      &options_step);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "a", "a", "Z\xa2", "a\xc2", "P\xff"}), &options_step);
   SliceOptions options_step_neg{-1, 1, -2};
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xa2\", \"Z\xc2\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "", "", "\xa2", "\xa2", "Z\xc2"}), &options_step_neg);
   options_step_neg.stop = 0;
   this->CheckUnary(
       "binary_slice",
-      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
-      this->type(), "[\"\", \"\", \"b\", \"\xa2\", \"\xa2Z\", \"Z\xc2\"]",
-      &options_step_neg);
+      this->MakeArray({"", "a", "ab", "Z\xc2\xa2", "aZ\xc2\xa2", "aP\xc2\xffZ"}),
+      this->MakeArray({"", "", "b", "\xa2", "\xa2Z", "Z\xc2"}), &options_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, PadAscii) {

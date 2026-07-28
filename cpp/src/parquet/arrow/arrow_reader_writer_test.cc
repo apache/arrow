@@ -1495,7 +1495,12 @@ class TestBinaryLikeParquetIO : public ParquetIOTestBase {
                       const std::shared_ptr<DataType>& fallback_type) {
     const auto specific_array = ::arrow::ArrayFromJSON(specific_type, json);
     const auto fallback_array = ::arrow::ArrayFromJSON(fallback_type, json);
+    CheckRoundTrip(specific_array, fallback_array, binary_type);
+  }
 
+  void CheckRoundTrip(const std::shared_ptr<Array>& specific_array,
+                      const std::shared_ptr<Array>& fallback_array,
+                      ::arrow::Type::type binary_type) {
     // When the original Arrow schema isn't stored, the array is decoded as
     // the fallback type (since there is no specific Parquet logical
     // type for it).
@@ -1521,13 +1526,27 @@ class TestBinaryLikeParquetIO : public ParquetIOTestBase {
 };
 
 TEST_F(TestBinaryLikeParquetIO, LargeBinary) {
-  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::LARGE_BINARY,
-                 ::arrow::large_binary(), ::arrow::binary());
+  const std::vector<bool> is_valid = {true, true, false, true};
+  const std::vector<std::string> values = {"foo", "", "", "\xff"};
+  std::shared_ptr<Array> specific_array;
+  ::arrow::ArrayFromVector<::arrow::LargeBinaryType, std::string>(is_valid, values,
+                                                                  &specific_array);
+  std::shared_ptr<Array> fallback_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryType, std::string>(is_valid, values,
+                                                             &fallback_array);
+  CheckRoundTrip(specific_array, fallback_array, ::arrow::Type::LARGE_BINARY);
 }
 
 TEST_F(TestBinaryLikeParquetIO, BinaryView) {
-  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::BINARY_VIEW,
-                 ::arrow::binary_view(), ::arrow::binary());
+  const std::vector<bool> is_valid = {true, true, false, true};
+  const std::vector<std::string> values = {"foo", "", "", "\xff"};
+  std::shared_ptr<Array> specific_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryViewType, std::string>(is_valid, values,
+                                                                 &specific_array);
+  std::shared_ptr<Array> fallback_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryType, std::string>(is_valid, values,
+                                                             &fallback_array);
+  CheckRoundTrip(specific_array, fallback_array, ::arrow::Type::BINARY_VIEW);
 }
 
 TEST_F(TestBinaryLikeParquetIO, LargeString) {
