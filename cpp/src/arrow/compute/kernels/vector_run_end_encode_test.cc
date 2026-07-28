@@ -479,6 +479,41 @@ TEST(TestRunEndEncodeDecodeNested, VariableSizeList) {
   AssertNestedRunEndEncodeDecode(nested_lists, "[2, 3, 4, 5]", expected_nested_lists);
 }
 
+TEST(TestRunEndEncodeDecodeNested, LargeList) {
+  auto value_type = large_list(int32());
+  auto input = ArrayFromJSON(value_type, R"([
+      [9], [1, 2], [1, 2], [], [], null, null, [null], [null], [3], [3], [4], [9]
+  ])");
+  input = input->Slice(1, 11);
+  auto expected_values =
+      ArrayFromJSON(value_type, R"([[1, 2], [], null, [null], [3], [4]])");
+  AssertNestedRunEndEncodeDecode(input, "[2, 4, 6, 8, 10, 11]", expected_values);
+
+  AssertNestedRunEndEncodeDecode(ArrayFromJSON(value_type, "[]"), "[]",
+                                 ArrayFromJSON(value_type, "[]"));
+}
+
+template <typename ListViewArrayType>
+void AssertListViewRunEndEncodeDecode(const std::shared_ptr<DataType>& offset_type,
+                                      const std::shared_ptr<DataType>& value_type) {
+  auto offsets = ArrayFromJSON(offset_type, "[0, 1, 1, 5, 2, 0, 0, 3, 3, 5, 0]");
+  auto sizes = ArrayFromJSON(offset_type, "[1, 2, 2, 0, 0, null, null, 2, 2, 1, 1]");
+  auto child_values = ArrayFromJSON(int32(), "[9, 1, 2, 3, null, 4]");
+  ASSERT_OK_AND_ASSIGN(auto list_view,
+                       ListViewArrayType::FromArrays(*offsets, *sizes, *child_values));
+  auto input = list_view->Slice(1, 9);
+  auto expected_values = ArrayFromJSON(value_type, "[[1, 2], [], null, [3, null], [4]]");
+  AssertNestedRunEndEncodeDecode(input, "[2, 4, 6, 8, 9]", expected_values);
+
+  AssertNestedRunEndEncodeDecode(ArrayFromJSON(value_type, "[]"), "[]",
+                                 ArrayFromJSON(value_type, "[]"));
+}
+
+TEST(TestRunEndEncodeDecodeNested, ListView) {
+  AssertListViewRunEndEncodeDecode<ListViewArray>(int32(), list_view(int32()));
+  AssertListViewRunEndEncodeDecode<LargeListViewArray>(int64(), large_list_view(int32()));
+}
+
 TEST(TestRunEndEncodeDecodeNested, FixedSizeList) {
   auto value_type = fixed_size_list(int32(), 2);
   auto input = ArrayFromJSON(value_type, R"([
@@ -536,6 +571,35 @@ TEST(TestRunEndEncodeDecodeNested, DecodeWithOffsetInValuesArray) {
     ASSERT_OK(decoded_slice->ValidateFull());
     ASSERT_ARRAYS_EQUAL(*decoded_slice, *expected->Slice(1, 3));
   }
+}
+
+TEST(TestRunEndEncodeDecodeNested, Map) {
+  auto value_type = map(utf8(), int32(), /*keys_sorted=*/true);
+  auto input = ArrayFromJSON(value_type, R"([
+      [["skip", 9]],
+      [["a", 1], ["b", 2]],
+      [["a", 1], ["b", 2]],
+      [],
+      [],
+      null,
+      null,
+      [["a", null]],
+      [["a", null]],
+      [["c", 3]],
+      [["skip", 9]]
+  ])");
+  input = input->Slice(1, 9);
+  auto expected_values = ArrayFromJSON(value_type, R"([
+      [["a", 1], ["b", 2]],
+      [],
+      null,
+      [["a", null]],
+      [["c", 3]]
+  ])");
+  AssertNestedRunEndEncodeDecode(input, "[2, 4, 6, 8, 9]", expected_values);
+
+  AssertNestedRunEndEncodeDecode(ArrayFromJSON(value_type, "[]"), "[]",
+                                 ArrayFromJSON(value_type, "[]"));
 }
 
 TEST(TestRunEndEncodeDecodeNested, Struct) {

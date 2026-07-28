@@ -712,6 +712,10 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   add_kernel(Type::LARGE_BINARY);
   add_nested_kernel(Type::FIXED_SIZE_LIST);
   add_nested_kernel(Type::LIST);
+  add_nested_kernel(Type::LARGE_LIST);
+  add_nested_kernel(Type::LIST_VIEW);
+  add_nested_kernel(Type::LARGE_LIST_VIEW);
+  add_nested_kernel(Type::MAP);
   add_nested_kernel(Type::STRUCT);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
@@ -769,6 +773,10 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   add_kernel(Type::LARGE_BINARY);
   add_nested_kernel(Type::FIXED_SIZE_LIST);
   add_nested_kernel(Type::LIST);
+  add_nested_kernel(Type::LARGE_LIST);
+  add_nested_kernel(Type::LIST_VIEW);
+  add_nested_kernel(Type::LARGE_LIST_VIEW);
+  add_nested_kernel(Type::MAP);
   add_nested_kernel(Type::STRUCT);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
