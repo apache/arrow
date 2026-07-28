@@ -1957,10 +1957,13 @@ function(build_absl)
        absl::debugging_internal
        absl::demangle_internal
        absl::exponential_biased
+       absl::hash
        absl::int128
        absl::leak_check
+       absl::log_internal_message
        absl::log_severity
        absl::malloc_internal
+       absl::raw_hash_set
        absl::raw_logging_internal
        absl::spinlock_wait
        absl::stacktrace
