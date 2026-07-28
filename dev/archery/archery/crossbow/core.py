@@ -17,6 +17,7 @@
 
 import os
 import re
+import subprocess
 import fnmatch
 import glob
 import time
@@ -705,26 +706,36 @@ class Queue(Repo):
         return self.create_branch(job.branch, files=job.render_files())
 
 
-def get_version(root, **kwargs):
+def get_version(root):
     """
-    Parse function for setuptools_scm that ignores tags for non-C++
-    subprojects, e.g. apache-arrow-js-XXX tags.
+    Calculate a development version from the latest Arrow C++ release tag.
     """
-    from setuptools_scm.git import parse as parse_git_version
-    from setuptools_scm import Configuration
-
-    # query the calculated version based on the git tags
-    kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
+    result = subprocess.run(
+        [
+            "git",
+            "describe",
+            "--dirty",
+            "--tags",
+            "--long",
+            "--match",
+            "apache-arrow-[0-9]*.*",
+        ],
+        cwd=root,
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
     )
-
-    # Create a Configuration object with necessary parameters
-    config = Configuration(
-        git_describe_command=kwargs['describe_command']
+    description = result.stdout.strip()
+    describe_match = re.fullmatch(
+        r"apache-arrow-(?P<tag>.+)-(?P<distance>\d+)"
+        r"-g[0-9a-f]+(?:-dirty)?",
+        description,
     )
-
-    version = parse_git_version(root, config=config, **kwargs)
-    tag = str(version.tag)
+    if describe_match is None:
+        raise CrossbowError(
+            f"Unable to parse git describe output: {description!r}"
+        )
+    tag = describe_match.group("tag")
 
     # We may get a development tag for the next version, such as "5.0.0.dev0",
     # or the tag of an already released version, such as "4.0.0".
@@ -733,11 +744,14 @@ def get_version(root, **kwargs):
     # 4.0.0 is 5.0.0).
     pattern = r"^(\d+)\.(\d+)\.(\d+)"
     match = re.match(pattern, tag)
+    if match is None:
+        raise CrossbowError(f"Unable to parse Arrow version tag: {tag!r}")
     major, minor, patch = map(int, match.groups())
     if 'dev' not in tag:
         major += 1
 
-    return f"{major}.{minor}.{patch}.dev{version.distance or 0}"
+    distance = int(describe_match.group("distance"))
+    return f"{major}.{minor}.{patch}.dev{distance}"
 
 
 class Serializable:
