@@ -164,6 +164,7 @@ Depends:
   libbz2-dev,
   libc-ares-dev,
   libcurl4-openssl-dev,
+@SYSTEM_OPEN_TELEMETRY_REQUIRE_GRPC@  libgrpc++-dev,
   liblz4-dev,
   libprotobuf-dev,
   libprotoc-dev,

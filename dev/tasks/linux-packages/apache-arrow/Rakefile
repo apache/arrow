@@ -104,6 +104,13 @@ class ApacheArrowPackageTask < PackageTask
       use_system_open_telemetry = "#"
     else
       use_system_open_telemetry = ""
+      if target.start_with?("debian-trixie")
+        system_open_telemetry_require_grpc = ""
+      else
+        system_open_telemetry_require_grpc = "#"
+      end
+      control = control.gsub(/@SYSTEM_OPEN_TELEMETRY_REQUIRE_GRPC@/,
+                             system_open_telemetry_require_grpc)
     end
     control.gsub(/@USE_SYSTEM_OPEN_TELEMETRY@/, use_system_open_telemetry)
   end

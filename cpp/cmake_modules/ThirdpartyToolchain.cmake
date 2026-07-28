@@ -1963,6 +1963,7 @@ function(build_absl)
        absl::raw_logging_internal
        absl::spinlock_wait
        absl::stacktrace
+       absl::status
        absl::str_format_internal
        absl::strings
        absl::strings_internal
@@ -2150,6 +2151,10 @@ function(build_protobuf)
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
   endif()
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
