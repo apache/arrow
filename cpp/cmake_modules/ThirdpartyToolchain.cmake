@@ -1960,6 +1960,7 @@ function(build_absl)
        absl::hash
        absl::int128
        absl::leak_check
+       absl::log_internal_check_op
        absl::log_internal_message
        absl::log_severity
        absl::malloc_internal
@@ -2116,16 +2117,17 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  list(PREPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf utf8_range)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
     # system also, as it is used when building Arrow
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
-
-    # cross-compiled (PyArrow on emscripten) needs utf8_range bundled explicitly.
-    list(PREPEND ARROW_BUNDLED_STATIC_LIBS utf8_range)
 
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
@@ -2156,10 +2158,6 @@ function(build_protobuf)
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
   endif()
-
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
-      PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
