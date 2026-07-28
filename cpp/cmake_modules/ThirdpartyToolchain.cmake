@@ -1958,6 +1958,9 @@ function(build_absl)
        absl::debugging_internal
        absl::demangle_internal
        absl::demangle_rust
+       # absl::decode_rust_punycode must be after absl::demangle_rust because
+       # absl::demangle_rust uses absl::decode_rust_punycode.
+       absl::decode_rust_punycode
        absl::examine_stack
        absl::exponential_biased
        absl::hash
@@ -1967,13 +1970,15 @@ function(build_absl)
        absl::log_internal_check_op
        absl::log_internal_conditions
        absl::log_internal_format
-       absl::log_internal_globals
        absl::log_internal_log_sink_set
        absl::log_internal_message
        absl::log_internal_nullguard
        absl::log_internal_proto
        absl::log_internal_structured_proto
        absl::log_severity
+       # absl::log_internal_globals must be after other absl::log_* because
+       # other absl::log_* refers symbols in absl::log_internal_globals.
+       absl::log_internal_globals
        absl::low_level_hash
        absl::malloc_internal
        absl::raw_hash_set
@@ -3722,11 +3727,15 @@ function(build_google_cloud_cpp_storage)
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
+
   list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        google-cloud-cpp::storage
        google-cloud-cpp::rest_internal
        google-cloud-cpp::common)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
