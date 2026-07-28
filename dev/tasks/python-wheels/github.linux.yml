@@ -104,12 +104,12 @@ jobs:
             -e TEST_WHEELS=1 \
             almalinux-verify-rc
 
-      - name: Test wheel on Ubuntu 22.04
+      - name: Test wheel on Ubuntu 24.04
         shell: bash
         if: |
           '{{ python_version }}' == '3.11' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
-          UBUNTU: "22.04"
+          UBUNTU: "24.04"
         run: |
           archery docker run \
             -e TEST_DEFAULT=0 \
