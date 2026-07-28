@@ -507,10 +507,15 @@ TEST(TestUnaryRound, DispatchBestRound) {
   }
 }
 
+enum class RoundTestCheckFunc {
+  kCheckScalar,
+  kCheckRaises,
+};
+
 // Const ndigits test case used by both TestUnaryRoundArithmeticDecimal and
 // TestBinaryRoundArithmeticDecimal
 struct RoundDecimalTestCase {
-  std::string kind;  // "CheckScalar" or "CheckRaises"
+  RoundTestCheckFunc check_func;
   int32_t ndigits;
   RoundMode round_mode;
   std::string expected;  // Expected result array or expected error msg
@@ -524,112 +529,115 @@ struct RoundDecimalTestVariant {
 };
 
 std::vector<RoundDecimalTestVariant> GetRoundDecimalTestCases() {
+  using enum RoundTestCheckFunc;
   return {
       {{decimal128(4, 3), decimal256(4, 3)},
        R"(["1.010", "1.012", "1.015", "1.019", "-1.010", "-1.012", "-1.015", "-1.019", null])",
-       {{"CheckScalar", 2, RoundMode::DOWN,
+       {{kCheckScalar, 2, RoundMode::DOWN,
          R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.020", "-1.020", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::UP,
+        {kCheckScalar, 2, RoundMode::UP,
          R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.010", null])"},
-        {"CheckScalar", 2, RoundMode::TOWARDS_ZERO,
+        {kCheckScalar, 2, RoundMode::TOWARDS_ZERO,
          R"(["1.010", "1.010", "1.010", "1.010", "-1.010", "-1.010", "-1.010", "-1.010", null])"},
-        {"CheckScalar", 2, RoundMode::TOWARDS_INFINITY,
+        {kCheckScalar, 2, RoundMode::TOWARDS_INFINITY,
          R"(["1.010", "1.020", "1.020", "1.020", "-1.010", "-1.020", "-1.020", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_DOWN,
+        {kCheckScalar, 2, RoundMode::HALF_DOWN,
          R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_UP,
+        {kCheckScalar, 2, RoundMode::HALF_UP,
          R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_TOWARDS_ZERO,
+        {kCheckScalar, 2, RoundMode::HALF_TOWARDS_ZERO,
          R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_TOWARDS_INFINITY,
+        {kCheckScalar, 2, RoundMode::HALF_TOWARDS_INFINITY,
          R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_TO_EVEN,
+        {kCheckScalar, 2, RoundMode::HALF_TO_EVEN,
          R"(["1.010", "1.010", "1.020", "1.020", "-1.010", "-1.010", "-1.020", "-1.020", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_TO_ODD,
+        {kCheckScalar, 2, RoundMode::HALF_TO_ODD,
          R"(["1.010", "1.010", "1.010", "1.020", "-1.010", "-1.010", "-1.010", "-1.020", null])"}}}};
 }
 
 std::vector<RoundDecimalTestVariant> GetRoundTowardsInfinityDecimalTestCases() {
+  using enum RoundTestCheckFunc;
   return {{{decimal128(4, 2), decimal256(4, 2)},
            R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])",
            {
-               {"CheckScalar", 0, RoundMode::TOWARDS_INFINITY,
+               {kCheckScalar, 0, RoundMode::TOWARDS_INFINITY,
                 R"(["1.00", "2.00", "2.00", "-42.00", "-43.00", "-43.00", null])"},
-               {"CheckScalar", 1, RoundMode::TOWARDS_INFINITY,
+               {kCheckScalar, 1, RoundMode::TOWARDS_INFINITY,
                 R"(["1.00", "2.00", "1.10", "-42.00", "-43.00", "-42.20", null])"},
-               {"CheckScalar", 2, RoundMode::TOWARDS_INFINITY,
+               {kCheckScalar, 2, RoundMode::TOWARDS_INFINITY,
                 R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])"},
-               {"CheckScalar", 4, RoundMode::TOWARDS_INFINITY,
+               {kCheckScalar, 4, RoundMode::TOWARDS_INFINITY,
                 R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])"},
-               {"CheckScalar", 100, RoundMode::TOWARDS_INFINITY,
+               {kCheckScalar, 100, RoundMode::TOWARDS_INFINITY,
                 R"(["1.00", "1.99", "1.01", "-42.00", "-42.99", "-42.15", null])"},
-               {"CheckScalar", -1, RoundMode::TOWARDS_INFINITY,
+               {kCheckScalar, -1, RoundMode::TOWARDS_INFINITY,
                 R"(["10.00", "10.00", "10.00", "-50.00", "-50.00", "-50.00", null])"},
-               {"CheckRaises", -2, RoundMode::TOWARDS_INFINITY,
+               {kCheckRaises, -2, RoundMode::TOWARDS_INFINITY,
                 "Rounding to -2 digits will not fit in precision"},
            }},
           {{decimal128(4, 2), decimal256(4, 2)},
            R"(["99.99"])",
-           {{"CheckRaises", -1, RoundMode::TOWARDS_INFINITY,
+           {{kCheckRaises, -1, RoundMode::TOWARDS_INFINITY,
              "Rounded value 100.00 does not fit in precision"}}},
           {{decimal128(2, -2), decimal256(2, -2)},
            R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])",
-           {{"CheckScalar", 0, RoundMode::TOWARDS_INFINITY,
+           {{kCheckScalar, 0, RoundMode::TOWARDS_INFINITY,
              R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
-            {"CheckScalar", 2, RoundMode::TOWARDS_INFINITY,
+            {kCheckScalar, 2, RoundMode::TOWARDS_INFINITY,
              R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
-            {"CheckScalar", 100, RoundMode::TOWARDS_INFINITY,
+            {kCheckScalar, 100, RoundMode::TOWARDS_INFINITY,
              R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
-            {"CheckScalar", -1, RoundMode::TOWARDS_INFINITY,
+            {kCheckScalar, -1, RoundMode::TOWARDS_INFINITY,
              R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
-            {"CheckScalar", -2, RoundMode::TOWARDS_INFINITY,
+            {kCheckScalar, -2, RoundMode::TOWARDS_INFINITY,
              R"(["10E2", "12E2", "18E2", "-10E2", "-12E2", "-18E2", null])"},
-            {"CheckScalar", -3, RoundMode::TOWARDS_INFINITY,
+            {kCheckScalar, -3, RoundMode::TOWARDS_INFINITY,
              R"(["10E2", "20E2", "20E2", "-10E2", "-20E2", "-20E2", null])"},
-            {"CheckRaises", -4, RoundMode::TOWARDS_INFINITY,
+            {kCheckRaises, -4, RoundMode::TOWARDS_INFINITY,
              "Rounding to -4 digits will not fit in precision"}},
            true}};
 }
 
 std::vector<RoundDecimalTestVariant> GetRoundHalfToEvenDecimalTestCases() {
+  using enum RoundTestCheckFunc;
   return {
       {{decimal128(4, 2), decimal256(4, 2)},
        R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])",
        {
-           {"CheckScalar", 0, RoundMode::HALF_TO_EVEN,
+           {kCheckScalar, 0, RoundMode::HALF_TO_EVEN,
             R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.00", "2.00", "2.00", "-6.00", "-3.00", null])"},
-           {"CheckScalar", 1, RoundMode::HALF_TO_EVEN,
+           {kCheckScalar, 1, RoundMode::HALF_TO_EVEN,
             R"(["1.00", "6.00", "1.00", "-42.00", "-43.00", "-42.20", "1.50", "2.50", "-5.50", "-2.60", null])"},
-           {"CheckScalar", 2, RoundMode::HALF_TO_EVEN,
+           {kCheckScalar, 2, RoundMode::HALF_TO_EVEN,
             R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])"},
-           {"CheckScalar", 4, RoundMode::HALF_TO_EVEN,
+           {kCheckScalar, 4, RoundMode::HALF_TO_EVEN,
             R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])"},
-           {"CheckScalar", 100, RoundMode::HALF_TO_EVEN,
+           {kCheckScalar, 100, RoundMode::HALF_TO_EVEN,
             R"(["1.00", "5.99", "1.01", "-42.00", "-42.99", "-42.15", "1.50", "2.50", "-5.50", "-2.55", null])"},
-           {"CheckScalar", -1, RoundMode::HALF_TO_EVEN,
+           {kCheckScalar, -1, RoundMode::HALF_TO_EVEN,
             R"(["0.00", "10.00", "0.00", "-40.00", "-40.00", "-40.00", "0.00", "0.00", "-10.00", "0.00", null])"},
-           {"CheckRaises", -2, RoundMode::HALF_TO_EVEN,
+           {kCheckRaises, -2, RoundMode::HALF_TO_EVEN,
             "Rounding to -2 digits will not fit in precision"},
        }},
       {{decimal128(4, 2), decimal256(4, 2)},
        R"(["99.99"])",
-       {{"CheckRaises", -1, RoundMode::HALF_TO_EVEN,
+       {{kCheckRaises, -1, RoundMode::HALF_TO_EVEN,
          "Rounded value 100.00 does not fit in precision"}}},
       {{decimal128(2, -2), decimal256(2, -2)},
        R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])",
-       {{"CheckScalar", 0, RoundMode::HALF_TO_EVEN,
+       {{kCheckScalar, 0, RoundMode::HALF_TO_EVEN,
          R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
-        {"CheckScalar", 2, RoundMode::HALF_TO_EVEN,
+        {kCheckScalar, 2, RoundMode::HALF_TO_EVEN,
          R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
-        {"CheckScalar", 100, RoundMode::HALF_TO_EVEN,
+        {kCheckScalar, 100, RoundMode::HALF_TO_EVEN,
          R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
-        {"CheckScalar", -1, RoundMode::HALF_TO_EVEN,
+        {kCheckScalar, -1, RoundMode::HALF_TO_EVEN,
          R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
-        {"CheckScalar", -2, RoundMode::HALF_TO_EVEN,
+        {kCheckScalar, -2, RoundMode::HALF_TO_EVEN,
          R"(["5E2", "10E2", "12E2", "15E2", "18E2", "-10E2", "-12E2", "-15E2", "-18E2", null])"},
-        {"CheckScalar", -3, RoundMode::HALF_TO_EVEN,
+        {kCheckScalar, -3, RoundMode::HALF_TO_EVEN,
          R"(["0", "10E2", "10E2", "20E2", "20E2", "-10E2", "-10E2", "-20E2", "-20E2", null])"},
-        {"CheckRaises", -4, RoundMode::HALF_TO_EVEN,
+        {kCheckRaises, -4, RoundMode::HALF_TO_EVEN,
          "Rounding to -4 digits will not fit in precision"}},
        true}};
 }
@@ -653,7 +661,7 @@ class TestUnaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {
           options.ndigits = test_case.ndigits;
           options.round_mode = test_case.round_mode;
 
-          if (test_case.kind == "CheckScalar") {
+          if (test_case.check_func == RoundTestCheckFunc::kCheckScalar) {
             std::shared_ptr<Array> expected_arr;
             if (variant.scientific_data) {
               expected_arr = DecimalArrayFromJSON(ty, test_case.expected);
@@ -661,7 +669,7 @@ class TestUnaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {
               expected_arr = ArrayFromJSON(ty, test_case.expected);
             }
             CheckScalar(round_func, {values}, expected_arr, &options);
-          } else {  // test_case.kind == "CheckRaises"
+          } else {  // test_case.check_func == RoundTestCheckFunc.kCheckRaises
             CheckRaises(round_func, {values}, test_case.expected, &options);
           }
         }
@@ -987,11 +995,12 @@ class TestBinaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {
         for (const auto& test_case : variant.cases) {
           options.round_mode = test_case.round_mode;
 
-          auto ndigits_scalar = *arrow::MakeScalar(int32(), test_case.ndigits);
+          ASSERT_OK_AND_ASSIGN(auto ndigits_scalar,
+                               arrow::MakeScalar(int32(), test_case.ndigits));
           ASSERT_OK_AND_ASSIGN(auto ndigits_arr,
                                MakeArrayFromScalar(*ndigits_scalar, values->length()));
 
-          if (test_case.kind == "CheckScalar") {
+          if (test_case.check_func == RoundTestCheckFunc::kCheckScalar) {
             std::shared_ptr<Array> expected_arr;
             if (variant.scientific_data) {
               expected_arr = DecimalArrayFromJSON(ty, test_case.expected);
@@ -999,7 +1008,7 @@ class TestBinaryRoundArithmeticDecimal : public TestRoundArithmeticDecimal {
               expected_arr = ArrayFromJSON(ty, test_case.expected);
             }
             CheckScalar(round_func, {values, ndigits_arr}, expected_arr, &options);
-          } else {  // test_case.kind == "CheckRaises"
+          } else {  // test_case.check_func == RoundTestCheckFunc.kCheckRaises
             CheckRaises(round_func, {values, ndigits_arr}, test_case.expected, &options);
           }
         }
@@ -1028,33 +1037,44 @@ TEST_F(TestBinaryRoundArithmeticDecimal, RoundNDigitsArray) {
   RoundBinaryOptions options;
 
   for (const auto& ty : {decimal128(4, 2), decimal256(4, 2)}) {
-    auto values = ArrayFromJSON(
-        ty,
-        R"(["61.55", "61.55", "61.52", "60.50", "65.00", "65.95", "-61.55", "-61.55", "-61.52", "-60.50", "-65.00", "-65.95", null, "32.78"])");
+    auto values =
+        ArrayFromJSON(ty,
+                      R"(["61.55", "61.55", "61.52", "60.50", "65.00", "65.95", "-61.55",
+        "-61.55", "-61.52", "-60.50", "-65.00", "-65.95", null, "32.78"])");
     auto ndigits_arr =
         ArrayFromJSON(int32(), "[2, 1, 1, 0, -1, -1, 2, 1, 1, 0, -1, -1, 5, null]");
 
     std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
         {RoundMode::DOWN,
-         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "60.00", "-61.55", "-61.60", "-61.60", "-61.00", "-70.00", "-70.00", null, null])"},
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "60.00", "-61.55",
+         "-61.60", "-61.60", "-61.00", "-70.00", "-70.00", null, null])"},
         {RoundMode::UP,
-         R"(["61.55", "61.60", "61.60", "61.00", "70.00", "70.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-60.00", null, null])"},
+         R"(["61.55", "61.60", "61.60", "61.00", "70.00", "70.00", "-61.55",
+         "-61.50", "-61.50", "-60.00", "-60.00", "-60.00", null, null])"},
         {RoundMode::TOWARDS_ZERO,
-         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "60.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-60.00", null, null])"},
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "60.00", "-61.55",
+         "-61.50", "-61.50", "-60.00", "-60.00", "-60.00", null, null])"},
         {RoundMode::TOWARDS_INFINITY,
-         R"(["61.55", "61.60", "61.60", "61.00", "70.00", "70.00", "-61.55", "-61.60", "-61.60", "-61.00", "-70.00", "-70.00", null, null])"},
+         R"(["61.55", "61.60", "61.60", "61.00", "70.00", "70.00", "-61.55",
+         "-61.60", "-61.60", "-61.00", "-70.00", "-70.00", null, null])"},
         {RoundMode::HALF_DOWN,
-         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "70.00", "-61.55", "-61.60", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "70.00", "-61.55",
+         "-61.60", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
         {RoundMode::HALF_UP,
-         R"(["61.55", "61.60", "61.50", "61.00", "70.00", "70.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
+         R"(["61.55", "61.60", "61.50", "61.00", "70.00", "70.00", "-61.55",
+         "-61.50", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
         {RoundMode::HALF_TOWARDS_ZERO,
-         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "70.00", "-61.55", "-61.50", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
+         R"(["61.55", "61.50", "61.50", "60.00", "60.00", "70.00", "-61.55",
+         "-61.50", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
         {RoundMode::HALF_TOWARDS_INFINITY,
-         R"(["61.55", "61.60", "61.50", "61.00", "70.00", "70.00", "-61.55", "-61.60", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
+         R"(["61.55", "61.60", "61.50", "61.00", "70.00", "70.00", "-61.55",
+         "-61.60", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
         {RoundMode::HALF_TO_EVEN,
-         R"(["61.55", "61.60", "61.50", "60.00", "60.00", "70.00", "-61.55", "-61.60", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
+         R"(["61.55", "61.60", "61.50", "60.00", "60.00", "70.00", "-61.55",
+         "-61.60", "-61.50", "-60.00", "-60.00", "-70.00", null, null])"},
         {RoundMode::HALF_TO_ODD,
-         R"(["61.55", "61.50", "61.50", "61.00", "70.00", "70.00", "-61.55", "-61.50", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
+         R"(["61.55", "61.50", "61.50", "61.00", "70.00", "70.00", "-61.55",
+         "-61.50", "-61.50", "-61.00", "-70.00", "-70.00", null, null])"},
     }};
 
     for (const auto& pair : round_modes_and_expected) {
