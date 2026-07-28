@@ -2887,6 +2887,7 @@ cdef class _FlightServerFinalizer(_Weakrefable):
                     status = server.Wait()
             check_flight_status(status)
         finally:
+            server.ReleasePythonServerRef()
             self.server.reset()
 
 
@@ -3234,6 +3235,7 @@ cdef class FlightServerBase(_Weakrefable):
             raise ValueError("shutdown() on uninitialized FlightServerBase")
         with nogil:
             check_flight_status(self.server.get().Shutdown())
+        self.server.get().ReleasePythonServerRef()
 
     def wait(self):
         """Block until server is terminated with shutdown."""

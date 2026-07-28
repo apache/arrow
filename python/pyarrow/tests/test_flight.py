@@ -1128,6 +1128,49 @@ def test_flight_server_location_argument():
             assert isinstance(server, FlightServerBase)
 
 
+# The following tests are for GH-50684, which is a memory leak
+# in FlightServerBase.__del__().
+def test_flight_server_is_freed():
+    # Calling server.shutdown manually should free the server object.
+    import weakref
+    import gc
+    server = FlightServerBase('grpc://localhost:0')
+    server.shutdown()
+    server.wait()
+    ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
+def test_flight_server_is_freed_on_exit():
+    # Using FlightServerBase as a context manager should free
+    # the server object on exit.
+    import weakref
+    import gc
+    with FlightServerBase('grpc://localhost:0') as server:
+        ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
+@pytest.mark.xfail(
+    reason="GH-50684: FlightServerBase is not freed on delete without shutdown"
+)
+def test_flight_server_is_freed_without_shutdown():
+    # GH-50684: Not calling server.shutdown() currently leaks the server object.
+    # This test is expected to fail until the issue is fixed but is included
+    # for completeness and further discussion.
+    import weakref
+    import gc
+    server = FlightServerBase('grpc://localhost:0')
+    ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
 def test_server_exit_reraises_exception():
     with pytest.raises(ValueError):
         with FlightServerBase():
