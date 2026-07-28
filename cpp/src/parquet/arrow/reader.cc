@@ -19,13 +19,15 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iterator>
 #include <memory>
-#include <random>
+#include <span>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array.h"  // IWYU pragma: keep
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -35,6 +37,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -45,13 +48,10 @@
 #include "arrow/util/type_traits.h"
 
 #include "parquet/arrow/reader_internal.h"
-#include "parquet/bloom_filter.h"
-#include "parquet/bloom_filter_reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
-#include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 
@@ -725,13 +725,63 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     DCHECK_EQ(data->buffers.size(), 2);
     DCHECK_EQ(field()->type()->id(), ::arrow::Type::FIXED_SIZE_LIST);
     const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
-    const int32_t* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
-    for (int x = 1; x <= data->length; x++) {
-      int32_t size = offsets[x] - offsets[x - 1];
-      if (size != type.list_size()) {
-        return Status::Invalid("Expected all lists to be of size=", type.list_size(),
-                               " but index ", x, " had size=", size);
+    const auto* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
+    const int32_t list_size = type.list_size();
+    auto validate_offsets = [&](int64_t start, int64_t length,
+                                bool has_elements) -> Status {
+      const int32_t expected_size = has_elements ? list_size : 0;
+      std::span<const int32_t> run_offsets(offsets + start,
+                                           static_cast<size_t>(length + 1));
+      const auto first_invalid_offset = std::ranges::adjacent_find(
+          run_offsets,
+          [&](int32_t left, int32_t right) { return right - left != expected_size; });
+      if (first_invalid_offset != run_offsets.end()) {
+        const int64_t x =
+            start + std::ranges::distance(run_offsets.begin(), first_invalid_offset);
+        const int32_t size = offsets[x + 1] - offsets[x];
+        if (has_elements) {
+          return Status::Invalid("Expected all lists to be of size=", list_size,
+                                 " but index ", x + 1, " had size=", size);
+        }
+        return Status::Invalid("Expected null fixed-size list at index ", x + 1,
+                               " to have no child values but had size=", size);
       }
+      return Status::OK();
+    };
+    if (data->GetNullCount() != 0) {
+      // Rebuild the child array run-by-run so null fixed-size list slots still
+      // contribute list_size child values in the final layout.
+      ::arrow::ArrayVector child_arrays;
+
+      auto visit_run = [&](int64_t start, int64_t length, bool has_elements) -> Status {
+        RETURN_NOT_OK(validate_offsets(start, length, has_elements));
+
+        const int64_t child_length = length * list_size;
+        // Valid runs reuse the decoded child slice; null runs materialize null
+        // children to preserve the fixed-size list shape.
+        if (!has_elements) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto null_array,
+              ::arrow::MakeArrayOfNull(type.value_type(), child_length, ctx_->pool));
+          child_arrays.push_back(std::move(null_array));
+          return Status::OK();
+        }
+        child_arrays.push_back(
+            ::arrow::MakeArray(data->child_data[0]->Slice(offsets[start], child_length)));
+        return Status::OK();
+      };
+
+      DCHECK_NE(data->buffers[0], nullptr);
+      RETURN_NOT_OK(::arrow::internal::VisitBitRuns(
+          data->buffers[0]->data(), data->offset, data->length, visit_run));
+
+      // TODO(GH-50271): Build one padded child array directly instead of creating
+      // one temporary Array/ArrayData per validity run and concatenating them.
+      ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
+                            ::arrow::Concatenate(child_arrays, ctx_->pool));
+      data->child_data[0] = child_array_with_padding->data();
+    } else {
+      RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, /*valid=*/true));
     }
     data->buffers.resize(1);
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
