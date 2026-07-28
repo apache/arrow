@@ -1956,12 +1956,19 @@ function(build_absl)
        absl::crc_cpu_detect
        absl::debugging_internal
        absl::demangle_internal
+       absl::examin_stack
        absl::exponential_biased
        absl::hash
        absl::int128
        absl::leak_check
        absl::log_internal_check_op
+       absl::log_internal_conditions
+       absl::log_internal_globals
+       absl::log_internal_log_sink_set
        absl::log_internal_message
+       absl::log_internal_nullguard
+       absl::log_internal_proto
+       absl::log_internal_structured_proto
        absl::log_severity
        absl::malloc_internal
        absl::raw_hash_set
@@ -1971,6 +1978,7 @@ function(build_absl)
        absl::status
        absl::statusor
        absl::str_format_internal
+       absl::strerror
        absl::strings
        absl::strings_internal
        absl::symbolize
