@@ -88,26 +88,45 @@ const char* JsonTypeName(sj::json_type type) {
 // Empty struct to represent the type of a simdjson null value
 struct SimdjsonNull {};
 
-template <typename SimdjsonClass>
-const char* JsonTypeName() {
-  constexpr bool isNumber = std::is_same_v<SimdjsonClass, int64_t> ||
-                            std::is_same_v<SimdjsonClass, uint64_t> ||
-                            std::is_same_v<SimdjsonClass, double>;
-  if constexpr (isNumber) {
-    return "number";
-  } else if constexpr (std::is_same_v<SimdjsonClass, sj::array>) {
-    return "array";
-  } else if constexpr (std::is_same_v<SimdjsonClass, sj::object>) {
-    return "object";
-  } else if constexpr (std::is_same_v<SimdjsonClass, std::string_view>) {
-    return "string";
-  } else if constexpr (std::is_same_v<SimdjsonClass, bool>) {
-    return "boolean";
-  } else if constexpr (std::is_same_v<SimdjsonClass, SimdjsonNull>) {
-    return "null";
-  } else {
-    static_assert(false, "unmapped simdjson value type");
-  }
+template <typename T>
+struct JsonTypeNameOf;
+
+template <>
+struct JsonTypeNameOf<sj::array> {
+  static constexpr const char* kValue = "array";
+};
+template <>
+struct JsonTypeNameOf<sj::object> {
+  static constexpr const char* kValue = "object";
+};
+template <>
+struct JsonTypeNameOf<std::string_view> {
+  static constexpr const char* kValue = "string";
+};
+template <>
+struct JsonTypeNameOf<bool> {
+  static constexpr const char* kValue = "boolean";
+};
+template <>
+struct JsonTypeNameOf<SimdjsonNull> {
+  static constexpr const char* kValue = "null";
+};
+template <>
+struct JsonTypeNameOf<int64_t> {
+  static constexpr const char* kValue = "number";
+};
+template <>
+struct JsonTypeNameOf<uint64_t> {
+  static constexpr const char* kValue = "number";
+};
+template <>
+struct JsonTypeNameOf<double> {
+  static constexpr const char* kValue = "number";
+};
+
+template <typename T>
+constexpr const char* JsonTypeName() {
+  return JsonTypeNameOf<T>::kValue;
 }
 
 template <typename SimdjsonValueType>
