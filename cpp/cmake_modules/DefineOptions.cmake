@@ -329,7 +329,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_FLIGHT)
 
   define_option(ARROW_FLIGHT_SQL_ODBC
-                "Build the Arrow Flight SQL ODBC extension"
+                "Build the Arrow Flight SQL ODBC driver"
                 OFF
                 DEPENDS
                 ARROW_FLIGHT_SQL
