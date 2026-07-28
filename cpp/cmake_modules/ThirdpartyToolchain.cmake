@@ -1451,8 +1451,7 @@ macro(build_snappy)
     # ignore linker flag errors, as Snappy sets
     # -Werror -Wall, and Emscripten doesn't support -soname
     list(APPEND SNAPPY_CMAKE_ARGS
-         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
-         "-Wno-error=linkflags")
+         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}")
   endif()
 
   externalproject_add(snappy_ep
@@ -2824,11 +2823,18 @@ function(build_simdjson)
 
   fetchcontent_makeavailable(simdjson)
 
+  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
+  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+    target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
+  endif()
+
   set(SIMDJSON_VENDORED
       TRUE
       PARENT_SCOPE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson::simdjson)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS simdjson)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
       PARENT_SCOPE)
@@ -2837,7 +2843,7 @@ function(build_simdjson)
 endfunction()
 
 if(ARROW_WITH_SIMDJSON)
-  set(ARROW_SIMDJSON_REQUIRED_VERSION "3.0.0")
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.0.0")
   resolve_dependency(simdjson
                      FORCE_ANY_NEWER_VERSION
                      TRUE
@@ -2845,6 +2851,11 @@ if(ARROW_WITH_SIMDJSON)
                      ${ARROW_SIMDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
+  if(SIMDJSON_VENDORED)
+    add_library(arrow::simdjson ALIAS simdjson)
+  else()
+    add_library(arrow::simdjson ALIAS simdjson::simdjson)
+  endif()
 endif()
 
 function(build_rapidjson)
