@@ -359,13 +359,22 @@ repos:
           ?^cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-flightsqlodbc-upload\.sh$|
+          ?^dev/release/08-publish-gh-release\.sh$|
           ?^dev/release/09-binary-verify\.sh$|
+          ?^dev/release/account-ruby\.sh$|
           ?^dev/release/binary-recover\.sh$|
+          ?^dev/release/post-01-tag\.sh$|
+          ?^dev/release/post-02-upload\.sh$|
           ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-05-update-gh-release-notes\.sh$|
+          ?^dev/release/post-07-remove-old-artifacts\.sh$|
           ?^dev/release/post-08-docs\.sh$|
           ?^dev/release/post-09-python\.sh$|
+          ?^dev/release/post-13-vcpkg\.sh$|
+          ?^dev/release/post-14-conan\.sh$|
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
+          ?^dev/release/utils-watch-gh-workflow\.sh$|
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
