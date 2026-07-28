@@ -1970,16 +1970,15 @@ function(build_absl)
        absl::log_internal_check_op
        absl::log_internal_conditions
        absl::log_internal_format
+       absl::log_internal_globals
        absl::log_internal_log_sink_set
        absl::log_internal_message
        absl::log_internal_nullguard
        absl::log_internal_proto
        absl::log_internal_structured_proto
+       absl::log_globals
        absl::log_severity
        absl::log_sink
-       # absl::log_internal_globals must be after other absl::log_* because
-       # other absl::log_* refers symbols in absl::log_internal_globals.
-       absl::log_internal_globals
        absl::low_level_hash
        absl::malloc_internal
        absl::raw_hash_set
