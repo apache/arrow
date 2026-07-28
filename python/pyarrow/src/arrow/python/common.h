@@ -433,9 +433,8 @@ struct PyBytesView {
                                "' object");
     }
     bytes = PyBytes_AsString(ref.obj());
-    RETURN_IF_PYERROR();
     size = PyBytes_Size(ref.obj());
-    RETURN_IF_PYERROR();
+    ARROW_DCHECK(!PyErr_Occurred());
     is_utf8 = false;
     return Status::OK();
   }
