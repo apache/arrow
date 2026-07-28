@@ -1958,6 +1958,7 @@ function(build_absl)
        absl::demangle_internal
        absl::exponential_biased
        absl::int128
+       absl::leak_check
        absl::log_severity
        absl::malloc_internal
        absl::raw_logging_internal

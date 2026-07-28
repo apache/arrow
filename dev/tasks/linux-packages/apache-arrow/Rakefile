@@ -102,6 +102,7 @@ class ApacheArrowPackageTask < PackageTask
     case target
     when /\Aubuntu-(?:jammy|noble)/
       use_system_open_telemetry = "#"
+      system_open_telemetry_require_grpc = "#"
     else
       use_system_open_telemetry = ""
       if target.start_with?("debian-trixie")
@@ -109,10 +110,11 @@ class ApacheArrowPackageTask < PackageTask
       else
         system_open_telemetry_require_grpc = "#"
       end
-      control = control.gsub(/@SYSTEM_OPEN_TELEMETRY_REQUIRE_GRPC@/,
-                             system_open_telemetry_require_grpc)
     end
-    control.gsub(/@USE_SYSTEM_OPEN_TELEMETRY@/, use_system_open_telemetry)
+    control
+      .gsub(/@USE_SYSTEM_OPEN_TELEMETRY@/, use_system_open_telemetry)
+      .gsub(/@SYSTEM_OPEN_TELEMETRY_REQUIRE_GRPC@/,
+            system_open_telemetry_require_grpc)
   end
 
   def apt_prepare_debian_control(control_in, target)
