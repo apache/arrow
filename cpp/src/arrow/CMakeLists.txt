@@ -346,14 +346,18 @@ endmacro()
 macro(append_runtime_sve128_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE128)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE128_FLAGS}")
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS "${ARROW_SVE128_FLAGS}" "-fno-lto")
   endif()
 endmacro()
 
 macro(append_runtime_sve256_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE256)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE256_FLAGS}")
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS "${ARROW_SVE256_FLAGS}" "-fno-lto")
   endif()
 endmacro()
 
