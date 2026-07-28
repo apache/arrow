@@ -11,15 +11,6 @@
 ---
 
     Code
-      write_dataset(df, dst_dir, format = "ipc", nonsensical_arg = "blah-blah")
-    Condition
-      Error in `check_additional_args()`:
-      ! `nonsensical_arg` is not a valid argument for your chosen `format`.
-      i Supported arguments: `use_legacy_format`, `metadata_version`, `codec`, and `null_fallback`.
-
----
-
-    Code
       write_dataset(df, dst_dir, format = "arrow", nonsensical_arg = "blah-blah")
     Condition
       Error in `check_additional_args()`:
