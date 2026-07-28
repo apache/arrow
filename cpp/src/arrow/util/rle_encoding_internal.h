@@ -25,6 +25,7 @@
 #include <cstring>
 #include <limits>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 #include "arrow/util/bit_run_reader.h"
@@ -92,6 +93,9 @@ namespace arrow::util {
 /// and decoder to avoid conversions.
 /// It can therefore be referred to as a "typical" size for Rle and BitPacked logic.
 using rle_size_t = int32_t;
+
+/// A default placeholder type.
+struct RleDefault {};
 
 template <typename T>
 class RleRunDecoder;
@@ -322,19 +326,27 @@ class RleRunDecoder {
   }
 
   /// Get the next value and return false if there are no more.
-  [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width) {
-    return GetBatch(out_value, 1, value_bit_width) == 1;
+  template <typename Func = RleDefault>
+  [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width,
+                                   Func&& validator = {}) {
+    return GetBatch(out_value, 1, value_bit_width, std::forward<Func>(validator)) == 1;
   }
 
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
   /// left.
+  template <typename Func = RleDefault>
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
-                                    rle_size_t value_bit_width) {
+                                    rle_size_t value_bit_width, Func&& validator = {}) {
     if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
       return 0;
     }
 
+    if constexpr (!std::is_same_v<std::decay_t<Func>, RleDefault>) {
+      if (ARROW_PREDICT_TRUE(batch_size > 0)) {
+        validator(value_);
+      }
+    }
     const auto to_read = std::min(remaining_count_, batch_size);
     std::fill(out, out + to_read, value_);
     remaining_count_ -= to_read;
@@ -408,15 +420,18 @@ class BitPackedRunDecoder {
   }
 
   /// Get the next value and return false if there are no more.
-  [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width) {
-    return GetBatch(out_value, 1, value_bit_width) == 1;
+  template <typename Func = RleDefault>
+  [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width,
+                                   Func&& validator = {}) {
+    return GetBatch(out_value, 1, value_bit_width, std::forward<Func>(validator)) == 1;
   }
 
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
   /// left.
+  template <typename Func = RleDefault>
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
-                                    rle_size_t value_bit_width) {
+                                    rle_size_t value_bit_width, Func&& validator = {}) {
     const int64_t bits_read = static_cast<int64_t>(values_read_) * value_bit_width;
     const int64_t bytes_fully_read = bits_read / 8;
     // The parser only creates runs whose full payload fits in max_read_bytes_ (see
@@ -434,11 +449,18 @@ class BitPackedRunDecoder {
 
     if constexpr (std::is_same_v<T, bool>) {
       ::arrow::internal::unpack(unread_data, out, opts);
-
     } else {
       ::arrow::internal::unpack(
           unread_data, reinterpret_cast<std::make_unsigned_t<value_type>*>(out), opts);
     }
+
+    // Validate decoded output if given a validator
+    if constexpr (!std::is_same_v<std::decay_t<Func>, RleDefault>) {
+      for (rle_size_t k = 0; k < opts.batch_size; ++k) {
+        validator(out[k]);
+      }
+    }
+
     values_read_ += opts.batch_size;
     return opts.batch_size;
   }
@@ -509,12 +531,15 @@ class RleBitPackedDecoder {
   /// input with zeros. Since the encoding does not differentiate between
   /// input values and padding, Get() returns true even for these padding
   /// values.
-  [[nodiscard]] bool Get(value_type* val);
+  template <typename Func = RleDefault>
+  [[nodiscard]] bool Get(value_type* val, Func&& validator = {});
 
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
   /// left or if an error occurred.
-  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size);
+  template <typename Func = RleDefault>
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
+                                    Func&& validator = {});
 
   /// Like GetBatch but add spacing for null entries.
   ///
@@ -637,11 +662,17 @@ class BitPackedDecoder : private BitPackedRunDecoder<T> {
   }
 
   /// Gets the next value or returns false if there are no more or an error occurred.
-  [[nodiscard]] bool Get(value_type* val) { return Base::Get(val, value_bit_width_); }
+  template <typename Func = RleDefault>
+  [[nodiscard]] bool Get(value_type* val, Func&& validator = {}) {
+    return Base::Get(val, value_bit_width_, std::forward<Func>(validator));
+  }
 
   /// Get a batch of values return the number of decoded elements.
-  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size) {
-    return Base::GetBatch(out, batch_size, value_bit_width_);
+  template <typename Func = RleDefault>
+  [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
+                                    Func&& validator = {}) {
+    return Base::GetBatch(out, batch_size, value_bit_width_,
+                          std::forward<Func>(validator));
   }
 
  private:
@@ -989,16 +1020,19 @@ RleCountUpToResult RleBitPackedDecoder<T>::CountUpTo(value_type value,
 }
 
 template <typename T>
-bool RleBitPackedDecoder<T>::Get(value_type* val) {
-  return GetBatch(val, 1) == 1;
+template <typename Func>
+bool RleBitPackedDecoder<T>::Get(value_type* val, Func&& validator) {
+  return GetBatch(val, 1, std::forward<Func>(validator)) == 1;
 }
 
 template <typename T>
-auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
-                                      rle_size_t batch_size) -> rle_size_t {
+template <typename Func>
+auto RleBitPackedDecoder<T>::GetBatch(value_type* out, rle_size_t batch_size,
+                                      Func&& validator) -> rle_size_t {
   return ProcessValues(
-      [&out, this](auto& decoder, rle_size_t run_batch_size) {
-        const auto read = decoder.GetBatch(out, run_batch_size, value_bit_width_);
+      [&out, this, &validator](auto& decoder, rle_size_t run_batch_size) {
+        const auto read =
+            decoder.GetBatch(out, run_batch_size, value_bit_width_, validator);
         out += read;
         return read;
       },
