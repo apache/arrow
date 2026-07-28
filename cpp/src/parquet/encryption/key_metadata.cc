@@ -21,8 +21,8 @@
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::JsonWriter;
+using ::arrow::json::internal::ObjectParser;
 
 namespace parquet::encryption {
 
@@ -77,14 +77,10 @@ std::string KeyMetadata::CreateSerializedForExternalMaterial(
 
   json_writer.StartObject();
 
-  json_writer.Key(KeyMaterial::kKeyMaterialTypeField);
-  json_writer.String(KeyMaterial::kKeyMaterialType1);
-
-  json_writer.Key(kKeyMaterialInternalStorageField);
-  json_writer.Bool(false);
-
-  json_writer.Key(kKeyReferenceField);
-  json_writer.String(key_reference);
+  json_writer.StringField(KeyMaterial::kKeyMaterialTypeField,
+                          KeyMaterial::kKeyMaterialType1);
+  json_writer.BoolField(kKeyMaterialInternalStorageField, false);
+  json_writer.StringField(kKeyReferenceField, key_reference);
 
   json_writer.EndObject();
 

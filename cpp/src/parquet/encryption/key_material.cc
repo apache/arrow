@@ -22,8 +22,8 @@
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::JsonWriter;
+using ::arrow::json::internal::ObjectParser;
 
 namespace parquet::encryption {
 
@@ -126,52 +126,43 @@ std::string KeyMaterial::SerializeToJson(
 
   json_writer.StartObject();
 
-  json_writer.Key(kKeyMaterialTypeField);
-  json_writer.String(kKeyMaterialType1);
+  json_writer.StringField(kKeyMaterialTypeField, kKeyMaterialType1);
 
   if (is_internal_storage) {
-    json_writer.Key(KeyMetadata::kKeyMaterialInternalStorageField);
-    json_writer.Bool(true);
+    // 1. for internal storage, key material and key metadata are the same.
+    // adding the "internalStorage" field that belongs to KeyMetadata.
+    json_writer.BoolField(KeyMetadata::kKeyMaterialInternalStorageField, true);
   }
 
   // 2. Write isFooterKey
-  json_writer.Key(kIsFooterKeyField);
-  json_writer.Bool(is_footer_key);
+  json_writer.BoolField(kIsFooterKeyField, is_footer_key);
 
   if (is_footer_key) {
     // 3. For footer key, write KMS Instance ID
-    json_writer.Key(kKmsInstanceIdField);
-    json_writer.String(kms_instance_id);
+    json_writer.StringField(kKmsInstanceIdField, kms_instance_id);
 
     // 4. For footer key, write KMS Instance URL
-    json_writer.Key(kKmsInstanceUrlField);
-    json_writer.String(kms_instance_url);
+    json_writer.StringField(kKmsInstanceUrlField, kms_instance_url);
   }
 
   // 5. Write master key ID
-  json_writer.Key(kMasterKeyIdField);
-  json_writer.String(master_key_id);
+  json_writer.StringField(kMasterKeyIdField, master_key_id);
 
   // 6. Write wrapped DEK
-  json_writer.Key(kWrappedDataEncryptionKeyField);
-  json_writer.String(encoded_wrapped_dek);
+  json_writer.StringField(kWrappedDataEncryptionKeyField, encoded_wrapped_dek);
 
   // 7. Write isDoubleWrapped
-  json_writer.Key(kDoubleWrappingField);
-  json_writer.Bool(is_double_wrapped);
+  json_writer.BoolField(kDoubleWrappingField, is_double_wrapped);
 
   if (is_double_wrapped) {
     // 8. In double wrapping mode, write KEK ID
-    json_writer.Key(kKeyEncryptionKeyIdField);
-    json_writer.String(kek_id);
+    json_writer.StringField(kKeyEncryptionKeyIdField, kek_id);
 
     // 9. In double wrapping mode, write wrapped KEK
-    json_writer.Key(kWrappedKeyEncryptionKeyField);
-    json_writer.String(encoded_wrapped_kek);
+    json_writer.StringField(kWrappedKeyEncryptionKeyField, encoded_wrapped_kek);
   }
 
   json_writer.EndObject();
-
   return std::string(json_writer.GetString());
 }
 

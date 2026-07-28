@@ -23,8 +23,8 @@
 #include "parquet/encryption/local_wrap_kms_client.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::JsonWriter;
+using ::arrow::json::internal::ObjectParser;
 using ::arrow::util::SecureString;
 
 namespace parquet::encryption {
@@ -45,11 +45,8 @@ std::string LocalWrapKmsClient::LocalKeyWrap::CreateSerialized(
 
   json_writer.StartObject();
 
-  json_writer.Key(kLocalWrapKeyVersionField);
-  json_writer.String(kLocalWrapNoKeyVersion);
-
-  json_writer.Key(kLocalWrapEncryptedKeyField);
-  json_writer.String(encrypted_encoded_key);
+  json_writer.StringField(kLocalWrapKeyVersionField, kLocalWrapNoKeyVersion);
+  json_writer.StringField(kLocalWrapEncryptedKeyField, encrypted_encoded_key);
 
   json_writer.EndObject();
 

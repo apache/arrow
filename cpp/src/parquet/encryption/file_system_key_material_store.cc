@@ -84,8 +84,7 @@ std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
   ::arrow::json::JsonWriter writer;
   writer.StartObject();
   for (const auto& it : key_material_map_) {
-    writer.Key(it.first);
-    writer.String(it.second);
+    writer.StringField(it.first, it.second);
   }
   writer.EndObject();
   return std::string(writer.GetString());
