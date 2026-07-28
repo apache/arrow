@@ -173,9 +173,16 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
+  /// \brief Create a builder starting at `start_int_size` bytes wide.
+  ///
+  /// With `use_unsigned_range` the appended values are taken to be non-negative
+  /// and the width adapts on unsigned thresholds, so one byte holds 256
+  /// distinct values rather than 128, and the reported type is unsigned.
+  /// The dictionary builder uses this for unsigned index types.
   explicit AdaptiveIntBuilder(uint8_t start_int_size,
                               MemoryPool* pool = default_memory_pool(),
-                              int64_t alignment = kDefaultBufferAlignment);
+                              int64_t alignment = kDefaultBufferAlignment,
+                              bool use_unsigned_range = false);
 
   explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool(),
                               int64_t alignment = kDefaultBufferAlignment)
@@ -205,9 +212,16 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   Status AppendValuesInternal(const int64_t* values, int64_t length,
                               const uint8_t* valid_bytes);
+  Status AppendValuesUnsignedInternal(const uint64_t* values, int64_t length,
+                                      const uint8_t* valid_bytes);
+  Status ExpandUIntSize(uint8_t new_int_size);
 
   template <typename new_type>
   Status ExpandIntSizeN();
+  template <typename new_type>
+  Status ExpandUIntSizeN();
+
+  bool use_unsigned_range_ = false;
 };
 
 /// @}

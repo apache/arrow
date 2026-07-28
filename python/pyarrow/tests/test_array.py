@@ -4602,14 +4602,17 @@ def test_dictionary_array_preserves_index_type(index_type):
     assert chunked.type == dict_type
 
 
-@pytest.mark.parametrize("start_type, widened_type", [(pa.int8(), pa.int16()),
-                                                      (pa.uint8(), pa.uint16())])
-def test_dictionary_array_index_width_adapts(start_type, widened_type):
-    # The index width adapts to the number of distinct values, as it does for signed
-    # indices; only the signedness of the requested type is preserved.
-    values = [str(i) for i in range(200)]
+@pytest.mark.parametrize(
+    "start_type, distinct, expected_type",
+    [(pa.int8(), 200, pa.int16()),     # signed widens past 127
+     (pa.uint8(), 200, pa.uint8()),    # unsigned uses the full byte
+     (pa.uint8(), 257, pa.uint16())])  # and widens past 255
+def test_dictionary_array_index_width_adapts(start_type, distinct, expected_type):
+    # The index width adapts to the number of distinct values, on the thresholds
+    # of the requested signedness.
+    values = [str(i) for i in range(distinct)]
     arr = pa.array(values, type=pa.dictionary(start_type, pa.string()))
-    assert arr.type == pa.dictionary(widened_type, pa.string())
+    assert arr.type == pa.dictionary(expected_type, pa.string())
     assert arr.to_pylist() == values
 
 
