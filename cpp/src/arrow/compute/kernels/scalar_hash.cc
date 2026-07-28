@@ -45,8 +45,8 @@ namespace {
 // It is expected that HashArrowType is either UInt32Type or UInt64Type (default)
 
 // Free function (not dependent on ArrowType/Hasher) to avoid codegen per instantiation.
-// Only ever called with a plain column: HashArray routes anything else (nested,
-// DICTIONARY, EXTENSION -- see NeedsRecursiveHash) elsewhere first.
+// Only called with a plain column; HashArray routes everything else (see
+// NeedsRecursiveHash) elsewhere first.
 Result<KeyColumnArray> ToColumnArray(const ArraySpan& array) {
   KeyColumnMetadata metadata;
   const uint8_t* validity_buffer = nullptr;
@@ -87,22 +87,21 @@ Result<KeyColumnArray> ToColumnArray(const ArraySpan& array) {
                         var_length_buffer);
 }
 
-// Whether `type_id` needs HashArray's own recursive handling instead of going straight
-// to ToColumnArray/HashMultiColumn. Broader than is_nested(): EXTENSION and DICTIONARY
-// aren't nested types, but ToColumnArray has no case for either (and hashing a
-// dictionary's raw indices would be wrong regardless).
+// Whether HashArray must handle `type_id` itself rather than passing it to
+// ToColumnArray/HashMultiColumn. Broader than is_nested(): EXTENSION and DICTIONARY
+// aren't nested, but ToColumnArray has no case for either (and hashing a dictionary's
+// raw indices would be wrong anyway).
 bool NeedsRecursiveHash(Type::type type_id) {
   return type_id == Type::EXTENSION || type_id == Type::DICTIONARY || is_nested(type_id);
 }
 
-// Writes `array`'s own per-row validity into `out_validity` (a fresh 0-offset bitmap),
-// rebasing off `array.offset`. Only ever called for types whose validity really is a
-// plain bitmap -- union and run-end-encoded, the types ArraySpan::IsValid computes
-// specially, never reach here (HashArray rejects them; see NeedsRecursiveHash).
+// Writes `array`'s own validity into `out_validity` (a fresh 0-offset bitmap), rebasing
+// off array.offset. Only called for types whose validity really is a plain bitmap; union
+// and run-end-encoded, which ArraySpan::IsValid computes specially, never reach here.
 void WriteOwnValidity(const ArraySpan& array, uint8_t* out_validity) {
   if (array.GetBuffer(0) == nullptr) {
-    // No bitmap, so every row shares one answer: all valid, or (for the NA type, whose
-    // null_count SetSlice keeps equal to length) all null.
+    // No bitmap: every row shares one answer, all valid or (for NA, whose null_count
+    // SetSlice keeps equal to length) all null.
     bit_util::SetBitsTo(out_validity, 0, array.length,
                         /*bits_are_set=*/array.null_count != array.length);
     return;
@@ -111,35 +110,9 @@ void WriteOwnValidity(const ArraySpan& array, uint8_t* out_validity) {
                                 out_validity, /*dest_offset=*/0);
 }
 
-// Overwrites the hash values of invalid rows with a fixed constant.
-//
-// A null row's own output validity already says "null", so its hash value is irrelevant
-// to *this* array's result -- but not to a parent's. When this array is a struct field or
-// a list's values, the parent folds these values into its own combined hash (see
-// CombineRange, HashMultiColumn), and per the columnar spec a null slot's underlying
-// bytes are undefined: they may hold real-looking leftover data. Without canonicalizing,
-// a null element would contribute whatever garbage it happens to sit on, so e.g.
-// list<struct<f0:int32>> rows [{f0: 7}] and [null] (whose f0 slot also holds 7) would
-// hash identically. Zero is just a canonical constant here -- unlike the previous design,
-// nothing reads nullness back out of the hash value.
-//
-// Implemented by scanning runs of valid rows and filling the gaps between them, so the
-// common all-valid case costs one run and zero writes.
-template <typename c_type>
-void CanonicalizeInvalidHashes(int64_t length, const uint8_t* validity, c_type* out) {
-  int64_t valid_end = 0;
-  ::arrow::internal::VisitSetBitRunsVoid(
-      validity, /*offset=*/0, length, [&](int64_t position, int64_t run_length) {
-        std::fill(out + valid_end, out + position, c_type{0});
-        valid_end = position + run_length;
-      });
-  std::fill(out + valid_end, out + length, c_type{0});
-}
-
-// Folds one row's child hashes into a single hash. Seeded with CombineHashes(0, 0)
-// rather than 0 just so an empty list doesn't hash to a bare 0 (hash-quality nicety,
-// not a correctness requirement -- a list/map row's validity is independent of its
-// hash value; see HashListArray). Free function since it only depends on c_type/Hasher.
+// Folds one row's child hashes into a single hash. Seeded with CombineHashes(0, 0) rather
+// than 0 just so an empty list doesn't hash to a bare 0 -- a hash-quality nicety, not a
+// requirement, since a list row's validity is independent of its hash value.
 template <typename c_type, typename Hasher>
 c_type CombineRange(const c_type* value_hashes, int64_t start, int64_t end) {
   c_type combined = Hasher::CombineHashes(0, 0);
@@ -149,26 +122,15 @@ c_type CombineRange(const c_type* value_hashes, int64_t start, int64_t end) {
   return combined;
 }
 
-// Combines rows for LIST/LARGE_LIST/MAP, whose offsets buffers differ only in width.
-// `bias` is rel_start: offsets[i] is a logical index into the values child, while
-// value_hash_data starts at rel_start, so offsets[i] - bias locates row i's first
-// element.
-template <typename c_type, typename Hasher, typename OffsetT>
-void CombineOffsetRows(int64_t length, const OffsetT* offsets, int64_t bias,
-                       const c_type* value_hash_data, c_type* out) {
-  for (int64_t i = 0; i < length; i++) {
-    out[i] = CombineRange<c_type, Hasher>(value_hash_data, offsets[i] - bias,
-                                          offsets[i + 1] - bias);
-  }
-}
-
 template <typename ArrowType, typename Hasher>
 struct FastHashScalar {
   using c_type = typename ArrowType::c_type;
 
-  // Hashes the [offset, offset + length) slice of `child`, returning both its hash
-  // values and real per-row validity, always starting at offset 0 regardless of
-  // `child`'s or `offset`'s own offset (callers read its buffers as row-0-based).
+  // Hashes the [offset, offset + length) slice of `child` into hash values plus real
+  // validity, always based at offset 0 whatever `child`'s own offset (callers read the
+  // buffers row-0-based). Only a null row's validity bit is meaningful, not its hash
+  // value; callers folding these into a parent hash must handle that (see
+  // HashListArray).
   static Result<std::shared_ptr<ArrayData>> HashChild(const ArraySpan& child,
                                                       int64_t offset, int64_t length,
                                                       LightContext* hash_ctx,
@@ -183,10 +145,6 @@ struct FastHashScalar {
     ARROW_RETURN_NOT_OK(HashArray(sliced, hash_ctx, exec_ctx,
                                   buffer->mutable_data_as<c_type>(),
                                   validity->mutable_data()));
-    // Callers fold these values into a parent's combined hash, so a null row's value
-    // must be deterministic rather than whatever undefined bytes it sat on.
-    CanonicalizeInvalidHashes(sliced.length, validity->data(),
-                              buffer->mutable_data_as<c_type>());
     return ArrayData::Make(arrow_type, sliced.length,
                            {std::move(validity), std::move(buffer)}, kUnknownNullCount);
   }
@@ -194,15 +152,14 @@ struct FastHashScalar {
   static Status HashStructArray(const ArraySpan& array, LightContext* hash_ctx,
                                 ExecContext* exec_ctx, c_type* out,
                                 uint8_t* out_validity) {
-    // Row validity starts as the struct's own; each field's own is ANDed in below
-    // in-place (same idiom as e.g. swiss_join.cc's multi-column null intersection): a
-    // field that's independently null still makes the row invalid (GH-17211), same as
-    // the struct row being null itself.
+    // Row validity is the struct's own ANDed with every field's (in place, as
+    // swiss_join.cc does for multi-column nulls): an independently-null field makes the
+    // row invalid too (GH-17211), just like the struct row being null.
     WriteOwnValidity(array, out_validity);
 
     if (array.child_data.empty()) {
-      // No fields (e.g. struct<>): HashMultiColumn requires >=1 column, so every row
-      // just gets the same defined hash value; validity is already fully set above.
+      // struct<>: HashMultiColumn needs >=1 column, so give every row one fixed hash;
+      // validity is already fully set above.
       c_type empty_struct_hash = Hasher::CombineHashes(0, 0);
       for (int64_t i = 0; i < array.length; i++) {
         out[i] = empty_struct_hash;
@@ -212,7 +169,6 @@ struct FastHashScalar {
 
     std::vector<std::shared_ptr<ArrayData>> child_hashes(array.child_data.size());
     std::vector<KeyColumnArray> columns(array.child_data.size());
-    KeyColumnArray column;
     for (size_t i = 0; i < array.child_data.size(); i++) {
       // By reference: ArraySpan owns a child_data vector, so copying one heap-allocates.
       const ArraySpan& child = array.child_data[i];
@@ -227,7 +183,7 @@ struct FastHashScalar {
                                         hash_ctx, exec_ctx));
         ::arrow::internal::BitmapAnd(out_validity, 0, child_hashes[i]->buffers[0]->data(),
                                      0, array.length, 0, out_validity);
-        ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(*child_hashes[i]));
+        ARROW_ASSIGN_OR_RAISE(auto column, ToColumnArray(*child_hashes[i]));
         // child_hashes[i] already covers exactly [0, array.length): no further slice.
         columns[i] = column.Slice(0, array.length);
       } else {
@@ -236,7 +192,7 @@ struct FastHashScalar {
                                        child.offset + array.offset, array.length, 0,
                                        out_validity);
         }
-        ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(child));
+        ARROW_ASSIGN_OR_RAISE(auto column, ToColumnArray(child));
         columns[i] = column.Slice(child.offset + array.offset, array.length);
       }
     }
@@ -268,18 +224,36 @@ struct FastHashScalar {
 
     // By reference: ArraySpan owns a child_data vector, so copying one heap-allocates.
     const ArraySpan& values = array.child_data[0];
+    // Element k of the result is original values row (values.offset + rel_start + k).
     ARROW_ASSIGN_OR_RAISE(auto value_hashes,
                           HashChild(values, values.offset + rel_start,
                                     rel_end - rel_start, hash_ctx, exec_ctx));
-    const c_type* value_hash_data = value_hashes->buffers[1]->data_as<c_type>();
-    // value_hash_data[k] corresponds to original row (values.offset + rel_start + k).
+    // Zero the null elements' hashes: CombineRange folds values blind, and a null slot's
+    // bytes are undefined per the columnar spec, so otherwise a null element contributes
+    // whatever garbage it sat on and list<struct<f0:int32>> rows [{f0: 7}] and [null]
+    // (whose f0 slot also holds 7) hash alike. Filling only the gaps between runs of
+    // valid rows leaves the common all-valid case free. HashStructArray needs no
+    // equivalent: HashMultiColumn gets its fields' validity and already fixes each null
+    // row's contribution.
+    c_type* value_hash_data = value_hashes->buffers[1]->mutable_data_as<c_type>();
+    int64_t valid_end = 0;
+    ::arrow::internal::VisitSetBitRunsVoid(
+        value_hashes->buffers[0]->data(), /*offset=*/0, value_hashes->length,
+        [&](int64_t position, int64_t run_length) {
+          std::fill(value_hash_data + valid_end, value_hash_data + position, c_type{0});
+          valid_end = position + run_length;
+        });
+    std::fill(value_hash_data + valid_end, value_hash_data + value_hashes->length,
+              c_type{0});
 
     if (offsets != nullptr) {
-      CombineOffsetRows<c_type, Hasher>(array.length, offsets, rel_start, value_hash_data,
-                                        out);
+      // offsets[] index the values child; value_hash_data starts at rel_start.
+      for (int64_t i = 0; i < array.length; i++) {
+        out[i] = CombineRange<c_type, Hasher>(value_hash_data, offsets[i] - rel_start,
+                                              offsets[i + 1] - rel_start);
+      }
     } else {
-      // rel_start is array.offset * list_size (see above), so row i's elements start at
-      // value_hash_data[i * list_size].
+      // rel_start is array.offset * list_size, so row i starts at i * list_size.
       for (int64_t i = 0; i < array.length; i++) {
         int64_t start = i * list_size;
         out[i] = CombineRange<c_type, Hasher>(value_hash_data, start, start + list_size);
@@ -298,13 +272,21 @@ struct FastHashScalar {
   static Status HashArray(const ArraySpan& array, LightContext* hash_ctx,
                           ExecContext* exec_ctx, c_type* out, uint8_t* out_validity) {
     auto type_id = array.type->id();
-    if (!NeedsRecursiveHash(type_id)) {
-      KeyColumnArray column;
-      ARROW_ASSIGN_OR_RAISE(column, ToColumnArray(array));
+    if (type_id == Type::FIXED_SIZE_BINARY && array.type->byte_width() == 0) {
+      // Zero-width values carry no data, so every row holds the same empty byte string
+      // and must hash identically. ToColumnArray can only describe this as a fixed-width
+      // column of length 0, exactly how a bit-packed boolean is encoded too, so
+      // HashMultiColumn would call HashBit and take each row's hash from a bit that
+      // doesn't exist -- uninitialized garbage, differing per row and per slice.
+      std::fill(out, out + array.length, Hasher::CombineHashes(0, 0));
+      WriteOwnValidity(array, out_validity);
+      return Status::OK();
+    } else if (!NeedsRecursiveHash(type_id)) {
+      ARROW_ASSIGN_OR_RAISE(auto column, ToColumnArray(array));
       std::vector<KeyColumnArray> columns{column.Slice(array.offset, array.length)};
       Hasher::HashMultiColumn(columns, hash_ctx, out);
-      // This array's own validity is the whole story for a plain column: HashMultiColumn
-      // already folded it into the hash values via ToColumnArray's real validity buffer.
+      // A plain column's own validity is the whole story, and HashMultiColumn has
+      // already folded it into the hash values via ToColumnArray's buffer.
       WriteOwnValidity(array, out_validity);
       return Status::OK();
     } else if (type_id == Type::EXTENSION) {

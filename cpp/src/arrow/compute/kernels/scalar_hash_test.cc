@@ -467,6 +467,37 @@ TEST_F(TestScalarHash, RandomBinaryLike) {
   }
 }
 
+// A zero-width fixed_size_binary holds no data, so every value is the same empty byte
+// string and every row must hash identically. ToColumnArray can only describe it as a
+// fixed-width column of length 0 -- indistinguishable from a bit-packed boolean -- so
+// HashMultiColumn used to hash each row from a nonexistent bit, producing uninitialized
+// garbage that varied per row and per slice. Only reachable via a dictionary once
+// dictionaries started being decoded, but broken for the plain type all along.
+TEST_F(TestScalarHash, ZeroWidthFixedSizeBinaryRowsHashEqually) {
+  auto type = fixed_size_binary(0);
+  auto arr = ArrayFromJSON(type, R"(["", "", "", ""])");
+  auto dict = DictArrayFromJSON(dictionary(int8(), type), "[0, 0, 0, 0]", R"([""])");
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    for (const auto& input : {arr, dict}) {
+      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {input}));
+      auto hashes = result.make_array();
+      ASSERT_OK_AND_ASSIGN(auto first, hashes->GetScalar(0));
+      for (int64_t i = 1; i < hashes->length(); i++) {
+        ASSERT_OK_AND_ASSIGN(auto other, hashes->GetScalar(i));
+        ASSERT_TRUE(first->Equals(*other))
+            << "row " << i << " of " << input->type()->ToString()
+            << " holds the same empty value as row 0 and must hash the same";
+      }
+      // Hashing a slice must agree with slicing the hash (the garbage-bit read above
+      // depended on the row's absolute bit offset, so it did not).
+      auto sliced = input->Slice(2, 2);
+      ASSERT_OK_AND_ASSIGN(Datum sliced_result, CallFunction(func, {sliced}));
+      AssertArraysEqual(*sliced_result.make_array(), *hashes->Slice(2, 2));
+    }
+  }
+}
+
 TEST_F(TestScalarHash, RandomPrimitive) {
   auto rand = random::RandomArrayGenerator(kSeed);
   auto types = {int8(),
