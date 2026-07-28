@@ -1944,6 +1944,7 @@ function(build_absl)
        absl::bad_optional_access
        absl::bad_variant_access
        absl::base
+       absl::city
        absl::civil_time
        absl::cord
        absl::cord_internal
@@ -1956,13 +1957,16 @@ function(build_absl)
        absl::crc_cpu_detect
        absl::debugging_internal
        absl::demangle_internal
+       absl::demangle_rust
        absl::examine_stack
        absl::exponential_biased
        absl::hash
        absl::int128
+       absl::kernel_timeout_internal
        absl::leak_check
        absl::log_internal_check_op
        absl::log_internal_conditions
+       absl::log_internal_format
        absl::log_internal_globals
        absl::log_internal_log_sink_set
        absl::log_internal_message
@@ -1970,6 +1974,7 @@ function(build_absl)
        absl::log_internal_proto
        absl::log_internal_structured_proto
        absl::log_severity
+       absl::low_level_hash
        absl::malloc_internal
        absl::raw_hash_set
        absl::raw_logging_internal
