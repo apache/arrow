@@ -825,7 +825,7 @@ class BinaryTask
           if @pattern
             next unless @pattern.match?(path)
           end
-          if dynamic_paths
+          if dynamic_paths and path.include?("/repodata/")
             next unless dynamic_paths.include?(path)
           end
           output_path = "#{@destination}/#{path}"
@@ -1854,6 +1854,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     "#{release_dir}/yum/repositories"
   end
 
+  def yum_recover_repositories_dir
+    "#{recover_dir}/yum/repositories"
+  end
+
   def available_yum_targets
     [
       ["almalinux", "10"],
@@ -2189,10 +2193,76 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
+  def define_yum_recover_tasks
+    namespace :yum do
+      namespace :recover do
+        desc "Download repositories"
+        task :download do
+          yum_targets.each do |distribution, distribution_version|
+            not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
+            target_dir =
+              "#{yum_recover_repositories_dir}/#{distribution}/#{distribution_version}"
+            download_distribution(:artifactory,
+                                  distribution,
+                                  target_dir,
+                                  :base,
+                                  pattern: not_checksum_pattern,
+                                  prefix: distribution_version)
+          end
+        end
+
+        desc "Update repositories"
+        task :update do
+          yum_update(nil, yum_recover_repositories_dir)
+          yum_targets.each do |distribution, distribution_version|
+            target_dir = [
+              yum_recover_repositories_dir,
+              distribution,
+              distribution_version,
+            ].join("/")
+            target_dir = Pathname(target_dir)
+            next unless target_dir.directory?
+            target_dir.glob("*") do |arch_dir|
+              next unless arch_dir.directory?
+              sign_label =
+                "#{distribution}-#{distribution_version} #{arch_dir.basename}"
+              sign_dir(sign_label,
+                       arch_dir.to_s)
+            end
+          end
+        end
+
+        desc "Upload repositories"
+        task :upload do
+          yum_distributions.each do |distribution|
+            distribution_dir =
+              "#{yum_recover_repositories_dir}/#{distribution}"
+            uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                               distribution: distribution,
+                                               source: distribution_dir,
+                                               staging: staging?,
+                                               sync: false,
+                                               sync_pattern: /\/repodata\//)
+            uploader.upload
+          end
+        end
+      end
+
+      desc "Recover Yum repositories"
+      yum_recover_tasks = [
+        "yum:recover:download",
+        "yum:recover:update",
+        "yum:recover:upload",
+      ]
+      task :recover => yum_recover_tasks
+    end
+  end
+
   def define_yum_tasks
     define_yum_staging_tasks
     define_yum_rc_tasks
     define_yum_release_tasks
+    define_yum_recover_tasks
   end
 
   def define_summary_tasks

@@ -45,9 +45,13 @@ fi
 : "${RECOVER_DEFAULT:=1}"
 : "${RECOVER_DEBIAN:=${RECOVER_DEFAULT}}"
 : "${RECOVER_UBUNTU:=${RECOVER_DEFAULT}}"
+: "${RECOVER_ALMALINUX:=${RECOVER_DEFAULT}}"
+: "${RECOVER_AMAZON_LINUX:=${RECOVER_DEFAULT}}"
+: "${RECOVER_CENTOS:=${RECOVER_DEFAULT}}"
 
 rake_tasks=()
 apt_targets=()
+yum_targets=()
 if [ "${RECOVER_DEBIAN}" -gt 0 ]; then
   rake_tasks+=(apt:recover)
   apt_targets+=(debian)
@@ -55,6 +59,18 @@ fi
 if [ "${RECOVER_UBUNTU}" -gt 0 ]; then
   rake_tasks+=(apt:recover)
   apt_targets+=(ubuntu)
+fi
+if [ "${RECOVER_ALMALINUX}" -gt 0 ]; then
+  rake_tasks+=(yum:recover)
+  yum_targets+=(almalinux)
+fi
+if [ "${RECOVER_AMAZON_LINUX}" -gt 0 ]; then
+  rake_tasks+=(yum:recover)
+  yum_targets+=(amazon-linux)
+fi
+if [ "${RECOVER_CENTOS}" -gt 0 ]; then
+  rake_tasks+=(yum:recover)
+  yum_targets+=(centos)
 fi
 
 tmp_dir=binary/tmp
@@ -68,6 +84,10 @@ docker_run \
   APT_TARGETS="$(
     IFS=,
     echo "${apt_targets[*]}"
+  )" \
+  YUM_TARGETS="$(
+    IFS=,
+    echo "${yum_targets[*]}"
   )" \
   ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
   ARTIFACTS_DIR="${tmp_dir}/artifacts" \
