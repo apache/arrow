@@ -69,15 +69,15 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   /// For most types this is simply !is_valid. For dictionary scalars, however,
   /// is_valid only reflects the validity of the index: a valid index can still
   /// refer to a null dictionary value, in which case the scalar is logically
-  /// null. For an ill-formed dictionary scalar whose dictionary value cannot
-  /// be resolved (for example an out-of-bounds index), this falls back to
-  /// !is_valid.
+  /// null. The result is undefined for ill-formed scalars; Validate() catches
+  /// those, except for an out-of-bounds dictionary index, which only
+  /// ValidateFull() detects.
   ///
   /// Like the array-level logical null computation, this does not recurse into
   /// nested values: a dictionary value wrapped in a union, run-end encoded or
   /// extension scalar is reported according to the wrapper's own is_valid.
   ///
-  /// \see ArraySpan::ComputeLogicalNullCount
+  /// \see ArrayData::ComputeLogicalNullCount
   virtual bool IsLogicalNull() const { return !is_valid; }
 
   bool Equals(const Scalar& other,

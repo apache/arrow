@@ -222,6 +222,35 @@ TEST(Datum, ComputeLogicalNullCount) {
   ASSERT_EQ(1, dict_scalar_datum.ComputeLogicalNullCount());
   ASSERT_OK_AND_EQ(0, scalar_logical_null_count(*dict_arr, 1));
   ASSERT_OK_AND_EQ(1, scalar_logical_null_count(*dict_arr, 2));
+
+  // Same for chunked dictionary arrays.
+  auto dict_chunk = DictArrayFromJSON(dict_type, /*indices=*/"[0, 0]",
+                                      /*dictionary=*/R"([null, "a"])");
+  ASSERT_OK_AND_ASSIGN(auto dict_chunked, ChunkedArray::Make({dict_arr, dict_chunk}));
+  Datum dict_chunked_datum(dict_chunked);
+  ASSERT_EQ(1, dict_chunked_datum.null_count());
+  ASSERT_EQ(4, dict_chunked_datum.ComputeLogicalNullCount());
+
+  // Dense union arrays also carry logical nulls in their children.
+  auto dense_union_arr =
+      ArrayFromJSON(dense_union({field("a", int8()), field("b", boolean())}),
+                    R"([[0, null], [1, true], [0, 5], [1, null]])");
+  ASSERT_EQ(0, Datum(dense_union_arr).null_count());
+  ASSERT_EQ(2, Datum(dense_union_arr).ComputeLogicalNullCount());
+
+  // The scalar path agrees with the array path on every element.
+  auto check_scalar_array_parity = [](const std::shared_ptr<Array>& arr) {
+    ARROW_SCOPED_TRACE("array type = ", arr->type()->ToString());
+    int64_t sum = 0;
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, arr->GetScalar(i));
+      sum += Datum(std::move(scalar)).ComputeLogicalNullCount();
+    }
+    ASSERT_EQ(sum, Datum(arr).ComputeLogicalNullCount());
+  };
+  for (const auto& arr : {union_arr, dense_union_arr, ree_arr, dict_arr}) {
+    check_scalar_array_parity(arr);
+  }
 }
 
 TEST(Datum, MutableArray) {

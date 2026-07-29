@@ -775,8 +775,8 @@ namespace {
 struct DictionaryIndexValueImpl {
   int64_t value = 0;
 
-  Status Visit(const Scalar&) {
-    return Status::TypeError("Not implemented dictionary index type");
+  Status Visit(const Scalar& scalar) {
+    return Status::TypeError("Invalid dictionary index type: ", scalar.type->ToString());
   }
 
   template <typename ScalarType, typename Type = typename ScalarType::TypeClass>
@@ -810,14 +810,10 @@ bool DictionaryScalar::IsLogicalNull() const {
     return true;
   }
   const auto& dict = value.dictionary;
-  if (value.index == nullptr || dict == nullptr) {
-    return false;
-  }
-  auto index_value = DictionaryIndexValue(*value.index);
-  if (!index_value.ok() || *index_value < 0 || *index_value >= dict->length()) {
-    return false;
-  }
-  return dict->IsNull(*index_value);
+  int64_t index_value = DictionaryIndexValue(*value.index).ValueOrDie();
+  DCHECK_GE(index_value, 0);
+  DCHECK_LT(index_value, dict->length());
+  return dict->IsNull(index_value);
 }
 
 std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
