@@ -1406,9 +1406,11 @@ struct ObjectWriterVisitor {
     RETURN_NOT_OK(internal::ImportModule("uuid", &uuid_module));
     RETURN_NOT_OK(
         internal::ImportFromModule(uuid_module.obj(), "UUID", &uuid_constructor));
+    // Reuse the args tuple and kwargs dict across calls to avoid per-element allocation.
+    OwnedRef args(PyTuple_New(0));
+    OwnedRef kwargs(PyDict_New());
+    RETURN_IF_PYERROR();
     auto WrapUuid = [&](const std::string_view& view, PyObject** out) {
-      OwnedRef args(PyTuple_New(0));
-      OwnedRef kwargs(PyDict_New());
       OwnedRef bytes(
           PyBytes_FromStringAndSize(view.data(), static_cast<Py_ssize_t>(view.size())));
       RETURN_IF_PYERROR();
