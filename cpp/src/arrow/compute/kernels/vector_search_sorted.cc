@@ -218,9 +218,11 @@ inline std::shared_ptr<ArrayData> ToPhysicalData(
     const std::shared_ptr<ArrayData>& data,
     const std::shared_ptr<DataType>& physical_type) {
   if (data->type->id() == Type::RUN_END_ENCODED) {
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(*data->type);
     auto result = data->Copy();
     auto values_copy = result->child_data[1]->Copy();
     values_copy->type = physical_type;
+    result->type = run_end_encoded(ree_type.run_end_type(), physical_type);
     result->child_data[1] = std::move(values_copy);
     return result;
   }
