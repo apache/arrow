@@ -1136,7 +1136,6 @@ def test_flight_server_is_freed():
     # Calling server.shutdown manually should free the server object.
     server = FlightServerBase('grpc://localhost:0')
     server.shutdown()
-    server.wait()
     ref = weakref.ref(server)
     del server
     gc.collect()
