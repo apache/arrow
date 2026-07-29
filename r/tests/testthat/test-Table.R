@@ -372,7 +372,7 @@ test_that("Can create table with specific dictionary types", {
 })
 
 test_that("Table converts dictionary arrays with string_view values", {
-  expected <- data.frame(foo = factor(c("x", NA, "x")))
+  expected <- data.frame(foo = factor(c("x", NA, "a long non-inlined string", "x")))
   tab <- Table$create(expected, schema = schema(foo = dictionary(uint32(), string_view())))
   expect_equal_data_frame(tab, expected)
 })
@@ -764,7 +764,7 @@ test_that("collect() on ArrowTabular objects returns a tibble regardless of inpu
 })
 
 test_that("Table round-trips binary_view columns", {
-  bin <- list(as.raw(1:5), as.raw(1:20))
+  bin <- list(as.raw(1:5), as.raw(1:20), NULL, as.raw(1:3))
   tab <- Table$create(
     data.frame(x = I(bin)),
     schema = schema(x = binary_view())
