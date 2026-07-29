@@ -344,7 +344,7 @@ class RleRunDecoder {
 
     if constexpr (!std::is_same_v<std::decay_t<Func>, RleDefault>) {
       if (ARROW_PREDICT_TRUE(batch_size > 0)) {
-        validator(value_);
+        validator(static_cast<const value_type*>(&value_), 1);
       }
     }
     const auto to_read = std::min(remaining_count_, batch_size);
@@ -456,9 +456,7 @@ class BitPackedRunDecoder {
 
     // Validate decoded output if given a validator
     if constexpr (!std::is_same_v<std::decay_t<Func>, RleDefault>) {
-      for (rle_size_t k = 0; k < opts.batch_size; ++k) {
-        validator(out[k]);
-      }
+      validator(static_cast<const value_type*>(out), opts.batch_size);
     }
 
     values_read_ += opts.batch_size;

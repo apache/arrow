@@ -191,12 +191,13 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
 
 int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   const int num_values = std::min(num_values_remaining_, batch_size);
-  const int num_decoded =
-      impl_->GetBatch(levels, num_values, [max = max_level_](int16_t value) {
-        if (ARROW_PREDICT_FALSE(value < 0 || value > max)) {
+  const int num_decoded = impl_->GetBatch(
+      levels, num_values, [max = max_level_](const auto* levels, auto size) {
+        internal::MinMax min_max = internal::FindMinMax(levels, size);
+        if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max)) {
           std::stringstream ss;
-          ss << "Malformed level with value " << value << " is not in the range [0, "
-             << max << "]";
+          ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
+             << " out of range.  Max Level: " << max;
           throw ParquetException(ss.str());
         }
       });
