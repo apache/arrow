@@ -1281,6 +1281,12 @@ class ColumnChunkReader {
   /// Check the encoding of the current page or throw an exception.
   void CheckEncodingIs(Encoding::type encoding);
 
+  /// Read the current dictionary.
+  ///
+  /// Tries to advance to the initial dictionary page if a the beginning of a column
+  /// chunk. Throws if the column chunk is not dictionary encoded.
+  const value_type* ReadDictionary(int32_t* dictionary_length);
+
   int32_t ReadDefinitionLevels(int32_t batch_size, int16_t* levels) {
     if (max_def_level() == 0) {
       return 0;
@@ -1369,6 +1375,21 @@ void ColumnChunkReader<Traits>::CheckEncodingIs(Encoding::type encoding) {
                     EncodingToString(encoding), EncodingToString(current_encoding_));
     throw ParquetException(msg);
   }
+}
+
+template <typename Traits>
+auto ColumnChunkReader<Traits>::ReadDictionary(int32_t* dictionary_length)
+    -> const value_type* {
+  if (!this->current_decoder_ && !this->EnsureDataPage()) {
+    *dictionary_length = 0;
+    return nullptr;
+  }
+  // Verify the current data page is dictionary encoded.
+  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
+  auto* decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
+  const value_type* dictionary = nullptr;
+  decoder->GetDictionary(&dictionary, dictionary_length);
+  return dictionary;
 }
 
 template <typename Traits>
@@ -1873,7 +1894,9 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   int64_t values_written() const final { return value_sink_.values_count(); }
 
-  const void* ReadDictionary(int32_t* dictionary_length) override;
+  const void* ReadDictionary(int32_t* dictionary_length) final {
+    return reinterpret_cast<const void*>(Base::ReadDictionary(dictionary_length));
+  }
 
   int64_t ReadRecords(int64_t num_records) override;
 
@@ -2025,20 +2048,6 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 /**************************************
  *  TypedRecordReader Implementation  *
  **************************************/
-
-template <typename DT, typename VS, bool kDic>
-const void* TypedRecordReader<DT, VS, kDic>::ReadDictionary(int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->EnsureDataPage()) {
-    *dictionary_length = 0;
-    return nullptr;
-  }
-  // Verify the current data page is dictionary encoded.
-  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
-  auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
-  const T* dictionary = nullptr;
-  decoder->GetDictionary(&dictionary, dictionary_length);
-  return reinterpret_cast<const void*>(dictionary);
-}
 
 template <typename DT, typename VS, bool kDic>
 int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
@@ -2674,7 +2683,9 @@ class RequiredTypedRecordReader
 
   bool read_dense_for_nullable() const final { return false; }
 
-  const void* ReadDictionary(int32_t* dictionary_length) final;
+  const void* ReadDictionary(int32_t* dictionary_length) final {
+    return reinterpret_cast<const void*>(Base::ReadDictionary(dictionary_length));
+  }
 
   int64_t ReadRecords(int64_t num_records) final;
 
@@ -2723,21 +2734,6 @@ class RequiredTypedRecordReader
 /**********************************************
  *  RequiredTypedRecordReader Implementation  *
  **********************************************/
-
-template <typename DT, typename VS, bool kDic>
-const void* RequiredTypedRecordReader<DT, VS, kDic>::ReadDictionary(
-    int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->EnsureDataPage()) {
-    *dictionary_length = 0;
-    return nullptr;
-  }
-  // Verify the current data page is dictionary encoded.
-  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
-  auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
-  const T* dictionary = nullptr;
-  decoder->GetDictionary(&dictionary, dictionary_length);
-  return reinterpret_cast<const void*>(dictionary);
-}
 
 template <typename DT, typename VS, bool kDic>
 int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
@@ -2840,7 +2836,9 @@ class FlatOptionalTypedRecordReader
 
   bool read_dense_for_nullable() const final { return read_dense_for_nullable_; }
 
-  const void* ReadDictionary(int32_t* dictionary_length) final;
+  const void* ReadDictionary(int32_t* dictionary_length) final {
+    return reinterpret_cast<const void*>(Base::ReadDictionary(dictionary_length));
+  }
 
   int64_t ReadRecords(int64_t num_records) final;
 
@@ -2905,21 +2903,6 @@ class FlatOptionalTypedRecordReader
 /**************************************************
  *  FlatOptionalTypedRecordReader Implementation  *
  **************************************************/
-
-template <typename DT>
-const void* FlatOptionalTypedRecordReader<DT>::ReadDictionary(
-    int32_t* dictionary_length) {
-  if (!this->current_decoder_ && !this->EnsureDataPage()) {
-    *dictionary_length = 0;
-    return nullptr;
-  }
-  // Verify the current data page is dictionary encoded.
-  this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
-  auto decoder = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get());
-  const T* dictionary = nullptr;
-  decoder->GetDictionary(&dictionary, dictionary_length);
-  return reinterpret_cast<const void*>(dictionary);
-}
 
 template <typename DT>
 int64_t FlatOptionalTypedRecordReader<DT>::ReadRecords(int64_t num_records) {
