@@ -531,6 +531,9 @@ class Converter_BinaryView : public Converter {
 
     auto ingest_one = [&](R_xlen_t i) {
       auto value = binary_array->GetView(i);
+      if (value.size() > R_XLEN_T_MAX) {
+        return Status::RError("Column value too big to be represented as a raw vector");
+      }
       SEXP raw = PROTECT(Rf_allocVector(RAWSXP, value.size()));
       std::copy(value.data(), value.data() + value.size(), RAW(raw));
 
