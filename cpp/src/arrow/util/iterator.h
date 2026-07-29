@@ -29,7 +29,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/compare.h"
-#include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
@@ -364,8 +363,7 @@ class FunctionIterator {
 };
 
 /// \brief Construct an Iterator which invokes a callable on Next()
-template <typename Fn,
-          typename Ret = typename internal::call_traits::return_type<Fn>::ValueType>
+template <typename Fn, typename Ret = typename std::invoke_result_t<Fn&>::ValueType>
 Iterator<Ret> MakeFunctionIterator(Fn fn) {
   return Iterator<Ret>(FunctionIterator<Fn, Ret>(std::move(fn)));
 }
@@ -455,15 +453,14 @@ class MapIterator {
 
 /// \brief MapIterator takes ownership of an iterator and a function to apply
 /// on every element. The mapped function is not allowed to fail.
-template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
-          typename To = internal::call_traits::return_type<Fn>>
+template <typename Fn, typename From, typename To = std::invoke_result_t<Fn&, From>>
 Iterator<To> MakeMapIterator(Fn map, Iterator<From> it) {
   return Iterator<To>(MapIterator<Fn, From, To>(std::move(map), std::move(it)));
 }
 
 /// \brief Like MapIterator, but where the function can fail.
-template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
-          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
+template <typename Fn, typename From,
+          typename To = typename std::invoke_result_t<Fn&, From>::ValueType>
 Iterator<To> MakeMaybeMapIterator(Fn map, Iterator<From> it) {
   return Iterator<To>(MapIterator<Fn, From, To>(std::move(map), std::move(it)));
 }
@@ -520,12 +517,11 @@ struct FilterIterator {
 };
 
 /// \brief Like MapIterator, but where the function can fail or reject elements.
-template <
-    typename Fn, typename From = typename internal::call_traits::argument_type<0, Fn>,
-    typename Ret = typename internal::call_traits::return_type<Fn>::ValueType,
-    typename To = typename std::tuple_element<0, Ret>::type,
-    typename Enable = typename std::enable_if<std::is_same<
-        typename std::tuple_element<1, Ret>::type, FilterIterator::Action>::value>::type>
+template <typename Fn, typename From,
+          typename Ret = typename std::invoke_result_t<Fn&, From>::ValueType,
+          typename To = std::tuple_element_t<0, Ret>,
+          typename Enable = std::enable_if_t<
+              std::is_same_v<std::tuple_element_t<1, Ret>, FilterIterator::Action>>>
 Iterator<To> MakeFilterIterator(Fn filter, Iterator<From> it) {
   return Iterator<To>(
       FilterIterator::Impl<Fn, From, To>(std::move(filter), std::move(it)));
