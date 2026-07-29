@@ -1300,14 +1300,15 @@ class BenchmarkDecodeArrowByteArray : public BenchmarkDecodeArrowBase<ByteArrayT
   }
 
   void InitDataInputs() final {
-    // Generate a random string dictionary without any nulls so that this dataset can
-    // be used for benchmarking the DecodeArrowNonNull API
+    // The default dataset has no nulls so that it can also be used for benchmarking
+    // the DecodeArrowNonNull API. DecodeArrowWithNullDenseBenchmark regenerates it
+    // with the requested null probability.
     constexpr int repeat_factor = 8;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
     ::arrow::random::RandomArrayGenerator rag(0);
     input_array_ = rag.StringWithRepeats(num_values_, num_values_ / repeat_factor,
-                                         min_length, max_length, /*null_probability=*/0);
+                                         min_length, max_length, null_probability_);
     valid_bits_ = input_array_->null_bitmap_data();
     total_size_ = input_array_->data()->buffers[2]->size();
 
@@ -1318,7 +1319,23 @@ class BenchmarkDecodeArrowByteArray : public BenchmarkDecodeArrowBase<ByteArrayT
     }
   }
 
+  void DecodeArrowWithNullDenseBenchmark(benchmark::State& state) {
+    null_probability_ = static_cast<double>(state.range(1)) / 10000;
+    InitDataInputs();
+    DoEncodeArrow();
+
+    for (auto _ : state) {
+      auto decoder = InitializeDecoder();
+      auto acc = CreateAccumulator();
+      decoder->DecodeArrow(num_values_, static_cast<int>(input_array_->null_count()),
+                           valid_bits_, 0, &acc);
+    }
+    state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
+  }
+
  protected:
+  double null_probability_{0.0};
   std::vector<ByteArray> values_;
 };
 
@@ -1478,6 +1495,14 @@ class BM_ArrowBinaryViewDict : public BM_ArrowBinaryDict {
   }
 };
 
+static void ByteArrayWithNullCustomArguments(benchmark::internal::Benchmark* b) {
+  b->ArgsProduct({
+                     benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/4),
+                     {1000, 5000},
+                 })
+      ->ArgNames({"num_values", "null_in_ten_thousand"});
+}
+
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeArrow)
 (benchmark::State& state) { EncodeArrowBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, EncodeArrow)->Range(1 << 18, 1 << 20);
@@ -1507,6 +1532,11 @@ BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrow_Dense)(benchmark::State& stat
 }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrow_Dense)->Range(MIN_RANGE, MAX_RANGE);
 
+BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrowWithNull_Dense)
+(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrowWithNull_Dense)
+    ->Apply(ByteArrayWithNullCustomArguments);
+
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dense)
@@ -1526,6 +1556,11 @@ BENCHMARK_DEFINE_F(BM_ArrowBinaryViewDict, DecodeArrow_Dense)(benchmark::State& 
 }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryViewDict, DecodeArrow_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_ArrowBinaryViewDict, DecodeArrowWithNull_Dense)
+(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_ArrowBinaryViewDict, DecodeArrowWithNull_Dense)
+    ->Apply(ByteArrayWithNullCustomArguments);
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryViewDict, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }

@@ -41,6 +41,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -1263,6 +1264,54 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   std::shared_ptr<::arrow::Array> result;
   ASSERT_OK(acc.builder->Finish(&result));
   ::arrow::AssertArraysEqual(*values, *result);
+}
+
+TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidOrTruncatedIndices) {
+  auto dictionary =
+      ::arrow::ArrayFromJSON(::arrow::binary(), R"(["a", "bb", "ccc"])");
+  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(
+      Encoding::PLAIN, /*use_dictionary=*/true);
+  auto* encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
+  ASSERT_NE(encoder, nullptr);
+  ASSERT_NO_THROW(encoder->PutDictionary(*dictionary));
+
+  auto dictionary_buffer =
+      AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
+  encoder->WriteDict(dictionary_buffer->mutable_data());
+
+  auto dictionary_decoder =
+      MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, /*descr=*/nullptr);
+  dictionary_decoder->SetData(encoder->num_entries(), dictionary_buffer->data(),
+                              static_cast<int>(dictionary_buffer->size()));
+
+  auto decoder = MakeDictDecoder<ByteArrayType>();
+  decoder->SetDict(dictionary_decoder.get());
+
+  auto ExpectDecodeFailure = [&](const uint8_t* data, int size) {
+    decoder->SetData(/*num_values=*/1, data, size);
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    ASSERT_THROW(
+        decoder->DecodeArrow(/*num_values=*/1, /*null_count=*/0,
+                             /*valid_bits=*/nullptr, /*valid_bits_offset=*/0, &acc),
+        ParquetException);
+  };
+
+  constexpr int kBitWidth = 2;
+  std::vector<uint8_t> invalid_index_data(
+      1 + ::arrow::util::RleBitPackedEncoder::MaxBufferSize(
+              kBitWidth, /*num_values=*/1) +
+      ::arrow::util::RleBitPackedEncoder::MinBufferSize(kBitWidth));
+  invalid_index_data[0] = kBitWidth;
+  ::arrow::util::RleBitPackedEncoder index_encoder(
+      invalid_index_data.data() + 1,
+      static_cast<int>(invalid_index_data.size() - 1), kBitWidth);
+  ASSERT_TRUE(index_encoder.Put(/*value=*/3));
+  const int invalid_index_size = 1 + index_encoder.Flush();
+  ExpectDecodeFailure(invalid_index_data.data(), invalid_index_size);
+
+  const uint8_t truncated_index_data[] = {kBitWidth};
+  ExpectDecodeFailure(truncated_index_data, sizeof(truncated_index_data));
 }
 
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {

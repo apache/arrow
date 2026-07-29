@@ -1024,8 +1024,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
   // memory use in most cases
   std::shared_ptr<ResizableBuffer> byte_array_offsets_;
 
-  // Reusable buffer for decoding dictionary indices to be appended to a
-  // BinaryDictionary32Builder
+  // Reusable buffer for decoding dictionary indices into Arrow builders.
   std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
   ::arrow::util::RleBitPackedDecoder<int32_t> idx_decoder_;
@@ -1295,12 +1294,80 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
+    const auto* dict_values = dictionary_->data_as<ByteArray>();
+    const int values_to_decode = num_values - null_count;
+
+    switch (out->builder->type()->id()) {
+      case ::arrow::Type::BINARY:
+      case ::arrow::Type::STRING:
+      case ::arrow::Type::LARGE_BINARY:
+      case ::arrow::Type::LARGE_STRING: {
+        if (values_to_decode > 0) {
+          RETURN_NOT_OK(indices_scratch_space_->TypedResize<int32_t>(
+              values_to_decode, /*shrink_to_fit=*/false));
+        }
+        auto* decoded_indices = indices_scratch_space_->mutable_data_as<int32_t>();
+        const int num_indices = idx_decoder_.GetBatch(decoded_indices, values_to_decode);
+        if (ARROW_PREDICT_FALSE(num_indices != values_to_decode)) {
+          return Status::Invalid("Invalid number of indices: ", num_indices);
+        }
+
+        int64_t data_length = 0;
+        for (int i = 0; i < values_to_decode; ++i) {
+          const auto index = decoded_indices[i];
+          RETURN_NOT_OK(IndexInBounds(index));
+          if (ARROW_PREDICT_FALSE(AddWithOverflow(
+                  data_length, static_cast<int64_t>(dict_values[index].len),
+                  &data_length))) {
+            return Status::Invalid(
+                "excess expansion while decoding dictionary-encoded BYTE_ARRAY");
+          }
+        }
+
+        auto append_predecoded = [&](auto* helper) {
+          int values_decoded = 0;
+          int pos_indices = 0;
+          int64_t remaining_data_length = data_length;
+
+          RETURN_NOT_OK(VisitBitRuns(
+              valid_bits, valid_bits_offset, num_values,
+              [&](int64_t position, int64_t length, bool valid) {
+                if (valid) {
+                  for (int64_t i = 0; i < length; ++i) {
+                    const auto& val = dict_values[decoded_indices[pos_indices++]];
+                    RETURN_NOT_OK(helper->AppendValue(
+                        val.ptr, static_cast<int32_t>(val.len), remaining_data_length));
+                    remaining_data_length -= val.len;
+                  }
+                  values_decoded += static_cast<int>(length);
+                } else {
+                  for (int64_t i = 0; i < length; ++i) {
+                    helper->UnsafeAppendNull();
+                  }
+                }
+                return Status::OK();
+              }));
+          DCHECK_EQ(pos_indices, values_to_decode);
+          DCHECK_EQ(remaining_data_length, 0);
+          *out_num_values = values_decoded;
+          return Status::OK();
+        };
+
+        return DispatchArrowBinaryHelper<ByteArrayType>(out, num_values, data_length,
+                                                        append_predecoded);
+      }
+      default:
+        // Binary-view builders don't benefit from reserving the dictionary values'
+        // total byte length, since short values are stored inline. Keep their
+        // existing bounded streaming decode path. Unsupported builder types are
+        // rejected by DispatchArrowBinaryHelper below before decoding any indices.
+        break;
+    }
+
     constexpr int32_t kBufferSize = 1024;
     int32_t indices[kBufferSize];
 
-    auto visit_binary_helper = [&](auto* helper) {
-      const auto* dict_values = dictionary_->data_as<ByteArray>();
-      const int values_to_decode = num_values - null_count;
+    auto append_streaming = [&](auto* helper) {
       int values_decoded = 0;
       int num_indices = 0;
       int pos_indices = 0;
@@ -1309,7 +1376,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
         if (valid) {
           while (length > 0) {
             if (num_indices == pos_indices) {
-              // Refill indices buffer
+              // Refill the bounded indices buffer for binary-view builders.
               const auto max_batch_size =
                   std::min<int32_t>(kBufferSize, values_to_decode - values_decoded);
               num_indices = idx_decoder_.GetBatch(indices, max_batch_size);
@@ -1341,11 +1408,9 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
       *out_num_values = values_decoded;
       return Status::OK();
     };
-    // The `len_` in the ByteArrayDictDecoder is the total length of the
-    // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
-    // space for binary data.
+
     return DispatchArrowBinaryHelper<ByteArrayType>(
-        out, num_values, /*estimated_data_length=*/{}, visit_binary_helper);
+        out, num_values, /*estimated_data_length=*/{}, append_streaming);
   }
 
   template <typename BuilderType>
