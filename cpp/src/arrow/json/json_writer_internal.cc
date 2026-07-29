@@ -115,4 +115,14 @@ void JsonWriter::MaybeComma() {
   }
 }
 
+void JsonWriter::StringField(std::string_view key, std::string_view value) {
+  Key(key);
+  String(value);
+}
+
+void JsonWriter::BoolField(std::string_view key, bool value) {
+  Key(key);
+  Bool(value);
+}
+
 }  // namespace arrow::json

@@ -22,9 +22,9 @@ exc = executable(
         'chunker_test.cc',
         'converter_test.cc',
         'from_string_test.cc',
+        'json_writer_internal_test.cc',
         'parser_test.cc',
         'reader_test.cc',
-        'json_writer_internal_test.cc',
     ],
     dependencies: [arrow_test_dep, rapidjson_dep],
 )
@@ -45,7 +45,6 @@ install_headers(
         'converter.h',
         'from_string.h',
         'object_parser.h',
-        'object_writer.h',
         'options.h',
         'parser.h',
         'rapidjson_defs.h',
