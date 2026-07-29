@@ -1273,6 +1273,11 @@ void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* bui
   PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));
 }
 
+// Keep defensive bitmap validation out of the hot dictionary decode function.
+ARROW_NOINLINE void ValidateBinaryValidityBitmap(int num_values, int null_count,
+                                                 const uint8_t* valid_bits,
+                                                 int64_t valid_bits_offset);
+
 class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
  public:
   using BASE = DictDecoderImpl<ByteArrayType>;
@@ -1300,6 +1305,17 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
                                             /*valid_bits=*/nullptr, valid_bits_offset,
                                             out, &result));
     } else {
+      switch (out->builder->type()->id()) {
+        case ::arrow::Type::BINARY:
+        case ::arrow::Type::STRING:
+        case ::arrow::Type::LARGE_BINARY:
+        case ::arrow::Type::LARGE_STRING:
+          ValidateBinaryValidityBitmap(num_values, null_count, valid_bits,
+                                       valid_bits_offset);
+          break;
+        default:
+          break;
+      }
       PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                             valid_bits_offset, out, &result));
     }
@@ -1326,8 +1342,9 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
         auto* decoded_indices = indices_scratch_space_->mutable_data_as<int32_t>();
         const int num_indices = idx_decoder_.GetBatch(decoded_indices, values_to_decode);
         if (ARROW_PREDICT_FALSE(num_indices != values_to_decode)) {
-          return Status::Invalid("Invalid or truncated dictionary index stream: expected ",
-                                 values_to_decode, " indices but decoded ", num_indices);
+          return Status::Invalid(
+              "Invalid or truncated dictionary index stream: expected ", values_to_decode,
+              " indices but decoded ", num_indices);
         }
 
         int64_t data_length = 0;
@@ -2456,15 +2473,28 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
 };
 
 // Keep chunk rollover out of the hot decoder functions that instantiate this helper.
-Status ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType>::
-    AppendValueWithKnownSizeSlow(const uint8_t* data, int32_t length,
-                                 int64_t estimated_remaining_data_length) {
+Status
+ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType>::AppendValueWithKnownSizeSlow(
+    const uint8_t* data, int32_t length, int64_t estimated_remaining_data_length) {
   RETURN_NOT_OK(PushChunk());
   RETURN_NOT_OK(ReserveInitialChunkData(estimated_remaining_data_length));
   chunk_space_remaining_ -= length;
   --entries_remaining_;
   builder_->UnsafeAppend(data, length);
   return Status::OK();
+}
+
+void ValidateBinaryValidityBitmap(int num_values, int null_count,
+                                  const uint8_t* valid_bits, int64_t valid_bits_offset) {
+  const int64_t actual_non_null =
+      valid_bits == nullptr
+          ? num_values
+          : ::arrow::internal::CountSetBits(valid_bits, valid_bits_offset, num_values);
+  if (ARROW_PREDICT_FALSE(actual_non_null != num_values - null_count)) {
+    throw ParquetException(
+        "Invalid validity bitmap: null_count does not match the number of non-null "
+        "values");
+  }
 }
 
 }  // namespace

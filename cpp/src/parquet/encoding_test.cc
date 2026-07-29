@@ -1266,7 +1266,7 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
   ::arrow::AssertArraysEqual(*values, *result);
 }
 
-TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidOrTruncatedIndices) {
+TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidInput) {
   auto dictionary = ::arrow::ArrayFromJSON(::arrow::binary(), R"(["a", "bb", "ccc"])");
   auto owned_encoder =
       MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true);
@@ -1310,6 +1310,36 @@ TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidOrTruncatedIndices) {
 
   const uint8_t truncated_index_data[] = {kBitWidth};
   ExpectDecodeFailure(truncated_index_data, sizeof(truncated_index_data));
+
+  auto valid_indices = ::arrow::ArrayFromJSON(::arrow::int32(), R"([0, 1])");
+  ASSERT_NO_THROW(encoder->PutIndices(*valid_indices));
+  auto valid_index_data = encoder->FlushValues();
+
+  auto ExpectValidityBitmapFailure = [&](const char* case_name, int num_values,
+                                         int null_count, uint8_t valid_bits) {
+    SCOPED_TRACE(case_name);
+    for (const auto& type : {::arrow::binary(), ::arrow::utf8(), ::arrow::large_binary(),
+                             ::arrow::large_utf8()}) {
+      SCOPED_TRACE(type->ToString());
+      decoder->SetData(num_values, valid_index_data->data(),
+                       static_cast<int>(valid_index_data->size()));
+      typename EncodingTraits<ByteArrayType>::Accumulator acc;
+      ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(type));
+      ASSERT_THROW(decoder->DecodeArrow(num_values, null_count, &valid_bits,
+                                        /*valid_bits_offset=*/0, &acc),
+                   ParquetException);
+    }
+  };
+
+  // More non-null slots than promised by null_count must not read past the
+  // predecoded indices buffer.
+  ExpectValidityBitmapFailure("more non-null slots", /*num_values=*/2,
+                              /*null_count=*/1,
+                              /*valid_bits=*/0b00000011);
+  // Fewer non-null slots must not silently leave predecoded indices unconsumed.
+  ExpectValidityBitmapFailure("fewer non-null slots", /*num_values=*/3,
+                              /*null_count=*/1,
+                              /*valid_bits=*/0b00000001);
 }
 
 TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
