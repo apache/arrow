@@ -484,7 +484,7 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
   while ((chars_masked < n_to_mask) && (bytes_masked < data_len)) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
-                         data_len, &utf8_char);
+                         data_len - bytes_masked, &utf8_char);
 
     if (char_len < 0) {
       gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
@@ -592,7 +592,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   while ((bytes_read < data_len) && (chars_counter < (num_of_chars - n_to_mask))) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
     chars_counter++;
     bytes_read += static_cast<int>(char_len);
   }
@@ -606,7 +606,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   while (bytes_read < data_len) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
     switch (utf8proc_category(utf8_char)) {
       case 1:
         out[out_idx] = 'X';
@@ -695,7 +695,12 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
   while (bytes_read < data_len) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     switch (utf8proc_category(utf8_char)) {
       case UTF8PROC_CATEGORY_LU:
         memcpy(out + out_index, upper, upper_length);
