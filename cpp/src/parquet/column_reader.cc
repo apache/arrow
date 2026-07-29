@@ -1072,11 +1072,19 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   using ValueSinkCursor::capacity;
   using ValueSinkCursor::values_count;
 
-  ValiditySinkBuffer() = default;
+  /// Create a noop sink
+  static ValiditySinkBuffer MakeVoid() { return ValiditySinkBuffer(nullptr); }
 
-  explicit ValiditySinkBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
+  /// Create a stateful sink with an allocated buffer
+  static ValiditySinkBuffer MakeAllocated(MemoryPool* pool) {
+    return ValiditySinkBuffer(AllocateBuffer(pool));
+  }
 
-  uint8_t* data() const { return values_->mutable_data_as<uint8_t>(); }
+  bool is_void() const { return values_ == nullptr; }
+
+  uint8_t* data() const {
+    return is_void() ? nullptr : values_->mutable_data_as<uint8_t>();
+  }
 
   template <typename Int>
   struct ReadResult {
@@ -1090,6 +1098,9 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   /// It re-encodes definition levels as a validity bitmap.
   ReadResult<int64_t> ReadFromDefLevels(const int16_t* def_levels, int64_t num_def_levels,
                                         const internal::LevelInfo& level_info) {
+    if (is_void()) {
+      return {};
+    }
     // At most one validity bit is written per definition level.
     ReserveValues(num_def_levels);
     internal::ValidityBitmapInputOutput validity_io{};
@@ -1117,6 +1128,10 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   ReadResult<int32_t> ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
     using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
 
+    if (is_void()) {
+      return {};
+    }
+
     ReserveValues(batch_size);
     const auto write_pos = BitmapSpanMut(data() + values_count() / 8,
                                          static_cast<int32_t>(values_count() % 8));
@@ -1134,6 +1149,10 @@ class ValiditySinkBuffer : private ValueSinkCursor {
 
   /// Transfer ownership of the values already decoded to the caller.
   std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
+    if (is_void()) {
+      return nullptr;
+    }
+
     // TODO should we set values_written to zero?
     auto result = values_;
     const auto byte_count = bytes_for_values(values_count());
@@ -1145,7 +1164,7 @@ class ValiditySinkBuffer : private ValueSinkCursor {
 
   void ReserveValues(int64_t extra_values) {
     const auto old_capacity = fit_capacity_for_extra(extra_values);
-    if (capacity() > old_capacity) {
+    if (capacity() > old_capacity && !is_void()) {
       const auto byte_count = bytes_for_values(capacity());
       PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
       // Zero the newly grown region so that appending bits at a non-byte-aligned
@@ -1157,7 +1176,7 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   }
 
   void ResetValues() {
-    if (values_count() > 0) {
+    if (values_count() > 0 && !is_void()) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
       ValueSinkCursor::operator=({});
     }
@@ -1169,6 +1188,9 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   static int64_t bytes_for_values(int64_t num_values) {
     return bit_util::BytesForBits(num_values);
   }
+
+  explicit ValiditySinkBuffer(std::shared_ptr<::arrow::ResizableBuffer> buffer)
+      : values_(std::move(buffer)) {}
 };
 
 /***********************
@@ -1308,9 +1330,14 @@ class ColumnChunkReader {
     return out;
   }
 
-  int16_t max_def_level() const;
+  /// Return the current decoder as a dict decoder if page is dictionary encoded
+  DictDecoder<DType>* current_dict_decoder() {
+    return dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
+  }
 
-  int16_t max_rep_level() const;
+  int16_t max_def_level() const { return def_levels_decoder_.max_level(); }
+
+  int16_t max_rep_level() const { return rep_levels_decoder_.max_level(); }
 
   void MarkValuesAsConsumed(int64_t num_values) { num_decoded_values_ += num_values; }
 
@@ -1386,9 +1413,8 @@ auto ColumnChunkReader<Traits>::ReadDictionary(int32_t* dictionary_length)
   }
   // Verify the current data page is dictionary encoded.
   this->CheckEncodingIs(Encoding::RLE_DICTIONARY);
-  auto* decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
   const value_type* dictionary = nullptr;
-  decoder->GetDictionary(&dictionary, dictionary_length);
+  current_dict_decoder()->GetDictionary(&dictionary, dictionary_length);
   return dictionary;
 }
 
@@ -1458,8 +1484,7 @@ void ColumnChunkReader<Traits>::ConfigureDictionary(const DictionaryPage* page) 
 
     std::unique_ptr<DictDecoder<DType>> decoder = MakeDictDecoder<DType>(descr_, pool_);
     decoder->SetDict(dictionary.get());
-    decoders_[encoding] =
-        std::unique_ptr<DecoderType>(dynamic_cast<DecoderType*>(decoder.release()));
+    decoders_[encoding] = std::move(decoder);
   } else {
     ParquetException::NYI("only plain dictionary encoding has been implemented");
   }
@@ -1531,16 +1556,6 @@ void ColumnChunkReader<Traits>::InitializeDataDecoder(const DataPage& page,
   current_encoding_ = encoding;
   current_decoder_->SetData(static_cast<int>(num_buffered_values_), buffer,
                             static_cast<int>(data_size));
-}
-
-template <typename Traits>
-int16_t ColumnChunkReader<Traits>::max_def_level() const {
-  return def_levels_decoder_.max_level();
-}
-
-template <typename Traits>
-int16_t ColumnChunkReader<Traits>::max_rep_level() const {
-  return rep_levels_decoder_.max_level();
 }
 
 template <typename Traits>
@@ -1644,16 +1659,15 @@ class TypedColumnReaderImpl
   // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
   // This function is called only by ReadBatchWithDictionary().
   int64_t ReadDictionaryIndices(int64_t indices_to_read, int32_t* indices) {
-    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
-    return decoder->DecodeIndices(static_cast<int>(indices_to_read), indices);
+    return this->current_dict_decoder()->DecodeIndices(static_cast<int>(indices_to_read),
+                                                       indices);
   }
 
   // Get dictionary. The dictionary should have been set by SetDict(). The dictionary is
   // owned by the internal decoder and is destroyed when the reader is destroyed. This
   // function is called only by ReadBatchWithDictionary() after dictionary is configured.
   void GetDictionary(const T** dictionary, int32_t* dictionary_length) {
-    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
-    decoder->GetDictionary(dictionary, dictionary_length);
+    this->current_dict_decoder()->GetDictionary(dictionary, dictionary_length);
   }
 
   // Read definition and repetition levels. Also return the number of definition levels
@@ -1863,9 +1877,10 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
         value_sink_(std::move(value_sink)),
         leaf_info_(leaf_info),
         def_levels_(AllocateBuffer(pool)),
-        rep_levels_(AllocateBuffer(pool)),
-        read_dense_for_nullable_(read_dense_for_nullable) {
-    TypedRecordReader::Reset();
+        rep_levels_(AllocateBuffer(pool)) {
+    if (!read_dense_for_nullable && nullable_values()) {
+      valid_bits_ = ValiditySinkBuffer::MakeAllocated(this->pool_);
+    }
   }
 
   int16_t* def_levels() const final {
@@ -1882,13 +1897,14 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   int64_t null_count() const final { return null_count_; }
 
-  /// \brief Indicates if we can have nullable values. Note that repeated fields
-  /// may or may not be nullable.
   bool nullable_values() const final { return leaf_info_.HasNullableValues(); }
 
   bool read_dictionary() const final { return kReadDictionary; }
 
-  bool read_dense_for_nullable() const final { return read_dense_for_nullable_; }
+  bool read_dense_for_nullable() const final {
+    // false for required types regardless of input
+    return nullable_values() && valid_bits_.is_void();
+  }
 
   uint8_t* values() const final { return reinterpret_cast<uint8_t*>(value_sink_.data()); }
 
@@ -1938,7 +1954,9 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
     return value_sink_.ReleaseValues(this->pool_);
   }
 
-  std::shared_ptr<ResizableBuffer> ReleaseIsValid() override;
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid() final {
+    return valid_bits_.ReleaseValues(this->pool_);  // nullptr if void
+  }
 
   // Process written repetition/definition levels to reach the end of
   // records. Only used for repeated fields.
@@ -1951,10 +1969,6 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   void Reserve(int64_t capacity) override;
 
   void ReserveLevels(int64_t extra_levels);
-
-  void ReserveValues(int64_t extra_values) { value_sink_.ReserveValues(extra_values); }
-
-  void ReserveIsValid(int64_t extra_values);
 
   void Reset() override;
 
@@ -1995,8 +2009,6 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   void DebugPrintState() override;
 
-  void ResetValues();
-
  protected:
   auto value_sink() -> ValueSink& { return value_sink_; }
   auto value_sink() const -> const ValueSink& { return value_sink_; }
@@ -2005,10 +2017,8 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   ValueSink value_sink_;
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
   /// is null or not null.
-  ///
-  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
-  // TODO make optional where absence means read_dense_for_optional
-  ValiditySinkBuffer valid_bits_;
+  /// Not set if leaf type is not nullable or read_dense_for_nullable is true.
+  ValiditySinkBuffer valid_bits_ = ValiditySinkBuffer::MakeVoid();
   LevelInfo leaf_info_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -2036,13 +2046,6 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   int64_t levels_capacity_ = 0;
 
   bool at_record_start_ = true;
-
-  // If true, we will not leave any space for the null values in the values_
-  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
-  //
-  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
-  // might still populate the validity bitmap buffer.
-  bool read_dense_for_nullable_ = false;
 };
 
 /**************************************
@@ -2309,15 +2312,6 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecords(int64_t num_records) {
 }
 
 template <typename DT, typename VS, bool kDic>
-std::shared_ptr<ResizableBuffer> TypedRecordReader<DT, VS, kDic>::ReleaseIsValid() {
-  if (nullable_values()) {
-    return valid_bits_.ReleaseValues(this->pool_);
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename DT, typename VS, bool kDic>
 int64_t TypedRecordReader<DT, VS, kDic>::DelimitRecords(int64_t num_records,
                                                         int64_t* values_seen) {
   if (ARROW_PREDICT_FALSE(num_records == 0 || levels_position_ == levels_written_)) {
@@ -2380,8 +2374,8 @@ int64_t TypedRecordReader<DT, VS, kDic>::DelimitRecords(int64_t num_records,
 template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::Reserve(int64_t extra_values) {
   ReserveLevels(extra_values);
-  ReserveValues(extra_values);
-  ReserveIsValid(extra_values);
+  value_sink_.ReserveValues(extra_values);
+  valid_bits_.ReserveValues(extra_values);  // potentially no-op if void
 }
 
 template <typename DT, typename VS, bool kDic>
@@ -2407,18 +2401,10 @@ void TypedRecordReader<DT, VS, kDic>::ReserveLevels(int64_t extra_levels) {
 }
 
 template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ReserveIsValid(int64_t extra_values) {
-  if (nullable_values() && !read_dense_for_nullable_) {
-    valid_bits_.ReserveValues(extra_values);
-  }
-}
-
-template <typename DT, typename VS, bool kDic>
 void TypedRecordReader<DT, VS, kDic>::Reset() {
-  ResetValues();
-  if (!read_dense_for_nullable()) {
-    valid_bits_ = ValiditySinkBuffer(this->pool_);
-  }
+  valid_bits_.ResetValues();
+  null_count_ = 0;
+  value_sink_.ResetValues();
 
   if (levels_written_ > 0) {
     // Throw away levels from 0 to levels_position_.
@@ -2434,7 +2420,7 @@ void TypedRecordReader<DT, VS, kDic>::SetPageReader(std::unique_ptr<PageReader> 
   Base::SetPageReader(std::move(reader));
   // At most one dictionary in Parquet column chunk and it has to be the first page.
   if (this->HasPageReader() && this->EnsureDataPage()) {
-    if (auto* dict = dynamic_cast<DictDecoder<DT>*>(this->current_decoder_.get())) {
+    if (auto* dict = this->current_dict_decoder()) {
       value_sink_.OnNewDictionary(*dict);
     }
   }
@@ -2471,7 +2457,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRepeatedRecords(int64_t num_records
   // delimit the records to get the right number of values and they will
   // have associated levels.
   int64_t records_read = DelimitRecords(num_records, values_to_read);
-  if (!nullable_values() || read_dense_for_nullable_) {
+  if (valid_bits_.is_void()) {  // not nullable or read_dense_for_nullable
     // This is only reading in the current page so this fits in an int32.
     ReadValuesDense(clamp_to<int32_t>(*values_to_read));
     // null_count is always 0 for required.
@@ -2495,7 +2481,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadOptionalRecords(int64_t num_records
   levels_position_ += records_read;
 
   // Optional fields are always nullable.
-  if (read_dense_for_nullable_) {
+  if (read_dense_for_nullable()) {
     ReadDenseForOptional(start_levels_position, values_to_read);
     // We don't need to update null_count when reading dense. It should be
     // already set to 0.
@@ -2574,7 +2560,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
   ARROW_DCHECK_GE(null_count, 0);
 
   // The values have already been accounted for by ReadValuesDense/Spaced.
-  if (read_dense_for_nullable_) {
+  if (read_dense_for_nullable()) {
     ARROW_DCHECK_EQ(null_count, 0);
   } else {
     null_count_ += null_count;
@@ -2616,15 +2602,6 @@ void TypedRecordReader<DT, VS, kDic>::DebugPrintState() {
   std::cout << "values: ";
   value_sink_.DebugPrintState();
   std::cout << std::endl;
-}
-
-template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ResetValues() {
-  if (values_written() > 0) {
-    value_sink_.ResetValues();
-    valid_bits_.ResetValues();
-    null_count_ = 0;
-  }
 }
 
 /*******************************
@@ -2705,7 +2682,7 @@ class RequiredTypedRecordReader
     Base::SetPageReader(std::move(reader));
     // At most one dictionary in Parquet column chunk and it has to be the first page.
     if (this->HasPageReader() && this->EnsureDataPage()) {
-      if (auto* dict = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get())) {
+      if (auto* dict = this->current_dict_decoder()) {
         value_sink_.OnNewDictionary(*dict);
       }
     }
@@ -2808,12 +2785,13 @@ class FlatOptionalTypedRecordReader
   FlatOptionalTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                                 bool read_dense_for_nullable, ValueSink value_sink)
       : Base(descr, pool, LevelToBitmapDecoder(), LevelDecoder(0)),
-        value_sink_(std::move(value_sink)),
-        read_dense_for_nullable_(read_dense_for_nullable) {
+        value_sink_(std::move(value_sink)) {
     ARROW_DCHECK_EQ(descr->max_definition_level(), 1);
     ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
     ARROW_DCHECK(descr->schema_node()->is_optional());
-    Reset();
+    if (!read_dense_for_nullable) {
+      valid_bits_ = ValiditySinkBuffer::MakeAllocated(this->pool_);
+    }
   }
 
   uint8_t* values() const final { return reinterpret_cast<uint8_t*>(value_sink_.data()); }
@@ -2834,7 +2812,7 @@ class FlatOptionalTypedRecordReader
 
   bool read_dictionary() const final { return false; }
 
-  bool read_dense_for_nullable() const final { return read_dense_for_nullable_; }
+  bool read_dense_for_nullable() const final { return valid_bits_.is_void(); }
 
   const void* ReadDictionary(int32_t* dictionary_length) final {
     return reinterpret_cast<const void*>(Base::ReadDictionary(dictionary_length));
@@ -2848,11 +2826,13 @@ class FlatOptionalTypedRecordReader
     return value_sink_.ReleaseValues(this->pool_);
   }
 
-  std::shared_ptr<ResizableBuffer> ReleaseIsValid() final;
+  std::shared_ptr<ResizableBuffer> ReleaseIsValid() final {
+    return valid_bits_.ReleaseValues(this->pool_);  // nullptr if void
+  }
 
   void Reserve(int64_t extra_values) final {
-    ReserveValues(extra_values);
-    ReserveIsValid(extra_values);
+    value_sink_.ReserveValues(extra_values);
+    valid_bits_.ReserveValues(extra_values);
   }
 
   void Reset() final;
@@ -2861,7 +2841,7 @@ class FlatOptionalTypedRecordReader
     Base::SetPageReader(std::move(reader));
     // At most one dictionary in Parquet column chunk and it has to be the first page.
     if (this->HasPageReader() && this->EnsureDataPage()) {
-      if (auto* dict = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get())) {
+      if (auto* dict = this->current_dict_decoder()) {
         value_sink_.OnNewDictionary(*dict);
       }
     }
@@ -2873,10 +2853,6 @@ class FlatOptionalTypedRecordReader
 
   const ColumnDescriptor* descr() const final { return this->descr_; }
 
-  void OnNewDictionary(DictDecoder<DType>& decoder) {
-    value_sink_.OnNewDictionary(decoder);
-  }
-
   void DebugPrintState() final;
 
  protected:
@@ -2885,14 +2861,8 @@ class FlatOptionalTypedRecordReader
 
  private:
   ValueSink value_sink_;
-  ValiditySinkBuffer valid_bits_;
+  ValiditySinkBuffer valid_bits_ = ValiditySinkBuffer::MakeVoid();
   int64_t null_count_ = 0;
-  /// If true, we will not leave any space for the null values in the values.
-  bool read_dense_for_nullable_ = false;
-
-  void ReserveIsValid(int64_t extra_values);
-
-  void ReserveValues(int64_t extra_values) { value_sink_.ReserveValues(extra_values); }
 
   void ReadValuesDense(int32_t values_to_read);
 
@@ -2958,32 +2928,10 @@ void FlatOptionalTypedRecordReader<DT>::ReadValuesDense(int32_t batch_size) {
 }
 
 template <typename DT>
-std::shared_ptr<ResizableBuffer> FlatOptionalTypedRecordReader<DT>::ReleaseIsValid() {
-  if (!read_dense_for_nullable()) {
-    return valid_bits_.ReleaseValues(this->pool_);
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename DT>
-void FlatOptionalTypedRecordReader<DT>::ReserveIsValid(int64_t extra_values) {
-  if (!read_dense_for_nullable()) {
-    valid_bits_.ReserveValues(extra_values);
-  }
-}
-
-template <typename DT>
 void FlatOptionalTypedRecordReader<DT>::Reset() {
   null_count_ = 0;
-  // TODO not quite what we want
-  if (!read_dense_for_nullable()) {
-    valid_bits_ = ValiditySinkBuffer(this->pool_);
-  }
-
-  if (values_written() > 0) {
-    value_sink_.ResetValues();
-  }
+  valid_bits_.ResetValues();
+  value_sink_.ResetValues();
 }
 
 template <typename DT>

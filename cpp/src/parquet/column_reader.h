@@ -398,13 +398,17 @@ class PARQUET_EXPORT RecordReader {
   /// read_dense_for_nullable() it will always be 0.
   virtual int64_t null_count() const = 0;
 
-  /// \brief True if the leaf values are nullable
+  /// \brief Indicates if we can have nullable values.
+  ///
+  /// Note that repeated fields may or may not be nullable.
   virtual bool nullable_values() const = 0;
 
   /// \brief True if reading directly as Arrow dictionary-encoded
   virtual bool read_dictionary() const = 0;
 
-  /// \brief True if reading dense for nullable columns.
+  /// \brief If true, the reader will not leave empty space for null values when decoding.
+  ///
+  /// Always return false when the leaf is required, reagardless of the class input.
   virtual bool read_dense_for_nullable() const = 0;
 };
 
