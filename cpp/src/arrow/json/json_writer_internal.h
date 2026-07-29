@@ -52,13 +52,12 @@ class ARROW_EXPORT JsonWriter {
 
   void Null();
 
+  void StringField(std::string_view key, std::string_view value);
+  void BoolField(std::string_view key, bool value);
+
   std::string_view GetString() const;
 
   void Clear();
-
-  void StringField(std::string_view key, std::string_view value);
-
-  void BoolField(std::string_view key, bool value);
 
  private:
   void MaybeComma();
