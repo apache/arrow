@@ -298,8 +298,8 @@ struct Converter_String : public Converter {
     // BinaryView/StringView arrays use a different memory layout (views + data buffers)
     // rather than offsets, so skip the offset-based fast path and fall through to the
     // GetView()-based element loop below.
-    if (!is_binary_view_like(array->type_id())) {
-      auto p_offset = array->data()->GetValues<int32_t>(1);
+    if constexpr (!is_binary_view_like_type<typename StringArrayType::TypeClass>::value) {
+      auto p_offset = array->data()->GetValues<typename StringArrayType::offset_type>(1);
       if (!p_offset) {
         return Status::Invalid("Invalid offset buffer");
       }
