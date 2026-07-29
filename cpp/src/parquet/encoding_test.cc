@@ -1267,10 +1267,9 @@ TEST(DictEncodingAdHoc, ArrowBinaryDirectPut) {
 }
 
 TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidOrTruncatedIndices) {
-  auto dictionary =
-      ::arrow::ArrayFromJSON(::arrow::binary(), R"(["a", "bb", "ccc"])");
-  auto owned_encoder = MakeTypedEncoder<ByteArrayType>(
-      Encoding::PLAIN, /*use_dictionary=*/true);
+  auto dictionary = ::arrow::ArrayFromJSON(::arrow::binary(), R"(["a", "bb", "ccc"])");
+  auto owned_encoder =
+      MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true);
   auto* encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(owned_encoder.get());
   ASSERT_NE(encoder, nullptr);
   ASSERT_NO_THROW(encoder->PutDictionary(*dictionary));
@@ -1299,13 +1298,12 @@ TEST(DictEncodingAdHoc, DenseDecodeRejectsInvalidOrTruncatedIndices) {
 
   constexpr int kBitWidth = 2;
   std::vector<uint8_t> invalid_index_data(
-      1 + ::arrow::util::RleBitPackedEncoder::MaxBufferSize(
-              kBitWidth, /*num_values=*/1) +
+      1 + ::arrow::util::RleBitPackedEncoder::MaxBufferSize(kBitWidth, /*num_values=*/1) +
       ::arrow::util::RleBitPackedEncoder::MinBufferSize(kBitWidth));
   invalid_index_data[0] = kBitWidth;
   ::arrow::util::RleBitPackedEncoder index_encoder(
-      invalid_index_data.data() + 1,
-      static_cast<int>(invalid_index_data.size() - 1), kBitWidth);
+      invalid_index_data.data() + 1, static_cast<int>(invalid_index_data.size() - 1),
+      kBitWidth);
   ASSERT_TRUE(index_encoder.Put(/*value=*/3));
   const int invalid_index_size = 1 + index_encoder.Flush();
   ExpectDecodeFailure(invalid_index_data.data(), invalid_index_size);
