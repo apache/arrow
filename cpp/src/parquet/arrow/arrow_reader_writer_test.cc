@@ -3419,6 +3419,10 @@ struct FixedSizeListTestCase {
   std::string json;
 };
 
+void PrintTo(const FixedSizeListTestCase& test_case, std::ostream* os) {
+  *os << "{type=" << test_case.type->ToString() << ", json=" << test_case.json << "}";
+}
+
 class TestFixedSizeListRoundTrip
     : public ::testing::TestWithParam<FixedSizeListTestCase> {};
 
