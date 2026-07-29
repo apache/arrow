@@ -1688,6 +1688,18 @@ TEST(TestDictionaryScalar, Basics) {
     ASSERT_OK(encoded_gamma->ValidateFull());
     ASSERT_TRUE(encoded_gamma->Equals(*MakeScalar("gamma")));
 
+    ASSERT_FALSE(scalar_alpha.IsLogicalNull());
+    ASSERT_FALSE(scalar_gamma.IsLogicalNull());
+    ASSERT_TRUE(scalar_null->IsLogicalNull());
+    // The index is valid but refers to a null dictionary value
+    ASSERT_TRUE(scalar_null_value.IsLogicalNull());
+
+    // Logical nullness does not recurse through wrapper scalars: the wrapper
+    // reports its own is_valid.
+    RunEndEncodedScalar ree_wrapper(std::make_shared<DictionaryScalar>(null_value, ty),
+                                    run_end_encoded(int32(), ty));
+    ASSERT_FALSE(ree_wrapper.IsLogicalNull());
+
     // test Array.GetScalar
     DictionaryArray arr(ty, ArrayFromJSON(index_ty, "[2, 0, 1, null]"), dict);
     ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
