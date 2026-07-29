@@ -519,9 +519,8 @@ struct FilterIterator {
 /// \brief Like MapIterator, but where the function can fail or reject elements.
 template <typename Fn, typename From,
           typename Ret = typename std::invoke_result_t<Fn&, From>::ValueType,
-          typename To = std::tuple_element_t<0, Ret>,
-          typename Enable = std::enable_if_t<
-              std::is_same_v<std::tuple_element_t<1, Ret>, FilterIterator::Action>>>
+          typename To = std::tuple_element_t<0, Ret>>
+  requires std::is_same_v<std::tuple_element_t<1, Ret>, FilterIterator::Action>
 Iterator<To> MakeFilterIterator(Fn filter, Iterator<From> it) {
   return Iterator<To>(
       FilterIterator::Impl<Fn, From, To>(std::move(filter), std::move(it)));
