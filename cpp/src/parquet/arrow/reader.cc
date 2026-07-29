@@ -732,12 +732,12 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       const int32_t expected_size = has_elements ? list_size : 0;
       std::span<const int32_t> run_offsets(offsets + start,
                                            static_cast<size_t>(length + 1));
-      const auto first_invalid_offset = std::ranges::adjacent_find(
-          run_offsets,
+      const auto first_invalid_offset = std::adjacent_find(
+          run_offsets.begin(), run_offsets.end(),
           [&](int32_t left, int32_t right) { return right - left != expected_size; });
       if (first_invalid_offset != run_offsets.end()) {
         const int64_t x =
-            start + std::ranges::distance(run_offsets.begin(), first_invalid_offset);
+            start + std::distance(run_offsets.begin(), first_invalid_offset);
         const int32_t size = offsets[x + 1] - offsets[x];
         if (has_elements) {
           return Status::Invalid("Expected all lists to be of size=", list_size,
