@@ -97,6 +97,20 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
     return Status::OK();
   }
 
+  // Keep the common per-value path small when callers already know the remaining size.
+  ARROW_FORCE_INLINE Status AppendValue(const uint8_t* data, int32_t length,
+                                        int64_t estimated_remaining_data_length) {
+    DCHECK_GT(entries_remaining_, 0);
+
+    if (ARROW_PREDICT_FALSE(!CanFit(length))) {
+      return AppendValueWithKnownSizeSlow(data, length, estimated_remaining_data_length);
+    }
+    chunk_space_remaining_ -= length;
+    --entries_remaining_;
+    builder_->UnsafeAppend(data, length);
+    return Status::OK();
+  }
+
   // If a new chunk is created and estimated_remaining_data_length is provided,
   // it will also reserve the estimated data length for this chunk.
   Status AppendValue(const uint8_t* data, int32_t length,
@@ -133,6 +147,9 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
   }
 
  private:
+  ARROW_NOINLINE Status AppendValueWithKnownSizeSlow(
+      const uint8_t* data, int32_t length, int64_t estimated_remaining_data_length);
+
   Status PushChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, acc_->builder->Finish());
     acc_->chunks.push_back(std::move(chunk));
@@ -2437,6 +2454,18 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
     return num_decoded;
   }
 };
+
+// Keep chunk rollover out of the hot decoder functions that instantiate this helper.
+Status ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType>::
+    AppendValueWithKnownSizeSlow(const uint8_t* data, int32_t length,
+                                 int64_t estimated_remaining_data_length) {
+  RETURN_NOT_OK(PushChunk());
+  RETURN_NOT_OK(ReserveInitialChunkData(estimated_remaining_data_length));
+  chunk_space_remaining_ -= length;
+  --entries_remaining_;
+  builder_->UnsafeAppend(data, length);
+  return Status::OK();
+}
 
 }  // namespace
 
