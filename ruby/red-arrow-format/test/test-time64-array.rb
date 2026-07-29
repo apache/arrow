@@ -19,6 +19,8 @@ class TestTime64Array < Test::Unit::TestCase
   def setup
     @time_00_00_10_000_000 = 10 * 1_000_000
     @time_00_01_10_000_000 = (60 + 10) * 1_000_000
+    @values = [@time_00_00_10_000_000, nil, @time_00_01_10_000_000]
+    @array = ArrowFormat::Time64Array.new(:microsecond, @values)
   end
 
   sub_test_case("#initialize") do
@@ -55,6 +57,16 @@ class TestTime64Array < Test::Unit::TestCase
       array1 = ArrowFormat::Time64Array.new(:microsecond, values)
       array2 = ArrowFormat::Time64Array.new(:microsecond, [0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[2], @array[2])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end

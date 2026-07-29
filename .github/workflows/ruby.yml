@@ -93,7 +93,7 @@ jobs:
           path: .docker
           key: ruby-ubuntu-${{ matrix.ubuntu }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -171,11 +171,6 @@ jobs:
           # We can remove this once GitHub hosted runners include
           # Meson 1.8.4 or later by default.
           brew update
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           # For Meson.

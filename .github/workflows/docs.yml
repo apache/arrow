@@ -63,7 +63,7 @@ jobs:
           key: debian-docs-${{ hashFiles('cpp/**') }}
           restore-keys: debian-docs-
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Setup Archery

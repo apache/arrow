@@ -17,17 +17,14 @@
 
 [build-system]
 requires = [
-    "scikit-build-core",
+    "scikit-build-core >= 1.0",
     "cython >= 3.1",
     # Needed for build-time stub docstring extraction
     "libcst>=1.8.6",
     "numpy>=1.25",
     "setuptools_scm[toml]>=8",
 ]
-# We use a really simple build backend wrapper over scikit-build-core
-# to solve licenses to work around links not being included in sdists.
-build-backend = "_build_backend"
-backend-path = ["."]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyarrow"
@@ -93,6 +90,10 @@ wheel.install-dir = "pyarrow"
 # incomplete stubs and break downstream users (GH-49831). py.typed is kept
 # in-tree for CI type-checking.
 wheel.exclude = ["pyarrow/py.typed"]
+
+[tool.scikit-build.sdist.force-include]
+"../LICENSE.txt" = "LICENSE.txt"
+"../NOTICE.txt" = "NOTICE.txt"
 
 [tool.scikit-build.cmake.define]
 PYARROW_BUNDLE_ARROW_CPP = {env = "PYARROW_BUNDLE_ARROW_CPP", default = "OFF"}

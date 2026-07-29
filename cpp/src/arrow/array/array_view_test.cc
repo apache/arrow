@@ -27,6 +27,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/endian.h"
@@ -478,6 +479,32 @@ TEST(TestArrayView, ExtensionType) {
 #endif
   CheckView(arr, expected);
   CheckView(expected, arr);
+}
+
+TEST(TestArrayView, ExtensionTypeNestedStorage) {
+  auto ty1 = list_extension_type();
+  const auto& ext_type = static_cast<const ExtensionType&>(*ty1);
+  auto data = ArrayFromJSON(ext_type.storage_type(), "[[0, -1, 42], [5, 6]]")->data();
+  data->type = ty1;
+  auto arr = ext_type.MakeArray(data);
+  ASSERT_OK(arr->ValidateFull());
+
+  CheckView(arr, arr);
+}
+
+TEST(TestArrayView, StructAsStructWithExtensionField) {
+  auto ty1 = list_extension_type();
+  const auto& ext_type = static_cast<const ExtensionType&>(*ty1);
+  auto ext_data = ArrayFromJSON(ext_type.storage_type(), "[[0, -1, 42], [5, 6]]")->data();
+  ext_data->type = ty1;
+  auto ext_arr = ext_type.MakeArray(ext_data);
+
+  auto sibling = ArrayFromJSON(int8(), "[1, 2]");
+  ASSERT_OK_AND_ASSIGN(auto arr, StructArray::Make({ext_arr, sibling},
+                                                   std::vector<std::string>{"a", "b"}));
+  ASSERT_OK(arr->ValidateFull());
+
+  CheckView(arr, arr);
 }
 
 TEST(TestArrayView, NonZeroOffset) {

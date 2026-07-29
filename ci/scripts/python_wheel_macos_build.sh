@@ -19,30 +19,30 @@
 
 set -ex
 
-arch=${1}
-source_dir=${2}
-build_dir=${3}
+arch="${1}"
+source_dir="${2}"
+build_dir="${3}"
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
-rm -rf ${build_dir}/build
-rm -rf ${build_dir}/install
-rm -rf ${source_dir}/python/dist
-rm -rf ${source_dir}/python/build
-rm -rf ${source_dir}/python/pyarrow/*.so
-rm -rf ${source_dir}/python/pyarrow/*.so.*
+rm -rf "${build_dir}/build"
+rm -rf "${build_dir}/install"
+rm -rf "${source_dir}/python/dist"
+rm -rf "${source_dir}/python/build"
+rm -rf "${source_dir}"/python/pyarrow/*.so
+rm -rf "${source_dir}"/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-${arch}"
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-12.0}
-export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
+export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}"
+export SDKROOT="${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}"
 
-if [ $arch = "arm64" ]; then
+if [ "$arch" = "arm64" ]; then
   export CMAKE_OSX_ARCHITECTURES="arm64"
-  : ${ARROW_SIMD_LEVEL:="NEON"}
-elif [ $arch = "x86_64" ]; then
+  : "${ARROW_SIMD_LEVEL:=NEON}"
+elif [ "$arch" = "x86_64" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64"
-  : ${ARROW_SIMD_LEVEL:="SSE4_2"}
+  : "${ARROW_SIMD_LEVEL:=SSE4_2}"
 else
   echo "Unexpected architecture: $arch"
   exit 1
@@ -52,97 +52,97 @@ pip install \
   --force-reinstall \
   --only-binary=:all: \
   --upgrade \
-  -r ${source_dir}/python/requirements-wheel-build.txt
+  -r "${source_dir}/python/requirements-wheel-build.txt"
 pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
-: ${ARROW_ACERO:=ON}
-: ${ARROW_AZURE:=ON}
-: ${ARROW_DATASET:=ON}
-: ${ARROW_FLIGHT:=ON}
-: ${ARROW_GANDIVA:=OFF}
-: ${ARROW_GCS:=ON}
-: ${ARROW_HDFS:=ON}
-: ${ARROW_JEMALLOC:=ON}
-: ${ARROW_MIMALLOC:=ON}
-: ${ARROW_ORC:=ON}
-: ${ARROW_PARQUET:=ON}
-: ${PARQUET_REQUIRE_ENCRYPTION:=ON}
-: ${ARROW_SUBSTRAIT:=ON}
-: ${ARROW_S3:=ON}
-: ${ARROW_TENSORFLOW:=ON}
-: ${ARROW_WITH_BROTLI:=ON}
-: ${ARROW_WITH_BZ2:=ON}
-: ${ARROW_WITH_LZ4:=ON}
-: ${ARROW_WITH_OPENTELEMETRY:=ON}
-: ${ARROW_WITH_SNAPPY:=ON}
-: ${ARROW_WITH_ZLIB:=ON}
-: ${ARROW_WITH_ZSTD:=ON}
-: ${CMAKE_BUILD_TYPE:=release}
-: ${CMAKE_GENERATOR:=Ninja}
-: ${CMAKE_UNITY_BUILD:=ON}
-: ${VCPKG_ROOT:=/opt/vcpkg}
-: ${VCPKG_FEATURE_FLAGS:=-manifests}
-: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
+: "${ARROW_ACERO:=ON}"
+: "${ARROW_AZURE:=ON}"
+: "${ARROW_DATASET:=ON}"
+: "${ARROW_FLIGHT:=ON}"
+: "${ARROW_GANDIVA:=OFF}"
+: "${ARROW_GCS:=ON}"
+: "${ARROW_HDFS:=ON}"
+: "${ARROW_JEMALLOC:=ON}"
+: "${ARROW_MIMALLOC:=ON}"
+: "${ARROW_ORC:=ON}"
+: "${ARROW_PARQUET:=ON}"
+: "${PARQUET_REQUIRE_ENCRYPTION:=ON}"
+: "${ARROW_SUBSTRAIT:=ON}"
+: "${ARROW_S3:=ON}"
+: "${ARROW_TENSORFLOW:=ON}"
+: "${ARROW_WITH_BROTLI:=ON}"
+: "${ARROW_WITH_BZ2:=ON}"
+: "${ARROW_WITH_LZ4:=ON}"
+: "${ARROW_WITH_OPENTELEMETRY:=ON}"
+: "${ARROW_WITH_SNAPPY:=ON}"
+: "${ARROW_WITH_ZLIB:=ON}"
+: "${ARROW_WITH_ZSTD:=ON}"
+: "${CMAKE_BUILD_TYPE:=release}"
+: "${CMAKE_GENERATOR:=Ninja}"
+: "${CMAKE_UNITY_BUILD:=ON}"
+: "${VCPKG_ROOT:=/opt/vcpkg}"
+: "${VCPKG_FEATURE_FLAGS:=-manifests}"
+: "${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}"
 
 echo "=== Protobuf compiler versions on PATH ==="
 which -a protoc || echo "no protoc on PATH!"
 
 echo "=== Protobuf compiler version from vcpkg ==="
-_pbc=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc
-echo "$_pbc: `$_pbc --version`"
+_pbc="${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc"
+echo "$_pbc: $($_pbc --version)"
 
-mkdir -p ${build_dir}/build
-pushd ${build_dir}/build
+mkdir -p "${build_dir}/build"
+pushd "${build_dir}/build"
 
 cmake \
-    -DARROW_ACERO=${ARROW_ACERO} \
-    -DARROW_AZURE=${ARROW_AZURE} \
+    -DARROW_ACERO="${ARROW_ACERO}" \
+    -DARROW_AZURE="${ARROW_AZURE}" \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
-    -DARROW_DATASET=${ARROW_DATASET} \
+    -DARROW_DATASET="${ARROW_DATASET}" \
     -DARROW_DEPENDENCY_SOURCE="VCPKG" \
     -DARROW_DEPENDENCY_USE_SHARED=OFF \
     -DARROW_FILESYSTEM=ON \
-    -DARROW_FLIGHT=${ARROW_FLIGHT} \
-    -DARROW_GANDIVA=${ARROW_GANDIVA} \
-    -DARROW_GCS=${ARROW_GCS} \
-    -DARROW_HDFS=${ARROW_HDFS} \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
+    -DARROW_FLIGHT="${ARROW_FLIGHT}" \
+    -DARROW_GANDIVA="${ARROW_GANDIVA}" \
+    -DARROW_GCS="${ARROW_GCS}" \
+    -DARROW_HDFS="${ARROW_HDFS}" \
+    -DARROW_JEMALLOC="${ARROW_JEMALLOC}" \
     -DARROW_JSON=ON \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC} \
-    -DARROW_ORC=${ARROW_ORC} \
+    -DARROW_MIMALLOC="${ARROW_MIMALLOC}" \
+    -DARROW_ORC="${ARROW_ORC}" \
     -DARROW_PACKAGE_KIND="python-wheel-macos" \
-    -DARROW_PARQUET=${ARROW_PARQUET} \
+    -DARROW_PARQUET="${ARROW_PARQUET}" \
     -DARROW_RPATH_ORIGIN=ON \
-    -DARROW_S3=${ARROW_S3} \
-    -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
-    -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT} \
-    -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
+    -DARROW_S3="${ARROW_S3}" \
+    -DARROW_SIMD_LEVEL="${ARROW_SIMD_LEVEL}" \
+    -DARROW_SUBSTRAIT="${ARROW_SUBSTRAIT}" \
+    -DARROW_TENSORFLOW="${ARROW_TENSORFLOW}" \
     -DARROW_USE_CCACHE=ON \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
-    -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
-    -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
-    -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
-    -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY} \
-    -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
-    -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
-    -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
+    -DARROW_WITH_BROTLI="${ARROW_WITH_BROTLI}" \
+    -DARROW_WITH_BZ2="${ARROW_WITH_BZ2}" \
+    -DARROW_WITH_LZ4="${ARROW_WITH_LZ4}" \
+    -DARROW_WITH_OPENTELEMETRY="${ARROW_WITH_OPENTELEMETRY}" \
+    -DARROW_WITH_SNAPPY="${ARROW_WITH_SNAPPY}" \
+    -DARROW_WITH_ZLIB="${ARROW_WITH_ZLIB}" \
+    -DARROW_WITH_ZSTD="${ARROW_WITH_ZSTD}" \
     -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
-    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
     -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
-    -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
-    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
-    -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
+    -DCMAKE_INSTALL_PREFIX="${build_dir}/install" \
+    -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
+    -DCMAKE_UNITY_BUILD="${CMAKE_UNITY_BUILD}" \
+    -DPARQUET_REQUIRE_ENCRYPTION="${PARQUET_REQUIRE_ENCRYPTION}" \
     -DVCPKG_MANIFEST_MODE=OFF \
-    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -Dxsimd_SOURCE=BUNDLED \
-    -G ${CMAKE_GENERATOR} \
-    ${source_dir}/cpp
+    -G "${CMAKE_GENERATOR}" \
+    "${source_dir}/cpp"
 cmake --build . --target install
 popd
 
@@ -150,40 +150,40 @@ echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUNDLE_ARROW_CPP=ON
 # TODO(GH-32609): Re-enable when pyarrow-stubs are shipped in wheels again.
 # export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
-export PYARROW_WITH_ACERO=${ARROW_ACERO}
-export PYARROW_WITH_AZURE=${ARROW_AZURE}
-export PYARROW_WITH_DATASET=${ARROW_DATASET}
-export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
-export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}
-export PYARROW_WITH_GCS=${ARROW_GCS}
-export PYARROW_WITH_HDFS=${ARROW_HDFS}
-export PYARROW_WITH_ORC=${ARROW_ORC}
-export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
-export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
-export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
-export PYARROW_WITH_S3=${ARROW_S3}
-export ARROW_HOME=${build_dir}/install
+export PYARROW_WITH_ACERO="${ARROW_ACERO}"
+export PYARROW_WITH_AZURE="${ARROW_AZURE}"
+export PYARROW_WITH_DATASET="${ARROW_DATASET}"
+export PYARROW_WITH_FLIGHT="${ARROW_FLIGHT}"
+export PYARROW_WITH_GANDIVA="${ARROW_GANDIVA}"
+export PYARROW_WITH_GCS="${ARROW_GCS}"
+export PYARROW_WITH_HDFS="${ARROW_HDFS}"
+export PYARROW_WITH_ORC="${ARROW_ORC}"
+export PYARROW_WITH_PARQUET="${ARROW_PARQUET}"
+export PYARROW_WITH_PARQUET_ENCRYPTION="${PARQUET_REQUIRE_ENCRYPTION}"
+export PYARROW_WITH_SUBSTRAIT="${ARROW_SUBSTRAIT}"
+export PYARROW_WITH_S3="${ARROW_S3}"
+export ARROW_HOME="${build_dir}/install"
 # PyArrow build configuration
-export CMAKE_PREFIX_PATH=${build_dir}/install
+export CMAKE_PREFIX_PATH="${build_dir}/install"
 # Set PyArrow version explicitly
-export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
+export SETUPTOOLS_SCM_PRETEND_VERSION="${PYARROW_VERSION}"
 
-pushd ${source_dir}/python
+pushd "${source_dir}/python"
 python -m build --sdist --wheel . --no-isolation \
   -C build.verbose=true \
-  -C cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
+  -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" \
   -C cmake.args="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" \
   -C cmake.args="-DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
-deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
+deps=$(delocate-listdeps "${source_dir}"/python/dist/*.whl)
 
-if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
+if echo "$deps" | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
 
 # Move the verified wheels
-mkdir -p ${source_dir}/python/repaired_wheels
-mv ${source_dir}/python/dist/*.whl ${source_dir}/python/repaired_wheels/
+mkdir -p "${source_dir}/python/repaired_wheels"
+mv "${source_dir}"/python/dist/*.whl "${source_dir}"/python/repaired_wheels/

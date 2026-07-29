@@ -825,8 +825,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec =
-        GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, ArrayKernelExec, Op>(ty);
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;

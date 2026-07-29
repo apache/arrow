@@ -76,13 +76,10 @@ class SelectKComparator<SortOrder::Descending> {
   }
 };
 
-struct OutputRangesByNullLikeness {
-  std::span<uint64_t> non_null_like_range;
-  std::span<uint64_t> nan_range;
-  std::span<uint64_t> null_range;
-};
-
-OutputRangesByNullLikeness CalculateOutputRangesByNullLikeness(
+// Clip the group counts to the k output slots and lay out the corresponding
+// ranges in `output_indices`. Because k was clipped to the input length, the
+// clipped counts always sum to k == output_indices.size().
+NullLikePartition CalculateOutputRangesByNullLikeness(
     int64_t non_null_like_count, int64_t nan_count, int64_t null_count,
     NullPlacement null_placement, std::span<uint64_t> output_indices) {
   auto k = static_cast<int64_t>(output_indices.size());
@@ -93,21 +90,13 @@ OutputRangesByNullLikeness CalculateOutputRangesByNullLikeness(
     non_null_like_to_take = std::min(k, non_null_like_count);
     nan_to_take = std::min(k - non_null_like_to_take, nan_count);
     null_to_take = std::min(k - non_null_like_to_take - nan_to_take, null_count);
-    return OutputRangesByNullLikeness{
-        .non_null_like_range = output_indices.subspan(0, non_null_like_to_take),
-        .nan_range = output_indices.subspan(non_null_like_to_take, nan_to_take),
-        .null_range =
-            output_indices.subspan(non_null_like_to_take + nan_to_take, null_to_take)};
   } else {
     null_to_take = std::min(k, null_count);
     nan_to_take = std::min(k - null_to_take, nan_count);
     non_null_like_to_take = std::min(k - null_to_take - nan_to_take, non_null_like_count);
-    return OutputRangesByNullLikeness{
-        .non_null_like_range =
-            output_indices.subspan(null_to_take + nan_to_take, non_null_like_to_take),
-        .nan_range = output_indices.subspan(null_to_take, nan_to_take),
-        .null_range = output_indices.subspan(0, null_to_take)};
   }
+  return NullLikePartition::FromCounts(output_indices, non_null_like_to_take, nan_to_take,
+                                       null_to_take, null_placement);
 }
 
 template <typename Comparator>
@@ -165,29 +154,6 @@ void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range,
   }
 }
 
-struct PartitionResultByNullLikeness {
-  std::span<uint64_t> non_null_like_range;
-  std::span<uint64_t> null_range;
-  std::span<uint64_t> nan_range;
-};
-
-template <typename ArrayType, typename Partitioner>
-PartitionResultByNullLikeness PartitionNullsAndNans(uint64_t* indices_begin,
-                                                    uint64_t* indices_end,
-                                                    const ArrayType& values,
-                                                    int64_t offset,
-                                                    NullPlacement null_placement) {
-  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
-                                                          values, offset, null_placement);
-  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
-      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
-  return PartitionResultByNullLikeness{
-      .non_null_like_range = {q.non_nulls_begin, q.non_nulls_end},
-      .null_range = {p.nulls_begin, p.nulls_end},
-      .nan_range = {q.nulls_begin, q.nulls_end}};
-}
-
 class ArraySelector : public TypeVisitor {
  public:
   ArraySelector(ExecContext* ctx, const Array& array, const SelectKOptions& options,
@@ -227,16 +193,14 @@ class ArraySelector : public TypeVisitor {
 
     std::vector<uint64_t> indices(arr.length());
 
-    uint64_t* indices_begin = indices.data();
-    uint64_t* indices_end = indices_begin + indices.size();
-    std::iota(indices_begin, indices_end, 0);
+    std::iota(indices.begin(), indices.end(), 0);
 
     ARROW_ASSIGN_OR_RAISE(auto take_indices,
                           MakeMutableUInt64Array(k_, ctx_->memory_pool()));
     auto* output_begin = take_indices->template GetMutableValues<uint64_t>(1);
 
     const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-        indices_begin, indices_end, arr, 0, null_placement_);
+        indices, arr, 0, null_placement_);
 
     // From k, calculate
     //   l = non_null_like elements to take from PartitionResult
@@ -251,10 +215,9 @@ class ArraySelector : public TypeVisitor {
 
     HeapSortNonNullsToOutput<InType, sort_order>(p.non_null_like_range, arr,
                                                  output.non_null_like_range);
-    std::copy(p.nan_range.begin(), p.nan_range.begin() + output.nan_range.size(),
-              output.nan_range.begin());
-    std::copy(p.null_range.begin(), p.null_range.begin() + output.null_range.size(),
-              output.null_range.begin());
+    std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(), output.nan_begin());
+    std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
+              output.null_begin());
 
     *output_ = Datum(take_indices);
     return Status::OK();
@@ -323,7 +286,7 @@ class ChunkedArraySelector : public TypeVisitor {
 
     std::vector<std::shared_ptr<ArrayType>> chunks_holder;
     chunks_holder.reserve(num_chunks);
-    std::vector<PartitionResultByNullLikeness> partitions_by_chunk;
+    std::vector<NullLikePartition> partitions_by_chunk;
     partitions_by_chunk.reserve(num_chunks);
     std::vector<std::vector<uint64_t>> indices_by_chunk;
     indices_by_chunk.reserve(num_chunks);
@@ -339,13 +302,11 @@ class ChunkedArraySelector : public TypeVisitor {
 
       auto& indices = indices_by_chunk.emplace_back();
       indices.resize(arr.length());
-      uint64_t* indices_begin = indices.data();
-      uint64_t* indices_end = indices_begin + indices.size();
-      std::iota(indices_begin, indices_end, 0);
+      std::iota(indices.begin(), indices.end(), 0);
 
       partitions_by_chunk.emplace_back(
-          PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-              indices_begin, indices_end, arr, 0, null_placement_));
+          PartitionNullsAndNans<ArrayType, NonStablePartitioner>(indices, arr, 0,
+                                                                 null_placement_));
 
       null_count += partitions_by_chunk.back().null_range.size();
       nan_count += partitions_by_chunk.back().nan_range.size();
@@ -493,12 +454,8 @@ class RecordBatchSelector {
       const auto& first_remaining_sort_key = selector_->sort_keys_[start_sort_key_index_];
       const auto& arr = checked_cast<const ArrayType&>(first_remaining_sort_key.array);
 
-      uint64_t* input_indices_begin = input_indices_.data();
-      uint64_t* input_indices_end = input_indices_.data() + input_indices_.size();
-
       const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
-          input_indices_begin, input_indices_end, arr, 0,
-          first_remaining_sort_key.null_placement);
+          input_indices_, arr, 0, first_remaining_sort_key.null_placement);
 
       // From k = output_indices_.size(), calculate
       //   l = non_null_like elements to take from PartitionResult
@@ -523,13 +480,13 @@ class RecordBatchSelector {
         }
         if (output.nan_range.size() > 0) {
           // We have the last sort_key, can just copy over the null values
-          std::copy(p.nan_range.begin(), p.nan_range.begin() + output.nan_range.size(),
-                    output.nan_range.begin());
+          std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(),
+                    output.nan_begin());
         }
         if (output.null_range.size() > 0) {
           // We have the last sort_key, can just copy over the null values
-          std::copy(p.null_range.begin(), p.null_range.begin() + output.null_range.size(),
-                    output.null_range.begin());
+          std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
+                    output.null_begin());
         }
       } else {
         if (!output.non_null_like_range.empty()) {

@@ -17,33 +17,53 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
+#include <simdjson.h>
+
+#include <cstdint>
 #include <string_view>
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace json {
-namespace internal {
+namespace arrow::json {
 
-/// This class is a helper to serialize a json object to a string.
-/// It uses rapidjson in implementation.
-class ARROW_EXPORT ObjectWriter {
+class ARROW_EXPORT JsonWriter {
  public:
-  ObjectWriter();
-  ~ObjectWriter();
+  JsonWriter() = default;
 
-  void SetString(std::string_view key, std::string_view value);
-  void SetBool(std::string_view key, bool value);
+  void StartObject();
+  void EndObject();
 
-  std::string Serialize();
+  void StartArray();
+  void EndArray();
+
+  void Key(std::string_view key);
+
+  void String(std::string_view value);
+  void RawValue(std::string_view value);
+  void Bool(bool value);
+
+  void Int(int32_t value);
+  void Int64(int64_t value);
+
+  void Uint(uint32_t value);
+  void Uint64(uint64_t value);
+
+  void Double(double value);
+
+  void Null();
+
+  void StringField(std::string_view key, std::string_view value);
+  void BoolField(std::string_view key, bool value);
+
+  std::string_view GetString() const;
+
+  void Clear();
 
  private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  void MaybeComma();
+
+  simdjson::builder::string_builder builder_;
+  bool needs_comma_ = false;
 };
 
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

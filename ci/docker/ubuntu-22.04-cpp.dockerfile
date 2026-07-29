@@ -94,6 +94,7 @@ RUN apt-get update -y -q && \
         libradospp-dev \
         libre2-dev \
         librtmp-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssh-dev \
@@ -226,4 +227,5 @@ ENV absl_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

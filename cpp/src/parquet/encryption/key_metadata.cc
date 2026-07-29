@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/object_parser.h"
-#include "arrow/json/object_writer.h"
 
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
+using ::arrow::json::JsonWriter;
 using ::arrow::json::internal::ObjectParser;
-using ::arrow::json::internal::ObjectWriter;
 
 namespace parquet::encryption {
 
@@ -73,15 +73,18 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 // directly
 std::string KeyMetadata::CreateSerializedForExternalMaterial(
     const std::string& key_reference) {
-  ObjectWriter json_writer;
+  JsonWriter json_writer;
 
-  json_writer.SetString(KeyMaterial::kKeyMaterialTypeField,
-                        KeyMaterial::kKeyMaterialType1);
-  json_writer.SetBool(kKeyMaterialInternalStorageField, false);
+  json_writer.StartObject();
 
-  json_writer.SetString(kKeyReferenceField, key_reference);
+  json_writer.StringField(KeyMaterial::kKeyMaterialTypeField,
+                          KeyMaterial::kKeyMaterialType1);
+  json_writer.BoolField(kKeyMaterialInternalStorageField, false);
+  json_writer.StringField(kKeyReferenceField, key_reference);
 
-  return json_writer.Serialize();
+  json_writer.EndObject();
+
+  return std::string(json_writer.GetString());
 }
 
 }  // namespace parquet::encryption

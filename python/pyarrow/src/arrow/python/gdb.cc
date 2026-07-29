@@ -17,9 +17,13 @@
 
 #include <cstdlib>
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/extension/uuid.h"
@@ -29,6 +33,7 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/debug.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
@@ -42,6 +47,8 @@ using extension::UuidType;
 using json::ArrayFromJSONString;
 using json::ChunkedArrayFromJSONString;
 using json::ScalarFromJSONString;
+
+using ::arrow::internal::checked_cast;
 
 namespace gdb {
 
@@ -67,6 +74,25 @@ std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
   } else {
     return array->Slice(offset);
   }
+}
+
+template <typename BuilderType>
+std::shared_ptr<Array> BinaryArrayFromStrings(
+    const std::shared_ptr<DataType>& type,
+    const std::vector<std::optional<std::string>>& values) {
+  std::unique_ptr<ArrayBuilder> builder;
+  ARROW_CHECK_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  auto& concrete_builder = checked_cast<BuilderType&>(*builder);
+  for (const auto& value : values) {
+    if (value.has_value()) {
+      ARROW_CHECK_OK(concrete_builder.Append(*value));
+    } else {
+      ARROW_CHECK_OK(concrete_builder.AppendNull());
+    }
+  }
+  std::shared_ptr<Array> array;
+  ARROW_CHECK_OK(concrete_builder.Finish(&array));
+  return array;
 }
 
 }  // namespace
@@ -448,18 +474,22 @@ void TestSession() {
       decimal256(50, 6), R"([null, "-123456789012345678901234567890123456789.012345"])");
   auto heap_decimal128_array_sliced = heap_decimal128_array->Slice(1, 1);
 
-  auto heap_fixed_size_binary_array =
-      SliceArrayFromJSON(fixed_size_binary(3), "[null, \"abc\", \"\\u0000\\u001f\xff\"]");
+  auto heap_fixed_size_binary_array = BinaryArrayFromStrings<FixedSizeBinaryBuilder>(
+      fixed_size_binary(3), {std::nullopt, "abc", std::string("\x00\x1f\xff", 3)});
   auto heap_fixed_size_binary_array_zero_width =
       SliceArrayFromJSON(fixed_size_binary(0), R"([null, ""])");
   auto heap_fixed_size_binary_array_sliced = heap_fixed_size_binary_array->Slice(1, 1);
 
-  const char* json_binary_array = "[null, \"abcd\", \"\\u0000\\u001f\xff\"]";
-  auto heap_binary_array = SliceArrayFromJSON(binary(), json_binary_array);
-  auto heap_large_binary_array = SliceArrayFromJSON(large_binary(), json_binary_array);
-  const char* json_string_array = "[null, \"héhé\", \"invalid \xff char\"]";
-  auto heap_string_array = SliceArrayFromJSON(utf8(), json_string_array);
-  auto heap_large_string_array = SliceArrayFromJSON(large_utf8(), json_string_array);
+  const std::vector<std::optional<std::string>> binary_values = {
+      std::nullopt, "abcd", std::string("\x00\x1f\xff", 3)};
+  auto heap_binary_array = BinaryArrayFromStrings<BinaryBuilder>(binary(), binary_values);
+  auto heap_large_binary_array =
+      BinaryArrayFromStrings<LargeBinaryBuilder>(large_binary(), binary_values);
+  const std::vector<std::optional<std::string>> string_values = {std::nullopt, "héhé",
+                                                                 "invalid \xff char"};
+  auto heap_string_array = BinaryArrayFromStrings<StringBuilder>(utf8(), string_values);
+  auto heap_large_string_array =
+      BinaryArrayFromStrings<LargeStringBuilder>(large_utf8(), string_values);
   auto heap_binary_array_sliced = heap_binary_array->Slice(1, 1);
 
   // ChunkedArray

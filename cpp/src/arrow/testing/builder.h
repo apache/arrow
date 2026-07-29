@@ -92,6 +92,40 @@ void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* 
   ArrayFromVector<TYPE, C_TYPE>(type, values, out);
 }
 
+// BinaryArrayFromStrings: construct an Array of any binary-like type from
+// string values, dispatching on the runtime type id
+inline std::shared_ptr<Array> BinaryArrayFromStrings(
+    const std::shared_ptr<DataType>& type, const std::vector<std::string>& values) {
+  std::shared_ptr<Array> array;
+  switch (type->id()) {
+    case Type::BINARY:
+      ArrayFromVector<BinaryType, std::string>(type, values, &array);
+      break;
+    case Type::STRING:
+      ArrayFromVector<StringType, std::string>(type, values, &array);
+      break;
+    case Type::LARGE_BINARY:
+      ArrayFromVector<LargeBinaryType, std::string>(type, values, &array);
+      break;
+    case Type::LARGE_STRING:
+      ArrayFromVector<LargeStringType, std::string>(type, values, &array);
+      break;
+    case Type::BINARY_VIEW:
+      ArrayFromVector<BinaryViewType, std::string>(type, values, &array);
+      break;
+    case Type::STRING_VIEW:
+      ArrayFromVector<StringViewType, std::string>(type, values, &array);
+      break;
+    case Type::FIXED_SIZE_BINARY:
+      ArrayFromVector<FixedSizeBinaryType, std::string>(type, values, &array);
+      break;
+    default:
+      ADD_FAILURE() << "unsupported type for binary test data: " << type->ToString();
+      break;
+  }
+  return array;
+}
+
 // ChunkedArrayFromVector: construct a ChunkedArray from vectors of C values
 
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>

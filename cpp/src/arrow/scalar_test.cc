@@ -36,6 +36,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -1395,8 +1396,10 @@ class TestListLikeScalar : public ::testing::Test {
     }
 
     {
-      // Invalid UTF8 in child data
-      ScalarType scalar(ArrayFromJSON(utf8(), "[null, null, \"\xff\"]"));
+      std::shared_ptr<Array> invalid_utf8;
+      ArrayFromVector<StringType, std::string>({false, false, true}, {"", "", "\xff"},
+                                               &invalid_utf8);
+      ScalarType scalar(invalid_utf8);
       ASSERT_OK(scalar.Validate());
       ASSERT_RAISES(Invalid, scalar.ValidateFull());
     }
@@ -1684,6 +1687,18 @@ TEST(TestDictionaryScalar, Basics) {
         checked_cast<const DictionaryScalar&>(scalar_gamma).GetEncodedValue());
     ASSERT_OK(encoded_gamma->ValidateFull());
     ASSERT_TRUE(encoded_gamma->Equals(*MakeScalar("gamma")));
+
+    ASSERT_FALSE(scalar_alpha.IsLogicalNull());
+    ASSERT_FALSE(scalar_gamma.IsLogicalNull());
+    ASSERT_TRUE(scalar_null->IsLogicalNull());
+    // The index is valid but refers to a null dictionary value
+    ASSERT_TRUE(scalar_null_value.IsLogicalNull());
+
+    // Logical nullness does not recurse through wrapper scalars: the wrapper
+    // reports its own is_valid.
+    RunEndEncodedScalar ree_wrapper(std::make_shared<DictionaryScalar>(null_value, ty),
+                                    run_end_encoded(int32(), ty));
+    ASSERT_FALSE(ree_wrapper.IsLogicalNull());
 
     // test Array.GetScalar
     DictionaryArray arr(ty, ArrayFromJSON(index_ty, "[2, 0, 1, null]"), dict);

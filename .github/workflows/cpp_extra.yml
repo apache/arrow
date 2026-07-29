@@ -139,7 +139,7 @@ jobs:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -228,7 +228,7 @@ jobs:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -278,11 +278,6 @@ jobs:
           submodules: recursive
       - name: Install dependencies
         run: |
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have
@@ -356,6 +351,130 @@ jobs:
           path: ccache
           key: jni-macos
 
+  jni-windows:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
+    name: JNI Windows
+    runs-on: windows-2022
+    timeout-minutes: 240
+
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install msys2 (for tzdata for ORC tests)
+        uses: msys2/setup-msys2@v2
+        id: setup-msys2
+
+      - name: Install cmake
+        shell: bash
+        run: |
+          ci/scripts/install_cmake.sh 4.1.2 /usr
+
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.13.6 /usr
+
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: jni-windows
+
+      - name: CMake
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          cmake ^
+            -S cpp ^
+            -B cpp.build ^
+            --preset=ninja-release-jni-windows ^
+            -DARROW_BUILD_TESTS=ON ^
+            -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
+
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          cmake --build cpp.build
+
+      - name: Install
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          cmake --install cpp.build
+
+      - name: Test
+        shell: cmd
+        env:
+          MSYS2_LOCATION: ${{ steps.setup-msys2.outputs.msys2-location }}
+          ARROW_TEST_DATA: ${{ github.workspace }}\testing\data
+          PARQUET_TEST_DATA: ${{ github.workspace }}\cpp\submodules\parquet-testing\data
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
+
+          set exclude_tests=arrow-acero-asof-join-node-test
+          set exclude_tests=%exclude_tests%^|arrow-acero-hash-join-node-test
+
+          ctest ^
+            --exclude-regex "%exclude_tests%" ^
+            --label-regex unittest ^
+            --output-on-failure ^
+            --parallel %NUMBER_OF_PROCESSORS% ^
+            --test-dir cpp.build ^
+            --timeout 300
+
+      - name: Build example
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+
+          cmake ^
+            -S cpp/examples/minimal_build ^
+            -B cpp/examples/minimal_build.build ^
+            -GNinja ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_INSTALL_PREFIX=%CD%\cpp.install
+
+          cmake --build cpp/examples/minimal_build.build
+
+          cd cpp\examples\minimal_build
+          call ..\minimal_build.build\arrow-example.exe
+
+      - name: Save ccache
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: jni-windows
+
   odbc-linux:
     needs: check-enabled
     if: needs.check-enabled.outputs.is_enabled == 'true'
@@ -378,7 +497,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python on hosted runner
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -453,11 +572,6 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
 
           # We want to use bundled RE2 for static linking. If
@@ -511,7 +625,7 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery

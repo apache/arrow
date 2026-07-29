@@ -264,7 +264,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string Diff(const CArray& other)
         c_bool Equals(const CArray& arr)
-        c_bool IsNull(int i)
+        c_bool IsNull(int64_t i)
 
         shared_ptr[CArrayData] data()
 
@@ -675,87 +675,87 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                         c_string* result)
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
-        c_bool Value(int i)
+        c_bool Value(int64_t i)
         int64_t false_count()
         int64_t true_count()
 
     cdef cppclass CUInt8Array" arrow::UInt8Array"(CArray):
-        uint8_t Value(int i)
+        uint8_t Value(int64_t i)
 
     cdef cppclass CInt8Array" arrow::Int8Array"(CArray):
-        int8_t Value(int i)
+        int8_t Value(int64_t i)
 
     cdef cppclass CUInt16Array" arrow::UInt16Array"(CArray):
-        uint16_t Value(int i)
+        uint16_t Value(int64_t i)
 
     cdef cppclass CInt16Array" arrow::Int16Array"(CArray):
-        int16_t Value(int i)
+        int16_t Value(int64_t i)
 
     cdef cppclass CUInt32Array" arrow::UInt32Array"(CArray):
-        uint32_t Value(int i)
+        uint32_t Value(int64_t i)
 
     cdef cppclass CInt32Array" arrow::Int32Array"(CArray):
-        int32_t Value(int i)
+        int32_t Value(int64_t i)
 
     cdef cppclass CUInt64Array" arrow::UInt64Array"(CArray):
-        uint64_t Value(int i)
+        uint64_t Value(int64_t i)
 
     cdef cppclass CInt64Array" arrow::Int64Array"(CArray):
-        int64_t Value(int i)
+        int64_t Value(int64_t i)
 
     cdef cppclass CDate32Array" arrow::Date32Array"(CArray):
-        int32_t Value(int i)
+        int32_t Value(int64_t i)
 
     cdef cppclass CDate64Array" arrow::Date64Array"(CArray):
-        int64_t Value(int i)
+        int64_t Value(int64_t i)
 
     cdef cppclass CTime32Array" arrow::Time32Array"(CArray):
-        int32_t Value(int i)
+        int32_t Value(int64_t i)
 
     cdef cppclass CTime64Array" arrow::Time64Array"(CArray):
-        int64_t Value(int i)
+        int64_t Value(int64_t i)
 
     cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
-        int64_t Value(int i)
+        int64_t Value(int64_t i)
 
     cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
-        int64_t Value(int i)
+        int64_t Value(int64_t i)
 
     cdef cppclass CMonthDayNanoIntervalArray \
             "arrow::MonthDayNanoIntervalArray"(CArray):
         pass
 
     cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
-        uint16_t Value(int i)
+        uint16_t Value(int64_t i)
 
     cdef cppclass CFloatArray" arrow::FloatArray"(CArray):
-        float Value(int i)
+        float Value(int64_t i)
 
     cdef cppclass CDoubleArray" arrow::DoubleArray"(CArray):
-        double Value(int i)
+        double Value(int64_t i)
 
     cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
-        const uint8_t* GetValue(int i)
+        const uint8_t* GetValue(int64_t i)
 
     cdef cppclass CDecimal32Array" arrow::Decimal32Array"(
         CFixedSizeBinaryArray
     ):
-        c_string FormatValue(int i)
+        c_string FormatValue(int64_t i)
 
     cdef cppclass CDecimal64Array" arrow::Decimal64Array"(
         CFixedSizeBinaryArray
     ):
-        c_string FormatValue(int i)
+        c_string FormatValue(int64_t i)
 
     cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
         CFixedSizeBinaryArray
     ):
-        c_string FormatValue(int i)
+        c_string FormatValue(int64_t i)
 
     cdef cppclass CDecimal256Array" arrow::Decimal256Array"(
         CFixedSizeBinaryArray
     ):
-        c_string FormatValue(int i)
+        c_string FormatValue(int64_t i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
         @staticmethod
@@ -776,8 +776,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         )
 
         const int32_t* raw_value_offsets()
-        int32_t value_offset(int i)
-        int32_t value_length(int i)
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CDataType] value_type()
@@ -800,8 +800,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CBuffer] null_bitmap
         )
 
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CDataType] value_type()
@@ -819,8 +819,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CDataType],
             shared_ptr[CBuffer] null_bitmap)
 
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
@@ -850,8 +850,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const int32_t* raw_value_offsets()
         const int32_t* raw_value_sizes()
-        int32_t value_offset(int i)
-        int32_t value_length(int i)
+        int32_t value_offset(int64_t i)
+        int32_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CArray] sizes()
@@ -881,8 +881,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             CMemoryPool* pool
         )
 
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CArray] offsets()
         shared_ptr[CArray] sizes()
@@ -911,8 +911,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
         CMapType* map_type()
-        int64_t value_offset(int i)
-        int64_t value_length(int i)
+        int64_t value_offset(int64_t i)
+        int64_t value_length(int64_t i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
@@ -941,18 +941,20 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[c_string]& field_names,
             const vector[int8_t]& type_codes)
 
-        int32_t value_offset(int i)
+        int32_t value_offset(int64_t i)
         shared_ptr[CBuffer] value_offsets()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CArray):
-        const uint8_t* GetValue(int i, int32_t* length)
+        const uint8_t* GetValue(int64_t i, int32_t* length)
+        cpp_string_view GetView(int64_t i)
         shared_ptr[CBuffer] value_data()
         int32_t value_offset(int64_t i)
         int32_t value_length(int64_t i)
         int32_t total_values_length()
 
     cdef cppclass CLargeBinaryArray" arrow::LargeBinaryArray"(CArray):
-        const uint8_t* GetValue(int i, int64_t* length)
+        const uint8_t* GetValue(int64_t i, int64_t* length)
+        cpp_string_view GetView(int64_t i)
         shared_ptr[CBuffer] value_data()
         int64_t value_offset(int64_t i)
         int64_t value_length(int64_t i)
@@ -965,7 +967,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                      int64_t null_count,
                      int64_t offset)
 
-        c_string GetString(int i)
+        c_string GetString(int64_t i)
 
     cdef cppclass CLargeStringArray" arrow::LargeStringArray" \
             (CLargeBinaryArray):
@@ -975,7 +977,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                           int64_t null_count,
                           int64_t offset)
 
-        c_string GetString(int i)
+        c_string GetString(int64_t i)
+
+    cdef cppclass CBinaryViewArray" arrow::BinaryViewArray"(CArray):
+        cpp_string_view GetView(int64_t i)
+
+    cdef cppclass CStringViewArray" arrow::StringViewArray"(CBinaryViewArray):
+        pass
 
     cdef cppclass CStructArray" arrow::StructArray"(CArray):
         CStructArray(shared_ptr[CDataType]& type, int64_t length,

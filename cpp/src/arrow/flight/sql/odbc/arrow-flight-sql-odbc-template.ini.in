@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow as pa  # noqa
-import sys
-
-assert 'pandas' not in sys.modules
+[Apache Arrow Flight SQL ODBC Driver]
+Description=An ODBC Driver for Apache Arrow Flight SQL
+Driver=@ARROW_FLIGHT_SQL_ODBC_SO@

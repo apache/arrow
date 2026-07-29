@@ -65,6 +65,7 @@ RUN apt-get update -y -q && \
         libprotobuf-dev \
         libprotoc-dev \
         libre2-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssl-dev \

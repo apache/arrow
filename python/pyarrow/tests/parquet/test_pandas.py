@@ -472,7 +472,7 @@ def test_categorical_index_survives_roundtrip():
 def test_categorical_order_survives_roundtrip():
     # ARROW-6302
     df = pd.DataFrame({"a": pd.Categorical(
-        ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
+        ["d", "b", "c", None], categories=["b", "c", "d"], ordered=True)})
 
     table = pa.Table.from_pandas(df)
     bos = pa.BufferOutputStream()

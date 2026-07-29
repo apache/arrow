@@ -449,6 +449,22 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
   ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }
 
+TEST_P(TestCsvFileFormat, WriteRecordBatchReaderDelimiterPropagation) {
+  // Verify that CsvFileFormat::DefaultWriteOptions() propagates the parse
+  // delimiter to write options
+  auto csv_format = std::make_shared<CsvFileFormat>();
+  csv_format->parse_options.delimiter = '|';
+  auto write_options =
+      checked_pointer_cast<CsvFileWriteOptions>(csv_format->DefaultWriteOptions());
+  ASSERT_EQ(write_options->write_options->delimiter, '|');
+
+  // Verify that the default delimiter is ',' when no parse options are set
+  auto default_format = std::make_shared<CsvFileFormat>();
+  auto default_write_options =
+      checked_pointer_cast<CsvFileWriteOptions>(default_format->DefaultWriteOptions());
+  ASSERT_EQ(default_write_options->write_options->delimiter, ',');
+}
+
 TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }
 
 TEST_P(TestCsvFileFormat, FragmentEquals) { TestFragmentEquals(); }
