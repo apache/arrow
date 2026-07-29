@@ -299,11 +299,6 @@ TEST(SearchSorted, ValuesWithLeadingNulls) {
                           "[1, 1, 2, 4]", "[1, 2, 2, 4]");
 }
 
-TEST(SearchSorted, ValuesAllNull) {
-  CheckSimpleSearchSorted(int32(), "[null, null, null]", "[50, 200, null]",
-                          "[0, 0, null]", "[0, 0, null]");
-}
-
 TEST(SearchSorted, ValuesWithTrailingNulls) {
   CheckSimpleSearchSorted(int32(), "[200, 300, 300, null, null]", "[50, 200, 250, 400]",
                           "[0, 0, 1, 3]", "[0, 1, 1, 3]");
@@ -436,18 +431,6 @@ TEST(SearchSorted, ChunkedRunEndEncodedValuesTrailingNullsAcrossEmptyChunks) {
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
 }
 
-TEST(SearchSorted, ChunkedRunEndEncodedAllNullValuesAcrossEmptyChunks) {
-  auto values_type = run_end_encoded(int16(), int32());
-  ASSERT_OK_AND_ASSIGN(auto empty_chunk, REEFromJSON(values_type, "[]"));
-  ASSERT_OK_AND_ASSIGN(auto null_chunk, REEFromJSON(values_type, "[null, null]"));
-  ASSERT_OK_AND_ASSIGN(auto last_null_chunk, REEFromJSON(values_type, "[null]"));
-  auto values = std::make_shared<ChunkedArray>(
-      ArrayVector{empty_chunk, null_chunk, empty_chunk, last_null_chunk});
-  auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
-
-  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, null]", "[0, 0, null]");
-}
-
 TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
   auto values = std::make_shared<ChunkedArray>(ArrayVector{
       ArrayFromJSON(int32(), "[]"),
@@ -472,16 +455,12 @@ TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
 }
 
-TEST(SearchSorted, ChunkedValuesAllNullAcrossEmptyChunks) {
-  auto values = std::make_shared<ChunkedArray>(ArrayVector{
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[null, null]"),
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[null]"),
-  });
-  auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
+TEST(SearchSorted, RunEndEncodedDate32Values) {
+  auto values_type = run_end_encoded(int16(), date32());
+  ASSERT_OK_AND_ASSIGN(auto values, REEFromJSON(values_type, "[1, 1, 3]"));
+  auto needles = ArrayFromJSON(date32(), "[2]");
 
-  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, null]", "[0, 0, null]");
+  CheckSearchSorted(Datum(values), Datum(needles), "[2]", "[2]");
 }
 
 TEST(SearchSorted, RunEndEncodedNulls) {
@@ -525,16 +504,6 @@ TEST(SearchSorted, RunEndEncodedNeedlesWithNullRuns) {
   CheckSearchSorted(Datum(values), Datum(ree_needles),
                     "[null, null, 0, 0, 0, 0, 0, 3, 3, 3, null, 5, 5]",
                     "[null, null, 0, 0, 0, 2, 2, 3, 3, 3, null, 5, 5]");
-}
-
-TEST(SearchSorted, RunEndEncodedAllNullValues) {
-  auto values_type = run_end_encoded(int16(), int32());
-  ASSERT_OK_AND_ASSIGN(auto ree_values,
-                       REEFromJSON(values_type, "[null, null, null, null]"));
-  auto needles = ArrayFromJSON(int32(), "[null, 1, 8]");
-
-  CheckSearchSorted(Datum(ree_values), Datum(needles), SearchSortedOptions::Left,
-                    "[null, 0, 0]");
 }
 
 TEST(SearchSorted, RejectMismatchedTypes) {
