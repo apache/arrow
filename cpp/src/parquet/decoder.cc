@@ -1309,7 +1309,8 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
         auto* decoded_indices = indices_scratch_space_->mutable_data_as<int32_t>();
         const int num_indices = idx_decoder_.GetBatch(decoded_indices, values_to_decode);
         if (ARROW_PREDICT_FALSE(num_indices != values_to_decode)) {
-          return Status::Invalid("Invalid number of indices: ", num_indices);
+          return Status::Invalid("Invalid or truncated dictionary index stream: expected ",
+                                 values_to_decode, " indices but decoded ", num_indices);
         }
 
         int64_t data_length = 0;
