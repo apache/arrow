@@ -145,6 +145,18 @@ void TestSession() {
       {"key_text", "key_binary"}, {"some value", std::string("z") + '\x00' + "\x1f\xff"});
 
   // Decimals
+  Decimal32 decimal32_zero{};
+  Decimal32 decimal32_pos{"987654321"};
+  Decimal32 decimal32_neg{"-987654321"};
+  BasicDecimal32 basic_decimal32_zero{};
+  BasicDecimal32 basic_decimal32_pos{decimal32_pos.value()};
+  BasicDecimal32 basic_decimal32_neg{decimal32_neg.value()};
+  Decimal64 decimal64_zero{};
+  Decimal64 decimal64_pos{"987654321098765432"};
+  Decimal64 decimal64_neg{"-987654321098765432"};
+  BasicDecimal64 basic_decimal64_zero{};
+  BasicDecimal64 basic_decimal64_pos{decimal64_pos.value()};
+  BasicDecimal64 basic_decimal64_neg{decimal64_neg.value()};
   Decimal128 decimal128_zero{};
   Decimal128 decimal128_pos{"98765432109876543210987654321098765432"};
   Decimal128 decimal128_neg{"-98765432109876543210987654321098765432"};
@@ -194,8 +206,12 @@ void TestSession() {
   FixedSizeBinaryType fixed_size_binary_type(10);
   auto heap_fixed_size_binary_type = fixed_size_binary(10);
 
+  Decimal32Type decimal32_type(8, 3);
+  Decimal64Type decimal64_type(16, 5);
   Decimal128Type decimal128_type(16, 5);
   Decimal256Type decimal256_type(42, 12);
+  auto heap_decimal32_type = decimal32(8, 3);
+  auto heap_decimal64_type = decimal64(16, 5);
   auto heap_decimal128_type = decimal128(16, 5);
 
   ListType list_type(uint8());
@@ -299,6 +315,17 @@ void TestSession() {
   Date32Scalar date32_scalar_null{};
   Date64Scalar date64_scalar{45 * 86400000LL};
   Date64Scalar date64_scalar_null{};
+
+  Decimal32Scalar decimal32_scalar_pos{Decimal32("1234567"), decimal32(9, 4)};
+  Decimal32Scalar decimal32_scalar_neg{Decimal32("-1234567"), decimal32(9, 4)};
+  Decimal32Scalar decimal32_scalar_null{decimal32(9, 4)};
+  auto heap_decimal32_scalar = *MakeScalar(decimal32(9, 4), Decimal32("1234567"));
+
+  Decimal64Scalar decimal64_scalar_pos{Decimal64("12345678901234567"), decimal64(18, 4)};
+  Decimal64Scalar decimal64_scalar_neg{Decimal64("-12345678901234567"), decimal64(18, 4)};
+  Decimal64Scalar decimal64_scalar_null{decimal64(18, 4)};
+  auto heap_decimal64_scalar =
+      *MakeScalar(decimal64(18, 4), Decimal64("12345678901234567"));
 
   Decimal128Scalar decimal128_scalar_pos_scale_pos{Decimal128("1234567"),
                                                    decimal128(10, 4)};
@@ -467,11 +494,16 @@ void TestSession() {
   auto heap_timestamp_array_ns = SliceArrayFromJSON(
       timestamp(TimeUnit::NANO), R"([null, "1900-02-28 12:34:56.987654321"])");
 
+  auto heap_decimal32_array =
+      SliceArrayFromJSON(decimal32(9, 4), R"([null, "-12345.6789", "12345.6789"])");
+  auto heap_decimal64_array = SliceArrayFromJSON(
+      decimal64(18, 4), R"([null, "-12345678901234.5678", "12345678901234.5678"])");
   auto heap_decimal128_array = SliceArrayFromJSON(
       decimal128(30, 6),
       R"([null, "-1234567890123456789.012345", "1234567890123456789.012345"])");
   auto heap_decimal256_array = SliceArrayFromJSON(
       decimal256(50, 6), R"([null, "-123456789012345678901234567890123456789.012345"])");
+  auto heap_decimal32_array_sliced = heap_decimal32_array->Slice(1, 1);
   auto heap_decimal128_array_sliced = heap_decimal128_array->Slice(1, 1);
 
   auto heap_fixed_size_binary_array = BinaryArrayFromStrings<FixedSizeBinaryBuilder>(
