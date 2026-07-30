@@ -18,6 +18,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
+#include <memory>
+#include <string>
+
 #include "arrow/util/logging_internal.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/testing.h"
@@ -57,6 +61,56 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
 
   EXPECT_EQ(castDATE_date32(1), 86400000);
+}
+
+TEST(TestTime, TestCastDateInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // The invalid-value error message is built from the raw input pointer. Hold
+  // the input in an exactly-sized heap buffer with no trailing NUL so that
+  // formatting the error must respect `length` instead of scanning for a NUL;
+  // any over-read past the buffer trips AddressSanitizer.
+  const std::string value = "197201234";
+  const auto length = static_cast<int32_t>(value.size());
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), value.data(), length);
+
+  EXPECT_EQ(castDATE_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid date value 197201234");
+  context.Reset();
+}
+
+TEST(TestTime, TestCastTimestampInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // castTIMESTAMP_utf8 reaches the same set_error_for_date helper, so exercise
+  // the over-read path from that entry point with an unterminated buffer too.
+  const std::string value = "2000-01-01 24:00:00";
+  const auto length = static_cast<int32_t>(value.size());
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), value.data(), length);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 24:00:00");
+  context.Reset();
+}
+
+TEST(TestTime, TestCastTimeInvalidUnterminated) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // castTIME_utf8 reaches set_error_for_date as well.
+  const std::string value = "24H00H00";
+  const auto length = static_cast<int32_t>(value.size());
+  std::unique_ptr<char[]> input(new char[length]);
+  std::memcpy(input.get(), value.data(), length);
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, input.get(), length), 0);
+  EXPECT_EQ(context.get_error(), "Invalid character in time 24H00H00");
+  context.Reset();
 }
 
 TEST(TestTime, TestCastTimestamp) {
