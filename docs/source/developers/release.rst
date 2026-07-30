@@ -714,3 +714,20 @@ Be sure to go through on the following checklist:
       dev/release/post-07-remove-old-artifacts.sh
 
    Note: This step must be done by a PMC member.
+
+Trouble shooting
+================
+
+How to recover broken metadata of APT/Yum repositories
+------------------------------------------------------
+
+Our release system has only one RC space for APT/Yum
+repositories. apache/arrow and apache/arrow-adbc shares the RC
+space. So metadata APT/Yum repositories may be broken when we cut an
+RC for apache/arrow and apache/arrow-adbc at the same time.
+
+We can re-generate and upload metadata by the following command line:
+
+.. code-block:: shell
+
+   dev/release/binary-recover.sh

@@ -1771,7 +1771,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
   end
 
   def define_apt_release_tasks
-
     namespace :apt do
       desc "Release APT repository"
       task :release do
@@ -1796,7 +1795,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             download_distribution(:artifactory,
                                   distribution,
                                   code_name_dir,
-                                  :base,
+                                  :all,
                                   pattern: pattern,
                                   prefix: "pool/#{code_name}")
           end
@@ -1852,6 +1851,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def yum_release_repositories_dir
     "#{release_dir}/yum/repositories"
+  end
+
+  def yum_recover_repositories_dir
+    "#{recover_dir}/yum/repositories"
   end
 
   def available_yum_targets
@@ -2189,10 +2192,82 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     end
   end
 
+  def define_yum_recover_tasks
+    namespace :yum do
+      namespace :recover do
+        desc "Download repositories"
+        task :download do
+          yum_targets.each do |distribution, version|
+            not_checksum_pattern = /.+(?<!\.asc|\.sha512)\z/
+            target_dir = File.join(yum_recover_repositories_dir,
+                                   distribution,
+                                   version)
+            pattern = not_checksum_pattern
+            download_distribution(:artifactory,
+                                  distribution,
+                                  target_dir,
+                                  :all,
+                                  pattern: pattern,
+                                  prefix: version)
+          end
+        end
+
+        desc "Update repositories"
+        task :update do
+          yum_targets.each do |distribution, version|
+            version_dir = File.join(yum_recover_repositories_dir,
+                                    distribution,
+                                    version)
+            next if File.symlink?(version_dir)
+            next unless File.exist?(version_dir)
+            Dir.glob("#{version_dir}/*") do |arch_dir|
+              next unless File.directory?(arch_dir)
+              sh("createrepo_c",
+                 arch_dir,
+                 out: default_output,
+                 verbose: verbose?)
+            end
+          end
+        end
+
+        desc "Upload repositories"
+        task :upload do
+          yum_targets.each do |distribution, version|
+            version_dir = File.join(yum_recover_repositories_dir,
+                                    distribution,
+                                    version)
+            next if File.symlink?(version_dir)
+            next unless File.exist?(version_dir)
+            Dir.glob("#{version_dir}/*/repodata") do |repodata_dir|
+              next unless File.directory?(repodata_dir)
+              arch = File.basename(File.dirname(repodata_dir))
+              prefix = "#{version}/#{arch}/repodata"
+              uploader = ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                                 destination_prefix: prefix,
+                                                 distribution: distribution,
+                                                 source: repodata_dir,
+                                                 staging: staging?)
+              uploader.upload
+            end
+          end
+        end
+      end
+
+      desc "Recover Yum repositories"
+      yum_recover_tasks = [
+        "yum:recover:download",
+        "yum:recover:update",
+        "yum:recover:upload",
+      ]
+      task :recover => yum_recover_tasks
+    end
+  end
+
   def define_yum_tasks
     define_yum_staging_tasks
     define_yum_rc_tasks
     define_yum_release_tasks
+    define_yum_recover_tasks
   end
 
   def define_summary_tasks
