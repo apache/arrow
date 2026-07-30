@@ -2854,6 +2854,7 @@ if(ARROW_WITH_SIMDJSON)
                      ${ARROW_SIMDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
+
   if(SIMDJSON_VENDORED)
     add_library(arrow::simdjson ALIAS simdjson)
   else()
