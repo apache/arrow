@@ -2477,6 +2477,8 @@ Status
 ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType>::AppendValueWithKnownSizeSlow(
     const uint8_t* data, int32_t length, int64_t estimated_remaining_data_length) {
   RETURN_NOT_OK(PushChunk());
+  // Validate that the first value fits in an empty chunk before UnsafeAppend below.
+  RETURN_NOT_OK(builder_->ReserveData(length));
   RETURN_NOT_OK(ReserveInitialChunkData(estimated_remaining_data_length));
   chunk_space_remaining_ -= length;
   --entries_remaining_;
