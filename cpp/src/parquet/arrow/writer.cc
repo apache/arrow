@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -456,10 +457,24 @@ class FileWriterImpl : public FileWriter {
 
     // Max number of rows allowed in a row group.
     const int64_t max_row_group_length = this->properties().max_row_group_length();
+    // Max compressed byte size allowed in a row group.
+    const int64_t max_row_group_size = this->properties().max_row_group_size();
+    const bool row_group_size_limited =
+        max_row_group_size != std::numeric_limits<int64_t>::max();
+
+    // Whether the current row group reached the row count or byte size limit.
+    auto row_group_full = [&]() {
+      return row_group_writer_->num_rows() >= max_row_group_length ||
+             (row_group_size_limited && 
+              row_group_writer_->total_compressed_bytes() + 
+              row_group_writer_->total_compressed_bytes_written() +
+              row_group_writer_->estimated_buffered_stats().dict_bytes
+              >= max_row_group_size);
+    };
 
     // Initialize a new buffered row group writer if necessary.
     if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
-        row_group_writer_->num_rows() >= max_row_group_length) {
+        row_group_full()) {
       RETURN_NOT_OK(NewBufferedRowGroup());
     }
 
@@ -501,8 +516,7 @@ class FileWriterImpl : public FileWriter {
       offset += batch_size;
 
       // Flush current row group writer and create a new writer if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length &&
-          offset < batch.num_rows()) {
+      if (row_group_full() && offset < batch.num_rows()) {
         RETURN_NOT_OK(NewBufferedRowGroup());
       }
     }
