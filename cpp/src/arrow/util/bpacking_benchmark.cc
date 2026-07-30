@@ -206,11 +206,6 @@ BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Avx512Unaligned, false, bpacking::unpack_avx5
 BENCHMARK_UNPACK_ALL_TYPES(NeonUnaligned, false, bpacking::unpack_neon);
 #endif
 
-#if defined(ARROW_HAVE_RUNTIME_SVE128)
-BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Sve128Unaligned, false, bpacking::unpack_sve128,
-                                   SVE128, "Sve128 not available");
-#endif
-
 #if defined(ARROW_HAVE_RUNTIME_SVE256)
 BENCHMARK_UNPACK_ALL_TYPES_RUNTIME(Sve256Unaligned, false, bpacking::unpack_sve256,
                                    SVE256, "Sve256 not available");

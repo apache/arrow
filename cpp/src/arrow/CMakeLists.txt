@@ -346,21 +346,42 @@ endmacro()
 macro(append_runtime_sve128_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE128)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE128_FLAGS}")
+    set(_flags ${ARROW_SVE128_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 macro(append_runtime_sve256_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE256)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE256_FLAGS}")
+    set(_flags ${ARROW_SVE256_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 macro(append_runtime_sve512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE512_FLAGS}")
+    set(_flags ${ARROW_SVE512_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
@@ -588,7 +609,6 @@ append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
-append_runtime_sve128_src(ARROW_UTIL_SRCS util/bpacking_simd_128_alt.cc)
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)
