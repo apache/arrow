@@ -34,9 +34,13 @@
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/extension_type.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/binary_view_util.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -60,11 +64,15 @@ class BaseBinaryBuilder
   explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool(),
                              int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
+        type_(TypeTraits<TypeClass>::type_singleton()),
         offsets_builder_(pool, alignment),
         value_data_builder_(pool, alignment) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : BaseBinaryBuilder(pool) {}
+      : ArrayBuilder(pool),
+        type_(ValidateType<TypeClass>(type)),
+        offsets_builder_(pool),
+        value_data_builder_(pool) {}
 
   Status Append(const uint8_t* value, offset_type length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -356,6 +364,8 @@ class BaseBinaryBuilder
   /// \return capacity of values buffer
   int64_t value_data_capacity() const { return value_data_builder_.capacity(); }
 
+  std::shared_ptr<DataType> type() const override { return type_; }
+
   /// \return data pointer of the value date builder
   const offset_type* offsets_data() const { return offsets_builder_.data(); }
 
@@ -390,6 +400,32 @@ class BaseBinaryBuilder
   }
 
  protected:
+  template <typename LogicalType>
+  static std::shared_ptr<DataType> ValidateType(std::shared_ptr<DataType> type) {
+    ARROW_CHECK(type != nullptr) << "Cannot construct binary builder with null type";
+    const auto expected_type = TypeTraits<LogicalType>::type_singleton();
+    const DataType* storage_type = type.get();
+    if (type->id() == Type::EXTENSION) {
+      storage_type =
+          internal::checked_cast<const ExtensionType&>(*type).storage_type().get();
+    }
+    ARROW_CHECK(storage_type->Equals(*expected_type))
+        << "Cannot construct binary builder for " << expected_type->ToString()
+        << " values from type " << type->ToString();
+    return type;
+  }
+
+  template <typename ArrayType, typename LogicalType>
+  Status FinishTypedAs(std::shared_ptr<ArrayType>* out) {
+    const auto expected_type = TypeTraits<LogicalType>::type_singleton();
+    if (ARROW_PREDICT_FALSE(!type()->Equals(*expected_type))) {
+      return Status::TypeError("Cannot finish builder with type ", type()->ToString(),
+                               " as ", expected_type->ToString(), " array");
+    }
+    return FinishTyped(out);
+  }
+
+  std::shared_ptr<DataType> type_;
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
@@ -414,24 +450,35 @@ class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
   using ArrayBuilder::Finish;
   /// \endcond
 
-  Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return binary(); }
+  Status Finish(std::shared_ptr<BinaryArray>* out) {
+    return FinishTypedAs<BinaryArray, BinaryType>(out);
+  }
 };
 
 /// \class StringBuilder
 /// \brief Builder class for UTF8 strings
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
-  using BinaryBuilder::BinaryBuilder;
+  explicit StringBuilder(MemoryPool* pool = default_memory_pool(),
+                         int64_t alignment = kDefaultBufferAlignment)
+      : BinaryBuilder(pool, alignment) {
+    type_ = utf8();
+  }
+
+  StringBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : BinaryBuilder(pool) {
+    type_ = ValidateType<StringType>(type);
+  }
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
-  Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
+  Status Finish(std::shared_ptr<StringArray>* out) {
+    return FinishTypedAs<StringArray, StringType>(out);
+  }
 
-  std::shared_ptr<DataType> type() const override { return utf8(); }
+  std::shared_ptr<DataType> type() const override { return type_; }
 };
 
 /// \class LargeBinaryBuilder
@@ -444,24 +491,35 @@ class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType
   using ArrayBuilder::Finish;
   /// \endcond
 
-  Status Finish(std::shared_ptr<LargeBinaryArray>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return large_binary(); }
+  Status Finish(std::shared_ptr<LargeBinaryArray>* out) {
+    return FinishTypedAs<LargeBinaryArray, LargeBinaryType>(out);
+  }
 };
 
 /// \class LargeStringBuilder
 /// \brief Builder class for large UTF8 strings
 class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
  public:
-  using LargeBinaryBuilder::LargeBinaryBuilder;
+  explicit LargeStringBuilder(MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment)
+      : LargeBinaryBuilder(pool, alignment) {
+    type_ = large_utf8();
+  }
+
+  LargeStringBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : LargeBinaryBuilder(pool) {
+    type_ = ValidateType<LargeStringType>(type);
+  }
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
-  Status Finish(std::shared_ptr<LargeStringArray>* out) { return FinishTyped(out); }
+  Status Finish(std::shared_ptr<LargeStringArray>* out) {
+    return FinishTypedAs<LargeStringArray, LargeStringType>(out);
+  }
 
-  std::shared_ptr<DataType> type() const override { return large_utf8(); }
+  std::shared_ptr<DataType> type() const override { return type_; }
 };
 
 // ----------------------------------------------------------------------
