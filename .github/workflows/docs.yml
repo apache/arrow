@@ -27,6 +27,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/docs.yml'
+      - 'ci/docker/debian-13-cpp.dockerfile'
       - 'cpp/apidoc/**'
       - 'docs/**'
 
@@ -41,7 +42,7 @@ env:
 jobs:
 
   complete:
-    name: AMD64 Debian 12 Complete Documentation
+    name: AMD64 Debian 13 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 150
