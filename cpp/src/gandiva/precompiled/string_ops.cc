@@ -2022,8 +2022,19 @@ gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 actual_text_
   gdv_int32 mod = (return_length - actual_text_len) % fill_actual_text_len;
   gdv_int32 char_len = 0;
   gdv_int32 fill_index = 0;
-  for (gdv_int32 i = 0; i < mod; i++) {
+  for (gdv_int32 i = 0; i < mod && fill_index < fill_text_len; i++) {
+    // step over the glyph the same way utf8_length_ignore_invalid counted it, so the
+    // two stay in sync and the walk never leaves the fill buffer
     char_len = utf8_char_length(fill_text[fill_index]);
+    if (char_len == 0 || fill_index + char_len > fill_text_len) {
+      char_len = 1;
+    }
+    for (gdv_int32 j = 1; j < char_len; ++j) {
+      if ((fill_text[fill_index + j] & 0xC0) != 0x80) {
+        char_len = j;
+        break;
+      }
+    }
     fill_index += char_len;
     return_char_length += char_len;
   }
