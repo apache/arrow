@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include "arrow/testing/gtest_util.h"
 
 #include "arrow/json/json_writer_internal.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace sj = simdjson::ondemand;
 
@@ -180,8 +180,11 @@ TEST(JsonWriter, WriteValueSimpleObject) {
   sj::document doc;
   ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
 
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
   JsonWriter writer;
-  ASSERT_OK(writer.WriteValue(doc));
+  ASSERT_OK(writer.WriteValue(value));
 
   EXPECT_EQ(writer.GetString(), R"({"a":42,"b":"hello"})");
 }
@@ -194,8 +197,11 @@ TEST(JsonWriter, WriteValueNestedObject) {
   sj::document doc;
   ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
 
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
   JsonWriter writer;
-  ASSERT_OK(writer.WriteValue(doc));
+  ASSERT_OK(writer.WriteValue(value));
 
   EXPECT_EQ(writer.GetString(), R"({"child":{"x":true}})");
 }
@@ -208,8 +214,11 @@ TEST(JsonWriter, WriteValueObjectWithArray) {
   sj::document doc;
   ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
 
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
   JsonWriter writer;
-  ASSERT_OK(writer.WriteValue(doc));
+  ASSERT_OK(writer.WriteValue(value));
 
   EXPECT_EQ(writer.GetString(), R"({"values":[1,2,3]})");
 }
@@ -223,8 +232,11 @@ TEST(JsonWriter, WriteValueComplexObject) {
   sj::document doc;
   ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
 
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
   JsonWriter writer;
-  ASSERT_OK(writer.WriteValue(doc));
+  ASSERT_OK(writer.WriteValue(value));
 
   EXPECT_EQ(
       writer.GetString(),
@@ -239,8 +251,11 @@ TEST(JsonWriter, WriteValueEmptyObject) {
   sj::document doc;
   ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
 
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
   JsonWriter writer;
-  ASSERT_OK(writer.WriteValue(doc));
+  ASSERT_OK(writer.WriteValue(value));
 
   EXPECT_EQ(writer.GetString(), "{}");
 }

@@ -180,25 +180,27 @@ Status JsonWriter::WriteValue(sj::value value) {
     }
 
     case sj::json_type::number: {
-      int64_t int_value;
-      if (value.get_int64().get(int_value) == simdjson::SUCCESS) {
-        Int64(int_value);
-        break;
+      sj::number number;
+      if (auto error = value.get_number().get(number); error != simdjson::SUCCESS) {
+        return Status::Invalid("Failed to convert JSON number: ",
+                               simdjson::error_message(error));
       }
 
-      uint64_t uint_value;
-      if (value.get_uint64().get(uint_value) == simdjson::SUCCESS) {
-        Uint64(uint_value);
-        break;
+      switch (number.get_number_type()) {
+        case sj::number_type::signed_integer:
+          Int64(number.get_int64());
+          break;
+
+        case sj::number_type::unsigned_integer:
+          Uint64(number.get_uint64());
+          break;
+
+        case sj::number_type::floating_point_number:
+          Double(number.get_double());
+          break;
       }
 
-      double double_value;
-      if (value.get_double().get(double_value) == simdjson::SUCCESS) {
-        Double(double_value);
-        break;
-      }
-
-      return Status::Invalid("Failed to convert JSON number");
+      break;
     }
 
     case sj::json_type::unknown: {
