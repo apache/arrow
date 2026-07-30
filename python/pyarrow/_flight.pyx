@@ -2883,8 +2883,6 @@ cdef class _FlightServerFinalizer(_Weakrefable):
         try:
             with nogil:
                 status = server.Shutdown()
-                if status.ok():
-                    status = server.Wait()
             check_flight_status(status)
         finally:
             server.ReleasePythonServerRef()
