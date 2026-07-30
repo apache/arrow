@@ -1217,9 +1217,6 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         """
         cdef int64_t nrows
 
-        if not self.reader:
-            raise ValueError("Operation on closed reader")
-
         with nogil:
             nrows = GetResultValue(self.reader.get().CountRows())
 
