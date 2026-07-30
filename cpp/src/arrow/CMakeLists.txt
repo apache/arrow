@@ -61,6 +61,12 @@ if(ARROW_WITH_LZ4)
   endif()
 endif()
 
+if(ARROW_WITH_SIMDJSON)
+  if(simdjson_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS simdjson::simdjson)
+  endif()
+endif()
+
 if(ARROW_WITH_SNAPPY)
   if(Snappy_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
