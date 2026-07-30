@@ -1502,6 +1502,20 @@ TEST(TestGdvFnStubs, TestMask) {
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "\?", 1, "*", 1, "#",
                                     1, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
+
+  // A replacement length that overflows int32 when multiplied by the input
+  // length must be rejected instead of under-allocating the output buffer.
+  std::string big_data(65536, 'A');
+  std::string big_repl(65537, 'Z');
+  data_len = static_cast<int32_t>(big_data.length());
+  out_len = -1;
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, big_data.c_str(), data_len, big_repl.c_str(),
+                                    static_cast<int32_t>(big_repl.length()), "x", 1, "n",
+                                    1, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
