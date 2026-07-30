@@ -465,11 +465,11 @@ class FileWriterImpl : public FileWriter {
     // Whether the current row group reached the row count or byte size limit.
     auto row_group_full = [&]() {
       return row_group_writer_->num_rows() >= max_row_group_length ||
-             (row_group_size_limited && 
-              row_group_writer_->total_compressed_bytes() + 
-              row_group_writer_->total_compressed_bytes_written() +
-              row_group_writer_->estimated_buffered_stats().dict_bytes
-              >= max_row_group_size);
+             (row_group_size_limited &&
+              row_group_writer_->total_compressed_bytes() +
+                      row_group_writer_->total_compressed_bytes_written() +
+                      row_group_writer_->estimated_buffered_stats().dict_bytes >=
+                  max_row_group_size);
     };
 
     // Initialize a new buffered row group writer if necessary.
