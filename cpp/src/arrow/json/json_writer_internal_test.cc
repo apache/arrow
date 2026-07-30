@@ -16,9 +16,11 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include "arrow/testing/gtest_util.h"
 
 #include "arrow/json/json_writer_internal.h"
-#include "arrow/testing/gtest_util.h"
+
+namespace sj = simdjson::ondemand;
 
 namespace arrow::json {
 
@@ -168,6 +170,79 @@ TEST(JsonWriter, StringWithExplicitLength) {
   ASSERT_OK_AND_ASSIGN(std::string_view json, writer.GetString());
 
   EXPECT_EQ(json, R"({"value":"abc"})");
+}
+
+TEST(JsonWriter, WriteValueSimpleObject) {
+  sj::parser parser;
+  std::string json_str = R"({"a":42,"b":"hello"})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(doc));
+
+  EXPECT_EQ(writer.GetString(), R"({"a":42,"b":"hello"})");
+}
+
+TEST(JsonWriter, WriteValueNestedObject) {
+  sj::parser parser;
+  std::string json_str = R"({"child":{"x":true}})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(doc));
+
+  EXPECT_EQ(writer.GetString(), R"({"child":{"x":true}})");
+}
+
+TEST(JsonWriter, WriteValueObjectWithArray) {
+  sj::parser parser;
+  std::string json_str = R"({"values":[1,2,3]})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(doc));
+
+  EXPECT_EQ(writer.GetString(), R"({"values":[1,2,3]})");
+}
+
+TEST(JsonWriter, WriteValueComplexObject) {
+  sj::parser parser;
+  std::string json_str =
+      R"({"name":"arrow","version":1,"enabled":true,"values":[1,2.5,null,{"nested":[false,{"x":10}]}]})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(doc));
+
+  EXPECT_EQ(
+      writer.GetString(),
+      R"({"name":"arrow","version":1,"enabled":true,"values":[1,2.5,null,{"nested":[false,{"x":10}]}]})");
+}
+
+TEST(JsonWriter, WriteValueEmptyObject) {
+  sj::parser parser;
+  std::string json_str = "{}";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(doc));
+
+  EXPECT_EQ(writer.GetString(), "{}");
 }
 
 }  // namespace arrow::json

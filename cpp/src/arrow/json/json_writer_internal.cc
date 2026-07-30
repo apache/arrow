@@ -19,6 +19,8 @@
 
 namespace arrow::json {
 
+namespace sj = simdjson::ondemand;
+
 void JsonWriter::StartObject() {
   MaybeComma();
   builder_.start_object();
@@ -94,6 +96,117 @@ void JsonWriter::Double(double value) {
   MaybeComma();
   builder_.append(value);
   needs_comma_ = true;
+}
+
+Status JsonWriter::WriteValue(sj::value value) {
+  sj::json_type type;
+  if (auto error = value.type().get(type); error != simdjson::SUCCESS) {
+    return Status::Invalid(simdjson::error_message(error));
+  }
+
+  switch (type) {
+    case sj::json_type::object: {
+      StartObject();
+
+      sj::object object;
+      if (auto error = value.get_object().get(object); error != simdjson::SUCCESS) {
+        return Status::Invalid(simdjson::error_message(error));
+      }
+
+      for (auto field : object) {
+        std::string_view key;
+        if (auto error = field.unescaped_key().get(key); error != simdjson::SUCCESS) {
+          return Status::Invalid(simdjson::error_message(error));
+        }
+
+        Key(key);
+
+        sj::value field_value;
+        if (auto error = field.value().get(field_value); error != simdjson::SUCCESS) {
+          return Status::Invalid(simdjson::error_message(error));
+        }
+
+        RETURN_NOT_OK(WriteValue(field_value));
+      }
+
+      EndObject();
+      break;
+    }
+
+    case sj::json_type::array: {
+      StartArray();
+
+      sj::array array;
+      if (auto error = value.get_array().get(array); error != simdjson::SUCCESS) {
+        return Status::Invalid(simdjson::error_message(error));
+      }
+
+      for (auto element : array) {
+        sj::value element_value;
+        if (auto error = element.get(element_value); error != simdjson::SUCCESS) {
+          return Status::Invalid(simdjson::error_message(error));
+        }
+
+        RETURN_NOT_OK(WriteValue(element_value));
+      }
+
+      EndArray();
+      break;
+    }
+
+    case sj::json_type::string: {
+      std::string_view string_value;
+      if (auto error = value.get_string().get(string_value); error != simdjson::SUCCESS) {
+        return Status::Invalid(simdjson::error_message(error));
+      }
+
+      String(string_value);
+      break;
+    }
+
+    case sj::json_type::boolean: {
+      bool bool_value;
+      if (auto error = value.get_bool().get(bool_value); error != simdjson::SUCCESS) {
+        return Status::Invalid(simdjson::error_message(error));
+      }
+
+      Bool(bool_value);
+      break;
+    }
+
+    case sj::json_type::null: {
+      Null();
+      break;
+    }
+
+    case sj::json_type::number: {
+      int64_t int_value;
+      if (value.get_int64().get(int_value) == simdjson::SUCCESS) {
+        Int64(int_value);
+        break;
+      }
+
+      uint64_t uint_value;
+      if (value.get_uint64().get(uint_value) == simdjson::SUCCESS) {
+        Uint64(uint_value);
+        break;
+      }
+
+      double double_value;
+      if (value.get_double().get(double_value) == simdjson::SUCCESS) {
+        Double(double_value);
+        break;
+      }
+
+      return Status::Invalid("Failed to convert JSON number");
+    }
+
+    case sj::json_type::unknown: {
+      return Status::Invalid("Unknown JSON type");
+    }
+  }
+
+  return Status::OK();
 }
 
 void JsonWriter::Null() {
