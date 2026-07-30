@@ -509,6 +509,7 @@ odbcinst -u -d -n "Apache Arrow Flight SQL ODBC Driver"
 %files -n %{name}%{so_version}-flight-sql-odbc-libs
 %defattr(-,root,root,-)
 %doc README.md
+%doc cpp/src/arrow/flight/sql/odbc/connection-options.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/arrow/flight/sql/odbc/arrow-flight-sql-odbc-template.ini
 %{_libdir}/libarrow_flight_sql_odbc.so.*
@@ -526,6 +527,7 @@ Libraries and header files for Apache Arrow Flight SQL ODBC driver.
 %files flight-sql-odbc-devel
 %defattr(-,root,root,-)
 %doc README.md
+%doc cpp/src/arrow/flight/sql/odbc/connection-options.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/sql/odbc/
 %{_libdir}/cmake/ArrowFlightSqlOdbc/
