@@ -87,7 +87,8 @@ std::string FileSystemKeyMaterialStore::BuildKeyMaterialMapJson() {
     writer.StringField(it.first, it.second);
   }
   writer.EndObject();
-  return std::string(writer.GetString());
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
+  return std::string(json);
 }
 
 void FileSystemKeyMaterialStore::SaveMaterial() {

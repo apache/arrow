@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string_view>
+
 #include "arrow/json/json_writer_internal.h"
 #include "arrow/json/object_parser.h"
 
@@ -163,7 +165,8 @@ std::string KeyMaterial::SerializeToJson(
   }
 
   json_writer.EndObject();
-  return std::string(json_writer.GetString());
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, json_writer.GetString());
+  return std::string(json);
 }
 
 }  // namespace parquet::encryption
