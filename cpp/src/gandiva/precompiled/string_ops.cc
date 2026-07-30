@@ -1960,11 +1960,11 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
   // limit, while avoiding a second pass over the input in the common case.
   //   - No replacement possible, or the result can only shrink/stay equal:
   //     text_len is a safe exact-or-upper bound, no scan.
-  //   - Small expansion (replacement at most ~2x the match): use an O(1) upper
-  //     bound that assumes every position matches. This over-allocates by at
-  //     most ~text_len bytes but skips the match-counting scan entirely.
-  //   - Large expansion: that upper bound could be many times the input for
-  //     sparse matches, so count non-overlapping matches for the exact size.
+  //   - Bounded-ratio expansion (per-match growth <= match length, upper bound
+  //     fits within kMaxEagerAllocBytes): use an O(1) upper bound that assumes
+  //     every position matches, skipping the match-counting scan.
+  //   - Otherwise: count non-overlapping matches for the exact output size.
+  static constexpr gdv_int64 kMaxEagerAllocBytes = 32 * 1024 * 1024;  // 32 MB
   gdv_int64 max_length;
   if (from_str_len <= 0 || from_str_len > text_len || to_str_len <= from_str_len) {
     max_length = text_len;
@@ -1972,7 +1972,7 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
     gdv_int32 delta = to_str_len - from_str_len;  // > 0
     gdv_int64 upper_bound = static_cast<gdv_int64>(text_len) +
                             (static_cast<gdv_int64>(text_len) / from_str_len) * delta;
-    if (delta <= from_str_len && upper_bound <= INT_MAX) {
+    if (delta <= from_str_len && upper_bound <= kMaxEagerAllocBytes) {
       max_length = upper_bound;
     } else {
       gdv_int64 num_matches = 0;
