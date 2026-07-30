@@ -150,7 +150,12 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   bool Equals(const std::shared_ptr<DataType>& other, bool check_metadata = false) const;
 
   /// \brief Return the child field at index i.
-  const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
+  ///
+  /// Returns a null shared_ptr if index is out of bounds [0, num_fields()).
+  const std::shared_ptr<Field>& field(int i) const {
+    static const std::shared_ptr<Field> kNullField;
+    return (i < 0 || i >= num_fields()) ? kNullField : children_[i];
+  }
 
   /// \brief Return the children fields associated with this type.
   const FieldVector& fields() const { return children_; }
