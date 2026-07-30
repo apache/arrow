@@ -1547,6 +1547,7 @@ services:
       LANG: "C.UTF-8"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
+      simdjson_SOURCE: "BUNDLED"
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
       PYTEST_RST_ARGS: "--doctest-glob=*.rst"
     volumes: *conda-volumes
@@ -1912,6 +1913,7 @@ services:
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
+      simdjson_SOURCE: "BUNDLED"
     volumes: *debian-volumes
     command: >
       /bin/bash -c "
