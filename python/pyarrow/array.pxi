@@ -5154,6 +5154,52 @@ cdef class Bool8Array(ExtensionArray):
         return Bool8Array.from_storage(storage_arr)
 
 
+cdef class RangeArray(ExtensionArray):
+    """
+    Concrete class for range extension arrays.
+
+    Examples
+    --------
+    Define the extension type for a range array
+
+    >>> import pyarrow as pa
+    >>> range_type = pa.range_(pa.int32(), "both")
+
+    Create an extension array
+
+    >>> storage = pa.array(
+    ...     [{"lower": 1, "upper": 5}, {"lower": None, "upper": 10}],
+    ...     range_type.storage_type,
+    ... )
+    >>> arr = pa.ExtensionArray.from_storage(range_type, storage)
+    >>> isinstance(arr, pa.RangeArray)
+    True
+    """
+
+
+cdef class RangeIncArray(ExtensionArray):
+    """
+    Concrete class for range_inc extension arrays.
+
+    Examples
+    --------
+    Define the extension type for a range_inc array
+
+    >>> import pyarrow as pa
+    >>> range_inc_type = pa.range_inc(pa.float64())
+
+    Create an extension array
+
+    >>> storage = pa.array(
+    ...     [{"lower": 1.0, "upper": 5.0, "lower_inc": True, "upper_inc": False}],
+    ...     range_inc_type.storage_type,
+    ... )
+    >>> arr = pa.ExtensionArray.from_storage(range_inc_type, storage)
+    >>> isinstance(arr, pa.RangeIncArray)
+    True
+    """
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,
