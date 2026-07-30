@@ -132,41 +132,42 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
 
 // Helper: invoke formatter callback, copy result to ret, handle errors.
 // Used by date64 and float types that rely on arrow::internal::StringFormatter.
-#define GDV_FN_CAST_VARLEN_FORMATTER_SUFFIX                                     \
-  arrow::Status status = formatter(value, [&](std::string_view v) {             \
-    int64_t size = static_cast<int64_t>(v.size());                              \
-    *out_len = static_cast<int32_t>(len < size ? len : size);                   \
-    memcpy(ret, v.data(), *out_len);                                            \
-    return arrow::Status::OK();                                                 \
-  });                                                                           \
-  if (!status.ok()) {                                                           \
-    std::string err = "Could not cast " + std::to_string(value) + " to string"; \
-    gdv_fn_context_set_error_msg(context, err.c_str());                         \
-    *out_len = 0;                                                               \
-    return "";                                                                  \
-  }                                                                             \
-  return ret;                                                                   \
+// The formatted length is only known inside the callback, so the arena block is
+// allocated there: sizing it from a fixed upper bound guessed at the call site
+// lets the copy below run past the end whenever the formatter emits more than
+// that bound.
+#define GDV_FN_CAST_VARLEN_FORMATTER_SUFFIX                                        \
+  char* ret = nullptr;                                                             \
+  arrow::Status status = formatter(value, [&](std::string_view v) {                \
+    int64_t size = static_cast<int64_t>(v.size());                                 \
+    *out_len = static_cast<int32_t>(len < size ? len : size);                      \
+    ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len)); \
+    if (ret == nullptr) {                                                          \
+      return arrow::Status::OutOfMemory("Could not allocate memory");              \
+    }                                                                              \
+    memcpy(ret, v.data(), *out_len);                                               \
+    return arrow::Status::OK();                                                    \
+  });                                                                              \
+  if (!status.ok() || ret == nullptr) {                                            \
+    std::string err = "Could not cast " + std::to_string(value) + " to string";    \
+    gdv_fn_context_set_error_msg(context, err.c_str());                            \
+    *out_len = 0;                                                                  \
+    return "";                                                                     \
+  }                                                                                \
+  return ret;                                                                      \
   }
 
-// Macro for date64 type. Output is always "YYYY-MM-DD" = 10 chars max.
-#define GDV_FN_CAST_VARLEN_TYPE_FROM_DATE64(IN_TYPE, CAST_NAME, ARROW_TYPE)  \
-  GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                              \
-  constexpr int32_t max_date_str_len = 10;                                   \
-  int32_t alloc_len =                                                        \
-      static_cast<int32_t>(len < max_date_str_len ? len : max_date_str_len); \
-  GDV_FN_CAST_VARLEN_ALLOC(alloc_len)                                        \
-  arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;             \
+// Macro for date64 type. Out-of-range values format as a diagnostic string that
+// is much longer than "YYYY-MM-DD", so the output size comes from the formatter.
+#define GDV_FN_CAST_VARLEN_TYPE_FROM_DATE64(IN_TYPE, CAST_NAME, ARROW_TYPE) \
+  GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                             \
+  arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;            \
   GDV_FN_CAST_VARLEN_FORMATTER_SUFFIX
 
 // Macro for float types (float32/float64). Uses Java-compatible formatting.
-// Max string: "-1.2345678901234567E-308" = 24 chars.
-#define GDV_FN_CAST_VARLEN_TYPE_FROM_REAL(IN_TYPE, CAST_NAME, ARROW_TYPE)    \
-  GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                              \
-  constexpr int32_t max_real_str_len = 24;                                   \
-  int32_t alloc_len =                                                        \
-      static_cast<int32_t>(len < max_real_str_len ? len : max_real_str_len); \
-  GDV_FN_CAST_VARLEN_ALLOC(alloc_len)                                        \
-  gandiva::GdvStringFormatter<arrow::ARROW_TYPE> formatter;                  \
+#define GDV_FN_CAST_VARLEN_TYPE_FROM_REAL(IN_TYPE, CAST_NAME, ARROW_TYPE) \
+  GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                           \
+  gandiva::GdvStringFormatter<arrow::ARROW_TYPE> formatter;               \
   GDV_FN_CAST_VARLEN_FORMATTER_SUFFIX
 
 // Use optimized integer macro for int32/int64, date64 macro, and real macro for floats
