@@ -105,8 +105,12 @@ void JsonWriter::Null() {
 Result<std::string_view> JsonWriter::GetString() const {
   std::string_view view;
   if (auto error = builder_.view().get(view); error != simdjson::SUCCESS) {
-    return Status::OutOfMemory(
-        "OutOfMemory when allocating buffer to serialize json to string");
+    if (error == simdjson::OUT_OF_CAPACITY) {
+      return Status::OutOfMemory(
+          "OutOfMemory when allocating buffer to serialize json to string");
+    }
+    return Status::Invalid("Failed to retrieve json from string builder: ",
+                           simdjson::error_message(error));
   }
   return view;
 }
