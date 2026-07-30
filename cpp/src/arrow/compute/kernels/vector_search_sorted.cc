@@ -684,8 +684,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return FindNonNullValuesRangeFromNullCount(
         values.length, null_count, [&](int64_t index) {
           const auto physical_index =
-              ree_util::FindPhysicalIndex(values_span, index, values_span.offset);
-          return ree_util::ValuesArray(values_span).IsNull(physical_index);
+              ::arrow::ree_util::FindPhysicalIndex(values_span, index, values_span.offset);
+          return ::arrow::ree_util::ValuesArray(values_span).IsNull(physical_index);
         });
   }
 
