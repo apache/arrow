@@ -101,7 +101,7 @@ class SimpleTable : public Table {
 
   std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const override {
     auto sliced = columns_;
-    int64_t num_rows = length;
+    int64_t num_rows = std::max<int64_t>(0, std::min(length, this->num_rows() - offset));
     for (auto& column : sliced) {
       column = column->Slice(offset, length);
       num_rows = column->length();
