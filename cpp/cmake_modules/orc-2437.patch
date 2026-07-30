@@ -1,0 +1,104 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+diff --git a/cmake_modules/ThirdpartyToolchain.cmake b/cmake_modules/ThirdpartyToolchain.cmake
+index c03afa8f29..e8cfb85aa1 100644
+--- a/cmake_modules/ThirdpartyToolchain.cmake
++++ b/cmake_modules/ThirdpartyToolchain.cmake
+@@ -172,6 +172,12 @@ elseif (ORC_PACKAGE_KIND STREQUAL "vcpkg")
+   list (APPEND ORC_SYSTEM_DEPENDENCIES Protobuf)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:protobuf::libprotobuf>")
+   set (PROTOBUF_EXECUTABLE protobuf::protoc)
++elseif (TARGET ${ARROW_PROTOBUF_LIBPROTOBUF})
++  # Used by Apache Arrow only, remove this once Arrow leverages FetchContent for Protobuf
++  add_library (orc_protobuf INTERFACE IMPORTED)
++  target_link_libraries(orc_protobuf INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
++  set (PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
++  message(STATUS "Using existing ${ARROW_PROTOBUF_LIBPROTOBUF}")
+ elseif (NOT "${PROTOBUF_HOME}" STREQUAL "")
+   find_package (ProtobufAlt REQUIRED)
+ 
+@@ -181,12 +187,6 @@ elseif (NOT "${PROTOBUF_HOME}" STREQUAL "")
+     orc_add_resolved_library (orc_protobuf ${PROTOBUF_LIBRARY} ${PROTOBUF_INCLUDE_DIR})
+   endif ()
+ 
+-  if (ORC_PREFER_STATIC_PROTOBUF AND PROTOC_STATIC_LIB)
+-    orc_add_resolved_library (orc_protoc ${PROTOC_STATIC_LIB} ${PROTOBUF_INCLUDE_DIR})
+-  else ()
+-    orc_add_resolved_library (orc_protoc ${PROTOC_LIBRARY} ${PROTOBUF_INCLUDE_DIR})
+-  endif ()
+-
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ProtobufAlt)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:protobuf::libprotobuf>")
+   orc_provide_find_module (ProtobufAlt)
+@@ -245,9 +245,7 @@ else ()
+ 
+     add_library(orc_protobuf INTERFACE IMPORTED)
+     target_link_libraries(orc_protobuf INTERFACE protobuf::libprotobuf)
+-    if(NOT PROTOBUF_EXECUTABLE)
+-      set(PROTOBUF_EXECUTABLE protobuf::protoc)
+-    endif()
++    set(PROTOBUF_EXECUTABLE protobuf::protoc)
+   endblock()
+ endif ()
+ 
+@@ -277,6 +275,16 @@ elseif (NOT "${SNAPPY_HOME}" STREQUAL "")
+   list (APPEND ORC_SYSTEM_DEPENDENCIES SnappyAlt)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:Snappy::snappy>")
+   orc_provide_find_module (SnappyAlt)
++elseif (TARGET Snappy::snappy)
++  # Used by Apache Arrow only, remove this once Arrow leverages FetchContent for Snappy
++  add_library (orc_snappy INTERFACE IMPORTED)
++  target_link_libraries(orc_snappy INTERFACE Snappy::snappy)
++  message(STATUS "Using existing Snappy::snappy")
++elseif (TARGET Snappy::snappy-static)
++  # Used by Apache Arrow only, remove this once Arrow leverages FetchContent for Snappy
++  add_library (orc_snappy INTERFACE IMPORTED)
++  target_link_libraries(orc_snappy INTERFACE Snappy::snappy-static)
++  message(STATUS "Using existing Snappy::snappy-static")
+ else ()
+   block(PROPAGATE ORC_SYSTEM_DEPENDENCIES ORC_INSTALL_INTERFACE_TARGETS)
+     prepare_fetchcontent()
+@@ -359,6 +367,11 @@ elseif (NOT "${ZLIB_HOME}" STREQUAL "")
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ZLIBAlt)
+   list (APPEND ORC_INSTALL_INTERFACE_TARGETS "$<INSTALL_INTERFACE:ZLIB::ZLIB>")
+   orc_provide_find_module (ZLIBAlt)
++elseif (TARGET ZLIB::ZLIB)
++  # Used by Apache Arrow only, remove this once Arrow leverages FetchContent for ZLIB
++  add_library (orc_zlib INTERFACE IMPORTED)
++  target_link_libraries(orc_zlib INTERFACE ZLIB::ZLIB)
++  message(STATUS "Using existing ZLIB::ZLIB")
+ else ()
+   block(PROPAGATE ORC_SYSTEM_DEPENDENCIES ORC_INSTALL_INTERFACE_TARGETS ZLIB_LIBRARIES ZLIB_INCLUDE_DIRS)
+     prepare_fetchcontent()
+@@ -450,6 +463,16 @@ elseif (NOT "${ZSTD_HOME}" STREQUAL "")
+   endif ()
+   list (APPEND ORC_SYSTEM_DEPENDENCIES ZSTDAlt)
+   orc_provide_find_module (ZSTDAlt)
++elseif (TARGET zstd::libzstd_shared)
++  # Used by Apache Arrow only, remove this once Arrow leverages FetchContent for zstd
++  add_library (orc_zstd INTERFACE IMPORTED)
++  target_link_libraries(orc_zstd INTERFACE zstd::libzstd_shared)
++  message(STATUS "Using existing zstd::libzstd_shared")
++elseif (TARGET zstd::libzstd_static)
++  # Used by Apache Arrow only, remove this once Arrow leverages FetchContent for zstd
++  add_library (orc_zstd INTERFACE IMPORTED)
++  target_link_libraries(orc_zstd INTERFACE zstd::libzstd_static)
++  message(STATUS "Using existing zstd::libzstd_static")
+ else ()
+   block(PROPAGATE ORC_SYSTEM_DEPENDENCIES ORC_INSTALL_INTERFACE_TARGETS)
+     prepare_fetchcontent()
