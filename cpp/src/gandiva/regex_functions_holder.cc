@@ -212,8 +212,8 @@ void ReplaceHolder::return_error(ExecutionContext* context, std::string& data,
 }
 
 Result<std::shared_ptr<ExtractHolder>> ExtractHolder::Make(const FunctionNode& node) {
-  ARROW_RETURN_IF(node.children().size() != 3,
-                  Status::Invalid("'extract' function requires three parameters"));
+  ARROW_RETURN_IF(node.children().size() != 2 && node.children().size() != 3,
+                  Status::Invalid("'extract' function requires two or three parameters"));
 
   auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
   ARROW_RETURN_IF(
