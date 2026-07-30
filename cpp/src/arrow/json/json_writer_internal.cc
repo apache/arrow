@@ -102,7 +102,13 @@ void JsonWriter::Null() {
   needs_comma_ = true;
 }
 
-std::string_view JsonWriter::GetString() const { return builder_.view().value(); }
+std::string_view JsonWriter::GetString() const {
+  std::string_view view;
+  if (builder_.view().get(view) != simdjson::SUCCESS) {
+    return {};
+  }
+  return view;
+}
 
 void JsonWriter::Clear() {
   builder_.clear();
