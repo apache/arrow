@@ -64,6 +64,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARROW_ENABLE_TIMING_TESTS: OFF
+  DOCKER_VOLUME_PREFIX: ".docker/"
+
 jobs:
   check-labels:
     uses: ./.github/workflows/check_labels.yml
@@ -122,10 +127,6 @@ jobs:
               -e CMAKE_CXX_STANDARD=23
             runs-on: ubuntu-latest
             title: AMD64 Debian C++23
-    env:
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
