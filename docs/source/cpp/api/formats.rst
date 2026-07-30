@@ -70,6 +70,18 @@ Line-separated JSON
 .. doxygenclass:: arrow::json::StreamingReader
    :members:
 
+JSON writer
+===========
+
+.. doxygenstruct:: arrow::json::WriteOptions
+   :members:
+
+.. doxygengroup:: json-write-functions
+   :content-only:
+
+.. doxygengroup:: json-writer-factories
+   :content-only:
+
 .. _cpp-api-parquet:
 
 Parquet reader

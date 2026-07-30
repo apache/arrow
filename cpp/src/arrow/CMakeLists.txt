@@ -1043,7 +1043,8 @@ if(ARROW_JSON)
                            json/json_writer_internal.cc
                            json/object_parser.cc
                            json/parser.cc
-                           json/reader.cc)
+                           json/reader.cc
+                           json/writer.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})
     target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON arrow::simdjson)
   endforeach()
