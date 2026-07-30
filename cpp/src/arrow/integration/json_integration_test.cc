@@ -732,7 +732,7 @@ void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
   ASSERT_OK(json::WriteSchema(*schema, mapper, &writer));
   writer.EndObject();
 
-  std::string json_schema(writer.GetString());
+  ASSERT_OK_AND_ASSIGN(std::string_view json_schema, writer.GetString());
 
   rj::Document d;
   // Pass explicit size to avoid ASAN issues with
@@ -752,7 +752,7 @@ void TestArrayRoundTrip(const Array& array) {
 
   ASSERT_OK(json::WriteArray(name, array, &writer));
 
-  std::string array_as_json(writer.GetString());
+  ASSERT_OK_AND_ASSIGN(std::string_view array_as_json, writer.GetString());
 
   rj::Document d;
   // Pass explicit size to avoid ASAN issues with
