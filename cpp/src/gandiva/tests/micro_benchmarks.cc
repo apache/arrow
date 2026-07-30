@@ -450,6 +450,29 @@ static void TimedTestExprCompilation(benchmark::State& state) {
   }
 }
 
+static void TimedTestNonBitcodeExprCompilation(benchmark::State& state, bool use_cache) {
+  int32_t iteration = 0;
+  for (auto _ : state) {
+    // schema for input fields
+    double literal_value = use_cache ? 1.0 : static_cast<double>(iteration);
+    auto seed = TreeExprBuilder::MakeLiteral(literal_value);
+    auto schema = arrow::schema({});
+
+    // output field
+    auto field_sin = field("c1", float64());
+
+    // seed is different for each iteration so that cache won't be hit
+    auto sin_func = TreeExprBuilder::MakeFunction("sin", {seed}, float64());
+
+    auto expr_0 = TreeExprBuilder::MakeExpression(sin_func, field_sin);
+
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(schema, {expr_0}, TestConfiguration(), &projector));
+
+    ++iteration;
+  }
+}
+
 static void DecimalAdd2Fast(benchmark::State& state) {
   // use lesser precision to test the fast-path
   DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision - 6, 18);
@@ -490,6 +513,16 @@ static void DecimalAdd3Large(benchmark::State& state) {
   DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18, true);
 }
 
+static void TimedTestNonBitcodeExprCompilationNoCache(benchmark::State& state) {
+  TimedTestNonBitcodeExprCompilation(state, false);
+}
+
+static void TimedTestNonBitcodeExprCompilationWithCache(benchmark::State& state) {
+  TimedTestNonBitcodeExprCompilation(state, true);
+}
+
+BENCHMARK(TimedTestNonBitcodeExprCompilationNoCache)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestNonBitcodeExprCompilationWithCache)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestExprCompilation)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAdd3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->Unit(benchmark::kMicrosecond);

@@ -93,13 +93,17 @@ class GANDIVA_EXPORT Engine {
   // Create a global string as a pointer with "i8*" type.
   llvm::Constant* CreateGlobalStringPtr(const std::string& string);
 
+  Status Init(std::unordered_set<std::string> function_names);
+  Status Init();
+
  private:
+  friend class ExternalCFunctions;
+
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::orc::LLJIT> lljit,
          std::shared_ptr<llvm::TargetMachine> target_machine, bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
-  Status Init();
 
   static void InitOnce();
 
@@ -123,11 +127,31 @@ class GANDIVA_EXPORT Engine {
   LLVMTypes types_;
 
   std::vector<std::string> functions_to_compile_;
+  std::unordered_set<std::string> used_functions_;
+
+  static inline const std::unordered_set<std::string> internal_functions_ = {
+      "gdv_fn_context_arena_malloc",
+      "gdv_fn_context_set_error_msg",
+      "gdv_fn_populate_varlen_vector",
+      "gdv_fn_context_arena_reset",
+      "gdv_fn_in_expr_lookup_int32",
+      "gdv_fn_in_expr_lookup_int64",
+      "gdv_fn_in_expr_lookup_float",
+      "gdv_fn_in_expr_lookup_double",
+      "gdv_fn_in_expr_lookup_decimal",
+      "gdv_fn_in_expr_lookup_utf8",
+
+      "bitMapGetBit",
+      "bitMapSetBit",
+      "bitMapValidityGetBit",
+      "bitMapClearBitIfFalse",
+  };
 
   bool optimize_ = true;
   bool module_finalized_ = false;
   bool cached_;
   bool functions_loaded_ = false;
+  bool selective_mapping_enabled_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
   std::string module_ir_;
   // The lifetime of the TargetMachine is shared with LLJIT. This prevents unnecessary

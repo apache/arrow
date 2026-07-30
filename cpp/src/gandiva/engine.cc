@@ -346,10 +346,20 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 
 Engine::~Engine() {}
 
-Status Engine::Init() {
+Status Engine::Init(std::unordered_set<std::string> function_names) {
+  used_functions_ = std::move(function_names);
+  selective_mapping_enabled_ = true;
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
 
   // Add mappings for global functions that can be accessed from LLVM/IR module.
+  ARROW_RETURN_NOT_OK(AddGlobalMappings());
+  selective_mapping_enabled_ = false;
+  used_functions_.clear();
+  return Status::OK();
+}
+
+Status Engine::Init() {
+  std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
   ARROW_RETURN_NOT_OK(AddGlobalMappings());
   return Status::OK();
 }
@@ -599,6 +609,10 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
+  auto* existing = module()->getFunction(name);
+  if (existing != nullptr) {
+    return;
+  }
   const auto prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
   AddAbsoluteSymbol(*lljit_, name, func);
