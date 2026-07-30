@@ -1084,6 +1084,29 @@ TEST(TestGdvFnStubs, TestMaskFirstN) {
   expected = "";
   result = gdv_mask_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
+
+  // Truncated 2-byte, 3-byte, and 4-byte UTF-8 sequences must report an error safely without OOB read
+  const char trunc2[] = {'a', static_cast<char>(0xC2)};
+  ctx.Reset();
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, trunc2, 2, 2, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  const char trunc3[] = {'a', static_cast<char>(0xE2), static_cast<char>(0x82)};
+  ctx.Reset();
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, trunc3, 3, 2, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  const char trunc4[] = {'a', static_cast<char>(0xF0), static_cast<char>(0x9F),
+                         static_cast<char>(0x98)};
+  ctx.Reset();
+  result = gdv_mask_first_n_utf8_int32(ctx_ptr, trunc4, 4, 2, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
 }
 
 TEST(TestGdvFnStubs, TestMaskLastN) {
@@ -1149,6 +1172,29 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   expected = "";
   result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
+
+  // Truncated 2-byte, 3-byte, and 4-byte UTF-8 sequences must report an error safely without OOB read
+  const char trunc2[] = {'a', static_cast<char>(0xC2)};
+  ctx.Reset();
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, trunc2, 2, 2, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  const char trunc3[] = {'a', static_cast<char>(0xE2), static_cast<char>(0x82)};
+  ctx.Reset();
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, trunc3, 3, 2, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  const char trunc4[] = {'a', static_cast<char>(0xF0), static_cast<char>(0x9F),
+                         static_cast<char>(0x98)};
+  ctx.Reset();
+  result = gdv_mask_last_n_utf8_int32(ctx_ptr, trunc4, 4, 2, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
 }
 
 TEST(TestGdvFnStubs, TestTranslate) {
@@ -1502,6 +1548,29 @@ TEST(TestGdvFnStubs, TestMask) {
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "\?", 1, "*", 1, "#",
                                     1, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
+
+  // Truncated 2-byte, 3-byte, and 4-byte UTF-8 sequences must report an error safely without OOB read
+  const char trunc2[] = {'a', static_cast<char>(0xC2)};
+  ctx.Reset();
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, trunc2, 2, "X", 1, "x", 1, "n", 1, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  const char trunc3[] = {'a', static_cast<char>(0xE2), static_cast<char>(0x82)};
+  ctx.Reset();
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, trunc3, 3, "X", 1, "x", 1, "n", 1, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  const char trunc4[] = {'a', static_cast<char>(0xF0), static_cast<char>(0x9F),
+                         static_cast<char>(0x98)};
+  ctx.Reset();
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, trunc4, 4, "X", 1, "x", 1, "n", 1, &out_len);
+  EXPECT_EQ(result, nullptr);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
