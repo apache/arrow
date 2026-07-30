@@ -260,4 +260,28 @@ TEST(JsonWriter, WriteValueEmptyObject) {
   EXPECT_EQ(writer.GetString(), "{}");
 }
 
+TEST(JsonWriter, WriteValueAllNumberTypes) {
+  sj::parser parser;
+  std::string json_str = R"({
+    "signed":-42,
+    "unsigned":18446744073709551615,
+    "double":2.5,
+    "big":184467440737095516161234567890
+  })";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  EXPECT_EQ(
+      writer.GetString(),
+      R"({"signed":-42,"unsigned":18446744073709551615,"double":2.5,"big":184467440737095516161234567890})");
+}
+
 }  // namespace arrow::json

@@ -180,13 +180,33 @@ Status JsonWriter::WriteValue(sj::value value) {
     }
 
     case sj::json_type::number: {
+      auto number_type_result = value.get_number_type();
+      sj::number_type number_type;
+      if (auto error = std::move(number_type_result).get(number_type);
+          error != simdjson::SUCCESS) {
+        return Status::Invalid("Failed to determine JSON number type: ",
+                               simdjson::error_message(error));
+      }
+
+      if (number_type == sj::number_type::big_integer) {
+        auto raw_json_result = simdjson::to_json_string(value);
+        std::string_view raw_json;
+        if (auto error = std::move(raw_json_result).get(raw_json);
+            error != simdjson::SUCCESS) {
+          return Status::Invalid("Failed to get raw JSON: ",
+                                 simdjson::error_message(error));
+        }
+        RawValue(raw_json);
+        break;
+      }
+
       sj::number number;
       if (auto error = value.get_number().get(number); error != simdjson::SUCCESS) {
         return Status::Invalid("Failed to convert JSON number: ",
                                simdjson::error_message(error));
       }
 
-      switch (number.get_number_type()) {
+      switch (number_type) {
         case sj::number_type::signed_integer:
           Int64(number.get_int64());
           break;
@@ -197,6 +217,10 @@ Status JsonWriter::WriteValue(sj::value value) {
 
         case sj::number_type::floating_point_number:
           Double(number.get_double());
+          break;
+
+        case sj::number_type::big_integer:
+          // Big integers are handled before calling get_number()
           break;
       }
 
