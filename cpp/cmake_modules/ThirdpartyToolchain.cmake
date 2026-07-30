@@ -384,6 +384,7 @@ endif()
 
 if(ARROW_PARQUET)
   set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
