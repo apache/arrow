@@ -1361,6 +1361,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
   md->Append("Content-Length", ToChars(result.GetContentLength()));
   push("Cache-Control", result.GetCacheControl());
+  push("Content-Encoding", result.GetContentEncoding());
   push("Content-Type", result.GetContentType());
   push("Content-Language", result.GetContentLanguage());
   push("ETag", result.GetETag());
@@ -1379,6 +1380,7 @@ struct ObjectMetadataSetter {
   static std::unordered_map<std::string, Setter> GetSetters() {
     return {{"ACL", CannedACLSetter()},
             {"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
+            {"Content-Encoding", ContentEncodingSetter()},
             {"Content-Type", ContentTypeSetter()},
             {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
             {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
@@ -1415,6 +1417,13 @@ struct ObjectMetadataSetter {
   static Setter ContentTypeSetter() {
     return [](const std::string& str, ObjectRequest* req) {
       req->SetContentType(str);
+      return Status::OK();
+    };
+  }
+
+  static Setter ContentEncodingSetter() {
+    return [](const std::string& str, ObjectRequest* req) {
+      req->SetContentEncoding(str);
       return Status::OK();
     };
   }
