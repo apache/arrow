@@ -57,7 +57,10 @@ std::string OpaqueType::Serialize() const {
 
   writer.EndObject();
 
-  return std::string(writer.GetString());
+  Result<std::string_view> json = writer.GetString();
+  // can only fail in OutOfMemory scenarios
+  ARROW_CHECK_OK(json.status());
+  return std::string(*json);
 }
 
 Result<std::shared_ptr<DataType>> OpaqueType::Deserialize(

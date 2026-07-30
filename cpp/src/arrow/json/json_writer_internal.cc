@@ -102,10 +102,11 @@ void JsonWriter::Null() {
   needs_comma_ = true;
 }
 
-std::string_view JsonWriter::GetString() const {
+Result<std::string_view> JsonWriter::GetString() const {
   std::string_view view;
-  if (builder_.view().get(view) != simdjson::SUCCESS) {
-    return {};
+  if (auto error = builder_.view().get(view); error != simdjson::SUCCESS) {
+    return Status::OutOfMemory(
+        "OutOfMemory when allocating buffer to serialize json to string");
   }
   return view;
 }
