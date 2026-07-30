@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <memory>
 
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
@@ -649,6 +650,20 @@ TEST(TestGdvFnStubs, TestUpper) {
 
   ctx.Reset();
 
+  // Truncated trailing multibyte glyph in an exact-sized buffer (no trailing NUL);
+  // the lead byte claims more bytes than remain. Use new[] so the over-read trips
+  // ASAN instead of landing on std::string's guaranteed terminator.
+  {
+    const int32_t trunc_len = 4;
+    std::unique_ptr<char[]> trunc(new char[trunc_len]{'a', 'b', 'c', '\xc3'});
+    out_str = gdv_fn_upper_utf8(ctx_ptr, trunc.get(), trunc_len, &out_len);
+    EXPECT_EQ(out_len, 0);
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr(
+                    "unexpected byte \\c3 encountered while decoding utf8 string"));
+    ctx.Reset();
+  }
+
   // Max Len Test
   out_len = -1;
   int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
@@ -752,6 +767,19 @@ TEST(TestGdvFnStubs, TestLower) {
                   "unexpected byte \\c3 encountered while decoding utf8 string"));
   ctx.Reset();
 
+  // Truncated trailing 3-byte lead in an exact-sized buffer (no trailing NUL); only
+  // the lead byte is present, so decoding must not read the missing continuation bytes.
+  {
+    const int32_t trunc_len = 4;
+    std::unique_ptr<char[]> trunc(new char[trunc_len]{'a', 'b', 'c', '\xe0'});
+    out_str = gdv_fn_lower_utf8(ctx_ptr, trunc.get(), trunc_len, &out_len);
+    EXPECT_EQ(out_len, 0);
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr(
+                    "unexpected byte \\e0 encountered while decoding utf8 string"));
+    ctx.Reset();
+  }
+
   std::string e(
       "åbÑg\xe0\xa0"
       "åBUå");
@@ -805,7 +833,7 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "{Õhp,Pqśv}Ń+");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, "sɦasasdsɦsd\"sdsdɦ", 19, &out_len);
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "sɦasasdsɦsd\"sdsdɦ", 20, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Sɦasasdsɦsd\"Sdsdɦ");
   EXPECT_FALSE(ctx.has_error());
 
@@ -841,6 +869,19 @@ TEST(TestGdvFnStubs, TestInitCap) {
               ::testing::HasSubstr(
                   "unexpected byte \\c3 encountered while decoding utf8 string"));
   ctx.Reset();
+
+  // Truncated trailing multibyte glyph in an exact-sized buffer (no trailing NUL);
+  // the lead byte claims more bytes than remain and must not be decoded past the end.
+  {
+    const int32_t trunc_len = 4;
+    std::unique_ptr<char[]> trunc(new char[trunc_len]{'a', 'b', 'c', '\xc3'});
+    out_str = gdv_fn_initcap_utf8(ctx_ptr, trunc.get(), trunc_len, &out_len);
+    EXPECT_EQ(out_len, 0);
+    EXPECT_THAT(ctx.get_error(),
+                ::testing::HasSubstr(
+                    "unexpected byte \\c3 encountered while decoding utf8 string"));
+    ctx.Reset();
+  }
 
   // Max Len Test
   out_len = -1;

@@ -276,6 +276,14 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
       continue;
     }
 
+    // A truncated trailing glyph must be rejected before decoding, otherwise
+    // UTF8Decode walks continuation bytes past data[data_len].
+    if (char_len == 0 || i + char_len > data_len) {
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
     // Control reaches here when we encounter a multibyte character
     const auto* in_char = (const uint8_t*)(data + i);
 
@@ -351,6 +359,14 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
         out[out_idx++] = cur;
       }
       continue;
+    }
+
+    // A truncated trailing glyph must be rejected before decoding, otherwise
+    // UTF8Decode walks continuation bytes past data[data_len].
+    if (char_len == 0 || i + char_len > data_len) {
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+      *out_len = 0;
+      return "";
     }
 
     // Control reaches here when we encounter a multibyte character
@@ -570,6 +586,14 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
     }
 
     char_len = gdv_fn_utf8_char_length(data[i]);
+
+    // A truncated trailing glyph must be rejected before decoding, otherwise
+    // UTF8Decode walks continuation bytes past data[data_len].
+    if (char_len == 0 || i + char_len > data_len) {
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
 
     // Control reaches here when we encounter a multibyte character
     const auto* in_char = (const uint8_t*)(data + i);
