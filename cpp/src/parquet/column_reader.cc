@@ -968,52 +968,66 @@ class ValueSinkCursor {
   int64_t capacity_ = 0;
 };
 
-/*********************
- *  ValueSinkBuffer  *
- *********************/
+/********************
+ *  DataSinkBuffer  *
+ ********************/
 
-/// A data sink for decoded values that writes into an Arrow buffer.
 template <typename T>
-class ValueSinkBuffer : private ValueSinkCursor {
+struct BytesCounterForValues {
+  /// Values are always fully written before being read, no need to zero new capacity.
+  static constexpr bool kZeroNewCapacity = false;
+
+  static int64_t bytes_for_values(int64_t nitems) {
+    constexpr auto kValueByteSize = static_cast<int64_t>(sizeof(T));
+    int64_t bytes = -1;
+    if (MultiplyWithOverflow(nitems, kValueByteSize, &bytes)) {
+      throw ParquetException("Total size of items too large");
+    }
+    return bytes;
+  }
+};
+
+/// A base data sink that writes into an Arrow buffer.
+template <typename T, typename BytesCounter = BytesCounterForValues<T>>
+class DataSinkBuffer : private ValueSinkCursor {
  public:
   using value_type = T;
 
   using ValueSinkCursor::capacity;
   using ValueSinkCursor::values_count;
 
-  explicit ValueSinkBuffer(MemoryPool* pool) : values_(AllocateBuffer(pool)) {}
+  explicit DataSinkBuffer(std::shared_ptr<::arrow::ResizableBuffer> buffer)
+      : values_(std::move(buffer)) {}
 
-  value_type* data() const { return values_->mutable_data_as<value_type>(); }
+  bool is_void() const { return values_ == nullptr; }
 
-  void OnNewDictionary(auto& /* decoder */) {}
-
-  /// Decode values contiguously into the sink buffer.
-  [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
-    ReserveValues(batch_size);
-    const auto decoded = decoder.Decode(write_start(), batch_size);
-    set_values_count(values_count() + batch_size);
-    return decoded;
+  value_type* data() const {
+    return is_void() ? nullptr : values_->mutable_data_as<value_type>();
   }
 
-  /// Decode values according to a validity bitmap.
-  ///
-  /// The values are decoded in the buffer where the validity bit is set. The values
-  /// associated to unset bits are skipped and can be set to any arbitrary value.
-  [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
-                                      int32_t null_count, const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset) {
-    ReserveValues(batch_size);
-    const auto decoded = decoder.DecodeSpaced(write_start(), batch_size, null_count,
-                                              valid_bits, valid_bits_offset);
-    set_values_count(values_count() + batch_size);
-    return decoded;
+  /// Erase a range of element from the buffer.
+  void Erase(int64_t start, int64_t end) {
+    if (is_void() || start >= values_count() || start >= end) {
+      return;
+    }
+    const auto last = std::min(end, values_count());
+    const auto count = last - start;
+    std::copy(data() + last, write_start(), data() + start);
+    set_values_count(values_count() - count);
   }
+
+  /// Erase the range of element from the given position to the end.
+  void Erase(int64_t start) { return Erase(start, values_count()); }
 
   /// Transfer ownership of the values already decoded to the caller.
   std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
+    if (is_void()) {
+      return nullptr;
+    }
+
     // TODO should we set values_written to zero?
     auto result = values_;
-    const auto byte_count = bytes_for_values(values_count());
+    const auto byte_count = BytesCounter::bytes_for_values(values_count());
     PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
     values_ = AllocateBuffer(pool);
     reset_capacity();
@@ -1023,14 +1037,19 @@ class ValueSinkBuffer : private ValueSinkCursor {
   /// Exponentially reserve more capacity if needed.
   void ReserveValues(int64_t extra_values) {
     const auto old_capacity = fit_capacity_for_extra(extra_values);
-    if (capacity() > old_capacity) {
-      const auto byte_count = bytes_for_values(capacity());
+    if (capacity() > old_capacity && !is_void()) {
+      const auto byte_count = BytesCounter::bytes_for_values(capacity());
       PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
+      if constexpr (BytesCounter::kZeroNewCapacity) {
+        const auto old_byte_count = BytesCounter::bytes_for_values(old_capacity);
+        std::memset(data() + old_byte_count, 0,
+                    static_cast<std::size_t>(byte_count - old_byte_count));
+      }
     }
   }
 
   void ResetValues() {
-    if (values_count() > 0) {
+    if (values_count() > 0 && !is_void()) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
       ValueSinkCursor::operator=({});
     }
@@ -1047,30 +1066,117 @@ class ValueSinkBuffer : private ValueSinkCursor {
     }
   }
 
- private:
-  std::shared_ptr<::arrow::ResizableBuffer> values_;
-
-  static int64_t bytes_for_values(int64_t nitems) {
-    constexpr auto kValueByteSize = static_cast<int64_t>(sizeof(value_type));
-    int64_t bytes = -1;
-    if (MultiplyWithOverflow(nitems, kValueByteSize, &bytes)) {
-      throw ParquetException("Total size of items too large");
+ protected:
+  /// Decode values contiguously into the sink buffer.
+  template <typename Int>
+  Int ReadFromCallback(auto&& decode, Int batch_size) {
+    if (is_void()) {
+      return {};
     }
-    return bytes;
+
+    ReserveValues(batch_size);
+    const Int decoded = decode();
+    set_values_count(values_count() + decoded);
+    return decoded;
   }
 
   value_type* write_start() { return data() + values_count(); }
+
+ private:
+  std::shared_ptr<::arrow::ResizableBuffer> values_;
+};
+
+/*********************
+ *  ValueSinkBuffer  *
+ *********************/
+
+/// A data sink for decoded values that writes into an Arrow buffer.
+template <typename T>
+class ValueSinkBuffer : public DataSinkBuffer<T> {
+ public:
+  using Base = DataSinkBuffer<T>;
+  using value_type = T;
+
+  explicit ValueSinkBuffer(MemoryPool* pool) : Base(AllocateBuffer(pool)) {}
+
+  void OnNewDictionary(auto& /* decoder */) {}
+
+  /// Decode values contiguously into the sink buffer.
+  [[nodiscard]] int32_t ReadValuesDense(auto& decoder, int32_t batch_size) {
+    return Base::ReadFromCallback(
+        [&, this]() { return decoder.Decode(Base::write_start(), batch_size); },
+        batch_size);
+  }
+
+  /// Decode values according to a validity bitmap.
+  ///
+  /// The values are decoded in the buffer where the validity bit is set. The values
+  /// associated to unset bits are skipped and can be set to any arbitrary value.
+  [[nodiscard]] int32_t ReadValuesSpaced(auto& decoder, int32_t batch_size,
+                                         int32_t null_count, const uint8_t* valid_bits,
+                                         int64_t valid_bits_offset) {
+    return Base::ReadFromCallback(
+        [&, this]() {
+          return decoder.DecodeSpaced(Base::write_start(), batch_size, null_count,
+                                      valid_bits, valid_bits_offset);
+        },
+        batch_size);
+  }
+};
+
+/*********************
+ *  LevelSinkBuffer  *
+ *********************/
+
+/// A data sink for decoded levels in int16_t that writes into an Arrow buffer.
+class LevelSinkBuffer : public DataSinkBuffer<int16_t> {
+ public:
+  using Base = DataSinkBuffer<int16_t>;
+
+  /// Create a noop sink
+  static LevelSinkBuffer MakeVoid() { return LevelSinkBuffer(nullptr); }
+
+  /// Create a stateful sink with an allocated buffer
+  static LevelSinkBuffer MakeAllocated(MemoryPool* pool) {
+    return LevelSinkBuffer(AllocateBuffer(pool));
+  }
+
+  /// Decode levels into the sink buffer.
+  [[nodiscard]] int32_t Decode(auto& decoder, int32_t batch_size) {
+    return Base::ReadFromCallback(
+        [&, this]() { return decoder.Decode(batch_size, Base::write_start()); },
+        batch_size);
+  }
+
+ private:
+  explicit LevelSinkBuffer(auto buffer) : Base(std::move(buffer)) {}
 };
 
 /************************
  *  ValiditySinkBuffer  *
  ************************/
 
+struct BytesCounterForBits {
+  /// Appending bits via read-modify-write may read uniitialized memory.
+  /// Must zero new capacity to avoid Valgrind/MSAN warnings.
+  static constexpr bool kZeroNewCapacity = true;
+
+  static int64_t bytes_for_values(int64_t num_values) {
+    return bit_util::BytesForBits(num_values);
+  }
+};
+
 /// A data sink for a validity bitmap that writes into an Arrow buffer.
-class ValiditySinkBuffer : private ValueSinkCursor {
+class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> {
  public:
-  using ValueSinkCursor::capacity;
-  using ValueSinkCursor::values_count;
+  using Base = DataSinkBuffer<uint8_t, BytesCounterForBits>;
+
+  using Base::data;
+  using Base::is_void;
+  using Base::ReleaseValues;
+  using Base::ReserveValues;
+  using Base::ResetValues;
+  using Base::values_count;
 
   /// Create a noop sink
   static ValiditySinkBuffer MakeVoid() { return ValiditySinkBuffer(nullptr); }
@@ -1078,12 +1184,6 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   /// Create a stateful sink with an allocated buffer
   static ValiditySinkBuffer MakeAllocated(MemoryPool* pool) {
     return ValiditySinkBuffer(AllocateBuffer(pool));
-  }
-
-  bool is_void() const { return values_ == nullptr; }
-
-  uint8_t* data() const {
-    return is_void() ? nullptr : values_->mutable_data_as<uint8_t>();
   }
 
   template <typename Int>
@@ -1098,99 +1198,60 @@ class ValiditySinkBuffer : private ValueSinkCursor {
   /// It re-encodes definition levels as a validity bitmap.
   ReadResult<int64_t> ReadFromDefLevels(const int16_t* def_levels, int64_t num_def_levels,
                                         const internal::LevelInfo& level_info) {
-    if (is_void()) {
-      return {};
-    }
-    // At most one validity bit is written per definition level.
-    ReserveValues(num_def_levels);
-    internal::ValidityBitmapInputOutput validity_io{};
-    validity_io.values_read_upper_bound = num_def_levels;
-    validity_io.valid_bits = data();
-    validity_io.valid_bits_offset = values_count();
-    DefLevelsToBitmap(def_levels, num_def_levels, level_info, &validity_io);
-    ARROW_DCHECK_GE(validity_io.values_read, 0);
-    ARROW_DCHECK_GE(validity_io.null_count, 0);
+    ReadResult<int64_t> out{};
 
-    // Advance by the number of leaf values (one validity bit each), not by the
-    // number of definition levels: for repeated/nested columns some def levels
-    // describe empty or absent lists that produce no leaf value, so
-    // values_read <= num_def_levels.
-    set_values_count(values_count() + validity_io.values_read);
-    return {
-        .values_read = validity_io.values_read,
-        .null_count = validity_io.null_count,
-    };
+    Base::ReadFromCallback(
+        [&, this]() {
+          internal::ValidityBitmapInputOutput validity_io{};
+          validity_io.values_read_upper_bound = num_def_levels;
+          validity_io.valid_bits = data();
+          validity_io.valid_bits_offset = values_count();
+          DefLevelsToBitmap(def_levels, num_def_levels, level_info, &validity_io);
+          ARROW_DCHECK_GE(validity_io.values_read, 0);
+          ARROW_DCHECK_GE(validity_io.null_count, 0);
+
+          out.values_read = validity_io.values_read;
+          out.null_count = validity_io.null_count;
+
+          // Advance by the number of leaf values (one validity bit each), not by the
+          // number of definition levels: for repeated/nested columns some def levels
+          // describe empty or absent lists that produce no leaf value, so
+          // values_read <= num_def_levels.
+          return validity_io.values_read;
+        },
+        num_def_levels);
+
+    return out;
   }
 
   /// Write into the bitmap from a bitmap-compatible decoder.
   ///
   /// This is a special optimization when the max definition level
   ReadResult<int32_t> ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
-    using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
+    ReadResult<int32_t> out{};
 
-    if (is_void()) {
-      return {};
-    }
+    Base::ReadFromCallback(
+        [&, this]() {
+          using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
 
-    ReserveValues(batch_size);
-    const auto write_pos = BitmapSpanMut(data() + values_count() / 8,
-                                         static_cast<int32_t>(values_count() % 8));
-    const auto decoded = decoder.Decode(batch_size, write_pos);
-    const auto non_null =
-        ::arrow::internal::CountSetBits(write_pos.data(), write_pos.bit_start(), decoded);
+          const auto write_pos = BitmapSpanMut(data() + values_count() / 8,
+                                               static_cast<int32_t>(values_count() % 8));
+          const auto decoded = decoder.Decode(batch_size, write_pos);
+          const auto non_null = ::arrow::internal::CountSetBits(
+              write_pos.data(), write_pos.bit_start(), decoded);
+          ARROW_DCHECK_LE(non_null, decoded);
 
-    ARROW_DCHECK_LE(non_null, decoded);
-    set_values_count(values_count() + decoded);
-    return {
-        .values_read = decoded,
-        .null_count = static_cast<int32_t>(decoded - non_null),
-    };
-  }
+          out.values_read = decoded;
+          out.null_count = static_cast<int32_t>(decoded - non_null);
+          return decoded;
+        },
+        batch_size);
 
-  /// Transfer ownership of the values already decoded to the caller.
-  std::shared_ptr<ResizableBuffer> ReleaseValues(MemoryPool* pool) {
-    if (is_void()) {
-      return nullptr;
-    }
-
-    // TODO should we set values_written to zero?
-    auto result = values_;
-    const auto byte_count = bytes_for_values(values_count());
-    PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
-    values_ = AllocateBuffer(pool);
-    reset_capacity();
-    return result;
-  }
-
-  void ReserveValues(int64_t extra_values) {
-    const auto old_capacity = fit_capacity_for_extra(extra_values);
-    if (capacity() > old_capacity && !is_void()) {
-      const auto byte_count = bytes_for_values(capacity());
-      PARQUET_THROW_NOT_OK(values_->Resize(byte_count, /*shrink_to_fit=*/false));
-      // Zero the newly grown region so that appending bits at a non-byte-aligned
-      // offset never reads uninitialized memory (avoids Valgrind/MSAN warnings).
-      const auto old_byte_count = bytes_for_values(old_capacity);
-      std::memset(data() + old_byte_count, 0,
-                  static_cast<std::size_t>(byte_count - old_byte_count));
-    }
-  }
-
-  void ResetValues() {
-    if (values_count() > 0 && !is_void()) {
-      PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
-      ValueSinkCursor::operator=({});
-    }
+    return out;
   }
 
  private:
-  std::shared_ptr<::arrow::ResizableBuffer> values_;
-
-  static int64_t bytes_for_values(int64_t num_values) {
-    return bit_util::BytesForBits(num_values);
-  }
-
-  explicit ValiditySinkBuffer(std::shared_ptr<::arrow::ResizableBuffer> buffer)
-      : values_(std::move(buffer)) {}
+  explicit ValiditySinkBuffer(auto buffer) : Base(std::move(buffer)) {}
 };
 
 /***********************
