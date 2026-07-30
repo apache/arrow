@@ -1584,4 +1584,37 @@ TEST(TestGdvFnStubs, TestAesEncryptDecryptValidation) {
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("invalid key length"));
   ctx.Reset();
 }
+
+TEST(TestGdvFnStubs, TestAesEncryptBlockAlignedInput) {
+  gandiva::ExecutionContext ctx;
+  std::string key16 = "12345678abcdefgh";
+  auto key16_len = static_cast<int32_t>(key16.length());
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  // A block-aligned input still gets a whole block of padding appended, so the
+  // ciphertext is one block longer than the input. Encrypting twice from the same
+  // context makes an undersized output buffer observable, because the second
+  // ciphertext lands on top of the first one.
+  std::string first = "aaaaaaaaaaaaaaaa";
+  std::string second = "bbbbbbbbbbbbbbbb";
+  auto first_len = static_cast<int32_t>(first.length());
+  auto second_len = static_cast<int32_t>(second.length());
+
+  int32_t first_cipher_len = 0;
+  const char* first_cipher = gdv_fn_aes_encrypt(
+      ctx_ptr, first.c_str(), first_len, key16.c_str(), key16_len, &first_cipher_len);
+  ASSERT_FALSE(ctx.has_error());
+  EXPECT_EQ(first_cipher_len, first_len + 16);
+
+  int32_t second_cipher_len = 0;
+  gdv_fn_aes_encrypt(ctx_ptr, second.c_str(), second_len, key16.c_str(), key16_len,
+                     &second_cipher_len);
+  ASSERT_FALSE(ctx.has_error());
+
+  int32_t decrypted_len = 0;
+  const char* decrypted = gdv_fn_aes_decrypt(ctx_ptr, first_cipher, first_cipher_len,
+                                             key16.c_str(), key16_len, &decrypted_len);
+  ASSERT_FALSE(ctx.has_error());
+  EXPECT_EQ(first, std::string(decrypted, decrypted_len));
+}
 }  // namespace gandiva
