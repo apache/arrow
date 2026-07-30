@@ -3613,13 +3613,8 @@ cdef class MapArray(ListArray):
 
     cdef object _getitem_py(self, int64_t i, object maps_as_pydicts):
         cdef CListArray* arr = <CListArray*> self.ap
-        if maps_as_pydicts not in (None, "lossy", "strict"):
-            # Matches MapScalar.as_py, which validates before the null check.
-            raise ValueError(
-                "Invalid value for 'maps_as_pydicts': "
-                + "valid values are 'lossy', 'strict' or `None` (default). "
-                + f"Received {maps_as_pydicts!r}."
-            )
+        # Matches MapScalar.as_py, which validates before the null check.
+        _check_maps_as_pydicts(maps_as_pydicts)
         if arr.IsNull(i):
             return None
         if self._children_cache is None:
@@ -3634,15 +3629,12 @@ cdef class MapArray(ListArray):
                 (keys._getitem_py(j, None), items._getitem_py(j, maps_as_pydicts))
                 for j in range(start, end)
             ]
-        # MapScalar.as_py converts every key before processing values, then
-        # checks each key immediately before converting its corresponding value.
-        cdef int64_t count = end - start
-        cdef list keys_py = [keys._getitem_py(j, None)
-                             for j in range(start, end)]
+        # Like MapScalar.as_py: each key is checked for duplicates before
+        # its corresponding value is converted. Building the dict directly
+        # avoids the per-entry tuple of the association-list form.
         cdef dict result = {}
-        cdef int64_t k
-        for k in range(count):
-            key = keys_py[k]
+        for j in range(start, end):
+            key = keys._getitem_py(j, None)
             if key in result:
                 if maps_as_pydicts == "strict":
                     raise KeyError(
@@ -3651,7 +3643,7 @@ cdef class MapArray(ListArray):
                     )
                 warnings.warn(
                     f"Encountered key '{key}' which was already encountered.")
-            result[key] = items._getitem_py(start + k, maps_as_pydicts)
+            result[key] = items._getitem_py(j, maps_as_pydicts)
         return result
 
     @staticmethod
