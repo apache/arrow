@@ -381,6 +381,8 @@ class PARQUET_EXPORT RecordReader {
   /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
   /// FLBA and ByteArray types this value reflects the values written with the last
   /// ReadRecords call since those readers will reset the values after each call.
+  /// This is reset by both Reset() and ReleaseValues(), so it must be read before
+  /// the values buffer is transferred to the caller.
   virtual int64_t values_written() const = 0;
 
   /// \brief Number of definition / repetition levels (from those that have
