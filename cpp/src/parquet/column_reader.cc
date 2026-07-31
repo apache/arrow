@@ -309,7 +309,7 @@ class LevelToBitmapDecoder {
   CountUpToResult CountUpTo(bool value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
-  int32_t max_level() const { return 1; }
+  int16_t max_level() const { return 1; }
 
   /// Return the number of values left to be decoded.
   int32_t remaining() const { return num_values_remaining_; }
