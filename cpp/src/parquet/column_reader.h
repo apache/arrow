@@ -111,7 +111,7 @@ class PARQUET_EXPORT LevelDecoder {
   CountUpToResult CountUpTo(int16_t value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
-  int32_t max_level() const { return max_level_; }
+  int16_t max_level() const { return max_level_; }
 
   /// Return the number of values left to be decoded.
   int32_t remaining() const { return num_values_remaining_; }
