@@ -1414,28 +1414,6 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
-Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader(row_group_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp,
-                        GetRecordBatchReader(row_group_indices, column_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
 Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
   ARROW_ASSIGN_OR_RAISE(*out, ReadTable());
   return Status::OK();
@@ -1468,22 +1446,6 @@ Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
 Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
                                  std::shared_ptr<Table>* out) {
   ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroups(row_groups));
-  return Status::OK();
-}
-
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
-                        const ArrowReaderProperties& properties,
-                        std::unique_ptr<FileReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, Make(pool, std::move(reader), properties));
-  return Status::OK();
-}
-
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
-                        std::unique_ptr<FileReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out,
-                        Make(pool, std::move(reader), default_arrow_reader_properties()));
   return Status::OK();
 }
 
