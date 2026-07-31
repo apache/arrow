@@ -21,11 +21,11 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
-#include <format>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -80,9 +80,9 @@ constexpr int64_t kMinLevelBatchSize = 1024;
 // Throws exception if number_decoded does not match expected.
 inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
   if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
-    auto msg = std::format("Decoded values {} does not match expected {}", number_decoded,
-                           expected);
-    ParquetException::EofException(msg);
+    ParquetException::EofException("Decoded values " + std::to_string(number_decoded) +
+                                   " does not match expected " +
+                                   std::to_string(expected));
   }
 }
 
@@ -150,6 +150,10 @@ struct LevelDecoder::Impl {
 
 LevelDecoder::LevelDecoder(int16_t max_level)
     : impl_(std::make_unique<Impl>()), max_level_(max_level) {}
+
+LevelDecoder::LevelDecoder(LevelDecoder&&) = default;
+
+LevelDecoder& LevelDecoder::operator=(LevelDecoder&&) = default;
 
 LevelDecoder::~LevelDecoder() = default;
 
@@ -1461,10 +1465,9 @@ class ColumnChunkReader {
 template <typename Traits>
 void ColumnChunkReader<Traits>::CheckEncodingIs(Encoding::type encoding) {
   if (current_encoding_ != encoding) {
-    auto msg =
-        std::format("Unexpected data page encoding. Expected {}, got {}",
-                    EncodingToString(encoding), EncodingToString(current_encoding_));
-    throw ParquetException(msg);
+    throw ParquetException("Unexpected data page encoding. Expected ",
+                           EncodingToString(encoding), ", got ",
+                           EncodingToString(current_encoding_));
   }
 }
 
@@ -1568,7 +1571,8 @@ void ColumnChunkReader<Traits>::InitializeDataPage(std::shared_ptr<DP> page) {
   } else if constexpr (std::is_same_v<DP, DataPageV2>) {
     byte_size = InitializeV2Levels(*page, def_levels_decoder_, rep_levels_decoder_);
   } else {
-    static_assert(false, "Unknown data page type");
+    // Some compiler do not support `static_assert(false, ...)` in a discarded branch
+    static_assert(!std::is_same_v<DP, DP>, "Unknown data page type");
   }
   num_buffered_values_ = page->num_values();
   num_decoded_values_ = 0;
@@ -3371,7 +3375,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       const auto type = static_cast<int>(descr->physical_type());
-      throw ParquetException(std::format("Invalid physical column type: {}", type));
+      throw ParquetException("Invalid physical column type: ", type);
     }
   }
   // Unreachable code, but suppress compiler warning
