@@ -144,6 +144,16 @@ def test_chunked_array_to_numpy():
     assert np.array_equal(arr1, arr2)
 
 
+@pytest.mark.numpy
+def test_chunked_array_array_copy_true_is_writable():
+    data = pa.chunked_array([[1, 2, 3]])
+    result = data.__array__(copy=True)
+
+    assert result.flags.writeable
+    result[0] = 99
+    assert result.tolist() == [99, 2, 3]
+
+
 def test_chunked_array_mismatch_types():
     msg = "chunks must all be same type"
     with pytest.raises(TypeError, match=msg):
