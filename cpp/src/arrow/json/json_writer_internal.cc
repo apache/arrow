@@ -154,42 +154,26 @@ Status JsonWriter::WriteValue(sj::value value) {
         return Status::OK();
       },
 
-      [&](sj::value number_value) -> Status {
-        ARROW_ASSIGN_OR_RAISE(
-            auto number_type,
-            internal::GetSimdjsonResult(number_value.get_number_type(),
-                                        "Failed to determine JSON number type: "));
+      [&](int64_t value) -> Status {
+        Int64(value);
+        return Status::OK();
+      },
 
-        if (number_type == sj::number_type::big_integer) {
-          ARROW_ASSIGN_OR_RAISE(auto raw_json, internal::GetSimdjsonResult(
-                                                   simdjson::to_json_string(number_value),
-                                                   "Failed to get raw JSON: "));
-          RawValue(raw_json);
-          return Status::OK();
-        }
+      [&](uint64_t value) -> Status {
+        Uint64(value);
+        return Status::OK();
+      },
 
-        ARROW_ASSIGN_OR_RAISE(
-            auto number, internal::GetSimdjsonResult(number_value.get_number(),
-                                                     "Failed to convert JSON number: "));
+      [&](double value) -> Status {
+        Double(value);
+        return Status::OK();
+      },
 
-        switch (number_type) {
-          case sj::number_type::signed_integer:
-            Int64(number.get_int64());
-            break;
-
-          case sj::number_type::unsigned_integer:
-            Uint64(number.get_uint64());
-            break;
-
-          case sj::number_type::floating_point_number:
-            Double(number.get_double());
-            break;
-
-          case sj::number_type::big_integer:
-            // Big integers are handled above.
-            break;
-        }
-
+      [&](sj::value value) -> Status {
+        ARROW_ASSIGN_OR_RAISE(auto raw_json,
+                              internal::GetSimdjsonResult(simdjson::to_json_string(value),
+                                                          "Failed to get raw JSON: "));
+        RawValue(raw_json);
         return Status::OK();
       });
 }

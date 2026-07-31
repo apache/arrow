@@ -67,105 +67,6 @@ using ::arrow::internal::checked_pointer_cast;
 
 namespace {
 
-const char* JsonTypeName(sj::json_type type) {
-  switch (type) {
-    case sj::json_type::array:
-      return "array";
-    case sj::json_type::object:
-      return "object";
-    case sj::json_type::number:
-      return "number";
-    case sj::json_type::string:
-      return "string";
-    case sj::json_type::boolean:
-      return "boolean";
-    case sj::json_type::null:
-      return "null";
-    default:
-      return "unknown";
-  }
-}
-
-// Empty struct to represent the type of a simdjson null value
-struct SimdjsonNull {};
-
-template <typename T>
-struct JsonTypeNameOf;
-
-template <>
-struct JsonTypeNameOf<sj::array> {
-  static constexpr const char* kValue = "array";
-};
-template <>
-struct JsonTypeNameOf<sj::object> {
-  static constexpr const char* kValue = "object";
-};
-template <>
-struct JsonTypeNameOf<std::string_view> {
-  static constexpr const char* kValue = "string";
-};
-template <>
-struct JsonTypeNameOf<bool> {
-  static constexpr const char* kValue = "boolean";
-};
-template <>
-struct JsonTypeNameOf<SimdjsonNull> {
-  static constexpr const char* kValue = "null";
-};
-template <>
-struct JsonTypeNameOf<int64_t> {
-  static constexpr const char* kValue = "number";
-};
-template <>
-struct JsonTypeNameOf<uint64_t> {
-  static constexpr const char* kValue = "number";
-};
-template <>
-struct JsonTypeNameOf<double> {
-  static constexpr const char* kValue = "number";
-};
-
-template <typename T>
-constexpr const char* JsonTypeName() {
-  return JsonTypeNameOf<T>::kValue;
-}
-
-template <typename SimdjsonValueType>
-Result<SimdjsonValueType> GetJsonAs(sj::value& value) {
-  SimdjsonValueType typed_value{};
-  simdjson::error_code error_code;
-  if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
-    // simdjson has no get<>() for null; probe it explicitly
-    bool is_null;
-    error_code = value.is_null().get(is_null);
-    if (error_code == simdjson::SUCCESS && !is_null) {
-      error_code = simdjson::INCORRECT_TYPE;
-    }
-  } else {
-    error_code = value.get(typed_value);
-  }
-  if (error_code != simdjson::SUCCESS) {
-    sj::json_type json_type;
-    if (value.type().get(json_type) != simdjson::SUCCESS) {
-      return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                             " or null, got malformed JSON value");
-    }
-    return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                           " or null, got JSON type ", JsonTypeName(json_type));
-  }
-  return typed_value;
-}
-
-// Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
-Result<bool> IsJsonNull(sj::value& value) {
-  bool is_null;
-  if (auto error_code = value.is_null().get(is_null); error_code != simdjson::SUCCESS) {
-    return Status::Invalid("Error checking for JSON null: ",
-                           simdjson::error_message(error_code));
-  }
-  return is_null;
-}
-
 class JSONConverter {
  public:
   virtual ~JSONConverter() = default;
@@ -241,7 +142,7 @@ class NullConverter final : public ConcreteConverter<NullConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_RETURN_NOT_OK(GetJsonAs<SimdjsonNull>(json_obj));
+    ARROW_RETURN_NOT_OK(internal::GetJsonAs<internal::SimdjsonNull>(json_obj));
     return AppendNull();
   }
 
@@ -262,7 +163,7 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return AppendNull();
     }
@@ -270,7 +171,7 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
     if (json_obj.get(int_value) == simdjson::SUCCESS) {
       return builder_->Append(int_value != 0);
     }
-    ARROW_ASSIGN_OR_RAISE(bool bool_value, GetJsonAs<bool>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool bool_value, internal::GetJsonAs<bool>(json_obj));
     return builder_->Append(bool_value);
   }
 
@@ -289,7 +190,7 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(sj::value& json_obj,
                                                            const DataType& type,
                                                            typename T::c_type* out) {
   *out = static_cast<typename T::c_type>(0);
-  ARROW_ASSIGN_OR_RAISE(int64_t v64, GetJsonAs<int64_t>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(int64_t v64, internal::GetJsonAs<int64_t>(json_obj));
   *out = static_cast<typename T::c_type>(v64);
   if (*out == v64) {
     return Status::OK();
@@ -304,7 +205,7 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(sj::value& json_obj,
                                                     const DataType& type,
                                                     typename T::c_type* out) {
   *out = static_cast<typename T::c_type>(0);
-  ARROW_ASSIGN_OR_RAISE(uint64_t v64, GetJsonAs<uint64_t>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(uint64_t v64, internal::GetJsonAs<uint64_t>(json_obj));
   *out = static_cast<typename T::c_type>(v64);
   if (*out == v64) {
     return Status::OK();
@@ -346,7 +247,7 @@ enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj, const DataTyp
     *out = Float16(f64.value()).bits();
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto f64, GetJsonAs<double>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto f64, internal::GetJsonAs<double>(json_obj));
   *out = Float16(f64).bits();
   return arrow::Status::OK();
 }
@@ -361,7 +262,7 @@ enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
     *out = static_cast<typename T::c_type>(f64.value());
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(auto f64, GetJsonAs<double>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto f64, internal::GetJsonAs<double>(json_obj));
   *out = static_cast<typename T::c_type>(f64);
   return arrow::Status::OK();
 }
@@ -416,7 +317,7 @@ class IntegerConverter final
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
@@ -444,7 +345,7 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type, Build
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
@@ -475,11 +376,12 @@ class DecimalConverter final
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
-    ARROW_ASSIGN_OR_RAISE(auto string_value, GetJsonAs<std::string_view>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto string_value,
+                          internal::GetJsonAs<std::string_view>(json_obj));
     int32_t precision, scale;
     DecimalValue d;
     RETURN_NOT_OK(DecimalValue::FromString(string_value, &d, &precision, &scale));
@@ -518,7 +420,7 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
@@ -553,12 +455,12 @@ class DayTimeIntervalConverter final
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
 
     DayTimeIntervalType::DayMilliseconds value;
     RETURN_NOT_OK(ProcessJsonArrayElements<2>(
@@ -587,12 +489,12 @@ class MonthDayNanoIntervalConverter final
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
 
     MonthDayNanoIntervalType::MonthDayNanos value;
     RETURN_NOT_OK(ProcessJsonArrayElements<3>(
@@ -627,12 +529,12 @@ class StringConverter final
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto view, GetJsonAs<std::string_view>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto view, internal::GetJsonAs<std::string_view>(json_obj));
     return builder_->Append(view);
   }
 
@@ -656,11 +558,11 @@ class FixedSizeBinaryConverter final
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
-    ARROW_ASSIGN_OR_RAISE(auto view, GetJsonAs<std::string_view>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto view, internal::GetJsonAs<std::string_view>(json_obj));
     if (view.length() != static_cast<size_t>(builder_->byte_width())) {
       std::stringstream ss;
       ss << "Invalid string length " << view.length() << " in JSON input for "
@@ -700,11 +602,11 @@ class VarLengthListLikeConverter final
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
-    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
     size_t num_elements;
     if (array.count_elements().get(num_elements) != simdjson::SUCCESS) {
       return Status::Invalid("Malformed JSON array for type ", this->type_->ToString());
@@ -740,24 +642,25 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
-    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
 
     for (auto json_pair_result : array) {
       ARROW_ASSIGN_OR_RAISE(
           auto json_pair,
           internal::GetSimdjsonResult<sj::value>(
               json_pair_result, "Could not iterate elements of JSON array: "));
-      ARROW_ASSIGN_OR_RAISE(auto json_pair_array, GetJsonAs<sj::array>(json_pair));
+      ARROW_ASSIGN_OR_RAISE(auto json_pair_array,
+                            internal::GetJsonAs<sj::array>(json_pair));
 
       RETURN_NOT_OK(ProcessJsonArrayElements<2>(
           json_pair_array, "key-item pair",
           {[this](sj::value& key) {
-             ARROW_ASSIGN_OR_RAISE(bool key_is_null, IsJsonNull(key));
+             ARROW_ASSIGN_OR_RAISE(bool key_is_null, internal::IsJsonNull(key));
              if (key_is_null) {
                return Status::Invalid("null key is invalid");
              }
@@ -793,13 +696,13 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
-    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
     ARROW_ASSIGN_OR_RAISE(int32_t size, child_converter_->AppendValues(array));
     if (size != list_size_) {
       return Status::Invalid("incorrect list size ", size);
@@ -842,7 +745,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
   // or an object mapping struct names to values (omitted struct members
   // are mapped to null).
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
@@ -867,7 +770,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       }
       return builder_->Append();
     }
-    ARROW_ASSIGN_OR_RAISE(auto object, GetJsonAs<sj::object>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto object, internal::GetJsonAs<sj::object>(json_obj));
     // Iterate the object fields in JSON order (the on-demand API is
     // forward-only, so per-field lookups would be quadratic and would also
     // compare against raw, still-escaped keys). Fields absent from the JSON
@@ -951,12 +854,12 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
   // Append a JSON value that must be a 2-long array, containing the type_id
   // and value of the UnionArray's slot.
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(json_obj));
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
     if (is_null) {
       return this->AppendNull();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+    ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
 
     int8_t id = 0;
     std::shared_ptr<JSONConverter> child_converter;
@@ -964,7 +867,7 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     RETURN_NOT_OK(ProcessJsonArrayElements<2>(
         array, "[type_id, value] pair",
         {[this, &id, &child_converter](sj::value& id_elem) {
-           ARROW_ASSIGN_OR_RAISE(auto id_value, GetJsonAs<int64_t>(id_elem));
+           ARROW_ASSIGN_OR_RAISE(auto id_value, internal::GetJsonAs<int64_t>(id_elem));
            id = static_cast<int8_t>(id_value);
            auto child_num = type_id_to_child_num_[id];
            if (child_num == -1) {
@@ -1146,7 +1049,7 @@ Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataTyp
       error_code != simdjson::SUCCESS) {
     return Status::Invalid("JSON parse error: ", simdjson::error_message(error_code));
   }
-  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonAs<sj::array>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
 
   // The JSON document should be an array, append it
   RETURN_NOT_OK(converter->AppendValues(array));
@@ -1216,7 +1119,7 @@ Result<std::shared_ptr<Scalar>> ScalarFromJSONString(
       error_code != simdjson::SUCCESS) {
     return Status::Invalid("JSON parse error: ", simdjson::error_message(error_code));
   }
-  ARROW_ASSIGN_OR_RAISE(auto singleton_array, GetJsonAs<sj::array>(json_obj));
+  ARROW_ASSIGN_OR_RAISE(auto singleton_array, internal::GetJsonAs<sj::array>(json_obj));
 
   ARROW_ASSIGN_OR_RAISE(int32_t num_elements, converter->AppendValues(singleton_array));
   if (num_elements != 1) {
