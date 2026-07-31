@@ -680,8 +680,8 @@ jobs:
       contents: read
       packages: write
     env:
-      ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_SHARED: OFF
+      ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
@@ -697,6 +697,10 @@ jobs:
       # Build Arrow with GPR_DISABLE_ABSEIL_SYNC so grpcpp's Mutex ABI
       # matches the gRPC rebuilt by the overlay triplet. Remove once fixed upstream.
       ARROW_CXXFLAGS: -DGPR_DISABLE_ABSEIL_SYNC
+      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_MIMALLOC: OFF
+      ARROW_TEST_LINKAGE: shared
+      ARROW_USE_STATIC_CRT: OFF
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'

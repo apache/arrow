@@ -123,9 +123,9 @@ function(arrow_set_generated_proto_files_properties)
   set(GENERATED_FILES ${ARGN})
   set_source_files_properties(${GENERATED_FILES} PROPERTIES GENERATED TRUE)
   if(MSVC)
-    # Suppress missing dll-interface warning
+    # Suppress warnings caused by Protobuf (dll-interface)
     set_source_files_properties(${GENERATED_FILES}
-                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                PROPERTIES COMPILE_OPTIONS "/wd4251;/wd4275"
                                            SKIP_UNITY_BUILD_INCLUSION TRUE)
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Disable -Wmissing-declarations
@@ -243,6 +243,15 @@ add_arrow_lib(arrow_flight
 
 if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_flight_static PUBLIC ARROW_FLIGHT_STATIC)
+endif()
+
+# NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" below.
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
+    target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
+  endforeach()
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
@@ -370,6 +379,43 @@ if(ARROW_BUILD_BENCHMARKS)
   add_dependencies(arrow_flight arrow-flight-benchmark)
 
 endif(ARROW_BUILD_BENCHMARKS)
+
+# NOTE-49585: Workaround for issue found in GH-49585. When building Flight
+# targets with the combination of:
+#
+# - WIN32
+# - Debug
+# - /MD linkage
+#
+# You get linker errors like this:
+#
+# absl_synchronization.lib(mutex.cc.obj) : error LNK2005: "private: void __cdecl absl::lts_20250814::Mutex::Dtor(void)" (?Dtor
+# @Mutex@lts_20250814@absl@@AEAAXXZ) already defined in arrow_flight_static.lib(grpc_client.obj) [C:\path\to\arrow\cpp\static-debug-build\src\arrow\flight\sql\arrow-flight-sql-test.vcxproj]
+# C:\path\to\arrow\cpp\static-debug-build\debug\Debug\arrow-flight-sql-test.exe :
+# fatal error LNK1169: one or more multiply defined symbols found [C:\path\to\arrow\cpp\static-debug-build\src\arrow\flight\sql\arrow-flight-sql-test.vcxproj]
+#   Building Custom Rule C:/path/to/arrow/cpp/src/arrow/flight/CMakeLists.txt
+#   test_server.cc
+# absl_synchronization.lib(mutex.cc.obj) : error LNK2005: "private: void __cdecl absl::lts_20250814::Mutex::Dtor(void)" (?Dtor
+# @Mutex@lts_20250814@absl@@AEAAXXZ) already defined in arrow_flight_static.lib(protocol_grpc_internal.obj) [C:\path\to\arrow\cpp\static-debug-build\src\arrow\flight\flight-test-server.vcxproj]
+# C:\path\to\arrow\cpp\static-debug-build\debug\Debug\flight-test-server.exe : fatal error
+# LNK1169: one or more multiply defined symbols found [C:\path\to\arrow\cpp\static-debug-build\src\arrow\flight\flight-test-server.vcxproj]
+#
+# If you build in Release mode w/ /MD linkage you don't get these errors.
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  set(FLIGHT_TEST_EXES
+      arrow-flight-internals-test
+      arrow-flight-test
+      flight-test-server
+      arrow-flight-perf-server
+      arrow-flight-benchmark)
+  foreach(test_exe ${FLIGHT_TEST_EXES})
+    if(TARGET ${test_exe})
+      target_link_options(${test_exe} PRIVATE "/FORCE:MULTIPLE")
+    endif()
+  endforeach()
+endif()
 
 if(ARROW_FLIGHT_SQL)
   add_subdirectory(sql)
