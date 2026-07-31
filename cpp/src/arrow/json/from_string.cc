@@ -47,6 +47,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/value_parsing.h"
 
@@ -155,17 +156,6 @@ Result<SimdjsonValueType> GetJsonAs(sj::value& value) {
   return typed_value;
 }
 
-template <typename SimdjsonValueType>
-Result<SimdjsonValueType> GetJsonResult(
-    simdjson::simdjson_result<SimdjsonValueType> element, std::string_view error) {
-  SimdjsonValueType typed_value;
-  if (auto error_code = std::move(element).get(typed_value);
-      error_code != simdjson::SUCCESS) {
-    return Status::Invalid(error, simdjson::error_message(error_code));
-  }
-  return typed_value;
-}
-
 // Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
 Result<bool> IsJsonNull(sj::value& value) {
   bool is_null;
@@ -215,7 +205,7 @@ class ConcreteConverter : public JSONConverter {
     int32_t num_elements = 0;
     for (auto element : json_array) {
       ARROW_ASSIGN_OR_RAISE(auto value,
-                            GetJsonResult<sj::value>(
+                            internal::GetSimdjsonResult<sj::value>(
                                 element, "Could not iterate elements of JSON array: "));
       RETURN_NOT_OK(self->AppendValue(value));
       num_elements++;
@@ -395,9 +385,9 @@ Status ProcessJsonArrayElements(
                              " elements, had ", index);
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        sj::value element,
-        GetJsonResult<sj::value>(*it, "Could not iterate elements of JSON array: "));
+    ARROW_ASSIGN_OR_RAISE(sj::value element,
+                          internal::GetSimdjsonResult<sj::value>(
+                              *it, "Could not iterate elements of JSON array: "));
     RETURN_NOT_OK(handler(element));
     ++it;
     ++index;
@@ -760,8 +750,8 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     for (auto json_pair_result : array) {
       ARROW_ASSIGN_OR_RAISE(
           auto json_pair,
-          GetJsonResult<sj::value>(json_pair_result,
-                                   "Could not iterate elements of JSON array: "));
+          internal::GetSimdjsonResult<sj::value>(
+              json_pair_result, "Could not iterate elements of JSON array: "));
       ARROW_ASSIGN_OR_RAISE(auto json_pair_array, GetJsonAs<sj::array>(json_pair));
 
       RETURN_NOT_OK(ProcessJsonArrayElements<2>(
@@ -870,7 +860,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       size_t i = 0;
       for (auto child : array) {
         ARROW_ASSIGN_OR_RAISE(auto child_value,
-                              GetJsonResult<sj::value>(
+                              internal::GetSimdjsonResult<sj::value>(
                                   child, "Could not iterate elements of JSON array: "));
         RETURN_NOT_OK(child_converters_[i]->AppendValue(child_value));
         ++i;
@@ -885,9 +875,9 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     auto num_fields = type_->num_fields();
     std::vector<bool> field_seen(num_fields, false);
     for (auto field_result : object) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto field,
-          GetJsonResult<sj::field>(field_result, "Error getting field of object: "));
+      ARROW_ASSIGN_OR_RAISE(auto field,
+                            internal::GetSimdjsonResult<sj::field>(
+                                field_result, "Error getting field of object: "));
       std::string_view key;
       if (field.unescaped_key(/*allow_replacement=*/false).get(key) !=
           simdjson::SUCCESS) {

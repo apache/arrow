@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/json/json_writer_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 namespace arrow::json {
 
@@ -99,32 +100,27 @@ void JsonWriter::Double(double value) {
 }
 
 Status JsonWriter::WriteValue(sj::value value) {
-  sj::json_type type;
-  if (auto error = value.type().get(type); error != simdjson::SUCCESS) {
-    return Status::Invalid(simdjson::error_message(error));
-  }
+  ARROW_ASSIGN_OR_RAISE(auto type, internal::GetSimdjsonResult(
+                                       value.type(), "Failed to determine JSON type: "));
 
   switch (type) {
     case sj::json_type::object: {
       StartObject();
 
-      sj::object object;
-      if (auto error = value.get_object().get(object); error != simdjson::SUCCESS) {
-        return Status::Invalid(simdjson::error_message(error));
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto object,
+          internal::GetSimdjsonResult(value.get_object(), "Failed to get JSON object: "));
 
       for (auto field : object) {
-        std::string_view key;
-        if (auto error = field.unescaped_key().get(key); error != simdjson::SUCCESS) {
-          return Status::Invalid(simdjson::error_message(error));
-        }
+        ARROW_ASSIGN_OR_RAISE(auto key,
+                              internal::GetSimdjsonResult(field.unescaped_key(),
+                                                          "Failed to get object key: "));
 
         Key(key);
 
-        sj::value field_value;
-        if (auto error = field.value().get(field_value); error != simdjson::SUCCESS) {
-          return Status::Invalid(simdjson::error_message(error));
-        }
+        ARROW_ASSIGN_OR_RAISE(
+            auto field_value,
+            internal::GetSimdjsonResult(field.value(), "Failed to get object value: "));
 
         RETURN_NOT_OK(WriteValue(field_value));
       }
@@ -136,16 +132,14 @@ Status JsonWriter::WriteValue(sj::value value) {
     case sj::json_type::array: {
       StartArray();
 
-      sj::array array;
-      if (auto error = value.get_array().get(array); error != simdjson::SUCCESS) {
-        return Status::Invalid(simdjson::error_message(error));
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto array,
+          internal::GetSimdjsonResult(value.get_array(), "Failed to get JSON array: "));
 
       for (auto element : array) {
-        sj::value element_value;
-        if (auto error = element.get(element_value); error != simdjson::SUCCESS) {
-          return Status::Invalid(simdjson::error_message(error));
-        }
+        ARROW_ASSIGN_OR_RAISE(
+            auto element_value,
+            internal::GetSimdjsonResult(element, "Failed to iterate JSON array: "));
 
         RETURN_NOT_OK(WriteValue(element_value));
       }
@@ -155,20 +149,18 @@ Status JsonWriter::WriteValue(sj::value value) {
     }
 
     case sj::json_type::string: {
-      std::string_view string_value;
-      if (auto error = value.get_string().get(string_value); error != simdjson::SUCCESS) {
-        return Status::Invalid(simdjson::error_message(error));
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto string_value,
+          internal::GetSimdjsonResult(value.get_string(), "Failed to get JSON string: "));
 
       String(string_value);
       break;
     }
 
     case sj::json_type::boolean: {
-      bool bool_value;
-      if (auto error = value.get_bool().get(bool_value); error != simdjson::SUCCESS) {
-        return Status::Invalid(simdjson::error_message(error));
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto bool_value,
+          internal::GetSimdjsonResult(value.get_bool(), "Failed to get JSON boolean: "));
 
       Bool(bool_value);
       break;
@@ -180,32 +172,22 @@ Status JsonWriter::WriteValue(sj::value value) {
     }
 
     case sj::json_type::number: {
-      auto number_type_result = value.get_number_type();
-      sj::number_type number_type;
-      if (auto error = std::move(number_type_result).get(number_type);
-          error != simdjson::SUCCESS) {
-        return Status::Invalid("Failed to determine JSON number type: ",
-                               simdjson::error_message(error));
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto number_type,
+          internal::GetSimdjsonResult(value.get_number_type(),
+                                      "Failed to determine JSON number type: "));
 
       if (number_type == sj::number_type::big_integer) {
-        auto raw_json_result = simdjson::to_json_string(value);
-        std::string_view raw_json;
-        if (auto error = std::move(raw_json_result).get(raw_json);
-            error != simdjson::SUCCESS) {
-          return Status::Invalid("Failed to get raw JSON: ",
-                                 simdjson::error_message(error));
-        }
+        ARROW_ASSIGN_OR_RAISE(auto raw_json,
+                              internal::GetSimdjsonResult(simdjson::to_json_string(value),
+                                                          "Failed to get raw JSON: "));
         RawValue(raw_json);
         break;
       }
 
-      sj::number number;
-      if (auto error = value.get_number().get(number); error != simdjson::SUCCESS) {
-        return Status::Invalid("Failed to convert JSON number: ",
-                               simdjson::error_message(error));
-      }
-
+      ARROW_ASSIGN_OR_RAISE(
+          auto number, internal::GetSimdjsonResult(value.get_number(),
+                                                   "Failed to convert JSON number: "));
       switch (number_type) {
         case sj::number_type::signed_integer:
           Int64(number.get_int64());
