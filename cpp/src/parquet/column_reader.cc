@@ -974,7 +974,10 @@ class ValueSinkCursor {
     return std::exchange(capacity_, new_capacity);
   }
 
-  int64_t reset_capacity() { return std::exchange(capacity_, 0); }
+  void reset() {
+    values_count_ = 0;
+    capacity_ = 0;
+  }
 
  private:
   int64_t values_count_ = 0;
@@ -1035,12 +1038,11 @@ class DataSinkBuffer : private ValueSinkCursor {
       return nullptr;
     }
 
-    // TODO should we set values_written to zero?
     auto result = values_;
     const auto byte_count = BytesCounter::bytes_for_values(values_count());
     PARQUET_THROW_NOT_OK(result->Resize(byte_count, /*shrink_to_fit=*/true));
     values_ = AllocateBuffer(pool);
-    reset_capacity();
+    ValueSinkCursor::reset();
     return result;
   }
 
@@ -1059,9 +1061,9 @@ class DataSinkBuffer : private ValueSinkCursor {
   }
 
   void ResetValues() {
-    if (values_count() > 0 && !is_void()) {
+    if (!is_void()) {
       PARQUET_THROW_NOT_OK(values_->Resize(0, /*shrink_to_fit=*/false));
-      ValueSinkCursor::operator=({});
+      ValueSinkCursor::reset();
     }
   }
 
@@ -2472,7 +2474,6 @@ void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeatedInBuffer(
   // levels_position_ must already be incremented based on number of records
   // read.
   const int64_t valid_bits_offset = valid_bits_.values_count();
-  ARROW_DCHECK_EQ(values_written(), valid_bits_offset);
   const auto result =
       valid_bits_.ReadFromDefLevels(def_levels() + start_levels_position,
                                     levels_position_ - start_levels_position, leaf_info_);
