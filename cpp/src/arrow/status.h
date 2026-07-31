@@ -148,7 +148,7 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
  public:
   // Create a success status.
   constexpr Status() noexcept : state_(NULLPTR) {}
-  ~Status() noexcept {
+  ARROW_FORCE_INLINE ~Status() noexcept {
     if (ARROW_PREDICT_FALSE(state_ != NULL)) {
       if (!state_->is_constant) {
         DeleteState();
