@@ -154,6 +154,11 @@ include(CMakeParseArguments)
 include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
+option(ENABLE_MEM_POOL_STATS "Enable Memory Pool Statistics" ON)
+if(ENABLE_MEM_POOL_STATS)
+  add_definitions(-DENABLE_MEMORY_POOL_STATS)
+endif()
+
 include(GNUInstallDirs)
 if(IS_ABSOLUTE "${CMAKE_INSTALL_BINDIR}")
   set(ARROW_PKG_CONFIG_BINDIR "${CMAKE_INSTALL_BINDIR}")
