@@ -17,13 +17,11 @@
 
 #pragma once
 
+#include <boost/locale/encoding_utf.hpp>
 #include <cassert>
-#include <codecvt>
 #include <cstring>
-#include <locale>
 #include <vector>
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
-#include "arrow/util/macros.h"
 
 #if defined(__APPLE__)
 #  include <atomic>
@@ -68,13 +66,11 @@ inline size_t wcsstrlen(const void* wcs_string) {
   }
 }
 
-// GH-46576: suppress unicode warnings
-ARROW_SUPPRESS_DEPRECATION_WARNING
 template <typename CHAR_TYPE>
 inline void Utf8ToWcs(const char* utf8_string, size_t length,
                       std::vector<uint8_t>* result) {
-  thread_local std::wstring_convert<std::codecvt_utf8<CHAR_TYPE>, CHAR_TYPE> converter;
-  auto string = converter.from_bytes(utf8_string, utf8_string + length);
+  auto string = boost::locale::conv::utf_to_utf<CHAR_TYPE>(
+      utf8_string, utf8_string + length, boost::locale::conv::stop);
 
   uint32_t length_in_bytes = static_cast<uint32_t>(string.size() * GetSqlWCharSize());
   const uint8_t* data = (uint8_t*)string.data();
@@ -82,7 +78,6 @@ inline void Utf8ToWcs(const char* utf8_string, size_t length,
   result->reserve(length_in_bytes);
   result->assign(data, data + length_in_bytes);
 }
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 inline void Utf8ToWcs(const char* utf8_string, size_t length,
                       std::vector<uint8_t>* result) {
@@ -102,14 +97,12 @@ inline void Utf8ToWcs(const char* utf8_string, std::vector<uint8_t>* result) {
   return Utf8ToWcs(utf8_string, strlen(utf8_string), result);
 }
 
-// GH-46576: suppress unicode warnings
-ARROW_SUPPRESS_DEPRECATION_WARNING
 template <typename CHAR_TYPE>
 inline void WcsToUtf8(const void* wcs_string, size_t length_in_code_units,
                       std::vector<uint8_t>* result) {
-  thread_local std::wstring_convert<std::codecvt_utf8<CHAR_TYPE>, CHAR_TYPE> converter;
-  auto byte_string = converter.to_bytes((CHAR_TYPE*)wcs_string,
-                                        (CHAR_TYPE*)wcs_string + length_in_code_units);
+  const auto* begin = static_cast<const CHAR_TYPE*>(wcs_string);
+  auto byte_string = boost::locale::conv::utf_to_utf<char>(
+      begin, begin + length_in_code_units, boost::locale::conv::stop);
 
   uint32_t length_in_bytes = static_cast<uint32_t>(byte_string.size());
   const uint8_t* data = (uint8_t*)byte_string.data();
@@ -117,7 +110,6 @@ inline void WcsToUtf8(const void* wcs_string, size_t length_in_code_units,
   result->reserve(length_in_bytes);
   result->assign(data, data + length_in_bytes);
 }
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 inline void WcsToUtf8(const void* wcs_string, size_t length_in_code_units,
                       std::vector<uint8_t>* result) {

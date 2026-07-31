@@ -279,7 +279,6 @@ SQLRETURN SQLError(SQLHENV env, SQLHDBC conn, SQLHSTMT stmt, SQLWCHAR* sql_state
 
   // Use the last record
   SQLINTEGER diag_number;
-  SQLSMALLINT diag_number_length;
 
   SQLRETURN ret = arrow::flight::sql::odbc::SQLGetDiagField(
       handle_type, handle, 0, SQL_DIAG_NUMBER, &diag_number, sizeof(SQLINTEGER), 0);
@@ -642,7 +641,7 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
   }
 
   // Convert from ODBC 1 based record number to internal diagnostics 0 indexed storage
-  const size_t record_index = static_cast<size_t>(rec_number - 1);
+  const auto record_index = static_cast<uint32_t>(rec_number - 1);
   if (!diagnostics->HasRecord(record_index)) {
     return SQL_NO_DATA;
   }
