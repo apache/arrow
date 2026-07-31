@@ -446,7 +446,7 @@ tasks:
         ARCH: "amd64"
         DEBIAN: "experimental"
         GCC: "15"
-        LLVM: "20"
+        LLVM: "22"
       image: debian-cpp
 
   test-fedora-42-cpp:
