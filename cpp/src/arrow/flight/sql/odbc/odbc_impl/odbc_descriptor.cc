@@ -510,8 +510,7 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
     records_[i].case_sensitive =
         rsmd->IsCaseSensitive(one_based_index) ? SQL_TRUE : SQL_FALSE;
     // TODO - update datetime_interval_precision when rsmd adds this
-    auto num_prec_radix =
-        static_cast<SQLINTEGER>(rsmd->GetNumPrecRadix(one_based_index));
+    auto num_prec_radix = static_cast<SQLINTEGER>(rsmd->GetNumPrecRadix(one_based_index));
     records_[i].num_prec_radix = num_prec_radix > 0 ? num_prec_radix : 0;
     // TODO - update datetime_interval_code when rsmd adds this
     records_[i].fixed_prec_scale =
