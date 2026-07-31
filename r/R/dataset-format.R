@@ -26,8 +26,8 @@
 #' `FileFormat$create()` takes the following arguments:
 #' * `format`: A string identifier of the file format. Currently supported values:
 #'   * "parquet"
-#'   * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-#'     only version 2 files are supported
+#'   * "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+#'     this is deprecated)
 #'   * "csv"/"text", aliases for the same thing (because comma is the default
 #'     delimiter for text files
 #'   * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
@@ -86,7 +86,11 @@ FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) {
-    # These are aliases for the same thing
+    if (format == "feather") {
+      .Deprecated(
+        msg = '`format = "feather"` is deprecated; use `format = "ipc"` instead.'
+      )
+    }
     dataset___IpcFileFormat__Make()
   } else if (format == "json") {
     JsonFileFormat$create(...)
@@ -97,9 +101,7 @@ FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
 
 #' @export
 as.character.FileFormat <- function(x, ...) {
-  out <- x$type
-  # Slight hack: special case IPC -> feather, otherwise is just the type_name
-  ifelse(out == "ipc", "feather", out)
+  x$type
 }
 
 #' @usage NULL

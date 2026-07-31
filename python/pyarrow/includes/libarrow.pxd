@@ -2011,6 +2011,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CResult[CRecordBatchWithMetadata] ReadRecordBatchWithCustomMetadata(int i)
 
+        CResult[int64_t] CountRows()
+
         CIpcReadStats stats()
 
         shared_ptr[const CKeyValueMetadata] metadata()

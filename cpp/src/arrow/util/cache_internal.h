@@ -167,9 +167,8 @@ struct ThreadUnsafeMemoizer {
 };
 
 template <template <typename...> class Cache, template <typename...> class MemoizerType,
-          typename Func,
-          typename Key = typename std::decay<call_traits::argument_type<0, Func>>::type,
-          typename Value = typename std::decay<call_traits::return_type<Func>>::type,
+          typename Func, typename Key = std::decay_t<call_traits::argument_type<0, Func>>,
+          typename Value = std::decay_t<std::invoke_result_t<Func, const Key&>>,
           typename Memoizer = MemoizerType<Key, Value, Cache<Key, Value>, Func>,
           typename RetType = typename Memoizer::RetType>
 static std::function<RetType(const Key&)> Memoize(Func&& func, int32_t cache_capacity) {

@@ -384,6 +384,7 @@ endif()
 
 if(ARROW_PARQUET)
   set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
@@ -2823,6 +2824,8 @@ function(build_simdjson)
 
   fetchcontent_makeavailable(simdjson)
 
+  target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
+
   # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
   # simdjson headers from compiling. Disable simdjson concepts for this SDK.
   if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
@@ -2848,9 +2851,7 @@ if(ARROW_WITH_SIMDJSON)
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      REQUIRED_VERSION
-                     ${ARROW_SIMDJSON_REQUIRED_VERSION}
-                     IS_RUNTIME_DEPENDENCY
-                     FALSE)
+                     ${ARROW_SIMDJSON_REQUIRED_VERSION})
   if(SIMDJSON_VENDORED)
     add_library(arrow::simdjson ALIAS simdjson)
   else()

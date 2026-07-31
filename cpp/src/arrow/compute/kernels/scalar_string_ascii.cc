@@ -1750,9 +1750,9 @@ struct FindSubstringExec {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
-    const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
+      const bool is_utf8 = is_string_or_string_view(batch[0].type()->id());
       ARROW_ASSIGN_OR_RAISE(auto matcher,
                             FindSubstringRegex::Make(options, is_utf8, true));
       applicator::ScalarUnaryNotNullStateful<OffsetType, InputPhysicalType,

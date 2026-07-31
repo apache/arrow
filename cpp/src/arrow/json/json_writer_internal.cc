@@ -102,7 +102,18 @@ void JsonWriter::Null() {
   needs_comma_ = true;
 }
 
-std::string_view JsonWriter::GetString() const { return builder_.view().value(); }
+Result<std::string_view> JsonWriter::GetString() const {
+  std::string_view view;
+  if (auto error = builder_.view().get(view); error != simdjson::SUCCESS) {
+    if (error == simdjson::OUT_OF_CAPACITY) {
+      return Status::OutOfMemory(
+          "OutOfMemory when allocating buffer to serialize json to string");
+    }
+    return Status::Invalid("Failed to retrieve json from string builder: ",
+                           simdjson::error_message(error));
+  }
+  return view;
+}
 
 void JsonWriter::Clear() {
   builder_.clear();
@@ -113,6 +124,16 @@ void JsonWriter::MaybeComma() {
   if (needs_comma_) {
     builder_.append_comma();
   }
+}
+
+void JsonWriter::StringField(std::string_view key, std::string_view value) {
+  Key(key);
+  String(value);
+}
+
+void JsonWriter::BoolField(std::string_view key, bool value) {
+  Key(key);
+  Bool(value);
 }
 
 }  // namespace arrow::json

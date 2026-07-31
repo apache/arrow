@@ -858,16 +858,19 @@ class MetadataPtr(Sequence):
         return self.md[i]
 
 
-DecimalTraits = namedtuple('DecimalTraits', ('bit_width', 'struct_format_le'))
+DecimalTraits = namedtuple(
+    'DecimalTraits', ('bit_width', 'struct_format_le', 'storage_member'))
 
 decimal_traits = {
-    128: DecimalTraits(128, 'Qq'),
-    256: DecimalTraits(256, 'QQQq'),
+    32: DecimalTraits(32, 'i', 'value_'),
+    64: DecimalTraits(64, 'q', 'value_'),
+    128: DecimalTraits(128, 'Qq', 'array_'),
+    256: DecimalTraits(256, 'QQQq', 'array_'),
 }
 
 class BaseDecimal:
     """
-    Base class for arrow::BasicDecimal{128,256...} values.
+    Base class for arrow::BasicDecimal{32,64,128,256...} values.
     """
 
     def __init__(self, address):
@@ -877,9 +880,9 @@ class BaseDecimal:
     def from_value(cls, val):
         """
         Create a decimal from a gdb.Value representing the corresponding
-        arrow::BasicDecimal{128,256...}.
+        arrow::BasicDecimal{32,64,128,256...}.
         """
-        return cls(val['array_'].address)
+        return cls(val[cls.traits.storage_member].address)
 
     @classmethod
     def from_address(cls, address):
@@ -926,6 +929,14 @@ class BaseDecimal:
             return str(decimal.Decimal(v).scaleb(-scale))
 
 
+class Decimal32(BaseDecimal):
+    traits = decimal_traits[32]
+
+
+class Decimal64(BaseDecimal):
+    traits = decimal_traits[64]
+
+
 class Decimal128(BaseDecimal):
     traits = decimal_traits[128]
 
@@ -935,6 +946,8 @@ class Decimal256(BaseDecimal):
 
 
 decimal_bits_to_class = {
+    32: Decimal32,
+    64: Decimal64,
     128: Decimal128,
     256: Decimal256,
 }
@@ -1039,6 +1052,8 @@ type_reprs = {
     'DayTimeIntervalType': 'day_time_interval',
     'MonthDayNanoIntervalType': 'month_day_nano_interval',
     'DurationType': 'duration',
+    'Decimal32Type': 'decimal32',
+    'Decimal64Type': 'decimal64',
     'Decimal128Type': 'decimal128',
     'Decimal256Type': 'decimal256',
     'StringType': 'utf8',
@@ -2061,6 +2076,8 @@ type_traits_by_id = {
     Type.INTERVAL_MONTH_DAY_NANO: DataTypeTraits(MonthDayNanoIntervalTypeClass,
                                                  'MonthDayNanoIntervalType'),
 
+    Type.DECIMAL32: DataTypeTraits(DecimalTypeClass, 'Decimal32Type'),
+    Type.DECIMAL64: DataTypeTraits(DecimalTypeClass, 'Decimal64Type'),
     Type.DECIMAL128: DataTypeTraits(DecimalTypeClass, 'Decimal128Type'),
     Type.DECIMAL256: DataTypeTraits(DecimalTypeClass, 'Decimal256Type'),
 
@@ -2077,8 +2094,6 @@ type_traits_by_id = {
     Type.DICTIONARY: DataTypeTraits(DictionaryTypeClass, 'DictionaryType'),
     Type.EXTENSION: DataTypeTraits(ExtensionTypeClass, 'ExtensionType'),
 }
-
-max_type_id = len(type_traits_by_id) - 1
 
 
 def lookup_type_class(type_id):
@@ -2368,11 +2383,15 @@ class DecimalPrinter:
 
 printers = {
     "arrow::ArrayData": ArrayDataPrinter,
+    "arrow::BasicDecimal32": partial(DecimalPrinter, 32),
+    "arrow::BasicDecimal64": partial(DecimalPrinter, 64),
     "arrow::BasicDecimal128": partial(DecimalPrinter, 128),
     "arrow::BasicDecimal256": partial(DecimalPrinter, 256),
     "arrow::ChunkedArray": ChunkedArrayPrinter,
     "arrow::Datum": DatumPrinter,
     "arrow::DayTimeIntervalType::DayMilliseconds": DayMillisecondsPrinter,
+    "arrow::Decimal32": partial(DecimalPrinter, 32),
+    "arrow::Decimal64": partial(DecimalPrinter, 64),
     "arrow::Decimal128": partial(DecimalPrinter, 128),
     "arrow::Decimal256": partial(DecimalPrinter, 256),
     "arrow::MonthDayNanoIntervalType::MonthDayNanos": MonthDayNanosPrinter,
