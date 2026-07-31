@@ -1420,7 +1420,7 @@ class ColumnChunkReader {
 
   int16_t max_rep_level() const { return rep_levels_decoder_.max_level(); }
 
-  void MarkValuesAsConsumed(int64_t num_values) { num_decoded_values_ += num_values; }
+  void MarkValuesAsConsumed(int32_t num_values) { num_decoded_values_ += num_values; }
 
   int64_t Skip(int64_t num_values_to_skip);
 
@@ -1768,8 +1768,9 @@ class TypedColumnReaderImpl
       }
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
-      *non_null_values_to_read +=
-          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level());
+      ARROW_DCHECK_LE(*num_def_levels, std::numeric_limits<int32_t>::max());
+      *non_null_values_to_read += static_cast<int32_t>(
+          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level()));
     } else {
       // Required field, read all values
       if (num_def_levels != nullptr) {
@@ -1822,7 +1823,8 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
 
   // Read dictionary indices.
   *indices_read = ReadDictionaryIndices(indices_to_read, indices);
-  int64_t total_indices = std::max<int64_t>(num_def_levels, *indices_read);
+  const int32_t total_indices =
+      std::max(num_def_levels, static_cast<int32_t>(*indices_read));
   // Some callers use a batch size of 0 just to get the dictionary.
   int64_t expected_values = std::min(batch_size, this->available_values_current_page());
   if (total_indices == 0 && expected_values > 0) {
@@ -1869,8 +1871,10 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size_64,
   }
   // Adjust total_values, since if max_def_level_ == 0, num_def_levels would
   // be 0 and `values_read` would adjust to `available_values_current_page()`.
-  int64_t total_values = std::max<int64_t>(num_def_levels, *values_read);
-  int64_t expected_values = std::min(batch_size, this->available_values_current_page());
+  const int32_t total_values =
+      std::max(num_def_levels, static_cast<int32_t>(*values_read));
+  const int32_t expected_values =
+      std::min(batch_size, this->available_values_current_page());
   if (total_values == 0 && expected_values > 0) {
     std::stringstream ss;
     ss << "Read 0 values, expected " << expected_values;
@@ -2176,16 +2180,18 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsInBufferNonRepeated(
   ARROW_DCHECK_EQ(this->max_rep_level(), 0);
   if (!this->has_buffered_levels() || num_records == 0) return 0;
 
-  const int64_t remaining_records = levels_written() - levels_position_;
-  const int64_t skipped_records = std::min(num_records, remaining_records);
+  const int64_t remaining_records_64 = levels_written() - levels_position_;
+  ARROW_DCHECK_LE(remaining_records_64, std::numeric_limits<int32_t>::max());
+  const auto remaining_records = static_cast<int32_t>(remaining_records_64);
+  const int32_t skipped_records = narrow_min(num_records, remaining_records);
   const int64_t remaining_levels_pos = levels_position_ + skipped_records;
 
   // We skipped the levels by incrementing 'levels_position_'. For values
   // we do not have a buffer, so we need to read them and throw them away.
   // First we need to figure out how many present/not-null values there are.
-  const int64_t values_to_read =
+  const auto values_to_read = static_cast<int32_t>(
       std::count(def_levels() + levels_position_, def_levels() + remaining_levels_pos,
-                 this->max_def_level());
+                 this->max_def_level()));
 
   // Now that we have figured out number of values to read, we do not need
   // these levels anymore. We will remove these values from the buffer.
@@ -2216,7 +2222,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::DelimitAndSkipRecordsInBuffer(
   // Mark those levels and values as consumed in the underlying page.
   // This must be done before we throw away levels since it updates
   // levels_position_ and levels_written().
-  this->MarkValuesAsConsumed(levels_position_ - start_levels_position);
+  this->MarkValuesAsConsumed(clamp_to<int32_t>(levels_position_ - start_levels_position));
   // Updated levels_position_ and levels_written().
   def_levels_.Erase(start_levels_position, levels_position_);
   rep_levels_.Erase(start_levels_position, levels_position_);
@@ -2532,10 +2538,13 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordDataInBuffer(int64_t num_reco
   // Total values, including null spaces, if any
   if (this->max_def_level() > 0) {
     // Optional, repeated, or some mix thereof
-    this->MarkValuesAsConsumed(levels_position_ - start_levels_position);
+    // This is only reading in the current page so this fits in an int32.
+    this->MarkValuesAsConsumed(
+        clamp_to<int32_t>(levels_position_ - start_levels_position));
   } else {
     // Flat, non-repeated
-    this->MarkValuesAsConsumed(values_to_read);
+    // This is only reading in the current page so this fits in an int32.
+    this->MarkValuesAsConsumed(clamp_to<int32_t>(values_to_read));
   }
 
   return records_read;
