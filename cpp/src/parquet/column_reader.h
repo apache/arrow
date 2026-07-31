@@ -76,8 +76,8 @@ class PARQUET_EXPORT LevelDecoder {
  public:
   explicit LevelDecoder(int16_t max_level = 0);
 
-  LevelDecoder(LevelDecoder&&) = default;
-  LevelDecoder& operator=(LevelDecoder&&) = default;
+  LevelDecoder(LevelDecoder&&);
+  LevelDecoder& operator=(LevelDecoder&&);
 
   ~LevelDecoder();
 
