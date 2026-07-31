@@ -89,6 +89,13 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
     "Number of decoded rep / def levels do not match num_values in page header";
 
+/// Throws if the decoder could not provide as many levels as the page header announces.
+inline void CheckLevelsDecoded(int64_t number_decoded, int64_t expected) {
+  if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
+    throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
+  }
+}
+
 /// True if a T can hold a U.
 template <typename T, typename U>
 inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
@@ -392,7 +399,7 @@ int32_t LevelToBitmapDecoder::Skip(int32_t batch_size) {
   const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const int32_t num_advanced =
       std::visit([&](auto& dec) { return dec.Advance(num_values); }, decoder_);
-  ARROW_DCHECK_EQ(num_values, num_advanced);
+  CheckLevelsDecoded(num_advanced, num_values);
   num_values_remaining_ -= num_advanced;
   return num_advanced;
 }
@@ -401,7 +408,7 @@ auto LevelToBitmapDecoder::CountUpTo(bool value, int32_t batch_size) -> CountUpT
   const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const auto result =
       std::visit([&](auto& dec) { return dec.CountUpTo(value, num_values); }, decoder_);
-  ARROW_DCHECK_EQ(num_values, result.processed_count);
+  CheckLevelsDecoded(result.processed_count, num_values);
   num_values_remaining_ -= result.processed_count;
   return {
       .matching_count = result.matching_count,
@@ -1105,25 +1112,26 @@ class ValueSinkBuffer : public DataSinkBuffer<T> {
   void OnNewDictionary(auto& /* decoder */) {}
 
   /// Decode values contiguously into the sink buffer.
-  [[nodiscard]] int32_t ReadValuesDense(auto& decoder, int32_t batch_size) {
-    return Base::ReadFromCallback(
+  void ReadValuesDense(auto& decoder, int32_t batch_size) {
+    const auto decoded = Base::ReadFromCallback(
         [&, this]() { return decoder.Decode(Base::write_start(), batch_size); },
         batch_size);
+    CheckNumberDecoded(decoded, batch_size);
   }
 
   /// Decode values according to a validity bitmap.
   ///
   /// The values are decoded in the buffer where the validity bit is set. The values
   /// associated to unset bits are skipped and can be set to any arbitrary value.
-  [[nodiscard]] int32_t ReadValuesSpaced(auto& decoder, int32_t batch_size,
-                                         int32_t null_count, const uint8_t* valid_bits,
-                                         int64_t valid_bits_offset) {
-    return Base::ReadFromCallback(
+  void ReadValuesSpaced(auto& decoder, int32_t batch_size, int32_t null_count,
+                        const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    const auto decoded = Base::ReadFromCallback(
         [&, this]() {
           return decoder.DecodeSpaced(Base::write_start(), batch_size, null_count,
                                       valid_bits, valid_bits_offset);
         },
         batch_size);
+    CheckNumberDecoded(decoded, batch_size);
   }
 };
 
@@ -1149,10 +1157,7 @@ class LevelSinkBuffer : public DataSinkBuffer<int16_t> {
     const auto decoded = Base::ReadFromCallback(
         [&, this]() { return decoder.Decode(batch_size, Base::write_start()); },
         batch_size);
-
-    if (ARROW_PREDICT_FALSE(decoded != batch_size)) {
-      throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
-    }
+    CheckLevelsDecoded(decoded, batch_size);
   }
 
  private:
@@ -1193,19 +1198,22 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
     return ValiditySinkBuffer(AllocateBuffer(pool));
   }
 
-  template <typename Int>
   struct ReadResult {
-    Int values_read = 0;
-    Int null_count = 0;
+    int64_t values_read = 0;
+    int64_t null_count = 0;
   };
 
   /// Write into the bitmap from already decoded levels.
   ///
   /// This method is used when additional computation using the levels is needed.
   /// It re-encodes definition levels as a validity bitmap.
-  ReadResult<int64_t> ReadFromDefLevels(const int16_t* def_levels, int64_t num_def_levels,
-                                        const internal::LevelInfo& level_info) {
-    ReadResult<int64_t> out{};
+  ///
+  /// Unlike the other sink methods, the number of values written is not known in
+  /// advance and is returned to the caller: for repeated or nested columns some
+  /// definition levels describe empty or absent lists that produce no leaf value.
+  ReadResult ReadFromDefLevels(const int16_t* def_levels, int64_t num_def_levels,
+                               const internal::LevelInfo& level_info) {
+    ReadResult out{};
 
     Base::ReadFromCallback(
         [&, this]() {
@@ -1233,11 +1241,14 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
 
   /// Write into the bitmap from a bitmap-compatible decoder.
   ///
-  /// This is a special optimization when the max definition level
-  ReadResult<int32_t> ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
-    ReadResult<int32_t> out{};
+  /// This is a special optimization when the max definition level is one, in which case
+  /// definition levels are already a validity bitmap.
+  ///
+  /// @return the number of null values written.
+  int32_t ReadFromDecoder(LevelToBitmapDecoder& decoder, int32_t batch_size) {
+    int32_t null_count = 0;
 
-    Base::ReadFromCallback(
+    const auto decoded = Base::ReadFromCallback(
         [&, this]() {
           using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
 
@@ -1248,13 +1259,13 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
               write_pos.data(), write_pos.bit_start(), decoded);
           ARROW_DCHECK_LE(non_null, decoded);
 
-          out.values_read = decoded;
-          out.null_count = static_cast<int32_t>(decoded - non_null);
+          null_count = static_cast<int32_t>(decoded - non_null);
           return decoded;
         },
         batch_size);
+    CheckLevelsDecoded(decoded, batch_size);
 
-    return out;
+    return null_count;
   }
 
  private:
@@ -2002,9 +2013,8 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   // Returns number of skipped records.
   int64_t SkipRecordsRepeated(int64_t num_records);
 
-  // Read 'num_values' values and throw them away.
-  // Throws an error if it could not read 'num_values'.
-  void SkipValues(int64_t num_values);
+  // Skip 'num_values' values from the current page.
+  void SkipValuesInPage(int64_t num_values);
 
   int64_t SkipRecords(int64_t num_records) override;
 
@@ -2043,32 +2053,30 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   const ColumnDescriptor* descr() const override { return this->descr_; }
 
-  void ReadValuesSpaced(int64_t valid_bits_offset, int32_t values_with_nulls,
-                        int32_t null_count);
+  // Reads repeated records from the buffered levels and returns number of records
+  // read. Fills in values_to_read and null_count.
+  int64_t ReadRepeatedRecordsInBuffer(int64_t num_records, int64_t* values_to_read,
+                                      int64_t* null_count);
 
-  void ReadValuesDense(int32_t values_to_read);
-
-  // Reads repeated records and returns number of records read. Fills in
-  // values_to_read and null_count.
-  int64_t ReadRepeatedRecords(int64_t num_records, int64_t* values_to_read,
-                              int64_t* null_count);
-
-  // Reads optional records and returns number of records read. Fills in
-  // values_to_read and null_count.
-  int64_t ReadOptionalRecords(int64_t num_records, int64_t* values_to_read,
-                              int64_t* null_count);
+  // Reads optional records from the buffered levels and returns number of records
+  // read. Fills in values_to_read and null_count.
+  int64_t ReadOptionalRecordsInBuffer(int64_t num_records, int64_t* values_to_read,
+                                      int64_t* null_count);
 
   // Reads dense for optional records. First it figures out how many values to
   // read.
-  void ReadDenseForOptional(int64_t start_levels_position, int64_t* values_to_read);
+  void ReadDenseForOptionalInBuffer(int64_t start_levels_position,
+                                    int64_t* values_to_read);
 
   // Reads spaced for optional or repeated fields.
-  void ReadSpacedForOptionalOrRepeated(int64_t start_levels_position,
-                                       int64_t* values_to_read, int64_t* null_count);
+  void ReadSpacedForOptionalOrRepeatedInBuffer(int64_t start_levels_position,
+                                               int64_t* values_to_read,
+                                               int64_t* null_count);
 
+  // Read records from the buffered levels.
   // Return number of logical records read.
   // Updates levels_position_, values_written_, and null_count_.
-  int64_t ReadRecordData(int64_t num_records);
+  int64_t ReadRecordDataInBuffer(int64_t num_records);
 
   void DebugPrintState() override;
 
@@ -2113,7 +2121,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
   int64_t records_read = 0;
 
   if (has_buffered_levels()) {
-    records_read += ReadRecordData(num_records);
+    records_read += ReadRecordDataInBuffer(num_records);
   }
 
   int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
@@ -2149,11 +2157,11 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records) {
       if (this->max_rep_level() > 0) {
         rep_levels_.Decode(this->rep_levels_decoder_, batch_size);
       }
-      records_read += ReadRecordData(num_records - records_read);
+      records_read += ReadRecordDataInBuffer(num_records - records_read);
     } else {
       // No repetition and definition levels, we can read values directly
       const auto count = narrow_min(num_records - records_read, batch_size);
-      records_read += ReadRecordData(count);
+      records_read += ReadRecordDataInBuffer(count);
     }
   }
 
@@ -2183,7 +2191,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsInBufferNonRepeated(
 
   // For values, we do not have them in buffer, so we will read them and
   // throw them away.
-  SkipValues(values_to_read);
+  SkipValuesInPage(values_to_read);
 
   // Mark the levels as read in the underlying column reader.
   this->MarkValuesAsConsumed(skipped_records);
@@ -2202,7 +2210,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::DelimitAndSkipRecordsInBuffer(
   int64_t start_levels_position = levels_position_;
   int64_t values_seen = 0;
   int64_t skipped_records = DelimitRecords(num_records, &values_seen);
-  SkipValues(values_seen);
+  SkipValuesInPage(values_seen);
   // Mark those levels and values as consumed in the underlying page.
   // This must be done before we throw away levels since it updates
   // levels_position_ and levels_written().
@@ -2269,7 +2277,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::SkipRecordsRepeated(int64_t num_records
 }
 
 template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::SkipValues(int64_t num_values) {
+void TypedRecordReader<DT, VS, kDic>::SkipValuesInPage(int64_t num_values) {
   const int64_t values_read = this->current_decoder_.Skip(num_values);
   if (values_read < num_values) {
     std::stringstream ss;
@@ -2394,27 +2402,8 @@ void TypedRecordReader<DT, VS, kDic>::SetPageReader(std::unique_ptr<PageReader> 
 }
 
 template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ReadValuesSpaced(int64_t valid_bits_offset,
-                                                       int32_t values_with_nulls,
-                                                       int32_t null_count) {
-  const auto decoded = value_sink_.ReadValuesSpaced(
-      *this->current_decoder_.get(), values_with_nulls, null_count,
-      /* valid_bits= */ valid_bits_.data(),
-      /* valid_bits_offset= */ valid_bits_offset);
-  CheckNumberDecoded(decoded, values_with_nulls);
-}
-
-template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ReadValuesDense(int32_t batch_size) {
-  const auto decoded =
-      value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
-  CheckNumberDecoded(decoded, batch_size);
-}
-
-template <typename DT, typename VS, bool kDic>
-int64_t TypedRecordReader<DT, VS, kDic>::ReadRepeatedRecords(int64_t num_records,
-                                                             int64_t* values_to_read,
-                                                             int64_t* null_count) {
+int64_t TypedRecordReader<DT, VS, kDic>::ReadRepeatedRecordsInBuffer(
+    int64_t num_records, int64_t* values_to_read, int64_t* null_count) {
   const int64_t start_levels_position = levels_position_;
   // Note that repeated records may be required or nullable. If they have
   // an optional parent in the path, they will be nullable, otherwise,
@@ -2426,19 +2415,20 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRepeatedRecords(int64_t num_records
   int64_t records_read = DelimitRecords(num_records, values_to_read);
   if (valid_bits_.is_void()) {  // not nullable or read_dense_for_nullable
     // This is only reading in the current page so this fits in an int32.
-    ReadValuesDense(clamp_to<int32_t>(*values_to_read));
+    value_sink_.ReadValuesDense(*this->current_decoder_.get(),
+                                clamp_to<int32_t>(*values_to_read));
     // null_count is always 0 for required.
     ARROW_DCHECK_EQ(*null_count, 0);
   } else {
-    ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
+    ReadSpacedForOptionalOrRepeatedInBuffer(start_levels_position, values_to_read,
+                                            null_count);
   }
   return records_read;
 }
 
 template <typename DT, typename VS, bool kDic>
-int64_t TypedRecordReader<DT, VS, kDic>::ReadOptionalRecords(int64_t num_records,
-                                                             int64_t* values_to_read,
-                                                             int64_t* null_count) {
+int64_t TypedRecordReader<DT, VS, kDic>::ReadOptionalRecordsInBuffer(
+    int64_t num_records, int64_t* values_to_read, int64_t* null_count) {
   const int64_t start_levels_position = levels_position_;
   // No repetition levels, skip delimiting logic. Each level represents a
   // null or not null entry
@@ -2449,19 +2439,20 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadOptionalRecords(int64_t num_records
 
   // Optional fields are always nullable.
   if (read_dense_for_nullable()) {
-    ReadDenseForOptional(start_levels_position, values_to_read);
+    ReadDenseForOptionalInBuffer(start_levels_position, values_to_read);
     // We don't need to update null_count when reading dense. It should be
     // already set to 0.
     ARROW_DCHECK_EQ(*null_count, 0);
   } else {
-    ReadSpacedForOptionalOrRepeated(start_levels_position, values_to_read, null_count);
+    ReadSpacedForOptionalOrRepeatedInBuffer(start_levels_position, values_to_read,
+                                            null_count);
   }
   return records_read;
 }
 
 template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ReadDenseForOptional(int64_t start_levels_position,
-                                                           int64_t* values_to_read) {
+void TypedRecordReader<DT, VS, kDic>::ReadDenseForOptionalInBuffer(
+    int64_t start_levels_position, int64_t* values_to_read) {
   // levels_position_ must already be incremented based on number of records
   // read.
   ARROW_DCHECK_GE(levels_position_, start_levels_position);
@@ -2471,30 +2462,34 @@ void TypedRecordReader<DT, VS, kDic>::ReadDenseForOptional(int64_t start_levels_
   *values_to_read += std::count(def_levels + start_levels_position,
                                 def_levels + levels_position_, this->max_def_level());
   // This is only reading in the current page so this fits in an int32.
-  ReadValuesDense(clamp_to<int32_t>(*values_to_read));
+  value_sink_.ReadValuesDense(*this->current_decoder_.get(),
+                              clamp_to<int32_t>(*values_to_read));
 }
 
 template <typename DT, typename VS, bool kDic>
-void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeated(
+void TypedRecordReader<DT, VS, kDic>::ReadSpacedForOptionalOrRepeatedInBuffer(
     int64_t start_levels_position, int64_t* values_to_read, int64_t* null_count) {
   // levels_position_ must already be incremented based on number of records
   // read.
   const int64_t valid_bits_offset = valid_bits_.values_count();
   ARROW_DCHECK_EQ(values_written(), valid_bits_offset);
-  const auto result = valid_bits_.ReadFromDefLevels(  //
-      def_levels() + start_levels_position, levels_position_ - start_levels_position,
-      leaf_info_);
+  const auto result =
+      valid_bits_.ReadFromDefLevels(def_levels() + start_levels_position,
+                                    levels_position_ - start_levels_position, leaf_info_);
 
   *values_to_read = result.values_read - result.null_count;
   *null_count = result.null_count;
 
   // This is only reading in the current page so this fits in an int32.
-  ReadValuesSpaced(valid_bits_offset, clamp_to<int32_t>(result.values_read),
-                   clamp_to<int32_t>(*null_count));
+  value_sink_.ReadValuesSpaced(*this->current_decoder_.get(),
+                               clamp_to<int32_t>(result.values_read),
+                               clamp_to<int32_t>(*null_count),
+                               /* valid_bits= */ valid_bits_.data(),
+                               /* valid_bits_offset= */ valid_bits_offset);
 }
 
 template <typename DT, typename VS, bool kDic>
-int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
+int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordDataInBuffer(int64_t num_records) {
   // The value and validity sinks reserve their own capacity as they read, so
   // there is no need to pre-reserve an upper bound here.
   const int64_t start_levels_position = levels_position_;
@@ -2507,17 +2502,18 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
   if (this->max_rep_level() > 0) {
     // Repeated fields may be nullable or not.
     // This call updates levels_position_.
-    records_read = ReadRepeatedRecords(num_records, &values_to_read, &null_count);
+    records_read = ReadRepeatedRecordsInBuffer(num_records, &values_to_read, &null_count);
   } else if (this->max_def_level() > 0) {
     // Non-repeated optional values are always nullable.
     // This call updates levels_position_.
     ARROW_DCHECK(nullable_values());
-    records_read = ReadOptionalRecords(num_records, &values_to_read, &null_count);
+    records_read = ReadOptionalRecordsInBuffer(num_records, &values_to_read, &null_count);
   } else {
     ARROW_DCHECK(!nullable_values());
     values_to_read = num_records;
     // This is only reading in the current page so this fits in an int32.
-    ReadValuesDense(clamp_to<int32_t>(values_to_read));
+    value_sink_.ReadValuesDense(*this->current_decoder_.get(),
+                                clamp_to<int32_t>(values_to_read));
     records_read = num_records;
     // We don't need to update null_count, since it is 0.
   }
@@ -2526,7 +2522,7 @@ int64_t TypedRecordReader<DT, VS, kDic>::ReadRecordData(int64_t num_records) {
   ARROW_DCHECK_GE(values_to_read, 0);
   ARROW_DCHECK_GE(null_count, 0);
 
-  // The values have already been accounted for by ReadValuesDense/Spaced.
+  // The values have already been accounted for by the value sink.
   if (read_dense_for_nullable()) {
     ARROW_DCHECK_EQ(null_count, 0);
   } else {
@@ -2669,8 +2665,6 @@ class RequiredTypedRecordReader
   ValueSink value_sink_;
 
   void ReserveValues(int64_t extra_values) { value_sink_.ReserveValues(extra_values); }
-
-  void ReadValuesDense(int32_t values_to_read);
 };
 
 /**********************************************
@@ -2692,20 +2686,13 @@ int64_t RequiredTypedRecordReader<DT, VS, kDic>::ReadRecords(int64_t num_records
 
     const int32_t batch_size =
         narrow_min(num_records - records_read, this->available_values_current_page());
-    ReadValuesDense(batch_size);
+    value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
     this->MarkValuesAsConsumed(batch_size);
 
     records_read += batch_size;
   } while (records_read < num_records);
 
   return records_read;
-}
-
-template <typename DT, typename VS, bool kDic>
-void RequiredTypedRecordReader<DT, VS, kDic>::ReadValuesDense(int32_t batch_size) {
-  const auto decoded =
-      value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
-  CheckNumberDecoded(decoded, batch_size);
 }
 
 template <typename DT, typename VS, bool kDic>
@@ -2828,11 +2815,6 @@ class FlatOptionalTypedRecordReader
   ValueSink value_sink_;
   ValiditySinkBuffer valid_bits_ = ValiditySinkBuffer::MakeVoid();
   int64_t null_count_ = 0;
-
-  void ReadValuesDense(int32_t values_to_read);
-
-  void ReadValuesSpaced(int64_t valid_bits_offset, int32_t values_with_nulls,
-                        int32_t null_count);
 };
 
 /**************************************************
@@ -2857,39 +2839,23 @@ int64_t FlatOptionalTypedRecordReader<DT>::ReadRecords(int64_t num_records) {
         narrow_min(num_records - records_read, this->available_values_current_page());
     if (read_dense_for_nullable()) {
       const auto result = this->def_levels_decoder_.CountUpTo(true, batch_size);
-      ReadValuesDense(result.matching_count);
+      value_sink_.ReadValuesDense(*this->current_decoder_.get(), result.matching_count);
       records_read += result.processed_count;
       this->MarkValuesAsConsumed(result.processed_count);
     } else {
       const auto old_valid_bits_start = valid_bits_.values_count();
-      const auto result =
+      const auto null_count =
           valid_bits_.ReadFromDecoder(this->def_levels_decoder_, batch_size);
-      ReadValuesSpaced(old_valid_bits_start, result.values_read, result.null_count);
-      this->MarkValuesAsConsumed(result.values_read);
-      records_read += result.values_read;
-      null_count_ += result.null_count;
+      value_sink_.ReadValuesSpaced(*this->current_decoder_.get(), batch_size, null_count,
+                                   /* valid_bits= */ valid_bits_.data(),
+                                   /* valid_bits_offset= */ old_valid_bits_start);
+      this->MarkValuesAsConsumed(batch_size);
+      records_read += batch_size;
+      null_count_ += null_count;
     }
   } while (records_read < num_records);
 
   return records_read;
-}
-
-template <typename DT>
-void FlatOptionalTypedRecordReader<DT>::ReadValuesSpaced(int64_t valid_bits_offset,
-                                                         int32_t values_with_nulls,
-                                                         int32_t null_count) {
-  const auto decoded = value_sink_.ReadValuesSpaced(
-      *this->current_decoder_.get(), values_with_nulls, null_count,
-      /* valid_bits= */ valid_bits_.data(),
-      /* valid_bits_offset= */ valid_bits_offset);
-  CheckNumberDecoded(decoded, values_with_nulls);
-}
-
-template <typename DT>
-void FlatOptionalTypedRecordReader<DT>::ReadValuesDense(int32_t batch_size) {
-  const auto decoded =
-      value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
-  CheckNumberDecoded(decoded, batch_size);
 }
 
 template <typename DT>
@@ -2938,24 +2904,22 @@ class ArrayValuesSink : private ValueSinkCursor {
 
   void OnNewDictionary(auto& /* decoder */) {}
 
-  [[nodiscard]] auto ReadValuesDense(auto& decoder, int32_t batch_size) {
+  void ReadValuesDense(auto& decoder, int32_t batch_size) {
     ReserveValues(batch_size);
     const int64_t decoded = decoder.DecodeArrowNonNull(batch_size, &builder_);
     increase_values_count(batch_size);
-    return decoded;
+    CheckNumberDecoded(decoded, batch_size);
   }
 
-  [[nodiscard]] auto ReadValuesSpaced(auto& decoder, int32_t batch_size,
-                                      int32_t null_count, const uint8_t* valid_bits,
-                                      int64_t valid_bits_offset) {
+  void ReadValuesSpaced(auto& decoder, int32_t batch_size, int32_t null_count,
+                        const uint8_t* valid_bits, int64_t valid_bits_offset) {
     ReserveValues(batch_size);
     const int64_t decoded = decoder.DecodeArrow(batch_size, null_count, valid_bits,
                                                 valid_bits_offset, &builder_);
     increase_values_count(batch_size);
-    // `DecodeArrow` only counts the non-null values, but the caller expects the
+    // `DecodeArrow` only counts the non-null values, but the check is on the
     // number of values written, nulls included.
-    ARROW_DCHECK_EQ(decoded, batch_size - null_count);
-    return decoded + null_count;
+    CheckNumberDecoded(decoded + null_count, batch_size);
   }
 
   auto builder() -> BuilderType& { return builder_; }
@@ -3164,7 +3128,7 @@ class ValuesSinkByteArrayDict : private ValueSinkCursor {
 
   void ResetValues() { ValueSinkCursor::operator=({}); }
 
-  [[nodiscard]] int64_t ReadValuesDense(auto& decoder, int32_t batch_size) {
+  void ReadValuesDense(auto& decoder, int32_t batch_size) {
     ReserveValues(batch_size);
     const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
@@ -3173,12 +3137,11 @@ class ValuesSinkByteArrayDict : private ValueSinkCursor {
       return decoder.DecodeArrowNonNull(batch_size, builder_.get());
     }();
     set_values_count(values_count() + batch_size);
-    return decoded;
+    CheckNumberDecoded(decoded, batch_size);
   }
 
-  [[nodiscard]] int64_t ReadValuesSpaced(auto& decoder, int32_t batch_size,
-                                         int32_t null_count, const uint8_t* valid_bits,
-                                         int64_t valid_bits_offset) {
+  void ReadValuesSpaced(auto& decoder, int32_t batch_size, int32_t null_count,
+                        const uint8_t* valid_bits, int64_t valid_bits_offset) {
     ReserveValues(batch_size);
     const int64_t decoded = [&]() -> int64_t {
       if (auto* dict_decoder = dynamic_cast<BinaryDictDecoder*>(&decoder)) {
@@ -3189,10 +3152,9 @@ class ValuesSinkByteArrayDict : private ValueSinkCursor {
                                  builder_.get());
     }();
     set_values_count(values_count() + batch_size);
-    // The decoders only count the non-null values, but the caller expects the
+    // The decoders only count the non-null values, but the check is on the
     // number of values written, nulls included.
-    ARROW_DCHECK_EQ(decoded, batch_size - null_count);
-    return decoded + null_count;
+    CheckNumberDecoded(decoded + null_count, batch_size);
   }
 
   void OnNewDictionary(auto& decoder) {
