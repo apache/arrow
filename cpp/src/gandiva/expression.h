@@ -38,6 +38,8 @@ class GANDIVA_EXPORT Expression {
 
   std::string ToString();
 
+  std::string ToCacheKeyString();
+
  private:
   const NodePtr root_;
   const FieldPtr result_;
