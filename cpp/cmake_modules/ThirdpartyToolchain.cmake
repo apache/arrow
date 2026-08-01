@@ -259,7 +259,8 @@ macro(resolve_dependency DEPENDENCY_NAME)
       IS_RUNTIME_DEPENDENCY
       REQUIRED_VERSION
       USE_CONFIG)
-  set(multi_value_args COMPONENTS OPTIONAL_COMPONENTS PC_PACKAGE_NAMES)
+  set(multi_value_args COMPONENTS OPTIONAL_COMPONENTS PC_PACKAGE_NAMES
+                        STATIC_INSTALL_INTERFACE_LIBS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -362,6 +363,29 @@ macro(resolve_dependency DEPENDENCY_NAME)
         endif()
       endforeach()
     endif()
+  endif()
+  if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_STATIC_INSTALL_INTERFACE_LIBS)
+    if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
+      set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    endif()
+    string(REGEX REPLACE "([A-Z])" "_\\1" ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE
+                         ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    string(SUBSTRING ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE} 1 -1
+                     ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE)
+    string(TOUPPER ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE)
+    set(RESOLVED_STATIC_INSTALL_INTERFACE_LIBS)
+    foreach(ARG_STATIC_INSTALL_INTERFACE_LIB ${ARG_STATIC_INSTALL_INTERFACE_LIBS})
+      if(DEFINED ${ARG_STATIC_INSTALL_INTERFACE_LIB})
+        list(APPEND RESOLVED_STATIC_INSTALL_INTERFACE_LIBS
+             ${${ARG_STATIC_INSTALL_INTERFACE_LIB}})
+      else()
+        list(APPEND RESOLVED_STATIC_INSTALL_INTERFACE_LIBS
+             ${ARG_STATIC_INSTALL_INTERFACE_LIB})
+      endif()
+    endforeach()
+    list(APPEND ${ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE}_STATIC_INSTALL_INTERFACE_LIBS
+         ${RESOLVED_STATIC_INSTALL_INTERFACE_LIBS})
   endif()
 endmacro()
 
@@ -1481,7 +1505,9 @@ if(ARROW_WITH_SNAPPY)
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
-                     snappy)
+                     snappy
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     Snappy_TARGET)
   if(${Snappy_SOURCE} STREQUAL "SYSTEM"
      AND NOT snappy_PC_FOUND
      AND ARROW_BUILD_STATIC)
@@ -1589,7 +1615,11 @@ if(ARROW_WITH_BROTLI)
                      TRUE
                      PC_PACKAGE_NAMES
                      libbrotlidec
-                     libbrotlienc)
+                     libbrotlienc
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     Brotli::brotlienc
+                     Brotli::brotlidec
+                     Brotli::brotlicommon)
   # Order is important for static linking
   set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
 endif()
@@ -1610,7 +1640,10 @@ if(PARQUET_REQUIRE_ENCRYPTION
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     ${ARROW_OPENSSL_REQUIRED_VERSION})
+                     ${ARROW_OPENSSL_REQUIRED_VERSION}
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     OpenSSL::Crypto
+                     OpenSSL::SSL)
   set(ARROW_USE_OPENSSL ON)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
 endif()
@@ -1679,7 +1712,9 @@ if(ARROW_USE_GLOG)
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
-                     libglog)
+                     libglog
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     glog::glog)
 endif()
 
 # ----------------------------------------------------------------------
@@ -2288,7 +2323,9 @@ if(ARROW_WITH_PROTOBUF)
                      PC_PACKAGE_NAMES
                      protobuf
                      REQUIRED_VERSION
-                     ${ARROW_PROTOBUF_REQUIRED_VERSION})
+                     ${ARROW_PROTOBUF_REQUIRED_VERSION}
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     ARROW_PROTOBUF_LIBPROTOBUF)
 
   # If PROTOBUF_VENDORED we build static protobuf from source via FetchContent
   if(NOT PROTOBUF_VENDORED
@@ -2853,7 +2890,9 @@ if(ARROW_WITH_SIMDJSON)
                      REQUIRED_VERSION
                      ${ARROW_SIMDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
-                     FALSE)
+                     FALSE
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     simdjson::simdjson)
   if(SIMDJSON_VENDORED)
     add_library(arrow::simdjson ALIAS simdjson)
   else()
@@ -3007,7 +3046,7 @@ macro(build_zlib)
 endmacro()
 
 if(ARROW_WITH_ZLIB)
-  resolve_dependency(ZLIB PC_PACKAGE_NAMES zlib)
+  resolve_dependency(ZLIB PC_PACKAGE_NAMES zlib STATIC_INSTALL_INTERFACE_LIBS ZLIB::ZLIB)
 endif()
 
 function(build_lz4)
@@ -3056,7 +3095,9 @@ if(ARROW_WITH_LZ4)
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
-                     liblz4)
+                     liblz4
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     LZ4::lz4)
 endif()
 
 macro(build_zstd)
@@ -3131,6 +3172,9 @@ if(ARROW_WITH_ZSTD)
       message(FATAL_ERROR "Zstandard target doesn't exist: ${ARROW_ZSTD_LIBZSTD}")
     endif()
     message(STATUS "Found Zstandard: ${ARROW_ZSTD_LIBZSTD}")
+    if(${zstd_SOURCE} STREQUAL "SYSTEM")
+      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_ZSTD_LIBZSTD})
+    endif()
   endif()
 endif()
 
@@ -3178,7 +3222,9 @@ if(ARROW_WITH_RE2)
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
-                     re2)
+                     re2
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     re2::re2)
 endif()
 
 macro(build_bzip2)
@@ -3227,7 +3273,7 @@ macro(build_bzip2)
 endmacro()
 
 if(ARROW_WITH_BZ2)
-  resolve_dependency(BZip2 PC_PACKAGE_NAMES bzip2)
+  resolve_dependency(BZip2 PC_PACKAGE_NAMES bzip2 STATIC_INSTALL_INTERFACE_LIBS BZip2::BZip2)
 
   if(${BZip2_SOURCE} STREQUAL "SYSTEM"
      AND NOT bzip2_PC_FOUND
@@ -3289,7 +3335,9 @@ if(ARROW_WITH_UTF8PROC)
     # https://github.com/microsoft/vcpkg/issues/39176
     list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
   endif()
-  resolve_dependency(${utf8proc_resolve_dependency_args})
+  resolve_dependency(${utf8proc_resolve_dependency_args}
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     utf8proc::utf8proc)
 endif()
 
 function(build_cares)
@@ -3636,7 +3684,6 @@ if(ARROW_WITH_OPENTELEMETRY)
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
-  resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
       opentelemetry-cpp::logs
@@ -3644,6 +3691,7 @@ if(ARROW_WITH_OPENTELEMETRY)
       opentelemetry-cpp::ostream_log_record_exporter
       opentelemetry-cpp::ostream_span_exporter
       opentelemetry-cpp::otlp_http_exporter)
+  resolve_dependency(opentelemetry-cpp STATIC_INSTALL_INTERFACE_LIBS ARROW_OPENTELEMETRY_LIBS)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
@@ -3811,7 +3859,9 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   # curl is required on all platforms. We always use system curl to
   # avoid conflict.
   find_curl()
-  resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
+  resolve_dependency(google_cloud_cpp_storage
+                     PC_PACKAGE_NAMES google_cloud_cpp_storage
+                     STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
@@ -4057,7 +4107,7 @@ function(build_orc)
 endfunction()
 
 if(ARROW_ORC)
-  resolve_dependency(orc HAVE_ALT TRUE)
+  resolve_dependency(orc HAVE_ALT TRUE STATIC_INSTALL_INTERFACE_LIBS orc::orc)
   if(ORC_VENDORED)
     set(ARROW_ORC_VERSION ${ARROW_ORC_BUILD_VERSION})
   else()
@@ -4260,7 +4310,13 @@ if(ARROW_S3)
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     1.11.0)
+                     1.11.0
+                     STATIC_INSTALL_INTERFACE_LIBS
+                     aws-cpp-sdk-identity-management
+                     aws-cpp-sdk-sts
+                     aws-cpp-sdk-cognito-identity
+                     aws-cpp-sdk-s3
+                     aws-cpp-sdk-core)
 
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
