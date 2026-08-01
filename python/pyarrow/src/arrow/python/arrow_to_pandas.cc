@@ -1401,24 +1401,8 @@ struct ObjectWriterVisitor {
       storage_arrays.push_back(extension_array.storage());
     }
     ChunkedArray storage(std::move(storage_arrays), type.storage_type());
-    OwnedRef uuid_module;
-    OwnedRef uuid_constructor;
-    RETURN_NOT_OK(internal::ImportModule("uuid", &uuid_module));
-    RETURN_NOT_OK(
-        internal::ImportFromModule(uuid_module.obj(), "UUID", &uuid_constructor));
-    // Reuse the args tuple and kwargs dict across calls to avoid per-element allocation.
-    OwnedRef args(PyTuple_New(0));
-    OwnedRef kwargs(PyDict_New());
-    RETURN_IF_PYERROR();
     auto WrapUuid = [&](const std::string_view& view, PyObject** out) {
-      OwnedRef bytes(
-          PyBytes_FromStringAndSize(view.data(), static_cast<Py_ssize_t>(view.size())));
-      RETURN_IF_PYERROR();
-      if (PyDict_SetItemString(kwargs.obj(), "bytes", bytes.obj()) < 0) {
-        RETURN_IF_PYERROR();
-      }
-      *out = PyObject_Call(uuid_constructor.obj(), args.obj(), kwargs.obj());
-      RETURN_IF_PYERROR();
+      ARROW_ASSIGN_OR_RAISE(*out, internal::UuidFromBytes(view));
       return Status::OK();
     };
     return ConvertAsPyObjects<FixedSizeBinaryType>(options, storage, WrapUuid,
