@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 
 #include <simdjson.h>
@@ -194,7 +194,8 @@ inline const char* JsonTypeName(simdjson::ondemand::json_type type) {
 // Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
 inline Result<bool> IsJsonNull(simdjson::ondemand::value& value) {
   bool is_null;
-  if (auto error_code = value.is_null().get(is_null); error_code != simdjson::SUCCESS) {
+  auto error_code = value.is_null().get(is_null);
+  if (error_code != simdjson::SUCCESS) {
     return Status::Invalid("Error checking for JSON null: ",
                            simdjson::error_message(error_code));
   }
@@ -206,7 +207,7 @@ Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
   SimdjsonValueType typed_value{};
   simdjson::error_code error_code;
 
-  if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
+  if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
     // simdjson has no get<>() for null; probe it explicitly
     bool is_null;
     error_code = value.is_null().get(is_null);
@@ -220,7 +221,7 @@ Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
   if (error_code != simdjson::SUCCESS) {
     simdjson::ondemand::json_type json_type;
     if (value.type().get(json_type) != simdjson::SUCCESS) {
-      if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
+      if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
         return Status::Invalid("Expected null, got malformed JSON value");
       } else {
         return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
@@ -228,7 +229,7 @@ Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
       }
     }
 
-    if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
+    if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
       return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
     } else {
       return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
