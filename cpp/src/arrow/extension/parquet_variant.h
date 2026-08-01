@@ -70,7 +70,10 @@ class ARROW_EXPORT VariantExtensionType : public ExtensionType {
   std::shared_ptr<Field> value() const { return value_; }
 
  private:
-  // TODO GH-45948 added shredded_value
+  // TODO: Track shredded_value field when integrating with Parquet reader.
+  // The shredding implementation (variant_shredding.h) operates on raw arrays
+  // externally; a future PR may extend VariantExtensionType to understand
+  // shredded storage layouts for seamless Parquet I/O integration.
   std::shared_ptr<Field> metadata_;
   std::shared_ptr<Field> value_;
 };
