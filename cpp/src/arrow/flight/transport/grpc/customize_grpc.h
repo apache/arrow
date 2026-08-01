@@ -86,6 +86,16 @@ namespace grpc {
 // protobuf without copying
 ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
     ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
+
+ARROW_FLIGHT_EXPORT
+bool IsRegisteredGrpcFlightDataMessage(
+    const arrow::flight::protocol::FlightData* message);
+
+ARROW_FLIGHT_EXPORT
+void RegisterGrpcFlightDataMessage(const arrow::flight::protocol::FlightData* message);
+
+ARROW_FLIGHT_EXPORT
+void UnregisterGrpcFlightDataMessage(const arrow::flight::protocol::FlightData* message);
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight
@@ -105,11 +115,22 @@ class SerializationTraits<arrow::flight::protocol::FlightData> {
   // In the functions below, we cast back the Message argument to its real
   // type (see ReadPayload() and WritePayload() for the initial cast).
   static Status Serialize(const MessageType& msg, ByteBuffer* bb, bool* own_buffer) {
+    const auto* flight_data =
+        reinterpret_cast<const arrow::flight::protocol::FlightData*>(&msg);
+    if (arrow::flight::transport::grpc::IsRegisteredGrpcFlightDataMessage(flight_data)) {
+      return GenericSerialize<ProtoBufferWriter, arrow::flight::protocol::FlightData>(
+          msg, bb, own_buffer);
+    }
     return arrow::flight::transport::grpc::FlightDataSerialize(
         *reinterpret_cast<const arrow::flight::FlightPayload*>(&msg), bb, own_buffer);
   }
 
   static Status Deserialize(ByteBuffer* buffer, MessageType* msg) {
+    auto* flight_data = reinterpret_cast<arrow::flight::protocol::FlightData*>(msg);
+    if (arrow::flight::transport::grpc::IsRegisteredGrpcFlightDataMessage(flight_data)) {
+      return GenericDeserialize<ProtoBufferReader, arrow::flight::protocol::FlightData>(
+          buffer, msg);
+    }
     return arrow::flight::transport::grpc::FlightDataDeserialize(
         buffer, reinterpret_cast<arrow::flight::internal::FlightData*>(msg));
   }

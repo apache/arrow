@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport_server_internal.h"
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/type_fwd.h"
@@ -54,10 +55,10 @@ class ARROW_FLIGHT_EXPORT ServerDataStream : public TransportDataStream {
 /// application RPC method handlers.
 ///
 /// Used by FlightServerBase to manage the server lifecycle.
-class ARROW_FLIGHT_EXPORT ServerTransport {
+class ARROW_FLIGHT_EXPORT ServerTransport : public ServerTransportBase {
  public:
   ServerTransport(FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager)
-      : base_(base), memory_manager_(std::move(memory_manager)) {}
+      : ServerTransportBase(std::move(memory_manager)), base_(base) {}
   virtual ~ServerTransport() = default;
 
   /// \name Server Lifecycle Methods
@@ -125,7 +126,6 @@ class ARROW_FLIGHT_EXPORT ServerTransport {
 
  protected:
   FlightServerBase* base_;
-  std::shared_ptr<MemoryManager> memory_manager_;
 };
 
 }  // namespace internal
