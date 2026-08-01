@@ -186,7 +186,8 @@ TEST(JsonWriter, WriteValueSimpleObject) {
   JsonWriter writer;
   ASSERT_OK(writer.WriteValue(value));
 
-  EXPECT_EQ(writer.GetString(), R"({"a":42,"b":"hello"})");
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, R"({"a":42,"b":"hello"})");
 }
 
 TEST(JsonWriter, WriteValueNestedObject) {
@@ -203,7 +204,8 @@ TEST(JsonWriter, WriteValueNestedObject) {
   JsonWriter writer;
   ASSERT_OK(writer.WriteValue(value));
 
-  EXPECT_EQ(writer.GetString(), R"({"child":{"x":true}})");
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, R"({"child":{"x":true}})");
 }
 
 TEST(JsonWriter, WriteValueObjectWithArray) {
@@ -220,7 +222,8 @@ TEST(JsonWriter, WriteValueObjectWithArray) {
   JsonWriter writer;
   ASSERT_OK(writer.WriteValue(value));
 
-  EXPECT_EQ(writer.GetString(), R"({"values":[1,2,3]})");
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, R"({"values":[1,2,3]})");
 }
 
 TEST(JsonWriter, WriteValueComplexObject) {
@@ -238,8 +241,9 @@ TEST(JsonWriter, WriteValueComplexObject) {
   JsonWriter writer;
   ASSERT_OK(writer.WriteValue(value));
 
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
   EXPECT_EQ(
-      writer.GetString(),
+      out,
       R"({"name":"arrow","version":1,"enabled":true,"values":[1,2.5,null,{"nested":[false,{"x":10}]}]})");
 }
 
@@ -257,7 +261,8 @@ TEST(JsonWriter, WriteValueEmptyObject) {
   JsonWriter writer;
   ASSERT_OK(writer.WriteValue(value));
 
-  EXPECT_EQ(writer.GetString(), "{}");
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, "{}");
 }
 
 TEST(JsonWriter, WriteValueAllNumberTypes) {
@@ -279,8 +284,9 @@ TEST(JsonWriter, WriteValueAllNumberTypes) {
   JsonWriter writer;
   ASSERT_OK(writer.WriteValue(value));
 
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
   EXPECT_EQ(
-      writer.GetString(),
+      out,
       R"({"signed":-42,"unsigned":18446744073709551615,"double":2.5,"big":184467440737095516161234567890})");
 }
 

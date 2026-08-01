@@ -17,7 +17,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
 #include <simdjson.h>
 
@@ -137,21 +140,21 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
         case simdjson::ondemand::number_type::signed_integer: {
           ARROW_ASSIGN_OR_RAISE(
               auto number,
-              GetSimdjsonResult(value.get_int64(), "Failed to get signed integer"));
+              GetSimdjsonResult(value.get_int64(), "Failed to get signed integer: "));
           return int64_fn(number);
         }
 
         case simdjson::ondemand::number_type::unsigned_integer: {
           ARROW_ASSIGN_OR_RAISE(
               auto number,
-              GetSimdjsonResult(value.get_uint64(), "Failed to get unsigned integer"));
+              GetSimdjsonResult(value.get_uint64(), "Failed to get unsigned integer: "));
           return uint64_fn(number);
         }
 
         case simdjson::ondemand::number_type::floating_point_number: {
-          ARROW_ASSIGN_OR_RAISE(auto number,
-                                GetSimdjsonResult(value.get_double(),
-                                                  "Failed to get floating-point number"));
+          ARROW_ASSIGN_OR_RAISE(
+              auto number, GetSimdjsonResult(value.get_double(),
+                                             "Failed to get floating-point number: "));
           return double_fn(number);
         }
 
@@ -217,11 +220,20 @@ Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
   if (error_code != simdjson::SUCCESS) {
     simdjson::ondemand::json_type json_type;
     if (value.type().get(json_type) != simdjson::SUCCESS) {
-      return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                             " or null, got malformed JSON value");
+      if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
+        return Status::Invalid("Expected null, got malformed JSON value");
+      } else {
+        return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
+                               ", got malformed JSON value");
+      }
     }
-    return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                           " or null, got JSON type ", JsonTypeName(json_type));
+
+    if constexpr (std::is_same_v<SimdjsonValueType, SimdjsonNull>) {
+      return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
+    } else {
+      return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
+                             ", got JSON type ", JsonTypeName(json_type));
+    }
   }
 
   return typed_value;
