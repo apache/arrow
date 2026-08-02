@@ -2086,7 +2086,7 @@ def test_bool8_to_numpy_conversion():
     )
 
     # zero-copy possible with non-null array
-    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool)
     arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([-1, 0, 1, 2], pa.int8()),
@@ -2108,7 +2108,7 @@ def test_bool8_to_numpy_conversion():
 
 @pytest.mark.numpy
 def test_bool8_from_numpy_conversion():
-    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool)
     canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([1, 0, 1, 1], pa.int8()),
@@ -2126,14 +2126,14 @@ def test_bool8_from_numpy_conversion():
         match="Cannot convert 2-D array to bool8 array",
     ):
         pa.Bool8Array.from_numpy(
-            np.array([[True, False], [False, True]], dtype=np.bool_),
+            np.array([[True, False], [False, True]], dtype=np.bool),
         )
 
     with pytest.raises(
         ValueError,
         match="Cannot convert 0-D array to bool8 array",
     ):
-        pa.Bool8Array.from_numpy(np.bool_())
+        pa.Bool8Array.from_numpy(np.bool())
 
     # must use compatible storage type
     with pytest.raises(

@@ -328,7 +328,7 @@ a built-in :class:`ExtensionArray` object. Nevertheless, one could want to subcl
 type. Arrow allows to do so by adding a special method ``__arrow_ext_class__`` to the
 definition of the extension type.
 
-For instance, let us consider the example from the `Numpy Quickstart <https://docs.scipy.org/doc/numpy-1.13.0/user/quickstart.html>`_ of points in 3D space.
+For instance, let us consider the example from the `NumPy Quickstart <https://numpy.org/doc/stable/user/quickstart.html>`_ of points in 3D space.
 We can store these as a fixed-size list, where we wish to be able to extract
 the data as a 2-D Numpy array ``(N, 3)`` without any copy:
 

@@ -109,7 +109,7 @@ class Float16ConversionTest : public ::testing::Test {
 
 template <>
 void Float16ConversionTest<float>::TestRoundTrip() {
-  // Expected values were also manually validated with numpy-1.24.3
+  // Expected values were also manually validated with NumPy
   const RoundTripTestCase test_cases[] = {
       // +/-0.0f
       {F32(0x80000000u), 0b1000000000000000u, -0.0f},
@@ -148,7 +148,7 @@ void Float16ConversionTest<float>::TestRoundTrip() {
 
 template <>
 void Float16ConversionTest<double>::TestRoundTrip() {
-  // Expected values were also manually validated with numpy-1.24.3
+  // Expected values were also manually validated with NumPy
   const RoundTripTestCase test_cases[] = {
       // +/-0.0
       {F64(0x8000000000000000u), 0b1000000000000000u, -0.0},

@@ -21,7 +21,6 @@ import gc
 import pytest
 
 import pyarrow as pa
-from pyarrow.vendored.version import Version
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not numpy'
@@ -73,11 +72,6 @@ def check_bytes_allocated(f):
     ]
 )
 def test_dlpack(value_type, np_type_str):
-    if Version(np.__version__) < Version("1.24.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
-                    "strict keyword in assert_array_equal added in numpy version "
-                    "1.24.0")
-
     expected = np.array([1, 2, 3], dtype=np.dtype(np_type_str))
     arr = pa.array(expected, type=value_type)
     check_dlpack_export(arr, expected)
@@ -111,11 +105,6 @@ def test_dlpack(value_type, np_type_str):
                           np.int8, np.int16, np.int32, np.int64,
                           np.float16, np.float32, np.float64,])
 def test_tensor_dlpack(np_type):
-    if Version(np.__version__) < Version("1.24.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
-                    "strict keyword in assert_array_equal added in numpy version "
-                    "1.24.0")
-
     arr = np.array([1, 2, 3, 4, 5, 6, 1, 1])
     expected = np.array(arr, dtype=np_type).reshape((2, 2, 2), order='C')
     t = pa.Tensor.from_numpy(expected)
@@ -127,9 +116,6 @@ def test_tensor_dlpack(np_type):
 
 
 def test_dlpack_not_supported():
-    if Version(np.__version__) < Version("1.22.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-
     arr = pa.array([1, None, 3])
     with pytest.raises(TypeError, match="Can only use DLPack "
                        "on arrays with no nulls."):

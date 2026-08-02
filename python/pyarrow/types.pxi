@@ -41,7 +41,7 @@ def _get_pandas_type_map():
     if not _pandas_type_map:
         _pandas_type_map.update({
             _Type_NA: np.object_,  # NaNs
-            _Type_BOOL: np.bool_,
+            _Type_BOOL: np.bool,
             _Type_INT8: np.int8,
             _Type_INT16: np.int16,
             _Type_INT32: np.int32,

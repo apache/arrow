@@ -342,7 +342,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values = values.data
 
         if mask is not None:
-            if mask.dtype != np.bool_:
+            if mask.dtype != np.bool:
                 raise TypeError("Mask must be boolean dtype")
             if mask.ndim != 1:
                 raise ValueError("Mask must be 1D array")
@@ -5093,7 +5093,7 @@ cdef class Bool8Array(ExtensionArray):
         """
         if not writable:
             try:
-                return self.storage.to_numpy().view(np.bool_)
+                return self.storage.to_numpy().view(np.bool)
             except ArrowInvalid as e:
                 if zero_copy_only:
                     raise e
@@ -5134,7 +5134,7 @@ cdef class Bool8Array(ExtensionArray):
         --------
         >>> import pyarrow as pa
         >>> import numpy as np
-        >>> arr = np.array([True, False, True], dtype=np.bool_)
+        >>> arr = np.array([True, False, True], dtype=np.bool)
         >>> pa.Bool8Array.from_numpy(arr)
         <pyarrow.lib.Bool8Array object at ...>
         [
@@ -5147,7 +5147,7 @@ cdef class Bool8Array(ExtensionArray):
         if obj.ndim != 1:
             raise ValueError(f"Cannot convert {obj.ndim}-D array to bool8 array")
 
-        if obj.dtype not in [np.bool_, np.int8]:
+        if obj.dtype not in [np.bool, np.int8]:
             raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
 
         storage_arr = array(obj.view(np.int8), type=int8())

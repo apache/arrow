@@ -1686,10 +1686,6 @@ class TestConvertDateTimeLikeTypes:
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
-    @pytest.mark.skipif(
-        np is not None and Version('1.16.0') <= Version(
-            np.__version__) < Version('1.16.1'),
-        reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
             'a': [
@@ -2783,7 +2779,7 @@ class TestConvertStructTypes:
 
     def test_from_numpy(self):
         dt = np.dtype([('x', np.int32),
-                       (('y_title', 'y'), np.bool_)])
+                       (('y_title', 'y'), np.bool)])
         ty = pa.struct([pa.field('x', pa.int32()),
                         pa.field('y', pa.bool_())])
 
@@ -2797,7 +2793,7 @@ class TestConvertStructTypes:
                                    {'x': 43, 'y': False}]
 
         # With mask
-        arr = pa.array(data, mask=np.bool_([False, True]), type=ty)
+        arr = pa.array(data, mask=np.bool([False, True]), type=ty)
         assert arr.to_pylist() == [{'x': 42, 'y': True}, None]
 
         # Trivial struct type
@@ -2815,7 +2811,7 @@ class TestConvertStructTypes:
     def test_from_numpy_nested(self):
         # Note: an object field inside a struct
         dt = np.dtype([('x', np.dtype([('xx', np.int8),
-                                       ('yy', np.bool_)])),
+                                       ('yy', np.bool)])),
                        ('y', np.int16),
                        ('z', np.object_)])
         # Note: itemsize is not necessarily a multiple of sizeof(object)
@@ -2899,7 +2895,7 @@ class TestConvertStructTypes:
         ty = pa.struct([pa.field('x', pa.int32()),
                         pa.field('y', pa.bool_())])
         dt = np.dtype([('x', np.int32),
-                       ('z', np.bool_)])
+                       ('z', np.bool)])
 
         data = np.array([], dtype=dt)
         with pytest.raises(ValueError,
@@ -3859,7 +3855,7 @@ def test_array_uses_memory_pool():
     # ARROW-6570
     N = 10000
     arr = pa.array(np.arange(N, dtype=np.int64),
-                   mask=np.random.randint(0, 2, size=N).astype(np.bool_))
+                   mask=np.random.randint(0, 2, size=N).astype(np.bool))
 
     # In the case the gc is caught loading
     gc.collect()
