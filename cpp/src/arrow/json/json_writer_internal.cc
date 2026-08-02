@@ -16,8 +16,11 @@
 // under the License.
 
 #include "arrow/json/json_writer_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 namespace arrow::json {
+
+namespace sj = simdjson::ondemand;
 
 void JsonWriter::StartObject() {
   MaybeComma();
@@ -94,6 +97,85 @@ void JsonWriter::Double(double value) {
   MaybeComma();
   builder_.append(value);
   needs_comma_ = true;
+}
+
+Status JsonWriter::WriteValue(sj::value value) {
+  return internal::VisitJsonValue(
+      value,
+
+      [&](sj::object object) -> Status {
+        StartObject();
+
+        for (auto field : object) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto key, internal::GetSimdjsonResult(field.unescaped_key(),
+                                                    "Failed to get object key: "));
+
+          Key(key);
+
+          ARROW_ASSIGN_OR_RAISE(
+              auto field_value,
+              internal::GetSimdjsonResult(field.value(), "Failed to get object value: "));
+
+          RETURN_NOT_OK(WriteValue(field_value));
+        }
+
+        EndObject();
+        return Status::OK();
+      },
+
+      [&](sj::array array) -> Status {
+        StartArray();
+
+        for (auto element : array) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto element_value,
+              internal::GetSimdjsonResult(element, "Failed to iterate JSON array: "));
+
+          RETURN_NOT_OK(WriteValue(element_value));
+        }
+
+        EndArray();
+        return Status::OK();
+      },
+
+      [&](std::string_view string_value) -> Status {
+        String(string_value);
+        return Status::OK();
+      },
+
+      [&](bool bool_value) -> Status {
+        Bool(bool_value);
+        return Status::OK();
+      },
+
+      [&]() -> Status {
+        Null();
+        return Status::OK();
+      },
+
+      [&](int64_t value) -> Status {
+        Int64(value);
+        return Status::OK();
+      },
+
+      [&](uint64_t value) -> Status {
+        Uint64(value);
+        return Status::OK();
+      },
+
+      [&](double value) -> Status {
+        Double(value);
+        return Status::OK();
+      },
+
+      [&](sj::value value) -> Status {
+        ARROW_ASSIGN_OR_RAISE(auto raw_json,
+                              internal::GetSimdjsonResult(simdjson::to_json_string(value),
+                                                          "Failed to get raw JSON: "));
+        RawValue(raw_json);
+        return Status::OK();
+      });
 }
 
 void JsonWriter::Null() {

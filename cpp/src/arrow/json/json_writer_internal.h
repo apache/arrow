@@ -23,6 +23,7 @@
 #include <string_view>
 
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow::json {
@@ -50,6 +51,8 @@ class ARROW_EXPORT JsonWriter {
   void Uint64(uint64_t value);
 
   void Double(double value);
+
+  Status WriteValue(simdjson::ondemand::value value);
 
   void Null();
 

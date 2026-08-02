@@ -20,6 +20,8 @@
 #include "arrow/json/json_writer_internal.h"
 #include "arrow/testing/gtest_util.h"
 
+namespace sj = simdjson::ondemand;
+
 namespace arrow::json {
 
 TEST(JsonWriter, SimpleObject) {
@@ -168,6 +170,124 @@ TEST(JsonWriter, StringWithExplicitLength) {
   ASSERT_OK_AND_ASSIGN(std::string_view json, writer.GetString());
 
   EXPECT_EQ(json, R"({"value":"abc"})");
+}
+
+TEST(JsonWriter, WriteValueSimpleObject) {
+  sj::parser parser;
+  std::string json_str = R"({"a":42,"b":"hello"})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, R"({"a":42,"b":"hello"})");
+}
+
+TEST(JsonWriter, WriteValueNestedObject) {
+  sj::parser parser;
+  std::string json_str = R"({"child":{"x":true}})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, R"({"child":{"x":true}})");
+}
+
+TEST(JsonWriter, WriteValueObjectWithArray) {
+  sj::parser parser;
+  std::string json_str = R"({"values":[1,2,3]})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, R"({"values":[1,2,3]})");
+}
+
+TEST(JsonWriter, WriteValueComplexObject) {
+  sj::parser parser;
+  std::string json_str =
+      R"({"name":"arrow","version":1,"enabled":true,"values":[1,2.5,null,{"nested":[false,{"x":10}]}]})";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(
+      out,
+      R"({"name":"arrow","version":1,"enabled":true,"values":[1,2.5,null,{"nested":[false,{"x":10}]}]})");
+}
+
+TEST(JsonWriter, WriteValueEmptyObject) {
+  sj::parser parser;
+  std::string json_str = "{}";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(out, "{}");
+}
+
+TEST(JsonWriter, WriteValueAllNumberTypes) {
+  sj::parser parser;
+  std::string json_str = R"({
+    "signed":-42,
+    "unsigned":18446744073709551615,
+    "double":2.5,
+    "big":184467440737095516161234567890
+  })";
+  simdjson::padded_string json(json_str);
+
+  sj::document doc;
+  ASSERT_EQ(parser.iterate(json).get(doc), simdjson::SUCCESS);
+
+  sj::value value;
+  ASSERT_EQ(doc.get_value().get(value), simdjson::SUCCESS);
+
+  JsonWriter writer;
+  ASSERT_OK(writer.WriteValue(value));
+
+  ASSERT_OK_AND_ASSIGN(std::string_view out, writer.GetString());
+  EXPECT_EQ(
+      out,
+      R"({"signed":-42,"unsigned":18446744073709551615,"double":2.5,"big":184467440737095516161234567890})");
 }
 
 }  // namespace arrow::json
