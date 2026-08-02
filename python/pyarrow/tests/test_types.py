@@ -1350,8 +1350,8 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(True)
     assert pa.types.is_boolean_value(False)
     if np is not None:
-        assert pa.types.is_boolean_value(np.bool_(True))
-        assert pa.types.is_boolean_value(np.bool_(False))
+        assert pa.types.is_boolean_value(np.bool(True))
+        assert pa.types.is_boolean_value(np.bool(False))
 
 
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))

@@ -93,7 +93,7 @@ def get_numpy_logical_type_map():
     global _numpy_logical_type_map
     if not _numpy_logical_type_map:
         _numpy_logical_type_map.update({
-            np.bool_: 'bool',
+            np.bool: 'bool',
             np.int8: 'int8',
             np.int16: 'int16',
             np.int32: 'int32',

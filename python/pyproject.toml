@@ -21,7 +21,7 @@ requires = [
     "cython >= 3.1",
     # Needed for build-time stub docstring extraction
     "libcst>=1.8.6",
-    "numpy>=1.25",
+    "numpy>=2.0",
     "setuptools_scm[toml]>=8",
 ]
 build-backend = "scikit_build_core.build"
