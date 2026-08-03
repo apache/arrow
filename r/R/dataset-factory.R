@@ -240,7 +240,9 @@ FileSystemDatasetFactory$create <- function(
   }
   assert_is(format, "FileFormat")
   if (!is.null(paths)) {
-    check_null(partitioning, msg = "Partitioning not supported with paths")
+    if (!is.null(partitioning)) {
+      stop("Partitioning not supported with paths", call. = FALSE)
+    }
     # Validate that exclude_invalid_files is only option provided
     # All other options are only relevant for the FileSelector method
     invalid_opts <- setdiff(names(factory_options), "exclude_invalid_files")
