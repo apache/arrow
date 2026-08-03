@@ -59,7 +59,6 @@ if(ARROW_BUILD_STATIC)
                       SOURCES
                       string_ops_benchmark.cc
                       ../precompiled/string_ops.cc
-                      ../context_helper.cc
                       PREFIX
                       "gandiva"
                       EXTRA_LINK_LIBS
