@@ -16,7 +16,7 @@ infer_type(x, ...)
 An arrow \link[=data-type]{data type}
 }
 \description{
-\code{\link[=type]{type()}} is deprecated in favor of \code{\link[=infer_type]{infer_type()}}.
+Infer the arrow Array type from an R object
 }
 \examples{
 infer_type(1:10)
