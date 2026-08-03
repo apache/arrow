@@ -27,12 +27,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>
-#include <rapidjson/error/en.h>
-#include <rapidjson/stringbuffer.h>
-
 #include "arrow/array.h"
 #include "arrow/array/array_binary.h"
 #include "arrow/array/builder_binary.h"
@@ -44,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/range.h"
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -58,8 +53,6 @@
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
-
-namespace rj = arrow::rapidjson;
 
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Zip;
@@ -1230,14 +1223,15 @@ TEST_F(TestJSONWithLocalFile, JSONOutputSortColumns) {
 namespace {
 
 ::arrow::Status CheckJsonValid(std::string_view json_string) {
-  rj::Document json_doc;
-  constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
-  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
-  if (json_doc.HasParseError()) {
-    return ::arrow::Status::Invalid("JSON parse error at offset ",
-                                    json_doc.GetErrorOffset(), ": ",
-                                    rj::GetParseError_En(json_doc.GetParseError()));
+  simdjson::ondemand::parser parser;
+  simdjson::ondemand::document document;
+
+  auto padded_json = simdjson::padded_string(json_string);
+
+  if (auto error = parser.iterate(padded_json).get(document)) {
+    return ::arrow::Status::Invalid("JSON parse error: ", simdjson::error_message(error));
   }
+
   return ::arrow::Status::OK();
 }
 

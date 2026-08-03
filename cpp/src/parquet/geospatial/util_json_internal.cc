@@ -20,12 +20,10 @@
 #include <string>
 
 #include "arrow/extension_type.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/result.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/string.h"
-
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
@@ -34,36 +32,72 @@ namespace parquet {
 
 namespace {
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
-    const ::arrow::rapidjson::Document& document) {
-  namespace rj = ::arrow::rapidjson;
+    simdjson::ondemand::object object) {
+  auto crs_field = object["crs"];
 
-  if (!document.HasMember("crs") || document["crs"].IsNull()) {
+  if (crs_field.error() == simdjson::NO_SUCH_FIELD) {
     // Parquet GEOMETRY/GEOGRAPHY do not have a concept of a null/missing
     // CRS, but an omitted one is more likely to have meant "lon/lat" than
     // a truly unspecified one (i.e., Engineering CRS with arbitrary XY units)
     return "";
   }
 
-  const auto& json_crs = document["crs"];
-  if (json_crs.IsString() && (json_crs == "EPSG:4326" || json_crs == "OGC:CRS84")) {
-    // crs can be left empty because these cases both correspond to
-    // longitude/latitude in WGS84 according to the Parquet specification
+  ARROW_ASSIGN_OR_RAISE(auto json_crs, ::arrow::internal::GetSimdjsonResult(
+                                           crs_field, "Failed to get 'crs' field: "));
+
+  ARROW_ASSIGN_OR_RAISE(bool is_null, ::arrow::internal::IsJsonNull(json_crs));
+  if (is_null) {
     return "";
-  } else if (json_crs.IsObject()) {
+  }
+
+  if (auto string = ::arrow::internal::GetJsonAs<std::string_view>(json_crs);
+      string.ok()) {
+    if (*string == "EPSG:4326" || *string == "OGC:CRS84") {
+      // crs can be left empty because these cases both correspond to
+      // longitude/latitude in WGS84 according to the Parquet specification
+      return "";
+    }
+  } else if (auto crs_object =
+                 ::arrow::internal::GetJsonAs<simdjson::ondemand::object>(json_crs);
+             crs_object.ok()) {
     // Attempt to detect common PROJJSON representations of longitude/latitude and return
     // an empty crs to maximize compatibility with readers that do not implement CRS
     // support. PROJJSON stores this in the "id" member like:
     // {..., "id": {"authority": "...", "code": "..."}}
-    if (json_crs.HasMember("id")) {
-      const auto& identifier = json_crs["id"];
-      if (identifier.HasMember("authority") && identifier.HasMember("code")) {
-        if (identifier["authority"] == "OGC" && identifier["code"] == "CRS84") {
-          return "";
-        } else if (identifier["authority"] == "EPSG" && identifier["code"] == "4326") {
-          return "";
-        } else if (identifier["authority"] == "EPSG" && identifier["code"].IsInt() &&
-                   identifier["code"].GetInt() == 4326) {
-          return "";
+    auto id_field = (*crs_object)["id"];
+
+    if (id_field.error() != simdjson::NO_SUCH_FIELD) {
+      ARROW_ASSIGN_OR_RAISE(auto identifier, ::arrow::internal::GetSimdjsonResult(
+                                                 id_field, "Failed to get 'id' field: "));
+
+      auto authority_field = identifier["authority"];
+      auto code_field = identifier["code"];
+
+      if (authority_field.error() != simdjson::NO_SUCH_FIELD &&
+          code_field.error() != simdjson::NO_SUCH_FIELD) {
+        ARROW_ASSIGN_OR_RAISE(auto authority,
+                              ::arrow::internal::GetSimdjsonResult(
+                                  authority_field, "Failed to get 'authority' field: "));
+
+        ARROW_ASSIGN_OR_RAISE(auto code, ::arrow::internal::GetSimdjsonResult(
+                                             code_field, "Failed to get 'code' field: "));
+
+        ARROW_ASSIGN_OR_RAISE(auto authority_string,
+                              ::arrow::internal::GetJsonAs<std::string_view>(authority));
+
+        auto code_string = ::arrow::internal::GetJsonAs<std::string_view>(code);
+
+        if (code_string.ok()) {
+          if ((authority_string == "OGC" && *code_string == "CRS84") ||
+              (authority_string == "EPSG" && *code_string == "4326")) {
+            return "";
+          }
+        } else if (authority_string == "EPSG") {
+          auto code_int = ::arrow::internal::GetJsonAs<int64_t>(code);
+
+          if (code_int.ok() && *code_int == 4326) {
+            return "";
+          }
         }
       }
     }
@@ -71,14 +105,14 @@ namespace {
 
   // If we could not detect a longitude/latitude CRS, just write the string to the
   // LogicalType crs (being sure to unescape a JSON string into a regular string)
-  if (json_crs.IsString()) {
-    return json_crs.GetString();
-  } else {
-    rj::StringBuffer buffer;
-    rj::Writer<rj::StringBuffer> writer(buffer);
-    json_crs.Accept(writer);
-    return buffer.GetString();
+  auto string = ::arrow::internal::GetJsonAs<std::string_view>(json_crs);
+  if (string.ok()) {
+    return std::string(*string);
   }
+
+  ::arrow::json::JsonWriter writer;
+  RETURN_NOT_OK(writer.WriteValue(json_crs));
+  return std::string(writer.GetString().ValueUnsafe());
 }
 
 // Utility for ensuring that a Parquet CRS is valid JSON when written to
@@ -125,18 +159,18 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs);
 }
 
 std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
-  namespace rj = ::arrow::rapidjson;
-  rj::Document document;
-  if (document.Parse(crs.data(), crs.length()).HasParseError()) {
-    rj::StringBuffer buffer;
-    rj::Writer<rj::StringBuffer> writer(buffer);
-    rj::Value v;
-    v.SetString(crs.data(), static_cast<int32_t>(crs.size()));
-    v.Accept(writer);
-    return std::string(buffer.GetString());
-  } else {
-    return std::string(crs);
+  simdjson::ondemand::parser parser;
+  simdjson::padded_string json(crs);
+
+  if (parser.iterate(json).error() != simdjson::SUCCESS) {
+    ::arrow::json::JsonWriter writer;
+    writer.String(crs);
+
+    auto escaped = writer.GetString().ValueUnsafe();
+    return std::string(escaped);
   }
+
+  return std::string(crs);
 }
 
 }  // namespace
@@ -149,24 +183,42 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs) {
     return LogicalType::Geometry();
   }
 
-  namespace rj = ::arrow::rapidjson;
-  rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
+  simdjson::ondemand::parser parser;
+  simdjson::padded_string json(serialized_data);
+
+  simdjson::ondemand::document document;
+  if (auto error = parser.iterate(json).get(document); error != simdjson::SUCCESS) {
     return ::arrow::Status::Invalid("Invalid serialized JSON data: ", serialized_data);
   }
 
-  ARROW_ASSIGN_OR_RAISE(std::string crs, GeospatialGeoArrowCrsToParquetCrs(document));
+  ARROW_ASSIGN_OR_RAISE(
+      auto object, ::arrow::internal::GetSimdjsonResult(document.get_object(),
+                                                        "Failed to get JSON object: "));
 
-  if (document.HasMember("edges") && document["edges"] == "planar") {
+  ARROW_ASSIGN_OR_RAISE(std::string crs, GeospatialGeoArrowCrsToParquetCrs(object));
+
+  auto edges_field = object["edges"];
+
+  if (edges_field.error() == simdjson::NO_SUCH_FIELD) {
     return LogicalType::Geometry(crs);
-  } else if (document.HasMember("edges") && document["edges"] == "spherical") {
-    return LogicalType::Geography(crs,
-                                  LogicalType::EdgeInterpolationAlgorithm::SPHERICAL);
-  } else if (document.HasMember("edges")) {
-    return ::arrow::Status::Invalid("Unsupported GeoArrow edge type: ", serialized_data);
   }
 
-  return LogicalType::Geometry(crs);
+  ARROW_ASSIGN_OR_RAISE(auto edges, ::arrow::internal::GetSimdjsonResult(
+                                        edges_field, "Failed to get 'edges' field: "));
+
+  ARROW_ASSIGN_OR_RAISE(auto edges_string,
+                        ::arrow::internal::GetJsonAs<std::string_view>(edges));
+
+  if (edges_string == "planar") {
+    return LogicalType::Geometry(crs);
+  }
+
+  if (edges_string == "spherical") {
+    return LogicalType::Geography(crs,
+                                  LogicalType::EdgeInterpolationAlgorithm::SPHERICAL);
+  }
+
+  return ::arrow::Status::Invalid("Unsupported GeoArrow edge type: ", serialized_data);
 }
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
