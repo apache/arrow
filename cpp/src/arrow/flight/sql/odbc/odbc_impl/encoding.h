@@ -17,11 +17,13 @@
 
 #pragma once
 
-#include <boost/locale/encoding_utf.hpp>
 #include <cassert>
 #include <cstring>
+#include <iterator>
+#include <string>
 #include <vector>
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
+#include "arrow/vendored/utfcpp/checked.h"
 
 #if defined(__APPLE__)
 #  include <atomic>
@@ -69,10 +71,15 @@ inline size_t wcsstrlen(const void* wcs_string) {
 template <typename CHAR_TYPE>
 inline void Utf8ToWcs(const char* utf8_string, size_t length,
                       std::vector<uint8_t>* result) {
-  auto string = boost::locale::conv::utf_to_utf<CHAR_TYPE>(
-      utf8_string, utf8_string + length, boost::locale::conv::stop);
+  std::basic_string<CHAR_TYPE> string;
+  if constexpr (sizeof(CHAR_TYPE) == sizeof(char16_t)) {
+    ::utf8::utf8to16(utf8_string, utf8_string + length, std::back_inserter(string));
+  } else {
+    static_assert(sizeof(CHAR_TYPE) == sizeof(char32_t));
+    ::utf8::utf8to32(utf8_string, utf8_string + length, std::back_inserter(string));
+  }
 
-  uint32_t length_in_bytes = static_cast<uint32_t>(string.size() * GetSqlWCharSize());
+  auto length_in_bytes = static_cast<uint32_t>(string.size() * sizeof(CHAR_TYPE));
   const uint8_t* data = (uint8_t*)string.data();
 
   result->reserve(length_in_bytes);
@@ -101,14 +108,16 @@ template <typename CHAR_TYPE>
 inline void WcsToUtf8(const void* wcs_string, size_t length_in_code_units,
                       std::vector<uint8_t>* result) {
   const auto* begin = static_cast<const CHAR_TYPE*>(wcs_string);
-  auto byte_string = boost::locale::conv::utf_to_utf<char>(
-      begin, begin + length_in_code_units, boost::locale::conv::stop);
 
-  uint32_t length_in_bytes = static_cast<uint32_t>(byte_string.size());
-  const uint8_t* data = (uint8_t*)byte_string.data();
+  std::string string;
+  if constexpr (sizeof(CHAR_TYPE) == sizeof(char16_t)) {
+    ::utf8::utf16to8(begin, begin + length_in_code_units, std::back_inserter(string));
+  } else {
+    static_assert(sizeof(CHAR_TYPE) == sizeof(char32_t));
+    ::utf8::utf32to8(begin, begin + length_in_code_units, std::back_inserter(string));
+  }
 
-  result->reserve(length_in_bytes);
-  result->assign(data, data + length_in_bytes);
+  result->assign(string.begin(), string.end());
 }
 
 inline void WcsToUtf8(const void* wcs_string, size_t length_in_code_units,
