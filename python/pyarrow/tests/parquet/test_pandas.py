@@ -27,7 +27,6 @@ import pytest
 import pyarrow as pa
 from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.util import guid
-from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -430,10 +429,6 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 @pytest.mark.pandas
 def test_backwards_compatible_column_metadata_handling(datadir):
-    if Version("2.2.0") <= Version(pd.__version__):
-        # TODO: regression in pandas
-        # https://github.com/pandas-dev/pandas/issues/56775
-        pytest.skip("Regression in pandas 2.2.0")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
          'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})

@@ -277,7 +277,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     else:
         index_descriptors = index_column_metadata = column_indexes = []
 
-    attributes = df.attrs if hasattr(df, "attrs") else {}
+    attributes = df.attrs
 
     try:
         json.dumps(attributes)
@@ -537,13 +537,12 @@ def _level_name(name):
 
 
 def _get_range_index_descriptor(level):
-    # public start/stop/step attributes added in pandas 0.25.0
     return {
         'kind': 'range',
         'name': _level_name(level.name),
-        'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
-        'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
-        'step': _pandas_api.get_rangeindex_attribute(level, 'step')
+        'start': level.start,
+        'stop': level.stop,
+        'step': level.step
     }
 
 
@@ -759,17 +758,9 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
-        if _pandas_api.is_ge_v21():
-            arr = _pandas_api.pd.array(
-                block_arr.view("int64"), dtype=dtype, copy=False
-            )
-        else:
-            arr = block_arr
-            if return_block:
-                block = _int.make_block(block_arr, placement=placement,
-                                        klass=_int.DatetimeTZBlock,
-                                        dtype=dtype)
-                return block
+        arr = _pandas_api.pd.array(
+            block_arr.view("int64"), dtype=dtype, copy=False
+        )
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -846,10 +837,7 @@ def table_to_dataframe(
         ]
         axes = [columns, index]
         mgr = BlockManager(blocks, axes)
-        if _pandas_api.is_ge_v21():
-            df = DataFrame._from_mgr(mgr, mgr.axes)
-        else:
-            df = DataFrame(mgr)
+        df = DataFrame._from_mgr(mgr, mgr.axes)
 
         df.attrs = attributes
 
@@ -883,10 +871,6 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
     categories = categories or []
 
     ext_columns = {}
-
-    # older pandas version that does not yet support extension dtypes
-    if _pandas_api.extension_dtype is None:
-        return ext_columns
 
     # use the specified mapping of built-in arrow types to pandas dtypes
     if types_mapper:

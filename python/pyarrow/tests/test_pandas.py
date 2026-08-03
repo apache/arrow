@@ -254,13 +254,13 @@ class TestConvertMetadata:
         result = table.to_pandas()
         tm.assert_frame_equal(result, df)
         assert isinstance(result.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result.index, 'step') == 2
+        assert result.index.step == 2
         assert result.index.name == index_name
 
         result2 = table_no_index_name.to_pandas()
         tm.assert_frame_equal(result2, df2)
         assert isinstance(result2.index, pd.RangeIndex)
-        assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
+        assert result2.index.step == 1
         assert result2.index.name is None
 
     def test_range_index_force_serialization(self):
