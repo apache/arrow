@@ -23,6 +23,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <tuple>
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
@@ -123,18 +124,43 @@ uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length
   return ReverseUint8(((block_right << 8) + block_left) >> length);
 }
 
+void MapReadersWriter(auto&& writer, auto&& reducer, auto&& reader, auto&&... readers) {
+  constexpr auto kReaderCount = sizeof...(readers) + 1;
+
+  // Need a real function so that the fold expression remains valid in release
+  const auto check_eq = [](auto a, auto b) { ARROW_DCHECK_EQ(a, b); };
+
+  auto nwords = reader.words();
+  ((check_eq(readers.words(), nwords)), ...);
+  while (nwords--) {
+    writer.PutNextWord(reducer(reader.NextWord(), readers.NextWord()...));
+  }
+
+  auto nbytes = reader.trailing_bytes();
+  ((check_eq(readers.trailing_bytes(), nbytes)), ...);
+  while (nbytes--) {
+    int valid_bits = 0;
+    std::array<uint8_t, kReaderCount> bytes = {};
+    {
+      auto* b = bytes.begin();
+      *b++ = reader.NextTrailingByte(valid_bits);
+      auto read = [&](auto& r) {
+        int vb = 0;
+        *b++ = r.NextTrailingByte(vb);
+        check_eq(vb, valid_bits);
+      };
+      (read(readers), ...);
+    }
+    writer.PutNextTrailingByte(std::apply(reducer, bytes), valid_bits);
+  }
+}
+
 template <TransferMode mode>
 void TransferReaderWriter(auto&& reader, auto&& writer) {
-  auto nwords = reader.words();
-  while (nwords--) {
-    auto word = reader.NextWord();
-    writer.PutNextWord(mode == TransferMode::Invert ? ~word : word);
-  }
-  auto nbytes = reader.trailing_bytes();
-  while (nbytes--) {
-    int valid_bits;
-    auto byte = reader.NextTrailingByte(valid_bits);
-    writer.PutNextTrailingByte(mode == TransferMode::Invert ? ~byte : byte, valid_bits);
+  if constexpr (mode == TransferMode::Invert) {
+    MapReadersWriter(writer, []<class T>(T x) { return static_cast<T>(~x); }, reader);
+  } else {
+    MapReadersWriter(writer, [](auto x) { return x; }, reader);
   }
 }
 
