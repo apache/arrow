@@ -45,10 +45,12 @@
 
 #include "fsst.h"
 #include "parquet/onpair/bench_common.h"
+#include "parquet/onpair/fsst16.h"
 #include "parquet/onpair/onpair.h"
 #include "parquet/onpair/prefix_plus.h"
 
 namespace op = parquet::onpair;
+namespace f16 = parquet::fsst16;
 
 namespace {
 
@@ -254,7 +256,8 @@ Measured RunLz4(const Corpus& c) {
 
 // OnPair
 
-Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold) {
+Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold, size_t* out_tokens = nullptr,
+                   size_t* out_max_len = nullptr) {
   op::Config cfg;
   cfg.max_dict_bits = bits;
   cfg.threshold_fraction = threshold;
@@ -264,6 +267,8 @@ Measured RunOnPair(const Corpus& c, uint8_t bits, double threshold) {
   op::Column col = op::Compress(c.bytes.data(), c.raw_bytes(), c.offsets.data(), n, cfg);
   Measured m;
   m.label = "OnPair" + std::to_string(bits);
+  if (out_tokens != nullptr) *out_tokens = col.dict.num_tokens();
+  if (out_max_len != nullptr) *out_max_len = col.dict.max_token_len;
   // Realistic bit-packed accounting: codes packed at the true code width for the
   // trained dictionary (not a fixed u16), dictionary offsets bit-packed, and the
   // shared per-row length array (in place of the OnPair code-offset array).
@@ -370,6 +375,74 @@ Measured RunOnPairAuto(const Corpus& c, double threshold) {
     std::vector<uint8_t> out(cap, 0);
     auto t0 = Clock::now();
     size_t w = op::DecompressPacked(col.dict, packed.data(), col.codes.size(), stored_bits, out.data());
+    double dt = std::chrono::duration<double>(Clock::now() - t0).count();
+    asm volatile("" ::"r"(w) : "memory");
+    dec_r.push_back(Mib(c.raw_bytes()) / dt);
+  }
+  m.decode_mibs = Median(std::move(dec_r));
+  return m;
+}
+
+// FSST's training algorithm at a 16-bit code space
+//
+// Same page layout, same parsing pass and same decode kernel as OnPair16 - only
+// the table is built differently (see fsst16.h). That is the point of the row:
+// with the format and both hot loops held identical, the difference between this
+// and OnPair16 is attributable to table construction and nothing else, so it is
+// charged by OnPairSize exactly as OnPair16 is.
+//
+// `max_symbol_len` 8 is FSST's own cap, which isolates the effect of the wider
+// code; 16 removes the cap so nothing but the training differs from OnPair16.
+Measured RunFsst16(const Corpus& c, int max_symbol_len, size_t sample_target = 0,
+                   const char* suffix = "", size_t* out_tokens = nullptr,
+                   size_t* out_max_len = nullptr) {
+  size_t n = c.n_rows();
+  f16::Config cfg;
+  cfg.max_symbol_len = max_symbol_len;
+  if (sample_target != 0) cfg.sample_target = sample_target;
+
+  auto build = [&] {
+    f16::Tokens t = f16::Train(c.bytes.data(), c.offsets.data(), n, cfg);
+    return op::CompressWithTokens(c.bytes.data(), c.offsets.data(), n, t.bytes, t.offsets);
+  };
+
+  op::Column col = build();
+  Measured m;
+  m.label = "FSST16-" + std::to_string(max_symbol_len) + "B" + suffix;
+  m.compressed_bytes = OnPairSize(col, c);
+  if (out_tokens != nullptr) *out_tokens = col.dict.num_tokens();
+  if (out_max_len != nullptr) *out_max_len = col.dict.max_token_len;
+
+  std::vector<double> enc;
+  for (int it = 0; it < kEncodeIters; ++it) {
+    auto t0 = Clock::now();
+    op::Column tmp = build();
+    double dt = std::chrono::duration<double>(Clock::now() - t0).count();
+    asm volatile("" ::"r"(tmp.codes.size()) : "memory");
+    enc.push_back(Mib(c.raw_bytes()) / dt);
+  }
+  m.encode_mibs = Median(std::move(enc));
+
+  size_t code_bits = IndexBits(col.dict.num_tokens());
+  size_t cap = op::DecodedLen(col) + op::kDecodePadding;
+  std::vector<uint32_t> cw(col.codes.begin(), col.codes.end());
+  std::vector<uint8_t> packed = op::PackValues(cw.data(), cw.size(), code_bits);
+  {
+    std::vector<uint8_t> out(cap, 0);
+    size_t w =
+        op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, out.data());
+    if (w != c.raw_bytes() || std::memcmp(out.data(), c.bytes.data(), c.raw_bytes()) != 0) {
+      std::fprintf(stderr, "FSST16-%dB packed roundtrip mismatch on %s (w=%zu raw=%zu)\n",
+                   max_symbol_len, c.name.c_str(), w, c.raw_bytes());
+      std::abort();
+    }
+  }
+  std::vector<double> dec_r;
+  for (int it = 0; it < kDecodeIters; ++it) {
+    std::vector<uint8_t> out(cap, 0);
+    auto t0 = Clock::now();
+    size_t w =
+        op::DecompressPacked(col.dict, packed.data(), col.codes.size(), code_bits, out.data());
     double dt = std::chrono::duration<double>(Clock::now() - t0).count();
     asm volatile("" ::"r"(w) : "memory");
     dec_r.push_back(Mib(c.raw_bytes()) / dt);
@@ -988,6 +1061,12 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // ONPAIR_BENCH_CORE restricts the run to the FSST-vs-OnPair table set: the two
+  // FSST16 variants next to the FSST8 baseline and the two OnPair rows, with the
+  // cascade and dedup codecs skipped so a comparison run does not pay for rows it
+  // does not report. Same binary and therefore the same accounting either way.
+  const bool core_only = std::getenv("ONPAIR_BENCH_CORE") != nullptr;
+
   std::printf("%-26s %10s %10s   %7s %9s %9s\n", "corpus", "rows", "raw MiB", "ratio",
               "enc MiB/s", "dec MiB/s");
   std::printf("%s\n", std::string(90, '-').c_str());
@@ -997,19 +1076,43 @@ int main(int argc, char** argv) {
     double threshold = ThresholdFor(c.name);
 
     Measured fsst = RunFsst(c);
+    size_t t8 = 0, l8 = 0, t16 = 0, l16 = 0, tfull = 0, lfull = 0;
+    Measured f16_8 = RunFsst16(c, 8, 0, "", &t8, &l8);
+    Measured f16_16 = RunFsst16(c, 16, 0, "", &t16, &l16);
+    // Same 16-byte cap, but trained on 4 MiB instead of the reference's fixed 16
+    // KiB. The rows above look at 16 KiB no matter how large the column is, which
+    // caps how many distinct symbols the trainer can even see evidence for; this
+    // row separates that sampling choice from the training algorithm itself. 4 MiB
+    // is 256 times the reference sample and enough to fill a 16-bit table, while
+    // staying bounded enough to time.
+    Measured f16_m = RunFsst16(c, 16, size_t{4} << 20, "-4M", &tfull, &lfull);
+    size_t op16_tokens = 0, op16_max_len = 0;
+    Measured op16 = RunOnPair(c, 16, threshold, &op16_tokens, &op16_max_len);
+    Measured opauto = RunOnPairAuto(c, threshold);
+
+    std::printf("%-26s %10zu %10.2f\n", c.name.c_str(), c.n_rows(), Mib(c.raw_bytes()));
+    auto emit = [&](const Measured& m) {
+      double ratio = static_cast<double>(c.raw_bytes()) / static_cast<double>(m.compressed_bytes);
+      std::printf("  %-24s %10s %10.2f  %7.3fx %9.1f %9.1f\n", m.label.c_str(), "",
+                  Mib(m.compressed_bytes), ratio, m.encode_mibs, m.decode_mibs);
+    };
+
+    if (core_only) {
+      for (const Measured* m : {&fsst, &f16_8, &f16_16, &f16_m, &op16, &opauto}) emit(*m);
+      std::printf("  -> tables: FSST16-8B %zu tokens/max %zu, FSST16-16B %zu/%zu, "
+                  "FSST16-16B-4M %zu/%zu, OnPair16 %zu/%zu\n\n",
+                  t8, l8, t16, l16, tfull, lfull, op16_tokens, op16_max_len);
+      continue;
+    }
     Measured zstd1 = RunZstd(c, 1);
     Measured lz4 = RunLz4(c);
-    Measured op16 = RunOnPair(c, 16, threshold);
-    Measured opauto = RunOnPairAuto(c, threshold);
     Measured op16d = RunOnPairDedup(c, 16, threshold);
     Measured fsstp = RunFsstPlus(c);
     Measured oppl = RunOnPairPlus(c, threshold);
 
-    std::printf("%-26s %10zu %10.2f\n", c.name.c_str(), c.n_rows(), Mib(c.raw_bytes()));
-    for (const Measured* m : {&fsst, &zstd1, &lz4, &op16, &opauto, &op16d, &fsstp, &oppl}) {
-      double ratio = static_cast<double>(c.raw_bytes()) / static_cast<double>(m->compressed_bytes);
-      std::printf("  %-24s %10s %10.2f  %7.3fx %9.1f %9.1f\n", m->label.c_str(), "",
-                  Mib(m->compressed_bytes), ratio, m->encode_mibs, m->decode_mibs);
+    for (const Measured* m :
+         {&fsst, &f16_8, &f16_16, &f16_m, &zstd1, &lz4, &op16, &opauto, &op16d, &fsstp, &oppl}) {
+      emit(*m);
     }
     double r_fsst = static_cast<double>(c.raw_bytes()) / fsst.compressed_bytes;
     double r_zstd = static_cast<double>(c.raw_bytes()) / zstd1.compressed_bytes;

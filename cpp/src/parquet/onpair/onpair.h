@@ -185,6 +185,20 @@ struct EncodeProfile {
 Column Compress(const uint8_t* bytes, size_t bytes_len, const uint32_t* offsets,
                 size_t num_rows, const Config& cfg, EncodeProfile* profile = nullptr);
 
+/// Tokenize every row against a token set trained elsewhere, skipping OnPair's
+/// own training. `token_bytes`/`token_offsets` are a raw token list in the same
+/// layout as CompactDictionary but without the read padding; the returned
+/// column's dictionary is its canonical (sorted, padded) form, so token ids are
+/// reassigned and the caller's numbering is not preserved.
+///
+/// This exists so an alternative dictionary trainer can be measured against
+/// OnPair's with the parsing pass and the decode pass held literally identical.
+/// The token set must contain all 256 single bytes, which is what lets both
+/// tokenize without an escape mechanism.
+Column CompressWithTokens(const uint8_t* bytes, const uint32_t* offsets, size_t num_rows,
+                          const std::vector<uint8_t>& token_bytes,
+                          const std::vector<uint32_t>& token_offsets);
+
 /// Exact decoded byte length of the whole column (sum of token lengths).
 size_t DecodedLen(const Column& col);
 
