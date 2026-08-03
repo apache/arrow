@@ -330,7 +330,7 @@ definition of the extension type.
 
 For instance, let us consider the example from the `NumPy Quickstart <https://numpy.org/doc/stable/user/quickstart.html>`_ of points in 3D space.
 We can store these as a fixed-size list, where we wish to be able to extract
-the data as a 2-D Numpy array ``(N, 3)`` without any copy:
+the data as a 2-D NumPy array ``(N, 3)`` without any copy:
 
 .. code-block:: python
 
