@@ -72,7 +72,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 281 compute
+In addition to these functions, you can call any of Arrow's 254 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -89,24 +89,24 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{base}{
 \itemize{
-\item \code{\link{!}}
-\item \code{\link{!=}}
-\item \code{\link{\%\%}}
-\item \code{\link{\%/\%}}
-\item \code{\link{\%in\%}}
-\item \code{\link{&}}
-\item \code{\link{*}}
-\item \code{\link{+}}
-\item \code{\link{-}}
-\item \code{\link{/}}
-\item \code{\link{<}}
-\item \code{\link{<=}}
-\item \code{\link{==}}
-\item \code{\link{>}}
-\item \code{\link{>=}}
+\item \code{\link[base:!]{!}}
+\item \code{\link[base:!=]{!=}}
+\item \code{\link[base:\%\%]{\%\%}}
+\item \code{\link[base:\%/\%]{\%/\%}}
+\item \code{\link[base:\%in\%]{\%in\%}}
+\item \code{\link[base:&]{&}}
+\item \code{\link[base:*]{*}}
+\item \code{\link[base:+]{+}}
+\item \code{\link[base:-]{-}}
+\item \code{\link[base:/]{/}}
+\item \code{\link[base:<]{<}}
+\item \code{\link[base:<=]{<=}}
+\item \code{\link[base:==]{==}}
+\item \code{\link[base:>]{>}}
+\item \code{\link[base:>=]{>=}}
 \item \code{\link[base:ISOdate]{ISOdate()}}
 \item \code{\link[base:ISOdatetime]{ISOdatetime()}}
-\item \code{\link{^}}
+\item \code{\link[base:^]{^}}
 \item \code{\link[base:abs]{abs()}}
 \item \code{\link[base:acos]{acos()}}
 \item \code{\link[base:acosh]{acosh()}}
@@ -184,7 +184,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[base:tolower]{tolower()}}
 \item \code{\link[base:toupper]{toupper()}}
 \item \code{\link[base:trunc]{trunc()}}
-\item \code{\link{|}}
+\item \code{\link[base:|]{|}}
 }
 }
 

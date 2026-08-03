@@ -222,7 +222,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     cpp11::sexp type_result = cpp11::package("arrow")["infer_type"](
         x, cpp11::named_arg("from_array_infer_type") = true);
     if (!Rf_inherits(type_result, "DataType")) {
-      cpp11::stop("type() did not return an object of type DataType");
+      cpp11::stop("infer_type() did not return an object of type DataType");
     }
 
     return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);
