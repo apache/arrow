@@ -49,9 +49,8 @@
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
 #include <aws/s3/model/PutObjectRequest.h>
-// PutBucketPolicyRequest.h marks an inline method definition with AWS_S3_API,
-// which expands to __declspec(dllimport) under USE_IMPORT_EXPORT.  GCC rejects
-// that outright, while MSVC only warns, so the header is unusable on MinGW.
+// AWS_S3_API on an inline definition in this header expands to
+// __declspec(dllimport), which GCC rejects and MSVC merely warns about.
 #ifndef __MINGW32__
 #  include <aws/s3/model/PutBucketPolicyRequest.h>
 #endif
@@ -1246,7 +1245,7 @@ TEST_F(TestS3FS, CreateDir) {
                  FileType::Directory);
 }
 
-// Needs PutBucketPolicyRequest, which does not compile on MinGW (see above).
+// PutBucketPolicyRequest.h is not included on MinGW.
 #ifndef __MINGW32__
 TEST_F(TestS3FS, CreateDirPrefixScopedCredentials) {
   // Grant anonymous access to the "allowed/" prefix only.  HeadBucket needs a
