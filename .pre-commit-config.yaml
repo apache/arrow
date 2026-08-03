@@ -343,6 +343,7 @@ repos:
           ?^ci/scripts/r_docker_configure\.sh$|
           ?^ci/scripts/r_install_system_dependencies\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
+          ?^ci/scripts/r_test\.sh$|
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|

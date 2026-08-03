@@ -18,15 +18,16 @@
 
 set -ex
 
-: ${R_BIN:=R}
+: "${R_BIN:=R}"
 
 source_dir=${1}/r
 
-pushd ${source_dir}
+pushd "${source_dir}"
 
 printenv
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
