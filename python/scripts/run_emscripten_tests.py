@@ -31,9 +31,18 @@ from pathlib import Path
 from io import BytesIO
 
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 
 
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError):
+            # Browser restart while downloading wheel closes connection
+            # before server response is written so ignore harmless errors
+            pass
+
     def log_request(self, code="-", size="-"):
         # don't log successful requests but log errors
         if isinstance(code, int) and code >= 400:
@@ -200,8 +209,9 @@ class NodeDriver:
 
 class BrowserDriver:
     def __init__(self, hostname, port, driver):
+        self.url = f"http://{hostname}:{port}/test.html"
         self.driver = driver
-        self.driver.get(f"http://{hostname}:{port}/test.html")
+        self.driver.get(self.url)
         # Chrome on CI takes longer than locally to compile.
         self.driver.set_script_timeout(1200)
 
@@ -209,10 +219,25 @@ class BrowserDriver:
         pass
 
     def load_arrow(self):
-        self.execute_python(
-            f"import pyodide_js as pjs\n"
-            f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n"
-        )
+        code = (f"import pyodide_js as pjs\n"
+                f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
+        for attempt in range(3):
+            # Set temporary timeout each attempt as Chrome restart creates a driver
+            self.driver.set_script_timeout(300)
+            try:
+                self.execute_python(code)
+            except TimeoutException:
+                if attempt == 2:
+                    raise
+                print("Timed out loading PyArrow in browser. Restarting browser",
+                      flush=True)
+                self.restart_browser()
+            else:
+                self.driver.set_script_timeout(1200)
+                return
+
+    def restart_browser(self):
+        self.driver.get(self.url)
 
     def execute_python(self, code, wait_for_terminate=True):
         if wait_for_terminate:
@@ -256,7 +281,8 @@ class BrowserDriver:
 
 
 class ChromeDriver(BrowserDriver):
-    def __init__(self, hostname, port):
+    @staticmethod
+    def _make_driver():
         from selenium.webdriver.chrome.options import Options
 
         options = Options()
@@ -264,7 +290,16 @@ class ChromeDriver(BrowserDriver):
         options.add_argument("--no-sandbox")
         driver = webdriver.Chrome(options=options)
         driver.command_executor._client_config.timeout = 1200
-        super().__init__(hostname, port, driver)
+        return driver
+
+    def __init__(self, hostname, port):
+        super().__init__(hostname, port, self._make_driver())
+
+    def restart_browser(self):
+        self.driver.quit()
+        self.driver = self._make_driver()
+        self.driver.get(self.url)
+        self.driver.set_script_timeout(1200)
 
 
 class FirefoxDriver(BrowserDriver):

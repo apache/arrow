@@ -332,11 +332,16 @@ repos:
           ?^ci/scripts/python_build\.sh$|
           ?^ci/scripts/python_sdist_build\.sh$|
           ?^ci/scripts/python_sdist_test\.sh$|
+          ?^ci/scripts/python_test_emscripten\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
           ?^ci/scripts/python_test_type_annotations\.sh$|
           ?^ci/scripts/python_test\.sh$|
           ?^ci/scripts/python_wheel_macos_build\.sh$|
+          ?^ci/scripts/python_wheel_xlinux_build\.sh$|
           ?^ci/scripts/r_build\.sh$|
+          ?^ci/scripts/r_deps\.sh$|
+          ?^ci/scripts/r_docker_configure\.sh$|
+          ?^ci/scripts/r_install_system_dependencies\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
@@ -357,13 +362,22 @@ repos:
           ?^cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-flightsqlodbc-upload\.sh$|
+          ?^dev/release/08-publish-gh-release\.sh$|
           ?^dev/release/09-binary-verify\.sh$|
+          ?^dev/release/account-ruby\.sh$|
           ?^dev/release/binary-recover\.sh$|
+          ?^dev/release/post-01-tag\.sh$|
+          ?^dev/release/post-02-upload\.sh$|
           ?^dev/release/post-03-binary\.sh$|
+          ?^dev/release/post-05-update-gh-release-notes\.sh$|
+          ?^dev/release/post-07-remove-old-artifacts\.sh$|
           ?^dev/release/post-08-docs\.sh$|
           ?^dev/release/post-09-python\.sh$|
+          ?^dev/release/post-13-vcpkg\.sh$|
+          ?^dev/release/post-14-conan\.sh$|
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
+          ?^dev/release/utils-watch-gh-workflow\.sh$|
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt

@@ -16,6 +16,11 @@
 # under the License.
 
 class TestDurationArray < Test::Unit::TestCase
+  def setup
+    @values = [-(2 ** 63), nil, (2 ** 63) - 1]
+    @array = ArrowFormat::DurationArray.new(:second, @values)
+  end
+
   sub_test_case("#initialize") do
     def test_no_null
       values = [-(2 ** 63), (2 ** 63) - 1]
@@ -50,6 +55,16 @@ class TestDurationArray < Test::Unit::TestCase
       array1 = ArrowFormat::DurationArray.new(:second, values)
       array2 = ArrowFormat::DurationArray.new(:second, [0, 0, *values, 0])
       assert_not_equal(array1, array2.slice(1, 3))
+    end
+  end
+
+  sub_test_case("#[]") do
+    def test_valid
+      assert_equal(@values[2], @array[2])
+    end
+
+    def test_null
+      assert_nil(@array[1])
     end
   end
 end

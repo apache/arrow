@@ -61,6 +61,12 @@ if(ARROW_WITH_LZ4)
   endif()
 endif()
 
+if(ARROW_WITH_SIMDJSON)
+  if(simdjson_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS simdjson::simdjson)
+  endif()
+endif()
+
 if(ARROW_WITH_SNAPPY)
   if(Snappy_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
@@ -346,21 +352,42 @@ endmacro()
 macro(append_runtime_sve128_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE128)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE128_FLAGS}")
+    set(_flags ${ARROW_SVE128_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 macro(append_runtime_sve256_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE256)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE256_FLAGS}")
+    set(_flags ${ARROW_SVE256_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 macro(append_runtime_sve512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE512_FLAGS}")
+    set(_flags ${ARROW_SVE512_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
@@ -588,7 +615,6 @@ append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
-append_runtime_sve128_src(ARROW_UTIL_SRCS util/bpacking_simd_128_alt.cc)
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)
@@ -733,7 +759,8 @@ if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
   arrow_add_object_library(ARROW_INTEGRATION integration/json_integration.cc
                            integration/json_internal.cc)
   foreach(ARROW_INTEGRATION_TARGET ${ARROW_INTEGRATION_TARGETS})
-    target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON)
+    target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON
+                                                              simdjson::simdjson)
   endforeach()
 else()
   set(ARROW_INTEGRATION_TARGET_SHARED)
@@ -1039,12 +1066,12 @@ if(ARROW_JSON)
                            json/chunker.cc
                            json/converter.cc
                            json/from_string.cc
+                           json/json_writer_internal.cc
                            json/object_parser.cc
-                           json/object_writer.cc
                            json/parser.cc
                            json/reader.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})
-    target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON simdjson::simdjson)
+    target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON arrow::simdjson)
   endforeach()
 else()
   set(ARROW_JSON_TARGET_SHARED)

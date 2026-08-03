@@ -1292,24 +1292,15 @@ struct ObjectWriterVisitor {
     auto to_date_offset = [&](const MonthDayNanoIntervalType::MonthDayNanos& interval,
                               PyObject** out) {
       ARROW_DCHECK(internal::BorrowPandasDataOffsetType() != nullptr);
-      // DateOffset objects do not add nanoseconds component to pd.Timestamp.
-      // as of Pandas 1.3.3
-      // (https://github.com/pandas-dev/pandas/issues/43892).
-      // So convert microseconds and remainder to preserve data
-      // but give users more expected results.
-      int64_t microseconds = interval.nanoseconds / 1000;
-      int64_t nanoseconds;
-      if (interval.nanoseconds >= 0) {
-        nanoseconds = interval.nanoseconds % 1000;
-      } else {
-        nanoseconds = -((-interval.nanoseconds) % 1000);
-      }
 
-      PyDict_SetItemString(kwargs.obj(), "months", PyLong_FromLong(interval.months));
-      PyDict_SetItemString(kwargs.obj(), "days", PyLong_FromLong(interval.days));
-      PyDict_SetItemString(kwargs.obj(), "microseconds",
-                           PyLong_FromLongLong(microseconds));
-      PyDict_SetItemString(kwargs.obj(), "nanoseconds", PyLong_FromLongLong(nanoseconds));
+      OwnedRef months(PyLong_FromLong(interval.months));
+      OwnedRef days(PyLong_FromLong(interval.days));
+      OwnedRef nanoseconds(PyLong_FromLongLong(interval.nanoseconds));
+      RETURN_IF_PYERROR();
+      PyDict_SetItemString(kwargs.obj(), "months", months.obj());
+      PyDict_SetItemString(kwargs.obj(), "days", days.obj());
+      PyDict_SetItemString(kwargs.obj(), "nanoseconds", nanoseconds.obj());
+      RETURN_IF_PYERROR();
       *out =
           PyObject_Call(internal::BorrowPandasDataOffsetType(), args.obj(), kwargs.obj());
       RETURN_IF_PYERROR();
@@ -1863,13 +1854,17 @@ class CategoricalWriter
   }
 
   Status WriteIndicesUniform(const ChunkedArray& data) {
-    // For unsigned types, upcast to signed since pandas uses -1 for nulls
-    // uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+    // For unsigned types, use a signed output since pandas uses -1 for nulls:
+    // uint8 to int16, uint16 to int32, uint32 to int64. uint64 also maps to int64,
+    // which is safe because the indices are bounds-checked below the dictionary length
+    // and so never reach the int64 range limit. Signed types are unchanged.
     using OutputType = std::conditional_t<
         std::is_same<T, uint8_t>::value, int16_t,
         std::conditional_t<
             std::is_same<T, uint16_t>::value, int32_t,
-            std::conditional_t<std::is_same<T, uint32_t>::value, int64_t, T>>>;
+            std::conditional_t<
+                std::is_same<T, uint32_t>::value, int64_t,
+                std::conditional_t<std::is_same<T, uint64_t>::value, int64_t, T>>>>;
     const int npy_output_type = std::is_same<OutputType, int16_t>::value   ? NPY_INT16
                                 : std::is_same<OutputType, int32_t>::value ? NPY_INT32
                                 : std::is_same<OutputType, int64_t>::value
@@ -2044,9 +2039,7 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
         CATEGORICAL_CASE(UInt8Type);
         CATEGORICAL_CASE(UInt16Type);
         CATEGORICAL_CASE(UInt32Type);
-        case Type::UINT64:
-          return Status::TypeError(
-              "Converting UInt64 dictionary indices to pandas is not supported.");
+        CATEGORICAL_CASE(UInt64Type);
         default:
           // Unreachable
           ARROW_DCHECK(false);

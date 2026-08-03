@@ -16,12 +16,16 @@
 # under the License.
 
 class TestRecordBatch < Test::Unit::TestCase
-  sub_test_case("#initialize") do
-    def setup
-      @boolean_array = ArrowFormat::BooleanArray.new([true, nil, false])
-      @int32_array = ArrowFormat::Int32Array.new([-(2 ** 31), 0, (2 ** 31) - 1])
-    end
+  def setup
+    @boolean_array = ArrowFormat::BooleanArray.new([true, nil, false])
+    @int32_array = ArrowFormat::Int32Array.new([-(2 ** 31), 0, (2 ** 31) - 1])
+    @record_batch = ArrowFormat::RecordBatch.new({
+                                                   boolean: @boolean_array,
+                                                   int32: @int32_array,
+                                                 })
+  end
 
+  sub_test_case("#initialize") do
     test("{}") do
       error = ArgumentError.new("no data")
       assert_raise(error) do
@@ -35,7 +39,11 @@ class TestRecordBatch < Test::Unit::TestCase
         int32: @int32_array,
       }
       record_batch = ArrowFormat::RecordBatch.new(raw_records)
-      assert_equal(raw_records, record_batch.to_h)
+      assert_equal({
+                     "boolean" => @boolean_array,
+                     "int32" => @int32_array,
+                   },
+                   record_batch.to_h)
     end
 
     test("{String => Array}") do
@@ -55,8 +63,8 @@ class TestRecordBatch < Test::Unit::TestCase
       ]
       record_batch = ArrowFormat::RecordBatch.new(raw_records)
       assert_equal({
-                     boolean: @boolean_array,
-                     int32: @int32_array,
+                     "boolean" => @boolean_array,
+                     "int32" => @int32_array,
                    },
                    record_batch.to_h)
     end
@@ -71,5 +79,52 @@ class TestRecordBatch < Test::Unit::TestCase
         ArrowFormat::RecordBatch.new(raw_records)
       end
     end
+  end
+
+  sub_test_case("#find_column") do
+    test("Integer") do
+      assert_equal(@int32_array, @record_batch.find_column(1))
+    end
+
+    test("String") do
+      assert_equal(@int32_array, @record_batch.find_column("int32"))
+    end
+
+    test("Symbol") do
+      assert_equal(@int32_array, @record_batch.find_column(:int32))
+    end
+  end
+
+  sub_test_case("#each_record") do
+    test("default") do
+      assert_equal([
+                     [true, -(2 ** 31)],
+                     [nil, 0],
+                     [false, (2 ** 31) - 1],
+                   ],
+                   @record_batch.each_record.collect(&:to_a))
+    end
+
+    test(":reuse_record") do
+      actual = []
+      @record_batch.each_record(reuse_record: true) do |record|
+        actual << [record.object_id, record.index]
+      end
+      assert_equal([
+                     [actual[0][0], 0],
+                     [actual[0][0], 1],
+                     [actual[0][0], 2],
+                   ],
+                   actual)
+    end
+  end
+
+  test("#records") do
+    assert_equal([
+                   {"boolean" => true,  "int32" => -(2 ** 31)},
+                   {"boolean" => nil,   "int32" => 0},
+                   {"boolean" => false, "int32" => (2 ** 31) - 1},
+                 ],
+                 @record_batch.records.collect(&:to_h))
   end
 end

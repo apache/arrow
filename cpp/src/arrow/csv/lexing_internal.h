@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
+#include <string_view>
 
 #include "arrow/csv/options.h"
 #include "arrow/util/simd.h"
@@ -44,6 +46,10 @@ class SpecializedOptions {
 class BaseBloomFilter {
  public:
   explicit BaseBloomFilter(const ParseOptions& options) : filter_(MakeFilter(options)) {}
+
+  // Bloom filters match bytes individually and have no implicit-length
+  // scanning, so an embedded NUL byte doesn't affect their correctness.
+  bool CanUseOnBlock(std::string_view) const { return true; }
 
  protected:
   using FilterType = uint64_t;
@@ -138,6 +144,17 @@ class SSE42Filter {
                         _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
   }
 
+  // _mm_cmpistrc is an implicit-length compare: it treats a NUL byte as a
+  // terminator and can miss a real delimiter/quote/newline sharing an 8-byte
+  // word with one. Never use this filter on a block that contains a NUL.
+  // We could instead use the explicit-length compare _mm_cmpestrc but
+  // it comes with a massive performance cost on some CPUs
+  // (some benchmarks were measured to be twice slower in
+  // https://github.com/apache/arrow/pull/50483).
+  bool CanUseOnBlock(std::string_view data) const {
+    return data.empty() || std::memchr(data.data(), '\0', data.size()) == nullptr;
+  }
+
  protected:
   using BulkFilterType = __m128i;
 
@@ -189,6 +206,10 @@ class NeonFilter {
     vst1_u64(&r, vreinterpret_u64_u8(v));
     return r != 0;
   }
+
+  // NEON compares each byte independently (no implicit-length scanning), so
+  // an embedded NUL byte doesn't affect correctness here.
+  bool CanUseOnBlock(std::string_view) const { return true; }
 
  private:
   const uint8x8_t delim_, quote_, escape_;
