@@ -31,9 +31,9 @@ oxford_paste <- function(x, conjunction = "and", quote = TRUE, quote_symbol = '"
 }
 
 check_null <- function(
-    x,
-    arg = rlang::caller_arg(x),
-    call = rlang::caller_env()
+  x,
+  arg = rlang::caller_arg(x),
+  call = rlang::caller_env()
 ) {
   if (!is.null(x)) {
     rlang::stop_input_type(
