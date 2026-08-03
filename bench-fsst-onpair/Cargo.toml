@@ -1,0 +1,29 @@
+[package]
+name = "bench-fsst-onpair"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "bench-fsst-onpair"
+path = "src/main.rs"
+
+[dependencies]
+# A published OnPair implementation (the algorithm of arXiv:2508.02280), pinned
+# for reproducibility. Git dep => Cargo passes --cap-lints allow, so its
+# deny(warnings) won't fail our build on a newer rustc.
+onpair = { git = "https://github.com/spiraldb/onpair", rev = "f5f4bfe1fb7221c42a9f8261c269bdf5bd31052b" }
+
+# FSST reference codec (same algorithm as the Arrow C++ PR #48232 vendors).
+fsst-rs = "0.5.11"
+
+# In-process TPC-H data generation (no external files needed).
+tpchgen = "3.0.0"
+tpchgen-arrow = "3.0.0"
+arrow-array = "59.1"
+arrow-schema = "59.1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
