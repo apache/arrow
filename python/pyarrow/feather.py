@@ -28,12 +28,9 @@ from pyarrow import _feather
 from pyarrow._feather import FeatherError  # noqa: F401
 
 
-class FeatherDataset:
+class _FileDataset:
     """
-    Encapsulates details of reading a list of Feather files.
-
-    .. deprecated:: 24.0.0
-       Use :func:`pyarrow.dataset.dataset` with ``format='ipc'`` instead.
+    Encapsulates details of reading a list of Arrow IPC files.
 
     Parameters
     ----------
@@ -44,12 +41,6 @@ class FeatherDataset:
     """
 
     def __init__(self, path_or_paths, validate_schema=True):
-        warnings.warn(
-            "pyarrow.feather.FeatherDataset is deprecated as of 24.0.0. "
-            "Use pyarrow.dataset.dataset() with format='ipc' instead.",
-            FutureWarning,
-            stacklevel=2
-        )
         self.paths = path_or_paths
         self.validate_schema = validate_schema
 
@@ -103,6 +94,24 @@ class FeatherDataset:
             use_threads=use_threads)
 
 
+class FeatherDataset(_FileDataset):
+    """
+    Deprecated alias for reading a list of Feather files.
+
+    .. deprecated:: 24.0.0
+       Use :func:`pyarrow.dataset.dataset` with ``format='ipc'`` instead.
+    """
+
+    def __init__(self, path_or_paths, validate_schema=True):
+        warnings.warn(
+            "pyarrow.feather.FeatherDataset is deprecated as of 24.0.0. "
+            "Use pyarrow.dataset.dataset() with format='ipc' instead.",
+            FutureWarning,
+            stacklevel=2
+        )
+        super().__init__(path_or_paths, validate_schema=validate_schema)
+
+
 def check_chunked_overflow(name, col):
     if col.num_chunks == 1:
         return
@@ -122,15 +131,10 @@ def check_chunked_overflow(name, col):
 _FEATHER_SUPPORTED_CODECS = {'lz4', 'zstd', 'uncompressed'}
 
 
-def write_feather(df, dest, compression=None, compression_level=None,
-                  chunksize=None, version=2):
+def _write_file(df, dest, compression=None, compression_level=None,
+                chunksize=None, version=2):
     """
-    Write a pandas.DataFrame to Feather format.
-
-    .. deprecated:: 24.0.0
-       Use :func:`pyarrow.ipc.new_file` /
-       :class:`pyarrow.ipc.RecordBatchFileWriter` instead.
-       Feather V2 is the Arrow IPC file format.
+    Write a pandas.DataFrame to the Arrow IPC or legacy Feather format.
 
     Parameters
     ----------
@@ -152,13 +156,6 @@ def write_feather(df, dest, compression=None, compression_level=None,
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
     """
-    warnings.warn(
-        "pyarrow.feather.write_feather is deprecated as of 24.0.0. "
-        "Use pyarrow.ipc.new_file() / RecordBatchFileWriter instead. "
-        "Feather V2 is the Arrow IPC file format.",
-        FutureWarning,
-        stacklevel=2
-    )
     if _pandas_api.have_pandas:
         if (_pandas_api.has_sparse and
                 isinstance(df, _pandas_api.pd.SparseDataFrame)):
@@ -217,16 +214,32 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True,
-                 memory_map=False, **kwargs):
+def write_feather(df, dest, compression=None, compression_level=None,
+                  chunksize=None, version=2):
     """
-    Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
-    feather.read_table.
+    Deprecated alias for writing Feather files.
 
     .. deprecated:: 24.0.0
-       Use :func:`pyarrow.ipc.open_file` /
-       :class:`pyarrow.ipc.RecordBatchFileReader` instead.
-       Feather V2 is the Arrow IPC file format.
+       Use :func:`pyarrow.ipc.new_file` /
+       :class:`pyarrow.ipc.RecordBatchFileWriter` instead.
+    """
+    warnings.warn(
+        "pyarrow.feather.write_feather is deprecated as of 24.0.0. "
+        "Use pyarrow.ipc.new_file() / RecordBatchFileWriter instead. "
+        "Feather V2 is the Arrow IPC file format.",
+        FutureWarning,
+        stacklevel=2
+    )
+    return _write_file(
+        df, dest, compression=compression,
+        compression_level=compression_level, chunksize=chunksize,
+        version=version)
+
+
+def _read_pandas(source, columns=None, use_threads=True,
+                 memory_map=False, **kwargs):
+    """
+    Read an Arrow IPC or legacy Feather file as a pandas.DataFrame.
 
     Parameters
     ----------
@@ -249,6 +262,20 @@ def read_feather(source, columns=None, use_threads=True,
     df : pandas.DataFrame
         The contents of the Feather file as a pandas.DataFrame
     """
+    return (_read_table_internal(
+        source, columns=columns, memory_map=memory_map,
+        use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
+
+
+def read_feather(source, columns=None, use_threads=True,
+                 memory_map=False, **kwargs):
+    """
+    Deprecated alias for reading Feather files as a pandas.DataFrame.
+
+    .. deprecated:: 24.0.0
+       Use :func:`pyarrow.ipc.open_file` /
+       :class:`pyarrow.ipc.RecordBatchFileReader` instead.
+    """
     warnings.warn(
         "pyarrow.feather.read_feather is deprecated as of 24.0.0. "
         "Use pyarrow.ipc.open_file() / RecordBatchFileReader instead. "
@@ -256,9 +283,9 @@ def read_feather(source, columns=None, use_threads=True,
         FutureWarning,
         stacklevel=2
     )
-    return (_read_table_internal(
-        source, columns=columns, memory_map=memory_map,
-        use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
+    return _read_pandas(
+        source, columns=columns, use_threads=use_threads,
+        memory_map=memory_map, **kwargs)
 
 
 def _read_table_internal(source, columns=None, memory_map=False,

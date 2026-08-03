@@ -29,6 +29,12 @@ from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)
 import pyarrow.lib as lib
+from pyarrow.feather import (
+    _FileDataset as FileDataset,
+    _read_pandas as read_feather,
+    _read_table_internal as read_file,
+    _write_file as write_file,
+)
 
 
 class RecordBatchStreamReader(lib._RecordBatchStreamReader):
