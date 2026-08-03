@@ -2,12 +2,9 @@
 % Please edit documentation in R/type.R
 \name{infer_type}
 \alias{infer_type}
-\alias{type}
 \title{Infer the arrow Array type from an R object}
 \usage{
 infer_type(x, ...)
-
-type(x)
 }
 \arguments{
 \item{x}{an R object (usually a vector) to be converted to an \link{Array} or
