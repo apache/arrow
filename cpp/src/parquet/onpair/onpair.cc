@@ -22,6 +22,14 @@
 #include <cstring>
 #include <numeric>
 
+// The decode loop stores exactly one token's length per iteration when a
+// predicated store is available, which removes the fixed over-copy entirely. This
+// is a compile-time guard on purpose: the portable path below is byte-identical
+// and only slower, so a build without SVE loses speed and nothing else.
+#if defined(__ARM_FEATURE_SVE)
+#include <arm_sve.h>
+#endif
+
 namespace parquet::onpair {
 namespace {
 
@@ -734,10 +742,74 @@ size_t DecodedLen(const Column& col) {
   return sum;
 }
 
+void StridedDictionary::Build(const CompactDictionary& dict) {
+  // Align `slots` to a cache line so that a kStride-byte slot, kStride being a
+  // power of two no larger than a line, never straddles two lines. std::vector
+  // only promises alignment for its element type, so over-allocate by one line
+  // and point into `storage` at the first aligned byte.
+  constexpr size_t kAlign = 64;
+  const size_t ntokens = dict.num_tokens();
+  const size_t slot_bytes = (ntokens * kStride + kAlign - 1) / kAlign * kAlign;
+  storage.assign(slot_bytes + kAlign, 0);
+  const size_t misalign = reinterpret_cast<uintptr_t>(storage.data()) % kAlign;
+  slots = storage.data() + (misalign == 0 ? 0 : kAlign - misalign);
+  lens.resize(ntokens);
+  for (size_t t = 0; t < ntokens; ++t) {
+    // Tokens are capped at kMaxTokenSize == kStride by training, so a token fills
+    // at most its own slot and a length always fits in a byte. The zero-fill above
+    // is what makes the unused tail of a slot well-defined for a fixed-width read.
+    const size_t len = dict.offsets[t + 1] - dict.offsets[t];
+    std::memcpy(slots + t * kStride, dict.bytes.data() + dict.offsets[t], len);
+    lens[t] = static_cast<uint8_t>(len);
+  }
+  max_token_len = dict.max_token_len;
+}
+
 namespace {
 
-// Shared body of DecompressInto, parameterised on the gather-copy width for the
-// same reason DecompressPackedFixed is. See CompactDictionary::max_token_len.
+// Building the strided view is one pass over the dictionary, so it pays for itself
+// only when the code stream is long enough to amortise it. Below this the blob
+// kernel runs directly. The crossover measured at roughly one code per token; the
+// build-charged rung's worst corpus (a two-token dictionary over a short column)
+// sits exactly here and came out level rather than slower.
+bool StridedViewWorthBuilding(size_t ncodes, size_t ntokens) { return ncodes >= ntokens; }
+
+// Shared body of DecompressInto over the strided view, parameterised on the copy
+// width for the same reason the packed kernels are. See max_token_len.
+template <size_t kCopy>
+size_t DecompressIntoStrided(const StridedDictionary& dict, const Column& col, uint8_t* out) {
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  size_t w = 0;
+  for (uint16_t code : col.codes) {
+    std::memcpy(out + w, slots + size_t{code} * StridedDictionary::kStride, kCopy);
+    w += lens[code];
+  }
+  return w;
+}
+
+#if defined(__ARM_FEATURE_SVE)
+// As above, storing exactly the token's length. One predicate serves both sides:
+// the load cannot read past the slot and the store writes no byte it does not own,
+// so there is no over-copy and no width dispatch.
+size_t DecompressIntoStridedExact(const StridedDictionary& dict, const Column& col,
+                                  uint8_t* out) {
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  size_t w = 0;
+  for (uint16_t code : col.codes) {
+    const uint8_t* src = slots + size_t{code} * StridedDictionary::kStride;
+    const uint32_t len = lens[code];
+    svbool_t pg = svwhilelt_b8_u32(0u, len);
+    svst1_u8(pg, out + w, svld1_u8(pg, src));
+    w += len;
+  }
+  return w;
+}
+#endif
+
+// Shared body of DecompressInto over the stored dictionary, for the streams too
+// short to earn the strided view.
 template <size_t kCopy>
 size_t DecompressIntoFixed(const Column& col, uint8_t* out) {
   const CompactDictionary& dict = col.dict;
@@ -755,9 +827,20 @@ size_t DecompressIntoFixed(const Column& col, uint8_t* out) {
 
 size_t DecompressInto(const Column& col, uint8_t* out) {
   const size_t maxlen = col.dict.max_token_len;
-  if (maxlen <= 4) return DecompressIntoFixed<4>(col, out);
-  if (maxlen <= 8) return DecompressIntoFixed<8>(col, out);
-  return DecompressIntoFixed<kMaxTokenSize>(col, out);
+  if (!StridedViewWorthBuilding(col.codes.size(), col.dict.num_tokens())) {
+    if (maxlen <= 4) return DecompressIntoFixed<4>(col, out);
+    if (maxlen <= 8) return DecompressIntoFixed<8>(col, out);
+    return DecompressIntoFixed<kMaxTokenSize>(col, out);
+  }
+  StridedDictionary view;
+  view.Build(col.dict);
+#if defined(__ARM_FEATURE_SVE)
+  return DecompressIntoStridedExact(view, col, out);
+#else
+  if (maxlen <= 4) return DecompressIntoStrided<4>(view, col, out);
+  if (maxlen <= 8) return DecompressIntoStrided<8>(view, col, out);
+  return DecompressIntoStrided<kMaxTokenSize>(view, col, out);
+#endif
 }
 
 std::vector<uint8_t> PackValues(const uint32_t* vals, size_t n, size_t bits) {
@@ -776,21 +859,41 @@ std::vector<uint8_t> PackValues(const uint32_t* vals, size_t n, size_t bits) {
 
 namespace {
 
-// The gather-copy writes a fixed width per token so the copy length is a compile
-// time constant, but that width only has to cover the longest token this
-// dictionary actually holds -- not kMaxTokenSize. On corpora whose tokens are
-// short the difference dominates decode: c_address averages 1.99 bytes per token,
-// so a 16-byte copy moves 8x the bytes it needs to.
+// What this loop actually waits on, measured by ablation across 30 corpora rather
+// than inferred: the random dictionary read. Deleting the gather while keeping the
+// unpack and the store nearly doubles throughput (+83%). Deleting the store while
+// keeping the gather makes the loop SLOWER (-14%, on every corpus). So the store is
+// not the constraint, and storing fewer bytes is not the lever.
 //
-// Measured, this loop is store-bandwidth-bound. Across five unrelated corpora
-// (over-copy factor) x (decode MiB/s) came out constant at ~10.6 GiB/s of store
-// traffic, and the corpora with the highest over-copy decode slowest. Narrowing
-// the width is therefore worth close to the bytes it saves.
+// This corrects an earlier reading of the same code. The evidence then was that
+// (over-copy factor) x (decode MiB/s) came out constant across corpora, which was
+// taken to mean a fixed store-bandwidth ceiling. That product is equally constant
+// when the loop is bound by tokens retired, because over-copy is
+// kCopy / mean_token_len while throughput is mean_token_len x tokens_per_second --
+// the two models are indistinguishable from that measurement, and the ablation
+// picks the other one.
 //
-// The width is chosen once per stream from the dictionary, so there is no
-// per-token branch: a predicate on token length would be nearly free on corpora
-// where it always goes one way and expensive on the ones that split (urls sit at
-// 41% short, the worst possible mix).
+// Two experiments were rejected under the old reading. Both really did lose, so
+// they are recorded here, but the reason was misattributed:
+//
+//   - Unpacking codes a block at a time and prefetching before the gather: -22%
+//     with the offsets prefetched, -41% with the payload prefetched, worst case
+//     -65%, on all corpora. Aimed at the right cost, but a prefetch cannot help a
+//     stream of unpredictable indices arriving one code ahead of its use; it only
+//     adds a pass and the traffic of prefetches that arrive too late to hide
+//     anything.
+//   - A 12-byte copy as two stores: -4 to -6% wherever it applied. One wide store
+//     beats two narrow ones, which is a store-issue effect and holds regardless of
+//     what the loop is bound by.
+//
+// A third was measured and never built: choosing the copy width per block of 32
+// codes rather than per stream. Worth a median 1.00x of store traffic, because
+// nearly every block of 32 contains at least one 16-byte token.
+//
+// The fix is to change what the gather reads. StridedDictionary gives each token a
+// fixed slot and puts its length in a dense byte array, so one random line serves a
+// token instead of two -- the layout FSST's decoder has always had, and which
+// OnPair gave up when it lifted the length cap. See the kernels below.
 template <size_t kCopy>
 size_t DecompressPackedFixed(const CompactDictionary& dict, const uint8_t* packed, size_t ncodes,
                              size_t bits, uint8_t* out) {
@@ -812,15 +915,6 @@ size_t DecompressPackedFixed(const CompactDictionary& dict, const uint8_t* packe
 // As above but with the code width a compile-time constant, so the mask folds to a
 // literal and `bitpos += kBits` strength-reduces. Dispatched once per stream, the
 // same way the copy width is.
-//
-// Tried and rejected here, so it is not re-attempted: unpacking codes a block at a
-// time before gathering, to break the `w += len` store-address dependency and to
-// prefetch the token bytes. It lost 22% with the offsets prefetched and 41% with
-// dict.bytes prefetched (worst case -65%), across all 20 corpora. The premise was
-// wrong -- this loop is store-bound, not latency-bound, which is the same thing the
-// copy-width measurement showed. Breaking a dependency chain buys nothing against a
-// store-bandwidth limit, and the extra pass plus 64 prefetches per block only add
-// traffic.
 template <size_t kCopy, size_t kBits>
 size_t DecompressPackedFixedBits(const CompactDictionary& dict, const uint8_t* packed,
                                  size_t ncodes, uint8_t* out) {
@@ -835,7 +929,8 @@ size_t DecompressPackedFixedBits(const CompactDictionary& dict, const uint8_t* p
     bitpos += kBits;
     // offsets[code] and offsets[code + 1] are adjacent u32s, so one 8-byte load
     // yields the token's start and end together. token_ptr/token_len would issue
-    // two loads for what is almost always a single cache line.
+    // two loads for what is almost always a single cache line. The payload still
+    // lives elsewhere, which is the second random line the strided view removes.
     uint64_t pair;
     std::memcpy(&pair, offsets_raw + size_t{code} * sizeof(uint32_t), sizeof(pair));
     const uint32_t start = static_cast<uint32_t>(pair);
@@ -846,44 +941,158 @@ size_t DecompressPackedFixedBits(const CompactDictionary& dict, const uint8_t* p
   return w;
 }
 
+// The same loop against the strided view: one random line per token, and the length
+// read from a dense byte array small enough to stay resident. The bit-unpack
+// prologue is unchanged, so this differs from the kernel above in the gather alone.
+template <size_t kCopy, size_t kBits>
+size_t DecompressStridedBits(const StridedDictionary& dict, const uint8_t* packed,
+                             size_t ncodes, uint8_t* out) {
+  constexpr uint32_t kMask = (kBits >= 32) ? 0xFFFFFFFFu : ((uint32_t{1} << kBits) - 1);
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  size_t bitpos = 0, w = 0;
+  for (size_t i = 0; i < ncodes; ++i) {
+    uint32_t word;
+    std::memcpy(&word, packed + (bitpos >> 3), 4);
+    uint32_t code = (word >> (bitpos & 7)) & kMask;
+    bitpos += kBits;
+    std::memcpy(out + w, slots + size_t{code} * StridedDictionary::kStride, kCopy);
+    w += lens[code];
+  }
+  return w;
+}
+
+#if defined(__ARM_FEATURE_SVE)
+// And with a predicated store, which is where most of the remaining gain is. One
+// predicate covers the load and the store, so the loop reads only the token's own
+// bytes and writes only the bytes it owns: the fixed over-copy is gone, and with it
+// the reason to dispatch on max_token_len at all.
+template <size_t kBits>
+size_t DecompressStridedExactBits(const StridedDictionary& dict, const uint8_t* packed,
+                                  size_t ncodes, uint8_t* out) {
+  constexpr uint32_t kMask = (kBits >= 32) ? 0xFFFFFFFFu : ((uint32_t{1} << kBits) - 1);
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  size_t bitpos = 0, w = 0;
+  for (size_t i = 0; i < ncodes; ++i) {
+    uint32_t word;
+    std::memcpy(&word, packed + (bitpos >> 3), 4);
+    uint32_t code = (word >> (bitpos & 7)) & kMask;
+    bitpos += kBits;
+    const uint8_t* src = slots + size_t{code} * StridedDictionary::kStride;
+    const uint32_t len = lens[code];
+    // kStride <= the SVE minimum vector length of 16 bytes, so this predicate never
+    // needs more lanes than the hardware has.
+    svbool_t pg = svwhilelt_b8_u32(0u, len);
+    svst1_u8(pg, out + w, svld1_u8(pg, src));
+    w += len;
+  }
+  return w;
+}
+#endif
+
+// Runtime code width, for the widths training cannot produce but the format does
+// not forbid. Kept so no input is rejected; never on a measured path.
+template <size_t kCopy>
+size_t DecompressStridedFixed(const StridedDictionary& dict, const uint8_t* packed,
+                              size_t ncodes, size_t bits, uint8_t* out) {
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  const uint32_t mask = (bits >= 32) ? 0xFFFFFFFFu : ((1u << bits) - 1);
+  size_t bitpos = 0, w = 0;
+  for (size_t i = 0; i < ncodes; ++i) {
+    uint32_t word;
+    std::memcpy(&word, packed + (bitpos >> 3), 4);
+    uint32_t code = (word >> (bitpos & 7)) & mask;
+    bitpos += bits;
+    std::memcpy(out + w, slots + size_t{code} * StridedDictionary::kStride, kCopy);
+    w += lens[code];
+  }
+  return w;
+}
+
 // Resolve `bits` to a constant for the widths a trained dictionary can produce
 // (kMinDictBits..kMaxDictBits), falling back to the runtime-width loop otherwise so
 // no input is rejected.
+#define ONPAIR_DISPATCH_BITS(bits, CALL, FALLBACK) \
+  switch (bits) {                                  \
+    case 9: return CALL(9);                        \
+    case 10: return CALL(10);                      \
+    case 11: return CALL(11);                      \
+    case 12: return CALL(12);                      \
+    case 13: return CALL(13);                      \
+    case 14: return CALL(14);                      \
+    case 15: return CALL(15);                      \
+    case 16: return CALL(16);                      \
+    default: return FALLBACK;                      \
+  }
+
 template <size_t kCopy>
 size_t DecompressPackedDispatchBits(const CompactDictionary& dict, const uint8_t* packed,
                                     size_t ncodes, size_t bits, uint8_t* out) {
-  switch (bits) {
-    case 9: return DecompressPackedFixedBits<kCopy, 9>(dict, packed, ncodes, out);
-    case 10: return DecompressPackedFixedBits<kCopy, 10>(dict, packed, ncodes, out);
-    case 11: return DecompressPackedFixedBits<kCopy, 11>(dict, packed, ncodes, out);
-    case 12: return DecompressPackedFixedBits<kCopy, 12>(dict, packed, ncodes, out);
-    case 13: return DecompressPackedFixedBits<kCopy, 13>(dict, packed, ncodes, out);
-    case 14: return DecompressPackedFixedBits<kCopy, 14>(dict, packed, ncodes, out);
-    case 15: return DecompressPackedFixedBits<kCopy, 15>(dict, packed, ncodes, out);
-    case 16: return DecompressPackedFixedBits<kCopy, 16>(dict, packed, ncodes, out);
-    default: return DecompressPackedFixed<kCopy>(dict, packed, ncodes, bits, out);
-  }
+#define ONPAIR_BLOB(B) DecompressPackedFixedBits<kCopy, B>(dict, packed, ncodes, out)
+  ONPAIR_DISPATCH_BITS(bits, ONPAIR_BLOB,
+                       DecompressPackedFixed<kCopy>(dict, packed, ncodes, bits, out))
+#undef ONPAIR_BLOB
+}
+
+template <size_t kCopy>
+size_t DecompressStridedDispatchBits(const StridedDictionary& dict, const uint8_t* packed,
+                                     size_t ncodes, size_t bits, uint8_t* out) {
+#define ONPAIR_STRIDED(B) DecompressStridedBits<kCopy, B>(dict, packed, ncodes, out)
+  ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED,
+                       DecompressStridedFixed<kCopy>(dict, packed, ncodes, bits, out))
+#undef ONPAIR_STRIDED
+}
+
+// Decode through a view, choosing the exact-length store where the target has one.
+size_t DecompressThroughView(const StridedDictionary& dict, const uint8_t* packed,
+                             size_t ncodes, size_t bits, uint8_t* out) {
+#if defined(__ARM_FEATURE_SVE)
+#define ONPAIR_STRIDED_EXACT(B) DecompressStridedExactBits<B>(dict, packed, ncodes, out)
+  ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED_EXACT,
+                       DecompressStridedFixed<kMaxTokenSize>(dict, packed, ncodes, bits, out))
+#undef ONPAIR_STRIDED_EXACT
+#else
+  // Read the width, do not scan for it: an O(tokens) scan here costs 1-3% on
+  // dictionaries of 20-60k tokens, which is charged to decode for something a
+  // stored format keeps in its header. See CompactDictionary::max_token_len.
+  //
+  // Only widths a single store can carry, for the reason recorded above: a 12-byte
+  // copy moves 25% fewer bytes than 16 but needs two stores and lost 4-6% wherever
+  // it applied. Narrowing to 8 is worth 25-28% on the corpora that allow it.
+  //
+  // `out` needs kDecodePadding of slack either way, and a slot is zero-filled out
+  // to kStride, so every width here is in bounds and reads defined bytes.
+  const size_t maxlen = dict.max_token_len;
+  if (maxlen <= 4) return DecompressStridedDispatchBits<4>(dict, packed, ncodes, bits, out);
+  if (maxlen <= 8) return DecompressStridedDispatchBits<8>(dict, packed, ncodes, bits, out);
+  return DecompressStridedDispatchBits<kMaxTokenSize>(dict, packed, ncodes, bits, out);
+#endif
 }
 
 }  // namespace
 
+size_t DecompressPacked(const StridedDictionary& dict, const uint8_t* packed, size_t ncodes,
+                        size_t bits, uint8_t* out) {
+  return DecompressThroughView(dict, packed, ncodes, bits, out);
+}
+
 size_t DecompressPacked(const CompactDictionary& dict, const uint8_t* packed, size_t ncodes,
                         size_t bits, uint8_t* out) {
-  // Read the width, do not scan for it: an O(tokens) scan here costs 1-3% on
-  // dictionaries of 20-60k tokens, which is charged to decode for something a
-  // stored format keeps in its header. See CompactDictionary::max_token_len.
-  const size_t maxlen = dict.max_token_len;
-  // Only widths a single store can carry. A 12-byte copy moves 25% fewer bytes
-  // than 16 but needs two stores, and measured that loses 4-6% on every corpus it
-  // applied to (c_mktsegment, c_phone, p_container) -- so this is not purely a
-  // bandwidth effect and one wide store beats two narrow ones. Narrowing to 8 is
-  // worth 25-28% on the corpora that allow it.
-  //
-  // `out` needs kDecodePadding of slack either way, and dict.bytes is read-padded
-  // by kMaxTokenSize, so every width here is in bounds.
-  if (maxlen <= 4) return DecompressPackedDispatchBits<4>(dict, packed, ncodes, bits, out);
-  if (maxlen <= 8) return DecompressPackedDispatchBits<8>(dict, packed, ncodes, bits, out);
-  return DecompressPackedDispatchBits<kMaxTokenSize>(dict, packed, ncodes, bits, out);
+  if (!StridedViewWorthBuilding(ncodes, dict.num_tokens())) {
+    // See DecompressThroughView for why the width is read rather than scanned for,
+    // and why only 4/8/16 are offered.
+    const size_t maxlen = dict.max_token_len;
+    if (maxlen <= 4) return DecompressPackedDispatchBits<4>(dict, packed, ncodes, bits, out);
+    if (maxlen <= 8) return DecompressPackedDispatchBits<8>(dict, packed, ncodes, bits, out);
+    return DecompressPackedDispatchBits<kMaxTokenSize>(dict, packed, ncodes, bits, out);
+  }
+  StridedDictionary view;
+  view.Build(dict);
+  return DecompressThroughView(view, packed, ncodes, bits, out);
 }
+
+#undef ONPAIR_DISPATCH_BITS
 
 }  // namespace parquet::onpair
