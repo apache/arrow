@@ -58,7 +58,7 @@ jobs:
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
+        uses: matlab-actions/setup-matlab@2323adb8243827ea460b0def4c413545aaec46a9 # v3.0.2
         with:
           release: R2025b
       - name: Install ccache
@@ -107,7 +107,7 @@ jobs:
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
+        uses: matlab-actions/setup-matlab@2323adb8243827ea460b0def4c413545aaec46a9 # v3.0.2
         with:
           release: R2025b
       - name: Install ccache
@@ -147,7 +147,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
+        uses: matlab-actions/setup-matlab@2323adb8243827ea460b0def4c413545aaec46a9 # v3.0.2
         with:
           release: R2025b
       - name: Install ccache
