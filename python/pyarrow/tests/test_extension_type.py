@@ -31,7 +31,6 @@ except ImportError:
     np = None
 
 import pyarrow as pa
-from pyarrow.vendored.version import Version
 
 
 @contextlib.contextmanager
@@ -1924,13 +1923,9 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     assert result["ext"].dtype == pandas_dtype
 
     import pandas as pd
-    # Skip tests for 2.0.x, See: GH-35821
-    if (
-        Version(pd.__version__) >= Version("2.1.0")
-    ):
-        # Check the usage of types_mapper
-        result = table.to_pandas(types_mapper=pd.ArrowDtype)
-        assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+    # Check the usage of types_mapper
+    result = table.to_pandas(types_mapper=pd.ArrowDtype)
+    assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
 def test_tensor_type_is_picklable(pickle_module):
