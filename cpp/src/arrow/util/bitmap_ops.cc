@@ -17,6 +17,7 @@
 
 #include "arrow/util/bitmap_ops.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -32,8 +33,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging_internal.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
@@ -124,27 +124,39 @@ uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length
 }
 
 template <TransferMode mode>
+void TransferReaderWriter(auto&& reader, auto&& writer) {
+  auto nwords = reader.words();
+  while (nwords--) {
+    auto word = reader.NextWord();
+    writer.PutNextWord(mode == TransferMode::Invert ? ~word : word);
+  }
+  auto nbytes = reader.trailing_bytes();
+  while (nbytes--) {
+    int valid_bits;
+    auto byte = reader.NextTrailingByte(valid_bits);
+    writer.PutNextTrailingByte(mode == TransferMode::Invert ? ~byte : byte, valid_bits);
+  }
+}
+
+template <TransferMode mode>
 void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
                     int64_t dest_offset, uint8_t* dest) {
   int64_t bit_offset = offset % 8;
   int64_t dest_bit_offset = dest_offset % 8;
 
-  if (bit_offset || dest_bit_offset) {
+  if (length == 0) {
+    return;
+  } else if (dest_bit_offset) {
+    const auto count = std::min(8 - dest_bit_offset, length);
+    auto reader = internal::BitmapWordReader<uint8_t>(data, offset, count);
+    auto writer = internal::BitmapWordWriter<uint8_t>(dest, dest_offset, count);
+    TransferReaderWriter<mode>(reader, writer);
+    TransferBitmap<mode>(data, offset + count, length - count, dest_offset + count, dest);
+  } else if (bit_offset) {
     auto reader = internal::BitmapWordReader<uint64_t>(data, offset, length);
-    auto writer = internal::BitmapWordWriter<uint64_t>(dest, dest_offset, length);
-
-    auto nwords = reader.words();
-    while (nwords--) {
-      auto word = reader.NextWord();
-      writer.PutNextWord(mode == TransferMode::Invert ? ~word : word);
-    }
-    auto nbytes = reader.trailing_bytes();
-    while (nbytes--) {
-      int valid_bits;
-      auto byte = reader.NextTrailingByte(valid_bits);
-      writer.PutNextTrailingByte(mode == TransferMode::Invert ? ~byte : byte, valid_bits);
-    }
-  } else if (length) {
+    auto writer = internal::BitmapWordWriter<uint64_t, false>(dest, dest_offset, length);
+    TransferReaderWriter<mode>(reader, writer);
+  } else {
     int64_t num_bytes = bit_util::BytesForBits(length);
 
     // Shift by its byte offset
@@ -159,7 +171,7 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
     uint8_t last_data;
 
-    if (mode == TransferMode::Invert) {
+    if constexpr (mode == TransferMode::Invert) {
       for (int64_t i = 0; i < num_bytes - 1; i++) {
         dest[i] = static_cast<uint8_t>(~(data[i]));
       }
@@ -519,5 +531,4 @@ void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
   BitmapOp<OrNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
