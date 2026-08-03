@@ -115,8 +115,8 @@ intend to maintain read support for V1 for the foreseeable future.
 Migration to IPC
 ----------------
 
-Since Feather V2 is the Arrow IPC file format, you can use the
-:mod:`pyarrow.ipc` module as a direct replacement:
+Since Feather V2 is the Arrow IPC file format, use the high-level functions in
+:mod:`pyarrow.ipc` as direct replacements:
 
 .. code-block:: python
 
@@ -126,20 +126,13 @@ Since Feather V2 is the Arrow IPC file format, you can use the
    table = pa.table({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
    # Writing (replaces feather.write_feather)
-   options = pa.ipc.IpcWriteOptions(compression='lz4')
-   with pa.ipc.new_file("data.arrow", table.schema, options=options) as writer:
-       writer.write_table(table)
+   pa.ipc.write_file(table, "data.arrow")
 
    # Reading (replaces feather.read_table)
-   with pa.ipc.open_file("data.arrow") as reader:
-       result = reader.read_all()
+   result = pa.ipc.read_file("data.arrow")
 
-.. note::
+   # Reading as pandas (replaces feather.read_feather)
+   dataframe = pa.ipc.read_feather("data.arrow")
 
-   ``feather.write_feather`` defaults to LZ4 compression, while
-   ``ipc.new_file`` does not compress by default. To preserve the same
-   behavior, pass ``compression='lz4'`` via
-   :class:`~pyarrow.ipc.IpcWriteOptions` as shown above.
-
-For reading multiple files, use the :mod:`pyarrow.dataset` module with
-``format='ipc'`` instead of :class:`~pyarrow.feather.FeatherDataset`.
+For reading multiple files, use :class:`pyarrow.ipc.FileDataset` or the
+:mod:`pyarrow.dataset` module with ``format='ipc'``.
