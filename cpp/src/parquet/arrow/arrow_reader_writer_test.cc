@@ -5943,6 +5943,56 @@ TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
   }
 }
 
+TEST(TestArrowReadWrite, WriteRecordBatchRespectsMaxRowGroupSize) {
+  // Row groups should be rolled over once the compressed bytes accumulated
+  // in the current row group reach WriterProperties::max_row_group_size().
+  auto pool = ::arrow::default_memory_pool();
+  auto sink = CreateOutputStream();
+  // Use a small byte size limit with the default (large) row count limit so
+  // that only the byte size limit takes effect. Use a small data page size
+  // so that buffered values are flushed to pages (and thus counted by the
+  // size check) between batches.
+  auto writer_properties = WriterProperties::Builder()
+                               .max_row_group_size(4 * 1024)
+                               ->disable_dictionary()
+                               ->data_pagesize(1024)
+                               ->build();
+  auto arrow_writer_properties = default_arrow_writer_properties();
+
+  // Prepare schema
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::int64())});
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  auto gen = ::arrow::random::RandomArrayGenerator(/*seed=*/42);
+
+  // Create writer to write data via RecordBatch.
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                             &arrow_writer));
+  // Each batch holds 1000 int64 values (~8KB uncompressed), exceeding the
+  // 4KB limit on its own, so every subsequent WriteRecordBatch call should
+  // start a new row group.
+  constexpr int kNumBatches = 4;
+  constexpr int64_t kBatchRows = 1000;
+  for (int i = 0; i < kNumBatches; ++i) {
+    auto record_batch = gen.BatchOf({::arrow::field("a", ::arrow::int64())},
+                                    /*length=*/kBatchRows);
+    ASSERT_OK_NO_THROW(arrow_writer->WriteRecordBatch(*record_batch));
+  }
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_metadata = arrow_writer->metadata();
+  ASSERT_EQ(kNumBatches, file_metadata->num_row_groups());
+  for (int i = 0; i < file_metadata->num_row_groups(); ++i) {
+    EXPECT_EQ(kBatchRows, file_metadata->RowGroup(i)->num_rows());
+  }
+}
+
 TEST(TestArrowReadWrite, MultithreadedWrite) {
   const int num_columns = 20;
   const int num_rows = 1000;
