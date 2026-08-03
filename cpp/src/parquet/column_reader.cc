@@ -28,7 +28,6 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "arrow/array/builder_binary.h"
@@ -52,6 +51,7 @@
 #include "parquet/exception.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
+#include "parquet/level_decoder.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
@@ -96,6 +96,18 @@ inline void CheckLevelsDecoded(int64_t number_decoded, int64_t expected) {
   }
 }
 
+void CheckMinMax(const int16_t* data, int32_t size, int16_t max_level) {
+  if (size > 0) {
+    internal::MinMax min_max = internal::FindMinMax(data, size);
+    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level)) {
+      std::stringstream ss;
+      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
+         << " out of range.  Max Level: " << max_level;
+      throw ParquetException(ss.str());
+    }
+  }
+}
+
 /// True if a T can hold a U.
 template <typename T, typename U>
 inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
@@ -129,6 +141,86 @@ concept can_cout = requires(std::ostream& os, const T& value) {
   os << value;
 };  // NOLINT(readability/braces)
 
+/*********************
+ *  NewLevelDecoder  *
+ *********************/
+
+struct NewLevelBitDecoder : ::arrow::util::BitPackedDecoder<int16_t> {
+  using Base = BitPackedDecoder<int16_t>;
+
+  NewLevelBitDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+      : Base(data, data_size,
+             /* value_bit_width= */ bit_util::Log2(params.max_level + 1),
+             params.value_count) {}
+
+  int32_t GetBatch(int16_t* out, int32_t batch_size, int16_t max_level) {
+    const int32_t num_decoded = Base::GetBatch(out, batch_size);
+    CheckMinMax(out, num_decoded, max_level);
+    return num_decoded;
+  }
+};
+
+struct NewLevelRleDecoder : ::arrow::util::RleBitPackedDecoder<int16_t> {
+  using Base = RleBitPackedDecoder<int16_t>;
+
+  NewLevelRleDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+      : Base(data, data_size,
+             /* value_bit_width= */ bit_util::Log2(params.max_level + 1)) {}
+
+  int32_t GetBatch(int16_t* out, int32_t batch_size, int16_t max_level) {
+    const int32_t num_decoded = Base::GetBatch(out, batch_size);
+    CheckMinMax(out, num_decoded, max_level);
+    return num_decoded;
+  }
+};
+
+/// Flat replacement for Legacy `LevelDecoder`.
+using NewLevelDecoder = PageLevelDecoder<NewLevelBitDecoder, NewLevelRleDecoder>;
+
+/**************************
+ *  LevelToBitmapDecoder  *
+ **************************/
+
+struct LevelToBitmapBitDecoder : ::arrow::util::BitPackedToBitmapDecoder {
+  using Base = BitPackedToBitmapDecoder;
+
+  LevelToBitmapBitDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+      : Base(data, data_size, params.value_count) {
+    ARROW_DCHECK_EQ(params.max_level, 1);
+  }
+
+  template <typename Out>
+  int32_t GetBatch(Out&& out, int32_t batch_size, int16_t /* max_level */) {
+    return Base::GetBatch(out, batch_size);
+  }
+};
+
+struct LevelToBitmapRleDecoder : ::arrow::util::RleBitPackedToBitmapDecoder {
+  using Base = RleBitPackedToBitmapDecoder;
+
+  LevelToBitmapRleDecoder(const uint8_t* data, int32_t data_size, const auto& params)
+      : Base(data, data_size) {
+    ARROW_DCHECK_EQ(params.max_level, 1);
+  }
+
+  template <typename Out>
+  int32_t GetBatch(Out&& out, int32_t batch_size, int16_t /* max_level */) {
+    return Base::GetBatch(out, batch_size);
+  }
+};
+
+/// Decoder for definition levels that writes directly into a validity bitmap.
+///
+/// This is the bitmap counterpart of ``LevelDecoder``, specialized for levels
+/// encoded on a single bit (a max level of 1), such as the definition levels of a
+/// flat, nullable column. Rather than decoding into an ``int16_t`` array and
+/// re-encoding into an Arrow validity bitmap, it decodes straight into the bitmap.
+///
+/// @see PageLevelDecoder
+struct LevelToBitmapDecoder
+    : PageLevelDecoder<LevelToBitmapBitDecoder, LevelToBitmapRleDecoder> {
+  LevelToBitmapDecoder() : PageLevelDecoder(/* max_level= */ 1) {}
+};
 }  // namespace
 
 /******************
@@ -136,27 +228,12 @@ concept can_cout = requires(std::ostream& os, const T& value) {
  ******************/
 
 struct LevelDecoder::Impl {
-  using RleBitPackedDecoder = ::arrow::util::RleBitPackedDecoder<int16_t>;
-  using BitPackedDecoder = ::arrow::util::BitPackedDecoder<int16_t>;
-
-  std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder = {};
-
-  [[nodiscard]] int32_t GetBatch(int16_t* out, int32_t batch_size) {
-    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder);
-  }
-
-  [[nodiscard]] int32_t Advance(int32_t batch_size) {
-    return std::visit([&](auto& dec) { return dec.Advance(batch_size); }, decoder);
-  }
-
-  auto CountUpTo(int16_t value, int32_t batch_size) {
-    return std::visit([&](auto& dec) { return dec.CountUpTo(value, batch_size); },
-                      decoder);
-  }
+  NewLevelDecoder decoder_{};
 };
 
 LevelDecoder::LevelDecoder(int16_t max_level)
-    : impl_(std::make_unique<Impl>()), max_level_(max_level) {}
+    : impl_(new Impl{NewLevelDecoder(max_level)})  // old compilers make_unique fail here
+{}
 
 LevelDecoder::LevelDecoder(LevelDecoder&&) = default;
 
@@ -167,254 +244,40 @@ LevelDecoder::~LevelDecoder() = default;
 int32_t LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
                               int32_t num_buffered_values, const uint8_t* data,
                               int32_t data_size) {
-  max_level_ = max_level;
-  num_values_remaining_ = num_buffered_values;
-  const int32_t value_bit_width = bit_util::Log2(max_level + 1);
-
-  switch (encoding) {
-    case Encoding::RLE: {
-      if (data_size < 4) {
-        throw ParquetException("Received invalid levels (corrupt data page?)");
-      }
-      const auto num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
-      if (num_bytes < 0 || num_bytes > data_size - 4) {
-        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
-      }
-      this->impl_->decoder = Impl::RleBitPackedDecoder(  //
-          /* data= */ data + 4,
-          /* data_size =*/num_bytes,
-          /* value_bit_width= */ value_bit_width);
-      return 4 + num_bytes;
-    }
-    case Encoding::BIT_PACKED: {
-      int32_t num_bits = 0;
-      if (MultiplyWithOverflow(num_buffered_values, value_bit_width, &num_bits)) {
-        throw ParquetException(
-            "Number of buffered values too large (corrupt data page?)");
-      }
-      const auto num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
-      if (num_bytes < 0 || num_bytes > data_size) {
-        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
-      }
-      // Also adding `value_count` so that the decoder also works with zero-width runs.
-      this->impl_->decoder = Impl::BitPackedDecoder(  //
-          /* data= */ data,
-          /* data_size =*/num_bytes,
-          /* value_bit_width= */ value_bit_width,
-          /* value_count= */ num_buffered_values);
-      return num_bytes;
-    }
-    default:
-      throw ParquetException("Unknown encoding type for levels.");
-  }
-  return -1;
+  return impl_->decoder_.SetDataV1(
+      encoding, data, data_size,
+      {.value_count = num_buffered_values, .max_level = max_level});
 }
 
 void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
                              int32_t num_buffered_values, const uint8_t* data) {
-  max_level_ = max_level;
-  // Repetition and definition levels always use RLE encoding
-  // in the DataPageV2 format.
-  if (num_bytes < 0) {
-    throw ParquetException("Invalid page header (corrupt data page?)");
-  }
-  num_values_remaining_ = num_buffered_values;
-
-  this->impl_->decoder = Impl::RleBitPackedDecoder(  //
-      /* data= */ data,
-      /* data_size =*/num_bytes,
-      /* value_bit_width= */ bit_util::Log2(max_level + 1));
+  return impl_->decoder_.SetDataV2(
+      data, num_bytes, {.value_count = num_buffered_values, .max_level = max_level});
 }
 
 int32_t LevelDecoder::Decode(int32_t batch_size, int16_t* levels) {
-  const int32_t num_values = std::min(num_values_remaining_, batch_size);
-  const int32_t num_decoded = impl_->GetBatch(levels, num_values);
-  if (num_decoded > 0) {
-    internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
-    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
-      std::stringstream ss;
-      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
-         << " out of range.  Max Level: " << max_level_;
-      throw ParquetException(ss.str());
-    }
-  }
-  num_values_remaining_ -= num_decoded;
-  return num_decoded;
+  return impl_->decoder_.Decode(levels, batch_size);
 }
 
 int32_t LevelDecoder::Skip(int32_t batch_size) {
-  const int32_t num_values = std::min(num_values_remaining_, batch_size);
-  const int32_t num_advanced = impl_->Advance(num_values);
-  ARROW_DCHECK_EQ(num_values, num_advanced);
-  num_values_remaining_ -= num_advanced;
-  return num_advanced;
+  return impl_->decoder_.Skip(batch_size);
 }
 
 auto LevelDecoder::CountUpTo(int16_t value, int32_t batch_size) -> CountUpToResult {
-  const int32_t num_values = std::min(num_values_remaining_, batch_size);
-  const auto result = impl_->CountUpTo(value, num_values);
-  ARROW_DCHECK_EQ(num_values, result.processed_count);
-  num_values_remaining_ -= result.processed_count;
+  const auto result = impl_->decoder_.CountUpTo(value, batch_size);
   return {
       .matching_count = result.matching_count,
       .processed_count = result.processed_count,
   };
 }
+
+int16_t LevelDecoder::max_level() const { return impl_->decoder_.max_level(); }
+
+int32_t LevelDecoder::remaining() const { return impl_->decoder_.remaining(); }
 
 /**************************
- *  LevelToBitmapDecoder  *
+ *  SerializedPageReader  *
  **************************/
-
-/// Decoder for definition levels that writes directly into a validity bitmap.
-///
-/// This is the bitmap counterpart of ``LevelDecoder``, specialized for levels
-/// encoded on a single bit (a max level of 1), such as the definition levels of a
-/// flat, nullable column. Rather than decoding into an ``int16_t`` array and
-/// re-encoding into an Arrow validity bitmap, it decodes straight into the bitmap.
-///
-/// @see LevelDecoder
-class LevelToBitmapDecoder {
- public:
-  using BitmapSpanMut = ::arrow::util::BitmapSpanMut;
-  using RleBitPackedDecoder = ::arrow::util::RleBitPackedToBitmapDecoder;
-  using BitPackedDecoder = ::arrow::util::BitPackedToBitmapDecoder;
-  using CountUpToResult = LevelDecoder::CountUpToResult;
-
-  // TODO we should factor this with the LevelDecoder
-
-  LevelToBitmapDecoder() = default;
-
-  /// Initialize the decoder state with new data from a legacy (V1) page.
-  ///
-  /// @return the number of bytes consumed
-  int32_t SetData(Encoding::type encoding, int16_t max_level, int32_t num_buffered_values,
-                  const uint8_t* data, int32_t data_size);
-
-  /// Initialize the decoder state with new data from a V2 page.
-  ///
-  /// Repetition and definition levels in V2 pages are always RLE encoded.
-  void SetDataV2(int32_t num_bytes, int16_t max_level, int32_t num_buffered_values,
-                 const uint8_t* data);
-
-  /// Decode a batch of levels into `out` and return the number of levels decoded.
-  int32_t Decode(int32_t batch_size, BitmapSpanMut out);
-
-  /// Advance the decoder and throw away decoded levels.
-  int32_t Skip(int32_t batch_size);
-
-  /// Advance and count the number of occurrences of `value`.
-  ///
-  /// The count is limited to at most the next `batch_size` items.
-  /// @return The matching value count and number of elements that were processed.
-  CountUpToResult CountUpTo(bool value, int32_t batch_size);
-
-  /// Return the max level used in this decoder.
-  int16_t max_level() const { return 1; }
-
-  /// Return the number of values left to be decoded.
-  int32_t remaining() const { return num_values_remaining_; }
-
- private:
-  static void CheckMaxLevel(int16_t max_level);
-
-  std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder_ = {};
-  /// Number of values remaining. The underlying decoder zero pads bit packed values
-  /// up to a multiple of 8 so it cannot know the exact number of remaining values.
-  int32_t num_values_remaining_ = 0;
-};
-
-void LevelToBitmapDecoder::CheckMaxLevel(int16_t max_level) {
-  if (ARROW_PREDICT_FALSE(max_level != 1)) {
-    throw ParquetException(
-        "LevelToBitmapDecoder only supports levels with a max level of 1.");
-  }
-}
-
-int32_t LevelToBitmapDecoder::SetData(Encoding::type encoding, int16_t max_level,
-                                      int32_t num_buffered_values, const uint8_t* data,
-                                      int32_t data_size) {
-  CheckMaxLevel(max_level);
-  num_values_remaining_ = num_buffered_values;
-  // Levels with a max level of 1 are encoded on a single bit.
-  constexpr int32_t value_bit_width = 1;
-
-  switch (encoding) {
-    case Encoding::RLE: {
-      if (data_size < 4) {
-        throw ParquetException("Received invalid levels (corrupt data page?)");
-      }
-      const auto num_bytes = ::arrow::util::SafeLoadAs<int32_t>(data);
-      if (num_bytes < 0 || num_bytes > data_size - 4) {
-        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
-      }
-      decoder_ = RleBitPackedDecoder(
-          /* data= */ data + 4,
-          /* data_size= */ num_bytes);
-      return 4 + num_bytes;
-    }
-    case Encoding::BIT_PACKED: {
-      int32_t num_bits = 0;
-      if (MultiplyWithOverflow(num_buffered_values, value_bit_width, &num_bits)) {
-        throw ParquetException(
-            "Number of buffered values too large (corrupt data page?)");
-      }
-      const auto num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
-      if (num_bytes < 0 || num_bytes > data_size) {
-        throw ParquetException("Received invalid number of bytes (corrupt data page?)");
-      }
-      // Also passing `value_count` so that the decoder works with zero-width runs.
-      decoder_ = BitPackedDecoder(
-          /* data= */ data,
-          /* data_size= */ num_bytes,
-          /* value_count= */ num_buffered_values);
-      return num_bytes;
-    }
-    default:
-      throw ParquetException("Unknown encoding type for levels.");
-  }
-  return -1;
-}
-
-void LevelToBitmapDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
-                                     int32_t num_buffered_values, const uint8_t* data) {
-  CheckMaxLevel(max_level);
-  if (num_bytes < 0) {
-    throw ParquetException("Invalid page header (corrupt data page?)");
-  }
-  num_values_remaining_ = num_buffered_values;
-  decoder_ = RleBitPackedDecoder(
-      /* data= */ data,
-      /* data_size= */ num_bytes);
-}
-
-int32_t LevelToBitmapDecoder::Decode(int32_t batch_size, BitmapSpanMut out) {
-  const int32_t num_values = std::min(num_values_remaining_, batch_size);
-  const int32_t num_decoded =
-      std::visit([&](auto& dec) { return dec.GetBatch(out, num_values); }, decoder_);
-  num_values_remaining_ -= num_decoded;
-  return num_decoded;
-}
-
-int32_t LevelToBitmapDecoder::Skip(int32_t batch_size) {
-  const int32_t num_values = std::min(num_values_remaining_, batch_size);
-  const int32_t num_advanced =
-      std::visit([&](auto& dec) { return dec.Advance(num_values); }, decoder_);
-  CheckLevelsDecoded(num_advanced, num_values);
-  num_values_remaining_ -= num_advanced;
-  return num_advanced;
-}
-
-auto LevelToBitmapDecoder::CountUpTo(bool value, int32_t batch_size) -> CountUpToResult {
-  const int32_t num_values = std::min(num_values_remaining_, batch_size);
-  const auto result =
-      std::visit([&](auto& dec) { return dec.CountUpTo(value, num_values); }, decoder_);
-  CheckLevelsDecoded(result.processed_count, num_values);
-  num_values_remaining_ -= result.processed_count;
-  return {
-      .matching_count = result.matching_count,
-      .processed_count = result.processed_count,
-  };
-}
 
 ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;
@@ -1157,7 +1020,7 @@ class LevelSinkBuffer : public DataSinkBuffer<int16_t> {
   /// Decode levels into the sink buffer.
   void Decode(auto& decoder, int32_t batch_size) {
     const auto decoded = Base::ReadFromCallback(
-        [&, this]() { return decoder.Decode(batch_size, Base::write_start()); },
+        [&, this]() { return decoder.Decode(Base::write_start(), batch_size); },
         batch_size);
     CheckLevelsDecoded(decoded, batch_size);
   }
@@ -1252,11 +1115,12 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
 
     const auto decoded = Base::ReadFromCallback(
         [&, this]() {
-          using BitmapSpanMut = LevelToBitmapDecoder::BitmapSpanMut;
+          using ::arrow::util::BitmapSpanMut;
 
-          const auto write_pos = BitmapSpanMut(data() + values_count() / 8,
-                                               static_cast<int32_t>(values_count() % 8));
-          const auto decoded = decoder.Decode(batch_size, write_pos);
+          const auto write_pos = BitmapSpanMut(
+              /* data= */ data() + values_count() / 8,
+              /* bit_offset= */ static_cast<int32_t>(values_count() % 8));
+          const auto decoded = decoder.Decode(write_pos, batch_size);
           const auto non_null = ::arrow::internal::CountSetBits(
               write_pos.data(), write_pos.bit_start(), decoded);
           ARROW_DCHECK_LE(non_null, decoded);
@@ -1291,16 +1155,18 @@ int64_t InitializeV1Levels(const DataPageV1& page, auto& def_dec, auto& rep_dec)
   int32_t max_size = page.size();
 
   if (const auto max_rep_lvl = rep_dec.max_level(); max_rep_lvl > 0) {
-    const int32_t rep_levels_bytes = rep_dec.SetData(
-        page.repetition_level_encoding(), max_rep_lvl, num_values, buffer, max_size);
+    const int32_t rep_levels_bytes =
+        rep_dec.SetDataV1(page.repetition_level_encoding(), buffer, max_size,
+                          {.value_count = num_values, .max_level = max_rep_lvl});
     buffer += rep_levels_bytes;
     levels_byte_size += rep_levels_bytes;
     max_size -= rep_levels_bytes;
   }
 
   if (const auto max_def_lvl = def_dec.max_level(); max_def_lvl > 0) {
-    const int32_t def_levels_bytes = def_dec.SetData(
-        page.definition_level_encoding(), max_def_lvl, num_values, buffer, max_size);
+    const int32_t def_levels_bytes =
+        def_dec.SetDataV1(page.definition_level_encoding(), buffer, max_size,
+                          {.value_count = num_values, .max_level = max_def_lvl});
     levels_byte_size += def_levels_bytes;
     max_size -= def_levels_bytes;
   }
@@ -1326,8 +1192,8 @@ int64_t InitializeV2Levels(const DataPageV2& page, auto& def_dec, auto& rep_dec)
   const uint8_t* buffer = page.data();
 
   if (const auto max_rep_lvl = rep_dec.max_level(); max_rep_lvl > 0) {
-    rep_dec.SetDataV2(page.repetition_levels_byte_length(), max_rep_lvl, num_values,
-                      buffer);
+    rep_dec.SetDataV2(buffer, page.repetition_levels_byte_length(),
+                      {.value_count = num_values, .max_level = max_rep_lvl});
   }
   // ARROW-17453: Even if max_rep_level_ is 0, there may still be
   // repetition level bytes written and/or reported in the header by
@@ -1335,8 +1201,8 @@ int64_t InitializeV2Levels(const DataPageV2& page, auto& def_dec, auto& rep_dec)
   buffer += page.repetition_levels_byte_length();
 
   if (const auto max_def_lvl = def_dec.max_level(); max_def_lvl > 0) {
-    def_dec.SetDataV2(page.definition_levels_byte_length(), max_def_lvl, num_values,
-                      buffer);
+    def_dec.SetDataV2(buffer, page.definition_levels_byte_length(),
+                      {.value_count = num_values, .max_level = max_def_lvl});
   }
 
   return total_levels_length;
@@ -1394,14 +1260,14 @@ class ColumnChunkReader {
     if (max_def_level() == 0) {
       return 0;
     }
-    return def_levels_decoder_.Decode(batch_size, levels);
+    return def_levels_decoder_.Decode(levels, batch_size);
   }
 
   int32_t ReadRepetitionLevels(int32_t batch_size, int16_t* levels) {
     if (max_rep_level() == 0) {
       return 0;
     }
-    return rep_levels_decoder_.Decode(batch_size, levels);
+    return rep_levels_decoder_.Decode(levels, batch_size);
   }
 
   // Available values in the current data page, value includes repeated values and nulls.
@@ -1689,8 +1555,8 @@ int64_t ColumnChunkReader<Traits>::Skip(int64_t num_values_to_skip) {
 template <typename D>
 struct TypedColumnReaderImplTraits {
   using DType = D;
-  using DefLevelDecoder = LevelDecoder;
-  using RepLevelDecoder = LevelDecoder;
+  using DefLevelDecoder = NewLevelDecoder;
+  using RepLevelDecoder = NewLevelDecoder;
 };
 
 template <typename DType>
@@ -1703,8 +1569,8 @@ class TypedColumnReaderImpl
 
   TypedColumnReaderImpl(const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager,
                         ::arrow::MemoryPool* pool)
-      : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
-             LevelDecoder(descr->max_repetition_level())) {
+      : Base(descr, pool, NewLevelDecoder(descr->max_definition_level()),
+             NewLevelDecoder(descr->max_repetition_level())) {
     this->SetPageReader(std::move(pager));
   }
 
@@ -1937,8 +1803,8 @@ namespace {
 template <typename D>
 struct TypedRecordReaderTraits {
   using DType = D;
-  using DefLevelDecoder = LevelDecoder;
-  using RepLevelDecoder = LevelDecoder;
+  using DefLevelDecoder = NewLevelDecoder;
+  using RepLevelDecoder = NewLevelDecoder;
 };
 
 /// General record reader for a given data type.
@@ -1957,8 +1823,8 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
                     bool read_dense_for_nullable, ValueSink value_sink)
-      : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
-             LevelDecoder(descr->max_repetition_level())),
+      : Base(descr, pool, NewLevelDecoder(descr->max_definition_level()),
+             NewLevelDecoder(descr->max_repetition_level())),
         value_sink_(std::move(value_sink)),
         leaf_info_(leaf_info) {
     if (!read_dense_for_nullable && nullable_values()) {
@@ -2584,8 +2450,8 @@ void TypedRecordReader<DT, VS, kDic>::DebugPrintState() {
 template <typename D>
 struct RequiredTypedRecordReaderTraits {
   using DType = D;
-  using DefLevelDecoder = LevelDecoder;
-  using RepLevelDecoder = LevelDecoder;
+  using DefLevelDecoder = NewLevelDecoder;
+  using RepLevelDecoder = NewLevelDecoder;
 };
 
 /// A special type of record reader for required data.
@@ -2603,8 +2469,8 @@ class RequiredTypedRecordReader
 
   RequiredTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                             ValueSink value_sink)
-      : Base(descr, pool, LevelDecoder(descr->max_definition_level()),
-             LevelDecoder(descr->max_repetition_level())),
+      : Base(descr, pool, NewLevelDecoder(descr->max_definition_level()),
+             NewLevelDecoder(descr->max_repetition_level())),
         value_sink_(std::move(value_sink)) {
     RequiredTypedRecordReader::Reset();
     ARROW_DCHECK_EQ(descr->max_definition_level(), 0);
@@ -2727,7 +2593,7 @@ template <typename DT>
 struct FlatOptionalTypedRecordReaderTraits {
   using DType = DT;
   using DefLevelDecoder = LevelToBitmapDecoder;
-  using RepLevelDecoder = LevelDecoder;
+  using RepLevelDecoder = NewLevelDecoder;
 };
 
 /// A specialized record reader for flat optional data.
@@ -2746,7 +2612,7 @@ class FlatOptionalTypedRecordReader
 
   FlatOptionalTypedRecordReader(const ColumnDescriptor* descr, MemoryPool* pool,
                                 bool read_dense_for_nullable, ValueSink value_sink)
-      : Base(descr, pool, LevelToBitmapDecoder(), LevelDecoder(0)),
+      : Base(descr, pool, LevelToBitmapDecoder(), NewLevelDecoder(0)),
         value_sink_(std::move(value_sink)) {
     ARROW_DCHECK_EQ(descr->max_definition_level(), 1);
     ARROW_DCHECK_EQ(descr->max_repetition_level(), 0);
