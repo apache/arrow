@@ -53,6 +53,7 @@ RUN \
     libgrpc++-dev \
     libgtest-dev \
     liblz4-dev \
+    libopentelemetry-proto-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libre2-dev \
@@ -68,6 +69,7 @@ RUN \
     mold \
     ninja-build \
     nlohmann-json3-dev \
+    opentelemetry-cpp-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
