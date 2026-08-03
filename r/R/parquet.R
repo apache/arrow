@@ -330,7 +330,9 @@ ParquetWriterPropertiesBuilder <- R6Class(
       )
     },
     set_dictionary = function(column_names, use_dictionary) {
-      check_logical(use_dictionary)
+      if (!is.logical(use_dictionary)) {
+        stop("`use_dictionary` must be a logical vector.", stop. = FALSE)
+      }
       private$.set(
         column_names,
         use_dictionary,
@@ -338,7 +340,9 @@ ParquetWriterPropertiesBuilder <- R6Class(
       )
     },
     set_write_statistics = function(column_names, write_statistics) {
-      check_logical(write_statistics)
+      if (!is.logical(write_statistics)) {
+        stop("`write_statistics` must be a logical vector.", stop. = FALSE)
+      }
       private$.set(
         column_names,
         write_statistics,

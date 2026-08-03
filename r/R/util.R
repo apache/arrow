@@ -31,9 +31,9 @@ oxford_paste <- function(x, conjunction = "and", quote = TRUE, quote_symbol = '"
 }
 
 check_null <- function(
-  x,
-  arg = rlang::caller_arg(x),
-  call = rlang::caller_env()
+    x,
+    arg = rlang::caller_arg(x),
+    call = rlang::caller_env()
 ) {
   if (!is.null(x)) {
     rlang::stop_input_type(
@@ -43,80 +43,6 @@ check_null <- function(
       call = call
     )
   }
-}
-
-# copied from https://github.com/r-lib/rlang/blob/main/R/standalone-types-check.R
-# they are not licensed.
-
-check_character <- function(
-  x,
-  ...,
-  allow_na = TRUE,
-  allow_null = FALSE,
-  arg = caller_arg(x),
-  call = caller_env()
-) {
-  if (!missing(x)) {
-    if (is_character(x)) {
-      if (!allow_na && any(is.na(x))) {
-        abort(
-          sprintf("`%s` can't contain NA values.", arg),
-          arg = arg,
-          call = call
-        )
-      }
-
-      return(invisible(NULL))
-    }
-
-    if (allow_null && is_null(x)) {
-      return(invisible(NULL))
-    }
-  }
-
-  stop_input_type(
-    x,
-    "a character vector",
-    ...,
-    allow_null = allow_null,
-    arg = arg,
-    call = call
-  )
-}
-
-check_logical <- function(
-  x,
-  ...,
-  allow_na = TRUE,
-  allow_null = FALSE,
-  arg = caller_arg(x),
-  call = caller_env()
-) {
-  if (!missing(x)) {
-    if (is_logical(x)) {
-      if (!allow_na && any(is.na(x))) {
-        abort(
-          sprintf("`%s` can't contain NA values.", arg),
-          arg = arg,
-          call = call
-        )
-      }
-      return(invisible(NULL))
-    }
-    if (allow_null && is_null(x)) {
-      return(invisible(NULL))
-    }
-  }
-
-  stop_input_type(
-    x,
-    "a logical vector",
-    ...,
-    allow_na = FALSE,
-    allow_null = allow_null,
-    arg = arg,
-    call = call
-  )
 }
 
 assert_is <- function(

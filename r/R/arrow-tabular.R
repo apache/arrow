@@ -51,16 +51,21 @@ ArrowTabular <- R6Class(
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     SortIndices = function(names, descending = FALSE) {
-      # if rlang adds allow_empty argument https://github.com/r-lib/rlang/pull/1745
-      # use allow_empty = FALSE instead
-      check_character(names, allow_na = FALSE)
+      if (!is.character(names) || anyNA(names)) {
+        stop("`names` must be a character vector with no NA value.", call. = FALSE)
+      }
       if (length(names) == 0) {
         stop("names can't be empty.", call. = FALSE)
       }
       if (length(descending) == 1L) {
         descending <- rep_len(descending, length(names))
       }
-      check_logical(descending, allow_na = FALSE)
+      if (!is.logical(descending) || anyNA(descending)) {
+        stop(
+          "`descending` must be a logical vector, and cannot contain NA values",
+          call. = FALSE
+        )
+      }
       if (length(names) != length(descending)) {
         stop("names and descending must have a common length", call. = FALSE)
       }
