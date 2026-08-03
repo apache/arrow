@@ -88,12 +88,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @export
 infer_type <- function(x, ...) UseMethod("infer_type")
 
-#' @rdname infer_type
-#' @export
-type <- function(x) {
-  .Deprecated("infer_type")
-  infer_type(x)
-}
 
 #' @export
 infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
