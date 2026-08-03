@@ -106,7 +106,7 @@ class FeatherDataset(_FileDataset):
         warnings.warn(
             "pyarrow.feather.FeatherDataset is deprecated as of 24.0.0. "
             "Use pyarrow.ipc.FileDataset instead.",
-            FutureWarning,
+            DeprecationWarning,
             stacklevel=2
         )
         super().__init__(path_or_paths, validate_schema=validate_schema)
@@ -225,7 +225,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
     warnings.warn(
         "pyarrow.feather.write_feather is deprecated as of 24.0.0. "
         "Use pyarrow.ipc.write_file instead.",
-        FutureWarning,
+        DeprecationWarning,
         stacklevel=2
     )
     return _write_file(
@@ -276,7 +276,7 @@ def read_feather(source, columns=None, use_threads=True,
     warnings.warn(
         "pyarrow.feather.read_feather is deprecated as of 24.0.0. "
         "Use pyarrow.ipc.read_feather instead.",
-        FutureWarning,
+        DeprecationWarning,
         stacklevel=2
     )
     return _read_pandas(
@@ -348,7 +348,7 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
     warnings.warn(
         "pyarrow.feather.read_table is deprecated as of 24.0.0. "
         "Use pyarrow.ipc.read_file instead.",
-        FutureWarning,
+        DeprecationWarning,
         stacklevel=2
     )
     return _read_table_internal(source, columns=columns,
