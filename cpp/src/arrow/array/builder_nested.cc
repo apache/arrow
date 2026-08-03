@@ -22,27 +22,15 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
-
-// ----------------------------------------------------------------------
-// VarLengthListLikeBuilder / BaseListBuilder / BaseListViewBuilder
-
-template class VarLengthListLikeBuilder<ListType>;
-template class VarLengthListLikeBuilder<LargeListType>;
-template class VarLengthListLikeBuilder<ListViewType>;
-template class VarLengthListLikeBuilder<LargeListViewType>;
-
-template class BaseListBuilder<ListType>;
-template class BaseListBuilder<LargeListType>;
-
-template class BaseListViewBuilder<ListViewType>;
-template class BaseListViewBuilder<LargeListViewType>;
 
 // ----------------------------------------------------------------------
 // MapBuilder
@@ -312,5 +300,132 @@ std::shared_ptr<DataType> StructBuilder::type() const {
   }
   return struct_(std::move(fields));
 }
+
+template <typename TYPE>
+Status VarLengthListLikeBuilder<TYPE>::AppendScalar(const Scalar& scalar,
+                                                    int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& s = internal::checked_cast<const BaseListScalar&>(scalar);
+  if (s.is_valid) {
+    const Array& list = *s.value;
+    RETURN_NOT_OK(value_builder_->Reserve(list.length() * n_repeats));
+    for (int64_t r = 0; r < n_repeats; ++r) {
+      if constexpr (TYPE::type_id == Type::MAP ||
+                    TYPE::type_id == Type::FIXED_SIZE_LIST) {
+        RETURN_NOT_OK(Append());
+      } else {
+        RETURN_NOT_OK(Append(/*is_valid=*/true, list.length()));
+      }
+      for (int64_t i = 0; i < list.length(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto child_scalar, list.GetScalar(i));
+        RETURN_NOT_OK(value_builder_->AppendScalar(*child_scalar));
+      }
+    }
+  } else {
+    for (int64_t r = 0; r < n_repeats; ++r) {
+      RETURN_NOT_OK(AppendNull());
+    }
+  }
+  return Status::OK();
+}
+
+Status MapBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& s = internal::checked_cast<const MapScalar&>(scalar);
+  if (s.is_valid) {
+    const Array& list = *s.value;
+    RETURN_NOT_OK(value_builder()->Reserve(list.length() * n_repeats));
+    for (int64_t r = 0; r < n_repeats; ++r) {
+      RETURN_NOT_OK(Append());
+      for (int64_t i = 0; i < list.length(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto child_scalar, list.GetScalar(i));
+        RETURN_NOT_OK(value_builder()->AppendScalar(*child_scalar));
+      }
+    }
+  } else {
+    for (int64_t r = 0; r < n_repeats; ++r) {
+      RETURN_NOT_OK(AppendNull());
+    }
+  }
+  return Status::OK();
+}
+
+Status FixedSizeListBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& s = internal::checked_cast<const FixedSizeListScalar&>(scalar);
+  if (s.is_valid) {
+    const Array& list = *s.value;
+    RETURN_NOT_OK(value_builder_->Reserve(list.length() * n_repeats));
+    for (int64_t r = 0; r < n_repeats; ++r) {
+      RETURN_NOT_OK(Append());
+      for (int64_t i = 0; i < list.length(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto child_scalar, list.GetScalar(i));
+        RETURN_NOT_OK(value_builder_->AppendScalar(*child_scalar));
+      }
+    }
+  } else {
+    for (int64_t r = 0; r < n_repeats; ++r) {
+      RETURN_NOT_OK(AppendNull());
+    }
+  }
+  return Status::OK();
+}
+
+Status StructBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& s = internal::checked_cast<const StructScalar&>(scalar);
+  const int num_fields_count = static_cast<int>(children_.size());
+  RETURN_NOT_OK(Reserve(n_repeats));
+  for (int field_index = 0; field_index < num_fields_count; ++field_index) {
+    RETURN_NOT_OK(field_builder(field_index)->Reserve(n_repeats));
+  }
+  for (int64_t r = 0; r < n_repeats; ++r) {
+    for (int field_index = 0; field_index < num_fields_count; ++field_index) {
+      if (!s.is_valid || field_index >= static_cast<int>(s.value.size()) ||
+          !s.value[field_index]) {
+        RETURN_NOT_OK(field_builder(field_index)->AppendNull());
+      } else {
+        RETURN_NOT_OK(field_builder(field_index)->AppendScalar(*s.value[field_index]));
+      }
+    }
+    RETURN_NOT_OK(Append(s.is_valid));
+  }
+  return Status::OK();
+}
+
+template class VarLengthListLikeBuilder<ListType>;
+template class VarLengthListLikeBuilder<LargeListType>;
+template class VarLengthListLikeBuilder<ListViewType>;
+template class VarLengthListLikeBuilder<LargeListViewType>;
+
+template class BaseListBuilder<ListType>;
+template class BaseListBuilder<LargeListType>;
+
+template class BaseListViewBuilder<ListViewType>;
+template class BaseListViewBuilder<LargeListViewType>;
 
 }  // namespace arrow

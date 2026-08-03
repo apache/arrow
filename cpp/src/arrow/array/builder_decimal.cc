@@ -23,6 +23,7 @@
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -31,6 +32,56 @@ namespace arrow {
 
 class Buffer;
 class MemoryPool;
+
+namespace {
+
+template <typename BuilderType, typename ScalarType>
+Status DecimalAppendScalar(BuilderType* builder, const Scalar& scalar,
+                           int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return builder->AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != builder->type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", builder->type()->ToString());
+  }
+  const auto& s = internal::checked_cast<const ScalarType&>(scalar);
+  ARROW_RETURN_NOT_OK(builder->Reserve(n_repeats));
+  if (s.is_valid) {
+    for (int64_t i = 0; i < n_repeats; ++i) {
+      builder->UnsafeAppend(s.value);
+    }
+  } else {
+    for (int64_t i = 0; i < n_repeats; ++i) {
+      builder->UnsafeAppendNull();
+    }
+  }
+  return Status::OK();
+}
+
+template <typename BuilderType, typename ScalarType>
+Status DecimalAppendScalars(BuilderType* builder, const ScalarVector& scalars) {
+  if (scalars.empty()) return Status::OK();
+  const auto ty_id = builder->type()->id();
+  for (const auto& scalar : scalars) {
+    if (scalar->type->id() != Type::NA && scalar->type->id() != ty_id) {
+      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                             " to builder for type ", builder->type()->ToString());
+    }
+  }
+  ARROW_RETURN_NOT_OK(builder->Reserve(static_cast<int64_t>(scalars.size())));
+  for (const auto& scalar : scalars) {
+    if (scalar->type->id() == Type::NA || !scalar->is_valid) {
+      builder->UnsafeAppendNull();
+    } else {
+      const auto& s = internal::checked_cast<const ScalarType&>(*scalar);
+      builder->UnsafeAppend(s.value);
+    }
+  }
+  return Status::OK();
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // Decimal32Builder
@@ -170,6 +221,40 @@ Status Decimal256Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
+}
+
+Status Decimal32Builder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  return DecimalAppendScalar<Decimal32Builder, Decimal32Scalar>(this, scalar, n_repeats);
+}
+
+Status Decimal32Builder::AppendScalars(const ScalarVector& scalars) {
+  return DecimalAppendScalars<Decimal32Builder, Decimal32Scalar>(this, scalars);
+}
+
+Status Decimal64Builder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  return DecimalAppendScalar<Decimal64Builder, Decimal64Scalar>(this, scalar, n_repeats);
+}
+
+Status Decimal64Builder::AppendScalars(const ScalarVector& scalars) {
+  return DecimalAppendScalars<Decimal64Builder, Decimal64Scalar>(this, scalars);
+}
+
+Status Decimal128Builder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  return DecimalAppendScalar<Decimal128Builder, Decimal128Scalar>(this, scalar,
+                                                                  n_repeats);
+}
+
+Status Decimal128Builder::AppendScalars(const ScalarVector& scalars) {
+  return DecimalAppendScalars<Decimal128Builder, Decimal128Scalar>(this, scalars);
+}
+
+Status Decimal256Builder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  return DecimalAppendScalar<Decimal256Builder, Decimal256Scalar>(this, scalar,
+                                                                  n_repeats);
+}
+
+Status Decimal256Builder::AppendScalars(const ScalarVector& scalars) {
+  return DecimalAppendScalars<Decimal256Builder, Decimal256Scalar>(this, scalars);
 }
 
 }  // namespace arrow

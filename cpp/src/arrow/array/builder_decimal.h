@@ -50,6 +50,9 @@ class ARROW_EXPORT Decimal32Builder : public FixedSizeBinaryBuilder {
   void UnsafeAppend(Decimal32 val);
   void UnsafeAppend(std::string_view val);
 
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  Status AppendScalars(const ScalarVector& scalars) override;
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \cond FALSE
@@ -80,6 +83,9 @@ class ARROW_EXPORT Decimal64Builder : public FixedSizeBinaryBuilder {
   Status Append(Decimal64 val);
   void UnsafeAppend(Decimal64 val);
   void UnsafeAppend(std::string_view val);
+
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  Status AppendScalars(const ScalarVector& scalars) override;
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -112,6 +118,9 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   void UnsafeAppend(Decimal128 val);
   void UnsafeAppend(std::string_view val);
 
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  Status AppendScalars(const ScalarVector& scalars) override;
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
   /// \cond FALSE
@@ -142,6 +151,9 @@ class ARROW_EXPORT Decimal256Builder : public FixedSizeBinaryBuilder {
   Status Append(const Decimal256& val);
   void UnsafeAppend(const Decimal256& val);
   void UnsafeAppend(std::string_view val);
+
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  Status AppendScalars(const ScalarVector& scalars) override;
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
