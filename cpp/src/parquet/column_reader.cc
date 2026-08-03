@@ -106,8 +106,10 @@ struct LevelDecoder::Impl {
 
   std::variant<RleBitPackedDecoder, BitPackedDecoder> decoder = {};
 
-  [[nodiscard]] int GetBatch(int16_t* out, int batch_size) {
-    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size); }, decoder);
+  template <typename Func>
+  [[nodiscard]] int GetBatch(int16_t* out, int batch_size, Func&& validator) {
+    return std::visit([&](auto& dec) { return dec.GetBatch(out, batch_size, validator); },
+                      decoder);
   }
 
   [[nodiscard]] int Advance(int batch_size) {
@@ -189,16 +191,16 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
 
 int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   const int num_values = std::min(num_values_remaining_, batch_size);
-  const int num_decoded = impl_->GetBatch(levels, num_values);
-  if (num_decoded > 0) {
-    internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
-    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
-      std::stringstream ss;
-      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
-         << " out of range.  Max Level: " << max_level_;
-      throw ParquetException(ss.str());
-    }
-  }
+  const int num_decoded = impl_->GetBatch(
+      levels, num_values, [max = max_level_](const auto* levels, auto size) {
+        internal::MinMax min_max = internal::FindMinMax(levels, size);
+        if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max)) {
+          std::stringstream ss;
+          ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
+             << " out of range.  Max Level: " << max;
+          throw ParquetException(ss.str());
+        }
+      });
   num_values_remaining_ -= num_decoded;
   return num_decoded;
 }
