@@ -40,4 +40,12 @@ unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
 
 pushd "${python_build_dir}"
 pyodide build
+# Verify PyInit_lib export has been kept
+python -c "
+import glob, zipfile
+whl = glob.glob('dist/pyarrow-*.whl')[0]
+z = zipfile.ZipFile(whl)
+so = [n for n in z.namelist() if n.endswith('lib.cpython-312-wasm32-emscripten.so')][0]
+print(so, 'contains PyInit_lib:', b'PyInit_lib' in z.read(so))
+"
 popd

@@ -1106,6 +1106,10 @@ else()
 endif()
 
 if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
+  if(CMAKE_CROSSCOMPILING)
+    # Debug Pyodide loading (use previous order for cross builds)
+    list(REVERSE ARROW_BUNDLED_STATIC_LIBS)
+  endif()
   arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
   arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
   arrow_create_merged_static_lib(arrow_bundled_dependencies
