@@ -486,9 +486,6 @@ jobs:
       fail-fast: false
     env:
       ARCH: amd64
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
       UBUNTU: 24.04
     steps:
       - name: Checkout Arrow
