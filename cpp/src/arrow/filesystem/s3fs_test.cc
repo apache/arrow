@@ -48,8 +48,13 @@
 #include <aws/s3/model/DeleteObjectsRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
-#include <aws/s3/model/PutBucketPolicyRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
+// PutBucketPolicyRequest.h marks an inline method definition with AWS_S3_API,
+// which expands to __declspec(dllimport) under USE_IMPORT_EXPORT.  GCC rejects
+// that outright, while MSVC only warns, so the header is unusable on MinGW.
+#ifndef __MINGW32__
+#  include <aws/s3/model/PutBucketPolicyRequest.h>
+#endif
 #include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -1241,6 +1246,8 @@ TEST_F(TestS3FS, CreateDir) {
                  FileType::Directory);
 }
 
+// Needs PutBucketPolicyRequest, which does not compile on MinGW (see above).
+#ifndef __MINGW32__
 TEST_F(TestS3FS, CreateDirPrefixScopedCredentials) {
   // Grant anonymous access to the "allowed/" prefix only.  HeadBucket needs a
   // bucket-wide grant, so it is denied for these credentials.
@@ -1286,6 +1293,7 @@ TEST_F(TestS3FS, CreateDirPrefixScopedCredentials) {
   // Outside of the granted prefix the write itself is denied
   ASSERT_RAISES(IOError, fs->CreateDir("bucket/denied/newdir", /*recursive=*/true));
 }
+#endif
 
 TEST_F(TestS3FS, DeleteFile) {
   // Bucket
