@@ -3238,10 +3238,14 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
 
   FileInfo file_info;
   if (recursive) {
-    // Ensure bucket exists
-    ARROW_ASSIGN_OR_RAISE(bool bucket_exists, impl_->BucketExists(path.bucket));
-    if (!bucket_exists) {
-      RETURN_NOT_OK(impl_->CreateBucket(path.bucket));
+    // Only probe the bucket if we could create it: HeadBucket is denied for
+    // credentials scoped to a prefix inside the bucket (GH-49949). A missing
+    // bucket then surfaces as an error from the directory write that follows.
+    if (options().allow_bucket_creation) {
+      ARROW_ASSIGN_OR_RAISE(bool bucket_exists, impl_->BucketExists(path.bucket));
+      if (!bucket_exists) {
+        RETURN_NOT_OK(impl_->CreateBucket(path.bucket));
+      }
     }
 
     auto key_i = path.key_parts.begin();
