@@ -111,19 +111,15 @@ class PARQUET_EXPORT LevelDecoder {
   CountUpToResult CountUpTo(int16_t value, int32_t batch_size);
 
   /// Return the max level used in this decoder.
-  int16_t max_level() const { return max_level_; }
+  int16_t max_level() const;
 
   /// Return the number of values left to be decoded.
-  int32_t remaining() const { return num_values_remaining_; }
+  int32_t remaining() const;
 
  private:
   struct Impl;
 
   std::unique_ptr<Impl> impl_;
-  /// Number of value remaining. The underlying decoder zero pads bit packed values
-  /// up to a multiple of 8 so it cannot know the exact number of remaining values.
-  int32_t num_values_remaining_ = 0;
-  int16_t max_level_;
 };
 
 struct CryptoContext {
