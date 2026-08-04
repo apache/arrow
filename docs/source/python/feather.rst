@@ -114,7 +114,11 @@ write the version 1 format by passing ``version=1`` to ``write_feather``.
 
 Migration to IPC
 ----------------
+.. note::
 
+   ``pyarrow.feather.write_feather`` and ``pyarrow.feather.read_table``
+   equivalents will be provided in `pyarrow.ipc` before the
+   ``pyarrow.feather`` module is deprecated.
 Since Feather V2 is the Arrow IPC file format, you can use the
 :mod:`pyarrow.ipc` module as a direct replacement:
 
