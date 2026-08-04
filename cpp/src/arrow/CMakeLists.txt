@@ -1106,8 +1106,9 @@ else()
 endif()
 
 if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
-  if(CMAKE_CROSSCOMPILING)
-    # Undo PREPEND-reversed order to not break Pyodide side-module loading (GH-50774)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Restore the archive order (pre-GH-50650). Otherwise, wasm-ld may select
+    # duplicate vague-linkage symbols from a different member (GH-50774).
     list(REVERSE ARROW_BUNDLED_STATIC_LIBS)
   endif()
   arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})

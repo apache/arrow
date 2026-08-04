@@ -733,8 +733,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # 1) Tell it to use JavaScript / WebAssembly 64 bit number support.
   # 2) Tell it to build with support for C++ exceptions
   # 3) Skip linker flags error which happens with -soname parameter
-  set(ARROW_EMSCRIPTEN_LINKER_FLAGS
-      "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags --profiling-funcs")
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
   set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
       "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
