@@ -21,6 +21,7 @@
 #include <chrono>
 #include <cstring>
 #include <numeric>
+#include <utility>
 
 // The decode loop stores exactly one token's length per iteration when a
 // predicated store is available, which removes the fixed over-copy entirely. This
@@ -991,6 +992,204 @@ size_t DecompressStridedExactBits(const StridedDictionary& dict, const uint8_t* 
 }
 #endif
 
+// Which decode form to build. Set on the command line to measure one against
+// another with nothing else in the build changed.
+//
+//   0  the per-code loops above, no unroll at all
+//   1  groups of one phase period (below); at a 16-bit width the period is a single
+//      code, so this leaves those columns on the per-code loop
+//   2  groups of at least ONPAIR_GROUP_CODES codes at every width, 16 included
+#ifndef ONPAIR_GROUP_UNROLL
+#define ONPAIR_GROUP_UNROLL 2
+#endif
+
+// 0 asks for the phase period itself, the smallest group that makes every offset
+// and shift constant. A nonzero value asks for at least that many codes, rounded up
+// to a whole period, so the request is a floor rather than the group emitted: four
+// emits eight codes at the widths whose period is eight and four at 14 and 16, where
+// the request is taken literally.
+//
+// Four is measured, not chosen for its arithmetic. Sweeping the request over 2, 4, 8
+// and 16 only moves the widths where the request is not rounded up, and a 16-bit width
+// is the only one of those where the group size is genuinely free. What happens there
+// depends on the build, which is the more interesting result of the sweep. With the
+// predicated store the answer is a step: two codes gains nothing at all and four gains
+// the lot. On the portable build it is a slope, two already gaining about half of what
+// eight gains, close to the (1 - 1/n) curve a loop whose group saving is per-code
+// cursor arithmetic would follow. So the group form is removing scalar work in one
+// build and covering dictionary-read latency in the other, and neither reading
+// generalizes to the other. Four is the smallest request that captures the bulk of the
+// gain on both.
+//
+// Above four the sweep stops choosing. Four and eight differ by well under a per cent
+// at the only widths where they differ at all, and the two builds disagree on which
+// way: with the predicated store four is ahead on 12 of the 15 16-bit columns, and on
+// the portable build eight is ahead, in both portable sweeps. This is a tie broken on
+// code size and on the shorter remainder a smaller group leaves after its last whole
+// group, which matters on a short page and which the corpora here are all too long to
+// show.
+#if ONPAIR_GROUP_UNROLL >= 2
+#ifndef ONPAIR_GROUP_CODES
+#define ONPAIR_GROUP_CODES 4
+#endif
+constexpr size_t kGroupCodesRequest = ONPAIR_GROUP_CODES;
+#else
+constexpr size_t kGroupCodesRequest = 0;
+#endif
+
+// Group unroll on the bit cursor's phase period.
+//
+// At a fixed code width the (byte offset, intra-byte shift) pair a code is read
+// with repeats with period 8 / gcd(kBits, 8) codes: 8 at the widths coprime with 8,
+// 4 at 10 and 14, 2 at 12, 1 at 16. Unrolling by that period turns every offset and
+// every shift into a compile-time constant and advances the stream pointer once per
+// group instead of once per code, so the cursor arithmetic the loops above do per
+// code disappears.
+//
+// Any whole multiple of the period has the same property, so asking for a fixed
+// number of codes and rounding up to a whole period is constant-addressed at every
+// width. That matters because the period is one code at a 16-bit width -- there is
+// no phase to fold -- and a trained 16-bit code space lands there on half the
+// corpora, so unrolling by the period alone leaves exactly the largest-dictionary
+// columns on the per-code loop. Asking for a group instead unrolls those columns on
+// the strength of having several independent gathers in flight rather than on folded
+// addressing.
+//
+// Sorting the measured gain by code width rather than by period separates the two
+// effects. The 16-bit columns gain with no phase to fold at all, which is the part
+// that is not addressing; the 15-bit columns, the worst phase case, gain about three
+// times as much at the same instruction count per code, which is the part that is.
+// Both terms are real and neither accounts for the whole. Width and dictionary size
+// move together, though, so this does not fully separate cheaper addressing from a
+// dictionary that misses L1.
+//
+// Nothing else changes: the same single fused pass, the same gather, the same
+// store, no staging buffer, no prefetch, no added memory traffic. That is what
+// separates this from the block-wise unpack recorded above as a loss, which paid an
+// extra pass and 64 prefetches per block for the same codes.
+//
+// The reason to expect anything here is that the ablation ladder above does not
+// actually isolate the gather. Deleting the gather deletes its two loads and their
+// address arithmetic as well, so that rung bounds the gather plus its instructions,
+// not the gather alone -- the same confound as the store-bandwidth reading it
+// replaced. This change removes instructions while leaving the gather byte for
+// byte identical, so it separates the two where neither ablation could.
+//
+// A group's last code is read by a 4-byte load at a constant offset, which runs at
+// most 3 bytes past the group at every width and group size used here. PackValues
+// carries 4 zero-filled tail bytes and the per-code loops read just as far, so the
+// precondition on `packed` is unchanged.
+template <size_t kBits, size_t kRequest>
+struct PackedCodeGroup {
+  static constexpr size_t Gcd(size_t a, size_t b) { return b == 0 ? a : Gcd(b, a % b); }
+  static constexpr size_t kPeriod = 8 / Gcd(kBits, 8);
+  // A group has to consume a whole number of bytes so the next group starts at bit
+  // offset zero again. That holds for any multiple of the period, so round up.
+  static constexpr size_t kCodes =
+      kRequest == 0 ? kPeriod : ((kRequest + kPeriod - 1) / kPeriod) * kPeriod;
+  static constexpr size_t kBytes = kBits * kCodes / 8;
+  static_assert(kBytes * 8 == kBits * kCodes, "a group must be a whole number of bytes");
+};
+
+template <size_t kBits, size_t J>
+inline uint32_t GroupCodeAt(const uint8_t* p) {
+  constexpr size_t kOff = (J * kBits) / 8;
+  constexpr size_t kShift = (J * kBits) % 8;
+  static_assert(kBits >= 1 && kBits <= 25, "the mask below would overflow");
+  static_assert(kShift + kBits <= 32, "one 4-byte load must cover the code");
+  constexpr uint32_t kMask = (uint32_t{1} << kBits) - 1;
+  uint32_t word;
+  std::memcpy(&word, p + kOff, sizeof(word));
+  return (word >> kShift) & kMask;
+}
+
+// One call per code in the group, in stream order. A fold over the comma operator
+// is sequenced left to right, which the callers rely on: the write cursor advances
+// by each token's own length in turn.
+template <size_t kBits, typename Emit, size_t... J>
+inline void ForEachCodeInGroup(const uint8_t* p, Emit emit, std::index_sequence<J...>) {
+  (emit(GroupCodeAt<kBits, J>(p)), ...);
+}
+
+// The strided portable loop, group-unrolled.
+template <size_t kCopy, size_t kBits>
+size_t DecompressStridedGroupBits(const StridedDictionary& dict, const uint8_t* packed,
+                                  size_t ncodes, uint8_t* out) {
+  using Group = PackedCodeGroup<kBits, kGroupCodesRequest>;
+  // With the phase period asked for and a 16-bit width, the group is a single code:
+  // no phase to fold, and the form would be the per-code loop with the shift known
+  // to be zero. It measured indistinguishable from the plain loop, so at a group of
+  // one this defers rather than emitting the same code a second time. Any request of
+  // two or more never lands here.
+  if constexpr (Group::kCodes <= 1) {
+    return DecompressStridedBits<kCopy, kBits>(dict, packed, ncodes, out);
+  }
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  const uint8_t* p = packed;
+  size_t w = 0;
+  auto emit = [&](uint32_t code) {
+    std::memcpy(out + w, slots + size_t{code} * StridedDictionary::kStride, kCopy);
+    w += lens[code];
+  };
+  for (size_t g = 0, ngroups = ncodes / Group::kCodes; g < ngroups; ++g) {
+    ForEachCodeInGroup<kBits>(p, emit, std::make_index_sequence<Group::kCodes>{});
+    p += Group::kBytes;
+  }
+  // A whole number of groups consumes a whole number of bytes, so the cursor is
+  // byte aligned here and the tail starts its own bit offset from zero.
+  constexpr uint32_t kMask = (uint32_t{1} << kBits) - 1;
+  size_t bitpos = 0;
+  for (size_t i = (ncodes / Group::kCodes) * Group::kCodes; i < ncodes; ++i) {
+    uint32_t word;
+    std::memcpy(&word, p + (bitpos >> 3), 4);
+    uint32_t code = (word >> (bitpos & 7)) & kMask;
+    bitpos += kBits;
+    std::memcpy(out + w, slots + size_t{code} * StridedDictionary::kStride, kCopy);
+    w += lens[code];
+  }
+  return w;
+}
+
+#if defined(__ARM_FEATURE_SVE)
+// And the predicated-store loop, group-unrolled. Same two changes composed: one
+// random line per token, exactly the token's bytes stored, constant addressing.
+template <size_t kBits>
+size_t DecompressStridedGroupExactBits(const StridedDictionary& dict, const uint8_t* packed,
+                                       size_t ncodes, uint8_t* out) {
+  using Group = PackedCodeGroup<kBits, kGroupCodesRequest>;
+  // See above: at a group of one there is no phase to fold, and that form measured
+  // slower than the plain loop.
+  if constexpr (Group::kCodes <= 1) {
+    return DecompressStridedExactBits<kBits>(dict, packed, ncodes, out);
+  }
+  const uint8_t* slots = dict.slots;
+  const uint8_t* lens = dict.lens.data();
+  const uint8_t* p = packed;
+  size_t w = 0;
+  auto emit = [&](uint32_t code) {
+    const uint32_t len = lens[code];
+    svbool_t pg = svwhilelt_b8_u32(0u, len);
+    svst1_u8(pg, out + w, svld1_u8(pg, slots + size_t{code} * StridedDictionary::kStride));
+    w += len;
+  };
+  for (size_t g = 0, ngroups = ncodes / Group::kCodes; g < ngroups; ++g) {
+    ForEachCodeInGroup<kBits>(p, emit, std::make_index_sequence<Group::kCodes>{});
+    p += Group::kBytes;
+  }
+  constexpr uint32_t kMask = (uint32_t{1} << kBits) - 1;
+  size_t bitpos = 0;
+  for (size_t i = (ncodes / Group::kCodes) * Group::kCodes; i < ncodes; ++i) {
+    uint32_t word;
+    std::memcpy(&word, p + (bitpos >> 3), 4);
+    uint32_t code = (word >> (bitpos & 7)) & kMask;
+    bitpos += kBits;
+    emit(code);
+  }
+  return w;
+}
+#endif
+
 // Runtime code width, for the widths training cannot produce but the format does
 // not forbid. Kept so no input is rejected; never on a measured path.
 template <size_t kCopy>
@@ -1039,7 +1238,11 @@ size_t DecompressPackedDispatchBits(const CompactDictionary& dict, const uint8_t
 template <size_t kCopy>
 size_t DecompressStridedDispatchBits(const StridedDictionary& dict, const uint8_t* packed,
                                      size_t ncodes, size_t bits, uint8_t* out) {
+#if ONPAIR_GROUP_UNROLL
+#define ONPAIR_STRIDED(B) DecompressStridedGroupBits<kCopy, B>(dict, packed, ncodes, out)
+#else
 #define ONPAIR_STRIDED(B) DecompressStridedBits<kCopy, B>(dict, packed, ncodes, out)
+#endif
   ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED,
                        DecompressStridedFixed<kCopy>(dict, packed, ncodes, bits, out))
 #undef ONPAIR_STRIDED
@@ -1049,7 +1252,12 @@ size_t DecompressStridedDispatchBits(const StridedDictionary& dict, const uint8_
 size_t DecompressThroughView(const StridedDictionary& dict, const uint8_t* packed,
                              size_t ncodes, size_t bits, uint8_t* out) {
 #if defined(__ARM_FEATURE_SVE)
+#if ONPAIR_GROUP_UNROLL
+#define ONPAIR_STRIDED_EXACT(B) \
+  DecompressStridedGroupExactBits<B>(dict, packed, ncodes, out)
+#else
 #define ONPAIR_STRIDED_EXACT(B) DecompressStridedExactBits<B>(dict, packed, ncodes, out)
+#endif
   ONPAIR_DISPATCH_BITS(bits, ONPAIR_STRIDED_EXACT,
                        DecompressStridedFixed<kMaxTokenSize>(dict, packed, ncodes, bits, out))
 #undef ONPAIR_STRIDED_EXACT
