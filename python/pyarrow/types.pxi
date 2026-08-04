@@ -31,8 +31,7 @@ import sys
 import warnings
 from cython import sizeof
 
-# These are imprecise because the type (in pandas 0.x) depends on the presence
-# of nulls
+# These are imprecise because the type depends on the presence of nulls
 cdef dict _pandas_type_map = {}
 
 
