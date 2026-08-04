@@ -134,11 +134,13 @@ class PARQUET_EXPORT EncodedStatistics {
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
+  int64_t nan_count = 0;
 
   bool has_min = false;
   bool has_max = false;
   bool has_null_count = false;
   bool has_distinct_count = false;
+  bool has_nan_count = false;
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
@@ -173,7 +175,7 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 
   bool is_set() const {
-    return has_min || has_max || has_null_count || has_distinct_count;
+    return has_min || has_max || has_null_count || has_distinct_count || has_nan_count;
   }
 
   bool is_signed() const { return is_signed_; }
@@ -203,6 +205,12 @@ class PARQUET_EXPORT EncodedStatistics {
     has_distinct_count = true;
     return *this;
   }
+
+  EncodedStatistics& set_nan_count(int64_t value) {
+    nan_count = value;
+    has_nan_count = true;
+    return *this;
+  }
 };
 
 /// \brief Base type for computing column statistics while writing a file
@@ -226,15 +234,17 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] num_values total number of values
   /// \param[in] null_count number of null values
   /// \param[in] distinct_count number of distinct values
+  /// \param[in] nan_count number of NaN values
   /// \param[in] has_min_max whether the min/max statistics are set
   /// \param[in] has_null_count whether the null_count statistics are set
   /// \param[in] has_distinct_count whether the distinct_count statistics are set
+  /// \param[in] has_nan_count whether the nan_count statistics are set
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
-      int64_t distinct_count, bool has_min_max, bool has_null_count,
-      bool has_distinct_count,
+      int64_t distinct_count, int64_t nan_count, bool has_min_max, bool has_null_count,
+      bool has_distinct_count, bool has_nan_count,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Create a new statistics instance given a column schema
@@ -245,17 +255,19 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] num_values total number of values
   /// \param[in] null_count number of null values
   /// \param[in] distinct_count number of distinct values
+  /// \param[in] nan_count number of NaN values
   /// \param[in] has_min_max whether the min/max statistics are set
   /// \param[in] has_null_count whether the null_count statistics are set
   /// \param[in] has_distinct_count whether the distinct_count statistics are set
+  /// \param[in] has_nan_count whether the nan_count statistics are set
   /// \param[in] is_min_value_exact whether the min value is exact
   /// \param[in] is_max_value_exact whether the max value is exact
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
-      int64_t distinct_count, bool has_min_max, bool has_null_count,
-      bool has_distinct_count, std::optional<bool> is_min_value_exact,
+      int64_t distinct_count, int64_t nan_count, bool has_min_max, bool has_null_count,
+      bool has_distinct_count, bool has_nan_count, std::optional<bool> is_min_value_exact,
       std::optional<bool> is_max_value_exact,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
@@ -278,6 +290,12 @@ class PARQUET_EXPORT Statistics {
 
   /// \brief The number of distinct values, may not be set
   virtual int64_t distinct_count() const = 0;
+
+  /// \brief Return true if the count of NaN values is set
+  virtual bool HasNanCount() const = 0;
+
+  /// \brief The number of NaN values, may not be set
+  virtual int64_t nan_count() const = 0;
 
   /// \brief The number of non-null values in the column
   virtual int64_t num_values() const = 0;
@@ -316,6 +334,10 @@ class PARQUET_EXPORT Statistics {
   virtual bool Equals(const Statistics& other) const = 0;
 
  protected:
+  // Only used by the deprecated MakeStatistics overload. Remove it after that
+  // overload has been removed.
+  PARQUET_DEPRECATED(
+      "Deprecated in 26.0.0. Use a ColumnDescriptor-based overload instead.")
   static std::shared_ptr<Statistics> Make(Type::type physical_type, const void* min,
                                           const void* max, int64_t num_values,
                                           int64_t null_count, int64_t distinct_count);
@@ -409,8 +431,10 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(const typename DType::c_t
                                                        int64_t num_values,
                                                        int64_t null_count,
                                                        int64_t distinct_count) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
       DType::type_num, &min, &max, num_values, null_count, distinct_count));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 /// \brief Typed version of Statistics::Make
@@ -418,11 +442,12 @@ template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, bool has_null_count,
-    bool has_distinct_count, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    int64_t distinct_count, int64_t nan_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, bool has_nan_count,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
-      descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-      has_min_max, has_null_count, has_distinct_count,
+      descr, encoded_min, encoded_max, num_values, null_count, distinct_count, nan_count,
+      has_min_max, has_null_count, has_distinct_count, has_nan_count,
       /*is_min_value_exact=*/std::nullopt, /*is_max_value_exact=*/std::nullopt, pool));
 }
 
@@ -431,14 +456,14 @@ template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, bool has_null_count,
-    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    int64_t distinct_count, int64_t nan_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, bool has_nan_count, std::optional<bool> is_min_value_exact,
     std::optional<bool> is_max_value_exact,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::static_pointer_cast<TypedStatistics<DType>>(
-      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
-                       distinct_count, has_min_max, has_null_count, has_distinct_count,
-                       is_min_value_exact, is_max_value_exact, pool));
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+      descr, encoded_min, encoded_max, num_values, null_count, distinct_count, nan_count,
+      has_min_max, has_null_count, has_distinct_count, has_nan_count, is_min_value_exact,
+      is_max_value_exact, pool));
 }
 
 }  // namespace parquet

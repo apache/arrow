@@ -302,7 +302,7 @@ such as the row groups and column chunk metadata and statistics:
    <pyarrow._parquet.RowGroupMetaData object at ...>
      num_columns: 4
      num_rows: 3
-     total_byte_size: 290
+     total_byte_size: 272
      sorting_columns: ()
    >>> metadata.row_group(0).column(0)
    <pyarrow._parquet.ColumnChunkMetaData object at ...>

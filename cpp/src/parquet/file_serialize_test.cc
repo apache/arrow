@@ -18,6 +18,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <utility>
+
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/util/config.h"
 
@@ -478,6 +480,67 @@ TEST(ParquetRoundtrip, AllNulls) {
   def_levels[2] = -1;
   column_reader->ReadBatch(3, def_levels, nullptr, values, &values_read);
   EXPECT_THAT(def_levels, ElementsAre(0, 0, 0));
+}
+
+TEST(TestFileWriter, FloatingPointColumnOrder) {
+  schema::NodeVector fields{
+      schema::Float("float", Repetition::REQUIRED),
+      schema::Double("double", Repetition::REQUIRED),
+      schema::PrimitiveNode::Make("float16", Repetition::REQUIRED, LogicalType::Float16(),
+                                  Type::FIXED_LEN_BYTE_ARRAY, 2),
+      schema::Int32("int", Repetition::REQUIRED)};
+
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  auto assert_type_lengths = [](const SchemaDescriptor* schema) {
+    ASSERT_EQ(-1, schema->Column(0)->type_length());
+    ASSERT_EQ(-1, schema->Column(1)->type_length());
+    ASSERT_EQ(2, schema->Column(2)->type_length());
+    ASSERT_EQ(-1, schema->Column(3)->type_length());
+  };
+
+  auto write_orders = [&](ColumnOrder::type order) {
+    auto properties =
+        WriterProperties::Builder().floating_point_column_order(order)->build();
+    auto sink = CreateOutputStream();
+    auto writer = ParquetFileWriter::Open(sink, schema, properties);
+    assert_type_lengths(writer->schema());
+    writer->Close();
+    auto writer_metadata = writer->metadata();
+    PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+    auto file_metadata =
+        ParquetFileReader::Open(
+            std::make_shared<::arrow::io::BufferReader>(std::move(buffer)))
+            ->metadata();
+    return std::pair{std::move(writer_metadata), std::move(file_metadata)};
+  };
+
+  auto assert_orders = [](const SchemaDescriptor* schema,
+                          ColumnOrder::type floating_point_order) {
+    for (int column_index = 0; column_index < 3; ++column_index) {
+      ASSERT_EQ(floating_point_order,
+                schema->Column(column_index)->column_order().get_order());
+    }
+    ASSERT_EQ(ColumnOrder::TYPE_DEFINED_ORDER,
+              schema->Column(3)->column_order().get_order());
+  };
+
+  SchemaDescriptor input_schema;
+  input_schema.Init(schema);
+  assert_type_lengths(&input_schema);
+  assert_orders(&input_schema, ColumnOrder::TYPE_DEFINED_ORDER);
+
+  auto [ieee_writer, ieee_file] = write_orders(ColumnOrder::IEEE_754_TOTAL_ORDER);
+  assert_orders(&input_schema, ColumnOrder::TYPE_DEFINED_ORDER);
+  assert_orders(ieee_writer->schema(), ColumnOrder::IEEE_754_TOTAL_ORDER);
+  assert_orders(ieee_file->schema(), ColumnOrder::IEEE_754_TOTAL_ORDER);
+
+  auto [type_writer, type_file] = write_orders(ColumnOrder::TYPE_DEFINED_ORDER);
+  assert_orders(&input_schema, ColumnOrder::TYPE_DEFINED_ORDER);
+  assert_orders(type_writer->schema(), ColumnOrder::TYPE_DEFINED_ORDER);
+  assert_orders(type_file->schema(), ColumnOrder::TYPE_DEFINED_ORDER);
+  EXPECT_THROW(ieee_file->AppendRowGroups(*type_file), ParquetException);
 }
 
 }  // namespace test

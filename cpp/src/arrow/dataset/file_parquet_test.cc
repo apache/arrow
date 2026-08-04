@@ -38,6 +38,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
@@ -921,7 +922,7 @@ TEST(TestParquetStatistics, NullMax) {
   auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
   auto stat_expression =
       ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
-  EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+  EXPECT_EQ(stat_expression->ToString(), "((x >= 1) or is_nan(x))");
 }
 
 TEST(TestParquetStatistics, NoNullCount) {
@@ -972,6 +973,95 @@ TEST(TestParquetStatistics, NoNullCount) {
     ASSERT_TRUE(stat_expression.has_value());
     EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
   }
+}
+
+template <typename T>
+void TestNaNCount(const std::shared_ptr<DataType>& type,
+                  const ::parquet::schema::NodePtr& parquet_node) {
+  auto field = ::arrow::field("x", type);
+  auto dataset_schema = ::arrow::schema({field});
+  ::parquet::ColumnDescriptor descr(parquet_node, 0, 0);
+  auto encode = [](T value) {
+    return std::string(reinterpret_cast<const char*>(&value), sizeof(value));
+  };
+  auto check_expression = [&](const std::optional<compute::Expression>& expression,
+                              const char* expected) {
+    ASSERT_TRUE(expression.has_value());
+    EXPECT_EQ(expected, expression->ToString());
+    ASSERT_OK(expression->Bind(*dataset_schema));
+  };
+
+  ::parquet::EncodedStatistics encoded_stats;
+  encoded_stats.set_min(encode(T{1})).set_max(encode(T{100})).set_null_count(0);
+  auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 10);
+  auto expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  check_expression(expression, "(((x >= 1) and (x <= 100)) or is_nan(x))");
+
+  encoded_stats.set_nan_count(0);
+  stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 10);
+  expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  check_expression(expression, "((x >= 1) and (x <= 100))");
+
+  encoded_stats.set_nan_count(2);
+  stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 10);
+  expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  check_expression(expression, "(((x >= 1) and (x <= 100)) or is_nan(x))");
+
+  encoded_stats.set_null_count(1);
+  stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 10);
+  expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  check_expression(expression,
+                   "((((x >= 1) and (x <= 100)) or is_nan(x)) or "
+                   "is_null(x, {nan_is_null=false}))");
+
+  encoded_stats.set_null_count(0);
+  encoded_stats.ClearMinMax();
+  stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 2);
+  expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  check_expression(expression, "is_nan(x)");
+}
+
+TEST(TestParquetStatistics, NaNCount) {
+  TestNaNCount<float>(float32(),
+                      ::parquet::schema::Float("x", ::parquet::Repetition::REQUIRED));
+  TestNaNCount<double>(float64(),
+                       ::parquet::schema::Double("x", ::parquet::Repetition::REQUIRED));
+}
+
+TEST(TestParquetStatistics, HalfFloatNaNCount) {
+  auto field = ::arrow::field("x", float16());
+  auto parquet_node = ::parquet::schema::PrimitiveNode::Make(
+      "x", ::parquet::Repetition::REQUIRED, ::parquet::LogicalType::Float16(),
+      ::parquet::Type::FIXED_LEN_BYTE_ARRAY, 2);
+  ::parquet::ColumnDescriptor descr(parquet_node, 0, 0);
+  auto encode = [](util::Float16 value) {
+    const auto bytes = value.ToLittleEndian();
+    return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+  };
+
+  ::parquet::EncodedStatistics encoded_stats;
+  encoded_stats.set_min(encode(util::Float16(-1.0f)))
+      .set_max(encode(util::Float16(1.0f)))
+      .set_null_count(0)
+      .set_nan_count(1);
+  auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 3);
+  auto expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  ASSERT_FALSE(expression.has_value());
+
+  encoded_stats.ClearMinMax();
+  encoded_stats.set_nan_count(3);
+  stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 3);
+  expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  ASSERT_TRUE(expression.has_value());
+  EXPECT_EQ("is_nan(x)", expression->ToString());
+  ASSERT_OK(expression->Bind(*::arrow::schema({field})));
+
+  encoded_stats.set_null_count(1);
+  stats = ::parquet::Statistics::Make(&descr, &encoded_stats, 3);
+  expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+  ASSERT_TRUE(expression.has_value());
+  EXPECT_EQ("(is_nan(x) or is_null(x, {nan_is_null=false}))", expression->ToString());
+  ASSERT_OK(expression->Bind(*::arrow::schema({field})));
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScanRegression) {

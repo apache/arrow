@@ -2487,6 +2487,7 @@ PREDEFINED             = __attribute__(x)= \
                          ARROW_SUPPRESS_DEPRECATION_WARNING= \
                          ARROW_UNSUPPRESS_DEPRECATION_WARNING= \
                          GANDIVA_EXPORT= \
+                         PARQUET_DEPRECATED(x)= \
                          PARQUET_EXPORT=
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
