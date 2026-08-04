@@ -429,12 +429,14 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 @pytest.mark.pandas
 def test_backwards_compatible_column_metadata_handling(datadir):
+    dates = pd.date_range(
+        "2017-01-01", periods=3, tz='Europe/Brussels'
+    ).as_unit("ns")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
-         'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
+         'c': dates})
     expected.index = pd.MultiIndex.from_arrays(
-        [['a', 'b', 'c'],
-         pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')],
+        [['a', 'b', 'c'], dates],
         names=['index', None])
 
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
