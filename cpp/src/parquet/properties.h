@@ -166,6 +166,8 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+// Must match ::arrow::util::alp::AlpConstants::kAlpVectorSize
+static constexpr int32_t DEFAULT_ALP_VECTOR_SIZE = 1024;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
 
@@ -215,6 +217,10 @@ class PARQUET_EXPORT ColumnProperties {
     page_index_enabled_ = page_index_enabled;
   }
 
+  void set_alp_vector_size(int32_t alp_vector_size) {
+    alp_vector_size_ = alp_vector_size;
+  }
+
   Encoding::type encoding() const { return encoding_; }
 
   Compression::type compression() const { return codec_; }
@@ -236,6 +242,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   bool page_index_enabled() const { return page_index_enabled_; }
 
+  int32_t alp_vector_size() const { return alp_vector_size_; }
+
  private:
   Encoding::type encoding_;
   Compression::type codec_;
@@ -244,6 +252,7 @@ class PARQUET_EXPORT ColumnProperties {
   size_t max_stats_size_;
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
+  int32_t alp_vector_size_ = DEFAULT_ALP_VECTOR_SIZE;
 };
 
 // EXPERIMENTAL: Options for content-defined chunking.
@@ -496,6 +505,31 @@ class PARQUET_EXPORT WriterProperties {
     Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
                       Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
+    }
+
+    /// \brief Specify the ALP vector size (number of values per ALP vector)
+    /// used for all columns encoded with Encoding::ALP.
+    ///
+    /// Must be a positive power of 2. Default 1024.
+    Builder* alp_vector_size(int32_t vector_size) {
+      default_column_properties_.set_alp_vector_size(vector_size);
+      return this;
+    }
+
+    /// \brief Specify the ALP vector size for the column specified by `path`.
+    ///
+    /// Must be a positive power of 2. Default 1024.
+    Builder* alp_vector_size(const std::string& path, int32_t vector_size) {
+      alp_vector_sizes_[path] = vector_size;
+      return this;
+    }
+
+    /// \brief Specify the ALP vector size for the column specified by `path`.
+    ///
+    /// Must be a positive power of 2. Default 1024.
+    Builder* alp_vector_size(const std::shared_ptr<schema::ColumnPath>& path,
+                             int32_t vector_size) {
+      return this->alp_vector_size(path->ToDotString(), vector_size);
     }
 
     /// Specify compression codec in general for all columns.
@@ -776,6 +810,8 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
+      for (const auto& item : alp_vector_sizes_)
+        get(item.first).set_alp_vector_size(item.second);
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
@@ -815,6 +851,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    std::unordered_map<std::string, int32_t> alp_vector_sizes_;
 
     bool content_defined_chunking_enabled_;
     CdcOptions content_defined_chunking_options_;
@@ -911,6 +948,10 @@ class PARQUET_EXPORT WriterProperties {
 
   bool page_index_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).page_index_enabled();
+  }
+
+  int32_t alp_vector_size(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).alp_vector_size();
   }
 
   bool page_index_enabled() const {

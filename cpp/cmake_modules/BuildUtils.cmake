@@ -110,7 +110,7 @@ function(arrow_create_merged_static_lib output_target)
     execute_process(COMMAND ${LIBTOOL_MACOS} -V
                     OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
+    if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools.+([0-9.]+).*")
       message(FATAL_ERROR "libtool found appears not to be Apple's libtool: ${LIBTOOL_MACOS}"
       )
     endif()

@@ -406,20 +406,27 @@ class FLBADecoder : virtual public TypedDecoder<FLBAType> {
   // then perhaps not
 };
 
+/// \brief Create an encoder for the given type and encoding.
+///
+/// \param alp_vector_size number of values per ALP vector. Only used when
+///   `encoding` is Encoding::ALP; must be a positive power of 2.
 PARQUET_EXPORT
 std::unique_ptr<Encoder> MakeEncoder(
     Type::type type_num, Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    int32_t alp_vector_size = 1024);
 
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
     Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    int32_t alp_vector_size = 1024) {
   using OutType = typename EncodingTraits<DType>::Encoder;
   std::unique_ptr<Encoder> base =
-      MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool);
+      MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool,
+                  alp_vector_size);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 

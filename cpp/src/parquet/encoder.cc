@@ -1867,7 +1867,7 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
                                      bool use_dictionary, const ColumnDescriptor* descr,
-                                     MemoryPool* pool) {
+                                     MemoryPool* pool, int32_t alp_vector_size) {
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
@@ -1930,9 +1930,9 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::ALP) {
     switch (type_num) {
       case Type::FLOAT:
-        return std::make_unique<AlpEncoder<FloatType>>(descr, pool);
+        return std::make_unique<AlpEncoder<FloatType>>(descr, pool, alp_vector_size);
       case Type::DOUBLE:
-        return std::make_unique<AlpEncoder<DoubleType>>(descr, pool);
+        return std::make_unique<AlpEncoder<DoubleType>>(descr, pool, alp_vector_size);
       default:
         throw ParquetException("ALP encoding only supports FLOAT and DOUBLE");
     }

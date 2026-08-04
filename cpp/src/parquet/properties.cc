@@ -108,6 +108,10 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
     if (col_props.encoding() != default_column_properties_.encoding()) {
       this->encoding(col_path, col_props.encoding());
     }
+
+    if (col_props.alp_vector_size() != default_column_properties_.alp_vector_size()) {
+      this->alp_vector_size(col_path, col_props.alp_vector_size());
+    }
   }
 }
 
