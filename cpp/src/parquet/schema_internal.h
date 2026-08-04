@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Non-public Thrift schema serialization utilities
+// Non-public schema utilities
 
 #pragma once
 
@@ -49,6 +49,9 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
 
 PARQUET_EXPORT
 void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out);
+
+PARQUET_EXPORT
+bool IsFloatingPoint(const ColumnDescriptor& descr);
 
 }  // namespace schema
 }  // namespace parquet

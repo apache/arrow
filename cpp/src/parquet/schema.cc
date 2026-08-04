@@ -620,6 +620,12 @@ void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out)
   schema->VisitConst(&visitor);
 }
 
+bool IsFloatingPoint(const ColumnDescriptor& descr) {
+  return descr.physical_type() == Type::FLOAT || descr.physical_type() == Type::DOUBLE ||
+         (descr.physical_type() == Type::FIXED_LEN_BYTE_ARRAY && descr.logical_type() &&
+          descr.logical_type()->type() == LogicalType::Type::FLOAT16);
+}
+
 // ----------------------------------------------------------------------
 // Schema printing
 
@@ -945,6 +951,21 @@ std::string ColumnDescriptor::ToString() const {
 
   ss << "}";
   return ss.str();
+}
+
+SortOrder::type ColumnDescriptor::sort_order() const {
+  const auto& la = logical_type();
+  const auto pt = physical_type();
+  switch (column_order().get_order()) {
+    case ColumnOrder::IEEE_754_TOTAL_ORDER:
+      return schema::IsFloatingPoint(*this) ? SortOrder::TOTAL_ORDER : SortOrder::UNKNOWN;
+    case ColumnOrder::UNKNOWN:
+      return SortOrder::UNKNOWN;
+    case ColumnOrder::TYPE_DEFINED_ORDER:
+    case ColumnOrder::UNDEFINED:
+      return la ? GetSortOrder(la, pt) : GetSortOrder(converted_type(), pt);
+  }
+  return SortOrder::UNKNOWN;
 }
 
 int ColumnDescriptor::type_scale() const {

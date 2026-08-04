@@ -376,17 +376,15 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   ColumnOrder column_order() const { return primitive_node_->column_order(); }
 
-  SortOrder::type sort_order() const {
-    const auto& la = logical_type();
-    auto pt = physical_type();
-    return la ? GetSortOrder(la, pt) : GetSortOrder(converted_type(), pt);
-  }
+  SortOrder::type sort_order() const;
 
   // Whether ColumnOrder-governed min/max values have a supported ordering.
   bool can_use_min_max() const {
     switch (column_order().get_order()) {
       case ColumnOrder::TYPE_DEFINED_ORDER:
         return sort_order() != SortOrder::UNKNOWN;
+      case ColumnOrder::IEEE_754_TOTAL_ORDER:
+        return sort_order() == SortOrder::TOTAL_ORDER;
       case ColumnOrder::UNDEFINED:
         // If there is no defined column order, the obsolete min and max fields
         // in the Statistics object are to be used, and they are always sorted

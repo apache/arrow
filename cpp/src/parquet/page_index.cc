@@ -31,6 +31,7 @@
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/schema.h"
+#include "parquet/schema_internal.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
@@ -101,7 +102,9 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
         column_index_.min_values.size() != num_pages ||
         column_index_.max_values.size() != num_pages ||
         (column_index_.__isset.null_counts &&
-         column_index_.null_counts.size() != num_pages)) {
+         column_index_.null_counts.size() != num_pages) ||
+        (column_index_.__isset.nan_counts &&
+         column_index_.nan_counts.size() != num_pages)) {
       throw ParquetException("Invalid column index");
     }
 
@@ -151,6 +154,12 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   const std::vector<int64_t>& null_counts() const override {
     return column_index_.null_counts;
+  }
+
+  bool has_nan_counts() const override { return column_index_.__isset.nan_counts; }
+
+  const std::vector<int64_t>& nan_counts() const override {
+    return column_index_.nan_counts;
   }
 
   const std::vector<int32_t>& non_null_page_indices() const override {
@@ -496,6 +505,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     /// Initialize the null_counts vector as set. Invalid null_counts vector from
     /// any page will invalidate the null_counts vector of the column index.
     column_index_.__isset.null_counts = true;
+    column_index_.__isset.nan_counts = schema::IsFloatingPoint(*descr_);
     column_index_.boundary_order = format::BoundaryOrder::UNORDERED;
   }
 
@@ -534,6 +544,13 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_counts.clear();
     }
 
+    if (column_index_.__isset.nan_counts && stats.has_nan_count) {
+      column_index_.nan_counts.emplace_back(stats.nan_count);
+    } else {
+      column_index_.__isset.nan_counts = false;
+      column_index_.nan_counts.clear();
+    }
+
     if (size_stats.is_set()) {
       const auto& page_def_level_hist = size_stats.definition_level_histogram;
       const auto& page_ref_level_hist = size_stats.repetition_level_histogram;
@@ -567,6 +584,9 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     /// Clear null_counts vector because at least one page does not provide it.
     if (!column_index_.__isset.null_counts) {
       column_index_.null_counts.clear();
+    }
+    if (!column_index_.__isset.nan_counts) {
+      column_index_.nan_counts.clear();
     }
 
     /// Decode min/max values according to the data type.
