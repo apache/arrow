@@ -124,7 +124,7 @@ uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length
   return ReverseUint8(((block_right << 8) + block_left) >> length);
 }
 
-void MapReadersWriter(auto&& writer, auto&& reducer, auto&& reader, auto&&... readers) {
+void MapReadersWriter(auto&& writer, auto&& op, auto&& reader, auto&&... readers) {
   constexpr auto kReaderCount = sizeof...(readers) + 1;
 
   // Need a real function so that the fold expression remains valid in release
@@ -133,7 +133,7 @@ void MapReadersWriter(auto&& writer, auto&& reducer, auto&& reader, auto&&... re
   auto nwords = reader.words();
   ((check_eq(readers.words(), nwords)), ...);
   while (nwords--) {
-    writer.PutNextWord(reducer(reader.NextWord(), readers.NextWord()...));
+    writer.PutNextWord(op(reader.NextWord(), readers.NextWord()...));
   }
 
   auto nbytes = reader.trailing_bytes();
@@ -151,39 +151,67 @@ void MapReadersWriter(auto&& writer, auto&& reducer, auto&& reader, auto&&... re
       };
       (read(readers), ...);
     }
-    writer.PutNextTrailingByte(std::apply(reducer, bytes), valid_bits);
+    writer.PutNextTrailingByte(std::apply(op, bytes), valid_bits);
   }
 }
 
-template <TransferMode mode>
-void TransferReaderWriter(auto&& reader, auto&& writer) {
-  if constexpr (mode == TransferMode::Invert) {
-    MapReadersWriter(writer, []<class T>(T x) { return static_cast<T>(~x); }, reader);
+template <typename Byte = uint8_t>
+struct BitmapPtr {
+  Byte* data;
+  int64_t offset;
+
+  BitmapPtr operator+(int64_t extra) { return {.data = data, .offset = offset + extra}; }
+};
+
+using BitmapConstPtr = BitmapPtr<const uint8_t>;
+using BitmapMutPtr = BitmapPtr<uint8_t>;
+
+template <typename Word = uint64_t>
+void FastMapReadersWriter(BitmapMutPtr out, int64_t length, auto&& op,
+                          BitmapConstPtr reader, auto&&... readers) {
+  const int64_t out_bit_offset = out.offset % 8;
+
+  if (length == 0) {
+    return;
+  } else if (out_bit_offset) {
+    using Reader = internal::BitmapWordReader<uint8_t>;
+    using Writer = internal::BitmapWordWriter<uint8_t>;
+
+    const auto count = std::min(8 - out_bit_offset, length);
+    auto writer = Writer(out.data, out.offset, count);
+    MapReadersWriter(writer, op, Reader(reader.data, reader.offset, count),
+                     Reader(readers.data, readers.offset, count)...);
+    FastMapReadersWriter(out + count, length - count, op, reader + count,
+                         readers + count...);
   } else {
-    MapReadersWriter(writer, [](auto x) { return x; }, reader);
+    using Reader = internal::BitmapWordReader<Word>;
+    using Writer = internal::BitmapWordWriter<Word, false>;
+
+    auto writer = Writer(out.data, out.offset, length);
+    MapReadersWriter(writer, op, Reader(reader.data, reader.offset, length),
+                     Reader(readers.data, readers.offset, length)...);
   }
 }
 
 template <TransferMode mode>
 void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
                     int64_t dest_offset, uint8_t* dest) {
-  int64_t bit_offset = offset % 8;
-  int64_t dest_bit_offset = dest_offset % 8;
+  const int64_t bit_offset = offset % 8;
+  const int64_t dest_bit_offset = dest_offset % 8;
 
-  if (length == 0) {
-    return;
-  } else if (dest_bit_offset) {
-    const auto count = std::min(8 - dest_bit_offset, length);
-    auto reader = internal::BitmapWordReader<uint8_t>(data, offset, count);
-    auto writer = internal::BitmapWordWriter<uint8_t>(dest, dest_offset, count);
-    TransferReaderWriter<mode>(reader, writer);
-    TransferBitmap<mode>(data, offset + count, length - count, dest_offset + count, dest);
-  } else if (bit_offset) {
-    auto reader = internal::BitmapWordReader<uint64_t>(data, offset, length);
-    auto writer = internal::BitmapWordWriter<uint64_t, false>(dest, dest_offset, length);
-    TransferReaderWriter<mode>(reader, writer);
-  } else {
-    int64_t num_bytes = bit_util::BytesForBits(length);
+  constexpr auto op = []<class T>(T x) {
+    if constexpr (mode == TransferMode::Invert) {
+      return static_cast<T>(~x);
+    } else {
+      return x;
+    }
+  };  // NOLINT: readability/braces
+
+  if (bit_offset || dest_bit_offset) {
+    FastMapReadersWriter({.data = dest, .offset = dest_offset}, length, op,
+                         {.data = data, .offset = offset});
+  } else if (length > 0) {
+    const int64_t num_bytes = bit_util::BytesForBits(length);
 
     // Shift by its byte offset
     data += offset / 8;
@@ -193,8 +221,8 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     // E.g., if trailing_bits = 5, last byte should be
     // - low  3 bits: new bits from last byte of data buffer
     // - high 5 bits: old bits from last byte of dest buffer
-    int64_t trailing_bits = num_bytes * 8 - length;
-    uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
+    const int64_t trailing_bits = num_bytes * 8 - length;
+    const uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
     uint8_t last_data;
 
     if constexpr (mode == TransferMode::Invert) {
@@ -420,25 +448,9 @@ template <template <typename> class BitOp>
 void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                        int64_t right_offset, uint8_t* out, int64_t out_offset,
                        int64_t length) {
-  BitOp<uint64_t> op_word;
-  BitOp<uint8_t> op_byte;
-
-  auto left_reader = internal::BitmapWordReader<uint64_t>(left, left_offset, length);
-  auto right_reader = internal::BitmapWordReader<uint64_t>(right, right_offset, length);
-  auto writer = internal::BitmapWordWriter<uint64_t>(out, out_offset, length);
-
-  auto nwords = left_reader.words();
-  while (nwords--) {
-    writer.PutNextWord(op_word(left_reader.NextWord(), right_reader.NextWord()));
-  }
-  auto nbytes = left_reader.trailing_bytes();
-  while (nbytes--) {
-    int left_valid_bits, right_valid_bits;
-    uint8_t left_byte = left_reader.NextTrailingByte(left_valid_bits);
-    uint8_t right_byte = right_reader.NextTrailingByte(right_valid_bits);
-    DCHECK_EQ(left_valid_bits, right_valid_bits);
-    writer.PutNextTrailingByte(op_byte(left_byte, right_byte), left_valid_bits);
-  }
+  FastMapReadersWriter({.data = out, .offset = out_offset}, length, BitOp<void>{},
+                       BitmapConstPtr{.data = left, .offset = left_offset},
+                       BitmapConstPtr{.data = right, .offset = right_offset});
 }
 
 // XXX: The bits before left/right/out_offset, if unaligned, are untouched. But not for
@@ -525,6 +537,14 @@ struct AndNotOp {
   constexpr T operator()(const T& l, const T& r) const { return l & ~r; }
 };
 
+template <>
+struct AndNotOp<void> {
+  template <typename T, typename U>
+  constexpr auto operator()(const T& l, const U& r) const {
+    return l & ~r;
+  }
+};
+
 Result<std::shared_ptr<Buffer>> BitmapAndNot(MemoryPool* pool, const uint8_t* left,
                                              int64_t left_offset, const uint8_t* right,
                                              int64_t right_offset, int64_t length,
@@ -542,6 +562,14 @@ void BitmapAndNot(const uint8_t* left, int64_t left_offset, const uint8_t* right
 template <typename T>
 struct OrNotOp {
   constexpr T operator()(const T& l, const T& r) const { return l | ~r; }
+};
+
+template <>
+struct OrNotOp<void> {
+  template <typename T, typename U>
+  constexpr auto operator()(const T& l, const U& r) const {
+    return l | ~r;
+  }
 };
 
 Result<std::shared_ptr<Buffer>> BitmapOrNot(MemoryPool* pool, const uint8_t* left,
