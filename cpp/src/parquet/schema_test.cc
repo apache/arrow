@@ -632,6 +632,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   physical_type: BYTE_ARRAY,
   converted_type: UTF8,
   logical_type: String,
+  column_order: TYPE_DEFINED_ORDER,
   max_definition_level: 4,
   max_repetition_level: 1,
 })";
@@ -651,6 +652,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   physical_type: FIXED_LEN_BYTE_ARRAY,
   converted_type: DECIMAL,
   logical_type: Decimal(precision=10, scale=4),
+  column_order: TYPE_DEFINED_ORDER,
   max_definition_level: 4,
   max_repetition_level: 1,
   length: 12,
@@ -684,6 +686,11 @@ TEST(TestColumnDescriptor, CanUseStats) {
   node = PrimitiveNode::Make("name", Repetition::REQUIRED, Type::INT96);
   // INT96 has no defined sort order in the Parquet type-defined ordering.
   EXPECT_FALSE(ColumnDescriptor(node, 0, 0).can_use_min_max());
+
+  node = Float("name");
+  primitive_node = std::static_pointer_cast<PrimitiveNode>(node);
+  primitive_node->SetColumnOrder(ColumnOrder::ieee_754_total_order_);
+  EXPECT_TRUE(ColumnDescriptor(node, 0, 0).can_use_min_max());
 }
 
 class TestSchemaDescriptor : public ::testing::Test {

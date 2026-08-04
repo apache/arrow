@@ -18,7 +18,6 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
-#include <bit>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -424,6 +423,26 @@ template <typename DType>
 struct DictEncoderTraits {
   using c_type = typename DType::c_type;
   using MemoTableType = ::arrow::internal::ScalarMemoTable<c_type>;
+
+  static c_type DictKey(c_type value) { return value; }
+};
+
+template <>
+struct DictEncoderTraits<FloatType> {
+  using MemoTableType = ::arrow::internal::ScalarMemoTable<uint32_t>;
+
+  static uint32_t DictKey(float value) {
+    return ::arrow::util::SafeCopy<uint32_t>(value);
+  }
+};
+
+template <>
+struct DictEncoderTraits<DoubleType> {
+  using MemoTableType = ::arrow::internal::ScalarMemoTable<uint64_t>;
+
+  static uint64_t DictKey(double value) {
+    return ::arrow::util::SafeCopy<uint64_t>(value);
+  }
 };
 
 template <>
@@ -684,7 +703,8 @@ inline void DictEncoderImpl<DType>::Put(const T& v) {
   };
 
   int32_t memo_index;
-  PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(v, on_found, on_not_found, &memo_index));
+  PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(DictEncoderTraits<DType>::DictKey(v),
+                                               on_found, on_not_found, &memo_index));
   buffered_indices_.push_back(memo_index);
 }
 
@@ -813,7 +833,8 @@ void DictEncoderImpl<DType>::PutDictionary(const ::arrow::Array& values) {
   dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type) * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
     int32_t unused_memo_index;
-    PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(data.Value(i), &unused_memo_index));
+    PARQUET_THROW_NOT_OK(memo_table_.GetOrInsert(
+        DictEncoderTraits<DType>::DictKey(data.Value(i)), &unused_memo_index));
   }
 }
 

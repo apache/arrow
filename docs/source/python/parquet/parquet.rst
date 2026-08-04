@@ -305,7 +305,7 @@ such as the row groups and column chunk metadata and statistics:
    <pyarrow._parquet.RowGroupMetaData object at ...>
      num_columns: 4
      num_rows: 3
-     total_byte_size: 290
+     total_byte_size: 272
      sorting_columns: ()
    >>> metadata.row_group(0).column(0)
    <pyarrow._parquet.ColumnChunkMetaData object at ...>
@@ -333,8 +333,8 @@ such as the row groups and column chunk metadata and statistics:
      has_dictionary_page: True
      dictionary_page_offset: 4
      data_page_offset: 36
-     total_compressed_size: 106
-     total_uncompressed_size: 102
+     total_compressed_size: 88
+     total_uncompressed_size: 84
      bloom_filter_offset: None
      bloom_filter_length: None
 

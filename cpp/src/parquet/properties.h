@@ -1332,7 +1332,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR),
-          write_time_adjusted_to_utc_(false) {}
+          write_time_adjusted_to_utc_(false),
+          floating_point_column_order_(ColumnOrder::IEEE_754_TOTAL_ORDER) {}
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
     Builder* disable_deprecated_int96_timestamps() {
@@ -1436,12 +1437,27 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief Set the column order for all floating-point columns.
+    ///
+    /// The supported values are IEEE_754_TOTAL_ORDER and TYPE_DEFINED_ORDER.
+    /// The default is IEEE_754_TOTAL_ORDER.
+    Builder* floating_point_column_order(ColumnOrder::type order) {
+      if (order != ColumnOrder::IEEE_754_TOTAL_ORDER &&
+          order != ColumnOrder::TYPE_DEFINED_ORDER) {
+        throw ParquetException("Unsupported floating-point column order: ",
+                               static_cast<int>(order));
+      }
+      floating_point_column_order_ = order;
+      return this;
+    }
+
     /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, use_threads_, executor_, write_time_adjusted_to_utc_));
+          engine_version_, use_threads_, executor_, write_time_adjusted_to_utc_,
+          floating_point_column_order_));
     }
 
    private:
@@ -1459,6 +1475,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     ::arrow::internal::Executor* executor_;
 
     bool write_time_adjusted_to_utc_;
+    ColumnOrder::type floating_point_column_order_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -1497,15 +1514,19 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// Note this setting doesn't affect TIMESTAMP data.
   bool write_time_adjusted_to_utc() const { return write_time_adjusted_to_utc_; }
 
+  /// \brief The column order used for floating-point columns in the converted
+  /// Parquet schema.
+  ColumnOrder::type floating_point_column_order() const {
+    return floating_point_column_order_;
+  }
+
  private:
-  explicit ArrowWriterProperties(bool write_nanos_as_int96,
-                                 bool coerce_timestamps_enabled,
-                                 ::arrow::TimeUnit::type coerce_timestamps_unit,
-                                 bool truncated_timestamps_allowed, bool store_schema,
-                                 bool compliant_nested_types,
-                                 EngineVersion engine_version, bool use_threads,
-                                 ::arrow::internal::Executor* executor,
-                                 bool write_time_adjusted_to_utc)
+  explicit ArrowWriterProperties(
+      bool write_nanos_as_int96, bool coerce_timestamps_enabled,
+      ::arrow::TimeUnit::type coerce_timestamps_unit, bool truncated_timestamps_allowed,
+      bool store_schema, bool compliant_nested_types, EngineVersion engine_version,
+      bool use_threads, ::arrow::internal::Executor* executor,
+      bool write_time_adjusted_to_utc, ColumnOrder::type floating_point_column_order)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
@@ -1515,7 +1536,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
         engine_version_(engine_version),
         use_threads_(use_threads),
         executor_(executor),
-        write_time_adjusted_to_utc_(write_time_adjusted_to_utc) {}
+        write_time_adjusted_to_utc_(write_time_adjusted_to_utc),
+        floating_point_column_order_(floating_point_column_order) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -1527,6 +1549,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
   const bool write_time_adjusted_to_utc_;
+  const ColumnOrder::type floating_point_column_order_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet

@@ -73,6 +73,15 @@ class PARQUET_EXPORT ColumnIndex {
   /// available.
   virtual const std::vector<int64_t>& null_counts() const = 0;
 
+  /// \brief Whether per-page NaN count information is available.
+  virtual bool has_nan_counts() const = 0;
+
+  /// \brief An optional vector with the number of NaN values in each data page.
+  ///
+  /// `has_nan_counts` should be called first to determine if this information is
+  /// available.
+  virtual const std::vector<int64_t>& nan_counts() const = 0;
+
   /// \brief A vector of page indices for non-null pages.
   virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
 
