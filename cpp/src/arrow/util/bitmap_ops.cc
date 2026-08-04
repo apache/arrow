@@ -235,7 +235,7 @@ void MapBitmapUnary(const uint8_t* data, int64_t offset, int64_t length,
       for (int64_t i = 0; i < num_bytes - 1; i++) {
         dest[i] = static_cast<uint8_t>(op(data[i]));
       }
-      last_data = ~data[num_bytes - 1];
+      last_data = op(data[num_bytes - 1]);
     }
 
     // Set last byte
