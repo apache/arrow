@@ -134,7 +134,7 @@ void MapReadersWriter(auto&& writer, auto&& reader, auto&&... readers) {
   constexpr auto op = Op{};
 
   // Need a real function so that the fold expression remains valid in release
-  const auto check_eq = [](auto a, auto b) { ARROW_DCHECK_EQ(a, b); };
+  [[maybe_unused]] const auto check_eq = [](auto a, auto b) { ARROW_DCHECK_EQ(a, b); };
 
   auto nwords = reader.words();
   ((check_eq(readers.words(), nwords)), ...);
@@ -148,9 +148,9 @@ void MapReadersWriter(auto&& writer, auto&& reader, auto&&... readers) {
     int valid_bits = 0;
     std::array<uint8_t, kReaderCount> bytes = {};
     {
-      auto* b = bytes.begin();
+      auto b = bytes.begin();
       *b++ = reader.NextTrailingByte(valid_bits);
-      auto read = [&](auto& r) {
+      [[maybe_unused]] auto read = [&](auto& r) {
         int vb = 0;
         *b++ = r.NextTrailingByte(vb);
         check_eq(vb, valid_bits);
