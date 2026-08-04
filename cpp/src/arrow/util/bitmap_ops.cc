@@ -123,6 +123,11 @@ uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length
   return ReverseUint8(((block_right << 8) + block_left) >> length);
 }
 
+/// Map output from readers and save it with the writer.
+///
+/// All readers and writer must span over the same number of values.
+///
+/// @tparam Op a function of as many input as there are readers.
 template <typename Op>
 void MapReadersWriter(auto&& writer, auto&& reader, auto&&... readers) {
   constexpr auto kReaderCount = sizeof...(readers) + 1;
@@ -167,9 +172,16 @@ struct BitmapPtr {
 using BitmapConstPtr = BitmapPtr<const uint8_t>;
 using BitmapMutPtr = BitmapPtr<uint8_t>;
 
+/// Map inputs with a given operation and sace to output.
+///
+/// This function assumes general non bit-aligned input and outputs.
+/// It will first process less than a byte in order to bit-align the writer, and then
+/// keep on going with an aligned writer.
+/// Aligning the writer is what delivers significant speedup.
+///
+/// @tparam Op a function of as many input as there are readers.
 template <typename Op, typename Word = uint64_t>
-void FastMapReadersWriter(BitmapMutPtr out, int64_t length, BitmapConstPtr reader,
-                          auto&&... readers) {
+void FastMapReadersWriter(BitmapMutPtr out, int64_t length, auto&&... in) {
   const int64_t out_bit_offset = out.offset % 8;
 
   if (length == 0) {
@@ -180,17 +192,14 @@ void FastMapReadersWriter(BitmapMutPtr out, int64_t length, BitmapConstPtr reade
 
     const auto count = std::min(8 - out_bit_offset, length);
     auto writer = Writer(out.data, out.offset, count);
-    MapReadersWriter<Op>(writer, Reader(reader.data, reader.offset, count),
-                         Reader(readers.data, readers.offset, count)...);
-    FastMapReadersWriter<Op>(out + count, length - count, reader + count,
-                             readers + count...);
+    MapReadersWriter<Op>(writer, Reader(in.data, in.offset, count)...);
+    FastMapReadersWriter<Op>(out + count, length - count, in + count...);
   } else {
     using Reader = internal::BitmapWordReader<Word>;
     using Writer = internal::BitmapWordWriter<Word, false>;
 
     auto writer = Writer(out.data, out.offset, length);
-    MapReadersWriter<Op>(writer, Reader(reader.data, reader.offset, length),
-                         Reader(readers.data, readers.offset, length)...);
+    MapReadersWriter<Op>(writer, Reader(in.data, in.offset, length)...);
   }
 }
 
@@ -202,7 +211,7 @@ void MapBitmapUnary(const uint8_t* data, int64_t offset, int64_t length,
 
   if (bit_offset || dest_bit_offset) {
     FastMapReadersWriter<Op>({.data = dest, .offset = dest_offset}, length,
-                             {.data = data, .offset = offset});
+                             BitmapConstPtr{.data = data, .offset = offset});
   } else if (length > 0) {
     const int64_t num_bytes = bit_util::BytesForBits(length);
 
