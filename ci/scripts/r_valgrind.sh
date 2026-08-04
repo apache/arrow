@@ -26,9 +26,13 @@ export CMAKE_BUILD_TYPE=RelWithDebInfo
 
 pushd "${source_dir}"
 
+# Convert the space-separated options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a R_INSTALL_ARGS <<< "${INSTALL_ARGS:-}"
+
 # build first so that any stray compiled files in r/src are ignored
 "${R_BIN}" CMD build --no-build-vignettes .
-"${R_BIN}" CMD INSTALL "${INSTALL_ARGS}" arrow*.tar.gz
+"${R_BIN}" CMD INSTALL "${R_INSTALL_ARGS[@]}" arrow*.tar.gz
 
 pushd tests
 
