@@ -250,8 +250,6 @@ GetInfoCache::GetInfoCache(FlightClientOptions& client_options,
   info_[SQL_DROP_CHARACTER_SET] = static_cast<uint32_t>(0);
   info_[SQL_DROP_COLLATION] = static_cast<uint32_t>(0);
   info_[SQL_DROP_DOMAIN] = static_cast<uint32_t>(0);
-  info_[SQL_DROP_SCHEMA] = static_cast<uint32_t>(0);
-  info_[SQL_DROP_TABLE] = static_cast<uint32_t>(0);
   info_[SQL_DROP_TRANSLATION] = static_cast<uint32_t>(0);
   info_[SQL_DROP_VIEW] = static_cast<uint32_t>(0);
   info_[SQL_MAX_IDENTIFIER_LEN] = static_cast<uint16_t>(65535);  // arbitrary

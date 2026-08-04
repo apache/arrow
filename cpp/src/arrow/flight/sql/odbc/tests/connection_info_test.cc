@@ -30,6 +30,7 @@ template <typename T>
 class ConnectionInfoTest : public T {};
 
 class ConnectionInfoMockTest : public FlightSQLODBCMockTestBase {};
+class ConnectionInfoRemoteTest : public FlightSQLODBCRemoteTestBase {};
 using TestTypes = ::testing::Types<ConnectionInfoMockTest, FlightSQLODBCRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionInfoTest, TestTypes);
 
@@ -699,7 +700,8 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCreateSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_CREATE_SCHEMA, &value);
 
-  EXPECT_EQ(static_cast<SQLUINTEGER>(1), value);
+  // SQLite (the mock backend) does not support schema DDL.
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
 TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCreateTable) {
@@ -751,7 +753,15 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropSchema) {
+TEST_F(ConnectionInfoMockTest, TestSQLGetInfoDropSchema) {
+  SQLUINTEGER value;
+  GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
+
+  // SQLite (the mock backend) does not support schema DDL.
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+}
+
+TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
