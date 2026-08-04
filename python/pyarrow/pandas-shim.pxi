@@ -36,7 +36,7 @@ cdef class _PandasAPIShim(object):
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array, _extension_dtype
         object _array_like_types, _lock
-        bint _is_ge_v3, _is_ge_v3_strict
+        bint _is_ge_v23, _is_ge_v3, _is_ge_v3_strict
 
     def __init__(self):
         self._lock = Lock()
@@ -76,6 +76,7 @@ cdef class _PandasAPIShim(object):
                 )
                 return
 
+        self._is_ge_v23 = self._loose_version >= Version('2.3.0.dev0')
         self._is_ge_v3 = self._loose_version >= Version('3.0.0.dev0')
         self._is_ge_v3_strict = self._loose_version >= Version('3.0.0')
 
@@ -151,6 +152,10 @@ cdef class _PandasAPIShim(object):
         self._check_import()
         return self._version
 
+    def is_ge_v23(self):
+        self._check_import()
+        return self._is_ge_v23
+
     def is_ge_v3(self):
         self._check_import()
         return self._is_ge_v3
@@ -162,7 +167,7 @@ cdef class _PandasAPIShim(object):
     def uses_string_dtype(self):
         if self.is_ge_v3_strict():
             return True
-        return self.pd.options.future.infer_string
+        return self.is_ge_v23() and self.pd.options.future.infer_string
 
     @property
     def categorical_type(self):
