@@ -42,13 +42,10 @@ CSV Files
 
 .. _api.feather:
 
-Feather Files (Deprecated)
---------------------------
+Feather Files
+-------------
 
 .. currentmodule:: pyarrow.feather
-
-.. deprecated:: 24.0.0
-   The Feather API is deprecated. Use the :ref:`IPC <ipc>` API instead.
 
 .. autosummary::
    :toctree: ../generated/
