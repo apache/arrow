@@ -576,6 +576,7 @@ Structural Transforms
    list_value_length
    make_struct
    map_lookup
+   replace_with_indices
    replace_with_mask
    struct_field
 

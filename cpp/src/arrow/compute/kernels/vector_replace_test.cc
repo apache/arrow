@@ -66,6 +66,10 @@ class TestReplaceKernel : public ::testing::Test {
     return ArrayFromJSON(boolean(), value);
   }
 
+  std::shared_ptr<Array> indices(const std::string& value) {
+    return ArrayFromJSON(int32(), value);
+  }
+
   Status AssertRaises(ReplaceFunction func, const Datum& array, const Datum& mask,
                       const Datum& replacements) {
     auto result = func(array, mask, replacements, nullptr);
@@ -177,6 +181,40 @@ class TestReplaceKernel : public ::testing::Test {
             ARROW_EXPECT_OK(builder->AppendNull());
           }
         }
+      } else {
+        ARROW_EXPECT_OK(builder->AppendNull());
+      }
+    }
+    EXPECT_OK_AND_ASSIGN(auto expected, builder->Finish());
+    return expected;
+  }
+
+  std::shared_ptr<Array> NaiveImplIndices(
+      const typename TypeTraits<T>::ArrayType& array, const Int32Array& indices,
+      const typename TypeTraits<T>::ArrayType& replacements) {
+    auto length = array.length();
+    std::vector<typename TypeTraits<T>::CType> values(length);
+    std::vector<bool> is_valid(length);
+    for (int64_t i = 0; i < length; ++i) {
+      values[i] = array.IsValid(i) ? array.Value(i) : typename TypeTraits<T>::CType{};
+      is_valid[i] = array.IsValid(i);
+    }
+    for (int64_t i = 0; i < indices.length(); ++i) {
+      if (!indices.IsValid(i)) continue;
+      int64_t idx = indices.Value(i);
+      if (idx < 0 || idx >= length) continue;
+      if (replacements.IsValid(i)) {
+        values[idx] = replacements.Value(i);
+        is_valid[idx] = true;
+      } else {
+        is_valid[idx] = false;
+      }
+    }
+    auto builder = std::make_unique<typename TypeTraits<T>::BuilderType>(
+        default_type_instance<T>(), default_memory_pool());
+    for (int64_t i = 0; i < length; ++i) {
+      if (is_valid[i]) {
+        ARROW_EXPECT_OK(builder->Append(values[i]));
       } else {
         ARROW_EXPECT_OK(builder->AppendNull());
       }
@@ -440,6 +478,164 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
     auto new_expected = this->NaiveImpl(*sliced_array, *sliced_mask, *replacements);
     this->Assert(ReplaceWithMask, sliced_array, sliced_mask, replacements, new_expected);
   }
+}
+
+TYPED_TEST(TestReplaceNumeric, ReplaceWithIndices) {
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->indices("[]"), this->array("[]"), this->array("[]")},
+      {this->array("[0, 0, 0]"), this->indices("[]"), this->array("[]"),
+       this->array("[0, 0, 0]")},
+      {this->array("[0, 0, 0]"), this->indices("[0, 2]"), this->array("[0, 0]"),
+       this->array("[0, 0, 0]")},
+      {this->array("[0, 0, 0]"), this->indices("[1]"), this->scalar("0"),
+       this->array("[0, 0, 0]")},
+      {this->array("[0, 0, 0]"), this->indices("[1]"), this->array("[null]"),
+       this->array("[0, null, 0]")},
+      {this->array("[0, 0, 0]"), this->indices("[1]"), this->scalar("null"),
+       this->array("[0, null, 0]")},
+      {this->array("[0, null, 0]"), this->indices("[0]"), this->array("[0]"),
+       this->array("[0, null, 0]")},
+  };
+  for (auto& c : cases) {
+    this->Assert(ReplaceWithIndices, c.input, c.mask, c.replacements, c.expected);
+  }
+}
+
+TYPED_TEST(TestReplaceNumeric, ReplaceWithIndicesRandom) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+  auto ty = this->type();
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  const int64_t length = 1023;
+  std::vector<std::string> values = {"0.01", "0"};
+  // Clamp the range because date/time types don't print well with extreme values
+  values.push_back(std::to_string(static_cast<CType>(std::min<double>(
+      16384.0, static_cast<double>(std::numeric_limits<CType>::max())))));
+  auto options = key_value_metadata({"null_probability", "min", "max"}, values);
+  auto array =
+      checked_pointer_cast<ArrayType>(rand.ArrayOf(*field("a", ty, options), length));
+  const int64_t num_indices = 512;
+  auto indices = checked_pointer_cast<Int32Array>(
+      rand.Int32(num_indices, /*min=*/0, /*max=*/static_cast<int32_t>(length) - 1,
+                 /*null_probability=*/0.1));
+  auto replacements = checked_pointer_cast<ArrayType>(
+      rand.ArrayOf(*field("a", ty, options), num_indices));
+  auto expected = this->NaiveImplIndices(*array, *indices, *replacements);
+
+  this->Assert(ReplaceWithIndices, array, indices, replacements, expected);
+  for (int64_t slice = 1; slice <= 16; slice++) {
+    auto sliced_array = checked_pointer_cast<ArrayType>(array->Slice(slice, 15));
+    auto sliced_indices = checked_pointer_cast<Int32Array>(
+        rand.Int32(num_indices, /*min=*/0, /*max=*/14, /*null_probability=*/0.1));
+    auto new_expected =
+        this->NaiveImplIndices(*sliced_array, *sliced_indices, *replacements);
+    this->Assert(ReplaceWithIndices, sliced_array, sliced_indices, replacements,
+                 new_expected);
+  }
+}
+
+class TestReplaceWithIndices : public ::testing::Test {
+ protected:
+  std::shared_ptr<Array> array(const std::string& value) {
+    return ArrayFromJSON(int32(), value);
+  }
+  Datum scalar(const std::string& value) { return ScalarFromJSON(int32(), value); }
+  std::shared_ptr<Array> indices(const std::string& value) {
+    return ArrayFromJSON(int32(), value);
+  }
+  std::shared_ptr<ChunkedArray> chunked(const std::vector<std::string>& value) {
+    return ChunkedArrayFromJSON(int32(), value);
+  }
+  void Check(const Datum& values, const Datum& idx, const Datum& replacements,
+             const Datum& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         ReplaceWithIndices(values, idx, replacements, nullptr));
+    ASSERT_OK(actual.make_array()->ValidateFull());
+    AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  }
+  void CheckChunked(const Datum& values, const Datum& idx, const Datum& replacements,
+                    const Datum& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         ReplaceWithIndices(values, idx, replacements, nullptr));
+    ASSERT_OK(actual.chunked_array()->ValidateFull());
+    AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  }
+};
+
+TEST_F(TestReplaceWithIndices, Basic) {
+  Check(array("[1, 2, 3, 4]"), indices("[0, 3]"), array("[10, 40]"),
+        array("[10, 2, 3, 40]"));
+  Check(array("[1, 2, 3, 4]"), indices("[3, 0]"), array("[40, 10]"),
+        array("[10, 2, 3, 40]"));
+  Check(array("[1, 2, 3]"), indices("[0, 2]"), scalar("9"), array("[9, 2, 9]"));
+  Check(array("[1, 2, 3]"), indices("[1]"), array("[null]"), array("[1, null, 3]"));
+  // Duplicate indices: last replacement wins
+  Check(array("[1, 2, 3, 4]"), indices("[0, 0]"), array("[10, 20]"),
+        array("[20, 2, 3, 4]"));
+  // Null indices are skipped
+  Check(array("[1, 2, 3, 4]"), indices("[null, 2]"), array("[10, 30]"),
+        array("[1, 2, 30, 4]"));
+}
+
+TEST_F(TestReplaceWithIndices, IndexTypes) {
+  // Any integer width works for the indices
+  for (auto index_ty :
+       {int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()}) {
+    ASSERT_OK_AND_ASSIGN(
+        auto actual,
+        ReplaceWithIndices(array("[1, 2, 3, 4]"), ArrayFromJSON(index_ty, "[0, 3]"),
+                           array("[10, 40]"), nullptr));
+    ASSERT_OK(actual.make_array()->ValidateFull());
+    AssertDatumsEqual(array("[10, 2, 3, 40]"), actual, /*verbose=*/true);
+  }
+}
+
+TEST_F(TestReplaceWithIndices, Errors) {
+  // Replacement array length must match indices length
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Replacement array must be of appropriate length (expected 2 "
+                           "items but got 1 items)"),
+      ReplaceWithIndices(array("[1, 2]"), indices("[0, 1]"), array("[0]"), nullptr)
+          .status());
+  // Replacements must match the values type (checked for same-id parameterized types)
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Replacements must be of same type"),
+      ReplaceWithIndices(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
+                         indices("[0]"), ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"),
+                         nullptr)
+          .status());
+  // Out-of-bounds and negative indices are errors
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("Index 9 out of bounds"),
+      ReplaceWithIndices(array("[1, 2, 3, 4]"), indices("[0, 9]"), array("[10, 40]"),
+                         nullptr)
+          .status());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("Index -1 out of bounds"),
+      ReplaceWithIndices(array("[1, 2, 3, 4]"), indices("[-1, 2]"), array("[10, 30]"),
+                         nullptr)
+          .status());
+}
+
+TEST_F(TestReplaceWithIndices, Chunked) {
+  CheckChunked(chunked({"[1, 2, 3]", "[4, 5, 6]"}), indices("[0, 4]"), array("[10, 50]"),
+               chunked({"[10, 2, 3]", "[4, 50, 6]"}));
+  // An empty chunk in the middle does not shift addressing
+  CheckChunked(chunked({"[1, 2]", "[]", "[3, 4]"}), indices("[1, 3]"), array("[20, 40]"),
+               chunked({"[1, 20]", "[3, 40]"}));
+  CheckChunked(chunked({"[1, 2]", "[3, 4]"}), indices("[0, 3]"), scalar("9"),
+               chunked({"[9, 2]", "[3, 9]"}));
+}
+
+TEST_F(TestReplaceWithIndices, ChunkedErrors) {
+  // Bounds are checked against the total logical length
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("Index 6 out of bounds"),
+      ReplaceWithIndices(chunked({"[1, 2, 3]", "[4, 5, 6]"}), indices("[6]"),
+                         array("[99]"), nullptr)
+          .status());
 }
 
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskErrors) {
@@ -1067,6 +1263,28 @@ TYPED_TEST(TestReplaceBinary, ReplaceWithMask) {
   for (auto test_case : cases) {
     this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
                  test_case.expected);
+  }
+}
+
+TYPED_TEST(TestReplaceBinary, ReplaceWithIndices) {
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->indices("[]"), this->array("[]"), this->array("[]")},
+      // Replacement of a different length than the value it overwrites
+      {this->array(R"(["a", "bb", "ccc"])"), this->indices("[1]"),
+       this->array(R"(["dddd"])"), this->array(R"(["a", "dddd", "ccc"])")},
+      {this->array(R"(["a", "bb", "ccc"])"), this->indices("[0, 2]"),
+       this->scalar(R"("z")"), this->array(R"(["z", "bb", "z"])")},
+      {this->array(R"(["a", "bb"])"), this->indices("[0]"), this->array("[null]"),
+       this->array(R"([null, "bb"])")},
+      // Duplicate indices: last wins
+      {this->array(R"(["a", "bb", "ccc"])"), this->indices("[0, 0]"),
+       this->array(R"(["x", "yy"])"), this->array(R"(["yy", "bb", "ccc"])")},
+      // Null indices are skipped
+      {this->array(R"(["a", "bb", "ccc"])"), this->indices("[null, 2]"),
+       this->array(R"(["x", "yy"])"), this->array(R"(["a", "bb", "yy"])")},
+  };
+  for (auto& c : cases) {
+    this->Assert(ReplaceWithIndices, c.input, c.mask, c.replacements, c.expected);
   }
 }
 

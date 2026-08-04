@@ -1988,11 +1988,17 @@ replaced, based on the remaining inputs.
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | fill_null_forward        | Unary      | Fixed-width or binary |              |              | Input type 1 | \(1)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
-| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(2)  |
+| replace_with_indices     | Ternary    | Fixed-width or binary | Integer      | Input type 1 | Input type 1 | \(2)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(3)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 
 * \(1) Valid values are carried forward/backward to fill null values.
-* \(2) Each element in input 1 for which the corresponding Boolean in input 2
+* \(2) The element of input 1 at the position given by ``indices[i]`` (input 2)
+  is replaced with the i-th value from input 3. Null indices are ignored; if an
+  index occurs more than once, the last replacement wins. Out-of-bounds or
+  negative indices raise an error.
+* \(3) Each element in input 1 for which the corresponding Boolean in input 2
   is true is replaced with the next value from input 3. A null in input 2
   results in a corresponding null in the output.
 

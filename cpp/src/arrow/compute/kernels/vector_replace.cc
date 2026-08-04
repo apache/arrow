@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -450,6 +451,274 @@ struct ReplaceMaskChunked {
   }
 };
 
+Status CheckReplaceWithIndicesInputs(const DataType& value_type,
+                                     const DataType& indices_type, int64_t indices_length,
+                                     const DataType& replacements_type,
+                                     int64_t replacements_length,
+                                     bool replacements_is_array) {
+  // Needed for FixedSizeBinary/parameterized types
+  if (!value_type.Equals(replacements_type, /*check_metadata=*/false)) {
+    return Status::Invalid("Replacements must be of same type (expected ",
+                           value_type.ToString(), " but got ",
+                           replacements_type.ToString(), ")");
+  }
+  if (!is_integer(indices_type.id())) {
+    return Status::Invalid("Indices must be of integer type (got ",
+                           indices_type.ToString(), ")");
+  }
+  if (replacements_is_array && replacements_length != indices_length) {
+    return Status::Invalid("Replacement array must be of appropriate length (expected ",
+                           indices_length, " items but got ", replacements_length,
+                           " items)");
+  }
+  return Status::OK();
+}
+
+// Scatter the i-th replacement into output[indices[i] - values_base] for every index
+template <typename Type, typename IndexType, typename Data, typename CopyBitmap>
+void ReplaceWithIndicesScatter(const ArraySpan& indices, const Data& replacements,
+                               bool replacements_bitmap, int64_t values_base,
+                               int64_t values_length, const CopyBitmap& copy_bitmap,
+                               uint8_t* out_bitmap, uint8_t* out_values,
+                               int64_t out_offset, const DataType& value_type) {
+  int64_t i = 0;
+  VisitArraySpanInline<IndexType>(
+      indices,
+      [&](typename IndexType::c_type index) {
+        const int64_t idx = static_cast<int64_t>(index) - values_base;
+        if (idx >= 0 && idx < values_length) {
+          CopyDataUtils<Type>::CopyData(value_type, replacements, i, out_values,
+                                        out_offset + idx, /*length=*/1);
+          if (replacements_bitmap) {
+            copy_bitmap.SetBit(out_bitmap, out_offset + idx, i);
+          } else if (out_bitmap) {
+            bit_util::SetBitTo(out_bitmap, out_offset + idx, true);
+          }
+        }
+        ++i;
+      },
+      [&]() { ++i; });
+}
+
+template <typename Fn>
+void DispatchIndexType(const ArraySpan& indices, Fn&& func) {
+  switch (indices.type->byte_width()) {
+    case 1:
+      return func(static_cast<UInt8Type*>(nullptr));
+    case 2:
+      return func(static_cast<UInt16Type*>(nullptr));
+    case 4:
+      return func(static_cast<UInt32Type*>(nullptr));
+    default:
+      DCHECK_EQ(indices.type->byte_width(), 8);
+      return func(static_cast<UInt64Type*>(nullptr));
+  }
+}
+
+template <typename Type, typename Data, typename CopyBitmap>
+void ReplaceWithIndicesScatterDispatch(const ArraySpan& indices, const Data& replacements,
+                                       bool replacements_bitmap, int64_t values_base,
+                                       int64_t values_length,
+                                       const CopyBitmap& copy_bitmap, uint8_t* out_bitmap,
+                                       uint8_t* out_values, int64_t out_offset,
+                                       const DataType& value_type) {
+  DispatchIndexType(indices, [&](auto* index_type) {
+    using IndexType = std::remove_pointer_t<decltype(index_type)>;
+    ReplaceWithIndicesScatter<Type, IndexType>(
+        indices, replacements, replacements_bitmap, values_base, values_length,
+        copy_bitmap, out_bitmap, out_values, out_offset, value_type);
+  });
+}
+
+template <typename Type, typename Enable = void>
+struct ReplaceWithIndicesImpl {};
+
+template <typename Type>
+struct ReplaceWithIndicesImpl<
+    Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value)>> {
+  static Status ExecArrayIndices(KernelContext* ctx, const ArraySpan& array,
+                                 const ArraySpan& indices, int64_t values_base,
+                                 ExecValue replacements, ExecResult* out) {
+    ArrayData* out_arr = out->array_data().get();
+    out_arr->length = array.length;
+    const int64_t out_offset = out_arr->offset;
+    uint8_t* out_values = out_arr->buffers[1]->mutable_data();
+    // Start from a copy of the values, then overwrite the selected positions
+    CopyDataUtils<Type>::CopyData(*array.type, array, /*in_offset=*/0, out_values,
+                                  out_offset, array.length);
+    const bool replacements_bitmap =
+        replacements.is_array() ? replacements.array.MayHaveNulls() : true;
+    uint8_t* out_bitmap = out_arr->buffers[0]->mutable_data();
+    out_arr->null_count = kUnknownNullCount;
+    if (array.MayHaveNulls()) {
+      arrow::internal::CopyBitmap(array.buffers[0].data, array.offset, array.length,
+                                  out_bitmap, out_offset);
+    } else {
+      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, true);
+    }
+
+    if (replacements.is_array()) {
+      const ArraySpan& source = replacements.array;
+      ReplaceWithIndicesScatterDispatch<Type>(
+          indices, source, replacements_bitmap, values_base, array.length,
+          CopyArrayBitmap{replacements_bitmap ? source.buffers[0].data : nullptr,
+                          source.offset},
+          out_bitmap, out_values, out_offset, *array.type);
+    } else {
+      const Scalar& source = *replacements.scalar;
+      ReplaceWithIndicesScatterDispatch<Type>(
+          indices, source, replacements_bitmap, values_base, array.length,
+          CopyScalarBitmap{source.is_valid}, out_bitmap, out_values, out_offset,
+          *array.type);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename Type>
+struct ReplaceWithIndicesImpl<Type, enable_if_null<Type>> {
+  static Status ExecArrayIndices(KernelContext* ctx, const ArraySpan& array,
+                                 const ArraySpan& indices, int64_t values_base,
+                                 ExecValue replacements, ExecResult* out) {
+    out->value = array.ToArrayData();
+    return Status::OK();
+  }
+};
+
+template <typename Type>
+struct ReplaceWithIndicesImpl<Type, enable_if_base_binary<Type>> {
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  static Status ExecArrayIndices(KernelContext* ctx, const ArraySpan& array,
+                                 const ArraySpan& indices, int64_t values_base,
+                                 ExecValue replacements, ExecResult* out) {
+    // Var-length values can't be overwritten in place, so resolve for each output
+    // position whether a replacement targets it and then built output
+    std::vector<int64_t> replacement_for(array.length, -1);
+    DispatchIndexType(indices, [&](auto* index_type) {
+      using IndexType = std::remove_pointer_t<decltype(index_type)>;
+      int64_t i = 0;
+      VisitArraySpanInline<IndexType>(
+          indices,
+          [&](typename IndexType::c_type index) {
+            const int64_t idx = static_cast<int64_t>(index) - values_base;
+            if (idx >= 0 && idx < array.length) {
+              replacement_for[idx] = i;
+            }
+            ++i;
+          },
+          [&]() { ++i; });
+    });
+
+    BuilderType builder(array.type->GetSharedPtr(), ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(array.length));
+    RETURN_NOT_OK(builder.ReserveData(array.buffers[2].size));
+    for (int64_t j = 0; j < array.length; ++j) {
+      const bool from_replacement = replacement_for[j] >= 0;
+      if (from_replacement && replacements.is_scalar()) {
+        const Scalar& scalar = *replacements.scalar;
+        if (scalar.is_valid) {
+          RETURN_NOT_OK(builder.Append(UnboxScalar<Type>::Unbox(scalar)));
+        } else {
+          RETURN_NOT_OK(builder.AppendNull());
+        }
+        continue;
+      }
+      const ArraySpan& source = from_replacement ? replacements.array : array;
+      const int64_t offset = from_replacement ? replacement_for[j] : j;
+      if (!source.MayHaveNulls() ||
+          bit_util::GetBit(source.buffers[0].data, source.offset + offset)) {
+        const uint8_t* data = source.buffers[2].data;
+        const auto* offsets = source.GetValues<typename Type::offset_type>(1);
+        const auto offset0 = offsets[offset];
+        const auto offset1 = offsets[offset + 1];
+        RETURN_NOT_OK(builder.Append(data + offset0, offset1 - offset0));
+      } else {
+        RETURN_NOT_OK(builder.AppendNull());
+      }
+    }
+    std::shared_ptr<ArrayData> temp_output;
+    RETURN_NOT_OK(builder.FinishInternal(&temp_output));
+    // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
+    temp_output->type = array.type->GetSharedPtr();
+    out->value = std::move(temp_output);
+    return Status::OK();
+  }
+};
+
+template <typename Type>
+struct ReplaceWithIndices {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& arr = batch[0].array;
+    const ExecValue& indices = batch[1];
+    const ExecValue& replacements = batch[2];
+    RETURN_NOT_OK(CheckReplaceWithIndicesInputs(
+        *arr.type, *indices.type(), indices.length(), *replacements.type(),
+        replacements.length(), replacements.is_array()));
+    RETURN_NOT_OK(arrow::internal::CheckIndexBounds(indices.array, arr.length));
+    return ReplaceWithIndicesImpl<Type>::ExecArrayIndices(
+        ctx, arr, indices.array, /*values_base=*/0, replacements, out);
+  }
+
+  static std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
+    return KernelSignature::Make(
+        {InputType(get_id.id), InputType(match::Integer()), InputType(get_id.id)},
+        FirstType);
+  }
+};
+
+template <typename Type>
+struct ReplaceWithIndicesChunked {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& indices = batch[1];
+    const Datum& replacements = batch[2];
+
+    if (!indices.is_array()) {
+      return Status::Invalid("Indices must be array, not ", indices.ToString());
+    }
+    if (!replacements.is_array() && !replacements.is_scalar()) {
+      return Status::Invalid("Replacements must be array or scalar, not ",
+                             replacements.ToString());
+    }
+
+    const ChunkedArray& arr = *batch[0].chunked_array();
+    RETURN_NOT_OK(CheckReplaceWithIndicesInputs(
+        *arr.type(), *indices.type(), indices.length(), *replacements.type(),
+        replacements.length(), replacements.is_arraylike()));
+
+    ExecValue replacements_val = GetExecValue(replacements);
+    const ArraySpan& indices_span = *indices.array();
+    RETURN_NOT_OK(arrow::internal::CheckIndexBounds(indices_span, arr.length()));
+
+    // Each index refers to a position in the whole logical array, so track a base
+    // offset per chunk and apply the indices that fall within it
+    ArrayVector output_chunks;
+    output_chunks.reserve(arr.num_chunks());
+    int64_t values_base = 0;
+    for (const std::shared_ptr<Array>& chunk : arr.chunks()) {
+      if (chunk->length() == 0) continue;
+      ExecResult chunk_result;
+      if (is_fixed_width(out->type()->id())) {
+        auto chunk_out = std::make_shared<ArrayData>(chunk->type(), chunk->length());
+        chunk_out->buffers.resize(2);
+        ARROW_ASSIGN_OR_RAISE(chunk_out->buffers[0],
+                              ctx->AllocateBitmap(chunk->length()));
+        const int64_t slot_width = out->type()->byte_width();
+        ARROW_ASSIGN_OR_RAISE(chunk_out->buffers[1],
+                              ctx->Allocate(slot_width * chunk->length()));
+        chunk_result.value = chunk_out;
+      }
+      RETURN_NOT_OK(ReplaceWithIndicesImpl<Type>::ExecArrayIndices(
+          ctx, *chunk->data(), indices_span, values_base, replacements_val,
+          &chunk_result));
+      output_chunks.push_back(MakeArray(chunk_result.array_data()));
+      values_base += chunk->length();
+    }
+
+    return ChunkedArray::Make(std::move(output_chunks), out->type()).Value(out);
+  }
+};
+
 // This is for fixed-size types only
 template <typename Type>
 void FillNullInDirectionImpl(const ArraySpan& current_chunk, const uint8_t* null_bitmap,
@@ -865,8 +1134,6 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   }
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));
-
-  // TODO(ARROW-9431): "replace_with_indices"
 }
 
 }  // namespace
@@ -880,6 +1147,16 @@ const FunctionDoc replace_with_mask_doc(
      "or with null if the mask is null.\n"
      "Hence, for replacement arrays, len(replacements) == sum(mask == true)."),
     {"values", "mask", "replacements"});
+
+const FunctionDoc replace_with_indices_doc(
+    "Replace items at the given indices",
+    ("Given an array, an integer array of indices, and replacement values\n"
+     "(either scalar or array), the element of the array at position\n"
+     "indices[i] is replaced by the i-th replacement.\n"
+     "Null indices are ignored; if an index occurs more than once, the last\n"
+     "replacement wins. Out-of-bounds or negative indices raise an error.\n"
+     "Hence, for replacement arrays, len(replacements) == len(indices)."),
+    {"values", "indices", "replacements"});
 
 const FunctionDoc fill_null_forward_doc(
     "Carry non-null values forward to fill null slots",
@@ -898,6 +1175,11 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
     auto func = std::make_shared<VectorFunction>("replace_with_mask", Arity::Ternary(),
                                                  replace_with_mask_doc);
     RegisterVectorFunction<ReplaceMask, ReplaceMaskChunked>(registry, func);
+  }
+  {
+    auto func = std::make_shared<VectorFunction>("replace_with_indices", Arity::Ternary(),
+                                                 replace_with_indices_doc);
+    RegisterVectorFunction<ReplaceWithIndices, ReplaceWithIndicesChunked>(registry, func);
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_forward", Arity::Unary(),
