@@ -450,7 +450,7 @@ binary values look like.
     * A field named ``value`` which is of type ``Binary``, ``LargeBinary``, or ``BinaryView``.
       (unshredded variants consist of just the ``metadata`` and ``value`` fields only)
 
-    * A field named ``typed_value`` which can be a :ref:`variant_primitive_type_mapping` or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
+    * A field named ``typed_value`` which can be any Arrow type listed in the :ref:`variant_primitive_type_mapping` or a ``List``, ``LargeList``, ``ListView`` or ``Struct``
 
       * If the ``typed_value`` field is a ``List``, ``LargeList`` or ``ListView`` its elements **must** be *non-nullable* and **must**
         be a ``Struct`` consisting of at least one (or both) of the following:
@@ -488,63 +488,82 @@ binary values look like.
 Primitive Type Mappings
 -----------------------
 
-+----------------------+------------------------+
-| Arrow Primitive Type | Variant Primitive Type |
-+======================+========================+
-| Null                 | Null                   |
-+----------------------+------------------------+
-| Boolean              | Boolean (true/false)   |
-+----------------------+------------------------+
-| Int8                 | Int8                   |
-+----------------------+------------------------+
-| Uint8                | Int16                  |
-+----------------------+------------------------+
-| Int16                | Int16                  |
-+----------------------+------------------------+
-| Uint16               | Int32                  |
-+----------------------+------------------------+
-| Int32                | Int32                  |
-+----------------------+------------------------+
-| Uint32               | Int64                  |
-+----------------------+------------------------+
-| Int64                | Int64                  |
-+----------------------+------------------------+
-| Float                | Float                  |
-+----------------------+------------------------+
-| Double               | Double                 |
-+----------------------+------------------------+
-| Decimal32            | decimal4               |
-+----------------------+------------------------+
-| Decimal64            | decimal8               |
-+----------------------+------------------------+
-| Decimal128           | decimal16              |
-+----------------------+------------------------+
-| Date32               | Date                   |
-+----------------------+------------------------+
-| Time64               | TimeNTZ                |
-+----------------------+------------------------+
-| Timestamp(us, UTC)   | Timestamp (micro)      |
-+----------------------+------------------------+
-| Timestamp(us)        | TimestampNTZ (micro)   |
-+----------------------+------------------------+
-| Timestamp(ns, UTC)   | Timestamp (nano)       |
-+----------------------+------------------------+
-| Timestamp(ns)        | TimestampNTZ (nano)    |
-+----------------------+------------------------+
-| Binary               | Binary                 |
-+----------------------+------------------------+
-| LargeBinary          | Binary                 |
-+----------------------+------------------------+
-| BinaryView           | Binary                 |
-+----------------------+------------------------+
-| String               | String                 |
-+----------------------+------------------------+
-| LargeString          | String                 |
-+----------------------+------------------------+
-| StringView           | String                 |
-+----------------------+------------------------+
-| UUID extension type  | UUID                   |
-+----------------------+------------------------+
+The following table defines the set of Arrow types that are valid as primitive
+``typed_value`` storage. It is derived from the `Shredded Value Types
+<https://github.com/apache/parquet-format/blob/master/VariantShredding.md#shredded-value-types>`__
+table of the Parquet Variant Shredding specification: each row maps a Variant
+primitive type to the Parquet type required for a shredded ``typed_value``
+column (physical type, followed by the logical type annotation if any) and to
+the Arrow type(s) able to represent that Variant type's full value domain.
+A ``typed_value`` field of one of the listed Arrow types holds values of
+exactly the corresponding Variant type, and the listed Parquet type is its
+only valid Parquet representation.
+
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| Variant Type                           | Parquet Type                                     | Arrow ``typed_value`` Type                  |
++========================================+==================================================+=============================================+
+| boolean                                | BOOLEAN                                          | Boolean                                     |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| int8                                   | INT32, INT(8, true)                              | Int8                                        |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| int16                                  | INT32, INT(16, true)                             | Int16                                       |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| int32                                  | INT32                                            | Int32                                       |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| int64                                  | INT64                                            | Int64                                       |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| float                                  | FLOAT                                            | Float32                                     |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| double                                 | DOUBLE                                           | Float64                                     |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| decimal4 (1 <= P <= 9, 0 <= S <= P)    | INT32, DECIMAL(P, S)                             | Decimal32(P, S)                             |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| decimal8 (10 <= P <= 18, 0 <= S <= P)  | INT64, DECIMAL(P, S)                             | Decimal64(P, S)                             |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| decimal16 (19 <= P <= 38, 0 <= S <= P) | BYTE_ARRAY / FIXED_LEN_BYTE_ARRAY, DECIMAL(P, S) | Decimal128(P, S)                            |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| date                                   | INT32, DATE                                      | Date32                                      |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| time                                   | INT64, TIME(false, MICROS)                       | Time64(us)                                  |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| timestamptz(6)                         | INT64, TIMESTAMP(true, MICROS)                   | Timestamp(us, UTC)                          |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| timestamptz(9)                         | INT64, TIMESTAMP(true, NANOS)                    | Timestamp(ns, UTC)                          |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| timestampntz(6)                        | INT64, TIMESTAMP(false, MICROS)                  | Timestamp(us)                               |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| timestampntz(9)                        | INT64, TIMESTAMP(false, NANOS)                   | Timestamp(ns)                               |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| binary                                 | BYTE_ARRAY                                       | Binary / LargeBinary / BinaryView           |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| string                                 | BYTE_ARRAY, STRING                               | String / LargeString / StringView           |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+| uuid                                   | FIXED_LEN_BYTE_ARRAY[len=16], UUID               | :ref:`UUID extension type <uuid_extension>` |
++----------------------------------------+--------------------------------------------------+---------------------------------------------+
+
+The decimal precision bands follow the `Variant encoding types
+<https://github.com/apache/parquet-format/blob/master/VariantEncoding.md#encoding-types>`__
+table: the bands are disjoint, so precision alone selects the row (the
+narrowest sufficient decimal type is required) and the scale must satisfy
+``0 <= S <= P``. Arrow decimal types outside these bounds (a negative scale,
+or a wider decimal type than the precision requires) are not valid
+``typed_value`` storage.
+
+.. note::
+
+   Arrow types without a row in this table (such as ``Null`` or the unsigned
+   integer types) must not be used as ``typed_value`` storage, as they have no
+   valid Parquet shredded representation:
+
+   * A Variant null is always encoded in the ``value`` field (as ``00``),
+     never in ``typed_value``: a null ``typed_value`` signals that the row is
+     not shredded, and for shredded object fields a null ``typed_value``
+     together with a null ``value`` means the field is missing.
+
+   * Variant has no unsigned integer types, so unsigned Arrow values must be
+     converted to a signed Variant type wide enough to hold them (for example,
+     ``Uint8`` values become ``int16``) before being stored in ``value`` or in
+     a signed integer ``typed_value`` column.
 
 .. _timestamp_with_offset_extension:
 
