@@ -270,6 +270,8 @@ std::string EncodingToString(Encoding::type t) {
       return "RLE_DICTIONARY";
     case Encoding::BYTE_STREAM_SPLIT:
       return "BYTE_STREAM_SPLIT";
+    case Encoding::PFOR:
+      return "PFOR";
     default:
       return "UNKNOWN";
   }
