@@ -362,7 +362,7 @@ install_conda() {
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${CONDA_ENV:-source}"
-  local pyver=${PYTHON_VERSION:-3}
+  local pyver=${PYTHON_VERSION:-3.12}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     show_info "Configuring Conda environment..."
@@ -377,9 +377,10 @@ maybe_setup_conda() {
     if ! conda env list | cut -d" " -f 1 | grep $env; then
       mamba create -y -n $env python=${pyver}
     fi
-    # Install dependencies
+    # Install dependencies. Python version pinned so an unversioned
+    # python dependency does not replace it
     if [ $# -gt 0 ]; then
-      mamba install -y -n $env $@
+      mamba install -y -n $env python=${pyver} $@
     fi
     # Activate the environment
     conda activate $env
