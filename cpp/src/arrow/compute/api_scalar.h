@@ -1807,5 +1807,46 @@ ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& ri
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
                                      ExecContext* ctx = NULLPTR);
+
+/// \brief Construct a hash value for each row of the input.
+///
+/// The result has the same length and shape as the input (Array in, Array out;
+/// ChunkedArray in, ChunkedArray out), but with element type UInt32. For a nested
+/// input type (struct, list, map, etc.), each row's child values are combined into a
+/// single hash for that row, recursively. A null input row produces a null output row;
+/// within a struct, a null field makes that whole row null, while within a list or map a
+/// null element does not (only the row's own validity matters there). Hash values are not
+/// guaranteed to be stable across different versions of the library, and this function
+/// does not currently take options, though these may be added in the future.
+///
+/// \param[in] input_array input data to hash
+/// \param[in] ctx function execution context, optional
+/// \return elementwise hash values
+///
+/// \since 26.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Hash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
+
+/// \brief Construct a hash value for each row of the input.
+///
+/// The result has the same length and shape as the input (Array in, Array out;
+/// ChunkedArray in, ChunkedArray out), but with element type UInt64. For a nested
+/// input type (struct, list, map, etc.), each row's child values are combined into a
+/// single hash for that row, recursively. A null input row produces a null output row;
+/// within a struct, a null field makes that whole row null, while within a list or map a
+/// null element does not (only the row's own validity matters there). Hash values are not
+/// guaranteed to be stable across different versions of the library, and this function
+/// does not currently take options, though these may be added in the future.
+///
+/// \param[in] input_array input data to hash
+/// \param[in] ctx function execution context, optional
+/// \return elementwise hash values
+///
+/// \since 26.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Hash64(const Datum& input_array, ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow

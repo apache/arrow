@@ -27,6 +27,8 @@ import pytest
 import random
 import sys
 import textwrap
+import hypothesis as h
+import hypothesis.strategies as st
 
 try:
     import numpy as np
@@ -41,6 +43,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError, ArrowIndexError
+import pyarrow.tests.strategies as past
 
 try:
     import pyarrow.substrait as pas
@@ -4381,3 +4384,92 @@ def test_winsorize():
     result = pc.winsorize(
         arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
     assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+
+hash_types = st.deferred(
+    lambda: (
+        past.primitive_types |
+        past.list_types(include_views=False) |
+        past.struct_types() |
+        past.dictionary_types() |
+        past.map_types() |
+        past.list_types(hash_types, include_views=False) |
+        past.struct_types(hash_types)
+    )
+)
+
+
+def _contains_null(value):
+    # Whether a Python value produced by Array.as_py() is None, or (for a nested
+    # list/struct/map value) contains a None anywhere within it.
+    if value is None:
+        return True
+    if isinstance(value, dict):
+        return any(_contains_null(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_null(v) for v in value)
+    return False
+
+
+def _check_hash_quality(func, arr):
+    result1 = func(arr)
+    result2 = func(arr)
+    assert result1.equals(result2), "hashing must be deterministic"
+
+    # Nullness is carried by the output's validity bitmap, not by any reserved hash
+    # value (see NullProducesNullAcrossTypes in scalar_hash_test.cc), so the hash of a
+    # valid row is unconstrained here -- 0 is a perfectly legal hash for one.
+    for i in range(len(arr)):
+        valid = result1[i].is_valid
+        if not arr[i].is_valid:
+            assert not valid, f"row {i} is null, so its hash must be null"
+        elif not _contains_null(arr[i].as_py()):
+            # No null anywhere in the row's content, so nothing can make it null.
+            assert valid, (
+                f"row {i} ({arr[i].as_py()!r}) is fully valid but hashed to null")
+        # Otherwise the row is valid but holds a null somewhere: whether that nulls the
+        # hash depends on where (a null struct field does, a null list element does
+        # not), so this leaves it unconstrained -- scalar_hash_test.cc pins down both.
+
+
+@pytest.mark.numpy
+@h.given(past.arrays(hash_types))
+def test_hash32(arr):
+    result = pc.hash32(arr)
+    assert result.type == pa.uint32()
+    _check_hash_quality(pc.hash32, arr)
+
+
+@pytest.mark.numpy
+@h.given(past.arrays(hash_types))
+def test_hash64(arr):
+    result = pc.hash64(arr)
+    assert result.type == pa.uint64()
+    _check_hash_quality(pc.hash64, arr)
+
+
+@st.composite
+def hash_arrays_with_slice(draw):
+    arr = draw(past.arrays(hash_types))
+    offset = draw(st.integers(min_value=0, max_value=len(arr)))
+    length = draw(st.integers(min_value=0, max_value=len(arr) - offset))
+    return arr, offset, length
+
+
+# Hashing a slice must match slicing the hash of the unsliced array: nested child
+# arrays aren't resliced by Array.slice, so this exercises the offset handling for
+# list/map/struct fields, not just plain values.
+@pytest.mark.numpy
+@h.given(hash_arrays_with_slice())
+def test_hash32_slice_consistency(args):
+    arr, offset, length = args
+    sliced = arr.slice(offset, length)
+    assert pc.hash32(sliced).equals(pc.hash32(arr).slice(offset, length))
+
+
+@pytest.mark.numpy
+@h.given(hash_arrays_with_slice())
+def test_hash64_slice_consistency(args):
+    arr, offset, length = args
+    sliced = arr.slice(offset, length)
+    assert pc.hash64(sliced).equals(pc.hash64(arr).slice(offset, length))
