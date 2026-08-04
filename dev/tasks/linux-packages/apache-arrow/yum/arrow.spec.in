@@ -527,7 +527,6 @@ Libraries and header files for Apache Arrow Flight SQL ODBC driver.
 %files flight-sql-odbc-devel
 %defattr(-,root,root,-)
 %doc README.md
-%doc cpp/src/arrow/flight/sql/odbc/connection-options.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/sql/odbc/
 %{_libdir}/cmake/ArrowFlightSqlOdbc/
