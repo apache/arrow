@@ -117,9 +117,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
                   chunksize=None, version=2):
     """
     Write a pandas.DataFrame to Feather format.
-        .. deprecated:: 25.0.0
-           Writing Feather V1 files is deprecated. Use the default
-           ``version=2`` to write Arrow IPC files instead.
+
     Parameters
     ----------
     df : pandas.DataFrame or pyarrow.Table
@@ -138,7 +136,11 @@ def write_feather(df, dest, compression=None, compression_level=None,
         which is currently 64K
     version : int, default 2
         Feather file version. Version 2 is the current. Version 1 is the more
-        limited legacy format
+        limited legacy format.
+
+        .. deprecated:: 25.0.0
+           Writing Feather V1 files is deprecated. Use the default
+           ``version=2`` to write Arrow IPC files instead.
     """
     if version == 1:
         warnings.warn(
