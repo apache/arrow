@@ -24,6 +24,7 @@
 #include <functional>
 #include <memory>
 #include <tuple>
+#include <type_traits>
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
@@ -107,8 +108,6 @@ int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
 
 namespace {
 
-enum class TransferMode : bool { Copy, Invert };
-
 // Reverse all bits from entire byte(uint8)
 uint8_t ReverseUint8(uint8_t num) {
   num = ((num & 0xf0) >> 4) | ((num & 0x0f) << 4);
@@ -124,8 +123,10 @@ uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length
   return ReverseUint8(((block_right << 8) + block_left) >> length);
 }
 
-void MapReadersWriter(auto&& writer, auto&& op, auto&& reader, auto&&... readers) {
+template <typename Op>
+void MapReadersWriter(auto&& writer, auto&& reader, auto&&... readers) {
   constexpr auto kReaderCount = sizeof...(readers) + 1;
+  constexpr auto op = Op{};
 
   // Need a real function so that the fold expression remains valid in release
   const auto check_eq = [](auto a, auto b) { ARROW_DCHECK_EQ(a, b); };
@@ -166,9 +167,9 @@ struct BitmapPtr {
 using BitmapConstPtr = BitmapPtr<const uint8_t>;
 using BitmapMutPtr = BitmapPtr<uint8_t>;
 
-template <typename Word = uint64_t>
-void FastMapReadersWriter(BitmapMutPtr out, int64_t length, auto&& op,
-                          BitmapConstPtr reader, auto&&... readers) {
+template <typename Op, typename Word = uint64_t>
+void FastMapReadersWriter(BitmapMutPtr out, int64_t length, BitmapConstPtr reader,
+                          auto&&... readers) {
   const int64_t out_bit_offset = out.offset % 8;
 
   if (length == 0) {
@@ -179,37 +180,29 @@ void FastMapReadersWriter(BitmapMutPtr out, int64_t length, auto&& op,
 
     const auto count = std::min(8 - out_bit_offset, length);
     auto writer = Writer(out.data, out.offset, count);
-    MapReadersWriter(writer, op, Reader(reader.data, reader.offset, count),
-                     Reader(readers.data, readers.offset, count)...);
-    FastMapReadersWriter(out + count, length - count, op, reader + count,
-                         readers + count...);
+    MapReadersWriter<Op>(writer, Reader(reader.data, reader.offset, count),
+                         Reader(readers.data, readers.offset, count)...);
+    FastMapReadersWriter<Op>(out + count, length - count, reader + count,
+                             readers + count...);
   } else {
     using Reader = internal::BitmapWordReader<Word>;
     using Writer = internal::BitmapWordWriter<Word, false>;
 
     auto writer = Writer(out.data, out.offset, length);
-    MapReadersWriter(writer, op, Reader(reader.data, reader.offset, length),
-                     Reader(readers.data, readers.offset, length)...);
+    MapReadersWriter<Op>(writer, Reader(reader.data, reader.offset, length),
+                         Reader(readers.data, readers.offset, length)...);
   }
 }
 
-template <TransferMode mode>
-void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
+template <typename Op>
+void MapBitmapUnary(const uint8_t* data, int64_t offset, int64_t length,
                     int64_t dest_offset, uint8_t* dest) {
   const int64_t bit_offset = offset % 8;
   const int64_t dest_bit_offset = dest_offset % 8;
 
-  constexpr auto op = []<class T>(T x) {
-    if constexpr (mode == TransferMode::Invert) {
-      return static_cast<T>(~x);
-    } else {
-      return x;
-    }
-  };  // NOLINT: readability/braces
-
   if (bit_offset || dest_bit_offset) {
-    FastMapReadersWriter({.data = dest, .offset = dest_offset}, length, op,
-                         {.data = data, .offset = offset});
+    FastMapReadersWriter<Op>({.data = dest, .offset = dest_offset}, length,
+                             {.data = data, .offset = offset});
   } else if (length > 0) {
     const int64_t num_bytes = bit_util::BytesForBits(length);
 
@@ -225,14 +218,15 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
     const uint8_t trail_mask = (1U << (8 - trailing_bits)) - 1;
     uint8_t last_data;
 
-    if constexpr (mode == TransferMode::Invert) {
-      for (int64_t i = 0; i < num_bytes - 1; i++) {
-        dest[i] = static_cast<uint8_t>(~(data[i]));
-      }
-      last_data = ~data[num_bytes - 1];
-    } else {
+    if constexpr (std::is_same_v<std::decay_t<Op>, std::identity>) {
       std::memcpy(dest, data, static_cast<size_t>(num_bytes - 1));
       last_data = data[num_bytes - 1];
+    } else {
+      constexpr auto op = Op{};
+      for (int64_t i = 0; i < num_bytes - 1; i++) {
+        dest[i] = static_cast<uint8_t>(op(data[i]));
+      }
+      last_data = ~data[num_bytes - 1];
     }
 
     // Set last byte
@@ -284,29 +278,29 @@ void ReverseBlockOffsets(const uint8_t* data, int64_t offset, int64_t length,
   }
 }
 
-}  // namespace
-
-template <TransferMode mode>
-Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
+template <typename Op>
+Result<std::shared_ptr<Buffer>> MapBitmapUnary(MemoryPool* pool, const uint8_t* data,
                                                int64_t offset, int64_t length,
                                                int64_t out_offset) {
   const int64_t phys_bits = length + out_offset;
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(phys_bits, pool));
   uint8_t* dest = buffer->mutable_data();
 
-  TransferBitmap<mode>(data, offset, length, out_offset, dest);
+  MapBitmapUnary<Op>(data, offset, length, out_offset, dest);
 
   return buffer;
 }
 
+}  // namespace
+
 void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                 int64_t dest_offset) {
-  TransferBitmap<TransferMode::Copy>(data, offset, length, dest_offset, dest);
+  MapBitmapUnary<std::identity>(data, offset, length, dest_offset, dest);
 }
 
 void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
                   int64_t dest_offset) {
-  TransferBitmap<TransferMode::Invert>(data, offset, length, dest_offset, dest);
+  MapBitmapUnary<std::bit_not<>>(data, offset, length, dest_offset, dest);
 }
 
 void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
@@ -317,13 +311,12 @@ void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t*
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
                                            int64_t offset, int64_t length,
                                            int64_t out_offset) {
-  return TransferBitmap<TransferMode::Copy>(pool, data, offset, length, out_offset);
+  return MapBitmapUnary<std::identity>(pool, data, offset, length, out_offset);
 }
 
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
                                              int64_t offset, int64_t length) {
-  return TransferBitmap<TransferMode::Invert>(pool, data, offset, length,
-                                              /*out_offset=*/0);
+  return MapBitmapUnary<std::bit_not<>>(pool, data, offset, length, /*out_offset=*/0);
 }
 
 Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* data,
@@ -427,11 +420,11 @@ Result<std::shared_ptr<Buffer>> OptionalBitmapAnd(MemoryPool* pool,
 
 namespace {
 
-template <template <typename> class BitOp>
+template <typename Op>
 void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                      int64_t right_offset, uint8_t* out, int64_t out_offset,
                      int64_t length) {
-  BitOp<uint8_t> op;
+  constexpr auto op = Op{};
   DCHECK_EQ(left_offset % 8, right_offset % 8);
   DCHECK_EQ(left_offset % 8, out_offset % 8);
 
@@ -444,50 +437,50 @@ void AlignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* ri
   }
 }
 
-template <template <typename> class BitOp>
+template <typename Op>
 void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                        int64_t right_offset, uint8_t* out, int64_t out_offset,
                        int64_t length) {
-  FastMapReadersWriter({.data = out, .offset = out_offset}, length, BitOp<void>{},
-                       BitmapConstPtr{.data = left, .offset = left_offset},
-                       BitmapConstPtr{.data = right, .offset = right_offset});
+  FastMapReadersWriter<Op>({.data = out, .offset = out_offset}, length,
+                           BitmapConstPtr{.data = left, .offset = left_offset},
+                           BitmapConstPtr{.data = right, .offset = right_offset});
 }
 
 // XXX: The bits before left/right/out_offset, if unaligned, are untouched. But not for
 // the bits after length. Caller should ensure proper alignment for the tail bits if
 // necessary, or correct the tail bits by subsequent calls.
-template <template <typename> class BitOp>
+template <typename Op>
 void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest) {
   if (out_offset % 8 == left_offset % 8 && out_offset % 8 == right_offset % 8) {
     // Fast case: can use byte-wise BitOp after handling leading unaligned bits.
     int64_t leading_unaligned_bits = (8 - left_offset % 8) % 8;
     if (leading_unaligned_bits > 0) {
-      UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
-                               leading_unaligned_bits);
+      UnalignedBitmapOp<Op>(left, left_offset, right, right_offset, dest, out_offset,
+                            leading_unaligned_bits);
     }
     if (length > leading_unaligned_bits) {
-      AlignedBitmapOp<BitOp>(left, left_offset + leading_unaligned_bits, right,
-                             right_offset + leading_unaligned_bits, dest,
-                             out_offset + leading_unaligned_bits,
-                             length - leading_unaligned_bits);
+      AlignedBitmapOp<Op>(left, left_offset + leading_unaligned_bits, right,
+                          right_offset + leading_unaligned_bits, dest,
+                          out_offset + leading_unaligned_bits,
+                          length - leading_unaligned_bits);
     }
   } else {
     // Unaligned
-    UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
-                             length);
+    UnalignedBitmapOp<Op>(left, left_offset, right, right_offset, dest, out_offset,
+                          length);
   }
 }
 
-template <template <typename> class BitOp>
+template <typename Op>
 Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
                                          int64_t out_offset) {
   const int64_t phys_bits = length + out_offset;
   ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateEmptyBitmap(phys_bits, pool));
-  BitmapOp<BitOp>(left, left_offset, right, right_offset, length, out_offset,
-                  out_buffer->mutable_data());
+  BitmapOp<Op>(left, left_offset, right, right_offset, length, out_offset,
+               out_buffer->mutable_data());
   return out_buffer;
 }
 
@@ -497,48 +490,45 @@ Result<std::shared_ptr<Buffer>> BitmapAnd(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
                                           int64_t out_offset) {
-  return BitmapOp<std::bit_and>(pool, left, left_offset, right, right_offset, length,
-                                out_offset);
+  return BitmapOp<std::bit_and<>>(pool, left, left_offset, right, right_offset, length,
+                                  out_offset);
 }
 
 void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_and>(left, left_offset, right, right_offset, length, out_offset, out);
+  BitmapOp<std::bit_and<>>(left, left_offset, right, right_offset, length, out_offset,
+                           out);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapOr(MemoryPool* pool, const uint8_t* left,
                                          int64_t left_offset, const uint8_t* right,
                                          int64_t right_offset, int64_t length,
                                          int64_t out_offset) {
-  return BitmapOp<std::bit_or>(pool, left, left_offset, right, right_offset, length,
-                               out_offset);
+  return BitmapOp<std::bit_or<>>(pool, left, left_offset, right, right_offset, length,
+                                 out_offset);
 }
 
 void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_or>(left, left_offset, right, right_offset, length, out_offset, out);
+  BitmapOp<std::bit_or<>>(left, left_offset, right, right_offset, length, out_offset,
+                          out);
 }
 
 Result<std::shared_ptr<Buffer>> BitmapXor(MemoryPool* pool, const uint8_t* left,
                                           int64_t left_offset, const uint8_t* right,
                                           int64_t right_offset, int64_t length,
                                           int64_t out_offset) {
-  return BitmapOp<std::bit_xor>(pool, left, left_offset, right, right_offset, length,
-                                out_offset);
+  return BitmapOp<std::bit_xor<>>(pool, left, left_offset, right, right_offset, length,
+                                  out_offset);
 }
 
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
-  BitmapOp<std::bit_xor>(left, left_offset, right, right_offset, length, out_offset, out);
+  BitmapOp<std::bit_xor<>>(left, left_offset, right, right_offset, length, out_offset,
+                           out);
 }
 
-template <typename T>
 struct AndNotOp {
-  constexpr T operator()(const T& l, const T& r) const { return l & ~r; }
-};
-
-template <>
-struct AndNotOp<void> {
   template <typename T, typename U>
   constexpr auto operator()(const T& l, const U& r) const {
     return l & ~r;
@@ -559,13 +549,7 @@ void BitmapAndNot(const uint8_t* left, int64_t left_offset, const uint8_t* right
   BitmapOp<AndNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
 }
 
-template <typename T>
 struct OrNotOp {
-  constexpr T operator()(const T& l, const T& r) const { return l | ~r; }
-};
-
-template <>
-struct OrNotOp<void> {
   template <typename T, typename U>
   constexpr auto operator()(const T& l, const U& r) const {
     return l | ~r;
