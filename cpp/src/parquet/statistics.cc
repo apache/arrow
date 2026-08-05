@@ -714,14 +714,15 @@ bool IsNaNValue<Float16>(Float16 value) {
   return value.is_nan();
 }
 
-template <ArrowFloatValue T, SortOrder::type sort_order>
-  requires(sort_order == SortOrder::SIGNED || sort_order == SortOrder::TOTAL_ORDER)
+template <ArrowFloatValue T, ColumnOrder::type column_order>
+  requires(column_order == ColumnOrder::TYPE_DEFINED_ORDER ||
+           column_order == ColumnOrder::IEEE_754_TOTAL_ORDER)
 class FloatingValueSummary {
  public:
   void Add(const T& value) {
     if (IsNaNValue(value)) {
       ++nan_count_;
-      if constexpr (sort_order == SortOrder::TOTAL_ORDER) {
+      if constexpr (column_order == ColumnOrder::IEEE_754_TOTAL_ORDER) {
         if (is_all_nan_) {
           if (bounds_.has_value()) {
             UpdateBounds(value);
@@ -746,7 +747,7 @@ class FloatingValueSummary {
 
  private:
   static bool Less(const T& lhs, const T& rhs) {
-    if constexpr (sort_order == SortOrder::TOTAL_ORDER) {
+    if constexpr (column_order == ColumnOrder::IEEE_754_TOTAL_ORDER) {
       return std::is_lt(TotalOrderCompare(lhs, rhs));
     } else {
       return lhs < rhs;
@@ -782,7 +783,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         max_buffer_(AllocateBuffer(pool_, 0)),
         logical_type_(LogicalTypeId(descr_)),
         is_half_float_(logical_type_ == LogicalType::Type::FLOAT16) {
-    if (descr->sort_order() != SortOrder::UNKNOWN) {
+    if (descr->can_use_min_max()) {
       comparator_ = MakeComparator<DType>(descr);
     }
     TypedStatisticsImpl::Reset();
@@ -1122,11 +1123,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
   }
 
-  template <SortOrder::type sort_order, typename VisitValues>
+  template <ColumnOrder::type column_order, typename VisitValues>
   void UpdateFloatingBoundsWithOrder(VisitValues&& visit_values, bool update_nan_count) {
     using ArrowFloat = decltype(ToArrowFloat(std::declval<T>()));
 
-    FloatingValueSummary<ArrowFloat, sort_order> summary;
+    FloatingValueSummary<ArrowFloat, column_order> summary;
     std::invoke(std::forward<VisitValues>(visit_values),
                 [&](const auto& value) { summary.Add(value); });
     if (has_nan_count_ && update_nan_count) {
@@ -1147,21 +1148,22 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   template <typename VisitValues>
   void UpdateFloatingBounds(VisitValues&& visit_values, bool update_nan_count) {
-    if (descr_->sort_order() == SortOrder::TOTAL_ORDER) {
-      UpdateFloatingBoundsWithOrder<SortOrder::TOTAL_ORDER>(
+    if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      UpdateFloatingBoundsWithOrder<ColumnOrder::IEEE_754_TOTAL_ORDER>(
           std::forward<VisitValues>(visit_values), update_nan_count);
     } else {
-      DCHECK_EQ(descr_->sort_order(), SortOrder::SIGNED);
-      UpdateFloatingBoundsWithOrder<SortOrder::SIGNED>(
+      DCHECK(descr_->can_use_min_max());
+      UpdateFloatingBoundsWithOrder<ColumnOrder::TYPE_DEFINED_ORDER>(
           std::forward<VisitValues>(visit_values), update_nan_count);
     }
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
     if (comparator_ == nullptr) return;
-    auto maybe_min_max = descr_->sort_order() == SortOrder::TOTAL_ORDER
-                             ? std::optional<std::pair<T, T>>(min_max)
-                             : CleanStatistic(min_max, logical_type_);
+    auto maybe_min_max =
+        descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER
+            ? std::optional<std::pair<T, T>>(min_max)
+            : CleanStatistic(min_max, logical_type_);
     if (!maybe_min_max) return;
 
     auto min = maybe_min_max.value().first;
@@ -1170,7 +1172,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     bool replace_all_nan_bounds = false;
     if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType> ||
                   std::same_as<DType, FLBAType>) {
-      if (descr_->sort_order() == SortOrder::TOTAL_ORDER) {
+      if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
         DCHECK((!std::same_as<DType, FLBAType>) || is_half_float_);
 
         const bool min_is_nan = IsNaNValue(ToArrowFloat(min));
@@ -1213,8 +1215,8 @@ template <typename DType>
 bool TypedStatisticsImpl<DType>::MinMaxEqual(
     const TypedStatisticsImpl<DType>& other) const {
   if constexpr (std::same_as<T, float> || std::same_as<T, double>) {
-    if (descr_->sort_order() == SortOrder::TOTAL_ORDER &&
-        other.descr_->sort_order() == SortOrder::TOTAL_ORDER) {
+    if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER &&
+        other.descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
       return std::is_eq(TotalOrderCompare(min_, other.min_)) &&
              std::is_eq(TotalOrderCompare(max_, other.max_));
     }
@@ -1339,66 +1341,69 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
                                              LogicalType::Type::type logical_type,
                                              SortOrder::type sort_order,
                                              int type_length) {
-  switch (sort_order) {
-    case SortOrder::SIGNED:
-      switch (physical_type) {
-        case Type::BOOLEAN:
-          return std::make_shared<TypedComparatorImpl<true, BooleanType>>();
-        case Type::INT32:
-          return std::make_shared<TypedComparatorImpl<true, Int32Type>>();
-        case Type::INT64:
-          return std::make_shared<TypedComparatorImpl<true, Int64Type>>();
-        case Type::INT96:
-          return std::make_shared<TypedComparatorImpl<true, Int96Type>>();
-        case Type::FLOAT:
-          return std::make_shared<TypedComparatorImpl<true, FloatType>>();
-        case Type::DOUBLE:
-          return std::make_shared<TypedComparatorImpl<true, DoubleType>>();
-        case Type::BYTE_ARRAY:
-          return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
-        case Type::FIXED_LEN_BYTE_ARRAY:
-          if (logical_type == LogicalType::Type::FLOAT16) {
-            return std::make_shared<TypedComparatorImpl<true, Float16LogicalType>>(
-                type_length);
-          }
-          return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
-        default:
-          ParquetException::NYI("Signed Compare not implemented");
-      }
-    case SortOrder::UNSIGNED:
-      switch (physical_type) {
-        case Type::INT32:
-          return std::make_shared<TypedComparatorImpl<false, Int32Type>>();
-        case Type::INT64:
-          return std::make_shared<TypedComparatorImpl<false, Int64Type>>();
-        case Type::INT96:
-          return std::make_shared<TypedComparatorImpl<false, Int96Type>>();
-        case Type::BYTE_ARRAY:
-          return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
-        case Type::FIXED_LEN_BYTE_ARRAY:
-          return std::make_shared<TypedComparatorImpl<false, FLBAType>>(type_length);
-        default:
-          ParquetException::NYI("Unsigned Compare not implemented");
-      }
-    case SortOrder::TOTAL_ORDER:
-      switch (physical_type) {
-        case Type::FLOAT:
-          return std::make_shared<TotalOrderComparatorImpl<FloatType>>();
-        case Type::DOUBLE:
-          return std::make_shared<TotalOrderComparatorImpl<DoubleType>>();
-        case Type::FIXED_LEN_BYTE_ARRAY:
-          if (logical_type == LogicalType::Type::FLOAT16) {
-            return std::make_shared<TotalOrderComparatorImpl<Float16LogicalType>>();
-          }
-          break;
-        default:
-          break;
-      }
-      throw ParquetException(
-          "Total order comparison is only supported for floating-point types");
-    default:
-      throw ParquetException("UNKNOWN Sort Order");
+  if (SortOrder::SIGNED == sort_order) {
+    switch (physical_type) {
+      case Type::BOOLEAN:
+        return std::make_shared<TypedComparatorImpl<true, BooleanType>>();
+      case Type::INT32:
+        return std::make_shared<TypedComparatorImpl<true, Int32Type>>();
+      case Type::INT64:
+        return std::make_shared<TypedComparatorImpl<true, Int64Type>>();
+      case Type::INT96:
+        return std::make_shared<TypedComparatorImpl<true, Int96Type>>();
+      case Type::FLOAT:
+        return std::make_shared<TypedComparatorImpl<true, FloatType>>();
+      case Type::DOUBLE:
+        return std::make_shared<TypedComparatorImpl<true, DoubleType>>();
+      case Type::BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        if (logical_type == LogicalType::Type::FLOAT16) {
+          return std::make_shared<TypedComparatorImpl<true, Float16LogicalType>>(
+              type_length);
+        }
+        return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
+      default:
+        ParquetException::NYI("Signed Compare not implemented");
+    }
+  } else if (SortOrder::UNSIGNED == sort_order) {
+    switch (physical_type) {
+      case Type::INT32:
+        return std::make_shared<TypedComparatorImpl<false, Int32Type>>();
+      case Type::INT64:
+        return std::make_shared<TypedComparatorImpl<false, Int64Type>>();
+      case Type::INT96:
+        return std::make_shared<TypedComparatorImpl<false, Int96Type>>();
+      case Type::BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_shared<TypedComparatorImpl<false, FLBAType>>(type_length);
+      default:
+        ParquetException::NYI("Unsigned Compare not implemented");
+    }
+  } else {
+    throw ParquetException("UNKNOWN Sort Order");
   }
+  return nullptr;
+}
+
+std::shared_ptr<Comparator> DoMakeTotalOrderComparator(
+    Type::type physical_type, LogicalType::Type::type logical_type) {
+  switch (physical_type) {
+    case Type::FLOAT:
+      return std::make_shared<TotalOrderComparatorImpl<FloatType>>();
+    case Type::DOUBLE:
+      return std::make_shared<TotalOrderComparatorImpl<DoubleType>>();
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      if (logical_type == LogicalType::Type::FLOAT16) {
+        return std::make_shared<TotalOrderComparatorImpl<Float16LogicalType>>();
+      }
+      break;
+    default:
+      break;
+  }
+  throw ParquetException(
+      "Total order comparison is only supported for floating-point types");
 }
 
 }  // namespace
@@ -1414,6 +1419,12 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
 }
 
 std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
+  if (!descr->can_use_min_max()) {
+    throw ParquetException("Column order does not define a supported comparison");
+  }
+  if (descr->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+    return DoMakeTotalOrderComparator(descr->physical_type(), LogicalTypeId(descr));
+  }
   return DoMakeComparator(descr->physical_type(), LogicalTypeId(descr),
                           descr->sort_order(), descr->type_length());
 }

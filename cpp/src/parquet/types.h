@@ -125,7 +125,7 @@ struct Repetition {
 // Parquet file. These stats are discarded for types that need unsigned.
 // See PARQUET-686.
 struct SortOrder {
-  enum type { SIGNED, UNSIGNED, TOTAL_ORDER, UNKNOWN };
+  enum type { SIGNED, UNSIGNED, UNKNOWN };
 };
 
 namespace schema {

@@ -268,10 +268,11 @@ static inline StatisticsMinMaxField GetStatisticsMinMaxField(
     const ColumnDescriptor& descr) {
   switch (descr.column_order().get_order()) {
     case ColumnOrder::TYPE_DEFINED_ORDER:
-    case ColumnOrder::IEEE_754_TOTAL_ORDER:
       return descr.sort_order() != SortOrder::UNKNOWN
                  ? StatisticsMinMaxField::kMinValueMaxValue
                  : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::IEEE_754_TOTAL_ORDER:
+      return StatisticsMinMaxField::kMinValueMaxValue;
     case ColumnOrder::UNDEFINED:
       return descr.sort_order() == SortOrder::SIGNED
                  ? StatisticsMinMaxField::kLegacyMinMax

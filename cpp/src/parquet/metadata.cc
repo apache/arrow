@@ -290,6 +290,9 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
             FromThrift(column_metadata_->statistics, GetStatisticsMinMaxField(*descr_)));
       }
     }
+    if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      return true;
+    }
     return writer_version_->HasCorrectStatistics(type(), *possible_encoded_stats_,
                                                  descr_->sort_order());
   }
@@ -1566,9 +1569,6 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
                                               const EncodedStatistics& statistics,
                                               SortOrder::type sort_order) const {
-  if (sort_order == SortOrder::TOTAL_ORDER) {
-    return true;
-  }
   // parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed
   // correctly for all types
   if ((application_ == "parquet-cpp" && VersionLt(PARQUET_CPP_FIXED_STATS_VERSION())) ||
