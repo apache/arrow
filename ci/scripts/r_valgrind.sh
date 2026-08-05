@@ -43,7 +43,7 @@ pushd tests
 # valgrind --error-exitcode=1 should return an erroring exit code that we can catch,
 # but R eats that and returns 0, so we need to look at the output and make sure that
 # we have 0 errors instead.
-if [ "$(grep -c "ERROR SUMMARY: 0 errors" testthat.out)" -ne 1 ]; then
+if ! grep -q "ERROR SUMMARY: 0 errors" testthat.out; then
   cat testthat.out
   echo "Found Valgrind errors"
   exit 1
