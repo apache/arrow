@@ -99,34 +99,34 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
                       NullFn&& null_fn, Int64Fn&& int64_fn, Uint64Fn&& uint64_fn,
                       DoubleFn&& double_fn, BigIntegerFn&& big_integer_fn) {
   ARROW_ASSIGN_OR_RAISE(
-      auto type, ResolveSimdjsonResult(value.type(), "Failed to determine JSON type: "));
+      auto type, ResolveSimdjsonResult(value.type(), "Failed to determine JSON type"));
 
   switch (type) {
     case simdjson::ondemand::json_type::object: {
       ARROW_ASSIGN_OR_RAISE(
           auto object,
-          ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object: "));
+          ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object"));
       return object_fn(object);
     }
 
     case simdjson::ondemand::json_type::array: {
       ARROW_ASSIGN_OR_RAISE(
           auto array,
-          ResolveSimdjsonResult(value.get_array(), "Failed to get JSON array: "));
+          ResolveSimdjsonResult(value.get_array(), "Failed to get JSON array"));
       return array_fn(array);
     }
 
     case simdjson::ondemand::json_type::string: {
       ARROW_ASSIGN_OR_RAISE(
           auto string,
-          ResolveSimdjsonResult(value.get_string(), "Failed to get JSON string: "));
+          ResolveSimdjsonResult(value.get_string(), "Failed to get JSON string"));
       return string_fn(string);
     }
 
     case simdjson::ondemand::json_type::boolean: {
       ARROW_ASSIGN_OR_RAISE(
           auto boolean,
-          ResolveSimdjsonResult(value.get_bool(), "Failed to get JSON boolean: "));
+          ResolveSimdjsonResult(value.get_bool(), "Failed to get JSON boolean"));
       return bool_fn(boolean);
     }
 
@@ -137,28 +137,27 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
       ARROW_ASSIGN_OR_RAISE(
           auto number_type,
           ResolveSimdjsonResult(value.get_number_type(),
-                                "Failed to determine JSON number type: "));
+                                "Failed to determine JSON number type"));
 
       switch (number_type) {
         case simdjson::ondemand::number_type::signed_integer: {
           ARROW_ASSIGN_OR_RAISE(
               auto number,
-              ResolveSimdjsonResult(value.get_int64(), "Failed to get signed integer: "));
+              ResolveSimdjsonResult(value.get_int64(), "Failed to get signed integer"));
           return int64_fn(number);
         }
 
         case simdjson::ondemand::number_type::unsigned_integer: {
-          ARROW_ASSIGN_OR_RAISE(
-              auto number, ResolveSimdjsonResult(value.get_uint64(),
-                                                 "Failed to get unsigned integer: "));
+          ARROW_ASSIGN_OR_RAISE(auto number,
+                                ResolveSimdjsonResult(value.get_uint64(),
+                                                      "Failed to get unsigned integer"));
           return uint64_fn(number);
         }
 
         case simdjson::ondemand::number_type::floating_point_number: {
           ARROW_ASSIGN_OR_RAISE(
-              auto number,
-              ResolveSimdjsonResult(value.get_double(),
-                                    "Failed to get floating-point number: "));
+              auto number, ResolveSimdjsonResult(value.get_double(),
+                                                 "Failed to get floating-point number"));
           return double_fn(number);
         }
 
@@ -242,6 +241,91 @@ Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
   }
 
   return typed_value;
+}
+
+template <typename T>
+Result<T> GetJsonField(simdjson::ondemand::object& object, std::string_view key) {
+  for (auto field_result : object) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto field, ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto field_key,
+        ResolveSimdjsonResult(field.unescaped_key(), "Failed to get JSON object key"));
+
+    if (field_key == key) {
+      auto value = field.value();
+
+      if constexpr (std::is_same_v<T, simdjson::ondemand::value>) {
+        return value;
+      } else {
+        return GetJsonAs<T>(value);
+      }
+    }
+  }
+
+  return Status::KeyError("Missing JSON field: ", key);
+}
+
+inline Result<std::string> MinifyJson(std::string_view json) {
+  std::string minified(json.size(), '\0');
+  size_t minified_len = 0;
+
+  if (auto error =
+          simdjson::minify(json.data(), json.size(), minified.data(), minified_len);
+      error != simdjson::SUCCESS) {
+    return Status::Invalid("Failed to minify JSON: ", simdjson::error_message(error));
+  }
+
+  minified.resize(minified_len);
+  return minified;
+}
+
+inline Status ValidateJsonObject(simdjson::ondemand::object object);
+
+inline Status ValidateJsonArray(simdjson::ondemand::array array);
+
+inline Status ConsumeJsonValue(simdjson::ondemand::value value) {
+  return VisitJsonValue(
+      value, ValidateJsonObject, ValidateJsonArray,
+      [](std::string_view) { return Status::OK(); }, [](bool) { return Status::OK(); },
+      []() { return Status::OK(); }, [](int64_t) { return Status::OK(); },
+      [](uint64_t) { return Status::OK(); }, [](double) { return Status::OK(); },
+      [](simdjson::ondemand::value) { return Status::OK(); });
+}
+
+inline Status ValidateJsonObject(simdjson::ondemand::object object) {
+  for (auto field_result : object) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto field, ResolveSimdjsonResult(field_result, "Failed to iterate JSON object"));
+
+    RETURN_NOT_OK(ConsumeJsonValue(field.value()));
+  }
+
+  return Status::OK();
+}
+
+inline Status ValidateJsonArray(simdjson::ondemand::array array) {
+  for (auto element_result : array) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto value,
+        ResolveSimdjsonResult(element_result, "Failed to iterate JSON array"));
+
+    RETURN_NOT_OK(ConsumeJsonValue(value));
+  }
+
+  return Status::OK();
+}
+
+inline Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
+                                   simdjson::padded_string& json) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto document, ResolveSimdjsonResult(parser.iterate(json), "Failed to parse JSON"));
+
+  ARROW_ASSIGN_OR_RAISE(auto value, ResolveSimdjsonResult(document.get_value(),
+                                                          "Failed to get JSON value"));
+
+  return ConsumeJsonValue(value);
 }
 
 }  // namespace internal

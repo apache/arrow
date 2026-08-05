@@ -1224,13 +1224,9 @@ namespace {
 
 ::arrow::Status CheckJsonValid(std::string_view json_string) {
   simdjson::ondemand::parser parser;
-  simdjson::ondemand::document document;
-
   auto padded_json = simdjson::padded_string(json_string);
 
-  if (auto error = parser.iterate(padded_json).get(document)) {
-    return ::arrow::Status::Invalid("JSON parse error: ", simdjson::error_message(error));
-  }
+  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, padded_json));
 
   return ::arrow::Status::OK();
 }

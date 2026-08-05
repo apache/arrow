@@ -34,17 +34,21 @@ namespace parquet {
 namespace {
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     simdjson::ondemand::object object) {
-  auto crs_field = object["crs"];
+  auto json_crs_result =
+      ::arrow::internal::GetJsonField<simdjson::ondemand::value>(object, "crs");
 
-  if (crs_field.error() == simdjson::NO_SUCH_FIELD) {
-    // Parquet GEOMETRY/GEOGRAPHY do not have a concept of a null/missing
-    // CRS, but an omitted one is more likely to have meant "lon/lat" than
-    // a truly unspecified one (i.e., Engineering CRS with arbitrary XY units)
-    return "";
+  if (!json_crs_result.ok()) {
+    if (json_crs_result.status().IsKeyError()) {
+      // Parquet GEOMETRY/GEOGRAPHY do not have a concept of a null/missing
+      // CRS, but an omitted one is more likely to have meant "lon/lat" than
+      // a truly unspecified one (i.e., Engineering CRS with arbitrary XY units)
+      return "";
+    }
+
+    return json_crs_result.status();
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto json_crs, ::arrow::internal::ResolveSimdjsonResult(
-                                           crs_field, "Failed to get 'crs' field: "));
+  auto json_crs = *std::move(json_crs_result);
 
   ARROW_ASSIGN_OR_RAISE(bool is_null, ::arrow::internal::IsJsonNull(json_crs));
   if (is_null) {
@@ -57,6 +61,8 @@ namespace {
     auto crs_string = *crs_string_result;
 
     if (crs_string == "EPSG:4326" || crs_string == "OGC:CRS84") {
+      // crs can be left empty because these cases both correspond to
+      // longitude/latitude in WGS84 according to the Parquet specification
       return "";
     }
 
@@ -73,38 +79,46 @@ namespace {
   // an empty crs to maximize compatibility with readers that do not implement CRS
   // support. PROJJSON stores this in the "id" member like:
   // {..., "id": {"authority": "...", "code": "..."}}
-  auto id_field = crs_object["id"];
+  auto identifier_result =
+      ::arrow::internal::GetJsonField<simdjson::ondemand::object>(crs_object, "id");
 
-  if (id_field.error() != simdjson::NO_SUCH_FIELD) {
-    ARROW_ASSIGN_OR_RAISE(auto identifier, ::arrow::internal::ResolveSimdjsonResult(
-                                               id_field, "Failed to get 'id' field: "));
+  if (identifier_result.ok()) {
+    auto identifier = *std::move(identifier_result);
 
-    auto authority_field = identifier["authority"];
-    auto code_field = identifier["code"];
+    std::optional<std::string_view> authority_string;
+    std::optional<simdjson::ondemand::value> code;
 
-    if (authority_field.error() != simdjson::NO_SUCH_FIELD &&
-        code_field.error() != simdjson::NO_SUCH_FIELD) {
-      ARROW_ASSIGN_OR_RAISE(auto authority,
+    for (auto field_result : identifier) {
+      ARROW_ASSIGN_OR_RAISE(auto field,
                             ::arrow::internal::ResolveSimdjsonResult(
-                                authority_field, "Failed to get 'authority' field: "));
+                                field_result, "Failed to iterate JSON object"));
 
-      ARROW_ASSIGN_OR_RAISE(auto code, ::arrow::internal::ResolveSimdjsonResult(
-                                           code_field, "Failed to get 'code' field: "));
+      ARROW_ASSIGN_OR_RAISE(auto key,
+                            ::arrow::internal::ResolveSimdjsonResult(
+                                field.unescaped_key(), "Failed to get JSON object key"));
 
-      ARROW_ASSIGN_OR_RAISE(auto authority_string,
-                            ::arrow::internal::GetJsonAs<std::string_view>(authority));
+      if (key == "authority") {
+        ARROW_ASSIGN_OR_RAISE(
+            auto authority,
+            ::arrow::internal::GetJsonAs<std::string_view>(field.value()));
+        authority_string = authority;
+      } else if (key == "code") {
+        code = field.value();
+      }
+    }
 
-      auto code_string_result = ::arrow::internal::GetJsonAs<std::string_view>(code);
+    if (authority_string && code) {
+      auto code_string_result = ::arrow::internal::GetJsonAs<std::string_view>(*code);
 
       if (code_string_result.ok()) {
         auto code_string = *code_string_result;
 
-        if ((authority_string == "OGC" && code_string == "CRS84") ||
-            (authority_string == "EPSG" && code_string == "4326")) {
+        if ((*authority_string == "OGC" && code_string == "CRS84") ||
+            (*authority_string == "EPSG" && code_string == "4326")) {
           return "";
         }
-      } else if (authority_string == "EPSG") {
-        auto code_int_result = ::arrow::internal::GetJsonAs<int64_t>(code);
+      } else if (*authority_string == "EPSG") {
+        auto code_int_result = ::arrow::internal::GetJsonAs<int64_t>(*code);
 
         if (code_int_result.ok() && *code_int_result == 4326) {
           return "";
@@ -116,25 +130,14 @@ namespace {
   // If we could not detect a longitude/latitude CRS, just write the string to the
   // LogicalType crs (being sure to unescape a JSON string into a regular string)
   RETURN_NOT_OK(::arrow::internal::ResolveSimdjsonResult(crs_object.reset(),
-                                                         "Failed to reset 'crs' object: ")
+                                                         "Failed to reset 'crs' object")
                     .status());
 
   ARROW_ASSIGN_OR_RAISE(auto raw_crs,
                         ::arrow::internal::ResolveSimdjsonResult(
-                            crs_object.raw_json(), "Failed to get raw 'crs' JSON: "));
+                            crs_object.raw_json(), "Failed to get raw 'crs' JSON"));
 
-  std::string minified(raw_crs.size(), '\0');
-  size_t minified_len = 0;
-
-  if (auto error =
-          simdjson::minify(raw_crs.data(), raw_crs.size(), minified.data(), minified_len);
-      error != simdjson::SUCCESS) {
-    return ::arrow::Status::Invalid("Failed to minify CRS JSON: ",
-                                    simdjson::error_message(error));
-  }
-
-  minified.resize(minified_len);
-  return minified;
+  return ::arrow::internal::MinifyJson(raw_crs);
 }
 
 // Utility for ensuring that a Parquet CRS is valid JSON when written to
@@ -182,16 +185,20 @@ namespace {
   return R"("crs": )" + escaped;
 }
 
+::arrow::Result<std::string> EscapeJsonString(std::string_view value) {
+  ::arrow::json::JsonWriter writer;
+  writer.String(value);
+
+  ARROW_ASSIGN_OR_RAISE(auto escaped, writer.GetString());
+  return ::arrow::internal::MinifyJson(escaped);
+}
+
 ::arrow::Result<std::string> EscapeCrsAsJsonIfRequired(std::string_view crs) {
   simdjson::ondemand::parser parser;
   simdjson::padded_string json(crs);
 
-  if (parser.iterate(json).error() != simdjson::SUCCESS) {
-    ::arrow::json::JsonWriter writer;
-    writer.String(crs);
-
-    ARROW_ASSIGN_OR_RAISE(auto escaped, writer.GetString());
-    return std::string(escaped);
+  if (!::arrow::internal::ValidateJsonDocument(parser, json).ok()) {
+    return EscapeJsonString(crs);
   }
 
   return std::string(crs);
@@ -199,8 +206,8 @@ namespace {
 
 }  // namespace
 
-::arrow::Result<std::shared_ptr<const LogicalType>> LogicalTypeFromGeoArrowMetadata(
-    std::string_view serialized_data) {
+::arrow::Result<std::shared_ptr<const parquet::LogicalType>>
+LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
   // Parquet has no way to interpret a null or missing CRS, so we choose the most likely
   // intent here (that the user meant to use the default Parquet CRS)
   if (serialized_data.empty() || serialized_data == "{}") {
@@ -210,14 +217,15 @@ namespace {
   simdjson::ondemand::parser parser;
   simdjson::padded_string json(serialized_data);
 
-  simdjson::ondemand::document document;
-  if (auto error = parser.iterate(json).get(document); error != simdjson::SUCCESS) {
-    return ::arrow::Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
+  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, json));
 
-  ARROW_ASSIGN_OR_RAISE(auto object,
-                        ::arrow::internal::ResolveSimdjsonResult(
-                            document.get_object(), "Failed to get JSON object: "));
+  // Reparse because validation consumes the On-Demand document.
+  ARROW_ASSIGN_OR_RAISE(auto document, ::arrow::internal::ResolveSimdjsonResult(
+                                           parser.iterate(json), "Failed to parse JSON"));
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto object, ::arrow::internal::ResolveSimdjsonResult(document.get_object(),
+                                                            "Failed to get JSON object"));
 
   ARROW_ASSIGN_OR_RAISE(std::string crs, GeospatialGeoArrowCrsToParquetCrs(object));
 
@@ -228,7 +236,7 @@ namespace {
   }
 
   ARROW_ASSIGN_OR_RAISE(auto edges, ::arrow::internal::ResolveSimdjsonResult(
-                                        edges_field, "Failed to get 'edges' field: "));
+                                        edges_field, "Failed to get 'edges' field"));
 
   ARROW_ASSIGN_OR_RAISE(auto edges_string,
                         ::arrow::internal::GetJsonAs<std::string_view>(edges));
@@ -246,7 +254,7 @@ namespace {
 }
 
 ::arrow::Result<std::shared_ptr<::arrow::DataType>> GeoArrowTypeFromLogicalType(
-    const LogicalType& logical_type,
+    const parquet::LogicalType& logical_type,
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata,
     const std::shared_ptr<::arrow::DataType>& storage_type) {
   // Check if we have a registered GeoArrow type to read into

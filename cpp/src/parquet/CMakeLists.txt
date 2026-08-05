@@ -379,6 +379,7 @@ add_parquet_test(internals-test
                  bloom_filter_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
+                 geospatial/util_json_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
                  properties_test.cc
