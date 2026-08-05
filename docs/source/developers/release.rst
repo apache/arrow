@@ -197,7 +197,6 @@ a given release.
 
 To test before creating a release candidate:
 
-* Create a pull request from the up-to-date maint-X.Y.Z branch onto main
 * Create a pull request from the up-to-date ``<maintenance-branch>`` onto main
 * Title the pull request "WIP: Dummy PR to check <maintenance-branch> status"
 * Comment on the pull request to trigger the relevant Crossbow jobs:
