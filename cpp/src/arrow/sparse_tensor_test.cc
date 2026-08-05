@@ -1065,7 +1065,7 @@ TEST(TestSparseCSRMatrixForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(dense_tensor, uint64()));
 }
 
-TEST(TestSparseCSRMatrix, RejectOutOfBoundsIndex) {
+TEST(TestSparseCSRMatrixValidation, RejectOutOfBoundsIndex) {
   std::vector<int64_t> indptr_values = {0, 1, 1};
   std::vector<int64_t> indices_values = {3};
   ASSERT_OK_AND_ASSIGN(
@@ -1745,7 +1745,7 @@ TEST(TestSparseCSFIndex, RejectInvalidAxisOrder) {
                                               /*axis_order=*/{0, 0}, indptr, indices));
 }
 
-TEST(TestSparseCSFTensor, RejectOutOfBoundsIndex) {
+TEST(TestSparseCSFTensorValidation, RejectOutOfBoundsIndex) {
   std::vector<int64_t> indptr_values = {0, 1};
   std::vector<int64_t> first_indices_values = {0};
   std::vector<int64_t> second_indices_values = {3};
