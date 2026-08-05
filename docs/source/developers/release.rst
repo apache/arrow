@@ -148,11 +148,15 @@ Follow up Release Candidates will update the maintenance branch by cherry-pickin
 specific commits.
 
 For the initial Release Candidate for a minor or a patch release we will create
-a maintenance branch from the previous corresponding release. For example,
-for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and for
-a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is
-created we will update the created maintenance branch by cherry-picking specific
-commits.
+a maintenance branch from the previous corresponding release tag. For example,
+for a 25.0.1 patch we will create the maintenance branch from the
+``apache-arrow-25.0.0``. This is automatically done by ``archery release cherry-pick``.
+The maintenance branch is named after the release series, not after the exact version being
+released, for example for patch release (``25.0.1``) the maintenance branch will be
+``maint-25.0.x``.
+
+If further patch releases are prepared, i.e., 25.0.2 it will be created on the same
+``maint-25.0.x`` branch.
 
 Create or update the corresponding maintenance branch
 -----------------------------------------------------
@@ -164,12 +168,12 @@ Create or update the corresponding maintenance branch
       .. code-block::
 
             # Execute the following from an up to date main branch.
-            # This will create a branch locally called maint-X.Y.Z.
+            # This will create the maintenance branch locally.
             # X.Y.Z corresponds with the Major, Minor and Patch version number
             # of the release respectively. As an example 9.0.0
             archery release cherry-pick X.Y.Z --execute
             # Push the maintenance branch to the remote repository
-            git push -u upstream maint-X.Y.Z
+            git push -u upstream <maintenance-branch>
 
    .. tab-item:: Follow up Release Candidates
 
@@ -182,7 +186,7 @@ Create or update the corresponding maintenance branch
             # Update the maintenance branch with the previous commits
             archery release cherry-pick X.Y.Z --continue --execute
             # Push the updated maintenance branch to the remote repository
-            git push -u upstream maint-X.Y.Z
+            git push -u upstream <maintenance-branch>
 
 Optional: Test Before Creating a Release Candidate
 --------------------------------------------------
