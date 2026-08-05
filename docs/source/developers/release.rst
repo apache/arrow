@@ -198,7 +198,8 @@ a given release.
 To test before creating a release candidate:
 
 * Create a pull request from the up-to-date maint-X.Y.Z branch onto main
-* Title the pull request "WIP: Dummy PR to check maint-X.Y.Z status"
+* Create a pull request from the up-to-date ``<maintenance-branch>`` onto main
+* Title the pull request "WIP: Dummy PR to check <maintenance-branch> status"
 * Comment on the pull request to trigger the relevant Crossbow jobs:
 
   * ``@github-actions crossbow submit --group verify-rc-source``
@@ -210,7 +211,7 @@ Create the Release Candidate branch from the updated maintenance branch
 .. code-block::
 
     # Start from the updated maintenance branch.
-    git checkout maint-X.Y.Z
+    git checkout <maintenance-branch>
 
     # The following script will create a branch for the Release Candidate,
     # place the necessary commits updating the version number and then create a git tag
@@ -350,7 +351,16 @@ Be sure to go through on the following checklist:
       # git merge release-10.0.0-rc0
       git merge release-X.Y.Z-rcN
       # git push -u upstream maint-10.0.0
-      git push -u upstream maint-X.Y.Z
+Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.x``:
+
+.. code-block:: Bash
+
+     # git checkout maint-25.0.x
+     git checkout maint-X.Y.x
+     # git merge release-25.0.1-rc0
+     git merge release-X.Y.Z-rcN
+     # git push -u upstream maint-25.0.x
+     git push -u upstream maint-X.Y.x
 
 .. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down
