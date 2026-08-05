@@ -2448,9 +2448,10 @@ macro(build_substrait)
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   # Match Protobuf's visibility because target contains generated Protobuf code
-  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON
-                                            CXX_VISIBILITY_PRESET hidden
-                                            VISIBILITY_INLINES_HIDDEN ON)
+  set_target_properties(substrait
+                        PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                   CXX_VISIBILITY_PRESET hidden
+                                   VISIBILITY_INLINES_HIDDEN ON)
   target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
@@ -3962,7 +3963,9 @@ function(build_orc)
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         "-DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}"
+        -DCMAKE_CXX_VISIBILITY_PRESET=hidden
         "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+        -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
         -DSTOP_BUILD_ON_WARNING=OFF
         -DBUILD_LIBHDFSPP=OFF
         -DBUILD_JAVA=OFF
@@ -3986,9 +3989,7 @@ function(build_orc)
         "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>"
         "-DZLIB_HOME=${ORC_ZLIB_ROOT}"
         "-DZLIB_INCLUDE_DIR=$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
-        "-DZLIB_LIBRARY=$<TARGET_FILE:ZLIB::ZLIB>"
-        -DCMAKE_CXX_VISIBILITY_PRESET=hidden
-        -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON)
+        "-DZLIB_LIBRARY=$<TARGET_FILE:ZLIB::ZLIB>")
 
     # Work around CMake bug
     file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
