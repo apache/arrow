@@ -1533,7 +1533,7 @@ Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_ind
   }
 
   const int64_t indptr_byte_width = (*indptr_type)->byte_width();
-  for (size_t i = 0; i < fb_indptr_buffers->size(); ++i) {
+  for (flatbuffers::uoffset_t i = 0; i < fb_indptr_buffers->size(); ++i) {
     const int64_t byte_length = fb_indptr_buffers->Get(i)->length();
     if (byte_length < 0 || byte_length % indptr_byte_width != 0) {
       return Status::Invalid(
