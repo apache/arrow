@@ -153,6 +153,14 @@ TEST(TestSparseCOOIndex, MakeEmptyIndex) {
   ASSERT_TRUE(si->is_canonical());
 }
 
+TEST(TestSparseCOOIndex, RejectShortIndicesBuffer) {
+  auto data = Buffer::FromString("");
+  ASSERT_RAISES(Invalid,
+                SparseCOOIndex::Make(
+                    int32(), /*indices_shape=*/{1, 2},
+                    /*indices_strides=*/{2 * sizeof(int32_t), sizeof(int32_t)}, data));
+}
+
 TEST(TestSparseCSRIndex, Make) {
   std::vector<int32_t> indptr_values = {0, 2, 4, 6, 8, 10, 12};
   std::vector<int32_t> indices_values = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
@@ -658,6 +666,13 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithColumnMajorIndex)
   ASSERT_EQ("baz", st->dim_name(2));
 
   ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
+
+  ASSERT_OK_AND_ASSIGN(auto dense_tensor, st->ToTensor());
+  std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                       0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  Tensor expected(int64(), Buffer::Wrap(dense_values), this->shape_, {},
+                  this->dim_names_);
+  ASSERT_TRUE(dense_tensor->Equals(expected));
 }
 
 TYPED_TEST_P(TestSparseCOOTensorForIndexValueType,

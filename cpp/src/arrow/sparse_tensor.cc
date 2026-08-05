@@ -221,6 +221,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<Tensor>& coords, bool is_canonical) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(coords->type(), coords->shape(), coords->strides()));
+  RETURN_NOT_OK(coords->Validate());
   return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
 
@@ -228,6 +229,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<Tensor>& coords) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(coords->type(), coords->shape(), coords->strides()));
+  RETURN_NOT_OK(coords->Validate());
   auto is_canonical = DetectSparseCOOIndexCanonicality(coords);
   return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
@@ -239,10 +241,10 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     bool is_canonical) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
-  return std::make_shared<SparseCOOIndex>(
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
-                               indices_strides),
-      is_canonical);
+  auto coords = std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
+                                         indices_strides);
+  RETURN_NOT_OK(coords->Validate());
+  return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
@@ -253,6 +255,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
   auto coords = std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
                                          indices_strides);
+  RETURN_NOT_OK(coords->Validate());
   auto is_canonical = DetectSparseCOOIndexCanonicality(coords);
   return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
@@ -303,17 +306,14 @@ Status SparseCOOIndex::ValidateShape(const std::vector<int64_t>& shape) const {
   }
   RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(coords_->type(), shape));
 
-  const int index_elsize = coords_->type()->byte_width();
-  const uint8_t* coords_data = coords_->raw_data();
+  std::vector<int64_t> index;
   for (int64_t i = 0; i < coords_->shape()[0]; ++i) {
+    GetCOOIndexTensorRow(coords_, i, &index);
     for (int64_t dim = 0; dim < coords_->shape()[1]; ++dim) {
-      const int64_t index =
-          internal::SparseTensorConverterMixin::GetIndexValue(coords_data, index_elsize);
-      if (index < 0 || index >= shape[dim]) {
+      if (index[dim] < 0 || index[dim] >= shape[dim]) {
         return Status::Invalid("SparseCOOIndex index is out of bounds for dimension ",
                                dim);
       }
-      coords_data += index_elsize;
     }
   }
   return Status::OK();
