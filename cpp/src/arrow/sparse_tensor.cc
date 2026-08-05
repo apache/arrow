@@ -293,6 +293,32 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords, bool is_ca
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
 
+Status SparseCOOIndex::ValidateShape(const std::vector<int64_t>& shape) const {
+  RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
+  RETURN_NOT_OK(coords_->Validate());
+
+  if (coords_->ndim() != 2 || static_cast<size_t>(coords_->shape()[1]) != shape.size()) {
+    return Status::Invalid(
+        "shape length is inconsistent with the coords matrix in COO index");
+  }
+  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(coords_->type(), shape));
+
+  const int index_elsize = coords_->type()->byte_width();
+  const uint8_t* coords_data = coords_->raw_data();
+  for (int64_t i = 0; i < coords_->shape()[0]; ++i) {
+    for (int64_t dim = 0; dim < coords_->shape()[1]; ++dim) {
+      const int64_t index =
+          internal::SparseTensorConverterMixin::GetIndexValue(coords_data, index_elsize);
+      if (index < 0 || index >= shape[dim]) {
+        return Status::Invalid("SparseCOOIndex index is out of bounds for dimension ",
+                               dim);
+      }
+      coords_data += index_elsize;
+    }
+  }
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // SparseCSXIndex
 
@@ -337,6 +363,61 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
   return Status::OK();
 }
 
+Status ValidateSparseCSXIndexContents(SparseMatrixCompressedAxis compressed_axis,
+                                      const std::shared_ptr<Tensor>& indptr,
+                                      const std::shared_ptr<Tensor>& indices,
+                                      const std::vector<int64_t>& shape,
+                                      const char* type_name) {
+  if (shape.size() != 2) {
+    return Status::Invalid("Invalid shape length for a sparse matrix");
+  }
+  RETURN_NOT_OK(ValidateSparseCSXIndex(indptr->type(), indices->type(), indptr->shape(),
+                                       indices->shape(), type_name));
+  RETURN_NOT_OK(indptr->Validate());
+  RETURN_NOT_OK(indices->Validate());
+  RETURN_NOT_OK(CheckSparseIndexMaximumValue(indices->type(), shape));
+
+  ARROW_ASSIGN_OR_RAISE(const int64_t expected_indptr_length,
+                        ComputeSparseCSXIndptrLength(compressed_axis, shape));
+  if (indptr->shape()[0] != expected_indptr_length) {
+    return Status::Invalid("shape is inconsistent with the ", type_name);
+  }
+
+  const int64_t non_zero_length = indices->shape()[0];
+  const int indptr_elsize = indptr->type()->byte_width();
+  const uint8_t* indptr_data = indptr->raw_data();
+  int64_t previous =
+      SparseTensorConverterMixin::GetIndexValue(indptr_data, indptr_elsize);
+  if (previous != 0) {
+    return Status::Invalid(type_name, " indptr must start at 0");
+  }
+  for (int64_t i = 1; i < expected_indptr_length; ++i) {
+    const int64_t current = SparseTensorConverterMixin::GetIndexValue(
+        indptr_data + i * indptr_elsize, indptr_elsize);
+    if (current < previous || current > non_zero_length) {
+      return Status::Invalid(type_name,
+                             " indptr values must be non-decreasing and not exceed "
+                             "the indices length");
+    }
+    previous = current;
+  }
+  if (previous != non_zero_length) {
+    return Status::Invalid(type_name, " indptr must end at the indices length");
+  }
+
+  const int64_t minor_axis = compressed_axis == SparseMatrixCompressedAxis::ROW ? 1 : 0;
+  const int indices_elsize = indices->type()->byte_width();
+  const uint8_t* indices_data = indices->raw_data();
+  for (int64_t i = 0; i < non_zero_length; ++i) {
+    const int64_t index = SparseTensorConverterMixin::GetIndexValue(
+        indices_data + i * indices_elsize, indices_elsize);
+    if (index < 0 || index >= shape[minor_axis]) {
+      return Status::Invalid(type_name, " index is out of bounds");
+    }
+  }
+  return Status::OK();
+}
+
 void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
                                  const std::shared_ptr<DataType>& indices_type,
                                  const std::vector<int64_t>& indptr_shape,
@@ -357,7 +438,7 @@ inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indpt
                                           const std::shared_ptr<DataType>& indices_type,
                                           const int64_t num_indptrs,
                                           const int64_t num_indices,
-                                          const int64_t axis_order_size) {
+                                          const std::vector<int64_t>& axis_order) {
   if (!is_integer(indptr_type->id())) {
     return Status::TypeError("Type of SparseCSFIndex indptr must be integer");
   }
@@ -368,9 +449,17 @@ inline Status CheckSparseCSFIndexValidity(const std::shared_ptr<DataType>& indpt
     return Status::Invalid(
         "Length of indices must be equal to length of indptrs + 1 for SparseCSFIndex.");
   }
-  if (axis_order_size != num_indices) {
+  if (static_cast<int64_t>(axis_order.size()) != num_indices) {
     return Status::Invalid(
         "Length of indices must be equal to number of dimensions for SparseCSFIndex.");
+  }
+  std::vector<bool> seen(num_indices, false);
+  for (const int64_t axis : axis_order) {
+    if (axis < 0 || axis >= num_indices || seen[axis]) {
+      return Status::Invalid(
+          "SparseCSFIndex axis_order must be a permutation of the dimensions");
+    }
+    seen[axis] = true;
   }
   return Status::OK();
 }
@@ -395,7 +484,7 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
                                           std::vector<int64_t>({indices_shapes[i]}));
 
   RETURN_NOT_OK(CheckSparseCSFIndexValidity(indptr_type, indices_type, indptr.size(),
-                                            indices.size(), axis_order.size()));
+                                            indices.size(), axis_order));
 
   for (auto tensor : indptr) {
     RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indptr_type, tensor->shape()));
@@ -415,10 +504,74 @@ SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indpt
     : SparseIndexBase(), indptr_(indptr), indices_(indices), axis_order_(axis_order) {
   ARROW_CHECK_OK(CheckSparseCSFIndexValidity(indptr_.front()->type(),
                                              indices_.front()->type(), indptr_.size(),
-                                             indices_.size(), axis_order_.size()));
+                                             indices_.size(), axis_order_));
 }
 
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
+
+Status SparseCSFIndex::ValidateShape(const std::vector<int64_t>& shape) const {
+  RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
+  RETURN_NOT_OK(CheckSparseCSFIndexValidity(indptr_.front()->type(),
+                                            indices_.front()->type(), indptr_.size(),
+                                            indices_.size(), axis_order_));
+  if (shape.size() != axis_order_.size()) {
+    return Status::Invalid("shape length is inconsistent with the SparseCSFIndex");
+  }
+  RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_.front()->type(), shape));
+
+  for (int64_t dim = 0; dim < static_cast<int64_t>(indices_.size()); ++dim) {
+    const auto& cur_indices = indices_[dim];
+    if (cur_indices->ndim() != 1) {
+      return Status::Invalid("SparseCSFIndex indices must be vectors");
+    }
+    RETURN_NOT_OK(cur_indices->Validate());
+
+    const int indices_elsize = cur_indices->type()->byte_width();
+    const uint8_t* indices_data = cur_indices->raw_data();
+    for (int64_t i = 0; i < cur_indices->shape()[0]; ++i) {
+      const int64_t index = internal::SparseTensorConverterMixin::GetIndexValue(
+          indices_data + i * indices_elsize, indices_elsize);
+      if (index < 0 || index >= shape[axis_order_[dim]]) {
+        return Status::Invalid("SparseCSFIndex index is out of bounds for dimension ",
+                               axis_order_[dim]);
+      }
+    }
+
+    if (dim == static_cast<int64_t>(indptr_.size())) {
+      continue;
+    }
+    const auto& cur_indptr = indptr_[dim];
+    if (cur_indptr->ndim() != 1 ||
+        cur_indptr->shape()[0] != cur_indices->shape()[0] + 1) {
+      return Status::Invalid(
+          "SparseCSFIndex indptr length is inconsistent with its indices");
+    }
+    RETURN_NOT_OK(cur_indptr->Validate());
+
+    const int indptr_elsize = cur_indptr->type()->byte_width();
+    const uint8_t* indptr_data = cur_indptr->raw_data();
+    int64_t previous =
+        internal::SparseTensorConverterMixin::GetIndexValue(indptr_data, indptr_elsize);
+    if (previous != 0) {
+      return Status::Invalid("SparseCSFIndex indptr must start at 0");
+    }
+    const int64_t next_indices_length = indices_[dim + 1]->shape()[0];
+    for (int64_t i = 1; i < cur_indptr->shape()[0]; ++i) {
+      const int64_t current = internal::SparseTensorConverterMixin::GetIndexValue(
+          indptr_data + i * indptr_elsize, indptr_elsize);
+      if (current < previous || current > next_indices_length) {
+        return Status::Invalid(
+            "SparseCSFIndex indptr values must be non-decreasing and not exceed "
+            "the next indices length");
+      }
+      previous = current;
+    }
+    if (previous != next_indices_length) {
+      return Status::Invalid("SparseCSFIndex indptr must end at the next indices length");
+    }
+  }
+  return Status::OK();
+}
 
 bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
   auto eq = [](const auto& a, const auto& b) { return a->Equals(*b); };
@@ -473,6 +626,30 @@ bool SparseTensor::Equals(const SparseTensor& other, const EqualOptions& opts) c
 }
 
 Result<std::shared_ptr<Tensor>> SparseTensor::ToTensor(MemoryPool* pool) const {
+  if (!sparse_index_) {
+    return Status::Invalid("Sparse tensor has no sparse index");
+  }
+  if (!data_) {
+    return Status::Invalid("Sparse tensor has no values buffer");
+  }
+  RETURN_NOT_OK(sparse_index_->ValidateShape(shape_));
+
+  const auto values_size = internal::MultiplyWithOverflow<int64_t>(
+      {non_zero_length(), static_cast<int64_t>(type_->byte_width())});
+  if (!values_size.has_value() || values_size.value() > data_->size()) {
+    return Status::Invalid("Sparse tensor values buffer is too small");
+  }
+
+  int64_t dense_size = 1;
+  for (const int64_t dim_size : shape_) {
+    if (internal::MultiplyWithOverflow(dense_size, dim_size, &dense_size)) {
+      return Status::Invalid("Sparse tensor size exceeds the maximum supported size");
+    }
+  }
+  if (internal::MultiplyWithOverflow(dense_size, type_->byte_width(), &dense_size)) {
+    return Status::Invalid("Sparse tensor size exceeds the maximum supported size");
+  }
+
   switch (format_id()) {
     case SparseTensorFormat::COO:
       return MakeTensorFromSparseCOOTensor(
