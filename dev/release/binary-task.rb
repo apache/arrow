@@ -1933,7 +1933,8 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
          "--export", gpg_key_id,
          out: gpg_key.path,
          verbose: verbose?)
-      sh("rpm",
+      sh("sudo",
+         "rpm",
          "--import", gpg_key.path,
          out: default_output,
          verbose: verbose?)
