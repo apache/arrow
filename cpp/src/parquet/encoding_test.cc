@@ -2718,8 +2718,8 @@ class TestFLBADenseDecode : public ::testing::Test {
 // These encodings are all built the same way, so exercise them with a single
 // body. RLE_DICTIONARY needs a dictionary and is tested separately below.
 TEST_F(TestFLBADenseDecode, NonDictionaryEncodings) {
-  for (auto encoding : {Encoding::PLAIN, Encoding::DELTA_BYTE_ARRAY,
-                        Encoding::BYTE_STREAM_SPLIT}) {
+  for (auto encoding :
+       {Encoding::PLAIN, Encoding::DELTA_BYTE_ARRAY, Encoding::BYTE_STREAM_SPLIT}) {
     SCOPED_TRACE(EncodingToString(encoding));
 
     auto encoder =
@@ -2755,6 +2755,27 @@ TEST_F(TestFLBADenseDecode, Dictionary) {
   decoder->SetData(kNumValues, indices->data(), static_cast<int>(indices->size()));
   // dict_decoder must outlive the decode: the decoded bytes are owned by it.
   ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+}
+
+// DELTA_BYTE_ARRAY stores each value as a prefix shared with its predecessor plus
+// a suffix, so the dense decode path has to reconstruct the two halves. The
+// random draws used above hardly ever share a prefix, which leaves that
+// reconstruction untested; use prefixed data here instead.
+TEST_F(TestFLBADenseDecode, DeltaByteArrayPrefixedData) {
+  for (double prefixed_probability : {0.5, 1.0}) {
+    SCOPED_TRACE("prefixed_probability=" + std::to_string(prefixed_probability));
+    GeneratePrefixedData<FLBA>(kNumValues, draws_.data(), &data_buffer_,
+                               prefixed_probability);
+
+    auto encoder = MakeTypedEncoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY,
+                                              /*use_dictionary=*/false, descr_.get());
+    encoder->Put(draws_.data(), kNumValues);
+    auto buffer = encoder->FlushValues();
+
+    auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
+    decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+    EXPECT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+  }
 }
 
 TEST_F(TestFLBADenseDecode, PlainRejectsTruncatedDenseBuffer) {
