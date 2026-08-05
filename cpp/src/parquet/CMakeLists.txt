@@ -263,9 +263,9 @@ endif()
 
 list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-# Add RapidJSON & simdjson libraries
-list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON simdjson::simdjson)
-list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON simdjson::simdjson)
+# Add simdjson libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS simdjson::simdjson)
+list(APPEND PARQUET_STATIC_LINK_LIBS simdjson::simdjson)
 
 # These are libraries that we will link privately with parquet_shared (as they
 # do not need to be linked transitively by other linkers)

@@ -108,14 +108,14 @@ Status JsonWriter::WriteValue(sj::value value) {
 
         for (auto field : object) {
           ARROW_ASSIGN_OR_RAISE(
-              auto key, internal::GetSimdjsonResult(field.unescaped_key(),
-                                                    "Failed to get object key: "));
+              auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
+                                                        "Failed to get object key: "));
 
           Key(key);
 
-          ARROW_ASSIGN_OR_RAISE(
-              auto field_value,
-              internal::GetSimdjsonResult(field.value(), "Failed to get object value: "));
+          ARROW_ASSIGN_OR_RAISE(auto field_value,
+                                internal::ResolveSimdjsonResult(
+                                    field.value(), "Failed to get object value: "));
 
           RETURN_NOT_OK(WriteValue(field_value));
         }
@@ -130,7 +130,7 @@ Status JsonWriter::WriteValue(sj::value value) {
         for (auto element : array) {
           ARROW_ASSIGN_OR_RAISE(
               auto element_value,
-              internal::GetSimdjsonResult(element, "Failed to iterate JSON array: "));
+              internal::ResolveSimdjsonResult(element, "Failed to iterate JSON array: "));
 
           RETURN_NOT_OK(WriteValue(element_value));
         }
@@ -170,9 +170,9 @@ Status JsonWriter::WriteValue(sj::value value) {
       },
 
       [&](sj::value value) -> Status {
-        ARROW_ASSIGN_OR_RAISE(auto raw_json,
-                              internal::GetSimdjsonResult(simdjson::to_json_string(value),
-                                                          "Failed to get raw JSON: "));
+        ARROW_ASSIGN_OR_RAISE(auto raw_json, internal::ResolveSimdjsonResult(
+                                                 simdjson::to_json_string(value),
+                                                 "Failed to get raw JSON: "));
         RawValue(raw_json);
         return Status::OK();
       });

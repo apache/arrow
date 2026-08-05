@@ -82,10 +82,11 @@ constexpr const char* JsonTypeName() {
 }
 
 template <typename T>
-Result<T> GetSimdjsonResult(simdjson::simdjson_result<T> result, std::string_view error) {
+Result<T> ResolveSimdjsonResult(simdjson::simdjson_result<T> result,
+                                std::string_view error) {
   T value;
   if (auto error_code = std::move(result).get(value); error_code != simdjson::SUCCESS) {
-    return Status::Invalid(error, simdjson::error_message(error_code));
+    return Status::Invalid(error, ": ", simdjson::error_message(error_code));
   }
   return value;
 }
@@ -98,33 +99,34 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
                       NullFn&& null_fn, Int64Fn&& int64_fn, Uint64Fn&& uint64_fn,
                       DoubleFn&& double_fn, BigIntegerFn&& big_integer_fn) {
   ARROW_ASSIGN_OR_RAISE(
-      auto type, GetSimdjsonResult(value.type(), "Failed to determine JSON type: "));
+      auto type, ResolveSimdjsonResult(value.type(), "Failed to determine JSON type: "));
 
   switch (type) {
     case simdjson::ondemand::json_type::object: {
       ARROW_ASSIGN_OR_RAISE(
           auto object,
-          GetSimdjsonResult(value.get_object(), "Failed to get JSON object: "));
+          ResolveSimdjsonResult(value.get_object(), "Failed to get JSON object: "));
       return object_fn(object);
     }
 
     case simdjson::ondemand::json_type::array: {
       ARROW_ASSIGN_OR_RAISE(
-          auto array, GetSimdjsonResult(value.get_array(), "Failed to get JSON array: "));
+          auto array,
+          ResolveSimdjsonResult(value.get_array(), "Failed to get JSON array: "));
       return array_fn(array);
     }
 
     case simdjson::ondemand::json_type::string: {
       ARROW_ASSIGN_OR_RAISE(
           auto string,
-          GetSimdjsonResult(value.get_string(), "Failed to get JSON string: "));
+          ResolveSimdjsonResult(value.get_string(), "Failed to get JSON string: "));
       return string_fn(string);
     }
 
     case simdjson::ondemand::json_type::boolean: {
       ARROW_ASSIGN_OR_RAISE(
           auto boolean,
-          GetSimdjsonResult(value.get_bool(), "Failed to get JSON boolean: "));
+          ResolveSimdjsonResult(value.get_bool(), "Failed to get JSON boolean: "));
       return bool_fn(boolean);
     }
 
@@ -132,29 +134,31 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
       return null_fn();
 
     case simdjson::ondemand::json_type::number: {
-      ARROW_ASSIGN_OR_RAISE(auto number_type,
-                            GetSimdjsonResult(value.get_number_type(),
-                                              "Failed to determine JSON number type: "));
+      ARROW_ASSIGN_OR_RAISE(
+          auto number_type,
+          ResolveSimdjsonResult(value.get_number_type(),
+                                "Failed to determine JSON number type: "));
 
       switch (number_type) {
         case simdjson::ondemand::number_type::signed_integer: {
           ARROW_ASSIGN_OR_RAISE(
               auto number,
-              GetSimdjsonResult(value.get_int64(), "Failed to get signed integer: "));
+              ResolveSimdjsonResult(value.get_int64(), "Failed to get signed integer: "));
           return int64_fn(number);
         }
 
         case simdjson::ondemand::number_type::unsigned_integer: {
           ARROW_ASSIGN_OR_RAISE(
-              auto number,
-              GetSimdjsonResult(value.get_uint64(), "Failed to get unsigned integer: "));
+              auto number, ResolveSimdjsonResult(value.get_uint64(),
+                                                 "Failed to get unsigned integer: "));
           return uint64_fn(number);
         }
 
         case simdjson::ondemand::number_type::floating_point_number: {
           ARROW_ASSIGN_OR_RAISE(
-              auto number, GetSimdjsonResult(value.get_double(),
-                                             "Failed to get floating-point number: "));
+              auto number,
+              ResolveSimdjsonResult(value.get_double(),
+                                    "Failed to get floating-point number: "));
           return double_fn(number);
         }
 
