@@ -2438,14 +2438,24 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
   RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
       sparse_index, &axis_order, &indices_size, &indptr_type, &indices_type));
   for (int i = 0; i < static_cast<int>(indptr_buffers->size()); ++i) {
-    ARROW_ASSIGN_OR_RAISE(indptr_data[i], file->ReadAt(indptr_buffers->Get(i)->offset(),
-                                                       indptr_buffers->Get(i)->length(),
-                                                       /*allow_short_read=*/false));
+    const auto byte_length = MultiplyWithOverflow<int64_t>(
+        {indptr_buffers->Get(i)->length(), indptr_type->byte_width()});
+    if (!byte_length.has_value()) {
+      return Status::Invalid("SparseCSFIndex indptr buffer size overflows");
+    }
+    ARROW_ASSIGN_OR_RAISE(indptr_data[i],
+                          file->ReadAt(indptr_buffers->Get(i)->offset(),
+                                       byte_length.value(), /*allow_short_read=*/false));
   }
   for (int i = 0; i < static_cast<int>(indices_buffers->size()); ++i) {
-    ARROW_ASSIGN_OR_RAISE(indices_data[i], file->ReadAt(indices_buffers->Get(i)->offset(),
-                                                        indices_buffers->Get(i)->length(),
-                                                        /*allow_short_read=*/false));
+    const auto byte_length = MultiplyWithOverflow<int64_t>(
+        {indices_buffers->Get(i)->length(), indices_type->byte_width()});
+    if (!byte_length.has_value()) {
+      return Status::Invalid("SparseCSFIndex indices buffer size overflows");
+    }
+    ARROW_ASSIGN_OR_RAISE(indices_data[i],
+                          file->ReadAt(indices_buffers->Get(i)->offset(),
+                                       byte_length.value(), /*allow_short_read=*/false));
   }
 
   return SparseCSFIndex::Make(indptr_type, indices_type, indices_size, axis_order,

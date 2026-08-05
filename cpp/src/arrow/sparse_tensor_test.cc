@@ -1050,6 +1050,24 @@ TEST(TestSparseCSRMatrixForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(dense_tensor, uint64()));
 }
 
+TEST(TestSparseCSRMatrix, RejectOutOfBoundsIndex) {
+  std::vector<int64_t> indptr_values = {0, 1, 1};
+  std::vector<int64_t> indices_values = {3};
+  ASSERT_OK_AND_ASSIGN(
+      auto index, SparseCSRIndex::Make(int64(), /*indptr_shape=*/{3},
+                                       /*indices_shape=*/{1}, Buffer::Wrap(indptr_values),
+                                       Buffer::Wrap(indices_values)));
+  std::vector<int64_t> sparse_values = {1};
+  auto sparse_tensor = std::make_shared<SparseCSRMatrix>(
+      index, int64(), Buffer::Wrap(sparse_values), std::vector<int64_t>{2, 3},
+      std::vector<std::string>{});
+
+  ASSERT_RAISES(Invalid, sparse_tensor->ToTensor());
+  ASSERT_RAISES(Invalid,
+                SparseCSRMatrix::Make(index, int64(), Buffer::Wrap(sparse_values),
+                                      /*shape=*/{2, 3}, /*dim_names=*/{}));
+}
+
 template <typename IndexValueType>
 class TestSparseCSCMatrixBase : public TestSparseTensorBase<Int64Type> {
  public:
@@ -1696,6 +1714,41 @@ TEST(TestSparseCSFMatrixForUInt64Index, Make) {
   Tensor dense_tensor(uint64(), Buffer::Wrap(dense_values, sizeof(dense_values)),
                       {2, 3, 4, 5});
   ASSERT_RAISES(Invalid, SparseCSFTensor::Make(dense_tensor, uint64()));
+}
+
+TEST(TestSparseCSFIndex, RejectInvalidAxisOrder) {
+  std::vector<int64_t> indptr_values = {0, 1};
+  std::vector<int64_t> first_indices_values = {0};
+  std::vector<int64_t> second_indices_values = {0};
+  std::vector<std::shared_ptr<Buffer>> indptr = {Buffer::Wrap(indptr_values)};
+  std::vector<std::shared_ptr<Buffer>> indices = {Buffer::Wrap(first_indices_values),
+                                                  Buffer::Wrap(second_indices_values)};
+
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int64(), /*indices_shapes=*/{1, 1},
+                                              /*axis_order=*/{0, 2}, indptr, indices));
+  ASSERT_RAISES(Invalid, SparseCSFIndex::Make(int64(), /*indices_shapes=*/{1, 1},
+                                              /*axis_order=*/{0, 0}, indptr, indices));
+}
+
+TEST(TestSparseCSFTensor, RejectOutOfBoundsIndex) {
+  std::vector<int64_t> indptr_values = {0, 1};
+  std::vector<int64_t> first_indices_values = {0};
+  std::vector<int64_t> second_indices_values = {3};
+  std::vector<std::shared_ptr<Buffer>> indptr = {Buffer::Wrap(indptr_values)};
+  std::vector<std::shared_ptr<Buffer>> indices = {Buffer::Wrap(first_indices_values),
+                                                  Buffer::Wrap(second_indices_values)};
+  ASSERT_OK_AND_ASSIGN(auto index,
+                       SparseCSFIndex::Make(int64(), /*indices_shapes=*/{1, 1},
+                                            /*axis_order=*/{0, 1}, indptr, indices));
+  std::vector<int64_t> sparse_values = {1};
+  auto sparse_tensor = std::make_shared<SparseCSFTensor>(
+      index, int64(), Buffer::Wrap(sparse_values), std::vector<int64_t>{2, 3},
+      std::vector<std::string>{});
+
+  ASSERT_RAISES(Invalid, sparse_tensor->ToTensor());
+  ASSERT_RAISES(Invalid,
+                SparseCSFTensor::Make(index, int64(), Buffer::Wrap(sparse_values),
+                                      /*shape=*/{2, 3}, /*dim_names=*/{}));
 }
 
 }  // namespace arrow

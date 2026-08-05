@@ -589,6 +589,18 @@ TEST(TestSparseCSFIndex, RejectInconsistentBufferCounts) {
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
 }
 
+TEST(TestSparseCSFIndex, RejectInvalidAxisOrder) {
+  // MakeCSFSparseTensorMessage initializes axisOrder to all zeroes, which is not a
+  // permutation for a two-dimensional tensor.
+  ASSERT_OK_AND_ASSIGN(auto message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4},
+                                                                /*num_indptr_buffers=*/1,
+                                                                /*num_indices_buffers=*/2,
+                                                                /*axis_order_size=*/2));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+  ASSERT_RAISES(Invalid,
+                internal::ReadSparseTensorPayload(MakeSparseTensorPayload(message, 4)));
+}
+
 TEST(TestSparseCSFIndex, RejectInconsistentPayloadBufferCounts) {
   ASSERT_OK_AND_ASSIGN(auto message,
                        MakeCSFSparseTensorMessage(/*shape=*/{4}, /*num_indptr_buffers=*/0,
