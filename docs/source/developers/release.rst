@@ -341,25 +341,16 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.Z``:
+   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.x``:
 
    .. code-block:: Bash
 
-      # git checkout maint-10.0.0
-      git checkout maint-X.Y.Z
-      # git merge release-10.0.0-rc0
+      # git checkout maint-25.0.x
+      git checkout maint-X.Y.x
+      # git merge release-25.0.1-rc0
       git merge release-X.Y.Z-rcN
-      # git push -u upstream maint-10.0.0
-Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.x``:
-
-.. code-block:: Bash
-
-     # git checkout maint-25.0.x
-     git checkout maint-X.Y.x
-     # git merge release-25.0.1-rc0
-     git merge release-X.Y.Z-rcN
-     # git push -u upstream maint-25.0.x
-     git push -u upstream maint-X.Y.x
+      # git push -u upstream maint-25.0.x
+      git push -u upstream maint-X.Y.x
 
 .. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down
