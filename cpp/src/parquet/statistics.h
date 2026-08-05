@@ -59,8 +59,7 @@ class PARQUET_EXPORT Comparator {
                                           SortOrder::type sort_order,
                                           int type_length = -1);
 
-  /// \brief Create typed comparator inferring default sort order from
-  /// ColumnDescriptor
+  /// \brief Create typed comparator using the column order from ColumnDescriptor
   /// \param[in] descr the Parquet column schema
   static std::shared_ptr<Comparator> Make(const ColumnDescriptor* descr);
 };
