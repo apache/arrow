@@ -771,7 +771,7 @@ tasks:
       image: conda-python-dask
 {% endfor %}
 
-{% for hdfs_version in ["2.10.2", "3.4.3"] %}
+{% for hdfs_version in ["2.10.2", "3.5.0"] %}
   test-conda-python-3.11-hdfs-{{ hdfs_version }}:
     ci: github
     template: docker-tests/github.linux.yml
