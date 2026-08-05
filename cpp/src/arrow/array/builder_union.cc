@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 
@@ -148,6 +149,77 @@ Status SparseUnionBuilder::AppendArraySlice(const ArraySpan& array, const int64_
   }
   const int8_t* type_codes = array.GetValues<int8_t>(1);
   RETURN_NOT_OK(types_builder_.Append(type_codes + offset, length));
+  return Status::OK();
+}
+
+Status DenseUnionBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& union_type = checked_cast<const DenseUnionType&>(*type());
+  const auto& s = checked_cast<const DenseUnionScalar&>(scalar);
+  const auto scalar_field_index = union_type.child_ids()[s.type_code];
+
+  RETURN_NOT_OK(Reserve(n_repeats));
+  for (int field_index = 0; field_index < union_type.num_fields(); ++field_index) {
+    if (field_index == scalar_field_index) {
+      RETURN_NOT_OK(child_builder(field_index)->Reserve(n_repeats));
+    }
+  }
+
+  for (int64_t r = 0; r < n_repeats; ++r) {
+    RETURN_NOT_OK(Append(s.type_code));
+    for (int field_index = 0; field_index < union_type.num_fields(); ++field_index) {
+      auto* cb = child_builder(field_index).get();
+      if (field_index == scalar_field_index) {
+        if (s.is_valid) {
+          RETURN_NOT_OK(cb->AppendScalar(*s.value));
+        } else {
+          RETURN_NOT_OK(cb->AppendNull());
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+Status SparseUnionBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& union_type = checked_cast<const SparseUnionType&>(*type());
+  const auto& s = checked_cast<const SparseUnionScalar&>(scalar);
+  const auto scalar_field_index = union_type.child_ids()[s.type_code];
+
+  RETURN_NOT_OK(Reserve(n_repeats));
+  for (int field_index = 0; field_index < union_type.num_fields(); ++field_index) {
+    RETURN_NOT_OK(child_builder(field_index)->Reserve(n_repeats));
+  }
+
+  for (int64_t r = 0; r < n_repeats; ++r) {
+    RETURN_NOT_OK(Append(s.type_code));
+    for (int field_index = 0; field_index < union_type.num_fields(); ++field_index) {
+      auto* cb = child_builder(field_index).get();
+      if (field_index == scalar_field_index) {
+        if (s.is_valid && field_index < static_cast<int>(s.value.size()) &&
+            s.value[field_index]) {
+          RETURN_NOT_OK(cb->AppendScalar(*s.value[field_index]));
+        } else {
+          RETURN_NOT_OK(cb->AppendNull());
+        }
+      } else {
+        RETURN_NOT_OK(cb->AppendNull());
+      }
+    }
+  }
   return Status::OK();
 }
 

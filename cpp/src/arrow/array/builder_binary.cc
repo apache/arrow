@@ -102,6 +102,102 @@ void BinaryViewBuilder::Reset() {
   data_heap_builder_.Reset();
 }
 
+Status BinaryViewBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& s = checked_cast<const BinaryViewScalar&>(scalar);
+  int64_t data_size = s.is_valid ? s.value->size() : 0;
+  ARROW_RETURN_NOT_OK(Reserve(n_repeats));
+  ARROW_RETURN_NOT_OK(ReserveData(n_repeats * data_size));
+  if (s.is_valid) {
+    std::string_view sv{*s.value};
+    for (int64_t i = 0; i < n_repeats; ++i) {
+      UnsafeAppend(sv);
+    }
+  } else {
+    for (int64_t i = 0; i < n_repeats; ++i) {
+      UnsafeAppendNull();
+    }
+  }
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::AppendScalars(const ScalarVector& scalars) {
+  if (scalars.empty()) return Status::OK();
+  const auto ty = type();
+  int64_t data_size = 0;
+  for (const auto& scalar : scalars) {
+    if (!scalar->type->Equals(ty)) {
+      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+    const auto& s = checked_cast<const BinaryViewScalar&>(*scalar);
+    if (s.is_valid) {
+      data_size += s.value->size();
+    }
+  }
+  ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
+  ARROW_RETURN_NOT_OK(ReserveData(data_size));
+  for (const auto& scalar : scalars) {
+    const auto& s = checked_cast<const BinaryViewScalar&>(*scalar);
+    if (s.is_valid) {
+      UnsafeAppend(std::string_view{*s.value});
+    } else {
+      UnsafeAppendNull();
+    }
+  }
+  return Status::OK();
+}
+
+Status FixedSizeBinaryBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (scalar.type->id() == Type::NA) {
+    return AppendNulls(n_repeats);
+  }
+  if (scalar.type->id() != type()->id()) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  const auto& s = checked_cast<const FixedSizeBinaryScalar&>(scalar);
+  ARROW_RETURN_NOT_OK(Reserve(n_repeats));
+  if (s.is_valid) {
+    std::string_view sv{*s.value};
+    for (int64_t i = 0; i < n_repeats; ++i) {
+      UnsafeAppend(sv);
+    }
+  } else {
+    for (int64_t i = 0; i < n_repeats; ++i) {
+      UnsafeAppendNull();
+    }
+  }
+  return Status::OK();
+}
+
+Status FixedSizeBinaryBuilder::AppendScalars(const ScalarVector& scalars) {
+  if (scalars.empty()) return Status::OK();
+  const auto ty = type();
+  for (const auto& scalar : scalars) {
+    if (!scalar->type->Equals(ty)) {
+      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+  }
+  ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
+  for (const auto& scalar : scalars) {
+    const auto& s = checked_cast<const FixedSizeBinaryScalar&>(*scalar);
+    if (s.is_valid) {
+      UnsafeAppend(std::string_view{*s.value});
+    } else {
+      UnsafeAppendNull();
+    }
+  }
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Fixed width binary
 

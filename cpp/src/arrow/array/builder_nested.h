@@ -159,6 +159,8 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+
   /// \brief Vector append
   ///
   /// For list-array builders, the sizes are inferred from the offsets.
@@ -561,6 +563,8 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final;
 
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+
   Status AppendEmptyValue() final;
 
   Status AppendEmptyValues(int64_t length) final;
@@ -694,6 +698,8 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// automatically.
   Status AppendNulls(int64_t length) final;
 
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+
   Status ValidateOverflow(int64_t new_elements);
 
   Status AppendEmptyValue() final;
@@ -806,6 +812,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     UnsafeAppendToBitmap(length, true);
     return Status::OK();
   }
+
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
 
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
