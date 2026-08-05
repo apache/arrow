@@ -1,4 +1,24 @@
 
+# Apache Arrow 25.0.1 (2026-08-07 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-50383](https://github.com/apache/arrow/issues/50383) - [Release] Remove deprecated -f flag on conda create environment (#50384)
+* [GH-50578](https://github.com/apache/arrow/issues/50578) - [C++][FlightRPC][ODBC] Always return SQL_NO_DATA from GetMoreResults (#50700)
+* [GH-50600](https://github.com/apache/arrow/issues/50600) - [Release] Pin Python version in Conda verification
+* [GH-50605](https://github.com/apache/arrow/issues/50605) - [Python][Parquet] Silent wrong values decoding a double column on aarch64 SVE (pyarrow 25.0.0)
+* [GH-50808](https://github.com/apache/arrow/issues/50808) - [Python] Narrow Feather deprecation to V1 format (#50685)
+
+
+## New Features and Improvements
+
+* [GH-50326](https://github.com/apache/arrow/issues/50326) - [Python] Convert arrays to Python objects without per-element Scalars in to_pylist (#50327)
+* [GH-50428](https://github.com/apache/arrow/issues/50428) - [C++] Better mimalloc configuration on macOS (#50549)
+* [GH-50471](https://github.com/apache/arrow/issues/50471) - [C++][Python] SIGSEGV in bundled mimalloc mi\_thread\_init when libarrow is first loaded on a non-main thread that exits (mimalloc 3.3.x, pyarrow 25.0.0)
+* [GH-50503](https://github.com/apache/arrow/issues/50503) - [Parquet] Remove SVE128 unpack (#50611)
+
+
+
 # Apache Arrow 25.0.0 (2026-07-07 00:00:00+00:00)
 
 ## Bug Fixes
