@@ -2715,15 +2715,23 @@ class TestFLBADenseDecode : public ::testing::Test {
   std::shared_ptr<ColumnDescriptor> descr_;
 };
 
-TEST_F(TestFLBADenseDecode, Plain) {
-  auto encoder =
-      MakeTypedEncoder<FLBAType>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
-  encoder->Put(draws_.data(), kNumValues);
-  auto buffer = encoder->FlushValues();
+// These encodings are all built the same way, so exercise them with a single
+// body. RLE_DICTIONARY needs a dictionary and is tested separately below.
+TEST_F(TestFLBADenseDecode, NonDictionaryEncodings) {
+  for (auto encoding : {Encoding::PLAIN, Encoding::DELTA_BYTE_ARRAY,
+                        Encoding::BYTE_STREAM_SPLIT}) {
+    SCOPED_TRACE(EncodingToString(encoding));
 
-  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::PLAIN, descr_.get());
-  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
-  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+    auto encoder =
+        MakeTypedEncoder<FLBAType>(encoding, /*use_dictionary=*/false, descr_.get());
+    encoder->Put(draws_.data(), kNumValues);
+    auto buffer = encoder->FlushValues();
+
+    auto decoder = MakeTypedDecoder<FLBAType>(encoding, descr_.get());
+    decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
+    // EXPECT rather than ASSERT so one failing encoding doesn't hide the others.
+    EXPECT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
+  }
 }
 
 TEST_F(TestFLBADenseDecode, Dictionary) {
@@ -2746,28 +2754,6 @@ TEST_F(TestFLBADenseDecode, Dictionary) {
   decoder->SetDict(dict_decoder.get());
   decoder->SetData(kNumValues, indices->data(), static_cast<int>(indices->size()));
   // dict_decoder must outlive the decode: the decoded bytes are owned by it.
-  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
-}
-
-TEST_F(TestFLBADenseDecode, DeltaByteArray) {
-  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY,
-                                            /*use_dictionary=*/false, descr_.get());
-  encoder->Put(draws_.data(), kNumValues);
-  auto buffer = encoder->FlushValues();
-
-  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
-  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
-  ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
-}
-
-TEST_F(TestFLBADenseDecode, ByteStreamSplit) {
-  auto encoder = MakeTypedEncoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT,
-                                            /*use_dictionary=*/false, descr_.get());
-  encoder->Put(draws_.data(), kNumValues);
-  auto buffer = encoder->FlushValues();
-
-  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
-  decoder->SetData(kNumValues, buffer->data(), static_cast<int>(buffer->size()));
   ASSERT_NO_FATAL_FAILURE(CheckDenseDecode(dynamic_cast<FLBADecoder*>(decoder.get())));
 }
 
