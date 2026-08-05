@@ -2447,13 +2447,10 @@ macro(build_substrait)
   set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
-  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # Match Protobuf's visibility so duplicate inline definitions can't be
-    # selected with different visibility when linking a side module (GH-50774)
-    set_target_properties(substrait PROPERTIES CXX_VISIBILITY_PRESET hidden
-                                               VISIBILITY_INLINES_HIDDEN ON)
-  endif()
+  # Match Protobuf's visibility because target contains generated Protobuf code
+  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                            CXX_VISIBILITY_PRESET hidden
+                                            VISIBILITY_INLINES_HIDDEN ON)
   target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
@@ -3894,11 +3891,9 @@ function(build_orc)
 
     fetchcontent_makeavailable(orc)
 
-    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-      # ORC compiles generated Protobuf code into its static library
-      set_target_properties(orc PROPERTIES CXX_VISIBILITY_PRESET hidden
-                                           VISIBILITY_INLINES_HIDDEN ON)
-    endif()
+    # ORC compiles generated Protobuf code into its static library
+    set_target_properties(orc PROPERTIES CXX_VISIBILITY_PRESET hidden
+                                         VISIBILITY_INLINES_HIDDEN ON)
 
     # ORC 2.2.1 unconditionally adds /std:c++17 on MSVC via
     # add_compile_options, which overrides CMAKE_CXX_STANDARD and causes
@@ -3991,11 +3986,9 @@ function(build_orc)
         "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>"
         "-DZLIB_HOME=${ORC_ZLIB_ROOT}"
         "-DZLIB_INCLUDE_DIR=$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
-        "-DZLIB_LIBRARY=$<TARGET_FILE:ZLIB::ZLIB>")
-    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-      list(APPEND ORC_CMAKE_ARGS -DCMAKE_CXX_VISIBILITY_PRESET=hidden
-           -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON)
-    endif()
+        "-DZLIB_LIBRARY=$<TARGET_FILE:ZLIB::ZLIB>"
+        -DCMAKE_CXX_VISIBILITY_PRESET=hidden
+        -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON)
 
     # Work around CMake bug
     file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
