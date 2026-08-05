@@ -1068,10 +1068,12 @@ TEST(TestSparseCSRMatrixForUInt64Index, Make) {
 TEST(TestSparseCSRMatrixValidation, RejectOutOfBoundsIndex) {
   std::vector<int64_t> indptr_values = {0, 1, 1};
   std::vector<int64_t> indices_values = {3};
+  const std::vector<int64_t> indptr_shape = {3};
+  const std::vector<int64_t> indices_shape = {1};
   ASSERT_OK_AND_ASSIGN(
-      auto index, SparseCSRIndex::Make(int64(), /*indptr_shape=*/{3},
-                                       /*indices_shape=*/{1}, Buffer::Wrap(indptr_values),
-                                       Buffer::Wrap(indices_values)));
+      auto index,
+      SparseCSRIndex::Make(int64(), indptr_shape, indices_shape,
+                           Buffer::Wrap(indptr_values), Buffer::Wrap(indices_values)));
   std::vector<int64_t> sparse_values = {1};
   auto sparse_tensor = std::make_shared<SparseCSRMatrix>(
       index, int64(), Buffer::Wrap(sparse_values), std::vector<int64_t>{2, 3},
