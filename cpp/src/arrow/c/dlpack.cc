@@ -62,6 +62,7 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
 struct ManagerCtx {
   std::shared_ptr<ArrayData> array;
   DLManagedTensor tensor;
+  int64_t strides = 1;
 };
 
 }  // namespace
@@ -94,8 +95,9 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   ctx->tensor.dl_tensor.ndim = 1;
   ctx->tensor.dl_tensor.dtype = dlpack_type;
   ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(&data->length);
-  ctx->tensor.dl_tensor.strides = NULL;
   ctx->tensor.dl_tensor.byte_offset = 0;
+  // Strides must be non-null when ndim > 0
+  ctx->tensor.dl_tensor.strides = &ctx->strides;
 
   ctx->array = std::move(data);
   ctx->tensor.manager_ctx = ctx.get();

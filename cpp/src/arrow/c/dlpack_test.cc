@@ -28,7 +28,7 @@ namespace arrow::dlpack {
 
 class TestExportArray : public ::testing::Test {
  public:
-  void SetUp() {}
+  void SetUp() override {}
 };
 
 void CheckDLTensor(const std::shared_ptr<Array>& arr,
@@ -44,9 +44,9 @@ void CheckDLTensor(const std::shared_ptr<Array>& arr,
   ASSERT_EQ(sliced_buffer->data(), dltensor.data);
 
   ASSERT_EQ(0, dltensor.byte_offset);
-  ASSERT_EQ(NULL, dltensor.strides);
   ASSERT_EQ(length, dltensor.shape[0]);
   ASSERT_EQ(1, dltensor.ndim);
+  ASSERT_EQ(1, *dltensor.strides);  // Must be non-null with ndim>0 since 1.2
 
   ASSERT_EQ(dlpack_type, dltensor.dtype.code);
   ASSERT_EQ(arrow_type->bit_width(), dltensor.dtype.bits);
@@ -128,7 +128,7 @@ TEST_F(TestExportArray, TestErrors) {
 
 class TestExportTensor : public ::testing::Test {
  public:
-  void SetUp() {}
+  void SetUp() override {}
 };
 
 void CheckDLTensor(const std::shared_ptr<Tensor>& t,
