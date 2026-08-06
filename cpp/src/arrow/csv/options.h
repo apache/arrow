@@ -129,6 +129,13 @@ struct ARROW_EXPORT ConvertOptions {
   /// the CSV conversion logic will try parsing values starting from the
   /// beginning of this vector. If no parsers are specified, we use the default
   /// built-in ISO-8601 parser.
+  ///
+  /// These parsers are also used as a fallback for columns explicitly typed
+  /// as date32, date64, time32 or time64, after the built-in ISO-8601 parser
+  /// failed on a value. A timestamp produced by a fallback parser is floored
+  /// to the day boundary for dates, and reduced to the time of day for times
+  /// (like casting a timestamp to a date or time type). Type inference of
+  /// date and time columns is not affected.
   std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
 
   /// Create conversion options with default values, including conventional
