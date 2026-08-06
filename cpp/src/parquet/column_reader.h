@@ -63,12 +63,12 @@ struct PARQUET_EXPORT DataPageStats {
   std::optional<int32_t> num_rows;
 };
 
-/// Decoder for repetition of definition level.
+/// Decoder for repetition or definition level.
 ///
 /// This decoder is used with either a deprecated bit packed (`BIT_PACKED = 4`)
 /// encoding or a mixed bit packed and RLE one (`RLE = 3`).
-/// Because it take as input a single buffer, `SetData` and `Decode` are typically
-/// used on each of the parquet `DataPage`.
+/// Because it takes as input a single buffer, `SetData` and `Decode` are typically
+/// used on each of the Parquet `DataPage`.
 /// The number of levels is guaranteed to fit into an `int32_t` by the specification.
 ///
 /// @see https://research.google.com/pubs/archive/36632.pdf
@@ -93,7 +93,7 @@ class PARQUET_EXPORT LevelDecoder {
   void SetDataV2(int32_t num_bytes, int16_t max_level, int32_t num_buffered_values,
                  const uint8_t* data);
 
-  /// Decode a batch of levels int32_to an array and returns the number of levels decoded.
+  /// Decode a batch of levels into an array and return the number of levels decoded.
   int32_t Decode(int32_t batch_size, int16_t* levels);
 
   /// Advance the decoder and throw away decoder levels.
@@ -374,9 +374,7 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Number of values written, including space left for nulls if any.
   /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
-  /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
-  /// FLBA and ByteArray types this value reflects the values written with the last
-  /// ReadRecords call since those readers will reset the values after each call.
+  /// nulls and null_count() will be 0. There is no read-ahead/buffering for values.
   /// This is reset by both Reset() and ReleaseValues(), so it must be read before
   /// the values buffer is transferred to the caller.
   virtual int64_t values_written() const = 0;
@@ -406,7 +404,7 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief If true, the reader will not leave empty space for null values when decoding.
   ///
-  /// Always return false when the leaf is required, reagardless of the class input.
+  /// Always return false when the leaf is required, regardless of the class input.
   virtual bool read_dense_for_nullable() const = 0;
 };
 
