@@ -224,6 +224,10 @@ class PARQUET_EXPORT FileReader {
   /// The FileReader must outlive the generator, so this requires that you pass in a
   /// shared_ptr.
   ///
+  /// If automatic read-cache eviction is enabled, this is intended for one-pass
+  /// consumption. Row groups may be supplied in any order, but file order allows
+  /// pre-buffered memory to be released progressively.
+  ///
   /// \returns error Result if either row_group_indices or column_indices contains an
   ///     invalid index
   virtual ::arrow::Result<

@@ -28,7 +28,6 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
-#include <optional>
 #include <set>
 #include <sstream>
 #include <type_traits>
@@ -2769,27 +2768,29 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
   int64_t rg1_min = std::numeric_limits<int64_t>::max();
   for (const auto& r : rg1_ranges) rg1_min = std::min(rg1_min, r.offset);
 
-  EXPECT_GT(reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min), 0);
+  reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
+  ASSERT_RAISES(Invalid,
+                reader->parquet_reader()->WhenBuffered({0}, column_indices).status());
   ASSERT_OK(reader->ReadRowGroup(/*i=*/1, column_indices, &rg_table));
   ASSERT_EQ(rg_table->num_rows(), row_group_size);
 
-  EXPECT_GT(reader->parquet_reader()->EvictPreBufferedDataBefore(
-                std::numeric_limits<int64_t>::max()),
-            0);
+  reader->parquet_reader()->EvictPreBufferedDataBefore(
+      std::numeric_limits<int64_t>::max());
+  ASSERT_RAISES(Invalid,
+                reader->parquet_reader()->WhenBuffered({1}, column_indices).status());
   std::shared_ptr<ChunkedArray> reread_column;
   ASSERT_OK(reader->RowGroup(1)->Column(0)->Read(&reread_column));
   ASSERT_EQ(reread_column->length(), row_group_size);
 
   // Re-evicting the same window frees nothing more.
-  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min));
+  reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
 
   // A reader that never called PreBuffer is a no-op.
   std::unique_ptr<FileReader> no_prebuffer_reader;
   FileReaderBuilder no_prebuffer_builder;
   ASSERT_OK(no_prebuffer_builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(no_prebuffer_builder.Build(&no_prebuffer_reader));
-  ASSERT_EQ(0,
-            no_prebuffer_reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min));
+  no_prebuffer_reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
 }
 
 // GH-39808: with coalescing a single cache entry can span adjacent row groups.
@@ -2829,11 +2830,15 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBeforeReleasesCrossRowGroupEntry) {
                        reader->parquet_reader()->GetReadRanges({3}, column_indices));
   int64_t rg3_min = std::numeric_limits<int64_t>::max();
   for (const auto& r : rg3_ranges) rg3_min = std::min(rg3_min, r.offset);
-  ASSERT_EQ(0, reader->parquet_reader()->EvictPreBufferedDataBefore(rg3_min));
+  reader->parquet_reader()->EvictPreBufferedDataBefore(rg3_min);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 
   // An offset past the whole file frees the spanning entry.
-  ASSERT_EQ(1, reader->parquet_reader()->EvictPreBufferedDataBefore(
-                   static_cast<int64_t>(buffer->size())));
+  reader->parquet_reader()->EvictPreBufferedDataBefore(
+      static_cast<int64_t>(buffer->size()));
+  ASSERT_RAISES(
+      Invalid,
+      reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 }
 
 // GH-39808: when Dataset.to_batches-style iteration drives the async
@@ -2859,6 +2864,30 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
                                              default_arrow_writer_properties(), &buffer));
 
+  // General FileReaders retain their cache because callers may create another
+  // generator for the same row group.
+  ASSERT_FALSE(properties.auto_evict_read_cache());
+  std::shared_ptr<FileReader> retaining_reader;
+  {
+    std::unique_ptr<FileReader> unique_reader;
+    FileReaderBuilder builder;
+    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK(builder.properties(properties)->Build(&unique_reader));
+    retaining_reader = std::move(unique_reader);
+  }
+  ASSERT_OK_AND_ASSIGN(
+      auto retaining_generator,
+      retaining_reader->GetRecordBatchGenerator(retaining_reader, {0}, {0}));
+  auto retained_fut = retaining_generator();
+  ASSERT_OK_AND_ASSIGN(auto retained_batch, retained_fut.result());
+  ASSERT_NE(retained_batch, nullptr);
+  auto retained_end_fut = retaining_generator();
+  ASSERT_OK_AND_ASSIGN(auto retained_end, retained_end_fut.result());
+  ASSERT_EQ(retained_end, nullptr);
+  ASSERT_OK(retaining_reader->parquet_reader()->WhenBuffered({0}, {0}).status());
+
+  properties.set_auto_evict_read_cache(true);
+
   std::shared_ptr<FileReader> reader;
   {
     std::unique_ptr<FileReader> unique_reader;
@@ -2870,8 +2899,11 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_EQ(reader->num_row_groups(), num_rows / row_group_size);
 
   // Drive the generator exactly as ScanBatchesAsync does.
-  ASSERT_OK_AND_ASSIGN(auto batch_generator,
-                       reader->GetRecordBatchGenerator(reader, {0, 1, 2, 3}, {0, 1}));
+  ASSERT_OK_AND_ASSIGN(
+      auto batch_generator,
+      reader->GetRecordBatchGenerator(reader, {0, 1, 2, 3}, {0, 1},
+                                      /*cpu_executor=*/nullptr,
+                                      /*rows_to_readahead=*/2 * row_group_size));
   std::vector<std::shared_ptr<::arrow::RecordBatch>> batches;
   for (int i = 0; i < reader->num_row_groups(); ++i) {
     auto fut = batch_generator();
@@ -2887,23 +2919,8 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_OK_AND_ASSIGN(auto actual,
                        ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
   AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
-}
-
-// Readahead completes row groups out of order, so the watermark advance must
-// only evict once the contiguous prefix of completed row groups grows. This
-// drives that logic directly, without a reader, for determinism.
-TEST(TestArrowReadWrite, ReadCacheEvictionStateOutOfOrder) {
-  constexpr int64_t kNoMoreRanges = std::numeric_limits<int64_t>::max();
-  ReadCacheEvictionState state({100, 200, 300, kNoMoreRanges});
-
-  // Index 1 completes first: prefix stays at 0 (index 0 not done), no eviction.
-  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(1), std::nullopt);
-  // Index 0 completes: prefix jumps 0 -> 2, evict before row group 2's offset.
-  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(0), std::optional<int64_t>(300));
-  // Index 2 completes: prefix jumps 2 -> 3, everything is evictable.
-  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(2), std::optional<int64_t>(kNoMoreRanges));
-  // Re-decoding an already-completed index is idempotent: no eviction.
-  EXPECT_EQ(state.MarkDecodedAndGetEvictOffset(0), std::nullopt);
+  ASSERT_RAISES(Invalid,
+                reader->parquet_reader()->WhenBuffered({0, 1, 2, 3}, {0, 1}).status());
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {

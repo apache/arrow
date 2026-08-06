@@ -22,7 +22,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <mutex>
 #include <span>
 #include <unordered_set>
 #include <utility>
@@ -1210,13 +1209,13 @@ class RowGroupGenerator {
                              ::arrow::internal::Executor* cpu_executor,
                              std::vector<int> row_groups, std::vector<int> column_indices,
                              int64_t min_rows_in_flight,
-                             std::shared_ptr<ReadCacheEvictionState> eviction_state)
+                             std::vector<int64_t> evict_before_offsets)
       : arrow_reader_(std::move(arrow_reader)),
         cpu_executor_(cpu_executor),
         row_groups_(std::move(row_groups)),
         column_indices_(std::move(column_indices)),
         min_rows_in_flight_(min_rows_in_flight),
-        eviction_state_(std::move(eviction_state)),
+        evict_before_offsets_(std::move(evict_before_offsets)),
         rows_in_flight_(0),
         index_(0),
         readahead_index_(0) {}
@@ -1225,13 +1224,21 @@ class RowGroupGenerator {
     if (index_ >= row_groups_.size()) {
       return ::arrow::AsyncGeneratorEnd<RecordBatchGenerator>();
     }
-    index_++;
+    const size_t request_index = index_++;
     FillReadahead();
-    ReadRequest next = std::move(in_flight_reads_.front());
     DCHECK(!in_flight_reads_.empty());
+    ReadRequest next = std::move(in_flight_reads_.front());
     in_flight_reads_.pop();
     rows_in_flight_ -= next.num_rows;
-    return next.read;
+    if (evict_before_offsets_.empty()) {
+      return next.read;
+    }
+    auto reader = arrow_reader_;
+    return next.read.Then([reader, offset = evict_before_offsets_[request_index + 1]](
+                              RecordBatchGenerator generator) {
+      reader->parquet_reader()->EvictPreBufferedDataBefore(offset);
+      return generator;
+    });
   }
 
  private:
@@ -1248,8 +1255,7 @@ class RowGroupGenerator {
   }
 
   void FetchNext() {
-    size_t row_group_index = readahead_index_++;
-    int row_group = row_groups_[row_group_index];
+    int row_group = row_groups_[readahead_index_++];
     std::vector<int> column_indices = column_indices_;
     auto reader = arrow_reader_;
     int64_t num_rows =
@@ -1262,19 +1268,10 @@ class RowGroupGenerator {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
       row_group_read =
-          ready.Then([cpu_executor = cpu_executor_, reader, row_group, row_group_index,
-                      eviction_state = eviction_state_,
+          ready.Then([cpu_executor = cpu_executor_, reader, row_group,
                       column_indices = std::move(
                           column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
-            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices)
-                .Then([reader, row_group_index, eviction_state](
-                          RecordBatchGenerator generator) -> RecordBatchGenerator {
-                  if (eviction_state) {
-                    eviction_state->RowGroupDecoded(reader->parquet_reader(),
-                                                    row_group_index);
-                  }
-                  return generator;
-                });
+            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices);
           });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
@@ -1316,7 +1313,7 @@ class RowGroupGenerator {
   std::vector<int> row_groups_;
   std::vector<int> column_indices_;
   int64_t min_rows_in_flight_;
-  std::shared_ptr<ReadCacheEvictionState> eviction_state_;
+  std::vector<int64_t> evict_before_offsets_;
   std::queue<ReadRequest> in_flight_reads_;
   int64_t rows_in_flight_;
   size_t index_;
@@ -1339,14 +1336,11 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                        reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
-  // GH-39808: evict each row group's bytes as the decoded prefix advances, so
-  // memory stays bounded. Only this read-once path evicts, so PreBuffer()'s
-  // contract is unchanged for other callers.
-  std::shared_ptr<ReadCacheEvictionState> eviction_state;
-  if (reader_properties_.pre_buffer() && !column_indices.empty() &&
-      !row_group_indices.empty()) {
+  std::vector<int64_t> evict_before_offsets;
+  if (reader_properties_.pre_buffer() && reader_properties_.auto_evict_read_cache() &&
+      !column_indices.empty() && !row_group_indices.empty()) {
     const int64_t kNoMoreRanges = std::numeric_limits<int64_t>::max();
-    std::vector<int64_t> evict_before(row_group_indices.size() + 1, kNoMoreRanges);
+    evict_before_offsets.resize(row_group_indices.size() + 1, kNoMoreRanges);
     for (int64_t i = static_cast<int64_t>(row_group_indices.size()) - 1; i >= 0; --i) {
       ARROW_ASSIGN_OR_RAISE(
           auto ranges, reader_->GetReadRanges({row_group_indices[static_cast<size_t>(i)]},
@@ -1355,15 +1349,14 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
       for (const auto& range : ranges) {
         rg_min = std::min(rg_min, range.offset);
       }
-      evict_before[static_cast<size_t>(i)] =
-          std::min(evict_before[static_cast<size_t>(i + 1)], rg_min);
+      evict_before_offsets[static_cast<size_t>(i)] =
+          std::min(evict_before_offsets[static_cast<size_t>(i + 1)], rg_min);
     }
-    eviction_state = std::make_shared<ReadCacheEvictionState>(std::move(evict_before));
   }
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
       RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
                         cpu_executor, row_group_indices, column_indices,
-                        rows_to_readahead, std::move(eviction_state));
+                        rows_to_readahead, std::move(evict_before_offsets));
   ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>> concatenated =
       ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
   WRAP_ASYNC_GENERATOR(std::move(concatenated));

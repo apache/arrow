@@ -203,9 +203,8 @@ class PARQUET_EXPORT ParquetFileReader {
 
   /// \brief Release cached bytes (from PreBuffer()) ending at or before
   /// `end_offset`. Call once those row groups are decoded; later reads of evicted
-  /// ranges fall back to the source file. No-op (returns 0) if PreBuffer() was not
-  /// called.
-  int64_t EvictPreBufferedDataBefore(int64_t end_offset);
+  /// ranges fall back to the source file. No-op if PreBuffer() was not called.
+  void EvictPreBufferedDataBefore(int64_t end_offset);
 
   /// Retrieve the list of byte ranges that would need to be read to retrieve
   /// the data for the specified row groups and column indices.

@@ -746,6 +746,16 @@ class CountingBufferReader : public BufferReader {
   int64_t read_count_ = 0;
 };
 
+class InvalidReadBufferReader : public BufferReader {
+ public:
+  using BufferReader::BufferReader;
+
+  Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t, int64_t,
+                                            bool) override {
+    return Future<std::shared_ptr<Buffer>>::MakeFinished(Status::Invalid("read failed"));
+  }
+};
+
 TEST(RangeReadCache, Basics) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
@@ -786,6 +796,8 @@ TEST(RangeReadCache, Basics) {
     ASSERT_RAISES(Invalid, cache.Read({19, 3}));
     ASSERT_RAISES(Invalid, cache.Read({0, 3}));
     ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+    ASSERT_OK_AND_ASSIGN(auto missing, cache.ReadIfCached({25, 2}));
+    ASSERT_FALSE(missing);
     ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{25, 2}}));
     ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{1, 2}, {25, 2}}));
 
@@ -793,6 +805,14 @@ TEST(RangeReadCache, Basics) {
     // 8 ranges should lead to less than 8 reads
     ASSERT_LT(file->read_count(), 8);
   }
+}
+
+TEST(RangeReadCache, ReadIfCachedPropagatesErrors) {
+  auto file = std::make_shared<InvalidReadBufferReader>(Buffer::FromString("data"));
+  internal::ReadRangeCache cache(file, {}, CacheOptions::Defaults());
+
+  ASSERT_OK(cache.Cache({{0, 4}}));
+  ASSERT_RAISES(Invalid, cache.ReadIfCached({0, 4}));
 }
 
 TEST(RangeReadCache, Concurrency) {
@@ -941,25 +961,27 @@ TEST(RangeReadCache, EvictEntriesBefore) {
     AssertBufferEqual(*buf, "klmn");
 
     // An offset that splits no entry frees nothing.
-    ASSERT_EQ(0, cache.EvictEntriesBefore(0));
-    ASSERT_EQ(0, cache.EvictEntriesBefore(2));  // [1,3) extends past 2 -> retained
+    cache.EvictEntriesBefore(0);
+    cache.EvictEntriesBefore(2);  // [1,3) extends past 2 -> retained
+    ASSERT_OK(cache.Read({1, 2}));
 
     // end_offset == an entry's end frees exactly that entry ([1,3) ends at 3).
-    ASSERT_EQ(1, cache.EvictEntriesBefore(3));
+    cache.EvictEntriesBefore(3);
     ASSERT_RAISES(Invalid, cache.Read({1, 2}));
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));  // others intact
     AssertBufferEqual(*buf, "klmn");
 
     // An offset inside an entry leaves it in place.
-    ASSERT_EQ(0, cache.EvictEntriesBefore(12));  // [10,14) straddles 12
+    cache.EvictEntriesBefore(12);  // [10,14) straddles 12
+    ASSERT_OK(cache.Read({10, 4}));
 
     // A wide offset frees every remaining entry in one call.
-    ASSERT_EQ(2, cache.EvictEntriesBefore(100));
+    cache.EvictEntriesBefore(100);
     ASSERT_RAISES(Invalid, cache.Read({10, 4}));
     ASSERT_RAISES(Invalid, cache.Read({20, 2}));
 
     // Empty cache is a safe no-op.
-    ASSERT_EQ(0, cache.EvictEntriesBefore(100));
+    cache.EvictEntriesBefore(100);
   }
 }
 
@@ -1056,13 +1078,13 @@ TEST(RangeReadCache, EvictEntriesBeforeSpanningEntry) {
   ASSERT_OK(cache.Cache({{1, 3}, {10, 4}}));
 
   // An offset inside the entry (e.g. just past the first logical range) keeps it.
-  ASSERT_EQ(0, cache.EvictEntriesBefore(4));
-  ASSERT_EQ(0, cache.EvictEntriesBefore(13));
+  cache.EvictEntriesBefore(4);
+  cache.EvictEntriesBefore(13);
   ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
   ASSERT_EQ(4, buf->size());
 
   // end_offset at/after the entry's end (14) frees it.
-  ASSERT_EQ(1, cache.EvictEntriesBefore(14));
+  cache.EvictEntriesBefore(14);
   ASSERT_RAISES(Invalid, cache.Read({1, 3}));
   ASSERT_RAISES(Invalid, cache.Read({10, 4}));
 }
