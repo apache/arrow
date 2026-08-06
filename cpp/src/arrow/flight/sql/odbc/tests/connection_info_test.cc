@@ -757,15 +757,7 @@ TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
-  // SQLite (the mock backend) does not support schema DDL.
-  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
-}
-
-TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoDropSchema) {
-  SQLUINTEGER value;
-  GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
-
-  // The Dremio backend does not report schema DDL support either.
+  // Neither the SQLite mock backend nor the Dremio backend support schema DDL.
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
