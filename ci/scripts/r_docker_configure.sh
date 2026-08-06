@@ -86,5 +86,17 @@ else
 fi
 
 
+# Update clang version to latest available.
+# The rhub/ubuntu-clang image ships clang-15 but CRAN's debian-clang now uses
+# clang 22. Install clang-22 from LLVM's apt repos to match.
+if [ "$R_UPDATE_CLANG" = true ]; then
+  apt-get update -y --allow-releaseinfo-change
+  apt-get install -y gnupg
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/llvm.gpg
+  echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-22 main" > /etc/apt/sources.list.d/llvm22.list
+  apt-get update -y --allow-releaseinfo-change
+  apt-get install -y clang-22 lld-22
+fi
+
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
