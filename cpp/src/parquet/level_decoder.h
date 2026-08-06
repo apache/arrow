@@ -37,8 +37,8 @@ namespace parquet {
 ///
 /// This decoder is used with either a deprecated bit packed (`BIT_PACKED = 4`)
 /// encoding or a mixed bit packed and RLE one (`RLE = 3`).
-/// Because it take as input a single buffer, `SetData` and `Decode` are typically
-/// used on each of the parquet `DataPage`.
+/// Because it takes as input a single buffer, `SetData` and `Decode` are typically
+/// used on each of the Parquet `DataPage`.
 /// The number of levels is guaranteed to fit into an `int32_t` by the specification.
 ///
 /// @see https://research.google.com/pubs/archive/36632.pdf
