@@ -34,7 +34,15 @@ version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 release_tag="apache-arrow-${version}-rc${rc}"
 rc_branch="release-${version_with_rc}"
-maint_branch="maint-${version}"
+
+patch_version=$(echo ${version} | cut -d. -f3)
+if [ "${patch_version}" -eq 0 ]; then
+  maint_branch="maint-${version}"
+else
+  # Patch releases use the maint-Major.Minor.x branch.
+  major_minor_version=$(echo ${version} | cut -d. -f1-2)
+  maint_branch="maint-${major_minor_version}.x"
+fi
 
 : ${ARROW_REPOSITORY:="apache/arrow"}
 : ${ARROW_BRANCH:=${release_tag}}
