@@ -753,7 +753,7 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TEST_F(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
