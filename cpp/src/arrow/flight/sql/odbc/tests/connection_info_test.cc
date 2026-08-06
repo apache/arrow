@@ -765,14 +765,23 @@ TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoDropSchema) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_SCHEMA, &value);
 
-  EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DS_DROP_SCHEMA), value);
+  // The Dremio backend does not report schema DDL support either.
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTable) {
+TEST_F(ConnectionInfoMockTest, TestSQLGetInfoDropTable) {
   SQLUINTEGER value;
   GetInfo(this->conn, SQL_DROP_TABLE, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DT_DROP_TABLE), value);
+}
+
+TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoDropTable) {
+  SQLUINTEGER value;
+  GetInfo(this->conn, SQL_DROP_TABLE, &value);
+
+  // The Dremio backend does not report table DDL support.
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTranslation) {

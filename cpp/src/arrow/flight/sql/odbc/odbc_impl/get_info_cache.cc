@@ -452,9 +452,8 @@ bool GetInfoCache::LoadInfoFromServer() {
             case SqlInfoOptions::SQL_SUPPORTS_ORDER_BY_UNRELATED: {
               // Note: this is the negation of the Flight SQL property.
               info_[SQL_ORDER_BY_COLUMNS_IN_SELECT] =
-                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value
-                      ? "N"
-                      : "Y";
+                  checked_cast<BooleanScalar*>(scalar->child_value().get())->value ? "N"
+                                                                                   : "Y";
               break;
             }
             case SqlInfoOptions::SQL_SUPPORTS_LIKE_ESCAPE_CLAUSE: {
