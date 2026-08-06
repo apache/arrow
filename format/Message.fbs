@@ -43,12 +43,12 @@ struct FieldNode {
 }
 
 enum CompressionType: byte {
-  // LZ4 frame format, for portability, as provided by lz4frame.h or wrappers
-  // thereof. Not to be confused with "raw" (also called "block") format
-  // provided by lz4.h
+  /// LZ4 frame format, for portability, as provided by lz4frame.h or wrappers
+  /// thereof. Not to be confused with "raw" (also called "block") format
+  /// provided by lz4.h
   LZ4_FRAME,
 
-  // Zstandard
+  /// Zstandard
   ZSTD
 }
 
