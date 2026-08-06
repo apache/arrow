@@ -361,7 +361,8 @@ bool IsPyUuid(PyObject* obj) {
   return result != 0;
 }
 
-Result<PyObject*> UuidFromBytes(std::string_view bytes) {
+Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* args,
+                                PyObject* kwargs) {
   PyObject* uuid_class = GetUuidClass();
   if (!uuid_class) {
     return Status::Invalid("Could not import uuid.UUID");
@@ -369,13 +370,10 @@ Result<PyObject*> UuidFromBytes(std::string_view bytes) {
   OwnedRef py_bytes(
       PyBytes_FromStringAndSize(bytes.data(), static_cast<Py_ssize_t>(bytes.size())));
   RETURN_IF_PYERROR();
-  OwnedRef kwargs(PyDict_New());
-  RETURN_IF_PYERROR();
-  if (PyDict_SetItemString(kwargs.obj(), "bytes", py_bytes.obj()) < 0) {
+  if (PyDict_SetItemString(kwargs, "bytes", py_bytes.obj()) < 0) {
     RETURN_IF_PYERROR();
   }
-  OwnedRef args(PyTuple_New(0));
-  PyObject* result = PyObject_Call(uuid_class, args.obj(), kwargs.obj());
+  PyObject* result = PyObject_Call(uuid_class, args, kwargs);
   RETURN_IF_PYERROR();
   return result;
 }
