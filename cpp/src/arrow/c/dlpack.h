@@ -34,13 +34,21 @@ namespace arrow::dlpack {
 /// memory region which means Arrow Arrays with validity buffers
 /// are not supported.
 ///
+/// \note Deprecated in DLPack 1.0. Use ExportArrayVersioned instead.
+///
 /// \param[in] arr Arrow array
 /// \return DLManagedTensor struct
 ARROW_EXPORT
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr);
 
 ARROW_EXPORT
+Result<DLManagedTensorVersioned*> ExportArrayVersioned(const std::shared_ptr<Array>& arr);
+
+ARROW_EXPORT
 Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t);
+
+ARROW_EXPORT
+Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Tensor>& t);
 
 /// \brief Get DLDevice with enumerator specifying the
 /// type of the device data is stored on and index of the

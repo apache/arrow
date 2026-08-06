@@ -17,6 +17,10 @@
 
 #include "arrow/c/dlpack.h"
 
+#include <memory>
+#include <type_traits>
+#include <vector>
+
 #include "arrow/array/array_base.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
@@ -59,32 +63,35 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
   }
 }
 
+template <typename DT>
 struct ManagerCtx {
   std::shared_ptr<ArrayData> array;
-  DLManagedTensor tensor;
+  DT tensor;
   int64_t strides = 1;
 };
 
-}  // namespace
-
-Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
+template <typename DT>
+Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr) {
   // Define DLDevice struct and check if array type is supported
   // by the DLPack protocol at the same time. Raise TypeError if not.
   // Supported data types: int, uint, float with no validity buffer.
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
 
   // Define the DLDataType struct
   const DataType& type = *arr->type();
-  std::shared_ptr<ArrayData> data = arr->data();
   ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
 
   // Create ManagerCtx that will serve as the owner of the DLManagedTensor
-  auto ctx = std::make_unique<ManagerCtx>();
+  auto ctx = std::make_unique<ManagerCtx<DT>>();
+
+  // Assign the Array data into the context
+  ctx->array = arr->data();
+  auto& data = ctx->array;
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
   if (arr->length() == 0) {
-    ctx->tensor.dl_tensor.data = NULL;
+    ctx->tensor.dl_tensor.data = nullptr;
   } else {
     const auto data_offset = data->offset * type.byte_width();
     ctx->tensor.dl_tensor.data =
@@ -98,13 +105,28 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   ctx->tensor.dl_tensor.byte_offset = 0;
   // Strides must be non-null when ndim > 0
   ctx->tensor.dl_tensor.strides = &ctx->strides;
+  if constexpr (std::is_same_v<DT, DLManagedTensorVersioned>) {
+    ctx->tensor.version = {.major = DLPACK_MAJOR_VERSION, .minor = DLPACK_MINOR_VERSION};
+    // Arrow contract is that array data is immutable once constructed
+    ctx->tensor.flags = DLPACK_FLAG_BITMASK_READ_ONLY;
+  }
 
-  ctx->array = std::move(data);
   ctx->tensor.manager_ctx = ctx.get();
-  ctx->tensor.deleter = [](struct DLManagedTensor* self) {
-    delete reinterpret_cast<ManagerCtx*>(self->manager_ctx);
+  ctx->tensor.deleter = [](DT* self) {
+    delete reinterpret_cast<ManagerCtx<DT>*>(self->manager_ctx);
   };
   return &ctx.release()->tensor;
+}
+
+}  // namespace
+
+Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
+  return ExportArrayImpl<DLManagedTensor>(arr);
+}
+
+Result<DLManagedTensorVersioned*> ExportArrayVersioned(
+    const std::shared_ptr<Array>& arr) {
+  return ExportArrayImpl<DLManagedTensorVersioned>(arr);
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
@@ -133,30 +155,34 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
   }
 }
 
+namespace {
+
+template <typename DT>
 struct TensorManagerCtx {
   std::shared_ptr<Tensor> t;
   std::vector<int64_t> strides;
   std::vector<int64_t> shape;
-  DLManagedTensor tensor;
+  DT tensor;
 };
 
-Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
+template <typename DT>
+Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t) {
   // Define the DLDataType struct
   const DataType& type = *t->type();
   ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
 
   // Define DLDevice struct
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(t))
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(t));
 
   // Create TensorManagerCtx that will serve as the owner of the DLManagedTensor
-  auto ctx = std::make_unique<TensorManagerCtx>();
+  auto ctx = std::make_unique<TensorManagerCtx<DT>>();
 
   // Define the data pointer to the DLTensor
   // If tensor is of length 0, data pointer should be NULL
   if (t->size() == 0) {
-    ctx->tensor.dl_tensor.data = NULL;
+    ctx->tensor.dl_tensor.data = nullptr;
   } else {
-    ctx->tensor.dl_tensor.data = t->raw_mutable_data();
+    ctx->tensor.dl_tensor.data = const_cast<uint8_t*>(t->raw_data());
   }
 
   ctx->tensor.dl_tensor.device = device;
@@ -173,18 +199,33 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
 
   std::vector<int64_t>& strides_arr = ctx->strides;
   strides_arr.reserve(t->ndim());
-  auto byte_width = t->type()->byte_width();
+  const auto byte_width = t->type()->byte_width();
   for (auto i : t->strides()) {
     strides_arr.emplace_back(i / byte_width);
   }
   ctx->tensor.dl_tensor.strides = strides_arr.data();
+  if constexpr (std::is_same_v<DT, DLManagedTensorVersioned>) {
+    ctx->tensor.version = {.major = DLPACK_MAJOR_VERSION, .minor = DLPACK_MINOR_VERSION};
+    ctx->tensor.flags = t->is_mutable() ? 0 : DLPACK_FLAG_BITMASK_READ_ONLY;
+  }
 
   ctx->t = std::move(t);
   ctx->tensor.manager_ctx = ctx.get();
-  ctx->tensor.deleter = [](struct DLManagedTensor* self) {
-    delete reinterpret_cast<TensorManagerCtx*>(self->manager_ctx);
+  ctx->tensor.deleter = [](DT* self) {
+    delete reinterpret_cast<TensorManagerCtx<DT>*>(self->manager_ctx);
   };
   return &ctx.release()->tensor;
+}
+
+}  // namespace
+
+Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
+  return ExportTensorImpl<DLManagedTensor>(t);
+}
+
+Result<DLManagedTensorVersioned*> ExportTensorVersioned(
+    const std::shared_ptr<Tensor>& t) {
+  return ExportTensorImpl<DLManagedTensorVersioned>(t);
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
