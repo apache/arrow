@@ -21,7 +21,7 @@ ARG arch_short
 ARG python=3.11
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
-ARG jdk=11
+ARG jdk=17
 ARG maven=3.9.9
 RUN mamba install -q -y \
         maven=${maven} \
