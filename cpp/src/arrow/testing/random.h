@@ -192,27 +192,6 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \brief Generate a random HalfFloatArray
   ///
   /// \param[in] size the size of the array to generate
-  /// \param[in] min the lower bound of the distribution
-  /// \param[in] max the upper bound of the distribution
-  /// \param[in] null_probability the probability of a value being null
-  /// \param[in] alignment alignment for memory allocations (in bytes)
-  /// \param[in] memory_pool memory pool to allocate memory from
-  ///
-  /// \return a generated Array
-  ///
-  /// \deprecated Deprecated in 22.0.0. Use the other Float16() method that accepts
-  /// nan_probability as a parameter
-  ARROW_DEPRECATED(
-      "Deprecated in 22.0.0. Use the other Float16() method that accepts nan_probability "
-      "as a parameter")
-  std::shared_ptr<Array> Float16(int64_t size, uint16_t min, uint16_t max,
-                                 double null_probability = 0,
-                                 int64_t alignment = kDefaultBufferAlignment,
-                                 MemoryPool* memory_pool = default_memory_pool());
-
-  /// \brief Generate a random HalfFloatArray
-  ///
-  /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
