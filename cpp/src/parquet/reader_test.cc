@@ -631,8 +631,11 @@ TEST(TestFileReader, GetRecordReader) {
   auto records_read = col_record_reader_->ReadRecords(4);
   ASSERT_EQ(records_read, 4);
   ASSERT_EQ(4, col_record_reader_->values_written());
-  ASSERT_EQ(4, col_record_reader_->levels_position());
-  ASSERT_EQ(8, col_record_reader_->levels_written());
+  // Column 0 is a flat optional column, whose record reader decodes definition levels
+  // straight into the validity bitmap of the records read. It never materializes
+  // levels, so it reports none.
+  ASSERT_EQ(0, col_record_reader_->levels_position());
+  ASSERT_EQ(0, col_record_reader_->levels_written());
 }
 
 TEST(TestFileReader, RecordReaderWithExposingDictionary) {
