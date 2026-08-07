@@ -304,6 +304,12 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
                                            std::move(doc), default_options),
         is_pure_(is_pure) {}
 
+  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
+  Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
   /// handling (intersect validity bitmaps of inputs).
