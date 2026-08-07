@@ -854,7 +854,26 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
 class PlainFLBADecoder : public PlainDecoder<FLBAType>, public FLBADecoder {
  public:
   using Base = PlainDecoder<FLBAType>;
+  using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
   using Base::PlainDecoder;
+
+  // PLAIN-encoded FLBA values are already contiguous in the page buffer, so
+  // decode them with a single memcpy into the caller's buffer. This is the same
+  // copy used by PlainDecoder<FLBAType>::DecodeArrow, without the builder.
+  int Decode(uint8_t* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const int64_t bytes_to_decode = static_cast<int64_t>(this->type_length_) * max_values;
+    if (bytes_to_decode > this->len_) {
+      ParquetException::EofException();
+    }
+    if (bytes_to_decode > 0) {
+      memcpy(buffer, this->data_, static_cast<size_t>(bytes_to_decode));
+    }
+    this->data_ += bytes_to_decode;
+    this->len_ -= static_cast<int>(bytes_to_decode);
+    this->num_values_ -= max_values;
+    return max_values;
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -1431,6 +1450,36 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
   }
 };
 
+// Dictionary decoder for FIXED_LEN_BYTE_ARRAY that can decode directly into a
+// caller-owned, densely packed byte buffer. DictDecoderImpl<FLBAType> on its own
+// does not inherit FLBADecoder, so this thin subclass adds the dense Decode
+// overload (mirroring the DeltaByteArray and ByteStreamSplit FLBA decoders).
+class DictFLBADecoder : public DictDecoderImpl<FLBAType>, public FLBADecoder {
+ public:
+  using Base = DictDecoderImpl<FLBAType>;
+  using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
+  using Base::DictDecoderImpl;
+
+  // Read one index per value and copy that dictionary entry's type_length bytes
+  // contiguously into the caller's buffer. Mirrors DecodeArrow without nulls.
+  int Decode(uint8_t* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const auto* dict_values = this->dictionary_->data_as<FLBA>();
+    const int64_t type_length = this->type_length_;
+    for (int i = 0; i < max_values; ++i) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!this->idx_decoder_.Get(&index))) {
+        throw ParquetException("Dict decoding failed");
+      }
+      PARQUET_THROW_NOT_OK(this->IndexInBounds(index));
+      memcpy(buffer + i * type_length, dict_values[index].ptr,
+             static_cast<size_t>(type_length));
+    }
+    this->num_values_ -= max_values;
+    return max_values;
+  }
+};
+
 // ----------------------------------------------------------------------
 // DELTA_BINARY_PACKED decoder
 
@@ -1730,12 +1779,19 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
     DecodeLengths();
   }
 
-  int Decode(ByteArray* buffer, int max_values) override {
-    // Decode up to `max_values` strings into an internal buffer
-    // and reference them into `buffer`.
+  // Advance over up to `max_values` values and expose them as a view: the
+  // per-value lengths, and a pointer to the start of their (contiguous) data.
+  // Returns the number of values available.
+  //
+  // The lengths are already fully decoded by `DecodeLengths`, and the values are
+  // stored contiguously in the page, so callers that only need the bytes can walk
+  // this view directly instead of materializing a `ByteArray` per value.
+  int GetBatchView(int max_values, const int32_t** lengths, const uint8_t** data) {
     max_values = std::min(max_values, num_valid_values_);
     DCHECK_GE(max_values, 0);
     if (max_values == 0) {
+      *lengths = nullptr;
+      *data = nullptr;
       return 0;
     }
 
@@ -1747,7 +1803,6 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
       if (ARROW_PREDICT_FALSE(len < 0)) {
         throw ParquetException("negative string delta length");
       }
-      buffer[i].len = len;
       if (AddWithOverflow(data_size, len, &data_size)) {
         throw ParquetException("excess expansion in DELTA_(LENGTH_)BYTE_ARRAY");
       }
@@ -1756,13 +1811,24 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
     if (ARROW_PREDICT_FALSE(!decoder_->Advance(8 * static_cast<int64_t>(data_size)))) {
       ParquetException::EofException();
     }
-    const uint8_t* data_ptr = data_ + bytes_offset;
+    *lengths = length_ptr;
+    *data = data_ + bytes_offset;
+    this->num_values_ -= max_values;
+    num_valid_values_ -= max_values;
+    return max_values;
+  }
+
+  int Decode(ByteArray* buffer, int max_values) override {
+    // Decode up to `max_values` strings into an internal buffer
+    // and reference them into `buffer`.
+    const int32_t* lengths = nullptr;
+    const uint8_t* data_ptr = nullptr;
+    max_values = GetBatchView(max_values, &lengths, &data_ptr);
     for (int i = 0; i < max_values; ++i) {
+      buffer[i].len = static_cast<uint32_t>(lengths[i]);
       buffer[i].ptr = data_ptr;
       data_ptr += buffer[i].len;
     }
-    this->num_values_ -= max_values;
-    num_valid_values_ -= max_values;
     return max_values;
   }
 
@@ -1983,7 +2049,8 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
         suffix_decoder_(nullptr, pool),
         last_value_in_previous_page_(""),
         buffered_prefix_length_(AllocateBuffer(pool, 0)),
-        buffered_data_(AllocateBuffer(pool, 0)) {}
+        buffered_data_(AllocateBuffer(pool, 0)),
+        buffered_suffix_(AllocateBuffer(pool, 0)) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     this->num_values_ = num_values;
@@ -2033,93 +2100,171 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
   }
 
  protected:
-  template <bool is_first_run>
-  static void BuildBufferInternal(const int32_t* prefix_len_ptr, int i, ByteArray* buffer,
-                                  std::string_view* prefix, uint8_t** data_ptr) {
-    if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix->length())) {
-      throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
+  // Storage-agnostic reconstruction of DELTA_BYTE_ARRAY values.
+  //
+  // Each value is a `prefix` (a prefix of the previous value) followed by a
+  // `suffix` produced by `suffix_decoder_`. `GetInternalImpl` drives the shared
+  // decoding and delegates the actual materialization to an `Output` policy, so
+  // callers can either reference values as `ByteArray`s (backed by
+  // `buffered_data_`) or write fixed-length values contiguously into a
+  // caller-provided buffer without allocating per-value pointers.
+
+  // Output that reconstructs values into `ByteArray`s backed by `buffered_data_`,
+  // reproducing the original DELTA_BYTE_ARRAY behavior including the zero-copy
+  // optimizations for empty prefixes/suffixes.
+  struct ByteArrayOutput {
+    // `buffer` is used both as the suffix decode target and as the output.
+    ByteArray* buffer;
+    ResizableBuffer* buffered_data;
+    int type_length;
+    uint8_t* data_begin = nullptr;
+    uint8_t* data_ptr = nullptr;
+    int64_t data_size = 0;
+
+    int FetchSuffixes(DeltaLengthByteArrayDecoder* suffix_decoder, int max_values) {
+      // Decode the suffixes in place; `Emit` reads each one before overwriting it
+      // with the reconstructed value.
+      return suffix_decoder->Decode(buffer, max_values);
     }
-    // For now, `buffer` points to string suffixes, and the suffix decoder
-    // ensures that the suffix data has sufficient lifetime.
-    if (prefix_len_ptr[i] == 0) {
-      // prefix is empty: buffer[i] already points to the suffix.
-      *prefix = std::string_view{buffer[i]};
-      return;
+
+    void Prepare(const int32_t* prefix_len_ptr, int max_values) {
+      data_size = 0;
+      for (int i = 0; i < max_values; ++i) {
+        if (prefix_len_ptr[i] == 0) {
+          // We don't need to copy the suffix if the prefix length is 0.
+          continue;
+        }
+        if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
+          throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
+        }
+        if (buffer[i].len == 0 && i != 0) {
+          // We don't need to copy the prefix if the suffix length is 0
+          // and this is not the first run (that is, the prefix doesn't point
+          // to the mutable `last_value_`).
+          continue;
+        }
+        if (ARROW_PREDICT_FALSE(
+                AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
+                AddWithOverflow(data_size, buffer[i].len, &data_size))) {
+          throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
+        }
+      }
+      PARQUET_THROW_NOT_OK(buffered_data->Resize(data_size));
+      data_begin = buffered_data->mutable_data();
+      data_ptr = data_begin;
     }
-    DCHECK_EQ(is_first_run, i == 0);
-    if constexpr (!is_first_run) {
-      if (buffer[i].len == 0) {
+
+    std::string_view Emit(int i, int32_t prefix_len, std::string_view prefix) {
+      // Read the suffix before `buffer[i]` is overwritten with the output.
+      const ByteArray suffix = buffer[i];
+      if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len) > prefix.length())) {
+        throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
+      }
+      if (prefix_len == 0) {
+        // prefix is empty: buffer[i] already points to the suffix.
+        return std::string_view{buffer[i]};
+      }
+      if (i != 0 && suffix.len == 0) {
         // suffix is empty: buffer[i] can simply point to the prefix.
         // This is not possible for the first run since the prefix
         // would point to the mutable `last_value_`.
-        *prefix = prefix->substr(0, prefix_len_ptr[i]);
-        buffer[i] = ByteArray(*prefix);
-        return;
+        prefix = prefix.substr(0, prefix_len);
+        buffer[i] = ByteArray(prefix);
+        return prefix;
+      }
+      // Both prefix and suffix are non-empty, so decode the string into
+      // `data_ptr`.
+      memcpy(data_ptr, prefix.data(), prefix_len);
+      memcpy(data_ptr + prefix_len, suffix.ptr, suffix.len);
+      const uint32_t full_len = suffix.len + static_cast<uint32_t>(prefix_len);
+      buffer[i].ptr = data_ptr;
+      buffer[i].len = full_len;
+      data_ptr += full_len;
+      return std::string_view{buffer[i]};
+    }
+
+    void Finish(int max_values) {
+      DCHECK_EQ(data_ptr - data_begin, data_size);
+      if constexpr (std::is_same_v<DType, FLBAType>) {
+        // Checks all values
+        for (int i = 0; i < max_values; ++i) {
+          if (buffer[i].len != static_cast<uint32_t>(type_length)) {
+            throw ParquetException("FLBA type requires fixed-length ", type_length,
+                                   " but got ", buffer[i].len);
+          }
+        }
       }
     }
-    // Both prefix and suffix are non-empty, so we need to decode the string
-    // into `data_ptr`.
-    // 1. Copy the prefix
-    memcpy(*data_ptr, prefix->data(), prefix_len_ptr[i]);
-    // 2. Copy the suffix.
-    memcpy(*data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
-    // 3. Point buffer[i] to the decoded string.
-    buffer[i].ptr = *data_ptr;
-    buffer[i].len += prefix_len_ptr[i];
-    *data_ptr += buffer[i].len;
-    *prefix = std::string_view{buffer[i]};
-  }
+  };
 
-  int GetInternal(ByteArray* buffer, int max_values) {
-    // Decode up to `max_values` strings into an internal buffer
-    // and reference them into `buffer`.
+  // Output that writes fixed-length values contiguously into a caller-provided
+  // buffer. Used by the FLBA dense decode path; avoids `buffered_data_` and any
+  // temporary per-value `ByteArray` storage.
+  struct DenseOutput {
+    uint8_t* out;
+    int type_length;
+    // View of the suffixes still to be consumed: their lengths, and a cursor into
+    // their contiguous data. No per-value pointer is ever materialized.
+    const int32_t* suffix_lengths = nullptr;
+    const uint8_t* suffix_data = nullptr;
+
+    int FetchSuffixes(DeltaLengthByteArrayDecoder* suffix_decoder, int max_values) {
+      return suffix_decoder->GetBatchView(max_values, &suffix_lengths, &suffix_data);
+    }
+
+    void Prepare(const int32_t* prefix_len_ptr, int max_values) {}
+
+    std::string_view Emit(int i, int32_t prefix_len, std::string_view prefix) {
+      const int32_t suffix_len = suffix_lengths[i];
+      const uint8_t* suffix_ptr = suffix_data;
+      suffix_data += suffix_len;
+
+      if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len) > prefix.length())) {
+        throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
+      }
+      // Each reconstructed FLBA value must be exactly `type_length` bytes.
+      if (ARROW_PREDICT_FALSE(static_cast<int64_t>(prefix_len) + suffix_len !=
+                              type_length)) {
+        throw ParquetException("Fixed length byte array length mismatch");
+      }
+      // Copy the prefix and the suffix straight into the caller's buffer.
+      uint8_t* dst = out + static_cast<int64_t>(i) * type_length;
+      memcpy(dst, prefix.data(), prefix_len);
+      memcpy(dst + prefix_len, suffix_ptr, suffix_len);
+      // The next value's prefix references this value, which now lives in the
+      // caller's buffer.
+      return std::string_view{reinterpret_cast<const char*>(dst),
+                              static_cast<size_t>(type_length)};
+    }
+
+    void Finish(int max_values) {}
+  };
+
+  template <typename Output>
+  int GetInternalImpl(Output&& output, int max_values) {
+    // Decode up to `max_values` values, delegating materialization to `output`.
     max_values = std::min(max_values, num_valid_values_);
     if (max_values == 0) {
       return max_values;
     }
 
-    int suffix_read = suffix_decoder_.Decode(buffer, max_values);
+    const int suffix_read = output.FetchSuffixes(&suffix_decoder_, max_values);
     if (ARROW_PREDICT_FALSE(suffix_read != max_values)) {
       ParquetException::EofException("Read " + std::to_string(suffix_read) +
                                      ", expecting " + std::to_string(max_values) +
                                      " from suffix decoder");
     }
 
-    int64_t data_size = 0;
     const int32_t* prefix_len_ptr =
         buffered_prefix_length_->data_as<int32_t>() + prefix_len_offset_;
-    for (int i = 0; i < max_values; ++i) {
-      if (prefix_len_ptr[i] == 0) {
-        // We don't need to copy the suffix if the prefix length is 0.
-        continue;
-      }
-      if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
-        throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
-      }
-      if (buffer[i].len == 0 && i != 0) {
-        // We don't need to copy the prefix if the suffix length is 0
-        // and this is not the first run (that is, the prefix doesn't point
-        // to the mutable `last_value_`).
-        continue;
-      }
-      if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
-                              AddWithOverflow(data_size, buffer[i].len, &data_size))) {
-        throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
-      }
-    }
-    PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
+
+    output.Prepare(prefix_len_ptr, max_values);
 
     std::string_view prefix{last_value_};
-    uint8_t* data_ptr = buffered_data_->mutable_data();
-    if (max_values > 0) {
-      BuildBufferInternal</*is_first_run=*/true>(prefix_len_ptr, 0, buffer, &prefix,
-                                                 &data_ptr);
+    for (int i = 0; i < max_values; ++i) {
+      prefix = output.Emit(i, prefix_len_ptr[i], prefix);
     }
-    for (int i = 1; i < max_values; ++i) {
-      BuildBufferInternal</*is_first_run=*/false>(prefix_len_ptr, i, buffer, &prefix,
-                                                  &data_ptr);
-    }
-    DCHECK_EQ(data_ptr - buffered_data_->mutable_data(), data_size);
+
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
@@ -2129,17 +2274,28 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
       last_value_in_previous_page_ = last_value_;
     }
 
-    if constexpr (std::is_same_v<DType, FLBAType>) {
-      // Checks all values
-      for (int i = 0; i < max_values; i++) {
-        if (buffer[i].len != static_cast<uint32_t>(this->type_length_)) {
-          throw ParquetException("FLBA type requires fixed-length ", this->type_length_,
-                                 " but got ", buffer[i].len);
-        }
-      }
-    }
-
+    output.Finish(max_values);
     return max_values;
+  }
+
+  // Resize the ByteArray scratch buffer and return its data. Used to decode
+  // suffixes and to expose reconstructed value pointers without a per-call
+  // heap allocation.
+  ByteArray* ResizeSuffixScratch(int max_values) {
+    PARQUET_THROW_NOT_OK(buffered_suffix_->Resize(sizeof(ByteArray) * max_values));
+    return buffered_suffix_->mutable_data_as<ByteArray>();
+  }
+
+  int GetInternal(ByteArray* buffer, int max_values) {
+    ByteArrayOutput output{buffer, buffered_data_.get(), this->type_length_};
+    return GetInternalImpl(output, max_values);
+  }
+
+  // Decode fixed-length values contiguously into `out` without materializing
+  // per-value pointers. Only meaningful for `FLBAType`.
+  int DecodeDense(uint8_t* out, int max_values) {
+    DenseOutput output{out, this->type_length_};
+    return GetInternalImpl(output, max_values);
   }
 
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
@@ -2199,6 +2355,9 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
   // buffer for decoded strings, which guarantees the lifetime of the decoded strings
   // until the next call of Decode.
   std::shared_ptr<ResizableBuffer> buffered_data_;
+  // Scratch buffer of ByteArray used to decode suffixes / expose value pointers
+  // without a per-call heap allocation.
+  std::shared_ptr<ResizableBuffer> buffered_suffix_;
 };
 
 class DeltaByteArrayDecoder : public DeltaByteArrayDecoderImpl<ByteArrayType> {
@@ -2219,18 +2378,21 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
   using Base::pool_;
 
   int Decode(FixedLenByteArray* buffer, int max_values) override {
-    // GetInternal currently only support ByteArray.
-    std::vector<ByteArray> decode_byte_array(max_values);
-    const int decoded_values_size = GetInternal(decode_byte_array.data(), max_values);
-    const uint32_t type_length = static_cast<uint32_t>(this->type_length_);
-
-    for (int i = 0; i < decoded_values_size; i++) {
-      if (ARROW_PREDICT_FALSE(decode_byte_array[i].len != type_length)) {
-        throw ParquetException("Fixed length byte array length mismatch");
-      }
-      buffer[i].ptr = decode_byte_array[i].ptr;
+    // Reconstruct values as ByteArrays backed by `buffered_data_`, then expose
+    // their pointers; the fixed length is implied by the column descriptor and
+    // validated by `GetInternal`.
+    ByteArray* values = this->ResizeSuffixScratch(max_values);
+    const int decoded_values_size = this->GetInternal(values, max_values);
+    for (int i = 0; i < decoded_values_size; ++i) {
+      buffer[i].ptr = values[i].ptr;
     }
     return decoded_values_size;
+  }
+
+  // Decode the bytes contiguously into the caller's buffer without
+  // materializing per-value pointers.
+  int Decode(uint8_t* buffer, int max_values) override {
+    return this->DecodeDense(buffer, max_values);
   }
 };
 
@@ -2370,6 +2532,12 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
     }
     return num_decoded;
   }
+
+  // DecodeRaw already unsplits the byte streams into a contiguous buffer, so
+  // decode straight into the caller's buffer with no intermediate scratch.
+  int Decode(uint8_t* buffer, int max_values) override {
+    return this->DecodeRaw(buffer, max_values);
+  }
 };
 
 }  // namespace
@@ -2475,7 +2643,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
     case Type::BYTE_ARRAY:
       return std::make_unique<DictByteArrayDecoderImpl>(descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_unique<DictDecoderImpl<FLBAType>>(descr, pool);
+      return std::make_unique<DictFLBADecoder>(descr, pool);
     default:
       break;
   }
