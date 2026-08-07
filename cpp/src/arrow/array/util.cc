@@ -852,6 +852,19 @@ class RepeatedArrayFactory {
 
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
+    // Check that the total data size does not overflow the offset type.
+    // For 32-bit offset types (e.g. StringType, BinaryType), value_length * length_
+    // must fit in int32_t, otherwise the offsets wrap around and produce an invalid
+    // array with negative offsets.
+    if (value_length > 0 && length_ > 0) {
+      int64_t total_size = static_cast<int64_t>(value_length) * length_;
+      if (total_size > static_cast<int64_t>(std::numeric_limits<OffsetType>::max())) {
+        return Status::Invalid(
+            "Cannot create array: total data size (", total_size,
+            " bytes) would overflow the offset type. Consider using a large_* "
+            "type (e.g. large_string, large_binary) for data exceeding 2 GB.");
+      }
+    }
     TypedBufferBuilder<OffsetType> builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ + 1));
     OffsetType offset = 0;

@@ -767,6 +767,33 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 }
 
+TEST_F(TestArray, TestMakeArrayFromScalarOffsetOverflow) {
+  // Regression test for GH-36388: MakeArrayFromScalar should return an error
+  // when the total data size would overflow 32-bit offsets instead of silently
+  // producing an invalid array with negative offsets.
+
+  // A single-byte string repeated 2^31 times overflows int32 offsets
+  auto scalar = MakeScalar("x");
+  int64_t length = static_cast<int64_t>(1) << 31;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar, length));
+
+  // A two-byte string repeated just over INT32_MAX/2 times also overflows
+  auto scalar2 = MakeScalar("xy");
+  int64_t length2 = (static_cast<int64_t>(1) << 30) + 1;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar2, length2));
+
+  // Binary type has the same issue
+  auto bin_scalar = std::make_shared<BinaryScalar>(Buffer::FromString("abc"));
+  int64_t length3 = (static_cast<int64_t>(std::numeric_limits<int32_t>::max()) / 3) + 1;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*bin_scalar, length3));
+
+  // Large string type should NOT overflow (uses 64-bit offsets)
+  auto large_scalar = std::make_shared<LargeStringScalar>("x");
+  // Just verify it doesn't raise for a small count (we can't allocate 2^31 bytes here)
+  ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*large_scalar, 16));
+  ASSERT_EQ(arr->length(), 16);
+}
+
 TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   // Regression test for ARROW-13437
   auto scalars = GetScalars();
