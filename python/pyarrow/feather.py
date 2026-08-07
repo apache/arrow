@@ -150,11 +150,6 @@ def write_feather(df, dest, compression=None, compression_level=None,
             DeprecationWarning,
             stacklevel=2
         )
-    if _pandas_api.have_pandas:
-        if (_pandas_api.has_sparse and
-                isinstance(df, _pandas_api.pd.SparseDataFrame)):
-            df = df.to_dense()
-
     if _pandas_api.is_data_frame(df):
         # Feather v1 creates a new column in the resultant Table to
         # store index information if index type is not RangeIndex

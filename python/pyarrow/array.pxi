@@ -342,7 +342,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values = values.data
 
         if mask is not None:
-            if mask.dtype != np.bool_:
+            if mask.dtype != np.bool:
                 raise TypeError("Mask must be boolean dtype")
             if mask.ndim != 1:
                 raise ValueError("Mask must be 1D array")
@@ -945,14 +945,12 @@ cdef class _PandasConvertible(_Weakrefable):
             Cast integers with nulls to objects
         date_as_object : bool, default True
             Cast dates to objects. If False, convert to datetime64 dtype with
-            the equivalent time unit (if supported). Note: in pandas version
-            < 2.0, only datetime64[ns] conversion is supported.
+            the equivalent time unit (if supported).
         timestamp_as_object : bool, default False
-            Cast non-nanosecond timestamps (np.datetime64) to objects. This is
-            useful in pandas version 1.x if you have timestamps that don't fit
-            in the normal date range of nanosecond timestamps (1678 CE-2262 CE).
-            Non-nanosecond timestamps are supported in pandas version 2.0.
-            If False, all timestamps are converted to datetime64 dtype.
+            Cast non-nanosecond timestamps (np.datetime64) to objects. This can
+            be useful when Python datetime objects are required, such as for
+            compatibility with code expecting object dtype. If False, all
+            timestamps are converted to datetime64 dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default True
@@ -963,9 +961,8 @@ cdef class _PandasConvertible(_Weakrefable):
             DataFrame index, if present
         safe : bool, default True
             For certain data types, a cast is needed in order to store the
-            data in a pandas DataFrame or Series (e.g. timestamps are always
-            stored as nanoseconds in pandas). This option controls whether it
-            is a safe cast or not.
+            data in a pandas DataFrame or Series. This option controls whether
+            it is a safe cast or not.
         split_blocks : bool, default False
             If True, generate one internal "block" for each column when
             creating a pandas.DataFrame from a RecordBatch or Table. While this
@@ -1002,12 +999,10 @@ cdef class _PandasConvertible(_Weakrefable):
             default conversion should be used for that type. If you have
             a dictionary mapping, you can pass ``dict.get`` as function.
         coerce_temporal_nanoseconds : bool, default False
-            Only applicable to pandas version >= 2.0.
             A legacy option to coerce date32, date64, duration, and timestamp
-            time units to nanoseconds when converting to pandas. This is the
-            default behavior in pandas version 1.x. Set this option to True if
-            you'd like to use this coercion when using pandas version >= 2.0
-            for backwards compatibility (not recommended otherwise).
+            time units to nanoseconds when converting to pandas. Set this
+            option only if nanosecond coercion is required for compatibility
+            with older application behavior.
 
         Returns
         -------
@@ -5093,7 +5088,7 @@ cdef class Bool8Array(ExtensionArray):
         """
         if not writable:
             try:
-                return self.storage.to_numpy().view(np.bool_)
+                return self.storage.to_numpy().view(np.bool)
             except ArrowInvalid as e:
                 if zero_copy_only:
                     raise e
@@ -5134,7 +5129,7 @@ cdef class Bool8Array(ExtensionArray):
         --------
         >>> import pyarrow as pa
         >>> import numpy as np
-        >>> arr = np.array([True, False, True], dtype=np.bool_)
+        >>> arr = np.array([True, False, True], dtype=np.bool)
         >>> pa.Bool8Array.from_numpy(arr)
         <pyarrow.lib.Bool8Array object at ...>
         [
@@ -5147,7 +5142,7 @@ cdef class Bool8Array(ExtensionArray):
         if obj.ndim != 1:
             raise ValueError(f"Cannot convert {obj.ndim}-D array to bool8 array")
 
-        if obj.dtype not in [np.bool_, np.int8]:
+        if obj.dtype not in [np.bool, np.int8]:
             raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
 
         storage_arr = array(obj.view(np.int8), type=int8())
