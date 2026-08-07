@@ -2246,7 +2246,7 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(array)
 
-    def __dlpack__(self, stream=None):
+    def __dlpack__(self, stream=None, max_version=None, dl_device=None, copy=None):
         """
         Export a primitive array as a DLPack capsule.
 
@@ -2256,20 +2256,45 @@ cdef class Array(_PandasConvertible):
             A Python integer representing a pointer to a stream. Currently not supported.
             Stream is provided by the consumer to the producer to instruct the producer
             to ensure that operations can safely be performed on the array.
+        max_version : tuple[int, int], optional
+            The maximum DLPack version the consumer supports, as (major, minor).
+            A capsule of a different version may be returned, so the consumer must
+            check it. Default is None, exporting the legacy unversioned capsule.
+        dl_device : tuple[enum.Enum, int], optional
+            The device of the exported capsule, in the format returned by
+            :meth:`__dlpack_device__`. Default is None, meaning the device of the
+            array itself. Since only CPU arrays are supported, any other device
+            raises ``BufferError``.
+        copy : bool, optional
+            If True, the data is always copied. If False, it is never copied and
+            ``BufferError`` is raised if a copy is required. If None (default), the
+            data is copied only if needed, which for CPU arrays is never.
+            A copy is reported to the consumer with ``DLPACK_FLAG_BITMASK_IS_COPIED``.
 
         Returns
         -------
         capsule : PyCapsule
-            A DLPack capsule for the array, pointing to a DLManagedTensor.
+            A DLPack capsule for the array, pointing to a DLManagedTensorVersioned,
+            or to a DLManagedTensor if ``max_version`` is below (1, 0).
         """
-        if stream is None:
-            dlm_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
+        if stream is not None:
+            raise NotImplementedError("Only stream=None is supported.")
+        if dl_device is not None:
+            device = GetResultValue(ExportDevice(self.sp_array))
+            if dl_device != (device.device_type, device.device_id):
+                raise BufferError(
+                    f"Cannot export to device {dl_device}, "
+                    f"array is on {(device.device_type, device.device_id)}."
+                )
+        if max_version is None or max_version < (1, 0):
+            # Note: from March 2025 onwards, it's okay to raise BufferError here.
+            # Still we keep the V0 version that was added in August 2026.
+            legacy_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
+            return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
-            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
-        else:
-            raise NotImplementedError(
-                "Only stream=None is supported."
-            )
+        # Currently no major version other than legacy 0 and current 1.3
+        dlm_tensor = GetResultValue(ExportArrayVersionedToDLPack(self.sp_array, copy))
+        return PyCapsule_New(dlm_tensor, 'dltensor_versioned', dlpack_versioned_pycapsule_deleter)
 
     def __dlpack_device__(self):
         """
