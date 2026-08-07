@@ -477,6 +477,24 @@ ARROW_EXPORT
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx = NULLPTR);
 
+/// \brief ReplaceWithIndices replaces the value at each position in `indices`
+/// with the corresponding element from `replacements`.
+///
+/// \param[in] values Array input to replace
+/// \param[in] indices Integer array of positions to replace. Out-of-bounds and
+/// null indices are ignored; if an index occurs more than once the last
+/// replacement wins.
+/// \param[in] replacements The replacement values (scalar or array). For an
+/// array there must be as many replacement values as indices.
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> ReplaceWithIndices(const Datum& values, const Datum& indices,
+                                 const Datum& replacements, ExecContext* ctx = NULLPTR);
+
 /// \brief FillNullForward fill null values in forward direction
 ///
 /// The output array will be of the same type as the input values

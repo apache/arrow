@@ -1415,6 +1415,68 @@ def test_replace_with_mask_error_mask_length_mismatch():
         pc.replace_with_mask(arr, mask, replacements)
 
 
+def test_replace_with_indices_basic():
+    """The i-th replacement is written at position indices[i]."""
+    arr = pa.array([1, 2, 3, 4])
+    indices = pa.array([0, 3])
+    replacements = pa.array([10, 40])
+    expected = pa.array([10, 2, 3, 40])
+    result = pc.replace_with_indices(arr, indices, replacements)
+    assert result.equals(expected)
+
+
+def test_replace_with_indices_unordered():
+    """Indices need not be sorted; replacement pairs with its index."""
+    arr = pa.array([1, 2, 3, 4])
+    result = pc.replace_with_indices(arr, pa.array([3, 0]), pa.array([40, 10]))
+    assert result.equals(pa.array([10, 2, 3, 40]))
+
+
+def test_replace_with_indices_scalar_replacement():
+    arr = pa.array([1, 2, 3])
+    result = pc.replace_with_indices(arr, pa.array([0, 2]), pa.scalar(9))
+    assert result.equals(pa.array([9, 2, 9]))
+
+
+def test_replace_with_indices_string_type():
+    arr = pa.array(['a', 'b', 'c', 'd'])
+    result = pc.replace_with_indices(arr, pa.array([0, 2]), pa.array(['x', 'y']))
+    assert result.equals(pa.array(['x', 'b', 'y', 'd']))
+
+
+def test_replace_with_indices_null_replacement():
+    arr = pa.array([1, 2, 3])
+    result = pc.replace_with_indices(arr, pa.array([1]), pa.array([None]))
+    assert result.equals(pa.array([1, None, 3]))
+
+
+def test_replace_with_indices_duplicate_last_wins():
+    arr = pa.array([1, 2, 3, 4])
+    result = pc.replace_with_indices(arr, pa.array([0, 0]), pa.array([10, 20]))
+    assert result.equals(pa.array([20, 2, 3, 4]))
+
+
+def test_replace_with_indices_out_of_bounds_error():
+    arr = pa.array([1, 2, 3, 4])
+    with pytest.raises(pa.ArrowIndexError, match="out of bounds"):
+        pc.replace_with_indices(arr, pa.array([0, 9]), pa.array([10, 40]))
+    with pytest.raises(pa.ArrowIndexError, match="out of bounds"):
+        pc.replace_with_indices(arr, pa.array([-1, 2]), pa.array([10, 30]))
+
+
+def test_replace_with_indices_null_index_skipped():
+    arr = pa.array([1, 2, 3, 4])
+    result = pc.replace_with_indices(arr, pa.array([None, 2]), pa.array([10, 30]))
+    assert result.equals(pa.array([1, 2, 30, 4]))
+
+
+def test_replace_with_indices_error_length_mismatch():
+    """Replacement array length must match the number of indices."""
+    arr = pa.array([1, 2])
+    with pytest.raises(pa.ArrowInvalid, match="expected 2.*but got 1"):
+        pc.replace_with_indices(arr, pa.array([0, 1]), pa.array([0]))
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
