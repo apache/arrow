@@ -17,7 +17,6 @@
 
 #include "parquet/geospatial/util_json_internal.h"
 
-#include <simdjson.h>
 #include <string>
 
 #include "arrow/extension_type.h"

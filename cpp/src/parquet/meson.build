@@ -88,7 +88,7 @@ if not thrift_dep.found()
     thrift_dep = thrift_proj.dependency('thrift')
 endif
 
-parquet_deps = [arrow_dep, thrift_dep]
+parquet_deps = [arrow_dep, simdjson_dep, thrift_dep]
 
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
     openssl_dep = dependency('openssl', required: needs_parquet_encryption)
@@ -292,6 +292,7 @@ parquet_test_dep = [
     parquet_dep,
     parquet_test_support_dep,
     arrow_test_dep,
+    simdjson_dep,
     thrift_dep,
 ]
 
