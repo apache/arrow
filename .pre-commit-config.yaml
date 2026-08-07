@@ -321,6 +321,7 @@ repos:
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           ?^dev/release/utils-watch-gh-workflow\.sh$|
+          ?^r/tools/download_dependencies_R\.sh$|
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
