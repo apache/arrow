@@ -106,7 +106,7 @@ class ConcreteConverter : public JSONConverter {
     int32_t num_elements = 0;
     for (auto element : json_array) {
       ARROW_ASSIGN_OR_RAISE(auto value,
-                            internal::GetSimdjsonResult<sj::value>(
+                            internal::ResolveSimdjsonResult<sj::value>(
                                 element, "Could not iterate elements of JSON array: "));
       RETURN_NOT_OK(self->AppendValue(value));
       num_elements++;
@@ -287,7 +287,7 @@ Status ProcessJsonArrayElements(
     }
 
     ARROW_ASSIGN_OR_RAISE(sj::value element,
-                          internal::GetSimdjsonResult<sj::value>(
+                          internal::ResolveSimdjsonResult<sj::value>(
                               *it, "Could not iterate elements of JSON array: "));
     RETURN_NOT_OK(handler(element));
     ++it;
@@ -652,7 +652,7 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     for (auto json_pair_result : array) {
       ARROW_ASSIGN_OR_RAISE(
           auto json_pair,
-          internal::GetSimdjsonResult<sj::value>(
+          internal::ResolveSimdjsonResult<sj::value>(
               json_pair_result, "Could not iterate elements of JSON array: "));
       ARROW_ASSIGN_OR_RAISE(auto json_pair_array,
                             internal::GetJsonAs<sj::array>(json_pair));
@@ -763,7 +763,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       size_t i = 0;
       for (auto child : array) {
         ARROW_ASSIGN_OR_RAISE(auto child_value,
-                              internal::GetSimdjsonResult<sj::value>(
+                              internal::ResolveSimdjsonResult<sj::value>(
                                   child, "Could not iterate elements of JSON array: "));
         RETURN_NOT_OK(child_converters_[i]->AppendValue(child_value));
         ++i;
@@ -779,7 +779,7 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
     std::vector<bool> field_seen(num_fields, false);
     for (auto field_result : object) {
       ARROW_ASSIGN_OR_RAISE(auto field,
-                            internal::GetSimdjsonResult<sj::field>(
+                            internal::ResolveSimdjsonResult<sj::field>(
                                 field_result, "Error getting field of object: "));
       std::string_view key;
       if (field.unescaped_key(/*allow_replacement=*/false).get(key) !=
