@@ -203,6 +203,10 @@ void TestSession() {
   StringType string_type;
   LargeBinaryType large_binary_type;
   LargeStringType large_string_type;
+  BinaryViewType binary_view_type;
+  StringViewType string_view_type;
+  auto heap_binary_view_type = binary_view();
+  auto heap_string_view_type = utf8_view();
   FixedSizeBinaryType fixed_size_binary_type(10);
   auto heap_fixed_size_binary_type = fixed_size_binary(10);
 
@@ -366,6 +370,10 @@ void TestSession() {
 
   LargeBinaryScalar large_binary_scalar_abc{Buffer::FromString("abc")};
   LargeStringScalar large_string_scalar_hehe{Buffer::FromString("héhé")};
+  BinaryViewScalar binary_view_scalar_null{binary_view()};
+  BinaryViewScalar binary_view_scalar_abc{Buffer::FromString("abc")};
+  StringViewScalar string_view_scalar_null{utf8_view()};
+  StringViewScalar string_view_scalar_hehe{Buffer::FromString("héhé")};
 
   FixedSizeBinaryScalar fixed_size_binary_scalar{Buffer::FromString("abc"),
                                                  fixed_size_binary(3)};
