@@ -43,6 +43,24 @@ def check_dlpack_export(arr, expected_arr):
     assert arr.__dlpack_device__() == (1, 0)
 
 
+class DLPackForwarder:
+    """Forward ``__dlpack__`` to a wrapped object with forced keyword arguments.
+
+    Consumers such as ``np.from_dlpack`` do not expose every ``__dlpack__``
+    keyword, so this makes them reachable from a consumer's point of view.
+    """
+
+    def __init__(self, obj, **forced):
+        self._obj = obj
+        self._forced = forced
+
+    def __dlpack__(self, **kwargs):
+        return self._obj.__dlpack__(**{**kwargs, **self._forced})
+
+    def __dlpack_device__(self):
+        return self._obj.__dlpack_device__()
+
+
 def check_bytes_allocated(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -124,6 +142,67 @@ def test_tensor_dlpack(np_type):
     expected = np.array(arr, dtype=np_type).reshape((2, 2, 2), order='F')
     t = pa.Tensor.from_numpy(expected)
     check_dlpack_export(t, expected)
+
+
+def dlpack_objects():
+    arr = pa.array([1, 2, 3], type=pa.int32())
+    return [
+        pytest.param(arr, id="array"),
+        pytest.param(arr.slice(1), id="sliced_array"),
+        pytest.param(pa.array([], type=pa.int32()), id="empty_array"),
+        pytest.param(
+            pa.Tensor.from_numpy(np.array([[1, 2], [3, 4]], dtype=np.int32)),
+            id="tensor",
+        ),
+    ]
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('obj', dlpack_objects())
+@pytest.mark.parametrize('max_version', [None, (0, 8)])
+def test_dlpack_legacy_capsule(obj, max_version):
+    capsule = obj.__dlpack__(max_version=max_version)
+    assert PyCapsule_IsValid(capsule, b"dltensor") is True
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('obj', dlpack_objects())
+@pytest.mark.parametrize('max_version', [(1, 0), (1, 3), (2, 0)])
+@pytest.mark.parametrize('copy', [None, False, True])
+def test_dlpack_versioned_capsule(obj, max_version, copy):
+    capsule = obj.__dlpack__(max_version=max_version, copy=copy)
+    assert PyCapsule_IsValid(capsule, b"dltensor_versioned") is True
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('obj', dlpack_objects())
+def test_dlpack_versioned_roundtrip(obj):
+    if Version(np.__version__) < Version("2.1.0"):
+        pytest.skip("Versioned DLPack capsules require numpy 2.1.0 or later")
+
+    expected = np.from_dlpack(DLPackForwarder(obj, max_version=None))
+    for copy in [None, False, True]:
+        result = np.from_dlpack(
+            DLPackForwarder(obj, max_version=(1, 0), copy=copy))
+        np.testing.assert_array_equal(result, expected, strict=True)
+
+
+@check_bytes_allocated
+def test_dlpack_copy_is_writeable():
+    if Version(np.__version__) < Version("2.1.0"):
+        pytest.skip("Read-only DLPack flag requires numpy 2.1.0 or later")
+
+    arr = pa.array([1, 2, 3], type=pa.int32())
+
+    # Arrow arrays are immutable, so a shared export is read-only
+    shared = np.from_dlpack(DLPackForwarder(arr, max_version=(1, 3)))
+    assert not shared.flags.writeable
+
+    # A copy is solely owned by the consumer, who may mutate it
+    copied = np.from_dlpack(DLPackForwarder(arr, max_version=(1, 3), copy=True))
+    assert copied.flags.writeable
+    copied[0] = 100
+    assert arr.to_pylist() == [1, 2, 3]
 
 
 def test_dlpack_not_supported():

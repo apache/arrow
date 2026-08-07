@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/buffer.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
 #include "arrow/tensor.h"
@@ -150,12 +151,11 @@ Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
 
   const auto& data = *arr->data();
   if (copy) {
-    // We manually copy a buffer instead of using Array copy functions to avoid copying
+    // We copy the buffer slice instead of using Array copy functions to avoid copying
     // unused values outside of offset/length (e.g. with Slice).
-    const int64_t nbytes = data.length * type.byte_width();
-    ARROW_ASSIGN_OR_RAISE(params.buffer, AllocateBuffer(nbytes));
-    std::memcpy(params.buffer->mutable_data(),
-                data.buffers[1]->data() + data.offset * type.byte_width(), nbytes);
+    const auto start = data.offset * type.byte_width();
+    const auto nbytes = data.length * type.byte_width();
+    ARROW_ASSIGN_OR_RAISE(params.buffer, data.buffers[1]->CopySlice(start, nbytes));
     // Since we make a copy only for the consumer, we do not need to mark it readonly.
     params.flags = DLPACK_FLAG_BITMASK_IS_COPIED;
   } else {
@@ -174,7 +174,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   return ExportArrayImpl<DLManagedTensor>(arr, /* copy= */ false);
 }
 
-Result<DLManagedTensorVersioned*> ExportArrayVersioned(std::shared_ptr<Array> arr,
+Result<DLManagedTensorVersioned*> ExportArrayVersioned(const std::shared_ptr<Array>& arr,
                                                        bool copy) {
   return ExportArrayImpl<DLManagedTensorVersioned>(arr, copy);
 }
@@ -206,14 +206,6 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
 }
 
 namespace {
-
-template <typename DT>
-struct TensorManagerCtx {
-  std::shared_ptr<Tensor> t;
-  std::vector<int64_t> strides;
-  std::vector<int64_t> shape;
-  DT tensor;
-};
 
 template <typename DT>
 Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
@@ -249,7 +241,7 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
   } else {
     // Shared buffer with Arrow Tensor.
     params.buffer = t->data();
-    params.flags |= t->is_mutable() ? 0 : DLPACK_FLAG_BITMASK_READ_ONLY;
+    params.flags = t->is_mutable() ? 0 : DLPACK_FLAG_BITMASK_READ_ONLY;
   }
 
   return ExportBuffer<DT>(std::move(params));
@@ -261,7 +253,7 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   return ExportTensorImpl<DLManagedTensor>(t, /* copy= */ false);
 }
 
-Result<DLManagedTensorVersioned*> ExportTensorVersioned(std::shared_ptr<Tensor> t,
+Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Tensor>& t,
                                                         bool copy) {
   return ExportTensorImpl<DLManagedTensorVersioned>(t, copy);
 }
