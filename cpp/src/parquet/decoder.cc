@@ -854,7 +854,26 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
 class PlainFLBADecoder : public PlainDecoder<FLBAType>, public FLBADecoder {
  public:
   using Base = PlainDecoder<FLBAType>;
+  using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
   using Base::PlainDecoder;
+
+  // PLAIN-encoded FLBA values are already contiguous in the page buffer, so
+  // decode them with a single memcpy into the caller's buffer. This is the same
+  // copy used by PlainDecoder<FLBAType>::DecodeArrow, without the builder.
+  int Decode(uint8_t* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const int64_t bytes_to_decode = static_cast<int64_t>(this->type_length_) * max_values;
+    if (bytes_to_decode > this->len_) {
+      ParquetException::EofException();
+    }
+    if (bytes_to_decode > 0) {
+      memcpy(buffer, this->data_, static_cast<size_t>(bytes_to_decode));
+    }
+    this->data_ += bytes_to_decode;
+    this->len_ -= static_cast<int>(bytes_to_decode);
+    this->num_values_ -= max_values;
+    return max_values;
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -1428,6 +1447,36 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType> {
     }
     *out_num_values = values_decoded;
     return Status::OK();
+  }
+};
+
+// Dictionary decoder for FIXED_LEN_BYTE_ARRAY that can decode directly into a
+// caller-owned, densely packed byte buffer. DictDecoderImpl<FLBAType> on its own
+// does not inherit FLBADecoder, so this thin subclass adds the dense Decode
+// overload (mirroring the DeltaByteArray and ByteStreamSplit FLBA decoders).
+class DictFLBADecoder : public DictDecoderImpl<FLBAType>, public FLBADecoder {
+ public:
+  using Base = DictDecoderImpl<FLBAType>;
+  using Base::Decode;  // keep Decode(FixedLenByteArray*, int)
+  using Base::DictDecoderImpl;
+
+  // Read one index per value and copy that dictionary entry's type_length bytes
+  // contiguously into the caller's buffer. Mirrors DecodeArrow without nulls.
+  int Decode(uint8_t* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    const auto* dict_values = this->dictionary_->data_as<FLBA>();
+    const int64_t type_length = this->type_length_;
+    for (int i = 0; i < max_values; ++i) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!this->idx_decoder_.Get(&index))) {
+        throw ParquetException("Dict decoding failed");
+      }
+      PARQUET_THROW_NOT_OK(this->IndexInBounds(index));
+      memcpy(buffer + i * type_length, dict_values[index].ptr,
+             static_cast<size_t>(type_length));
+    }
+    this->num_values_ -= max_values;
+    return max_values;
   }
 };
 
@@ -2232,6 +2281,23 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
     }
     return decoded_values_size;
   }
+
+  // Same internal decode as above, but copy the bytes contiguously into the
+  // caller's buffer instead of materializing per-value pointers.
+  int Decode(uint8_t* buffer, int max_values) override {
+    std::vector<ByteArray> decode_byte_array(max_values);
+    const int decoded_values_size = GetInternal(decode_byte_array.data(), max_values);
+    const uint32_t type_length = static_cast<uint32_t>(this->type_length_);
+
+    for (int i = 0; i < decoded_values_size; i++) {
+      if (ARROW_PREDICT_FALSE(decode_byte_array[i].len != type_length)) {
+        throw ParquetException("Fixed length byte array length mismatch");
+      }
+      memcpy(buffer + static_cast<int64_t>(i) * type_length, decode_byte_array[i].ptr,
+             type_length);
+    }
+    return decoded_values_size;
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -2370,6 +2436,12 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
     }
     return num_decoded;
   }
+
+  // DecodeRaw already unsplits the byte streams into a contiguous buffer, so
+  // decode straight into the caller's buffer with no intermediate scratch.
+  int Decode(uint8_t* buffer, int max_values) override {
+    return this->DecodeRaw(buffer, max_values);
+  }
 };
 
 }  // namespace
@@ -2475,7 +2547,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
     case Type::BYTE_ARRAY:
       return std::make_unique<DictByteArrayDecoderImpl>(descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_unique<DictDecoderImpl<FLBAType>>(descr, pool);
+      return std::make_unique<DictFLBADecoder>(descr, pool);
     default:
       break;
   }
