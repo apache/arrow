@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <string>
 #include <type_traits>
 
@@ -32,6 +33,7 @@ namespace arrow::dlpack {
 
 struct LegacyProducer {
   using ManagedTensor = DLManagedTensor;
+  static constexpr bool copy = false;  // Unsupported
   static constexpr const char* name = "Legacy";
 
   static Result<ManagedTensor*> Export(const std::shared_ptr<Array>& arr) {
@@ -42,19 +44,22 @@ struct LegacyProducer {
   }
 };
 
+template <bool kCopy>
 struct VersionedProducer {
   using ManagedTensor = DLManagedTensorVersioned;
-  static constexpr const char* name = "Versioned";
+  static constexpr bool copy = kCopy;
+  static constexpr const char* name = copy ? "VersionedCopied" : "Versioned";
 
   static Result<ManagedTensor*> Export(const std::shared_ptr<Array>& arr) {
-    return ExportArrayVersioned(arr);
+    return ExportArrayVersioned(arr, copy);
   }
   static Result<ManagedTensor*> Export(const std::shared_ptr<Tensor>& t) {
-    return ExportTensorVersioned(t);
+    return ExportTensorVersioned(t, copy);
   }
 };
 
-using ProducerTypes = ::testing::Types<LegacyProducer, VersionedProducer>;
+using ProducerTypes =
+    ::testing::Types<LegacyProducer, VersionedProducer<false>, VersionedProducer<true>>;
 
 struct ProducerNames {
   template <typename Producer>
@@ -72,14 +77,19 @@ template <typename Producer>
 void CheckDLTensor(const std::shared_ptr<Array>& arr,
                    const std::shared_ptr<DataType>& arrow_type,
                    DLDataTypeCode dlpack_type, int64_t length) {
-  ASSERT_OK_AND_ASSIGN(auto dlmtensor, Producer::Export(arr));
+  ASSERT_OK_AND_ASSIGN(auto* dlmtensor, Producer::Export(arr));
   auto dltensor = dlmtensor->dl_tensor;
 
   const auto byte_width = arr->type()->byte_width();
   const auto start = arr->offset() * byte_width;
   ASSERT_OK_AND_ASSIGN(auto sliced_buffer,
                        SliceBufferSafe(arr->data()->buffers[1], start));
-  ASSERT_EQ(sliced_buffer->data(), dltensor.data);
+  if constexpr (Producer::copy) {
+    ASSERT_NE(sliced_buffer->data(), dltensor.data);
+    ASSERT_EQ(0, std::memcmp(sliced_buffer->data(), dltensor.data, length * byte_width));
+  } else {
+    ASSERT_EQ(sliced_buffer->data(), dltensor.data);
+  }
 
   ASSERT_EQ(0, dltensor.byte_offset);
   ASSERT_EQ(length, dltensor.shape[0]);
@@ -96,11 +106,15 @@ void CheckDLTensor(const std::shared_ptr<Array>& arr,
   ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
   ASSERT_EQ(0, device.device_id);
 
-  if constexpr (std::is_same_v<Producer, VersionedProducer>) {
+  if constexpr (std::is_same_v<decltype(dlmtensor), DLManagedTensorVersioned*>) {
     ASSERT_EQ(DLPACK_MAJOR_VERSION, dlmtensor->version.major);
     ASSERT_EQ(DLPACK_MINOR_VERSION, dlmtensor->version.minor);
-    // Arrow array data is immutable once constructed
-    ASSERT_EQ(DLPACK_FLAG_BITMASK_READ_ONLY, dlmtensor->flags);
+    if constexpr (Producer::copy) {
+      // Arrow array data is immutable once constructed, but a copy is ours to hand out
+      ASSERT_EQ(dlmtensor->flags, DLPACK_FLAG_BITMASK_IS_COPIED);
+    } else {
+      ASSERT_EQ(dlmtensor->flags, DLPACK_FLAG_BITMASK_READ_ONLY);
+    }
   }
 
   dlmtensor->deleter(dlmtensor);
@@ -181,10 +195,15 @@ void CheckDLTensor(const std::shared_ptr<Tensor>& t,
                    const std::shared_ptr<DataType>& tensor_type,
                    DLDataTypeCode dlpack_type, std::vector<int64_t> shape,
                    std::vector<int64_t> strides) {
-  ASSERT_OK_AND_ASSIGN(auto dlmtensor, Producer::Export(t));
+  ASSERT_OK_AND_ASSIGN(auto* dlmtensor, Producer::Export(t));
   auto dltensor = dlmtensor->dl_tensor;
 
-  ASSERT_EQ(t->data()->data(), dltensor.data);
+  if constexpr (Producer::copy) {
+    ASSERT_NE(t->data()->data(), dltensor.data);
+    ASSERT_EQ(0, std::memcmp(t->data()->data(), dltensor.data, t->data()->size()));
+  } else {
+    ASSERT_EQ(t->data()->data(), dltensor.data);
+  }
   ASSERT_EQ(t->ndim(), dltensor.ndim);
   ASSERT_EQ(0, dltensor.byte_offset);
   for (int i = 0; i < t->ndim(); i++) {
@@ -202,10 +221,14 @@ void CheckDLTensor(const std::shared_ptr<Tensor>& t,
   ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
   ASSERT_EQ(0, device.device_id);
 
-  if constexpr (std::is_same_v<Producer, VersionedProducer>) {
+  if constexpr (std::is_same_v<decltype(dlmtensor), DLManagedTensorVersioned*>) {
     ASSERT_EQ(DLPACK_MAJOR_VERSION, dlmtensor->version.major);
     ASSERT_EQ(DLPACK_MINOR_VERSION, dlmtensor->version.minor);
-    ASSERT_EQ(t->is_mutable() ? 0 : DLPACK_FLAG_BITMASK_READ_ONLY, dlmtensor->flags);
+    if constexpr (Producer::copy) {
+      ASSERT_EQ(dlmtensor->flags, DLPACK_FLAG_BITMASK_IS_COPIED);
+    } else {
+      ASSERT_EQ(dlmtensor->flags, (t->is_mutable() ? 0 : DLPACK_FLAG_BITMASK_READ_ONLY));
+    }
   }
 
   dlmtensor->deleter(dlmtensor);

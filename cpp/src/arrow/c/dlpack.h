@@ -17,8 +17,11 @@
 
 #pragma once
 
-#include "arrow/array/array_base.h"
 #include "arrow/c/dlpack_abi.h"
+
+#include <memory>
+
+#include "arrow/array/array_base.h"
 
 namespace arrow::dlpack {
 
@@ -42,13 +45,15 @@ ARROW_EXPORT
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr);
 
 ARROW_EXPORT
-Result<DLManagedTensorVersioned*> ExportArrayVersioned(const std::shared_ptr<Array>& arr);
+Result<DLManagedTensorVersioned*> ExportArrayVersioned(std::shared_ptr<Array> arr,
+                                                       bool copy);
 
 ARROW_EXPORT
 Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t);
 
 ARROW_EXPORT
-Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Tensor>& t);
+Result<DLManagedTensorVersioned*> ExportTensorVersioned(std::shared_ptr<Tensor>,
+                                                        bool copy);
 
 /// \brief Get DLDevice with enumerator specifying the
 /// type of the device data is stored on and index of the
