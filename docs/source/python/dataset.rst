@@ -374,6 +374,24 @@ altogether if they do not match the filter:
     3  8  0.313068  1    b
     4  9 -0.854096  2    b
 
+When passing an explicit ``schema`` to :func:`dataset`, include the partition
+fields in the schema if they are used in filters or projections. The partition
+fields are not stored in the physical files, so they need to be present in the
+dataset schema when schema inference is bypassed:
+
+.. code-block:: python
+
+    >>> schema = pa.schema([
+    ...     ("a", pa.int64()),
+    ...     ("b", pa.float64()),
+    ...     ("c", pa.int64()),
+    ...     ("part", pa.string()),
+    ... ])
+    >>> dataset = ds.dataset("parquet_dataset_partitioned", format="parquet",
+    ...                      partitioning="hive", schema=schema)
+    >>> dataset.count_rows(filter=ds.field("part") == "b")
+    5
+
 
 Different partitioning schemes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
