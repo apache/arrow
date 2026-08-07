@@ -41,6 +41,7 @@ namespace engine {
 /// Convert a Substrait ExtendedExpression to a vector of expressions and output names
 ARROW_ENGINE_EXPORT
 Result<BoundExpressions> FromProto(const substrait::ExtendedExpression& expression,
+                                   const Schema* input_schema_override,
                                    ExtensionSet* ext_set_out,
                                    const ConversionOptions& conversion_options,
                                    const ExtensionIdRegistry* extension_id_registry);

@@ -126,13 +126,11 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
     case substrait::Type::kBinary:
       return FromProtoImpl<BinaryType>(type.binary());
 
-      ARROW_SUPPRESS_DEPRECATION_WARNING
-    case substrait::Type::kTimestamp:
-      return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
-    case substrait::Type::kTimestampTz:
-      return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
-                                          TimestampTzTimezoneString());
-      ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    case substrait::Type::kPrecisionTime: {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> time_type,
+                            precision_time(type.precision_time().precision()));
+      return std::make_pair(time_type, IsNullable(type.precision_time()));
+    }
     case substrait::Type::kPrecisionTimestamp: {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> ts_type,
                             precision_timestamp(type.precision_timestamp().precision()));
@@ -146,9 +144,6 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
     }
     case substrait::Type::kDate:
       return FromProtoImpl<Date32Type>(type.date());
-
-    case substrait::Type::kTime:
-      return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
 
     case substrait::Type::kIntervalYear:
       return FromProtoImpl(type.interval_year(), interval_year);
@@ -232,6 +227,11 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
       ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
       return std::make_pair(std::move(type_record.type), IsNullable(user_defined));
     }
+
+    case substrait::Type::kUnknown:
+      return Status::Invalid(
+          "Substrait type 'unknown' cannot be deserialized to an Arrow type "
+          "without binding to a concrete schema");
 
     default:
       break;
@@ -335,14 +335,30 @@ struct DataTypeToProtoImpl {
     }
   }
 
-  Status Visit(const Time32Type& t) { return EncodeUserDefined(t); }
-  Status Visit(const Time64Type& t) {
-    if (t.unit() == TimeUnit::MICRO) {
-      return SetWith(&substrait::Type::set_allocated_time);
-    } else {
-      return EncodeUserDefined(t);
+  template <typename TimeType>
+  Status VisitTime(const TimeType& t) {
+    auto time = SetWithThen(&substrait::Type::set_allocated_precision_time);
+    switch (t.unit()) {
+      case TimeUnit::SECOND:
+        time->set_precision(0);
+        break;
+      case TimeUnit::MILLI:
+        time->set_precision(3);
+        break;
+      case TimeUnit::MICRO:
+        time->set_precision(6);
+        break;
+      case TimeUnit::NANO:
+        time->set_precision(9);
+        break;
+      default:
+        return NotImplemented(t);
     }
+    return Status::OK();
   }
+
+  Status Visit(const Time32Type& t) { return VisitTime(t); }
+  Status Visit(const Time64Type& t) { return VisitTime(t); }
 
   Status Visit(const MonthIntervalType& t) { return EncodeUserDefined(t); }
   Status Visit(const DayTimeIntervalType& t) { return EncodeUserDefined(t); }
