@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <string>
 
 #include "arrow/memory_pool.h"
 #include "gandiva/function_registry.h"
@@ -38,6 +39,45 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 using arrow::int64;
+
+namespace {
+
+int CountOccurrences(const std::string& text, const std::string& needle) {
+  int count = 0;
+  std::string::size_type pos = 0;
+  while ((pos = text.find(needle, pos)) != std::string::npos) {
+    ++count;
+    pos += needle.size();
+  }
+  return count;
+}
+
+std::string ExtractFunctionIR(const std::string& ir, const std::string& function_name) {
+  const auto name_pos = ir.find("@" + function_name + "(");
+  if (name_pos == std::string::npos) {
+    return "";
+  }
+  const auto function_start = ir.rfind("\ndefine ", name_pos);
+  const auto start = function_start == std::string::npos ? 0 : function_start + 1;
+  const auto function_end = ir.find("\n}\n", name_pos);
+  if (function_end == std::string::npos) {
+    return ir.substr(start);
+  }
+  return ir.substr(start, function_end + 3 - start);
+}
+
+void ExpectProjectorOutput(const std::shared_ptr<Projector>& projector,
+                           const SchemaPtr& schema, const arrow::ArrayVector& inputs,
+                           const ArrayPtr& expected, arrow::MemoryPool* pool) {
+  ASSERT_FALSE(inputs.empty());
+  auto batch = arrow::RecordBatch::Make(schema, inputs[0]->length(), inputs);
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*batch, pool, &outputs));
+  ASSERT_EQ(1, outputs.size());
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+}
+
+}  // namespace
 
 class TestProjector : public ::testing::Test {
  public:
@@ -386,6 +426,506 @@ TEST_F(TestProjector, TestAllIntTypes) {
   TestArithmeticOpsForType<arrow::Int16Type, int16_t>(pool_);
   TestArithmeticOpsForType<arrow::Int32Type, int32_t>(pool_);
   TestArithmeticOpsForType<arrow::Int64Type, int64_t>(pool_);
+}
+
+TEST_F(TestProjector, TestCommonSubexpressionEliminationIR) {
+  auto field0 = arrow::field("cse_f0", arrow::int32());
+  auto field1 = arrow::field("cse_f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+
+  auto left_sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field0), TreeExprBuilder::MakeField(field1)},
+      arrow::int32());
+  auto right_sum = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field0), TreeExprBuilder::MakeField(field1)},
+      arrow::int32());
+  auto square =
+      TreeExprBuilder::MakeFunction("multiply", {left_sum, right_sum}, arrow::int32());
+  auto expr =
+      TreeExprBuilder::MakeExpression(square, arrow::field("cse_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+
+  EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir, "call i32 @add_int32_int32"));
+  EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir, "call i32 @multiply_int32_int32"));
+
+  auto input0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, false, true});
+  auto input1 = MakeArrowArrayInt32({10, -2, 3, 5}, {true, true, true, false});
+  auto expected = MakeArrowArrayInt32({121, 0, 0, 0}, {true, true, false, false});
+  ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestUnoptimizedIRUnavailableForCachedProjector) {
+  auto field0 = arrow::field("cached_ir_f0", arrow::int32());
+  auto field1 = arrow::field("cached_ir_f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+  auto expr = TreeExprBuilder::MakeExpression(
+      "add", {field0, field1}, arrow::field("cached_ir_out", arrow::int32()));
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+  ASSERT_FALSE(projector->GetBuiltFromCache());
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  ASSERT_FALSE(unoptimized_ir.empty());
+
+  std::shared_ptr<Projector> cached_projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &cached_projector));
+  ASSERT_TRUE(cached_projector->GetBuiltFromCache());
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Unoptimized IR was not captured when this projector was built",
+      cached_projector->DumpUnoptimizedIR());
+}
+
+TEST_F(TestProjector, TestUnoptimizedIRAvailabilityUsesCapturedState) {
+  auto field0 = arrow::field("mutable_config_f0", arrow::int32());
+  auto schema = arrow::schema({field0});
+  auto expr =
+      TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeField(field0),
+                                      arrow::field("mutable_config_out", arrow::int32()));
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/false);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+  configuration->set_dump_ir(true);
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Unoptimized IR was not captured when this projector was built",
+      projector->DumpUnoptimizedIR());
+}
+
+TEST_F(TestProjector, TestNestedCommonSubexpressionEliminationIR) {
+  auto field0 = arrow::field("nested_cse_f0", arrow::int32());
+  auto field1 = arrow::field("nested_cse_f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+
+  auto make_sum = [&]() {
+    return TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(field0), TreeExprBuilder::MakeField(field1)},
+        arrow::int32());
+  };
+  auto make_square = [&]() {
+    return TreeExprBuilder::MakeFunction("multiply", {make_sum(), make_sum()},
+                                         arrow::int32());
+  };
+  auto nested = TreeExprBuilder::MakeFunction("add", {make_square(), make_square()},
+                                              arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(
+      nested, arrow::field("nested_cse_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+
+  EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call i32 @add_int32_int32"));
+  EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir, "call i32 @multiply_int32_int32"));
+
+  auto input0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, false, true});
+  auto input1 = MakeArrowArrayInt32({10, -2, 3, 5}, {true, true, true, false});
+  auto expected = MakeArrowArrayInt32({242, 0, 0, 0}, {true, true, false, false});
+  ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestCommonSubexpressionEliminationForVarLenInput) {
+  auto value = arrow::field("varlen_cse_value", arrow::utf8());
+  auto schema = arrow::schema({value});
+
+  auto make_length = [&] {
+    return TreeExprBuilder::MakeFunction(
+        "octet_length", {TreeExprBuilder::MakeField(value)}, arrow::int32());
+  };
+  auto root = TreeExprBuilder::MakeFunction("add", {make_length(), make_length()},
+                                            arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(
+      root, arrow::field("varlen_cse_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir, "call i32 @octet_length_utf8"));
+
+  auto values =
+      MakeArrowArrayUtf8({"", "abc", "路学", "ignored"}, {true, true, true, false});
+  auto expected = MakeArrowArrayInt32({0, 6, 12, 0}, {true, true, true, false});
+  ExpectProjectorOutput(projector, schema, {values}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestCommonSubexpressionEliminationForNullNeverFunction) {
+  auto value = arrow::field("null_never_cse_value", arrow::utf8());
+  auto schema = arrow::schema({value});
+
+  auto make_is_null = [&] {
+    return TreeExprBuilder::MakeFunction("isnull", {TreeExprBuilder::MakeField(value)},
+                                         arrow::boolean());
+  };
+  auto root = TreeExprBuilder::MakeFunction("equal", {make_is_null(), make_is_null()},
+                                            arrow::boolean());
+  auto expr = TreeExprBuilder::MakeExpression(
+      root, arrow::field("null_never_cse_out", arrow::boolean()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(1, CountOccurrences(unoptimized_expr_ir, "call i1 @isnull_utf8"));
+
+  auto values = MakeArrowArrayUtf8({"present", "ignored", "", "also present"},
+                                   {true, false, true, true});
+  auto expected = MakeArrowArrayBool({true, true, true, true});
+  ExpectProjectorOutput(projector, schema, {values}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestCommonSubexpressionEliminationAcrossMultipleOutputs) {
+  auto left = arrow::field("multi_output_cse_left", arrow::int32());
+  auto right = arrow::field("multi_output_cse_right", arrow::int32());
+  auto schema = arrow::schema({left, right});
+
+  auto make_sum = [&] {
+    return TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+        arrow::int32());
+  };
+  auto first = TreeExprBuilder::MakeExpression(
+      make_sum(), arrow::field("multi_output_cse_first", arrow::int32()));
+  auto second = TreeExprBuilder::MakeExpression(
+      make_sum(), arrow::field("multi_output_cse_second", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {first, second}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto first_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  const auto second_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_1_0");
+  ASSERT_FALSE(first_expr_ir.empty());
+  ASSERT_FALSE(second_expr_ir.empty());
+  EXPECT_EQ(1, CountOccurrences(first_expr_ir, "call i32 @add_int32_int32"));
+  EXPECT_EQ(1, CountOccurrences(second_expr_ir, "call i32 @add_int32_int32"));
+
+  auto left_values = MakeArrowArrayInt32({1, 2, 3}, {true, true, false});
+  auto right_values = MakeArrowArrayInt32({10, 20, 30});
+  auto expected = MakeArrowArrayInt32({11, 22, 0}, {true, true, false});
+  auto batch = arrow::RecordBatch::Make(schema, 3, {left_values, right_values});
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+  ASSERT_EQ(2, outputs.size());
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
+  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[1]);
+}
+
+TEST_F(TestProjector, TestCommonSubexpressionNotReusedAcrossIfBranches) {
+  auto condition_field = arrow::field("branch_cse_cond", arrow::boolean());
+  auto left = arrow::field("branch_cse_left", arrow::int32());
+  auto right = arrow::field("branch_cse_right", arrow::int32());
+  auto schema = arrow::schema({condition_field, left, right});
+
+  auto make_sum = [&] {
+    return TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+        arrow::int32());
+  };
+  auto else_node = TreeExprBuilder::MakeFunction(
+      "multiply", {make_sum(), TreeExprBuilder::MakeLiteral(int32_t{2})}, arrow::int32());
+  auto if_node = TreeExprBuilder::MakeIf(TreeExprBuilder::MakeField(condition_field),
+                                         make_sum(), else_node, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(
+      if_node, arrow::field("branch_cse_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call i32 @add_int32_int32"));
+
+  auto conditions = MakeArrowArrayBool({true, false, true, false});
+  auto left_values = MakeArrowArrayInt32({1, 2, 3, 4});
+  auto right_values = MakeArrowArrayInt32({10, 20, 30, 40});
+  auto expected = MakeArrowArrayInt32({11, 44, 33, 88});
+  ExpectProjectorOutput(projector, schema, {conditions, left_values, right_values},
+                        expected, pool_);
+}
+
+TEST_F(TestProjector, TestCommonSubexpressionRebuiltAfterIfMerge) {
+  auto condition = arrow::field("merge_cse_condition", arrow::boolean());
+  auto left = arrow::field("merge_cse_left", arrow::int32());
+  auto right = arrow::field("merge_cse_right", arrow::int32());
+  auto schema = arrow::schema({condition, left, right});
+
+  auto make_sum = [&] {
+    return TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+        arrow::int32());
+  };
+  auto else_value = TreeExprBuilder::MakeFunction(
+      "add", {make_sum(), TreeExprBuilder::MakeLiteral(int32_t{1})}, arrow::int32());
+  auto conditional = TreeExprBuilder::MakeIf(TreeExprBuilder::MakeField(condition),
+                                             make_sum(), else_value, arrow::int32());
+  auto root =
+      TreeExprBuilder::MakeFunction("add", {conditional, make_sum()}, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(
+      root, arrow::field("merge_cse_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(5, CountOccurrences(unoptimized_expr_ir, "call i32 @add_int32_int32"));
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("res_value = phi"));
+
+  auto conditions =
+      MakeArrowArrayBool({true, false, false, true}, {true, true, false, true});
+  auto left_values = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, false});
+  auto right_values = MakeArrowArrayInt32({10, 20, 30, 40});
+  auto expected = MakeArrowArrayInt32({22, 45, 67, 0}, {true, true, true, false});
+  ExpectProjectorOutput(projector, schema, {conditions, left_values, right_values},
+                        expected, pool_);
+}
+
+TEST_F(TestProjector, TestUnsafeFunctionsAreNotCommoned) {
+  auto dividend = arrow::field("unsafe_cse_dividend", arrow::int32());
+  auto divisor = arrow::field("unsafe_cse_divisor", arrow::int32());
+  auto schema = arrow::schema({dividend, divisor});
+
+  auto make_divide = [&] {
+    return TreeExprBuilder::MakeFunction(
+        "divide",
+        {TreeExprBuilder::MakeField(dividend), TreeExprBuilder::MakeField(divisor)},
+        arrow::int32());
+  };
+  auto root = TreeExprBuilder::MakeFunction("add", {make_divide(), make_divide()},
+                                            arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(
+      root, arrow::field("unsafe_cse_divide_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call i32 @divide_int32_int32"));
+
+  auto dividends = MakeArrowArrayInt32({4, 8});
+  auto divisors = MakeArrowArrayInt32({2, 0});
+  auto batch = arrow::RecordBatch::Make(schema, 2, {dividends, divisors});
+  arrow::ArrayVector outputs;
+  auto status = projector->Evaluate(*batch, pool_, &outputs);
+  EXPECT_EQ(StatusCode::ExecutionError, status.code());
+  EXPECT_NE(std::string::npos, status.message().find("divide by zero error"));
+}
+
+TEST_F(TestProjector, TestContextFunctionsAreNotCommoned) {
+  auto value = arrow::field("context_cse_value", arrow::int64());
+  auto schema = arrow::schema({value});
+
+  auto make_chr = [&] {
+    return TreeExprBuilder::MakeFunction("chr", {TreeExprBuilder::MakeField(value)},
+                                         arrow::utf8());
+  };
+  auto root =
+      TreeExprBuilder::MakeFunction("equal", {make_chr(), make_chr()}, arrow::boolean());
+  auto expr = TreeExprBuilder::MakeExpression(
+      root, arrow::field("context_cse_out", arrow::boolean()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "@chr_int64("));
+
+  auto values = MakeArrowArrayInt64({65, 340, -5, 84}, {true, true, true, false});
+  auto expected =
+      MakeArrowArrayBool({true, true, true, false}, {true, true, true, false});
+  ExpectProjectorOutput(projector, schema, {values}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestHolderFunctionsAreNotCommoned) {
+  auto dummy = arrow::field("holder_cse_dummy", arrow::int32());
+  auto schema = arrow::schema({dummy});
+
+  auto make_random = [] {
+    return TreeExprBuilder::MakeFunction("random", {}, arrow::float64());
+  };
+  auto root = TreeExprBuilder::MakeFunction("subtract", {make_random(), make_random()},
+                                            arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(
+      root, arrow::field("holder_cse_out", arrow::float64()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+  EXPECT_EQ(2, CountOccurrences(unoptimized_expr_ir, "call double @gdv_fn_random"));
+
+  constexpr int kNumRecords = 64;
+  auto dummy_values = MakeArrowArrayInt32(std::vector<int32_t>(kNumRecords, 0));
+  auto batch = arrow::RecordBatch::Make(schema, kNumRecords, {dummy_values});
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+  auto result = std::dynamic_pointer_cast<arrow::DoubleArray>(outputs[0]);
+  ASSERT_NE(nullptr, result);
+  ASSERT_EQ(0, result->null_count());
+  for (int64_t i = 0; i < result->length(); ++i) {
+    EXPECT_GT(result->Value(i), -1.0);
+    EXPECT_LT(result->Value(i), 1.0);
+  }
+}
+
+TEST_F(TestProjector, TestIfAlgebraicFoldIsNotApplied) {
+  auto condition_field = arrow::field("generated_if_cond", arrow::boolean());
+  auto value_field = arrow::field("generated_if_value", arrow::int32());
+  auto schema = arrow::schema({condition_field, value_field});
+
+  auto condition = TreeExprBuilder::MakeField(condition_field);
+  auto then_node = TreeExprBuilder::MakeField(value_field);
+  auto else_node = TreeExprBuilder::MakeField(value_field);
+  auto if_node = TreeExprBuilder::MakeIf(condition, then_node, else_node, arrow::int32());
+  auto expr = TreeExprBuilder::MakeExpression(
+      if_node, arrow::field("generated_if_out", arrow::int32()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("generated_if_value"));
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("generated_if_cond"));
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("then:"));
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("else:"));
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("validAndMatch"));
+  EXPECT_NE(std::string::npos, unoptimized_expr_ir.find("res_value = phi"));
+
+  auto conditions =
+      MakeArrowArrayBool({true, false, false, true}, {true, true, false, true});
+  auto values = MakeArrowArrayInt32({7, 8, 9, 10}, {true, false, true, true});
+  auto expected = MakeArrowArrayInt32({7, 0, 9, 10}, {true, false, true, true});
+  ExpectProjectorOutput(projector, schema, {conditions, values}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestBooleanAlgebraicFoldIsNotApplied) {
+  auto field0 = arrow::field("generated_bool_f0", arrow::boolean());
+  auto field1 = arrow::field("generated_bool_f1", arrow::boolean());
+  auto schema = arrow::schema({field0, field1});
+
+  auto make_and = [&]() {
+    return TreeExprBuilder::MakeAnd(
+        {TreeExprBuilder::MakeField(field0), TreeExprBuilder::MakeField(field1)});
+  };
+  auto bool_expr = TreeExprBuilder::MakeOr({make_and(), make_and()});
+  auto expr = TreeExprBuilder::MakeExpression(
+      bool_expr, arrow::field("generated_bool_out", arrow::boolean()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+
+  EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "short_circuit"), 0);
+  EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "non_short_circuit"), 0);
+  EXPECT_GT(CountOccurrences(unoptimized_expr_ir, "res_value = phi"), 0);
+
+  auto input0 = MakeArrowArrayBool({true, true, false, false, false},
+                                   {true, true, true, false, false});
+  auto input1 = MakeArrowArrayBool({true, false, true, true, false},
+                                   {true, false, false, true, true});
+  auto expected = MakeArrowArrayBool({true, false, false, false, false},
+                                     {true, false, true, false, true});
+  ExpectProjectorOutput(projector, schema, {input0, input1}, expected, pool_);
+}
+
+TEST_F(TestProjector, TestNestedBetweenDoesNotReuseAcrossBooleanControlFlow) {
+  auto value = arrow::field("nested_between_value", arrow::int32());
+  auto lower = arrow::field("nested_between_lower", arrow::int32());
+  auto upper = arrow::field("nested_between_upper", arrow::int32());
+  auto schema = arrow::schema({value, lower, upper});
+
+  auto make_between = [&]() {
+    auto ge_lower = TreeExprBuilder::MakeFunction(
+        "greater_than_or_equal_to",
+        {TreeExprBuilder::MakeField(value), TreeExprBuilder::MakeField(lower)},
+        arrow::boolean());
+    auto le_upper = TreeExprBuilder::MakeFunction(
+        "less_than_or_equal_to",
+        {TreeExprBuilder::MakeField(value), TreeExprBuilder::MakeField(upper)},
+        arrow::boolean());
+    return TreeExprBuilder::MakeAnd({ge_lower, le_upper});
+  };
+
+  auto nested_between = TreeExprBuilder::MakeAnd(
+      {make_between(), TreeExprBuilder::MakeOr({make_between(), make_between()})});
+  auto expr = TreeExprBuilder::MakeExpression(
+      nested_between, arrow::field("nested_between_out", arrow::boolean()));
+
+  auto configuration = std::make_shared<Configuration>(
+      true, gandiva::default_function_registry(), /*dump_ir=*/true);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+
+  ASSERT_OK_AND_ASSIGN(auto unoptimized_ir, projector->DumpUnoptimizedIR());
+  const auto unoptimized_expr_ir = ExtractFunctionIR(unoptimized_ir, "expr_0_0");
+  ASSERT_FALSE(unoptimized_expr_ir.empty());
+
+  EXPECT_EQ(3, CountOccurrences(unoptimized_expr_ir,
+                                "call i1 @greater_than_or_equal_to_int32_int32"));
+  EXPECT_EQ(3, CountOccurrences(unoptimized_expr_ir,
+                                "call i1 @less_than_or_equal_to_int32_int32"));
+
+  auto values = MakeArrowArrayInt32({5, 1, 10, 7, 4}, {true, true, true, true, false});
+  auto lowers = MakeArrowArrayInt32({1, 2, 10, 6, 0}, {true, true, true, false, true});
+  auto uppers = MakeArrowArrayInt32({10, 5, 10, 9, 10});
+  auto expected = MakeArrowArrayBool({true, false, true, false, false},
+                                     {true, true, true, false, false});
+  ExpectProjectorOutput(projector, schema, {values, lowers, uppers}, expected, pool_);
 }
 
 TEST_F(TestProjector, TestExtendedMath) {
