@@ -51,22 +51,26 @@ cmake --build build --target parquet-write-parquet
 // file decodes bit-exactly, and exits non-zero if the layout does not match
 // the expectations from the issue comment.
 //
-// The file contains the same 9000 logical rows in several columns:
+// The file contains the same 9032 logical rows in several columns:
 //   float_plain,     double_plain     PLAIN + ZSTD (in-file reference values)
 //   float_alp_1024,  double_alp_1024  ALP, 1024-value vectors (default)
 //   float_alp_4096,  double_alp_4096  ALP, 4096-value vectors
 //   float_alp_32,    double_alp_32    ALP, 32-value vectors
 //
-// The rows are split into four row groups so that each region with a
+// The rows are split into five row groups so that each region with a
 // distinct value distribution is sampled on its own; in particular the
 // 4-decimal-digit range gets a different ALP exponent/factor than the
 // 2-decimal base data. (Mixing regions in one row group lets one region
 // dominate the sampled encoding preset, which produces spurious exceptions
 // in the other regions.)
-//   row group 0: rows 0-6143     (base data + special values + random ranges)
+//   row group 0: rows 0-6143     (base data + special values + random ranges;
+//                                 the NaNs include non-canonical payloads)
 //   row group 1: rows 6144-7167  (4 decimal digits => different exponent/factor)
 //   row group 2: rows 7168-8191  (constant vector, bit_width = 0)
-//   row group 3: rows 8192-8999  (trailing partial vector with nulls)
+//   row group 3: rows 8192-8999  (partial vector with nulls)
+//   row group 4: rows 9000-9031 (large-magnitude values => 64-bit FOR bit
+//                                 width for doubles, all-exception vector for
+//                                 floats)
 //
 // After writing, the tool re-opens the file and prints, for every ALP
 // column and row group, the ALP page header, the number of vectors, and
@@ -95,12 +99,19 @@ cmake --build build --target parquet-write-parquet
 
 namespace {
 
-constexpr int64_t kNumRows = 9000;
+constexpr int64_t kNumRows = 9032;
 constexpr uint32_t kSeed = 42;
 constexpr char kFileName[] = "alp_extended.zstd.parquet";
 
 // Row group boundaries; see the comment at the top of the file.
-const std::vector<int64_t> kRowGroupBoundaries = {0, 6144, 7168, 8192, kNumRows};
+const std::vector<int64_t> kRowGroupBoundaries = {0, 6144, 7168, 8192, 9000, kNumRows};
+
+// Bounds of the large-magnitude range (rows 9000-9031). Every double with
+// magnitude >= 2^53 is integer-valued, so these values are losslessly
+// encodable with exponent=0/factor=0, and the pinned endpoints force a FOR
+// range of 1.6e19 >= 2^63, i.e. a 64-bit FOR bit width. The magnitude stays
+// below the double encoder's limit (~9.22e18, int64 range).
+constexpr double kBigMagnitude = 8.0e18;
 
 // ----------------------------------------------------------------------
 // Mirror of the ALP per-value encode/decode arithmetic
@@ -200,6 +211,8 @@ GeneratedData MakeData() {
   std::uniform_int_distribution<int> ten_thousandths(-100000, 100000);
   // full-mantissa random values
   std::uniform_real_distribution<double> full(-10.0, 10.0);
+  // large-magnitude values for the 64-bit-FOR row group (rows 9000-9031)
+  std::uniform_real_distribution<double> big(-kBigMagnitude, kBigMagnitude);
 
   // Base values must produce no ALP exceptions, so redraw until both the
   // float and the double representation round trip (~4% of 2-decimal and
@@ -253,10 +266,25 @@ GeneratedData MakeData() {
     } else if (i < 8192) {
       data.doubles[i] = 7.77;  // constant vector, bit_width = 0
       data.floats[i] = 7.77f;
-    } else {
+    } else if (i < 9000) {
       set_base2(i);
       if (i % 100 == 0) {
         data.valid[i] = false;
+      }
+    } else {
+      // rows 9000-9031: large-magnitude integer-valued doubles requiring a
+      // 64-bit FOR bit width (see kBigMagnitude). The same values overflow
+      // the float encoder's int32 range, so the float columns store this
+      // vector entirely as exceptions.
+      while (true) {
+        const double v = big(gen);
+        // Redraw the (rare) small draws that are not integer-valued and
+        // would therefore not round trip under exponent=0/factor=0.
+        if (AlpRoundTrips(v, 0, 0)) {
+          data.doubles[i] = v;
+          data.floats[i] = static_cast<float>(v);
+          break;
+        }
       }
     }
   }
@@ -267,11 +295,32 @@ GeneratedData MakeData() {
   };
 
   // rows 1024-2047: NaN / Inf / -0.0 / subnormal edge values
-  const double dnan = std::numeric_limits<double>::quiet_NaN();
-  const float fnan = std::numeric_limits<float>::quiet_NaN();
-  set_both(1024, dnan, fnan);  // first element of the (1024-sized) vector
-  set_both(1500, dnan, fnan);
-  set_both(2047, dnan, fnan);  // last element of the (1024-sized) vector
+  //
+  // The three NaNs use distinct bit patterns so that readers are checked
+  // for preserving non-canonical NaN payloads (they are stored bit-exactly
+  // as ALP exceptions): a canonical quiet NaN, a quiet NaN with a payload,
+  // and a negative quiet NaN with a payload. Signaling NaNs are deliberately
+  // not used: platforms/languages (e.g. the JVM) are allowed to quieten
+  // them, which would make cross-implementation bit-exact comparison flaky.
+  auto double_from_bits = [](uint64_t bits) {
+    double d;
+    std::memcpy(&d, &bits, sizeof(d));
+    return d;
+  };
+  auto float_from_bits = [](uint32_t bits) {
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+  };
+  // canonical quiet NaN; first element of the (1024-sized) vector
+  set_both(1024, double_from_bits(0x7FF8000000000000ULL),
+           float_from_bits(0x7FC00000U));
+  // quiet NaN with a non-canonical payload
+  set_both(1500, double_from_bits(0x7FF800DEADBEEF00ULL),
+           float_from_bits(0x7FC0DEADU));
+  // negative quiet NaN with payload; last element of the (1024-sized) vector
+  set_both(2047, double_from_bits(0xFFF8000000000001ULL),
+           float_from_bits(0xFFC00001U));
   set_both(2000, std::numeric_limits<double>::infinity(),
            std::numeric_limits<float>::infinity());
   set_both(2001, -std::numeric_limits<double>::infinity(),
@@ -286,6 +335,12 @@ GeneratedData MakeData() {
   // rows 3072-4095: large-magnitude values
   set_both(3100, 44974934523.343, static_cast<float>(44974934523.343));
   set_both(3711, -1243432432.3432, static_cast<float>(-1243432432.3432));
+
+  // rows 9000-9031: pin the endpoints of the large-magnitude range so the
+  // FOR range is exactly 2 * kBigMagnitude = 1.6e19 >= 2^63, guaranteeing a
+  // 64-bit FOR bit width in the first vector of every double ALP column.
+  set_both(9000, -kBigMagnitude, static_cast<float>(-kBigMagnitude));
+  set_both(9001, kBigMagnitude, static_cast<float>(kBigMagnitude));
 
   return data;
 }
@@ -332,10 +387,12 @@ std::shared_ptr<parquet::WriterProperties> MakeWriterProperties() {
     builder.encoding(spec.name, spec.encoding);
     if (spec.encoding == parquet::Encoding::ALP) {
       builder.alp_vector_size(spec.name, spec.alp_vector_size);
-    } else {
-      builder.compression(spec.name, parquet::Compression::ZSTD);
     }
   }
+  // Only the PLAIN reference columns are compressed (with ZSTD); the ALP
+  // columns are left uncompressed.
+  builder.compression("float_plain", parquet::Compression::ZSTD);
+  builder.compression("double_plain", parquet::Compression::ZSTD);
   return builder.build();
 }
 
@@ -640,15 +697,20 @@ void CheckExpectations(const std::vector<ColumnAlpInfo>& columns,
     if (!ok) failures->push_back(msg);
   };
 
-  // Values per row group: {6144, 1024, 1024, 808 rows - 8 nulls = 800}
-  const std::vector<int32_t> expected_elements = {6144, 1024, 1024, 800};
-  // All base data is exception-free, so the only exceptions are in row
-  // group 0: 7 specials + 1 pi + 2 large + 512 half-random + 1024 random.
-  const std::vector<int64_t> expected_exceptions_per_rg = {7 + 1 + 2 + 512 + 1024, 0, 0,
-                                                           0};
+  // Values per row group: {6144, 1024, 1024, 808 rows - 8 nulls = 800, 32}
+  const std::vector<int32_t> expected_elements = {6144, 1024, 1024, 800, 32};
   const int kNumRowGroups = static_cast<int>(expected_elements.size());
 
   for (const auto& col : columns) {
+    const bool is_float = col.physical_type == parquet::Type::FLOAT;
+    // All base data is exception-free, so the only exceptions are in row
+    // group 0 (7 specials + 1 pi + 2 large + 512 half-random + 1024 random)
+    // and, for the float columns only, row group 4: its large-magnitude
+    // values overflow the float encoder's int32 range, so the whole vector
+    // is stored as exceptions (the doubles encode them losslessly).
+    const std::vector<int64_t> expected_exceptions_per_rg =
+        is_float ? std::vector<int64_t>{7 + 1 + 2 + 512 + 1024, 0, 0, 0, 32}
+                 : std::vector<int64_t>{7 + 1 + 2 + 512 + 1024, 0, 0, 0, 0};
     expect(col.row_group_pages.size() == static_cast<size_t>(kNumRowGroups),
            col.name + ": expected " + std::to_string(kNumRowGroups) +
                " ALP pages (one per row group), got " +
@@ -683,10 +745,11 @@ void CheckExpectations(const std::vector<ColumnAlpInfo>& columns,
     // where each row range in the issue is exactly one vector.
     if (rg0.vector_size == 1024) {
       const std::vector<std::vector<int>> expected_exc = {
-          {0, 7, 1, 2, 512, 1024},  // rg 0: rows 0-6143
-          {0},                      // rg 1: 4-decimal digits
-          {0},                      // rg 2: constant
-          {0},                      // rg 3: trailing partial + nulls
+          {0, 7, 1, 2, 512, 1024},   // rg 0: rows 0-6143
+          {0},                       // rg 1: 4-decimal digits
+          {0},                       // rg 2: constant
+          {0},                       // rg 3: trailing partial + nulls
+          {is_float ? 32 : 0},       // rg 4: 64-bit FOR (float: all exceptions)
       };
       for (int rg = 0; rg < kNumRowGroups; ++rg) {
         const AlpPageSummary& page = col.row_group_pages[rg];
@@ -714,6 +777,15 @@ void CheckExpectations(const std::vector<ColumnAlpInfo>& columns,
                           "vector), got " +
                    std::to_string(col.row_group_pages[3].vectors[0].num_elements));
       }
+    }
+
+    // The large-magnitude row group must produce a 64-bit FOR bit width in
+    // the double columns (the pinned +/-8e18 endpoints are in vector 0 for
+    // every vector size).
+    if (!is_float && !col.row_group_pages[4].vectors.empty()) {
+      expect(col.row_group_pages[4].vectors[0].bit_width == 64,
+             col.name + " rg 4 vector 0: expected bit_width=64, got " +
+                 std::to_string(col.row_group_pages[4].vectors[0].bit_width));
     }
   }
 }
