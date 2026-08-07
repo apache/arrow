@@ -2246,14 +2246,11 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP
 endif()
 
 if(ARROW_WITH_PROTOBUF)
-  if(ARROW_FLIGHT_SQL)
-    # Flight SQL uses proto3 optionals, which require 3.12 or later.
+  if(ARROW_FLIGHT_SQL OR ARROW_SUBSTRAIT)
+    # Flight SQL and Substrait use proto3 optionals, which require 3.12 or later.
     # 3.12.0-3.14.0: need --experimental_allow_proto3_optional
     # 3.15.0-: don't need --experimental_allow_proto3_optional
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.12.0")
-  elseif(ARROW_SUBSTRAIT)
-    # Substrait protobuf files use proto3 syntax
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
@@ -2394,6 +2391,13 @@ macro(build_substrait)
     endif()
   endif()
 
+  set(SUBSTRAIT_PROTOC_ARGS)
+  if(Protobuf_VERSION VERSION_LESS 3.15)
+    # 3.12.0-3.14.0 require this flag to accept the proto3 optional fields used by
+    # the vendored Substrait protos; 3.15.0+ accept them by default.
+    list(APPEND SUBSTRAIT_PROTOC_ARGS "--experimental_allow_proto3_optional")
+  endif()
+
   set(SUBSTRAIT_SOURCES)
   set(SUBSTRAIT_PROTO_GEN_ALL)
   foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
@@ -2413,7 +2417,7 @@ macro(build_substrait)
     endif()
     add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.cc" "${SUBSTRAIT_PROTO_GEN}.h"
                        COMMAND ${ARROW_PROTOBUF_PROTOC} ${SUBSTRAIT_PROTOC_INCLUDES}
-                               "--cpp_out=${SUBSTRAIT_CPP_DIR}"
+                               ${SUBSTRAIT_PROTOC_ARGS} "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
 
@@ -2435,7 +2439,7 @@ macro(build_substrait)
     add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
                               "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
                        COMMAND ${ARROW_PROTOBUF_PROTOC} ${ARROW_SUBSTRAIT_PROTOC_INCLUDES}
-                               "--cpp_out=${SUBSTRAIT_CPP_DIR}"
+                               ${SUBSTRAIT_PROTOC_ARGS} "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${ARROW_SUBSTRAIT_PROTOS_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
 
