@@ -1,0 +1,51 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../../../pyarrow-baseline-venv"
+		},
+		{
+			"path": "../../../../../../../../pyarrow-build-venv"
+		},
+		{
+			"path": "../../../../../../../../pyarrow-dist"
+		},
+		{
+			"path": "../../../../../../../../pyarrow-test-venvs"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"__locale": "cpp",
+			"__verbose_abort": "cpp",
+			"bitset": "cpp",
+			"cmath": "cpp",
+			"complex": "cpp",
+			"cstdarg": "cpp",
+			"cstddef": "cpp",
+			"cstdint": "cpp",
+			"cstdio": "cpp",
+			"cstdlib": "cpp",
+			"cstring": "cpp",
+			"ctime": "cpp",
+			"cwchar": "cpp",
+			"execution": "cpp",
+			"memory": "cpp",
+			"initializer_list": "cpp",
+			"ios": "cpp",
+			"iosfwd": "cpp",
+			"istream": "cpp",
+			"limits": "cpp",
+			"locale": "cpp",
+			"mutex": "cpp",
+			"new": "cpp",
+			"print": "cpp",
+			"sstream": "cpp",
+			"stdexcept": "cpp",
+			"streambuf": "cpp",
+			"string": "cpp",
+			"string_view": "cpp",
+			"typeinfo": "cpp",
+			"algorithm": "cpp"
+		}
+	}
+}
