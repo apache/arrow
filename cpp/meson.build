@@ -138,6 +138,25 @@ endif
 
 subdir('src/arrow')
 
+# Install generated Thrift and FlatBuffers headers
+install_headers(
+    [
+        'src/generated/File_generated.h',
+        'src/generated/Message_generated.h',
+        'src/generated/Schema_generated.h',
+        'src/generated/SparseTensor_generated.h',
+        'src/generated/Tensor_generated.h',
+        'src/generated/feather_generated.h',
+        'src/generated/parquet3_generated.h',
+        'src/generated/parquet_types.h',
+    ],
+    subdir: 'generated',
+)
+install_data(
+    ['src/generated/parquet_types.tcc'],
+    install_dir: join_paths(get_option('includedir'), 'generated'),
+)
+
 if needs_parquet
     subdir('src/parquet')
     subdir('tools/parquet')
