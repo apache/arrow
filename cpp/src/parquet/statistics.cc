@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <compare>
+#include <concepts>
 #include <cstring>
 #include <limits>
 #include <type_traits>
@@ -349,6 +351,45 @@ struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
   }
 };
 
+float ToArrowFloat(float value) { return value; }
+
+double ToArrowFloat(double value) { return value; }
+
+Float16 ToArrowFloat(const FLBA& value) {
+  DCHECK_NE(value.ptr, nullptr);
+  return Float16::FromLittleEndian(value.ptr);
+}
+
+template <typename Int, typename T>
+std::strong_ordering TotalOrderCompareBits(T lhs, T rhs) {
+  // https://parquet.apache.org/blog/2026/05/29/taming-floating-point-statistics-in-apache-parquet-ieee-754-total-order-and-nan-counts/
+  auto lhs_bits = SafeCopy<Int>(lhs);
+  auto rhs_bits = SafeCopy<Int>(rhs);
+  using UInt = std::make_unsigned_t<Int>;
+  constexpr int sign_shift = sizeof(Int) * 8 - 1;
+  lhs_bits ^= static_cast<Int>(static_cast<UInt>(lhs_bits >> sign_shift) >> 1);
+  rhs_bits ^= static_cast<Int>(static_cast<UInt>(rhs_bits >> sign_shift) >> 1);
+  return lhs_bits <=> rhs_bits;
+}
+
+std::strong_ordering TotalOrderCompare(float lhs, float rhs) {
+  static_assert(std::numeric_limits<float>::is_iec559);
+  // TODO: Use std::strong_order once all supported standard libraries implement its
+  // floating-point overloads.
+  return TotalOrderCompareBits<int32_t>(lhs, rhs);
+}
+
+std::strong_ordering TotalOrderCompare(double lhs, double rhs) {
+  static_assert(std::numeric_limits<double>::is_iec559);
+  // TODO: Use std::strong_order once all supported standard libraries implement its
+  // floating-point overloads.
+  return TotalOrderCompareBits<int64_t>(lhs, rhs);
+}
+
+std::strong_ordering TotalOrderCompare(Float16 lhs, Float16 rhs) {
+  return TotalOrderCompareBits<int16_t>(lhs.bits(), rhs.bits());
+}
+
 using ::std::optional;
 
 // A usable min/max pair always satisfies min <= max. The reverse ordering
@@ -523,6 +564,66 @@ class TypedComparatorImpl
   int type_length_;
 };
 
+template <typename DType>
+class TotalOrderComparatorImpl
+    : public TypedComparator<typename RebindLogical<DType>::DType> {
+ public:
+  using T = typename RebindLogical<DType>::c_type;
+
+  bool Compare(const T& lhs, const T& rhs) const override {
+    return std::is_lt(TotalOrderCompare(ToArrowFloat(lhs), ToArrowFloat(rhs)));
+  }
+
+  std::pair<T, T> GetMinMax(const T* values, int64_t length) const override {
+    DCHECK_GT(length, 0);
+    T min = SafeLoad(values);
+    T max = min;
+    for (int64_t value_index = 1; value_index < length; ++value_index) {
+      const T value = SafeLoad(values + value_index);
+      min = std::is_lt(TotalOrderCompare(ToArrowFloat(value), ToArrowFloat(min))) ? value
+                                                                                  : min;
+      max = std::is_lt(TotalOrderCompare(ToArrowFloat(max), ToArrowFloat(value))) ? value
+                                                                                  : max;
+    }
+    return {min, max};
+  }
+
+  std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
+                                  const uint8_t* valid_bits,
+                                  int64_t valid_bits_offset) const override {
+    DCHECK_GT(length, 0);
+    T min{};
+    T max{};
+    bool has_value = false;
+    ::arrow::internal::VisitSetBitRunsVoid(
+        valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t run_length) {
+          int64_t value_index = 0;
+          if (!has_value) {
+            const T value = SafeLoad(values + position);
+            min = value;
+            max = value;
+            has_value = true;
+            value_index = 1;
+          }
+          for (; value_index < run_length; ++value_index) {
+            const T value = SafeLoad(values + position + value_index);
+            min = std::is_lt(TotalOrderCompare(ToArrowFloat(value), ToArrowFloat(min)))
+                      ? value
+                      : min;
+            max = std::is_lt(TotalOrderCompare(ToArrowFloat(max), ToArrowFloat(value)))
+                      ? value
+                      : max;
+          }
+        });
+    DCHECK(has_value);
+    return {min, max};
+  }
+
+  std::pair<T, T> GetMinMax(const ::arrow::Array& values) const override {
+    ParquetException::NYI(values.type()->ToString());
+  }
+};
+
 // ARROW-11675: A hand-written version of GetMinMax(), to work around
 // what looks like a MSVC code generation bug.
 // This does not seem to be required for GetMinMaxSpaced().
@@ -599,6 +700,76 @@ LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
   return LogicalTypeId(stats.descr());
 }
 
+template <typename T>
+concept ArrowFloatValue =
+    std::same_as<T, float> || std::same_as<T, double> || std::same_as<T, Float16>;
+
+template <ArrowFloatValue T>
+bool IsNaNValue(T value) {
+  return std::isnan(value);
+}
+
+template <>
+bool IsNaNValue<Float16>(Float16 value) {
+  return value.is_nan();
+}
+
+template <ArrowFloatValue T, ColumnOrder::type column_order>
+  requires(column_order == ColumnOrder::TYPE_DEFINED_ORDER ||
+           column_order == ColumnOrder::IEEE_754_TOTAL_ORDER)
+class FloatingValueSummary {
+ public:
+  void Add(const T& value) {
+    if (IsNaNValue(value)) {
+      ++nan_count_;
+      if constexpr (column_order == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+        if (is_all_nan_) {
+          if (bounds_.has_value()) {
+            UpdateBounds(value);
+          } else {
+            bounds_.emplace(value, value);
+          }
+        }
+      }
+    } else {
+      if (is_all_nan_) {
+        bounds_.emplace(value, value);
+        is_all_nan_ = false;
+      } else {
+        UpdateBounds(value);
+      }
+    }
+  }
+
+  int64_t nan_count() const { return nan_count_; }
+
+  const std::optional<std::pair<T, T>>& bounds() const { return bounds_; }
+
+ private:
+  static bool Less(const T& lhs, const T& rhs) {
+    if constexpr (column_order == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      return std::is_lt(TotalOrderCompare(lhs, rhs));
+    } else {
+      return lhs < rhs;
+    }
+  }
+
+  void UpdateBounds(const T& value) {
+    DCHECK(bounds_.has_value());
+    auto& min = bounds_->first;
+    auto& max = bounds_->second;
+    if (Less(value, min)) {
+      min = value;
+    } else if (Less(max, value)) {
+      max = value;
+    }
+  }
+
+  int64_t nan_count_ = 0;
+  bool is_all_nan_ = true;
+  std::optional<std::pair<T, T>> bounds_;
+};
+
 template <typename DType>
 class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
@@ -610,14 +781,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         pool_(pool),
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)),
-        logical_type_(LogicalTypeId(descr_)) {
-    if (descr->sort_order() != SortOrder::UNKNOWN) {
+        logical_type_(LogicalTypeId(descr_)),
+        is_half_float_(logical_type_ == LogicalType::Type::FLOAT16) {
+    if (descr->can_use_min_max()) {
       comparator_ = MakeComparator<DType>(descr);
     }
     TypedStatisticsImpl::Reset();
   }
 
-  // Create stats from provided values.
+  // Only used by the deprecated MakeStatistics overload. Remove it after that
+  // overload has been removed.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
@@ -637,19 +810,20 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   // Create stats from a thrift Statistics object.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
-                      int64_t null_count, int64_t distinct_count, bool has_min_max,
-                      bool has_null_count, bool has_distinct_count, MemoryPool* pool)
+                      int64_t null_count, int64_t distinct_count, int64_t nan_count,
+                      bool has_min_max, bool has_null_count, bool has_distinct_count,
+                      bool has_nan_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
-                            distinct_count, has_min_max, has_null_count,
-                            has_distinct_count,
+                            distinct_count, nan_count, has_min_max, has_null_count,
+                            has_distinct_count, has_nan_count,
                             /*is_min_value_exact=*/std::nullopt,
                             /*is_max_value_exact=*/std::nullopt, pool) {}
 
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
-                      int64_t null_count, int64_t distinct_count, bool has_min_max,
-                      bool has_null_count, bool has_distinct_count,
-                      std::optional<bool> is_min_value_exact,
+                      int64_t null_count, int64_t distinct_count, int64_t nan_count,
+                      bool has_min_max, bool has_null_count, bool has_distinct_count,
+                      bool has_nan_count, std::optional<bool> is_min_value_exact,
                       std::optional<bool> is_max_value_exact, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
@@ -658,6 +832,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     } else {
       has_null_count_ = false;
     }
+    if (has_nan_count) {
+      statistics_.nan_count = nan_count;
+      has_nan_count_ = true;
+    } else {
+      has_nan_count_ = false;
+    }
     if (has_distinct_count) {
       SetDistinctCount(distinct_count);
     } else {
@@ -665,8 +845,17 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
 
     if (has_min_max) {
-      PlainDecode(encoded_min, &min_);
-      PlainDecode(encoded_max, &max_);
+      if constexpr (std::same_as<DType, ByteArrayType> || std::same_as<DType, FLBAType>) {
+        T decoded_min;
+        T decoded_max;
+        PlainDecode(encoded_min, &decoded_min);
+        PlainDecode(encoded_max, &decoded_max);
+        Copy(decoded_min, &min_, min_buffer_.get());
+        Copy(decoded_max, &max_, max_buffer_.get());
+      } else {
+        PlainDecode(encoded_min, &min_);
+        PlainDecode(encoded_max, &max_);
+      }
       statistics_.is_min_value_exact = is_min_value_exact;
       statistics_.is_max_value_exact = is_max_value_exact;
     }
@@ -677,6 +866,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
+  bool HasNanCount() const override { return has_nan_count_; }
 
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count += n;
@@ -713,8 +903,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       if (!MinMaxEqual(other)) return false;
     }
 
-    return null_count() == other.null_count() &&
-           distinct_count() == other.distinct_count() &&
+    return HasNullCount() == other.HasNullCount() &&
+           (!HasNullCount() || null_count() == other.null_count()) &&
+           HasDistinctCount() == other.HasDistinctCount() &&
+           (!HasDistinctCount() || distinct_count() == other.distinct_count()) &&
+           HasNanCount() == other.HasNanCount() &&
+           (!HasNanCount() || nan_count() == other.nan_count()) &&
            num_values() == other.num_values() &&
            is_min_value_exact() == other.is_min_value_exact() &&
            is_max_value_exact() == other.is_max_value_exact();
@@ -749,6 +943,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       // Otherwise clear has_distinct_count_ as distinct count cannot be merged.
       this->has_distinct_count_ = false;
     }
+    if (has_nan_count_ && other.HasNanCount()) {
+      statistics_.nan_count += other.nan_count();
+    } else {
+      has_nan_count_ = false;
+    }
     // Do not clear min/max here if the other side does not provide
     // min/max which may happen when other is an empty stats or all
     // its values are null and/or NaN.
@@ -773,6 +972,42 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
 
     if (comparator_ == nullptr) return;
+
+    if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType> ||
+                  std::same_as<DType, FLBAType>) {
+      auto visit_valid_indices = [&](auto&& visit) {
+        ::arrow::internal::VisitSetBitRunsVoid(
+            values.null_bitmap_data(), values.offset(), values.length(),
+            [&](int64_t position, int64_t run_length) {
+              for (int64_t value_index = 0; value_index < run_length; ++value_index) {
+                visit(position + value_index);
+              }
+            });
+      };
+      if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType>) {
+        using ArrayType = typename ::arrow::CTypeTraits<T>::ArrayType;
+        const auto& array = checked_cast<const ArrayType&>(values);
+        UpdateFloatingBounds(
+            [&](auto&& visit) {
+              visit_valid_indices(
+                  [&](int64_t value_index) { visit(array.Value(value_index)); });
+            },
+            update_counts);
+        return;
+      } else if (is_half_float_) {
+        DCHECK_EQ(values.type_id(), ::arrow::Type::HALF_FLOAT);
+        const auto& array = checked_cast<const ::arrow::HalfFloatArray&>(values);
+        UpdateFloatingBounds(
+            [&](auto&& visit) {
+              visit_valid_indices([&](int64_t value_index) {
+                visit(Float16::FromBits(array.Value(value_index)));
+              });
+            },
+            update_counts);
+        return;
+      }
+    }
+
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
@@ -812,11 +1047,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasDistinctCount()) {
       s.set_distinct_count(this->distinct_count());
     }
+    if (HasNanCount()) {
+      s.set_nan_count(this->nan_count());
+    }
     return s;
   }
 
   int64_t null_count() const override { return statistics_.null_count; }
   int64_t distinct_count() const override { return statistics_.distinct_count; }
+  int64_t nan_count() const override { return statistics_.nan_count; }
   int64_t num_values() const override { return num_values_; }
   std::optional<bool> is_min_value_exact() const override {
     return statistics_.is_min_value_exact;
@@ -830,6 +1069,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool has_min_max_ = false;
   bool has_null_count_ = false;
   bool has_distinct_count_ = false;
+  bool has_nan_count_ = false;
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
@@ -843,6 +1083,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
   LogicalType::Type::type logical_type_ = LogicalType::Type::NONE;
+  bool is_half_float_ = false;
 
   void PlainEncode(const T& src, std::string* dst) const;
   void PlainDecode(const std::string& src, T* dst) const;
@@ -858,6 +1099,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void ResetCounts() {
     this->statistics_.null_count = 0;
     this->statistics_.distinct_count = 0;
+    this->statistics_.nan_count = 0;
     this->num_values_ = 0;
   }
 
@@ -870,18 +1112,85 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->has_distinct_count_ = false;
     // Null count calculation is cheap and enabled by default.
     this->has_null_count_ = true;
+    // NaN counts are collected alongside floating-point bounds and enabled by
+    // default.
+    if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType>) {
+      this->has_nan_count_ = true;
+    } else if constexpr (std::same_as<DType, FLBAType>) {
+      this->has_nan_count_ = is_half_float_;
+    } else {
+      this->has_nan_count_ = false;
+    }
+  }
+
+  template <ColumnOrder::type column_order, typename VisitValues>
+  void UpdateFloatingBoundsWithOrder(VisitValues&& visit_values, bool update_nan_count) {
+    using ArrowFloat = decltype(ToArrowFloat(std::declval<T>()));
+
+    FloatingValueSummary<ArrowFloat, column_order> summary;
+    std::invoke(std::forward<VisitValues>(visit_values),
+                [&](const auto& value) { summary.Add(value); });
+    if (has_nan_count_ && update_nan_count) {
+      statistics_.nan_count += summary.nan_count();
+    }
+    const auto& bounds = summary.bounds();
+    if (bounds.has_value()) {
+      if constexpr (std::same_as<DType, FLBAType>) {
+        DCHECK(is_half_float_);
+        const auto min = bounds->first.ToLittleEndian();
+        const auto max = bounds->second.ToLittleEndian();
+        SetMinMaxPair({FLBA{min.data()}, FLBA{max.data()}});
+      } else {
+        SetMinMaxPair(bounds.value());
+      }
+    }
+  }
+
+  template <typename VisitValues>
+  void UpdateFloatingBounds(VisitValues&& visit_values, bool update_nan_count) {
+    if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      UpdateFloatingBoundsWithOrder<ColumnOrder::IEEE_754_TOTAL_ORDER>(
+          std::forward<VisitValues>(visit_values), update_nan_count);
+    } else {
+      DCHECK(descr_->can_use_min_max());
+      UpdateFloatingBoundsWithOrder<ColumnOrder::TYPE_DEFINED_ORDER>(
+          std::forward<VisitValues>(visit_values), update_nan_count);
+    }
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
     if (comparator_ == nullptr) return;
-    // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
-    auto maybe_min_max = CleanStatistic(min_max, logical_type_);
+    auto maybe_min_max =
+        descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER
+            ? std::optional<std::pair<T, T>>(min_max)
+            : CleanStatistic(min_max, logical_type_);
     if (!maybe_min_max) return;
 
     auto min = maybe_min_max.value().first;
     auto max = maybe_min_max.value().second;
 
-    if (!has_min_max_) {
+    bool replace_all_nan_bounds = false;
+    if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType> ||
+                  std::same_as<DType, FLBAType>) {
+      if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+        DCHECK((!std::same_as<DType, FLBAType>) || is_half_float_);
+
+        const bool min_is_nan = IsNaNValue(ToArrowFloat(min));
+        DCHECK_EQ(min_is_nan, IsNaNValue(ToArrowFloat(max)));
+        bool current_bounds_are_nan = false;
+        if (has_min_max_) {
+          const bool current_min_is_nan = IsNaNValue(ToArrowFloat(min_));
+          DCHECK_EQ(current_min_is_nan, IsNaNValue(ToArrowFloat(max_)));
+          current_bounds_are_nan = current_min_is_nan;
+        }
+        if (min_is_nan && has_min_max_ && !current_bounds_are_nan) {
+          return;
+        }
+        replace_all_nan_bounds = !min_is_nan && has_min_max_ && current_bounds_are_nan;
+      }
+    }
+
+    if (!has_min_max_ || replace_all_nan_bounds) {
       has_min_max_ = true;
       Copy(min, &min_, min_buffer_.get());
       Copy(max, &max_, max_buffer_.get());
@@ -905,6 +1214,13 @@ inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
 template <typename DType>
 bool TypedStatisticsImpl<DType>::MinMaxEqual(
     const TypedStatisticsImpl<DType>& other) const {
+  if constexpr (std::same_as<T, float> || std::same_as<T, double>) {
+    if (descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER &&
+        other.descr_->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+      return std::is_eq(TotalOrderCompare(min_, other.min_)) &&
+             std::is_eq(TotalOrderCompare(max_, other.max_));
+    }
+  }
   return min_ == other.min_ && max_ == other.max_;
 }
 
@@ -937,6 +1253,20 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNumValues(num_values);
 
   if (num_values == 0 || comparator_ == nullptr) return;
+  if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType> ||
+                std::same_as<DType, FLBAType>) {
+    const bool use_floating_bounds = !std::same_as<DType, FLBAType> || is_half_float_;
+    if (use_floating_bounds) {
+      UpdateFloatingBounds(
+          [&](auto&& visit) {
+            for (int64_t value_index = 0; value_index < num_values; ++value_index) {
+              visit(ToArrowFloat(SafeLoad(values + value_index)));
+            }
+          },
+          true);
+      return;
+    }
+  }
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
@@ -952,6 +1282,24 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_values);
 
   if (num_values == 0 || comparator_ == nullptr) return;
+  if constexpr (std::same_as<DType, FloatType> || std::same_as<DType, DoubleType> ||
+                std::same_as<DType, FLBAType>) {
+    const bool use_floating_bounds = !std::same_as<DType, FLBAType> || is_half_float_;
+    if (use_floating_bounds) {
+      UpdateFloatingBounds(
+          [&](auto&& visit) {
+            ::arrow::internal::VisitSetBitRunsVoid(
+                valid_bits, valid_bits_offset, num_spaced_values,
+                [&](int64_t position, int64_t run_length) {
+                  for (int64_t value_index = 0; value_index < run_length; ++value_index) {
+                    visit(ToArrowFloat(SafeLoad(values + position + value_index)));
+                  }
+                });
+          },
+          true);
+      return;
+    }
+  }
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -1039,6 +1387,25 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
   return nullptr;
 }
 
+std::shared_ptr<Comparator> DoMakeTotalOrderComparator(
+    Type::type physical_type, LogicalType::Type::type logical_type) {
+  switch (physical_type) {
+    case Type::FLOAT:
+      return std::make_shared<TotalOrderComparatorImpl<FloatType>>();
+    case Type::DOUBLE:
+      return std::make_shared<TotalOrderComparatorImpl<DoubleType>>();
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      if (logical_type == LogicalType::Type::FLOAT16) {
+        return std::make_shared<TotalOrderComparatorImpl<Float16LogicalType>>();
+      }
+      break;
+    default:
+      break;
+  }
+  throw ParquetException(
+      "Total order comparison is only supported for floating-point types");
+}
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -1052,6 +1419,12 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
 }
 
 std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
+  if (!descr->can_use_min_max()) {
+    throw ParquetException("Column order does not define a supported comparison");
+  }
+  if (descr->column_order().get_order() == ColumnOrder::IEEE_754_TOTAL_ORDER) {
+    return DoMakeTotalOrderComparator(descr->physical_type(), LogicalTypeId(descr));
+  }
   return DoMakeComparator(descr->physical_type(), LogicalTypeId(descr),
                           descr->sort_order(), descr->type_length());
 }
@@ -1111,20 +1484,20 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
   DCHECK(encoded_stats != nullptr);
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
-              encoded_stats->has_min && encoded_stats->has_max,
+              encoded_stats->nan_count, encoded_stats->has_min && encoded_stats->has_max,
               encoded_stats->has_null_count, encoded_stats->has_distinct_count,
-              encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
+              encoded_stats->has_nan_count, encoded_stats->is_min_value_exact,
+              encoded_stats->is_max_value_exact, pool);
 }
 
-std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
-                                             const std::string& encoded_min,
-                                             const std::string& encoded_max,
-                                             int64_t num_values, int64_t null_count,
-                                             int64_t distinct_count, bool has_min_max,
-                                             bool has_null_count, bool has_distinct_count,
-                                             ::arrow::MemoryPool* pool) {
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, int64_t nan_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, bool has_nan_count, ::arrow::MemoryPool* pool) {
   return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
-                          distinct_count, has_min_max, has_null_count, has_distinct_count,
+                          distinct_count, nan_count, has_min_max, has_null_count,
+                          has_distinct_count, has_nan_count,
                           /*is_min_value_exact=*/std::nullopt,
                           /*is_max_value_exact=*/std::nullopt, pool);
 }
@@ -1132,17 +1505,17 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
 std::shared_ptr<Statistics> Statistics::Make(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, bool has_null_count,
-    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    int64_t distinct_count, int64_t nan_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, bool has_nan_count, std::optional<bool> is_min_value_exact,
     std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
-  return VisitType(descr->physical_type(),
-                   [&](auto* type) -> std::shared_ptr<Statistics> {
-                     using DType = std::decay_t<decltype(*type)>;
-                     return std::make_shared<TypedStatisticsImpl<DType>>(
-                         descr, encoded_min, encoded_max, num_values, null_count,
-                         distinct_count, has_min_max, has_null_count, has_distinct_count,
-                         is_min_value_exact, is_max_value_exact, pool);
-                   });
+  return VisitType(
+      descr->physical_type(), [&](auto* type) -> std::shared_ptr<Statistics> {
+        using DType = std::decay_t<decltype(*type)>;
+        return std::make_shared<TypedStatisticsImpl<DType>>(
+            descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
+            nan_count, has_min_max, has_null_count, has_distinct_count, has_nan_count,
+            is_min_value_exact, is_max_value_exact, pool);
+      });
 }
 
 }  // namespace parquet

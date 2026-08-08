@@ -270,6 +270,15 @@ Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
     return ExtractDecimalMinMaxFromBytes(statistics.EncodeMin(), statistics.EncodeMax(),
                                          *logical_type, min, max);
   }
+  if (logical_type->type() == LogicalType::Type::FLOAT16) {
+    *min = std::make_shared<::arrow::HalfFloatScalar>(
+        ::arrow::util::Float16::FromLittleEndian(
+            reinterpret_cast<const uint8_t*>(statistics.EncodeMin().data())));
+    *max = std::make_shared<::arrow::HalfFloatScalar>(
+        ::arrow::util::Float16::FromLittleEndian(
+            reinterpret_cast<const uint8_t*>(statistics.EncodeMax().data())));
+    return Status::OK();
+  }
   std::shared_ptr<::arrow::DataType> type;
   if (statistics.descr()->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
     type = ::arrow::fixed_size_binary(statistics.descr()->type_length());

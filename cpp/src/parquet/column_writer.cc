@@ -83,6 +83,11 @@ namespace parquet {
 
 namespace {
 
+bool CanWriteLegacyStatistics(const ColumnDescriptor& descr) {
+  return descr.column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER &&
+         descr.sort_order() == SortOrder::SIGNED;
+}
+
 // Visitor that extracts the value buffer from a FlatArray at a given offset.
 struct ValueBufferSlicer {
   template <typename T>
@@ -1013,7 +1018,7 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
                      uncompressed_data_->mutable_data());
   auto [page_stats, page_size_stats] = GetPageStatistics();
   page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
-  page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
+  page_stats.set_is_signed(CanWriteLegacyStatistics(*descr_));
   ResetPageStatistics();
 
   std::shared_ptr<Buffer> compressed_data;
@@ -1074,7 +1079,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
 
   auto [page_stats, page_size_stats] = GetPageStatistics();
   page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
-  page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
+  page_stats.set_is_signed(CanWriteLegacyStatistics(*descr_));
   ResetPageStatistics();
 
   int32_t num_values = static_cast<int32_t>(num_buffered_values_);
@@ -1120,7 +1125,7 @@ int64_t ColumnWriterImpl::Close() {
     auto [chunk_statistics, chunk_size_statistics] = GetChunkStatistics();
     chunk_statistics.ApplyStatSizeLimits(
         properties_->max_statistics_size(descr_->path()));
-    chunk_statistics.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
+    chunk_statistics.set_is_signed(CanWriteLegacyStatistics(*descr_));
 
     // Write stats only if the column has at least one row written
     if (rows_written_ > 0 && chunk_statistics.is_set()) {
@@ -1307,7 +1312,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     // SortOrder::UNKNOWN. Currently, the presence of statistics is tied to
     // having a known sort order and so null counts will be missing.
     if (properties->statistics_enabled(descr_->path())) {
-      if (SortOrder::UNKNOWN != descr_->sort_order()) {
+      if (descr_->can_use_min_max()) {
         page_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
         chunk_statistics_ = MakeStatistics<ParquetType>(descr_, allocator_);
       }

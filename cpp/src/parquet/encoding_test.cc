@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -29,6 +30,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/cast.h"
 #include "arrow/testing/gtest_util.h"
@@ -41,6 +43,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -464,6 +467,70 @@ TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
 
 TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
   ASSERT_THROW(MakeDictDecoder<BooleanType>(nullptr), ParquetException);
+}
+
+template <typename DType, typename UInt, size_t NumValues>
+void TestFloatingDictionaryBits(const std::array<UInt, NumValues>& bits,
+                                int num_entries) {
+  using T = typename DType::c_type;
+  std::array<T, NumValues> values;
+  std::transform(bits.begin(), bits.end(), values.begin(),
+                 [](UInt value) { return ::arrow::util::SafeCopy<T>(value); });
+
+  auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, true);
+  auto dictionary = dynamic_cast<DictEncoder<DType>*>(encoder.get());
+  ASSERT_NE(nullptr, dictionary);
+  encoder->Put(values.data(), values.size());
+  ASSERT_EQ(num_entries, dictionary->num_entries());
+
+  auto buffer = AllocateBuffer(default_memory_pool(), dictionary->dict_encoded_size());
+  dictionary->WriteDict(buffer->mutable_data());
+  const UInt* encoded = reinterpret_cast<const UInt*>(buffer->data());
+  for (int value_index = 0; value_index < num_entries; ++value_index) {
+    EXPECT_EQ(bits[value_index], encoded[value_index]);
+  }
+
+  using ArrowType = std::conditional_t<std::is_same_v<DType, FloatType>,
+                                       ::arrow::FloatType, ::arrow::DoubleType>;
+  typename ::arrow::TypeTraits<ArrowType>::BuilderType builder;
+  ASSERT_OK(
+      builder.AppendValues(std::vector<T>(values.begin(), values.begin() + num_entries)));
+  std::shared_ptr<::arrow::Array> values_array;
+  ASSERT_OK(builder.Finish(&values_array));
+  auto direct_encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, true);
+  auto direct_dictionary = dynamic_cast<DictEncoder<DType>*>(direct_encoder.get());
+  ASSERT_NE(nullptr, direct_dictionary);
+  direct_dictionary->PutDictionary(*values_array);
+  ASSERT_EQ(num_entries, direct_dictionary->num_entries());
+  auto direct_buffer =
+      AllocateBuffer(default_memory_pool(), direct_dictionary->dict_encoded_size());
+  direct_dictionary->WriteDict(direct_buffer->mutable_data());
+  const UInt* direct_encoded = reinterpret_cast<const UInt*>(direct_buffer->data());
+  for (int value_index = 0; value_index < num_entries; ++value_index) {
+    EXPECT_EQ(bits[value_index], direct_encoded[value_index]);
+  }
+}
+
+TEST(TestDictionaryEncoding, FloatingPointBits) {
+  // Float32: +sNaN(payload=1), +qNaN(payload=2), +0, -0, +sNaN(payload=1).
+  TestFloatingDictionaryBits<FloatType>(
+      std::array<uint32_t, 5>{0x7f800001, 0x7fc00002, 0x00000000, 0x80000000, 0x7f800001},
+      4);
+  // Float64: +sNaN(payload=1), +qNaN(payload=2), +0, -0, +sNaN(payload=1).
+  TestFloatingDictionaryBits<DoubleType>(
+      std::array<uint64_t, 5>{0x7ff0000000000001, 0x7ff8000000000002, 0x0000000000000000,
+                              0x8000000000000000, 0x7ff0000000000001},
+      4);
+}
+
+TEST(TestDictionaryEncoding, NaNHashCollision) {
+  // Distinct NaN values that collided under the previous dictionary hash.
+  const std::array<uint64_t, 2> bits{0x7ff3b2b800075724, 0xfff0445d001b3a31};
+  ASSERT_EQ(::arrow::internal::ScalarHelper<double>::ComputeHash(
+                ::arrow::util::SafeCopy<double>(bits[0])),
+            ::arrow::internal::ScalarHelper<double>::ComputeHash(
+                ::arrow::util::SafeCopy<double>(bits[1])));
+  TestFloatingDictionaryBits<DoubleType>(bits, 2);
 }
 
 // ----------------------------------------------------------------------

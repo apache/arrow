@@ -375,6 +375,7 @@ class PARQUET_EXPORT WriterProperties {
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          floating_point_column_order_(ColumnOrder::IEEE_754_TOTAL_ORDER),
           content_defined_chunking_enabled_(false),
           content_defined_chunking_options_({}) {}
 
@@ -391,6 +392,7 @@ class PARQUET_EXPORT WriterProperties {
           store_decimal_as_integer_(properties.store_decimal_as_integer()),
           page_checksum_enabled_(properties.page_checksum_enabled()),
           size_statistics_level_(properties.size_statistics_level()),
+          floating_point_column_order_(properties.floating_point_column_order()),
           sorting_columns_(properties.sorting_columns()),
           default_column_properties_(properties.default_column_properties()),
           content_defined_chunking_enabled_(
@@ -864,6 +866,20 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
+    /// \brief Set the column order for all floating-point columns.
+    ///
+    /// The supported values are IEEE_754_TOTAL_ORDER and TYPE_DEFINED_ORDER.
+    /// The default is IEEE_754_TOTAL_ORDER.
+    Builder* floating_point_column_order(ColumnOrder::type order) {
+      if (order != ColumnOrder::IEEE_754_TOTAL_ORDER &&
+          order != ColumnOrder::TYPE_DEFINED_ORDER) {
+        throw ParquetException("Unsupported floating-point column order: ",
+                               static_cast<int>(order));
+      }
+      floating_point_column_order_ = order;
+      return this;
+    }
+
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
@@ -901,8 +917,8 @@ class PARQUET_EXPORT WriterProperties {
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, max_rows_per_page_, version_, created_by_, page_checksum_enabled_,
           size_statistics_level_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_),
+          default_column_properties_, column_properties, floating_point_column_order_,
+          data_page_version_, store_decimal_as_integer_, std::move(sorting_columns_),
           content_defined_chunking_enabled_, content_defined_chunking_options_));
     }
 
@@ -921,6 +937,7 @@ class PARQUET_EXPORT WriterProperties {
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
     SizeStatisticsLevel size_statistics_level_;
+    ColumnOrder::type floating_point_column_order_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -974,6 +991,10 @@ class PARQUET_EXPORT WriterProperties {
 
   inline SizeStatisticsLevel size_statistics_level() const {
     return size_statistics_level_;
+  }
+
+  inline ColumnOrder::type floating_point_column_order() const {
+    return floating_point_column_order_;
   }
 
   inline Encoding::type dictionary_index_encoding() const {
@@ -1084,6 +1105,7 @@ class PARQUET_EXPORT WriterProperties {
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
+      ColumnOrder::type floating_point_column_order,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
       std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
       CdcOptions content_defined_chunking_options)
@@ -1099,6 +1121,7 @@ class PARQUET_EXPORT WriterProperties {
         store_decimal_as_integer_(store_short_decimal_as_integer),
         page_checksum_enabled_(page_write_checksum_enabled),
         size_statistics_level_(size_statistics_level),
+        floating_point_column_order_(floating_point_column_order),
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
@@ -1118,6 +1141,7 @@ class PARQUET_EXPORT WriterProperties {
   bool store_decimal_as_integer_;
   bool page_checksum_enabled_;
   SizeStatisticsLevel size_statistics_level_;
+  ColumnOrder::type floating_point_column_order_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
