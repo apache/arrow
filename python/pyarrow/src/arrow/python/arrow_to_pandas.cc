@@ -1401,13 +1401,11 @@ struct ObjectWriterVisitor {
       storage_arrays.push_back(extension_array.storage());
     }
     ChunkedArray storage(std::move(storage_arrays), type.storage_type());
-    OwnedRef args(PyTuple_New(0));
-    RETURN_IF_PYERROR();
     OwnedRef kwargs(PyDict_New());
     RETURN_IF_PYERROR();
     auto WrapUuid = [&](const std::string_view& view, PyObject** out) {
       ARROW_ASSIGN_OR_RAISE(*out,
-                            internal::UuidFromBytes(view, args.obj(), kwargs.obj()));
+                            internal::UuidFromBytes(view, kwargs.obj()));
       return Status::OK();
     };
     return ConvertAsPyObjects<FixedSizeBinaryType>(options, storage, WrapUuid,

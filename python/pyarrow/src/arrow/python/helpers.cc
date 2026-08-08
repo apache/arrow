@@ -18,6 +18,7 @@
 // helpers.h includes a NumPy header, so we include this first
 #include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_interop.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 
 #include "arrow/python/helpers.h"
 
@@ -361,8 +362,7 @@ bool IsPyUuid(PyObject* obj) {
   return result != 0;
 }
 
-Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* args,
-                                PyObject* kwargs) {
+Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* kwargs) {
   PyObject* uuid_class = GetUuidClass();
   if (!uuid_class) {
     return Status::Invalid("Could not import uuid.UUID");
@@ -373,7 +373,8 @@ Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* args,
   if (PyDict_SetItemString(kwargs, "bytes", py_bytes.obj()) < 0) {
     RETURN_IF_PYERROR();
   }
-  PyObject* result = PyObject_Call(uuid_class, args, kwargs);
+  PyObject* empty_args = Py_GetConstantBorrowed(Py_CONSTANT_EMPTY_TUPLE);
+  PyObject* result = PyObject_Call(uuid_class, empty_args, kwargs);
   RETURN_IF_PYERROR();
   return result;
 }

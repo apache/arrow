@@ -99,7 +99,7 @@ bool IsPyUuid(PyObject* obj);
 
 // \brief Construct a uuid.UUID from 16 raw bytes
 ARROW_PYTHON_EXPORT
-Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* args, PyObject* kwargs);
+Result<PyObject*> UuidFromBytes(std::string_view bytes, PyObject* kwargs);
 
 inline bool IsPyBinary(PyObject* obj) {
   return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
