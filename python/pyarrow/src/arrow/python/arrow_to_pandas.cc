@@ -116,6 +116,17 @@ void BufferCapsule_Destructor(PyObject* capsule) {
 using internal::arrow_traits;
 using internal::npy_traits;
 
+bool IsUuidExtension(const DataType& type) {
+  if (type.id() != Type::EXTENSION) {
+    return false;
+  }
+  const auto& extension_type = checked_cast<const ExtensionType&>(type);
+  const auto& storage_type = *extension_type.storage_type();
+  return extension_type.extension_name() == "arrow.uuid" &&
+         storage_type.id() == Type::FIXED_SIZE_BINARY &&
+         checked_cast<const FixedSizeBinaryType&>(storage_type).byte_width() == 16;
+}
+
 template <typename T>
 struct WrapBytes {};
 
@@ -1369,6 +1380,29 @@ struct ObjectWriterVisitor {
     return ConvertStruct(options, data, out_values);
   }
 
+  Status Visit(const ExtensionType& type) {
+    if (!IsUuidExtension(type)) {
+      return Status::NotImplemented("No implemented conversion to object dtype: ",
+                                    type.ToString());
+    }
+    ArrayVector storage_arrays;
+    storage_arrays.reserve(data.num_chunks());
+    for (int c = 0; c < data.num_chunks(); ++c) {
+      const auto& extension_array = checked_cast<const ExtensionArray&>(*data.chunk(c));
+      storage_arrays.push_back(extension_array.storage());
+    }
+    ChunkedArray storage(std::move(storage_arrays), type.storage_type());
+    OwnedRef kwargs(PyDict_New());
+    RETURN_IF_PYERROR();
+    auto WrapUuid = [&](const std::string_view& view, PyObject** out) {
+      ARROW_ASSIGN_OR_RAISE(*out,
+                            internal::UuidFromBytes(view, kwargs.obj()));
+      return Status::OK();
+    };
+    return ConvertAsPyObjects<FixedSizeBinaryType>(options, storage, WrapUuid,
+                                                   out_values);
+  }
+
   template <typename Type>
   enable_if_t<is_floating_type<Type>::value ||
                   std::is_same<DictionaryType, Type>::value ||
@@ -2246,7 +2280,10 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       *output_type = PandasWriter::CATEGORICAL;
       break;
     case Type::EXTENSION:
-      *output_type = PandasWriter::EXTENSION;
+      // UUID has a native object conversion to uuid.UUID. Other extension
+      // types continue through the pandas ExtensionArray protocol.
+      *output_type =
+          IsUuidExtension(*data.type()) ? PandasWriter::OBJECT : PandasWriter::EXTENSION;
       break;
     default:
       return Status::NotImplemented(
@@ -2351,8 +2388,10 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       *out = PandasWriter::EXTENSION;
       return Status::OK();
     } else {
-      // In case of an extension array default to the storage type
-      if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
+      // In case of an extension array default to the storage type, except for
+      // UUID which has a native Python object conversion.
+      if (arrays_[column_index]->type()->id() == Type::EXTENSION &&
+          !IsUuidExtension(*arrays_[column_index]->type())) {
         arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
       }
       // In case of a RunEndEncodedArray default to the values type
@@ -2592,8 +2631,9 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // Table->DataFrame
   modified_options.allow_zero_copy_blocks = true;
 
-  // In case of an extension array default to the storage type
-  if (arr->type()->id() == Type::EXTENSION) {
+  // In case of an extension array default to the storage type, except for UUID
+  // which has a native Python object conversion.
+  if (arr->type()->id() == Type::EXTENSION && !IsUuidExtension(*arr->type())) {
     arr = GetStorageChunkedArray(arr);
   }
   // In case of a RunEndEncodedArray decode the array
