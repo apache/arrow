@@ -274,7 +274,7 @@ class TypedBufferBuilder<
   }
 
   Status Append(const T* values, int64_t num_elements) {
-    int64_t num_bytes;
+    int64_t num_bytes = 0;
     ARROW_RETURN_NOT_OK(ElementsToBytes("Append", num_elements, &num_bytes));
     return bytes_builder_.Append(reinterpret_cast<const uint8_t*>(values), num_bytes);
   }
@@ -309,19 +309,19 @@ class TypedBufferBuilder<
   }
 
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    int64_t num_bytes;
+    int64_t num_bytes = 0;
     ARROW_RETURN_NOT_OK(ElementsToBytes("Resize", new_capacity, &num_bytes));
     return bytes_builder_.Resize(num_bytes, shrink_to_fit);
   }
 
   Status Reserve(const int64_t additional_elements) {
-    int64_t num_bytes;
+    int64_t num_bytes = 0;
     ARROW_RETURN_NOT_OK(ElementsToBytes("Reserve", additional_elements, &num_bytes));
     return bytes_builder_.Reserve(num_bytes);
   }
 
   Status Advance(const int64_t length) {
-    int64_t num_bytes;
+    int64_t num_bytes = 0;
     ARROW_RETURN_NOT_OK(ElementsToBytes("Advance", length, &num_bytes));
     return bytes_builder_.Advance(num_bytes);
   }
@@ -347,7 +347,7 @@ class TypedBufferBuilder<
   /// only for memory allocation).
   Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
                                                    bool shrink_to_fit = true) {
-    int64_t num_bytes;
+    int64_t num_bytes = 0;
     ARROW_RETURN_NOT_OK(ElementsToBytes("FinishWithLength", final_length, &num_bytes));
     return bytes_builder_.FinishWithLength(num_bytes, shrink_to_fit);
   }
