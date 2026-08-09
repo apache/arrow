@@ -1336,6 +1336,8 @@ cdef class FixedSizeBufferWriter(NativeFile):
     """
 
     def __cinit__(self, Buffer buffer):
+        if not buffer.is_mutable:
+            raise ValueError("pa.FixedSizeBufferWriter() requires a mutable buffer")
         self.output_stream.reset(new CFixedSizeBufferWriter(buffer.buffer))
         self.is_writable = True
 
@@ -2934,10 +2936,7 @@ def output_stream(source, compression='detect', buffer_size=None):
     elif source_path is not None:
         stream = OSFile(source_path, 'w')
     elif isinstance(source, (Buffer, memoryview)):
-        source = as_buffer(source)
-        if not source.is_mutable:
-            raise ValueError("pa.output_stream() requires a mutable buffer")
-        stream = FixedSizeBufferWriter(source)
+        stream = FixedSizeBufferWriter(as_buffer(source))
     elif (hasattr(source, 'write') and
           hasattr(source, 'close') and
           hasattr(source, 'closed')):

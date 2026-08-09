@@ -2230,6 +2230,10 @@ def test_output_stream_errors(tmpdir):
         with pytest.raises(ValueError, match="requires a mutable buffer"):
             pa.output_stream(arg)
 
+    for arg in [pa.py_buffer(b"x"), pa.py_buffer(b"")]:
+        with pytest.raises(ValueError, match="requires a mutable buffer"):
+            pa.FixedSizeBufferWriter(arg)
+
     for arg in [memoryview(bytearray(1)), pa.py_buffer(bytearray(1))]:
         with pa.output_stream(arg) as stream:
             stream.write(b"x")
