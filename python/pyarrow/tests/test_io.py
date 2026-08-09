@@ -2225,6 +2225,15 @@ def test_output_stream_errors(tmpdir):
     with pytest.raises(ValueError):
         pa.output_stream(buf, compression="foo")
 
+    for arg in [memoryview(b"x"), pa.py_buffer(b"x"),
+                memoryview(b""), pa.py_buffer(b"")]:
+        with pytest.raises(ValueError, match="requires a mutable buffer"):
+            pa.output_stream(arg)
+
+    for arg in [memoryview(bytearray(1)), pa.py_buffer(bytearray(1))]:
+        with pa.output_stream(arg) as stream:
+            stream.write(b"x")
+
     for arg in [bytearray(), StringIO()]:
         with pytest.raises(TypeError):
             pa.output_stream(arg)
