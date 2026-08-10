@@ -865,9 +865,10 @@ union can have a value chosen from these types. The types are named
 like a struct's fields, and the names are part of the type metadata.
 
 Each child type in a union has a type id (an 8-bit signed integer)
-that identifies it in the types buffer. By default, these type ids correspond
-directly to the child array indices (0, 1, ...), but an optional ``typeIds``
-metadata array can provide an explicit mapping from child array offset to type id.
+that identifies it in the types buffer. By default, these type ids
+correspond directly to the child array indices (0, 1, ...), but an optional
+``typeIds`` metadata array can provide an explicit mapping from child array
+offset to type id.
 
 Unlike other data types, unions do not have their own validity bitmap. Instead,
 the nullness of each slot is determined exclusively by the child arrays which
