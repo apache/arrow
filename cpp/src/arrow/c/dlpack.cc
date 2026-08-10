@@ -34,35 +34,24 @@ namespace arrow::dlpack {
 
 namespace {
 
-Result<DLDataType> GetDLDataType(const DataType& type) {
-  DLDataType dtype;
+Result<DLDataType> GetLeafDLDataType(const DataType& type) {
+  auto dtype = DLDataType{};
   dtype.lanes = 1;
   dtype.bits = type.bit_width();
-  switch (type.id()) {
-    case Type::INT8:
-    case Type::INT16:
-    case Type::INT32:
-    case Type::INT64:
-      dtype.code = DLDataTypeCode::kDLInt;
-      return dtype;
-    case Type::UINT8:
-    case Type::UINT16:
-    case Type::UINT32:
-    case Type::UINT64:
-      dtype.code = DLDataTypeCode::kDLUInt;
-      return dtype;
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      dtype.code = DLDataTypeCode::kDLFloat;
-      return dtype;
-    case Type::BOOL:
-      // DLPack supports byte-packed boolean values
-      return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
-    default:
-      return Status::TypeError("DataType is not compatible with DLPack spec: ",
-                               type.ToString());
+  if (is_signed_integer(type.id())) {
+    dtype.code = DLDataTypeCode::kDLInt;
+  } else if (is_unsigned_integer(type.id())) {
+    dtype.code = DLDataTypeCode::kDLUInt;
+  } else if (is_floating(type.id())) {
+    dtype.code = DLDataTypeCode::kDLFloat;
+  } else if (type.id() == Type::BOOL) {
+    // DLPack supports byte-packed boolean values
+    return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
+  } else {
+    return Status::TypeError("DataType is not compatible with DLPack spec: ",
+                             type.ToString());
   }
+  return {dtype};
 }
 
 template <typename DT, typename Vec>
@@ -137,7 +126,7 @@ Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
 
   // Define the DLDataType struct
   const auto& type = *arr->type();
-  ARROW_ASSIGN_OR_RAISE(auto dtype, GetDLDataType(type));
+  ARROW_ASSIGN_OR_RAISE(auto dtype, GetLeafDLDataType(type));
 
   auto params = ExportBufferParams<std::array<int64_t, 1>>{
       .size = arr->length(),
@@ -213,7 +202,7 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
 
   // Define the DLDataType struct
   const auto& type = *t->type();
-  ARROW_ASSIGN_OR_RAISE(auto dtype, GetDLDataType(type));
+  ARROW_ASSIGN_OR_RAISE(auto dtype, GetLeafDLDataType(type));
 
   // Compute strides
   std::vector<int64_t> strides = {};
@@ -266,11 +255,8 @@ Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Te
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
   // Define DLDevice struct
-  DLDevice device;
   if (t->data()->device_type() == DeviceAllocationType::kCPU) {
-    device.device_id = 0;
-    device.device_type = DLDeviceType::kDLCPU;
-    return device;
+    return {{.device_type = DLDeviceType::kDLCPU, .device_id = 0}};
   } else {
     return Status::NotImplemented(
         "DLPack support is implemented only for buffers on CPU device.");
