@@ -699,7 +699,7 @@ struct FillNullForwardChunked {
           ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(chunk->length()));
           ARROW_ASSIGN_OR_RAISE(
               output->buffers[1],
-              ctx->Allocate(out->type()->byte_width() * chunk->length()));
+              ctx->Allocate(out->type()->bytes_required(chunk->length())));
         }
         ExecResult chunk_result;
         chunk_result.value = out->array();
@@ -780,7 +780,7 @@ struct FillNullBackwardChunked {
         const auto& chunk = chunks[i];
         if (is_fixed_width(out->type()->id())) {
           ArrayData* output = out->mutable_array();
-          auto data_bytes = output->type->byte_width() * chunk->length();
+          auto data_bytes = output->type->bytes_required(chunk->length());
           ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(chunk->length()));
           ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->Allocate(data_bytes));
         }

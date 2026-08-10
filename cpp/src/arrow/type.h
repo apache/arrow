@@ -31,6 +31,7 @@
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
@@ -195,6 +196,22 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   /// for non-fixed-width types, and should only be used for
   /// subclasses of FixedWidthType
   virtual int bit_width() const { return -1; }
+
+  /// \brief Returns the number of bytes needed to store `num_elements`
+  /// values of this fixed-width type, rounding up for bit-packed types
+  /// (e.g. boolean) that use less than one byte per value. Returns -1
+  /// for non-fixed-width types, and should only be used for subclasses
+  /// of FixedWidthType
+  virtual int64_t bytes_required(int64_t num_elements) const {
+    const int64_t width = bit_width();
+    if (width < 0) {
+      return -1;
+    }
+    if (width % 8 == 0) {
+      return (width / 8) * num_elements;
+    }
+    return bit_util::BytesForBits(width * num_elements);
+  }
 
   // \brief EXPERIMENTAL: Enable retrieving shared_ptr<DataType> from a const
   // context.
