@@ -5894,13 +5894,12 @@ TEST(TestArrowReadWrite, WriteRecordBatchRespectsMaxRowGroupSize) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Use a small byte size limit with the default (large) row count limit so
-  // that only the byte size limit takes effect. Use a small data page size
-  // so that buffered values are flushed to pages (and thus counted by the
-  // size check) between batches.
+  // that only the byte size limit takes effect. The default data page size is
+  // kept, so this also covers values that are still buffered by the column
+  // encoders rather than flushed into pages.
   auto writer_properties = WriterProperties::Builder()
                                .max_row_group_size(4 * 1024)
                                ->disable_dictionary()
-                               ->data_pagesize(1024)
                                ->build();
   auto arrow_writer_properties = default_arrow_writer_properties();
 
@@ -5936,6 +5935,87 @@ TEST(TestArrowReadWrite, WriteRecordBatchRespectsMaxRowGroupSize) {
   for (int i = 0; i < file_metadata->num_row_groups(); ++i) {
     EXPECT_EQ(kBatchRows, file_metadata->RowGroup(i)->num_rows());
   }
+}
+
+TEST(TestArrowReadWrite, WriteTableRespectsMaxRowGroupSize) {
+  // When a byte size limit is set, WriteTable switches to buffered row groups
+  // and feeds the table in small batches, so a chunk_size covering the whole
+  // table is still split into row groups bounded by the limit.
+  constexpr int64_t kMaxRowGroupSize = 16 * 1024;
+  constexpr int kNumRows = 8000;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(
+      MakeDoubleTable(/*num_columns=*/1, kNumRows, /*nchunks=*/1, &table));
+
+  auto sink = CreateOutputStream();
+  // The default data page size (1MB) is much larger than the limit here, so
+  // this only works if values still buffered by the column encoders count
+  // towards the row group size.
+  auto writer_properties = WriterProperties::Builder()
+                               .max_row_group_size(kMaxRowGroupSize)
+                               ->write_batch_size(256)
+                               ->disable_dictionary()
+                               ->build();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                /*chunk_size=*/kNumRows, writer_properties));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  auto file_metadata = reader->metadata();
+  // The limit must have split the single chunk into multiple row groups.
+  ASSERT_GT(file_metadata->num_row_groups(), 1);
+
+  int64_t total_rows = 0;
+  for (int i = 0; i < file_metadata->num_row_groups(); ++i) {
+    auto row_group_metadata = file_metadata->RowGroup(i);
+    total_rows += row_group_metadata->num_rows();
+    // The size estimate is conservative, so row groups stay under the limit.
+    EXPECT_LE(row_group_metadata->total_compressed_size(), kMaxRowGroupSize);
+  }
+  // All rows are written exactly once.
+  EXPECT_EQ(kNumRows, total_rows);
+}
+
+TEST(TestArrowReadWrite, WriteTableUnlimitedRowGroupSize) {
+  // Without an explicit byte size limit, chunk_size alone decides the row group
+  // boundaries and row groups are not buffered.
+  constexpr int kNumRows = 2000;
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(
+      MakeDoubleTable(/*num_columns=*/1, kNumRows, /*nchunks=*/1, &table));
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                /*chunk_size=*/1000, default_writer_properties()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  ASSERT_EQ(2, reader->metadata()->num_row_groups());
+  EXPECT_EQ(1000, reader->metadata()->RowGroup(0)->num_rows());
+  EXPECT_EQ(1000, reader->metadata()->RowGroup(1)->num_rows());
+}
+
+TEST(TestArrowReadWrite, WriteTableMaxRowGroupSizeRoundTrip) {
+  // The data must survive the switch to the buffered write path unchanged.
+  constexpr int kNumRows = 3000;
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(
+      MakeDoubleTable(/*num_columns=*/3, kNumRows, /*nchunks=*/1, &table));
+
+  auto sink = CreateOutputStream();
+  auto writer_properties =
+      WriterProperties::Builder().max_row_group_size(16 * 1024)->build();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
+                                /*chunk_size=*/kNumRows, writer_properties));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
+  std::shared_ptr<Table> result;
+  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK(result->ValidateFull());
+  AssertTablesEqual(*table, *result, /*same_chunk_layout=*/false);
 }
 
 TEST(TestArrowReadWrite, MultithreadedWrite) {

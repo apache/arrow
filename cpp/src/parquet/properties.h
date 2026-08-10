@@ -496,13 +496,19 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Specify the max row group size in compressed bytes.
+    /// Specify the max row group size in bytes.
     /// Default unlimited.
     ///
-    /// The limit is checked against the compressed pages accumulated in the
-    /// current row group, so the actual row group size may slightly exceed it.
-    /// Only effective for buffered row groups (
-    /// parquet::arrow::FileWriter::WriteRecordBatch).
+    /// The limit is checked between writes against an estimate of the data
+    /// accumulated in the current row group, which combines the size of the
+    /// compressed pages with an uncompressed estimate of the values still
+    /// buffered by the column encoders. The estimate is therefore approximate
+    /// and errs on the conservative side.
+    /// Row groups are buffered in memory while the limit is enforced, so
+    /// enabling this option increases the memory footprint of the writer.
+    /// It is honoured by parquet::arrow::FileWriter::WriteRecordBatch and
+    /// parquet::arrow::FileWriter::WriteTable; row groups created explicitly
+    /// through NewRowGroup()/WriteColumnChunk() are not affected.
     Builder* max_row_group_size(int64_t max_row_group_size) {
       max_row_group_size_ = max_row_group_size;
       return this;
