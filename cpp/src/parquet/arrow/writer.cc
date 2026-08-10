@@ -482,23 +482,24 @@ class FileWriterImpl : public FileWriter {
       return Status::OK();
     }
 
-    // Max compressed byte size allowed in a row group.
+    // Max byte size allowed in a row group.
     const int64_t max_row_group_size = this->properties().max_row_group_size();
     const bool row_group_size_limited =
         max_row_group_size != std::numeric_limits<int64_t>::max();
 
-    // Estimated size of the data accumulated in the current row group.
-    auto estimated_row_group_size = [&]() {
-      const auto buffered = row_group_writer_->estimated_buffered_stats();
-      return row_group_writer_->total_compressed_bytes() +
-             row_group_writer_->total_compressed_bytes_written() + buffered.value_bytes +
-             buffered.def_level_bytes + buffered.rep_level_bytes + buffered.dict_bytes;
-    };
-
     // Whether the current row group reached the row count or byte size limit.
+    // Values not yet formed into a page are still held by the column encoders,
+    // so they are counted through EstimatedBufferedStats(); those estimates are
+    // uncompressed and exclude future page headers, hence only approximate.
     auto row_group_full = [&]() {
+      const auto buffered = row_group_writer_->estimated_buffered_stats();
+      const int64_t estimated_size = row_group_writer_->total_compressed_bytes() +
+                                     row_group_writer_->total_compressed_bytes_written() +
+                                     buffered.value_bytes + buffered.def_level_bytes +
+                                     buffered.rep_level_bytes + buffered.dict_bytes;
+
       return row_group_writer_->num_rows() >= max_rows_per_row_group ||
-             (row_group_size_limited && estimated_row_group_size() >= max_row_group_size);
+             (row_group_size_limited && estimated_size >= max_row_group_size);
     };
 
     // Initialize a new buffered row group writer if necessary.
