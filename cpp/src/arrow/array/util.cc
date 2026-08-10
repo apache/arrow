@@ -43,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -51,6 +52,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MultiplyWithOverflow;
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData
@@ -853,18 +855,21 @@ class RepeatedArrayFactory {
 
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
-    // Check that the total data size does not overflow the offset type.
-    // For 32-bit offset types (e.g. StringType, BinaryType), value_length * length_
-    // must fit in int32_t, otherwise the offsets wrap around and produce an invalid
-    // array with negative offsets.
-    if (value_length > 0 && length_ > 0) {
-      int64_t total_size = static_cast<int64_t>(value_length) * length_;
-      if (total_size > static_cast<int64_t>(std::numeric_limits<OffsetType>::max())) {
-        return Status::Invalid(
-            "Cannot create array: total data size (", total_size,
-            " bytes) would overflow the offset type. Consider using a large_* "
-            "type (e.g. large_string, large_binary) for data exceeding 2 GB.");
-      }
+    // `length_` is the repeat count and is always representable in OffsetType here:
+    // MakeArrayFromScalar rejects negative lengths up front, and a length that itself
+    // exceeds the offset type's range can never produce a valid offsets buffer.
+    if (length_ > static_cast<int64_t>(std::numeric_limits<OffsetType>::max())) {
+      return Status::Invalid("length exceeds the maximum value of offset_type: ",
+                              length_, " is greater than ",
+                              std::numeric_limits<OffsetType>::max());
+    }
+    // Guard against the total data size (value_length * length_) overflowing the
+    // offset type, which would otherwise silently wrap around and produce an
+    // invalid array with negative/garbage offsets.
+    OffsetType total_size;
+    if (MultiplyWithOverflow(value_length, static_cast<OffsetType>(length_),
+                              &total_size)) {
+      return Status::Invalid("offset overflow in repeated array construction");
     }
     TypedBufferBuilder<OffsetType> builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ + 1));
@@ -918,6 +923,9 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
+  if (length < 0) {
+    return Status::Invalid("length cannot be negative: ", length);
+  }
   // Null union scalars still have a type code associated
   if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);

@@ -792,6 +792,16 @@ TEST_F(TestArray, TestMakeArrayFromScalarOffsetOverflow) {
   // Just verify it doesn't raise for a small count (we can't allocate 2^31 bytes here)
   ASSERT_OK_AND_ASSIGN(auto arr, MakeArrayFromScalar(*large_scalar, 16));
   ASSERT_EQ(arr->length(), 16);
+
+  // A length that itself exceeds the offset type's range must be rejected too,
+  // even independent of the value size (e.g. an empty string repeated too many
+  // times to index with int32 offsets).
+  auto empty_scalar = std::make_shared<StringScalar>("");
+  int64_t length4 = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*empty_scalar, length4));
+
+  // A negative length must be rejected outright.
+  ASSERT_RAISES(Invalid, MakeArrayFromScalar(*scalar, -1));
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
