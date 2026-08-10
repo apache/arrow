@@ -1404,8 +1404,7 @@ struct ObjectWriterVisitor {
     OwnedRef kwargs(PyDict_New());
     RETURN_IF_PYERROR();
     auto WrapUuid = [&](const std::string_view& view, PyObject** out) {
-      ARROW_ASSIGN_OR_RAISE(*out,
-                            internal::UuidFromBytes(view, kwargs.obj()));
+      ARROW_ASSIGN_OR_RAISE(*out, internal::UuidFromBytes(view, kwargs.obj()));
       return Status::OK();
     };
     return ConvertAsPyObjects<FixedSizeBinaryType>(options, storage, WrapUuid,
