@@ -2638,8 +2638,9 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   modified_options.allow_zero_copy_blocks = true;
 
   // In case of an extension array default to the storage type, except for UUID
-  // which has a native Python object conversion.
-  if (arr->type()->id() == Type::EXTENSION && !IsUuidExtension(*arr->type())) {
+  // which has a native Python object conversion (unless converting to NumPy).
+  if (arr->type()->id() == Type::EXTENSION &&
+      (options.to_numpy || !IsUuidExtension(*arr->type()))) {
     arr = GetStorageChunkedArray(arr);
   }
   // In case of a RunEndEncodedArray decode the array

@@ -1400,6 +1400,13 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+@pytest.mark.numpy
+def test_uuid_to_numpy_uses_storage():
+    value = uuid4()
+    array = pa.array([value], type=pa.uuid())
+    assert array.to_numpy(zero_copy_only=False).tolist() == [value.bytes]
+
+
 @pytest.mark.pandas
 def test_uuid_to_pandas():
     import pandas as pd
