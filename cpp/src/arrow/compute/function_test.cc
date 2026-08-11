@@ -25,6 +25,7 @@
 
 #include "arrow/array/array_dict.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/util.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
@@ -313,9 +314,17 @@ Status CountAndCastDictionaryValues(KernelContext* ctx, const ExecSpan& args,
   return Status::OK();
 }
 
+Status ExecuteDirectDictionaryKernel(KernelContext* ctx, const ExecSpan& args,
+                                     ExecResult* out) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto result, MakeArrayFromScalar(Int64Scalar(42), args.length, ctx->memory_pool()));
+  out->value = result->data();
+  return Status::OK();
+}
+
 }  // namespace
 
-TEST(ScalarFunction, DictionaryUnaryAppliesToDictionaryValues) {
+TEST(ScalarFunction, DictionaryUnaryAppliesToReferencedDictionaryValues) {
   ScalarFunction func("dictionary_unary_test", Arity::Unary(), FunctionDoc::Empty());
   auto counter = std::make_shared<DictionaryValuesCounter>();
   ScalarKernel kernel({int32()}, int64(), CountAndCastDictionaryValues);
@@ -332,7 +341,7 @@ TEST(ScalarFunction, DictionaryUnaryAppliesToDictionaryValues) {
   auto expected = ArrayFromJSON(int64(), "[10, 20, 10, null, 20]");
   ASSERT_TRUE(result.is_array());
   AssertArraysEqual(*expected, *result.make_array());
-  ASSERT_EQ(counter->values_processed, 3);
+  ASSERT_EQ(counter->values_processed, 2);
 
   ASSERT_OK_AND_ASSIGN(auto scalar_input, input->GetScalar(1));
   ASSERT_OK_AND_ASSIGN(Datum scalar_result,
@@ -361,6 +370,26 @@ TEST(ScalarFunction, DictionaryUnaryAppliesToDictionaryValues) {
   std::vector<TypeHolder> dictionary_types = {dictionary(int8(), int32())};
   ASSERT_RAISES(NotImplemented, func.DispatchBest(&dictionary_types));
   ASSERT_RAISES(NotImplemented, func.DispatchExact({dictionary(int8(), utf8())}));
+}
+
+TEST(ScalarFunction, DictionaryUnaryPrefersDirectDictionaryKernel) {
+  ScalarFunction func("dictionary_unary_direct_test", Arity::Unary(),
+                      FunctionDoc::Empty());
+  ASSERT_OK(func.AddKernel({int32()}, int64(), ExecNYI));
+
+  ScalarKernel direct_kernel({dictionary(int8(), int32())}, int64(),
+                             ExecuteDirectDictionaryKernel);
+  direct_kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  direct_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  ASSERT_OK(func.AddKernel(std::move(direct_kernel)));
+
+  ASSERT_OK_AND_ASSIGN(auto input,
+                       DictionaryArray::FromArrays(ArrayFromJSON(int8(), "[0, 1, 0]"),
+                                                   ArrayFromJSON(int32(), "[10, 20]")));
+  ASSERT_OK_AND_ASSIGN(Datum result, func.Execute({input}, nullptr, nullptr));
+
+  ASSERT_TRUE(result.is_array());
+  AssertArraysEqual(*ArrayFromJSON(int64(), "[42, 42, 42]"), *result.make_array());
 }
 
 TEST(ScalarFunction, ImpureUnaryRejectsDictionaryInput) {
