@@ -17,9 +17,11 @@
 
 #include "arrow/c/dlpack.h"
 
-#include <array>
+#include <functional>
 #include <memory>
+#include <numeric>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -29,6 +31,8 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/small_vector.h"
 
 namespace arrow::dlpack {
 
@@ -67,14 +71,15 @@ struct ManagerCtx {
 template <typename Vec>
 struct ExportBufferParams {
   std::shared_ptr<Buffer> buffer = nullptr;
+  /// Data offset in the buffer in bytes.
   int64_t buffer_offset = 0;
-  /// Total number of values, i.e. the product of the shape.
-  int64_t size;
-  int32_t ndim;
-  Vec strides;
-  Vec shape;
-  DLDevice device;
-  DLDataType dtype;
+  /// Total number of bytes to read in the buffer.
+  int64_t buffer_size = 0;
+  int32_t ndim = 0;
+  Vec strides = {};
+  Vec shape = {};
+  DLDevice device = {};
+  DLDataType dtype = {};
   uint64_t flags = 0;
 };
 
@@ -91,7 +96,7 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
-  if (p.size == 0) {
+  if (p.buffer_size == 0) {
     ctx->tensor.dl_tensor.data = nullptr;
   } else {
     ctx->tensor.dl_tensor.data =
@@ -117,39 +122,69 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
   return &ctx.release()->tensor;
 }
 
+template <typename Vec>
+Vec RowMajorStrides(const Vec& shape) {
+  auto out = Vec(shape.size());
+  std::exclusive_scan(shape.crbegin(), shape.crend(), out.rbegin(), 1,
+                      std::multiplies<>{});
+  return out;
+}
+
 template <typename DT>
 Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
-  // Define DLDevice struct and check if array type is supported
-  // by the DLPack protocol at the same time. Raise TypeError if not.
-  // Supported data types: int, uint, float with no validity buffer.
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
 
-  // Define the DLDataType struct
-  const auto& type = *arr->type();
-  ARROW_ASSIGN_OR_RAISE(auto dtype, GetLeafDLDataType(type));
+  using Vec = internal::SmallVector<int64_t, 2>;
 
-  auto params = ExportBufferParams<std::array<int64_t, 1>>{
-      .size = arr->length(),
+  const auto* data = arr->data().get();  // lifetime of data is bound by arr
+  const auto* type = arr->type().get();  // lifetime of data is bound by arr
+  auto params = ExportBufferParams<Vec>{
+      .buffer_offset = data->offset,
+      .buffer_size = data->length,
       .ndim = 1,
-      .strides = {1},
-      .shape = {arr->length()},
+      .shape = {data->length},
       .device = device,
-      .dtype = dtype,
   };
+  if (data->GetNullCount() > 0) {
+    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
+  }
 
-  const auto& data = *arr->data();
+  // Iterate over nested fixed length container types.
+  // Each nested container increase the DLPack tensor dimension.
+  // Nulls are not supported by DLPack, at any nesting level.
+  while (type->id() == Type::FIXED_SIZE_LIST) {
+    const auto* fsl = internal::checked_cast<const FixedSizeListType*>(type);
+    type = fsl->value_type().get();
+    data = data->child_data.front().get();
+    if (data->GetNullCount() > 0) {
+      return Status::TypeError("Can only use DLPack on arrays with no nulls.");
+    }
+
+    params.ndim++;
+    params.buffer_offset = params.buffer_offset * fsl->list_size() + data->offset;
+    params.buffer_size *= fsl->list_size();
+    params.shape.push_back(fsl->list_size());
+  }
+
+  // Get the DLDataType struct of the type leaf, or fail if it is not supported.
+  ARROW_ASSIGN_OR_RAISE(params.dtype, GetLeafDLDataType(*type));
+  // Use byte domain indexing.
+  params.buffer_offset *= type->byte_width();
+  params.buffer_size *= type->byte_width();
+  // Compute strides as row major.
+  params.strides = RowMajorStrides(params.shape);
+
   if (copy) {
     // We copy the buffer slice instead of using Array copy functions to avoid copying
     // unused values outside of offset/length (e.g. with Slice).
-    const auto start = data.offset * type.byte_width();
-    const auto nbytes = data.length * type.byte_width();
-    ARROW_ASSIGN_OR_RAISE(params.buffer, data.buffers[1]->CopySlice(start, nbytes));
+    const auto start = std::exchange(params.buffer_offset, 0);
+    const auto nbytes = params.buffer_size;
+    ARROW_ASSIGN_OR_RAISE(params.buffer, data->buffers[1]->CopySlice(start, nbytes));
     // Since we make a copy only for the consumer, we do not need to mark it readonly.
     params.flags = DLPACK_FLAG_BITMASK_IS_COPIED;
   } else {
     // Shared buffer with Arrow Array. Arrays are readonly once constructed.
-    params.buffer = data.buffers[1];
-    params.buffer_offset = data.offset * type.byte_width();
+    params.buffer = data->buffers[1];
     params.flags = DLPACK_FLAG_BITMASK_READ_ONLY;
   }
 
@@ -168,25 +203,9 @@ Result<DLManagedTensorVersioned*> ExportArrayVersioned(const std::shared_ptr<Arr
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
-  // Check if array is supported by the DLPack protocol.
-  if (arr->null_count() > 0) {
-    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
-  }
-  const DataType& type = *arr->type();
-  if (type.id() == Type::BOOL) {
-    return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
-  }
-  if (!is_integer(type.id()) && !is_floating(type.id())) {
-    return Status::TypeError("DataType is not compatible with DLPack spec: ",
-                             type.ToString());
-  }
-
-  // Define DLDevice struct
-  DLDevice device;
-  if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
-    device.device_id = 0;
-    device.device_type = DLDeviceType::kDLCPU;
-    return device;
+  // ArrayData reports the device of its buffers and children
+  if (arr->data()->device_type() == DeviceAllocationType::kCPU) {
+    return {{.device_type = DLDeviceType::kDLCPU, .device_id = 0}};
   } else {
     return Status::NotImplemented(
         "DLPack support is implemented only for buffers on CPU device.");
@@ -213,7 +232,7 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
   }
 
   auto params = ExportBufferParams<std::vector<int64_t>>{
-      .size = t->size(),
+      .buffer_size = t->size(),
       .ndim = t->ndim(),
       .strides = std::move(strides),
       .shape = t->shape(),
