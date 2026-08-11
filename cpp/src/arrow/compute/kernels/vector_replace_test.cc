@@ -545,6 +545,24 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
   }
 }
 
+// Regression test: ReplaceMaskChunked (the ChunkedArray path of replace_with_mask)
+// sized each output chunk's data buffer via byte_width(), which is 0 for boolean
+// (bit-packed), the same GH-45086 buffer-overflow pattern fixed elsewhere in this
+// file. A chunk needs to be large enough to write past the buffer's small built-in
+// padding to reliably reproduce the crash.
+TEST_F(TestReplaceBoolean, ReplaceWithMaskChunkedArray) {
+  constexpr int64_t kChunkLength = 4096;
+  auto all_false = ConstantArrayGenerator::Boolean(kChunkLength, /*value=*/false);
+  auto all_true = ConstantArrayGenerator::Boolean(kChunkLength, /*value=*/true);
+  auto input = std::make_shared<ChunkedArray>(
+      ArrayVector{all_false, all_false, all_false}, boolean());
+  auto expected = std::make_shared<ChunkedArray>(
+      ArrayVector{all_true, all_true, all_true}, boolean());
+
+  this->Assert(ReplaceWithMask, Datum(input), this->mask_scalar(true),
+               this->scalar("true"), Datum(expected));
+}
+
 TEST_F(TestReplaceNull, ReplaceWithMask) {
   std::vector<ReplaceWithMaskCase> cases = {
       {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
