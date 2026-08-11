@@ -193,9 +193,7 @@ repos:
     hooks:
       - id: jarl-check
         alias: r
-        name: R Lint
-        files: >-
-          ^r/.*\.(R|Rmd)$
+        name: R Lint (jarl)
   - repo: https://github.com/posit-dev/air-pre-commit
     rev: 0.8.2
     hooks:
