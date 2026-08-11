@@ -244,7 +244,10 @@ def test_is_nested_or_struct():
     assert types.is_nested(pa.large_list(pa.int32()))
     assert types.is_nested(pa.list_view(pa.int32()))
     assert types.is_nested(pa.large_list_view(pa.int32()))
+    assert types.is_nested(pa.map_(pa.string(), pa.int32()))
+    assert types.is_nested(pa.run_end_encoded(pa.int32(), pa.string()))
     assert not types.is_nested(pa.int32())
+    assert not types.is_nested(pa.dictionary(pa.int32(), pa.string()))
 
 
 def test_is_union():
