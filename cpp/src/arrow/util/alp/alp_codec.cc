@@ -190,10 +190,12 @@ Result<typename AlpCodec<T>::AlpHeader> AlpCodec<T>::LoadHeader(
     return Status::Invalid("ALP unsupported integer encoding: ",
                            static_cast<int>(header.integer_encoding));
   }
-  if (header.log_vector_size == 0 ||
+  if (header.log_vector_size < AlpConstants::kMinLogVectorSize ||
       header.log_vector_size > AlpConstants::kMaxLogVectorSize) {
     return Status::Invalid("ALP invalid log_vector_size: ",
-                           static_cast<int>(header.log_vector_size));
+                           static_cast<int>(header.log_vector_size),
+                           " (must be in [", static_cast<int>(AlpConstants::kMinLogVectorSize),
+                           ", ", static_cast<int>(AlpConstants::kMaxLogVectorSize), "])");
   }
   if (header.num_elements < 0) {
     return Status::Invalid("ALP invalid num_elements: ", header.num_elements);
@@ -214,6 +216,30 @@ Result<typename AlpCodec<T>::AlpSamplerResult> AlpCodec<T>::CreateSamplingPreset
   return sampler.Finalize();
 }
 
+namespace {
+
+/// \brief Validate a caller-supplied vector_size against the format spec
+///
+/// The spec constrains `log_vector_size` to the inclusive range
+/// [kMinLogVectorSize, kMaxLogVectorSize], so the vector size must be a power
+/// of two within [2^3, 2^15].
+Status ValidateVectorSize(int32_t vector_size) {
+  constexpr int32_t kMin = 1 << AlpConstants::kMinLogVectorSize;
+  constexpr int32_t kMax = 1 << AlpConstants::kMaxLogVectorSize;
+  if (vector_size <= 0 ||
+      !::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size))) {
+    return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
+                           vector_size);
+  }
+  if (vector_size < kMin || vector_size > kMax) {
+    return Status::Invalid("ALP vector_size must be in [", kMin, ", ", kMax, "], got ",
+                           vector_size);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 template <typename T>
 Status AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
                                      const AlpSamplerResult& preset,
@@ -227,16 +253,7 @@ Status AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
     return Status::Invalid("ALP num_elements exceeds INT32_MAX, got ",
                            num_elements);
   }
-  if (vector_size <= 0 ||
-      !::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size))) {
-    return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
-                           vector_size);
-  }
-  if (vector_size > (1 << AlpConstants::kMaxLogVectorSize)) {
-    return Status::Invalid("ALP vector_size exceeds maximum ",
-                           (1 << AlpConstants::kMaxLogVectorSize), ", got ",
-                           vector_size);
-  }
+  RETURN_NOT_OK(ValidateVectorSize(vector_size));
 
   // Make room to store header afterwards.
   uint8_t* encoded_header = output;
@@ -311,16 +328,7 @@ Result<int64_t> AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
     return Status::Invalid("ALP num_elements must be non-negative, got ",
                            num_elements);
   }
-  if (vector_size <= 0 ||
-      !::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size))) {
-    return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
-                           vector_size);
-  }
-  if (vector_size > (1 << AlpConstants::kMaxLogVectorSize)) {
-    return Status::Invalid("ALP vector_size exceeds maximum ",
-                           (1 << AlpConstants::kMaxLogVectorSize), ", got ",
-                           vector_size);
-  }
+  RETURN_NOT_OK(ValidateVectorSize(vector_size));
   int64_t max_alp_size = AlpHeader::kSize;
 
   const int64_t vectors_count =
