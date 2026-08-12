@@ -1028,10 +1028,15 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
       throw ParquetException("ALP vector_size must be a positive power of 2, got " +
                              std::to_string(vector_size_));
     }
-    if (vector_size_ > (1 << ::arrow::util::alp::AlpConstants::kMaxLogVectorSize)) {
-      throw ParquetException("ALP vector_size exceeds maximum " +
-                             std::to_string(1 << ::arrow::util::alp::AlpConstants::kMaxLogVectorSize) +
-                             ", got " + std::to_string(vector_size_));
+    constexpr int32_t kMinVectorSize =
+        1 << ::arrow::util::alp::AlpConstants::kMinLogVectorSize;
+    constexpr int32_t kMaxVectorSize =
+        1 << ::arrow::util::alp::AlpConstants::kMaxLogVectorSize;
+    if (vector_size_ < kMinVectorSize || vector_size_ > kMaxVectorSize) {
+      throw ParquetException("ALP vector_size must be in [" +
+                             std::to_string(kMinVectorSize) + ", " +
+                             std::to_string(kMaxVectorSize) + "], got " +
+                             std::to_string(vector_size_));
     }
   }
 
