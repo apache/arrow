@@ -1620,6 +1620,39 @@ TYPED_TEST(AlpEdgeCaseTest, ExceptionAtMaxPosition) {
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
+// Values whose scaled integer sits at (or past) the bounds of the target
+// integer type -- int32 for FLOAT, int64 for DOUBLE -- must round-trip
+// bit-exactly, whether the encoder encodes them or falls back to the
+// exception path. Encodings.md lists "scaled value outside int32 (FLOAT) or
+// int64 (DOUBLE)" as an exception condition.
+TYPED_TEST(AlpEdgeCaseTest, EncodedIntegerBounds) {
+  using Exact = typename AlpTypedConstants<TypeParam>::FloatingToSignedExact;
+  constexpr auto kExactMax = std::numeric_limits<Exact>::max();
+  constexpr auto kExactMin = std::numeric_limits<Exact>::lowest();
+
+  std::vector<TypeParam> input = {
+      static_cast<TypeParam>(0),
+      static_cast<TypeParam>(1),
+      static_cast<TypeParam>(-1),
+      // At the integer bounds. Neither bound is exactly representable in the
+      // corresponding float type, so these land on the nearest representable
+      // neighbour -- which is the point: the encoder must not overflow while
+      // deciding, and decode must return the input bits either way.
+      static_cast<TypeParam>(kExactMax),
+      static_cast<TypeParam>(kExactMin),
+      // One representable step beyond each bound, i.e. certainly out of range.
+      std::nextafter(static_cast<TypeParam>(kExactMax),
+                     std::numeric_limits<TypeParam>::infinity()),
+      std::nextafter(static_cast<TypeParam>(kExactMin),
+                     -std::numeric_limits<TypeParam>::infinity()),
+      // And the extremes of the floating type itself.
+      std::numeric_limits<TypeParam>::max(),
+      std::numeric_limits<TypeParam>::lowest(),
+  };
+
+  this->TestCompressDecompress(input);
+}
+
 TYPED_TEST(AlpCodecTest, RoundTripAtMinVectorSize) {
   constexpr int32_t kMinVectorSize = 1 << AlpConstants::kMinLogVectorSize;
   static_assert(kMinVectorSize == 8, "expected an 8-element min vector");
