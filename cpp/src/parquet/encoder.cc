@@ -1009,6 +1009,33 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // shot. A future revision should encode complete vectors as `Put` calls
 // fill them, holding only a partial-vector tail across calls, so the
 // encoder can produce output progressively and use bounded memory.
+//
+// TODO: fall back to PLAIN when ALP is not paying for itself. ALP always
+// emits ALP-encoded pages, so a column whose values never compress (every
+// value an exception, e.g. random doubles or NaN) pays the per-vector
+// metadata and exception overhead and lands larger than PLAIN. This is not
+// hypothetical: on the encoding_alp_benchmark datasets, msg_sp encodes to
+// 113% of its plain size, and poi_longitude, num_brain and num_control are
+// all within 8% of break-even.
+//
+// The decision belongs in ColumnWriterImpl, not here: `encoding_` is const,
+// so this encoder cannot relabel its own page, and the choice depends on the
+// page compressor (ALP at 113% of raw may still beat PLAIN+ZSTD), which this
+// layer knows nothing about. The mechanism already exists — mirror
+// `FallbackToPlainEncoding()` in column_writer.cc, which swaps
+// `current_encoder_` for a PLAIN encoder and updates `encoding_`. Parquet
+// records encoding per page, so mixing PLAIN and ALP pages in one column
+// chunk needs no format change.
+//
+// What is missing on this side is a way for the writer to know: AlpCodec
+// should expose the ratio it achieved or expects to achieve. The sampler
+// already computes an estimate in AlpCompression<T>::EstimateCompressedSize,
+// which is currently private. Deciding from that estimate before encoding
+// avoids encode-then-discard; a sticky post-hoc check is still worth keeping
+// as a safety net, since the sampler only inspects a subsample and can be
+// fooled by a column that changes character partway through.
+//
+// This needs to be resolved before ALP is enabled by default.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
