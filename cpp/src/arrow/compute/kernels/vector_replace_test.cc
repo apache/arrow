@@ -2130,8 +2130,8 @@ TEST_F(TestFillNullBoolean, FillNullForwardChunkedArray) {
   auto all_true = ConstantArrayGenerator::Boolean(kPadLength, /*value=*/true);
   auto single_true = ConstantArrayGenerator::Boolean(1, /*value=*/true);
 
-  auto input = std::make_shared<ChunkedArray>(ArrayVector{null_pad, single_true, null_pad},
-                                               boolean());
+  auto input = std::make_shared<ChunkedArray>(
+      ArrayVector{null_pad, single_true, null_pad}, boolean());
   auto expected = std::make_shared<ChunkedArray>(
       ArrayVector{null_pad, single_true, all_true}, boolean());
 
@@ -2144,8 +2144,8 @@ TEST_F(TestFillNullBoolean, FillNullBackwardChunkedArray) {
   auto all_true = ConstantArrayGenerator::Boolean(kPadLength, /*value=*/true);
   auto single_true = ConstantArrayGenerator::Boolean(1, /*value=*/true);
 
-  auto input = std::make_shared<ChunkedArray>(ArrayVector{null_pad, single_true, null_pad},
-                                               boolean());
+  auto input = std::make_shared<ChunkedArray>(
+      ArrayVector{null_pad, single_true, null_pad}, boolean());
   auto expected = std::make_shared<ChunkedArray>(
       ArrayVector{all_true, single_true, null_pad}, boolean());
 
