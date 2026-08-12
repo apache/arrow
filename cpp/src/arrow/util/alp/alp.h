@@ -192,20 +192,20 @@ class AlpEncodedVectorInfo {
   // complete-class context, so the members must be visible first.
   uint8_t exponent_ = 0;
   uint8_t factor_ = 0;
-  int16_t num_exceptions_ = 0;
+  uint16_t num_exceptions_ = 0;
 
  public:
   AlpEncodedVectorInfo() = default;
-  AlpEncodedVectorInfo(uint8_t exponent, uint8_t factor, int16_t num_exceptions)
+  AlpEncodedVectorInfo(uint8_t exponent, uint8_t factor, uint16_t num_exceptions)
       : exponent_(exponent), factor_(factor), num_exceptions_(num_exceptions) {}
 
   uint8_t exponent() const { return exponent_; }
   uint8_t factor() const { return factor_; }
-  int16_t num_exceptions() const { return num_exceptions_; }
+  uint16_t num_exceptions() const { return num_exceptions_; }
 
   void set_exponent(uint8_t exponent) { exponent_ = exponent; }
   void set_factor(uint8_t factor) { factor_ = factor; }
-  void set_num_exceptions(int16_t num_exceptions) { num_exceptions_ = num_exceptions; }
+  void set_num_exceptions(uint16_t num_exceptions) { num_exceptions_ = num_exceptions; }
 
   /// Size of the serialized portion (4 bytes, fixed)
   static constexpr int64_t kStoredSize =
@@ -418,9 +418,13 @@ class AlpEncodedVector {
   std::vector<T>& mutable_exceptions() { return exceptions_; }
   void set_exceptions(std::vector<T> v) { exceptions_ = std::move(v); }
 
-  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
-  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
-  void set_exception_positions(std::vector<int16_t> v) {
+  const std::vector<AlpConstants::PositionType>& exception_positions() const {
+    return exception_positions_;
+  }
+  std::vector<AlpConstants::PositionType>& mutable_exception_positions() {
+    return exception_positions_;
+  }
+  void set_exception_positions(std::vector<AlpConstants::PositionType> v) {
     exception_positions_ = std::move(v);
   }
 
@@ -489,7 +493,7 @@ class AlpEncodedVector {
   int32_t num_elements_ = 0;
   std::vector<uint8_t> packed_values_;
   std::vector<T> exceptions_;
-  std::vector<int16_t> exception_positions_;
+  std::vector<AlpConstants::PositionType> exception_positions_;
 };
 
 // ----------------------------------------------------------------------
@@ -531,9 +535,13 @@ class AlpEncodedVectorView {
   arrow::util::span<const uint8_t> packed_values() const { return packed_values_; }
   void set_packed_values(arrow::util::span<const uint8_t> v) { packed_values_ = v; }
 
-  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
-  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
-  void set_exception_positions(std::vector<int16_t> v) {
+  const std::vector<AlpConstants::PositionType>& exception_positions() const {
+    return exception_positions_;
+  }
+  std::vector<AlpConstants::PositionType>& mutable_exception_positions() {
+    return exception_positions_;
+  }
+  void set_exception_positions(std::vector<AlpConstants::PositionType> v) {
     exception_positions_ = std::move(v);
   }
 
@@ -585,7 +593,7 @@ class AlpEncodedVectorView {
   AlpEncodedForVectorInfo<T> for_info_;
   int32_t num_elements_ = 0;
   arrow::util::span<const uint8_t> packed_values_;
-  std::vector<int16_t> exception_positions_;
+  std::vector<AlpConstants::PositionType> exception_positions_;
   std::vector<T> exceptions_;
 };
 
@@ -729,7 +737,7 @@ class AlpCompression {
   struct EncodingResult {
     std::vector<SignedExactType> encoded_integers;
     std::vector<T> exceptions;
-    std::vector<int16_t> exception_positions;
+    std::vector<AlpConstants::PositionType> exception_positions;
     ExactType min_max_diff = 0;
     ExactType frame_of_reference = 0;
   };
@@ -801,7 +809,7 @@ class AlpCompression {
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void PatchExceptions(arrow::util::span<const T> exceptions,
-                              arrow::util::span<const int16_t> exception_positions,
+                              arrow::util::span<const AlpConstants::PositionType> exception_positions,
                               TargetType* output);
 };
 
