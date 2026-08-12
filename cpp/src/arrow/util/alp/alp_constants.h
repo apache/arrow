@@ -40,6 +40,11 @@ class AlpConstants {
   /// page header (up to 2^kMaxLogVectorSize).
   static constexpr int64_t kAlpVectorSize = 1024;
 
+  /// Minimum supported log_vector_size value, i.e. a vector size of 8.
+  /// Mandated by the format spec (Encodings.md, "Must be in the inclusive
+  /// range [3, 15]").
+  static constexpr uint8_t kMinLogVectorSize = 3;
+
   /// Maximum supported log_vector_size value. Capped at 15 because per-vector
   /// element counts are stored as uint16_t (max 65535), and 2^16 = 65536
   /// would overflow. This allows vector sizes up to 32768.
