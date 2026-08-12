@@ -1418,13 +1418,13 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
 FORCE_INLINE
 const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
   if (in < 0 || in > 0x10FFFF || (in >= 0xD800 && in <= 0xDFFF)) {
-    const char* fmt =
-        "Input %" PRId64 " is not a valid Unicode code point in the range 0 to 1114111";
-    int size = static_cast<int>(strlen(fmt)) + 32;
-    char* error = reinterpret_cast<char*>(malloc(size));
-    snprintf(error, size, fmt, static_cast<int64_t>(in));
-    gdv_fn_context_set_error_msg(context, error);
-    free(error);
+    char err_msg[128];
+    snprintf(err_msg, sizeof(err_msg),
+             "Input %" PRId64
+             " is not a valid Unicode code point in the range 0 to 1114111, excluding "
+             "the surrogate range 0xD800–0xDFFF",
+             in);
+    gdv_fn_context_set_error_msg(context, err_msg);
     *out_len = 0;
     return "";
   }
