@@ -339,14 +339,15 @@ bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
     // Note that the number of ARD records can both be more or less
     // than the number of columns.
     for (size_t i = 0; i < ird_->GetRecords().size(); i++) {
+      const int column_number = static_cast<int>(i + 1);
       if (i < current_ard_->GetRecords().size() &&
           current_ard_->GetRecords()[i].is_bound) {
         const DescriptorRecord& ard_record = current_ard_->GetRecords()[i];
-        current_result_->BindColumn(i + 1, ard_record.type, ard_record.precision,
+        current_result_->BindColumn(column_number, ard_record.type, ard_record.precision,
                                     ard_record.scale, ard_record.data_ptr,
                                     GetLength(ard_record), ard_record.indicator_ptr);
       } else {
-        current_result_->BindColumn(i + 1,
+        current_result_->BindColumn(column_number,
                                     arrow::flight::sql::odbc::CDataType_CHAR
                                     /* arbitrary type, not used */,
                                     0, 0, nullptr, 0, nullptr);

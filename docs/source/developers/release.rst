@@ -148,11 +148,15 @@ Follow up Release Candidates will update the maintenance branch by cherry-pickin
 specific commits.
 
 For the initial Release Candidate for a minor or a patch release we will create
-a maintenance branch from the previous corresponding release. For example,
-for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and for
-a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is
-created we will update the created maintenance branch by cherry-picking specific
-commits.
+a maintenance branch from the previous corresponding release tag. For example,
+for a 25.0.1 patch we will create the maintenance branch from the
+``apache-arrow-25.0.0``. This is automatically done by ``archery release cherry-pick``.
+The maintenance branch is named after the release series, not after the exact version being
+released, for example for patch release (``25.0.1``) the maintenance branch will be
+``maint-25.0.x``.
+
+If further patch releases are prepared, i.e., 25.0.2 it will be created on the same
+``maint-25.0.x`` branch.
 
 Create or update the corresponding maintenance branch
 -----------------------------------------------------
@@ -164,12 +168,12 @@ Create or update the corresponding maintenance branch
       .. code-block::
 
             # Execute the following from an up to date main branch.
-            # This will create a branch locally called maint-X.Y.Z.
+            # This will create the maintenance branch locally.
             # X.Y.Z corresponds with the Major, Minor and Patch version number
             # of the release respectively. As an example 9.0.0
             archery release cherry-pick X.Y.Z --execute
             # Push the maintenance branch to the remote repository
-            git push -u upstream maint-X.Y.Z
+            git push -u upstream <maintenance-branch>
 
    .. tab-item:: Follow up Release Candidates
 
@@ -182,7 +186,7 @@ Create or update the corresponding maintenance branch
             # Update the maintenance branch with the previous commits
             archery release cherry-pick X.Y.Z --continue --execute
             # Push the updated maintenance branch to the remote repository
-            git push -u upstream maint-X.Y.Z
+            git push -u upstream <maintenance-branch>
 
 Optional: Test Before Creating a Release Candidate
 --------------------------------------------------
@@ -193,8 +197,8 @@ a given release.
 
 To test before creating a release candidate:
 
-* Create a pull request from the up-to-date maint-X.Y.Z branch onto main
-* Title the pull request "WIP: Dummy PR to check maint-X.Y.Z status"
+* Create a pull request from the up-to-date ``<maintenance-branch>`` onto main
+* Title the pull request "WIP: Dummy PR to check <maintenance-branch> status"
 * Comment on the pull request to trigger the relevant Crossbow jobs:
 
   * ``@github-actions crossbow submit --group verify-rc-source``
@@ -206,7 +210,7 @@ Create the Release Candidate branch from the updated maintenance branch
 .. code-block::
 
     # Start from the updated maintenance branch.
-    git checkout maint-X.Y.Z
+    git checkout <maintenance-branch>
 
     # The following script will create a branch for the Release Candidate,
     # place the necessary commits updating the version number and then create a git tag
@@ -337,16 +341,16 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.Z``:
+   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.x``:
 
    .. code-block:: Bash
 
-      # git checkout maint-10.0.0
-      git checkout maint-X.Y.Z
-      # git merge release-10.0.0-rc0
+      # git checkout maint-25.0.x
+      git checkout maint-X.Y.x
+      # git merge release-25.0.1-rc0
       git merge release-X.Y.Z-rcN
-      # git push -u upstream maint-10.0.0
-      git push -u upstream maint-X.Y.Z
+      # git push -u upstream maint-25.0.x
+      git push -u upstream maint-X.Y.x
 
 .. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down

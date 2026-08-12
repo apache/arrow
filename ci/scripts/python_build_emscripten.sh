@@ -38,6 +38,11 @@ cp -aL "${source_dir}" "${python_build_dir}"
 # emcmake so we unset them
 unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
 
+# Keep WebAssembly function names only in CI to limit wheel size
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  export PYARROW_CXXFLAGS="${PYARROW_CXXFLAGS:+${PYARROW_CXXFLAGS} }--profiling-funcs"
+fi
+
 pushd "${python_build_dir}"
 pyodide build
 popd

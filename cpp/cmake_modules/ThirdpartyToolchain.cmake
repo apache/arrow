@@ -2447,7 +2447,11 @@ macro(build_substrait)
   set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
-  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  # Match Protobuf's visibility because target contains generated Protobuf code
+  set_target_properties(substrait
+                        PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                   CXX_VISIBILITY_PRESET hidden
+                                   VISIBILITY_INLINES_HIDDEN ON)
   target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
@@ -3888,6 +3892,10 @@ function(build_orc)
 
     fetchcontent_makeavailable(orc)
 
+    # ORC compiles generated Protobuf code into its static library
+    set_target_properties(orc PROPERTIES CXX_VISIBILITY_PRESET hidden
+                                         VISIBILITY_INLINES_HIDDEN ON)
+
     # ORC 2.2.1 unconditionally adds /std:c++17 on MSVC via
     # add_compile_options, which overrides CMAKE_CXX_STANDARD and causes
     # ABI mismatches with protobuf (GlobalEmptyStringConstexpr vs
@@ -3955,7 +3963,9 @@ function(build_orc)
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         "-DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}"
+        -DCMAKE_CXX_VISIBILITY_PRESET=hidden
         "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+        -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
         -DSTOP_BUILD_ON_WARNING=OFF
         -DBUILD_LIBHDFSPP=OFF
         -DBUILD_JAVA=OFF

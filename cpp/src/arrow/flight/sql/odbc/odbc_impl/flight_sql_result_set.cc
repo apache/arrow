@@ -76,7 +76,8 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
     }
 
     for (size_t column_num = 0; column_num < columns_.size(); ++column_num) {
-      columns_[column_num].ResetAccessor(current_chunk_.data->column(column_num));
+      columns_[column_num].ResetAccessor(
+          current_chunk_.data->column(static_cast<int>(column_num)));
     }
   }
 
@@ -101,7 +102,8 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
       }
 
       for (size_t column_num = 0; column_num < columns_.size(); ++column_num) {
-        columns_[column_num].ResetAccessor(current_chunk_.data->column(column_num));
+        columns_[column_num].ResetAccessor(
+            current_chunk_.data->column(static_cast<int>(column_num)));
       }
       current_row_ = 0;
       continue;

@@ -412,7 +412,6 @@ FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
     : info_(client_options_, call_options_, sql_client_, driver_version),
       diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
-      odbc_version_(odbc_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);

@@ -277,15 +277,6 @@ std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
                                                       memory_pool);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Float16(int64_t size, uint16_t min,
-                                                     uint16_t max,
-                                                     double null_probability,
-                                                     int64_t alignment,
-                                                     MemoryPool* memory_pool) {
-  return this->Float16(size, Float16::FromBits(min), Float16::FromBits(max),
-                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
-}
-
 std::shared_ptr<Array> RandomArrayGenerator::Float16(
     int64_t size, util::Float16 min, util::Float16 max, double null_probability,
     double nan_probability, int64_t alignment, MemoryPool* memory_pool) {
