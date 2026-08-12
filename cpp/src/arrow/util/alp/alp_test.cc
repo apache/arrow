@@ -1530,6 +1530,96 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeExceedsMax) {
                                             1 << 16, buffer.data(), &comp_size));
 }
 
+// ============================================================================
+// Spec boundary tests
+//
+// These pin the wire-format limits stated in the Parquet ALP specification
+// (Encodings.md): `log_vector_size` is confined to the inclusive range
+// [3, 15], and `num_exceptions` / exception positions are uint16. The
+// interesting corner is a full 2^15 vector in which every value is an
+// exception: `num_exceptions` is then 32768, which is representable as
+// uint16 but not as int16.
+// ============================================================================
+
+// A vector at the maximum size whose every value is an exception produces
+// num_exceptions == 32768. Stored as a signed 16-bit integer that wraps to
+// -32768 and the data-section size computation goes negative.
+TYPED_TEST(AlpEdgeCaseTest, AllExceptionsAtMaxVectorSize) {
+  constexpr int32_t kMaxVectorSize = 1 << AlpConstants::kMaxLogVectorSize;
+  static_assert(kMaxVectorSize == 32768, "expected a 32768-element max vector");
+  ASSERT_GT(kMaxVectorSize, std::numeric_limits<int16_t>::max());
+
+  // Every NaN is an exception: NaN != NaN, so decode(encode(v)) never
+  // compares equal to the input and the encoder must take the fallback path.
+  const std::vector<TypeParam> input(
+      kMaxVectorSize, std::numeric_limits<TypeParam>::quiet_NaN());
+
+  AlpCompression<TypeParam> compressor;
+  AlpEncodingParameters preset{};
+  auto encoded = compressor.CompressVector(input.data(),
+                                           static_cast<int32_t>(input.size()), preset);
+
+  // The count must survive as 32768, not wrap negative.
+  EXPECT_EQ(encoded.alp_info().num_exceptions(), kMaxVectorSize);
+  EXPECT_EQ(encoded.exception_positions().size(), static_cast<size_t>(kMaxVectorSize));
+  EXPECT_GT(encoded.GetStoredSize(), 0);
+
+  std::vector<TypeParam> output(input.size());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
+}
+
+// The same boundary through the public codec API, which additionally
+// serializes and reloads the vector header.
+TYPED_TEST(AlpCodecTest, AllExceptionsAtMaxVectorSizeRoundTrip) {
+  constexpr int32_t kMaxVectorSize = 1 << AlpConstants::kMaxLogVectorSize;
+  const std::vector<TypeParam> input(
+      kMaxVectorSize, std::numeric_limits<TypeParam>::quiet_NaN());
+
+  ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
+                       AlpCodec<TypeParam>::GetMaxCompressedSize(
+                           static_cast<int64_t>(input.size()), kMaxVectorSize));
+  std::vector<uint8_t> comp_buffer(max_comp_size);
+  int64_t comp_size = comp_buffer.size();
+
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
+                                        static_cast<int64_t>(input.size()),
+                                        kMaxVectorSize, comp_buffer.data(),
+                                        &comp_size));
+  EXPECT_GT(comp_size, 0);
+
+  std::vector<TypeParam> output(input.size());
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
+      static_cast<int32_t>(input.size()), comp_buffer.data(), comp_size,
+      output.data()));
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
+}
+
+// An exception at the last index of a maximum-size vector stores position
+// 32767, the largest value an exception position can hold.
+TYPED_TEST(AlpEdgeCaseTest, ExceptionAtMaxPosition) {
+  constexpr int32_t kMaxVectorSize = 1 << AlpConstants::kMaxLogVectorSize;
+  // Whole numbers so that every value but the last encodes exactly, leaving
+  // exactly one exception, at the highest index a position can name.
+  std::vector<TypeParam> input(kMaxVectorSize);
+  for (int32_t i = 0; i < kMaxVectorSize; ++i) {
+    input[i] = static_cast<TypeParam>(i);
+  }
+  input.back() = std::numeric_limits<TypeParam>::quiet_NaN();
+
+  AlpCompression<TypeParam> compressor;
+  AlpEncodingParameters preset{};
+  auto encoded = compressor.CompressVector(input.data(),
+                                           static_cast<int32_t>(input.size()), preset);
+
+  ASSERT_EQ(encoded.alp_info().num_exceptions(), 1);
+  EXPECT_EQ(encoded.exception_positions().front(), kMaxVectorSize - 1);
+
+  std::vector<TypeParam> output(input.size());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
+  EXPECT_TRUE(IsBitwiseEqual(output, input));
+}
+
 }  // namespace alp
 }  // namespace util
 }  // namespace arrow
