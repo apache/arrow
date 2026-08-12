@@ -6547,5 +6547,105 @@ TEST_F(ParquetAlpEncodingTest, VerifyAlpEncodingUsed) {
   EXPECT_TRUE(has_alp) << "ALP encoding not found in column encodings";
 }
 
+// Values whose decimal-scaled form sits at or beyond the bounds of the target
+// integer type (int32 for FLOAT, int64 for DOUBLE) cannot be ALP-encoded and
+// must travel as exceptions. Encodings.md lists this as an exception
+// condition; these tests pin that the file round-trips them exactly.
+TEST_F(ParquetAlpEncodingTest, DoubleAtEncodedIntegerBounds) {
+  constexpr int64_t kIntMax = std::numeric_limits<int64_t>::max();
+  constexpr int64_t kIntMin = std::numeric_limits<int64_t>::lowest();
+
+  std::vector<double> values = {
+      0.0,
+      1.0,
+      -1.0,
+      static_cast<double>(kIntMax),
+      static_cast<double>(kIntMin),
+      std::nextafter(static_cast<double>(kIntMax),
+                     std::numeric_limits<double>::infinity()),
+      std::nextafter(static_cast<double>(kIntMin),
+                     -std::numeric_limits<double>::infinity()),
+      std::numeric_limits<double>::max(),
+      std::numeric_limits<double>::lowest(),
+      // A small decimal alongside them, so the vector still picks a scaling
+      // exponent rather than degenerating to all-exceptions.
+      1.25,
+      2.5,
+      3.75};
+
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+
+  auto schema = ::arrow::schema({::arrow::field("bounds", ::arrow::float64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, FloatAtEncodedIntegerBounds) {
+  constexpr int32_t kIntMax = std::numeric_limits<int32_t>::max();
+  constexpr int32_t kIntMin = std::numeric_limits<int32_t>::lowest();
+
+  std::vector<float> values = {
+      0.0f,
+      1.0f,
+      -1.0f,
+      static_cast<float>(kIntMax),
+      static_cast<float>(kIntMin),
+      std::nextafter(static_cast<float>(kIntMax),
+                     std::numeric_limits<float>::infinity()),
+      std::nextafter(static_cast<float>(kIntMin),
+                     -std::numeric_limits<float>::infinity()),
+      std::numeric_limits<float>::max(),
+      std::numeric_limits<float>::lowest(),
+      1.25f,
+      2.5f,
+      3.75f};
+
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::FloatType>(values, &array);
+
+  auto schema = ::arrow::schema({::arrow::field("bounds", ::arrow::float32())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+  TestAlpRoundTrip(table);
+}
+
+// A column in which every value is an exception: no exponent/factor pair
+// encodes anything, so each vector carries num_elements exceptions and the
+// page is larger than PLAIN. The data must still round-trip bit-exactly.
+// (The 32768-exception boundary, where the count no longer fits in a signed
+// 16-bit integer, is covered by arrow/util/alp/alp_test.cc; the writer uses
+// the default 1024-element vector size.)
+TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
+  // NaN is never equal to itself, so no exponent/factor pair can encode it and
+  // every value takes the exception path.
+  std::vector<double> values(70000, std::numeric_limits<double>::quiet_NaN());
+
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+
+  auto schema = ::arrow::schema({::arrow::field("all_exceptions", ::arrow::float64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props =
+      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::ALP)->build();
+
+  std::shared_ptr<Table> result;
+  DoRoundtrip(table, table->num_rows(), &result, writer_props);
+
+  // AssertTablesEqual compares NaN by value, so check the bits directly.
+  ASSERT_EQ(result->num_rows(), table->num_rows());
+  auto chunked = result->column(0);
+  int64_t seen = 0;
+  for (const auto& chunk : chunked->chunks()) {
+    const auto& doubles = ::arrow::internal::checked_cast<const ::arrow::DoubleArray&>(*chunk);
+    for (int64_t i = 0; i < doubles.length(); ++i) {
+      ASSERT_FALSE(doubles.IsNull(i));
+      ASSERT_TRUE(std::isnan(doubles.Value(i))) << "row " << seen;
+      ++seen;
+    }
+  }
+  ASSERT_EQ(seen, table->num_rows());
+}
+
 }  // namespace arrow
 }  // namespace parquet
