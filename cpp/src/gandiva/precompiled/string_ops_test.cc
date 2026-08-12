@@ -2061,6 +2061,68 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
+  // No match on the large-expansion (counting) path: from "z" to "zzz" expands
+  // by more than from_len, so this exercises the count branch's zero-match
+  // early return.
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "z", 1, "zzz", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Large output (>64 KB) must not overflow: buffer is sized to the exact result.
+  std::string large_in(35000, 'X');
+  std::string large_expected(70000, '\0');
+  for (int i = 0; i < 35000; ++i) {
+    large_expected[2 * i] = 'X';
+    large_expected[2 * i + 1] = 'Y';
+  }
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, large_in.data(),
+                                   static_cast<int32_t>(large_in.size()), "X", 1, "XY", 2,
+                                   &out_len);
+  EXPECT_EQ(out_len, 70000);
+  EXPECT_EQ(std::string(out_str, out_len), large_expected);
+  EXPECT_FALSE(ctx.has_error());
+
+  // Large shrinking output ("XX" -> "X") on a >64 KB input.
+  std::string large_shrink_in(70000, 'X');
+  std::string large_shrink_expected(35000, 'X');
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, large_shrink_in.data(),
+                                   static_cast<int32_t>(large_shrink_in.size()), "XX", 2,
+                                   "X", 1, &out_len);
+  EXPECT_EQ(out_len, 35000);
+  EXPECT_EQ(std::string(out_str, out_len), large_shrink_expected);
+  EXPECT_FALSE(ctx.has_error());
+
+  // Edge case: result size of exactly 0 (every byte of text is removed). Takes
+  // the no-scan shrink path (to_str_len <= from_str_len).
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "aaaa", 4, "a", 1, "", 0, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Edge case: result size one past the INT_MAX boundary. 65536 single-char
+  // matches each expanding to 32768 bytes gives max_length = 65536 * 32768 =
+  // 2^31 = INT_MAX + 1, so it is reported cleanly (guard fires before any alloc).
+  std::string boundary_in(65536, 'a');
+  std::string boundary_to(32768, 'b');
+  replace_utf8_utf8_utf8(
+      ctx_ptr, boundary_in.data(), static_cast<int32_t>(boundary_in.size()), "a", 1,
+      boundary_to.data(), static_cast<int32_t>(boundary_to.size()), &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceeds maximum size"));
+  EXPECT_EQ(out_len, 0);
+  ctx.Reset();
+
+  // Output that would exceed INT_MAX (2GB) is reported cleanly rather than
+  // silently wrapping the int32 size. 50000 matches each expanding to 50000
+  // bytes implies max_length = 2.5e9; the guard fires before any large alloc.
+  std::string huge_in(50000, 'X');
+  std::string huge_to(50000, 'Z');
+  replace_utf8_utf8_utf8(ctx_ptr, huge_in.data(), static_cast<int32_t>(huge_in.size()),
+                         "X", 1, huge_to.data(), static_cast<int32_t>(huge_to.size()),
+                         &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceeds maximum size"));
+  EXPECT_EQ(out_len, 0);
+  ctx.Reset();
+
   replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5, 5,
                                       &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
