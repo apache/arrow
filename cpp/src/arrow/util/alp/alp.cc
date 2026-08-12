@@ -36,8 +36,10 @@ namespace arrow {
 namespace util {
 namespace alp {
 
-// ALP serialization uses memcpy for multi-byte integers (frame_of_reference,
-// num_exceptions, offsets) and assumes little-endian byte order on disk.
+// ALP serialization stores multi-byte integers (frame_of_reference,
+// num_exceptions, offsets) via the util::SafeLoadAs/SafeStore helpers, which
+// handle unaligned access, and uses memcpy for bulk array copies. Both assume
+// little-endian byte order on disk.
 static_assert(ARROW_LITTLE_ENDIAN,
               "ALP serialization assumes little-endian byte order");
 
@@ -74,7 +76,7 @@ Result<AlpEncodedVectorInfo> AlpEncodedVectorInfo::Load(
   result.factor_ = *ptr++;
 
   // num_exceptions: 2 bytes
-  result.num_exceptions_ = util::SafeLoadAs<int16_t>(ptr);
+  result.num_exceptions_ = util::SafeLoadAs<uint16_t>(ptr);
 
   return result;
 }
@@ -744,7 +746,7 @@ typename AlpCompression<T>::EncodingResult AlpCompression<T>::EncodeVector(
     encoded_integers.push_back(encoded_value);
     // Detect exceptions using a predicated comparison.
     if (decoded_value != input) {
-      exception_positions.push_back(input_offset);
+      exception_positions.push_back(static_cast<AlpConstants::PositionType>(input_offset));
     }
     input_offset++;
   }
@@ -828,7 +830,7 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
   result.mutable_alp_info().set_exponent(exponent_and_factor.exponent);
   result.mutable_alp_info().set_factor(exponent_and_factor.factor);
   result.mutable_alp_info().set_num_exceptions(
-      static_cast<int16_t>(encoding_result.exceptions.size()));
+      static_cast<uint16_t>(encoding_result.exceptions.size()));
 
   // FOR metadata
   result.mutable_for_info().set_frame_of_reference(encoding_result.frame_of_reference);
@@ -887,13 +889,13 @@ template <typename T>
 template <typename TargetType>
 void AlpCompression<T>::PatchExceptions(
     arrow::util::span<const T> exceptions,
-    arrow::util::span<const int16_t> exception_positions,
+    arrow::util::span<const AlpConstants::PositionType> exception_positions,
     TargetType* output) {
   // Exceptions Patching.
   int64_t exception_idx = 0;
 #pragma GCC unroll AlpConstants::kLoopUnrolls
 #pragma GCC ivdep
-  for (int16_t const exception_position : exception_positions) {
+  for (AlpConstants::PositionType const exception_position : exception_positions) {
     output[exception_position] = static_cast<T>(exceptions[exception_idx]);
     exception_idx++;
   }
