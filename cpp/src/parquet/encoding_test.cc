@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -2876,8 +2877,8 @@ TYPED_TEST(TestAlpEncoding, RandomData) {
   auto typed_arr = std::static_pointer_cast<
       typename std::conditional<std::is_same_v<c_type, float>,
                                 ::arrow::FloatArray, ::arrow::DoubleArray>::type>(arr);
-  ASSERT_EQ(0, std::memcmp(output.data(), typed_arr->raw_values(),
-                           arr->length() * sizeof(c_type)));
+  ASSERT_THAT(output,
+              ::testing::ElementsAreArray(typed_arr->raw_values(), arr->length()));
 }
 
 TYPED_TEST(TestAlpEncoding, ConstantValues) {
@@ -2898,9 +2899,7 @@ TYPED_TEST(TestAlpEncoding, ConstantValues) {
   int decoded = decoder->Decode(output.data(), static_cast<int>(data.size()));
   ASSERT_EQ(decoded, static_cast<int>(data.size()));
 
-  for (size_t i = 0; i < data.size(); ++i) {
-    ASSERT_EQ(data[i], output[i]) << i;
-  }
+  ASSERT_THAT(output, ::testing::ElementsAreArray(data));
 }
 
 TYPED_TEST(TestAlpEncoding, AllExceptions) {
@@ -3031,7 +3030,7 @@ TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
         std::vector<double> output(n);
         int decoded = decoder->Decode(output.data(), static_cast<int>(n));
         ASSERT_EQ(decoded, static_cast<int>(n));
-        ASSERT_EQ(0, std::memcmp(input.data(), output.data(), n * sizeof(double)));
+        ASSERT_THAT(output, ::testing::ElementsAreArray(input));
       }
     }
   }
@@ -3071,7 +3070,7 @@ TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
         std::vector<float> output(n);
         int decoded = decoder->Decode(output.data(), static_cast<int>(n));
         ASSERT_EQ(decoded, static_cast<int>(n));
-        ASSERT_EQ(0, std::memcmp(input.data(), output.data(), n * sizeof(float)));
+        ASSERT_THAT(output, ::testing::ElementsAreArray(input));
       }
     }
   }
