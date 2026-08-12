@@ -1620,6 +1620,86 @@ TYPED_TEST(AlpEdgeCaseTest, ExceptionAtMaxPosition) {
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
+TYPED_TEST(AlpCodecTest, RoundTripAtMinVectorSize) {
+  constexpr int32_t kMinVectorSize = 1 << AlpConstants::kMinLogVectorSize;
+  static_assert(kMinVectorSize == 8, "expected an 8-element min vector");
+
+  // Cover a partial vector, an exact vector, and a remainder.
+  for (const size_t n : {size_t{1}, size_t{kMinVectorSize}, size_t{kMinVectorSize * 3 + 5}}) {
+    SCOPED_TRACE("num_elements=" + std::to_string(n));
+    std::vector<TypeParam> input(n);
+    for (size_t i = 0; i < n; ++i) {
+      input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.25);
+    }
+
+    ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
+                         AlpCodec<TypeParam>::GetMaxCompressedSize(
+                             static_cast<int64_t>(n), kMinVectorSize));
+    std::vector<uint8_t> comp_buffer(max_comp_size);
+    int64_t comp_size = comp_buffer.size();
+
+    ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(n),
+                                          kMinVectorSize, comp_buffer.data(),
+                                          &comp_size));
+
+    std::vector<TypeParam> output(n);
+    ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
+        static_cast<int32_t>(n), comp_buffer.data(), comp_size, output.data()));
+    EXPECT_TRUE(IsBitwiseEqual(output, input));
+  }
+}
+
+// The spec confines log_vector_size to [3, 15], so vector sizes below 8 are
+// rejected even though they are positive powers of two.
+TYPED_TEST(AlpCodecTest, InvalidVectorSizeBelowMin) {
+  std::vector<TypeParam> input(64);
+  for (size_t i = 0; i < input.size(); ++i) {
+    input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
+  }
+
+  for (const int32_t vs : {1, 2, 4}) {
+    SCOPED_TRACE("vector_size=" + std::to_string(vs));
+    std::vector<uint8_t> buffer(4096);
+    int64_t comp_size = buffer.size();
+    ASSERT_RAISES(Invalid,
+                  AlpCodec<TypeParam>::Encode(input.data(),
+                                              static_cast<int64_t>(input.size()), vs,
+                                              buffer.data(), &comp_size));
+    ASSERT_RAISES(Invalid, AlpCodec<TypeParam>::GetMaxCompressedSize(
+                               static_cast<int64_t>(input.size()), vs));
+  }
+}
+
+// A page header carrying an out-of-range log_vector_size must be rejected at
+// load time rather than trusted.
+TYPED_TEST(AlpCodecTest, RejectsOutOfRangeLogVectorSizeInHeader) {
+  std::vector<TypeParam> input(64);
+  for (size_t i = 0; i < input.size(); ++i) {
+    input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
+  }
+
+  ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
+                       AlpCodec<TypeParam>::GetMaxCompressedSize(
+                           static_cast<int64_t>(input.size())));
+  std::vector<uint8_t> comp_buffer(max_comp_size);
+  int64_t comp_size = comp_buffer.size();
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
+                                        static_cast<int64_t>(input.size()),
+                                        comp_buffer.data(), &comp_size));
+
+  // log_vector_size is byte 2 of the page header.
+  std::vector<TypeParam> output(input.size());
+  for (const uint8_t bad : {uint8_t{0}, uint8_t{1}, uint8_t{2}, uint8_t{16}}) {
+    SCOPED_TRACE("log_vector_size=" + std::to_string(bad));
+    std::vector<uint8_t> corrupted(comp_buffer.begin(),
+                                   comp_buffer.begin() + comp_size);
+    corrupted[2] = bad;
+    ASSERT_RAISES(Invalid, (AlpCodec<TypeParam>::template Decode<TypeParam>(
+                               static_cast<int32_t>(input.size()), corrupted.data(),
+                               comp_size, output.data())));
+  }
+}
+
 }  // namespace alp
 }  // namespace util
 }  // namespace arrow
