@@ -104,6 +104,9 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
   python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
 
+  # TODO: This check added for cp315, which does not yet have pandas wheels. Remove when shipped. 
+  python -c "import pandas" 2>/dev/null || export PYARROW_TEST_PANDAS=OFF
+
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
   python -m pytest -r s --pyargs pyarrow

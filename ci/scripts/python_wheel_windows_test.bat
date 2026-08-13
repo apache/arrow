@@ -60,5 +60,8 @@ py -0p
 @REM Validate wheel contents
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
+@REM TODO: This check added for cp315, which does not yet have pandas wheels. Remove when shipped. 
+%PYTHON_CMD% -c "import pandas" 2>NUL || set PYARROW_TEST_PANDAS=OFF
+
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
