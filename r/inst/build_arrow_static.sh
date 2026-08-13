@@ -70,6 +70,10 @@ if [[ -n "${CMAKE_WRAPPER:-}" ]]; then
   CMAKE_COMMAND=("${CMAKE_WRAPPER}" "${CMAKE_COMMAND[@]}")
 fi
 
+# Convert the space-separated options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a ARROW_EXTRA_CMAKE_FLAGS <<< "${EXTRA_CMAKE_FLAGS}"
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 "${CMAKE_COMMAND[@]}" -DARROW_BOOST_USE_SHARED=OFF \
@@ -117,7 +121,7 @@ pushd "${BUILD_DIR}"
     -Dsimdjson_SOURCE="${simdjson_SOURCE:-BUNDLED}" \
     -Dxsimd_SOURCE="${xsimd_SOURCE:-}" \
     -Dzstd_SOURCE="${zstd_SOURCE:-}" \
-    "${EXTRA_CMAKE_FLAGS}" \
+    "${ARROW_EXTRA_CMAKE_FLAGS[@]}" \
     -G "${CMAKE_GENERATOR:-Unix Makefiles}" \
     "${SOURCE_DIR}"
 

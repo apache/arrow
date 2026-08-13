@@ -322,6 +322,7 @@ repos:
           ?^dev/release/utils-generate-checksum\.sh$|
           ?^dev/release/utils-watch-gh-workflow\.sh$|
           ?^r/tools/download_dependencies_R\.sh$|
+          ?^r/inst/build_arrow_static\.sh$|
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
