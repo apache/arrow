@@ -263,9 +263,9 @@ endif()
 
 list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-# Add RapidJSON & simdjson libraries
-list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON simdjson::simdjson)
-list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON simdjson::simdjson)
+# Add simdjson libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS simdjson::simdjson)
+list(APPEND PARQUET_STATIC_LINK_LIBS simdjson::simdjson)
 
 # These are libraries that we will link privately with parquet_shared (as they
 # do not need to be linked transitively by other linkers)
@@ -323,7 +323,7 @@ if(ARROW_TESTING)
   # "link" our dependencies so that include paths are configured
   # correctly
   target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
@@ -379,6 +379,7 @@ add_parquet_test(internals-test
                  bloom_filter_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
+                 geospatial/util_json_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
                  properties_test.cc

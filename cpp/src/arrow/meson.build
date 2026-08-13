@@ -318,6 +318,22 @@ else
     rapidjson_dep = disabler()
 endif
 
+if needs_json or needs_integration
+    simdjson_dep = dependency('simdjson', allow_fallback: false, required: false)
+
+    if not simdjson_dep.found()
+        cmake = import('cmake')
+        simdjson_opts = cmake.subproject_options()
+
+        simdjson_opts.add_cmake_defines({'SIMDJSON_EXCEPTIONS': 'OFF'})
+
+        simdjson_proj = cmake.subproject('simdjson', options: simdjson_opts)
+        simdjson_dep = simdjson_proj.dependency('simdjson')
+    endif
+else
+    simdjson_dep = disabler()
+endif
+
 azure_dep = disabler()
 gcs_dep = disabler()
 s3_dep = disabler()
@@ -520,7 +536,7 @@ if needs_json
                 'json/parser.cc',
                 'json/reader.cc',
             ],
-            'dependencies': [rapidjson_dep],
+            'dependencies': [rapidjson_dep, simdjson_dep],
         },
     }
 endif
