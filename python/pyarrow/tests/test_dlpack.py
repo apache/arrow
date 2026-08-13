@@ -167,6 +167,15 @@ def test_dlpack_legacy_capsule(obj, max_version):
 
 @check_bytes_allocated
 @pytest.mark.parametrize('obj', dlpack_objects())
+@pytest.mark.parametrize('max_version', [None, (0, 8)])
+@pytest.mark.parametrize('copy', [False, True])
+def test_dlpack_legacy_capsule_copy_not_supported(obj, max_version, copy):
+    with pytest.raises(BufferError, match="copy argument is not supported"):
+        obj.__dlpack__(max_version=max_version, copy=copy)
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('obj', dlpack_objects())
 @pytest.mark.parametrize('max_version', [(1, 0), (1, 3), (2, 0)])
 @pytest.mark.parametrize('copy', [None, False, True])
 def test_dlpack_versioned_capsule(obj, max_version, copy):

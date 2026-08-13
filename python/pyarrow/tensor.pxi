@@ -341,6 +341,10 @@ strides: {self.strides}"""
                     f"tensor is on {(device.device_type, device.device_id)}."
                 )
         if max_version is None or max_version < (1, 0):
+            if copy is not None:
+                raise BufferError(
+                    f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
+                )
             # Note: from March 2025 onwards, it's okay to raise BufferError here.
             # Still we keep the V0 version that was added in August 2026.
             legacy_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))

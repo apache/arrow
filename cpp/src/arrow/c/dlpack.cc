@@ -67,7 +67,6 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
 
 template <typename DT, typename Vec>
 struct ManagerCtx {
-  /// Arrow buffer into of the data
   std::shared_ptr<Buffer> buffer;
   /// DLPack managed tensor structure.
   /// Legacy `DLManagedTensor` or newer `DLManagedTensorVersioned`.
