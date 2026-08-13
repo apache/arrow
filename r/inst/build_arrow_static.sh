@@ -62,12 +62,17 @@ case "$CXX" in
     ;;
 esac
 
+
+CMAKE_COMMAND=("${CMAKE}")
+
 # Used for Emscripten
-: "${CMAKE_WRAPPER:=}"
+if [[ -n "${CMAKE_WRAPPER:-}" ]]; then
+  CMAKE_COMMAND=("${CMAKE_WRAPPER}" "${CMAKE}")
+fi
 
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
-"${CMAKE_WRAPPER}" "${CMAKE}" -DARROW_BOOST_USE_SHARED=OFF \
+"${CMAKE_COMMAND[@]}" -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=OFF \
