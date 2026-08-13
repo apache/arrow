@@ -67,7 +67,7 @@ CMAKE_COMMAND=("${CMAKE}")
 
 # Used for Emscripten
 if [[ -n "${CMAKE_WRAPPER:-}" ]]; then
-  CMAKE_COMMAND=("${CMAKE_WRAPPER}" "${CMAKE}")
+  CMAKE_COMMAND=("${CMAKE_WRAPPER}" "${CMAKE_COMMAND[@]}")
 fi
 
 mkdir -p "${BUILD_DIR}"
