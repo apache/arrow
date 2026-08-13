@@ -104,6 +104,17 @@ ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 
 Either way, when you look at the Dataset, you can see that in addition to the columns present in every file, there are also columns `year` and `month`. These columns are not present in the files themselves: they are inferred from the partitioning structure.
 
+If a partition value contains meaningful leading zeros, specify its type explicitly. Otherwise, type inference may interpret a value such as `001` as the integer `1`. For example, use a string field when opening a Hive-partitioned dataset whose `product_id` values include leading zeros:
+
+```r
+ds <- open_dataset(
+  "products",
+  partitioning = hive_partition(product_id = string())
+)
+```
+
+With this schema, a path such as `product_id=001/part-0.parquet` keeps `product_id` as the string `"001"` instead of converting it to `1`.
+
 ```{r, eval = file.exists("nyc-taxi")}
 ds
 ```
