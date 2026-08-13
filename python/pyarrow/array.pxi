@@ -2297,7 +2297,8 @@ cdef class Array(_PandasConvertible):
             return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
         # Currently no major version other than legacy 0 and current 1.3
-        dlm_tensor = GetResultValue(ExportArrayVersionedToDLPack(self.sp_array, copy))
+        dlm_tensor = GetResultValue(
+            ExportArrayVersionedToDLPack(self.sp_array, copy == True))
         return PyCapsule_New(dlm_tensor, 'dltensor_versioned', dlpack_versioned_pycapsule_deleter)
 
     def __dlpack_device__(self):

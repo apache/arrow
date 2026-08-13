@@ -351,7 +351,8 @@ strides: {self.strides}"""
             return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
         # Currently no major version other than legacy 0 and current 1.3
-        dlm_tensor = GetResultValue(ExportTensorVersionedToDLPack(self.sp_tensor, copy))
+        dlm_tensor = GetResultValue(
+            ExportTensorVersionedToDLPack(self.sp_tensor, copy == True))
         return PyCapsule_New(dlm_tensor, 'dltensor_versioned', dlpack_versioned_pycapsule_deleter)
 
     def __dlpack_device__(self):
