@@ -36,6 +36,7 @@ and to execute this efficiently in a batched manner.
    Declaration
    ExecNodeOptions
    TableSourceNodeOptions
+   RecordBatchReaderSourceNodeOptions
    ScanNodeOptions
    FilterNodeOptions
    ProjectNodeOptions
