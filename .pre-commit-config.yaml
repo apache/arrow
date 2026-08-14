@@ -321,9 +321,7 @@ repos:
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           ?^dev/release/utils-watch-gh-workflow\.sh$|
-          ?^r/tools/download_dependencies_R\.sh$|
-          ?^r/inst/build_arrow_static\.sh$|
-          ?^swift/gen-protobuffers\.sh$|
+          ?^r/.*\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
     # v3.11.0-1 or later requires pre-commit 3.2.0 or later but Ubuntu

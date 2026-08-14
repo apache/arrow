@@ -38,7 +38,7 @@ if [ "$#" -ne 1 ]; then
 else
   run_mode="download_dependency"
   DESTDIR=$1
-  mkdir -p "${DESTDIR}"
+  mkdir -p ${DESTDIR}
 fi
 
 download_dependency() {

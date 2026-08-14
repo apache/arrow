@@ -26,7 +26,7 @@ set -x
 # By default, this script assumes it's in the top-level dir of the apache/arrow
 # git repository. Set any of the following env vars to customize where to read
 # and write from
-: "${ARROW_HOME:=$(pwd)}"                       # Only used in default SOURCE/BUILD dirs
+: ${ARROW_HOME:=$(pwd)}                       # Only used in default SOURCE/BUILD dirs
 : "${SOURCE_DIR:=${ARROW_HOME}/cpp}"            # Where the C++ source is
 : "${BUILD_DIR:=${ARROW_HOME}/r/libarrow/dist}" # Where cmake should build
 : "${DEST_DIR:=$BUILD_DIR}"                     # Where the resulting /lib and /include should be
