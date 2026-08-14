@@ -91,7 +91,7 @@ hierarchical filesystem. Default is TRUE.}
 \item{preserve_order}{Preserve the order of the rows.}
 
 \item{...}{additional format-specific arguments. For available Parquet
-options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are:
+options, see \code{\link[=write_parquet]{write_parquet()}}. The available IPC options are:
 \itemize{
 \item \code{use_legacy_format} logical: write data formatted so that Arrow libraries
 versions 0.14 and lower can read it. Default is \code{FALSE}. You can also

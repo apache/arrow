@@ -192,6 +192,9 @@ class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
     AwsTestMixin::SetUp();
+    if (!GetMinioEnv(enable_tls_)->IsAvailable()) {
+      GTEST_SKIP() << "Minio executable not found, skipping tests";
+    }
 
     // Starting the server may fail, for example if the generated port number
     // was "stolen" by another process. Run a dummy S3 operation to make sure it
@@ -398,6 +401,96 @@ TEST_F(S3OptionsTest, FromAccessKey) {
   ASSERT_EQ(options.GetSessionToken(), "token");
 }
 
+TEST_F(S3OptionsTest, FromUriAndOptionsCredentials) {
+  std::string path;
+  S3Options options;
+  FileSystemFactoryOptions kv{
+      {"access_key", std::string("ak")},
+      {"secret_key", std::string("sk")},
+  };
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUriAndOptions("s3://", kv, &path));
+  ASSERT_EQ(options.GetAccessKey(), "ak");
+  ASSERT_EQ(options.GetSecretKey(), "sk");
+  ASSERT_EQ(options.GetSessionToken(), "");
+
+  kv.push_back({"session_token", std::string("tok")});
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUriAndOptions("s3://", kv, &path));
+  ASSERT_EQ(options.GetAccessKey(), "ak");
+  ASSERT_EQ(options.GetSecretKey(), "sk");
+  ASSERT_EQ(options.GetSessionToken(), "tok");
+
+  // Failure scenarios
+  // Pairing is incorrect
+  ASSERT_THAT(
+      S3Options::FromUriAndOptions("s3://", {{"access_key", std::string("ak")}}, &path),
+      Raises(StatusCode::Invalid, ::testing::HasSubstr("must be provided together")));
+  ASSERT_THAT(
+      S3Options::FromUriAndOptions("s3://", {{"session_token", std::string("tok")}},
+                                   &path),
+      Raises(StatusCode::Invalid, ::testing::HasSubstr("session_token' requires")));
+  // unknown option key
+  ASSERT_THAT(S3Options::FromUriAndOptions("s3://", {{"bogus", std::string("x")}}, &path),
+              Raises(StatusCode::Invalid, ::testing::HasSubstr("Unexpected option")));
+  // const char* is rejected. Options must be an explicit std::string
+  ASSERT_THAT(S3Options::FromUriAndOptions("s3://", {{"access_key", "42"}}, &path),
+              Raises(StatusCode::Invalid, ::testing::HasSubstr("wrong type")));
+}
+
+TEST_F(S3OptionsTest, FromUriAndOptionsCredentialConflict) {
+  std::string path;
+  S3Options options;
+  FileSystemFactoryOptions kv{
+      {"access_key", std::string("opt_access_key")},
+      {"secret_key", std::string("opt_secret_key")},
+  };
+
+  ASSERT_OK_AND_ASSIGN(
+      options, S3Options::FromUriAndOptions("s3://mybucket?region=us-east-1", kv, &path));
+  ASSERT_EQ(options.GetAccessKey(), "opt_access_key");
+  ASSERT_EQ(options.GetSecretKey(), "opt_secret_key");
+
+  ASSERT_OK_AND_ASSIGN(
+      options,
+      S3Options::FromUriAndOptions(
+          "s3://uri_access_key:uri_secret_key@mybucket?region=us-east-1", {}, &path));
+  ASSERT_EQ(options.GetAccessKey(), "uri_access_key");
+  ASSERT_EQ(options.GetSecretKey(), "uri_secret_key");
+
+  // Providing credentials both in the URI and in the options is Invalid.
+  ASSERT_THAT(
+      S3Options::FromUriAndOptions(
+          "s3://uri_access_key:uri_secret_key@mybucket?region=us-east-1", kv, &path),
+      Raises(StatusCode::Invalid, ::testing::HasSubstr("provided both")));
+}
+
+TEST_F(S3OptionsTest, FromUriAndOptionsRetryStrategy) {
+  std::string path;
+  S3Options options;
+  auto retry = S3RetryStrategy::GetAwsDefaultRetryStrategy(/*max_attempts=*/3);
+  FileSystemFactoryOptions kv{{"retry_strategy", retry}};
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUriAndOptions("s3://", kv, &path));
+  // The exact typed object crossed through std::any unchanged.
+  ASSERT_EQ(options.retry_strategy, retry);
+
+  // wrong type is rejected, same as the credential keys
+  ASSERT_THAT(S3Options::FromUriAndOptions("s3://",
+                                           {{"retry_strategy", std::string("x")}}, &path),
+              Raises(StatusCode::Invalid, ::testing::HasSubstr("wrong type")));
+}
+
+TEST_F(S3OptionsTest, FromUriAndOptionsDefaultMetadata) {
+  std::string path;
+  S3Options options;
+  auto metadata = KeyValueMetadata::Make({"Content-Type"}, {"x-arrow/test"});
+  FileSystemFactoryOptions kv{{"default_metadata", metadata}};
+  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUriAndOptions("s3://", kv, &path));
+  ASSERT_EQ(options.default_metadata, metadata);
+
+  ASSERT_THAT(S3Options::FromUriAndOptions(
+                  "s3://", {{"default_metadata", std::string("x")}}, &path),
+              Raises(StatusCode::Invalid, ::testing::HasSubstr("wrong type")));
+}
+
 TEST_F(S3OptionsTest, FromAssumeRole) {
   S3Options options;
 
@@ -482,6 +575,35 @@ TEST_F(S3FileSystemRegionTest, EnvironmentVariable) {
 #endif
 
 ////////////////////////////////////////////////////////////////////////////
+// S3FileSystem make URI test
+
+class S3FileSystemMakeUri : public AwsTestMixin {};
+
+TEST_F(S3FileSystemMakeUri, MakeUriWithCredentials) {
+  S3Options options;
+  options.ConfigureAccessKey("minio", "miniopass");
+  options.region = "us-east-1";
+  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
+  ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
+  EXPECT_EQ(uri,
+            "s3://minio:miniopass@bucket/somedir/subdir/subfile"
+            "?region=us-east-1&scheme=https&endpoint_override="
+            "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+TEST_F(S3FileSystemMakeUri, MakeUriWithoutCredentials) {
+  S3Options options;
+  options.ConfigureAnonymousCredentials();
+  options.region = "us-east-1";
+  ASSERT_OK_AND_ASSIGN(auto fs, S3FileSystem::Make(options));
+  ASSERT_OK_AND_ASSIGN(auto uri, fs->MakeUri("/bucket/somedir/subdir/subfile"));
+  EXPECT_EQ(uri,
+            "s3://bucket/somedir/subdir/subfile"
+            "?region=us-east-1&scheme=https&endpoint_override="
+            "&allow_bucket_creation=0&allow_bucket_deletion=0");
+}
+
+////////////////////////////////////////////////////////////////////////////
 // Basic test for the Minio test server.
 
 class TestMinioServer : public S3TestMixin {
@@ -505,6 +627,7 @@ class TestS3FS : public S3TestMixin {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    if (IsSkipped()) return;
     // Most tests will create buckets
     options_.allow_bucket_creation = true;
     options_.allow_bucket_deletion = true;
@@ -1658,6 +1781,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    if (IsSkipped()) return;
     // Set up test bucket
     {
       Aws::S3::Model::CreateBucketRequest req;

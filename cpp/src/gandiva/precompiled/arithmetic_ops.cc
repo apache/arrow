@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cinttypes>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include "arrow/util/basic_decimal.h"
 
 extern "C" {
@@ -65,7 +67,7 @@ extern "C" {
   gdv_##OUT_TYPE NAME##_##IN_TYPE1##_##IN_TYPE2(int64_t context, gdv_##IN_TYPE1 left, \
                                                 gdv_##IN_TYPE2 right) {               \
     if (right == static_cast<gdv_##IN_TYPE2>(0)) {                                    \
-      gdv_fn_context_set_error_msg(context, "divide by zero error");                  \
+      gdv_fn_context_set_error_msg(context, "PMOD: divide by zero error");            \
       return static_cast<gdv_##IN_TYPE1>(0);                                          \
     }                                                                                 \
     double mod = fmod(static_cast<double>(left), static_cast<double>(right));         \
@@ -109,7 +111,8 @@ PMOD_OP(pmod, float64, float64, float64)
 
 gdv_float64 mod_float64_float64(int64_t context, gdv_float64 x, gdv_float64 y) {
   if (y == 0.0) {
-    const char* err_msg = "divide by zero error";
+    char err_msg[96];
+    snprintf(err_msg, sizeof(err_msg), "MOD: divide by zero error (dividend: %g)", x);
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0.0;
   }
@@ -351,7 +354,7 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
   FORCE_INLINE                                                                           \
   gdv_##TYPE divide_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
     if (in2 == 0) {                                                                      \
-      const char* err_msg = "divide by zero error";                                      \
+      const char* err_msg = "DIVIDE: divide by zero error";                              \
       gdv_fn_context_set_error_msg(context, err_msg);                                    \
       return 0;                                                                          \
     }                                                                                    \
@@ -376,14 +379,19 @@ NUMERIC_FUNCTION(POSITIVE)
 
 NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
 
-#define NEGATIVE_INTEGER(TYPE, SIZE)                                           \
-  FORCE_INLINE                                                                 \
-  gdv_##TYPE negative_##TYPE(gdv_int64 context, gdv_##TYPE in) {               \
-    if (in <= INT##SIZE##_MIN) {                                               \
-      gdv_fn_context_set_error_msg(context, "Overflow in negative execution"); \
-      return 0;                                                                \
-    }                                                                          \
-    return -1 * in;                                                            \
+#define NEGATIVE_INTEGER(TYPE, SIZE)                             \
+  FORCE_INLINE                                                   \
+  gdv_##TYPE negative_##TYPE(gdv_int64 context, gdv_##TYPE in) { \
+    if (in <= INT##SIZE##_MIN) {                                 \
+      char err_msg[96];                                          \
+      snprintf(err_msg, sizeof(err_msg),                         \
+               "NEGATIVE: Overflow in negative execution "       \
+               "(cannot negate INT" #SIZE "_MIN: %" PRId64 ")",  \
+               static_cast<int64_t>(in));                        \
+      gdv_fn_context_set_error_msg(context, err_msg);            \
+      return 0;                                                  \
+    }                                                            \
+    return -1 * in;                                              \
   }
 
 NEGATIVE_INTEGER(int32, 32)
@@ -396,8 +404,12 @@ const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
 gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval interval) {
   if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME ||
       interval < INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME) {
-    gdv_fn_context_set_error_msg(
-        context, "Interval day time is out of boundaries for the negative function");
+    char err_msg[128];
+    snprintf(err_msg, sizeof(err_msg),
+             "NEGATIVE: Interval day time is out of boundaries for the negative "
+             "function (value: %" PRId64 ")",
+             static_cast<int64_t>(interval));
+    gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
 
@@ -430,7 +442,7 @@ void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
   FORCE_INLINE                                                                        \
   gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
     if (in2 == 0) {                                                                   \
-      const char* err_msg = "divide by zero error";                                   \
+      const char* err_msg = "DIV: divide by zero error";                              \
       gdv_fn_context_set_error_msg(context, err_msg);                                 \
       return 0;                                                                       \
     }                                                                                 \
@@ -448,7 +460,7 @@ DIV(uint64)
   FORCE_INLINE                                                                        \
   gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
     if (in2 == 0) {                                                                   \
-      const char* err_msg = "divide by zero error";                                   \
+      const char* err_msg = "DIV: divide by zero error";                              \
       gdv_fn_context_set_error_msg(context, err_msg);                                 \
       return 0;                                                                       \
     }                                                                                 \

@@ -15,4 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/debian:bookworm
+module ArrowFlight
+  class Criteria
+    class << self
+      def try_convert(value)
+        case value
+        when String, GLib::Bytes
+          new(value)
+        else
+          nil
+        end
+      end
+    end
+
+    alias_method :initialize_raw, :initialize
+    private :initialize_raw
+    def initialize(expression)
+      expression = GLib::Bytes.new(expression) if expression.is_a?(String)
+      initialize_raw(expression)
+      @expression = expression
+    end
+  end
+end

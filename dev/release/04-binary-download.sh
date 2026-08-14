@@ -46,7 +46,7 @@ tag="apache-arrow-${version_with_rc}"
 
 archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"
 
-# Download Linux packages and ODBC MSI.
+# Download Linux packages.
 gh release download "${tag}" \
   --dir "packages/${CROSSBOW_JOB_ID}" \
   --pattern "almalinux-*.tar.gz" \
@@ -54,6 +54,5 @@ gh release download "${tag}" \
   --pattern "centos-*.tar.gz" \
   --pattern "debian-*.tar.gz" \
   --pattern "ubuntu-*.tar.gz" \
-  --pattern "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi" \
   --repo "${REPOSITORY:-apache/arrow}" \
   --skip-existing

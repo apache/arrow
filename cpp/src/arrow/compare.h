@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <iosfwd>
+#include <optional>
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -35,6 +36,7 @@ class SparseTensor;
 struct Scalar;
 
 static constexpr double kDefaultAbsoluteTolerance = 1E-5;
+static constexpr int32_t kDefaultUlpDistance = 4;
 
 /// A container of options for equality comparisons
 class EqualOptions {
@@ -63,23 +65,46 @@ class EqualOptions {
   ///
   /// This option only affects the Equals methods
   /// and has no effect on ApproxEquals methods.
-  bool use_atol() const { return use_atol_; }
+  /// \deprecated Deprecated in 25.0.0. Use arrow::EqualOptions::atol instead
+  ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::EqualOptions::atol instead")
+  bool use_atol() const { return atol_.has_value(); }
 
   /// Return a new EqualOptions object with the "use_atol" property changed.
+  /// \deprecated Deprecated in 25.0.0. Use arrow::EqualOptions::atol instead
+  ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::EqualOptions::atol instead")
   EqualOptions use_atol(bool v) const {
     auto res = EqualOptions(*this);
-    res.use_atol_ = v;
+    if (v) {
+      res.atol_ = atol_.value_or(kDefaultAbsoluteTolerance);
+    } else {
+      res.atol_ = std::nullopt;
+    }
     return res;
   }
 
   /// The absolute tolerance for approximate comparisons of floating-point values.
-  /// Note that this option is ignored if "use_atol" is set to false.
-  double atol() const { return atol_; }
+  std::optional<double> atol() const { return atol_; }
 
   /// Return a new EqualOptions object with the "atol" property changed.
-  EqualOptions atol(double v) const {
+  /// If both "ulp_distance" and "atol" are specified, the comparison
+  /// succeeds when the "ulp_distance" condition OR the "atol" condition
+  /// is satisfied.
+  EqualOptions atol(std::optional<double> v) const {
     auto res = EqualOptions(*this);
     res.atol_ = v;
+    return res;
+  }
+
+  /// The ulp distance for approximate comparisons of floating-point values.
+  std::optional<int32_t> ulp_distance() const { return ulp_distance_; }
+
+  /// Return a new EqualOptions object with the "ulp_distance" property changed.
+  /// If both "ulp_distance" and "atol" are specified, the comparison
+  /// succeeds when the "ulp_distance" condition OR the "atol" condition
+  /// is satisfied.
+  EqualOptions ulp_distance(std::optional<int32_t> v) const {
+    auto res = EqualOptions(*this);
+    res.ulp_distance_ = v;
     return res;
   }
 
@@ -131,10 +156,10 @@ class EqualOptions {
   static EqualOptions Defaults() { return {}; }
 
  protected:
-  double atol_ = kDefaultAbsoluteTolerance;
+  std::optional<double> atol_ = std::nullopt;
+  std::optional<int32_t> ulp_distance_ = std::nullopt;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
-  bool use_atol_ = false;
   bool use_schema_ = true;
   bool use_metadata_ = false;
 
@@ -150,6 +175,9 @@ ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
 ///
+/// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
+/// 'arrow::kDefaultAbsoluteTolerance' is used.
+///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
                                     const EqualOptions& = EqualOptions::Defaults());
@@ -163,6 +191,9 @@ ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
                                    const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are approximately equal
+///
+/// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
+/// 'arrow::kDefaultAbsoluteTolerance' is used.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeApproxEquals(const Array& left, const Array& right,
@@ -203,6 +234,10 @@ ARROW_EXPORT bool ScalarEquals(const Scalar& left, const Scalar& right,
                                const EqualOptions& options = EqualOptions::Defaults());
 
 /// Returns true if scalars are approximately equal
+///
+/// If the absolute tolerance (atol) is not specified in \ref arrow::EqualOptions,
+/// 'arrow::kDefaultAbsoluteTolerance' is used.
+///
 /// \param[in] left a Scalar
 /// \param[in] right a Scalar
 /// \param[in] options comparison options

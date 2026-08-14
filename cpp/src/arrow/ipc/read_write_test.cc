@@ -156,11 +156,11 @@ TEST_P(TestMessage, SerializeCustomMetadata) {
       nullptr, key_value_metadata({}, {}),
       key_value_metadata({"foo", "bar"}, {"fizz", "buzz"})};
   for (auto metadata : cases) {
-    std::shared_ptr<Buffer> serialized;
-    ASSERT_OK(internal::WriteRecordBatchMessage(
-        /*length=*/0, /*body_length=*/0, metadata,
-        /*nodes=*/{},
-        /*buffers=*/{}, /*variadic_counts=*/{}, options_, &serialized));
+    ASSERT_OK_AND_ASSIGN(auto serialized,
+                         internal::WriteRecordBatchMessage(
+                             /*length=*/0, /*body_length=*/0, metadata,
+                             /*nodes=*/{},
+                             /*buffers=*/{}, /*variadic_counts=*/{}, options_));
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
                          Message::Open(serialized, /*body=*/nullptr));
 

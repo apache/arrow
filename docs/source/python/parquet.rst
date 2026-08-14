@@ -368,9 +368,9 @@ Storing timestamps
 
 Some Parquet readers may only support timestamps stored in millisecond
 (``'ms'``) or microsecond (``'us'``) resolution. Since pandas uses nanoseconds
-to represent timestamps, this can occasionally be a nuisance. By default
-(when writing version 1.0 Parquet files), the nanoseconds will be cast to
-microseconds ('us').
+to represent timestamps, this can occasionally be a nuisance. When writing
+older ``version='1.0'`` or ``version='2.4'`` Parquet files, the nanoseconds
+will be cast to microseconds (``'us'``).
 
 In addition, We provide the ``coerce_timestamps`` option to allow you to select
 the desired resolution:
@@ -388,17 +388,16 @@ an exception will be raised. This can be suppressed by passing
    >>> pq.write_table(table, 'example.parquet', coerce_timestamps='ms',
    ...                allow_truncated_timestamps=True)
 
-Timestamps with nanoseconds can be stored without casting when using the
-more recent Parquet format version 2.6:
+Timestamps with nanoseconds can be stored without casting when using
+Parquet format version 2.6, which is the default:
 
 .. code-block:: python
 
    >>> pq.write_table(table, 'example.parquet', version='2.6')
 
-However, many Parquet readers do not yet support this newer format version, and
-therefore the default is to write version 1.0 files. When compatibility across
-different processing frameworks is required, it is recommended to use the
-default version 1.0.
+However, some Parquet readers may not yet support this newer format version.
+When compatibility across different processing frameworks is required, the
+older ``version='1.0'`` or ``version='2.4'`` remain available.
 
 Older Parquet implementations use ``INT96`` based storage of
 timestamps, but this is now deprecated. This includes some older

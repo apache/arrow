@@ -34,7 +34,7 @@ wget -q "${url}" -O - | tar -xzf - --directory /tmp/bison --strip-components=1
 
 pushd /tmp/bison
 ./configure --prefix="${prefix}"
-make -j$(nproc)
+make -j"$(nproc)"
 make install
 popd
 

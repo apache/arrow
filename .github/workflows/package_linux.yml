@@ -38,18 +38,7 @@ on:
     tags:
       - "apache-arrow-*-rc*"
   pull_request:
-    paths:
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/package_linux.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'cpp/**'
-      - 'c_glib/**'
-      - 'dev/archery/archery/**'
-      - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.sh'
-      - 'dev/release/verify-yum.sh'
-      - 'dev/tasks/linux-packages/**'
-      - 'format/Flight.proto'
+    # This trigger ensures that the `check_labels` workflow runs on manual label changes
     types:
       - labeled
       - opened
@@ -69,22 +58,35 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: package_linux
 
+  check-enabled:
+    # Check whether the CI builds in this workflow need to be run
+    needs: check-labels
+    runs-on: ubuntu-latest
+    outputs:
+      is_enabled: ${{ steps.set_enabled.outputs.is_enabled }}
+    steps:
+      - id: set_enabled
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+          contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
+        run: echo "is_enabled=true" >> "$GITHUB_OUTPUT"
+
   package:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.is_enabled == 'true'
     permissions:
-      # Upload to GitHub Release
+      # Upload artifacts to GitHub Release
       contents: write
+      # Upload cached Docker images to GitHub Packages
+      packages: write
     name: ${{ matrix.id }}
     runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
-    needs: check-labels
-    if: >-
-      needs.check-labels.outputs.force == 'true' ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: Package: Linux')
     timeout-minutes: 160
     strategy:
       fail-fast: false
@@ -100,8 +102,6 @@ jobs:
           - amazon-linux-2023-arm64
           - centos-9-stream-amd64
           - centos-9-stream-arm64
-          - debian-bookworm-amd64
-          - debian-bookworm-arm64
           - debian-trixie-amd64
           - debian-trixie-arm64
           - debian-forky-amd64
@@ -116,7 +116,7 @@ jobs:
       BUILD_DIR: "${{ github.workspace }}/packages.build"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -186,12 +186,11 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
         with:
-          path: ${{ env.BUILD_DIR }}/ccache
-          key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
-          restore-keys: package-linux-${{ matrix.id }}-
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-linux-${{ matrix.id }}
       - name: Install dependencies
         run: |
           sudo apt update
@@ -232,7 +231,7 @@ jobs:
           rake version:update
           popd
       - name: Login to GitHub Container registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -249,8 +248,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rake -C dev/tasks/linux-packages docker:pull || :
+          rake -C dev/tasks/linux-packages/apache-arrow docker:pull:${TARGET} || :
           rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
+      - name: Save ccache
+        if: >-
+          !cancelled()
+        continue-on-error: true
+        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        with:
+          path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
+          key: package-linux-${{ matrix.id }}
+          include-hidden-files: true
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -258,7 +266,7 @@ jobs:
           github.event_name == 'push' &&
           github.ref_name == 'main'
         run: |
-          rake -C dev/tasks/linux-packages docker:push
+          rake -C dev/tasks/linux-packages/apache-arrow docker:push:${TARGET}
       - name: Build artifact tarball
         run: |
           mkdir -p "${DISTRIBUTION}"
@@ -339,7 +347,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rake -C dev/tasks/linux-packages docker:pull || :
           # Validate reproducibility. Reprotest runs the build twice
           # inside its own tempdir and doesn't copy artifacts back,
           # so this is purely a verification step.

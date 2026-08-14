@@ -121,7 +121,7 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Construct a new std::string with a hexadecimal representation of the buffer.
   /// \return std::string
-  std::string ToHexString();
+  std::string ToHexString() const;
 
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes

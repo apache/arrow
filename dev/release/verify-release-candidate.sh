@@ -214,8 +214,7 @@ test_apt() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "debian:bookworm" \
-                    "debian:trixie" \
+      for target in "debian:trixie" \
                     "debian:forky" \
                     "ubuntu:jammy" \
                     "ubuntu:noble" \
@@ -235,8 +234,7 @@ test_apt() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/debian:bookworm" \
-                    "arm64v8/debian:trixie" \
+      for target in "arm64v8/debian:trixie" \
                     "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
                     "arm64v8/ubuntu:noble" \
@@ -364,7 +362,7 @@ install_conda() {
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${CONDA_ENV:-source}"
-  local pyver=${PYTHON_VERSION:-3}
+  local pyver=${PYTHON_VERSION:-3.12}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     show_info "Configuring Conda environment..."
@@ -379,9 +377,10 @@ maybe_setup_conda() {
     if ! conda env list | cut -d" " -f 1 | grep $env; then
       mamba create -y -n $env python=${pyver}
     fi
-    # Install dependencies
+    # Install dependencies. Python version pinned so an unversioned
+    # python dependency does not replace it
     if [ $# -gt 0 ]; then
-      mamba install -y -n $env $@
+      mamba install -y -n $env python=${pyver} $@
     fi
     # Activate the environment
     conda activate $env
@@ -521,7 +520,15 @@ test_and_install_cpp() {
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
-  cmake --build . --target install
+  # On macOS, conda package-cache binaries intermittently fail to load their @rpath
+  # dependencies even though the libs are present. Add the env lib dir to the fallback
+  # path (searched last, to not override system libs) so they resolve.
+  # See https://github.com/conda-forge/cmake-feedstock/issues/230
+  if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
+    DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib" cmake --build . --target install
+  else
+    cmake --build . --target install
+  fi
 
   if [ ${TEST_CPP} -gt 0 ]; then
     LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
@@ -781,10 +788,10 @@ test_source_distribution() {
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
-    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
   else
     NPROC=$(nproc)
-    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
   fi
 
   pushd $ARROW_SOURCE_DIR
@@ -853,7 +860,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13 3.14}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.11 3.12 3.13 3.14}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
@@ -892,11 +899,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.10 3.11 3.12 3.13 3.14"
+    local python_versions="3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.10 3.11 3.12 3.13 3.14"
+    local python_versions="3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_x86_64"
   fi
 

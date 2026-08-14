@@ -15,13 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <span>
 
 #include "arrow/io/memory.h"
-#include "arrow/result.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/dispatch_internal.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 
@@ -34,7 +40,33 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/xxhasher.h"
 
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
+#  include "parquet/bloom_filter_avx2_internal.h"
+#endif
+
+#include "parquet/bloom_filter_block_impl_internal.h"
+
 namespace parquet {
+
+namespace internal {
+namespace {
+
+using ::arrow::internal::DynamicDispatch;
+
+struct FindHashBlockDynamicFunction {
+  using FunctionType = decltype(&FindHashBlockImpl);
+
+  static constexpr auto targets() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&FindHashBlockImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&FindHashBlockAvx2)  //
+    };
+  }
+};
+
+}  // namespace
+}  // namespace internal
+
 namespace {
 
 constexpr int32_t kCiphertextLengthSize = 4;
@@ -345,26 +377,101 @@ void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
   PARQUET_THROW_NOT_OK(sink->Write(data_->data(), num_bytes_));
 }
 
-bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
-  const uint32_t bucket_index =
-      static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
-  const uint32_t key = static_cast<uint32_t>(hash);
-  const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
+void BlockSplitBloomFilter::FoldToTargetFpp(double target_fpp) {
+  const auto num_bits = static_cast<int64_t>(num_bytes_) * 8;
+  const auto total_set_bits =
+      ::arrow::internal::CountSetBits(data_->data(), /*bit_offset=*/0, num_bits);
+  if (total_set_bits == 0) {
+    num_bytes_ = kMinimumBloomFilterBytes;
+    return;
+  }
 
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    // Calculate mask for key in the given bitset.
-    const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
-    if (ARROW_PREDICT_FALSE(0 ==
-                            (bitset32[kBitsSetPerBlock * bucket_index + i] & mask))) {
-      return false;
+  const double avg_fill = static_cast<double>(total_set_bits) / num_bits;
+  const uint32_t num_folds = NumFoldsForTargetFpp(target_fpp, avg_fill);
+  if (num_folds > 0) {
+    Fold(num_folds);
+  }
+}
+
+uint32_t BlockSplitBloomFilter::NumFoldsForTargetFpp(double target_fpp,
+                                                     double avg_fill) const {
+  const uint32_t num_blocks = NumBlocks();
+  if (num_blocks < 2) {
+    return 0;
+  }
+  // Number of blocks is a power of two
+  DCHECK_EQ(num_blocks & (num_blocks - 1), 0);
+
+  // Estimate the fill rate after folding from the current average fill rate.
+  // Folding ORs block groups together, so each fold changes the estimated fill rate
+  // from f to 1 - (1 - f)^2. A membership check tests kBitsSetPerBlock bits, making
+  // the estimated FPP equal to std::pow(folded_fill_rate, kBitsSetPerBlock).
+  //
+  // See also: Sailhan and Stehr, "Folding and Unfolding Bloom Filters", 2012:
+  // https://hal.science/hal-01126174v1
+  const auto max_folds = static_cast<uint32_t>(std::countr_zero(num_blocks));
+
+  uint32_t num_folds = 0;
+  double unset_probability_after_folds = 1.0 - avg_fill;
+  for (uint32_t i = 0; i < max_folds; ++i) {
+    unset_probability_after_folds *= unset_probability_after_folds;
+    const double folded_fill_rate = 1.0 - unset_probability_after_folds;
+    const double estimated_fpp = std::pow(folded_fill_rate, kBitsSetPerBlock);
+    if (estimated_fpp > target_fpp) {
+      break;
+    }
+    ++num_folds;
+  }
+  return num_folds;
+}
+
+void BlockSplitBloomFilter::Fold(uint32_t num_folds) {
+  DCHECK_GT(num_folds, 0);
+
+  const uint32_t num_blocks = NumBlocks();
+  // A fold group is a consecutive run of blocks ORed into one output block.
+  // Keeping the group size as (1 << num_folds) preserves a power-of-two bitset
+  // size. Folding by this power-of-two group size keeps the old-to-new bucket
+  // remapping aligned with bucket lookup and avoids false negatives.
+  const uint32_t group_size = UINT32_C(1) << num_folds;
+  DCHECK_LE(group_size, num_blocks);
+
+  const uint32_t new_num_blocks = num_blocks / group_size;
+  auto* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
+
+  for (uint32_t dst_block = 0; dst_block < new_num_blocks; ++dst_block) {
+    uint32_t* dst = bitset32 + dst_block * kBitsSetPerBlock;
+
+    const uint32_t src_block = dst_block * group_size;
+    const uint32_t* src = bitset32 + src_block * kBitsSetPerBlock;
+    if (dst != src) {
+      std::copy_n(src, kBitsSetPerBlock, dst);
+    }
+
+    for (uint32_t fold_block = 1; fold_block < group_size; ++fold_block) {
+      src = bitset32 + (src_block + fold_block) * kBitsSetPerBlock;
+      for (int word = 0; word < kBitsSetPerBlock; ++word) {
+        dst[word] |= src[word];
+      }
     }
   }
-  return true;
+
+  num_bytes_ = new_num_blocks * kBytesPerFilterBlock;
+}
+
+bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
+  const uint32_t bucket_index = static_cast<uint32_t>(((hash >> 32) * NumBlocks()) >> 32);
+  const uint32_t key = static_cast<uint32_t>(hash);
+  const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
+  const uint32_t* block = bitset32 + kBitsSetPerBlock * bucket_index;
+  static ::arrow::internal::DynamicDispatch<internal::FindHashBlockDynamicFunction>
+      dispatch;
+  return dispatch(std::span<const uint32_t, kBitsSetPerBlock>(block, kBitsSetPerBlock),
+                  std::span<const uint32_t, kBitsSetPerBlock>(SALT), key);
 }
 
 void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
-  const uint32_t bucket_index =
-      static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
+  const uint32_t bucket_index = static_cast<uint32_t>(((hash >> 32) * NumBlocks()) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   uint32_t* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
 

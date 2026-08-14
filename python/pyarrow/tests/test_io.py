@@ -682,7 +682,7 @@ def test_allocate_buffer_resizable():
 
 @pytest.mark.numpy
 def test_non_cpu_buffer(pickle_module):
-    cuda = pytest.importorskip("pyarrow.cuda")
+    cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     ctx = cuda.Context(0)
 
     data = np.array([b'testing'])

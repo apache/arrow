@@ -39,6 +39,7 @@ RUN \
   apt install -y -V ${quiet} \
     base-files \
     build-essential \
+    ccache \
     clang \
     cmake \
     debhelper \
@@ -59,6 +60,7 @@ RUN \
     libgtest-dev \
     liblz4-dev \
     libmimalloc-dev \
+    libopentelemetry-proto-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libre2-dev \
@@ -73,6 +75,7 @@ RUN \
     meson \
     ninja-build \
     nlohmann-json3-dev \
+    opentelemetry-cpp-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
@@ -81,7 +84,14 @@ RUN \
     tzdata \
     valac \
     zlib1g-dev && \
+  # Ensure updating symlinks in /usr/lib/ccache/
+  update-ccache-symlinks && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean
+
+# nvidia-cuda-toolkit was removed from Debian forky amd64, so disable the
+# CUDA packages via the pkg.apache-arrow.nocuda build profile.See GH-50090.
+# Once nvidia-cuda-toolkit is re-added to Debian forky, this can be removed.
+ENV DEB_BUILD_PROFILES=pkg.apache-arrow.nocuda

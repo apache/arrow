@@ -195,7 +195,11 @@ set(PARQUET_SRCS
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
-  list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
+  list(APPEND
+       PARQUET_SRCS
+       level_comparison_avx2.cc
+       level_conversion_bmi2.cc
+       bloom_filter_avx2.cc)
   # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
@@ -205,8 +209,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     separate_arguments(RELEASE_FLAGS NATIVE_COMMAND "${CMAKE_CXX_FLAGS_RELEASE}")
     list(APPEND AVX2_FLAGS ${RELEASE_FLAGS})
   endif()
-  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_OPTIONS
-                                                                  "${AVX2_FLAGS}")
+  set_source_files_properties(level_comparison_avx2.cc bloom_filter_avx2.cc
+                              PROPERTIES COMPILE_OPTIONS "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -223,6 +227,10 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS
                                                                     "${BMI2_FLAGS}")
   endif()
+elseif(ARROW_SIMD_LEVEL MATCHES "^(AVX2|AVX512)$")
+  # AVX2 baseline without runtime dispatch: the dispatch table still references
+  # FindHashBlockAvx2, so the kernel must be built (no extra flags needed here).
+  list(APPEND PARQUET_SRCS bloom_filter_avx2.cc)
 endif()
 
 set(PARQUET_SHARED_LINK_LIBS)
@@ -255,9 +263,9 @@ endif()
 
 list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-# Add RapidJSON libraries
-list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
-list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+# Add simdjson libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS simdjson::simdjson)
+list(APPEND PARQUET_STATIC_LINK_LIBS simdjson::simdjson)
 
 # These are libraries that we will link privately with parquet_shared (as they
 # do not need to be linked transitively by other linkers)
@@ -315,7 +323,7 @@ if(ARROW_TESTING)
   # "link" our dependencies so that include paths are configured
   # correctly
   target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
@@ -371,6 +379,7 @@ add_parquet_test(internals-test
                  bloom_filter_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
+                 geospatial/util_json_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
                  properties_test.cc

@@ -39,7 +39,7 @@ jobs:
       - name: Test sdist
         run: archery docker run ubuntu-python-sdist-test
         env:
-          UBUNTU: 22.04
+          UBUNTU: 24.04
           PYARROW_VERSION: {{ arrow.no_rc_version }}
 
       - uses: actions/upload-artifact@v6

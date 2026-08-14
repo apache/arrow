@@ -500,7 +500,8 @@ physical type.
 
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
-* \(4) On the write side, an Arrow FixedSizedList is also mapped to a Parquet LIST.
+* \(4) On the write side, an Arrow FixedSizeList, ListView or LargeListView is
+  also mapped to a Parquet LIST.
 
 * \(5) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the

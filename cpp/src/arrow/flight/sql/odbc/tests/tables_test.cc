@@ -31,7 +31,7 @@ class TablesTest : public T {};
 
 class TablesMockTest : public FlightSQLODBCMockTestBase {};
 class TablesRemoteTest : public FlightSQLODBCRemoteTestBase {};
-using TestTypes = ::testing::Types<TablesRemoteTest, TablesMockTest>;
+using TestTypes = ::testing::Types<TablesMockTest, TablesRemoteTest>;
 TYPED_TEST_SUITE(TablesTest, TestTypes);
 
 template <typename T>
@@ -78,6 +78,8 @@ TYPED_TEST(TablesTest, SQLTablesTestInputData) {
   ValidateFetch(this->stmt, SQL_SUCCESS);
 }
 
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForAllCatalogs) {
   SQLWCHAR empty[] = {0};
   ASSIGN_SQLWCHAR_ARR(SQL_ALL_CATALOGS_W, L"%");
@@ -97,6 +99,7 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForAllCatalogs) {
 
   ValidateFetch(this->stmt, SQL_NO_DATA);
 }
+#endif  // __linux__
 
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForNamedCatalog) {
   CreateTestTable();
@@ -138,6 +141,8 @@ TEST_F(TablesMockTest, SQLTablesTestGetSchemaHasNoData) {
   ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 TEST_F(TablesRemoteTest, SQLTablesTestGetMetadataForAllSchemas) {
   SQLWCHAR empty[] = {0};
   ASSIGN_SQLWCHAR_ARR(SQL_ALL_SCHEMAS_W, L"%");
@@ -342,6 +347,7 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForUnicodeTableByTableName) {
 
   DropUnicodeTable();
 }
+#endif  // __linux__
 
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForInvalidTableNameNoData) {
   CreateTestTable();
@@ -408,6 +414,8 @@ TEST_F(TablesMockTest, SQLTablesGetMetadataForTableType) {
   DropTestTable();
 }
 
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 TEST_F(TablesRemoteTest, SQLTablesGetMetadataForTableTypeTable) {
   // Requires creation of user table named ODBCTest using schema $scratch in remote server
 
@@ -436,6 +444,7 @@ TEST_F(TablesRemoteTest, SQLTablesGetMetadataForTableTypeTable) {
     ValidateFetch(this->stmt, SQL_NO_DATA);
   }
 }
+#endif  // __linux__
 
 TEST_F(TablesRemoteTest, SQLTablesGetMetadataForTableTypeViewHasNoData) {
   SQLWCHAR empty[] = {0};
@@ -452,6 +461,8 @@ TEST_F(TablesRemoteTest, SQLTablesGetMetadataForTableTypeViewHasNoData) {
   ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
+// GH-49702: TODO Disabled on Linux due to BlockingQueue issue
+#ifndef __linux__
 TEST_F(TablesMockTest, SQLTablesGetSupportedTableTypes) {
   SQLWCHAR empty[] = {0};
   ASSIGN_SQLWCHAR_ARR(SQL_ALL_TABLE_TYPES_W, L"%");
@@ -492,6 +503,7 @@ TEST_F(TablesRemoteTest, SQLTablesGetSupportedTableTypes) {
 
   ValidateFetch(this->stmt, SQL_NO_DATA);
 }
+#endif  // __linux__
 
 TYPED_TEST(TablesTest, SQLTablesGetMetadataBySQLDescribeCol) {
   SQLWCHAR column_name[1024];

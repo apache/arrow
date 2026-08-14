@@ -28,9 +28,11 @@
 #include <functional>
 #include <set>
 #include <sstream>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
@@ -1493,7 +1495,12 @@ class TestBinaryLikeParquetIO : public ParquetIOTestBase {
                       const std::shared_ptr<DataType>& fallback_type) {
     const auto specific_array = ::arrow::ArrayFromJSON(specific_type, json);
     const auto fallback_array = ::arrow::ArrayFromJSON(fallback_type, json);
+    CheckRoundTrip(specific_array, fallback_array, binary_type);
+  }
 
+  void CheckRoundTrip(const std::shared_ptr<Array>& specific_array,
+                      const std::shared_ptr<Array>& fallback_array,
+                      ::arrow::Type::type binary_type) {
     // When the original Arrow schema isn't stored, the array is decoded as
     // the fallback type (since there is no specific Parquet logical
     // type for it).
@@ -1519,13 +1526,27 @@ class TestBinaryLikeParquetIO : public ParquetIOTestBase {
 };
 
 TEST_F(TestBinaryLikeParquetIO, LargeBinary) {
-  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::LARGE_BINARY,
-                 ::arrow::large_binary(), ::arrow::binary());
+  const std::vector<bool> is_valid = {true, true, false, true};
+  const std::vector<std::string> values = {"foo", "", "", "\xff"};
+  std::shared_ptr<Array> specific_array;
+  ::arrow::ArrayFromVector<::arrow::LargeBinaryType, std::string>(is_valid, values,
+                                                                  &specific_array);
+  std::shared_ptr<Array> fallback_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryType, std::string>(is_valid, values,
+                                                             &fallback_array);
+  CheckRoundTrip(specific_array, fallback_array, ::arrow::Type::LARGE_BINARY);
 }
 
 TEST_F(TestBinaryLikeParquetIO, BinaryView) {
-  CheckRoundTrip("[\"foo\", \"\", null, \"\xff\"]", ::arrow::Type::BINARY_VIEW,
-                 ::arrow::binary_view(), ::arrow::binary());
+  const std::vector<bool> is_valid = {true, true, false, true};
+  const std::vector<std::string> values = {"foo", "", "", "\xff"};
+  std::shared_ptr<Array> specific_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryViewType, std::string>(is_valid, values,
+                                                                 &specific_array);
+  std::shared_ptr<Array> fallback_array;
+  ::arrow::ArrayFromVector<::arrow::BinaryType, std::string>(is_valid, values,
+                                                             &fallback_array);
+  CheckRoundTrip(specific_array, fallback_array, ::arrow::Type::BINARY_VIEW);
 }
 
 TEST_F(TestBinaryLikeParquetIO, LargeString) {
@@ -3324,22 +3345,127 @@ TEST(ArrowReadWrite, LargeList) {
   }
 }
 
-TEST(ArrowReadWrite, FixedSizeList) {
-  using ::arrow::field;
-  using ::arrow::fixed_size_list;
-  using ::arrow::struct_;
+template <typename ViewType>
+  requires ::arrow::is_list_view_type<ViewType>::value
+void CheckListViewRoundTrip(
+    const std::shared_ptr<ViewType>& view_type,
+    const std::shared_ptr<::arrow::DataType>& fallback_type,
+    const ArrowReaderProperties& reader_props = default_arrow_reader_properties()) {
+  using ViewArrayType = typename ::arrow::TypeTraits<ViewType>::ArrayType;
+  using OffsetArrowType = typename ::arrow::TypeTraits<ViewType>::OffsetType;
+  using FallbackArrayType =
+      std::conditional_t<std::is_same_v<ViewType, ::arrow::ListViewType>,
+                         ::arrow::ListArray, ::arrow::LargeListArray>;
 
-  auto type = fixed_size_list(::arrow::int16(), /*size=*/3);
+  auto values = ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5]");
+  auto offsets = ArrayFromJSON(::arrow::TypeTraits<OffsetArrowType>::type_singleton(),
+                               "[3, 0, 5, 1]");
+  auto sizes = ArrayFromJSON(::arrow::TypeTraits<OffsetArrowType>::type_singleton(),
+                             "[2, 1, 0, 2]");
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       ViewArrayType::FromArrays(view_type, *offsets, *sizes, *values,
+                                                 default_memory_pool()));
 
-  const char* json = R"([
-      [1, 2, 3],
-      [4, 5, 6],
-      [7, 8, 9]])";
-  auto array = ::arrow::ArrayFromJSON(type, json);
-  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto table = Table::Make(
+      ::arrow::schema({::arrow::field("root", array->type(), false)}), {array});
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+
+  ASSERT_OK_AND_ASSIGN(auto expected_array,
+                       FallbackArrayType::FromListView(*array, default_memory_pool()));
+
+  auto expected = Table::Make(
+      ::arrow::schema({::arrow::field("root", fallback_type, false)}), {expected_array});
+  CheckConfiguredRoundtrip(table, expected, ::parquet::default_writer_properties(),
+                           default_arrow_writer_properties(), reader_props);
+}
+
+TEST(ArrowReadWrite, ListView) {
+  CheckListViewRoundTrip(std::make_shared<::arrow::ListViewType>(::arrow::int32()),
+                         ::arrow::list(::arrow::int32()));
+}
+
+TEST(ArrowReadWrite, LargeListView) {
+  ArrowReaderProperties reader_props;
+  reader_props.set_list_type(::arrow::Type::LARGE_LIST);
+  CheckListViewRoundTrip(std::make_shared<::arrow::LargeListViewType>(::arrow::int32()),
+                         ::arrow::large_list(::arrow::int32()), reader_props);
+}
+
+TEST(ArrowReadWrite, EmptyListView) {
+  auto type = ::arrow::list_view(::arrow::int32());
+  auto array = ArrayFromJSON(type, "[]");
+  auto table = Table::Make(::arrow::schema({::arrow::field("root", type)}), {array});
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  std::shared_ptr<Table> result;
+  ASSERT_NO_FATAL_FAILURE(
+      DoRoundtrip(table, 1, &result, default_writer_properties(), props_store_schema));
+  ASSERT_OK(result->ValidateFull());
+
+  ASSERT_EQ(1, result->column(0)->num_chunks());
+  const auto& list_view =
+      checked_cast<const ::arrow::ListViewArray&>(*result->column(0)->chunk(0));
+  ASSERT_EQ(0, list_view.length());
+  ASSERT_NE(nullptr, list_view.value_offsets());
+  ASSERT_EQ(0, list_view.value_offsets()->size());
+  ASSERT_NE(nullptr, list_view.value_sizes());
+  ASSERT_EQ(0, list_view.value_sizes()->size());
+}
+
+struct FixedSizeListTestCase {
+  std::shared_ptr<DataType> type;
+  std::string json;
+};
+
+void PrintTo(const FixedSizeListTestCase& test_case, std::ostream* os) {
+  *os << "{type=" << test_case.type->ToString() << ", json=" << test_case.json << "}";
+}
+
+class TestFixedSizeListRoundTrip
+    : public ::testing::TestWithParam<FixedSizeListTestCase> {};
+
+static const std::vector<FixedSizeListTestCase> kFixedSizeListTestCases = {
+    {.type = ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/3), .json = R"([
+          {"root": [1, 2, 3]},
+          {"root": [4, 5, 6]},
+          {"root": [7, 8, 9]}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/3), .json = R"([
+          {"root": null},
+          {"root": [1, 2, 3]},
+          {"root": null},
+          {"root": [4, 5, 6]},
+          {"root": null}])"},
+    {.type = ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/3), .json = R"([
+          {"root": null},
+          {"root": null},
+          {"root": null}])"},
+    {.type = ::arrow::fixed_size_list(
+         ::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/2),
+         /*list_size=*/2),
+     .json = R"([
+          {"root": [[1, 2], [3, 4]]},
+          {"root": null},
+          {"root": [[5, 6], null]},
+          {"root": [null, [7, 8]]}])"},
+    {.type = ::arrow::list(::arrow::fixed_size_list(::arrow::int16(), /*list_size=*/2)),
+     .json = R"([
+          {"root": [[1, 2], null, [3, 4]]},
+          {"root": null},
+          {"root": [null, [5, 6]]},
+          {"root": []}])"}};
+
+TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {
+  const auto& test_case = GetParam();
+  auto table = ::arrow::TableFromJSON(
+      ::arrow::schema({::arrow::field("root", test_case.type)}), {test_case.json});
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
   CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
+
+INSTANTIATE_TEST_SUITE_P(ArrowReadWrite, TestFixedSizeListRoundTrip,
+                         ::testing::ValuesIn(kFixedSizeListTestCases));
 
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;

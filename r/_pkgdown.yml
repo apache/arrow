@@ -183,6 +183,7 @@ reference:
   - read_delim_arrow
   - read_parquet
   - read_feather
+  - read_ipc_file
   - read_ipc_stream
   - read_json_arrow
 
@@ -193,6 +194,7 @@ reference:
     - write_csv_arrow
     - write_parquet
     - write_feather
+    - write_ipc_file
     - write_ipc_stream
     - write_to_raw
 
@@ -261,10 +263,11 @@ reference:
 
 - title: File systems
   desc: >
-   Functions for working with files on S3 and GCS
+   Functions for working with files on S3, GCS, and Azure
   contents:
   - s3_bucket
   - gs_bucket
+  - az_container
   - copy_files
 
 - title: Flight

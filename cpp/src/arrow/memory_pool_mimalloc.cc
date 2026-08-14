@@ -15,35 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/memory_pool_internal.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"  // IWYU pragma: keep
 
-#include <memory>
-#include <string>
-#include <string_view>
+#include <mimalloc.h>
 
-#include "arrow/util/visibility.h"
+// extern "C" {
 
-namespace arrow {
-namespace json {
-namespace internal {
+void arrow_mi_free(void* p) { mi_free(p); }
 
-/// This class is a helper to serialize a json object to a string.
-/// It uses rapidjson in implementation.
-class ARROW_EXPORT ObjectWriter {
- public:
-  ObjectWriter();
-  ~ObjectWriter();
+void* arrow_mi_malloc_aligned(size_t size, size_t alignment) {
+  return mi_malloc_aligned(size, alignment);
+}
 
-  void SetString(std::string_view key, std::string_view value);
-  void SetBool(std::string_view key, bool value);
+void* arrow_mi_realloc_aligned(void* p, size_t new_size, size_t alignment) {
+  return mi_realloc_aligned(p, new_size, alignment);
+}
 
-  std::string Serialize();
+void arrow_mi_collect(bool force) { mi_collect(force); }
 
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
-};
-
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+// }

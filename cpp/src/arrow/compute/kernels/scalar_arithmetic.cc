@@ -368,6 +368,14 @@ struct Atan2 {
   }
 };
 
+struct Hypot {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 x, Arg1 y, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::hypot(x, y);
+  }
+};
+
 struct LogNatural {
   template <typename T, typename Arg>
   static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
@@ -1346,6 +1354,14 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             ("The return value is in the range [-pi, pi]."),
                             {"y", "x"}};
 
+const FunctionDoc hypot_doc{
+    "Compute the hypotenuse (Euclidean norm) of x and y",
+    ("The result is equivalent to `sqrt(x^2 + y^2)`, but is computed without\n"
+     "undue overflow or underflow at intermediate stages of the computation.\n"
+     "If either x or y is +/-infinity, +infinity is returned, even if the\n"
+     "other argument is NaN."),
+    {"x", "y"}};
+
 const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
                             ("NaN is returned for input values x with \\|x\\| > 1.\n"
                              "At x = +/- 1, returns +/- infinity.\n"
@@ -1764,6 +1780,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
       "sqrt_checked", sqrt_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
+
+  // ----------------------------------------------------------------------
+  auto hypot = MakeArithmeticFunctionFloatingPoint<Hypot>("hypot", hypot_doc);
+  DCHECK_OK(registry->AddFunction(std::move(hypot)));
 
   // ----------------------------------------------------------------------
   auto sign =

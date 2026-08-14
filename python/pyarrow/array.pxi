@@ -266,6 +266,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     if type is not None and type.id == _Type_EXTENSION:
         extension_type = type
         type = type.storage_type
+        # GH-49644: when building a fixed_shape_tensor from a sequence of arrays,
+        # the converter only sees the flat storage type, so validate the
+        # tensor-specific constraints here where the type is still known.
+        if (isinstance(extension_type, FixedShapeTensorType)
+                and isinstance(obj, (list, tuple))):
+            if extension_type.permutation is not None:
+                raise NotImplementedError(
+                    "Converting a sequence of arrays to a fixed_shape_tensor "
+                    "with a permutation is not supported")
+            expected_shape = tuple(extension_type.shape)
+            for element in obj:
+                shape = getattr(element, "shape", None)
+                if (shape is not None and len(shape) >= 2
+                        and tuple(shape) != expected_shape):
+                    raise ValueError(
+                        f"Cannot convert array of shape {tuple(shape)} to a "
+                        f"fixed_shape_tensor of shape {expected_shape}")
 
     if from_pandas is None:
         c_from_pandas = False
@@ -1706,7 +1723,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def sort(self, order="ascending", **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", **kwargs):
         """
         Sort the Array
 
@@ -1715,6 +1732,9 @@ cdef class Array(_PandasConvertible):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -1726,7 +1746,7 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         indices = _pc().sort_indices(
             self,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            options=_pc().SortOptions(sort_keys=[("", order, null_placement)], **kwargs)
         )
         return self.take(indices)
 
@@ -1844,7 +1864,24 @@ cdef class Array(_PandasConvertible):
         lst : list
         """
         self._assert_cpu()
-        return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
+        cdef int64_t i, n = self.length()
+        if maps_as_pydicts is not None:
+            # Converting maps to dicts has per-entry semantics (duplicate-key
+            # detection); use the Scalar-based conversion for exact behavior.
+            # TODO(GH-50429): this falls back to the Scalar path for the whole
+            # array even when the type contains no maps; threading
+            # maps_as_pydicts through _getitem_py keeps the fast paths instead.
+            return [x.as_py(maps_as_pydicts=maps_as_pydicts) for x in self]
+        # TODO(GH-50448): convert per range instead of per element to cut
+        # the per-element call overhead further.
+        return [self._getitem_py(i) for i in range(n)]
+
+    cdef object _getitem_py(self, int64_t i):
+        # Return self[i] as a Python object, without creating a Python Scalar
+        # (nor, for nested types, per-row Array wrappers) where a subclass
+        # provides a specialization; this base implementation goes through
+        # Scalar.as_py and thus preserves its semantics exactly (see GH-50326).
+        return self.getitem(i).as_py()
 
     def tolist(self):
         """
@@ -2363,10 +2400,6 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         arr = dtype.__from_arrow__(obj)
         return pandas_api.series(arr, name=name, copy=False)
 
-    if pandas_api.is_v1():
-        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-        c_options.coerce_temporal_nanoseconds = True
-
     if isinstance(obj, Array):
         with nogil:
             check_status(ConvertArrayToPandas(c_options,
@@ -2424,6 +2457,12 @@ cdef class BooleanArray(Array):
     """
     Concrete class for Arrow arrays of boolean data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        return (<CBooleanArray*> self.ap).Value(i)
+
     @property
     def false_count(self):
         return (<CBooleanArray*> self.ap).false_count()
@@ -2437,6 +2476,34 @@ cdef class NumericArray(Array):
     """
     A base class for Arrow numeric arrays.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        cdef Type tid = self.ap.type_id()
+        if self.ap.IsNull(i):
+            return None
+        if tid == _Type_INT8:
+            return (<CInt8Array*> self.ap).Value(i)
+        elif tid == _Type_INT16:
+            return (<CInt16Array*> self.ap).Value(i)
+        elif tid == _Type_INT32:
+            return (<CInt32Array*> self.ap).Value(i)
+        elif tid == _Type_INT64:
+            return (<CInt64Array*> self.ap).Value(i)
+        elif tid == _Type_UINT8:
+            return (<CUInt8Array*> self.ap).Value(i)
+        elif tid == _Type_UINT16:
+            return (<CUInt16Array*> self.ap).Value(i)
+        elif tid == _Type_UINT32:
+            return (<CUInt32Array*> self.ap).Value(i)
+        elif tid == _Type_UINT64:
+            return (<CUInt64Array*> self.ap).Value(i)
+        elif tid == _Type_FLOAT:
+            return (<CFloatArray*> self.ap).Value(i)
+        elif tid == _Type_DOUBLE:
+            return (<CDoubleArray*> self.ap).Value(i)
+        # Subclasses whose as_py returns non-primitive objects (dates, times,
+        # timestamps, durations, half floats, ...) use the exact Scalar path.
+        return Array._getitem_py(self, i)
 
 
 cdef class IntegerArray(NumericArray):
@@ -2756,6 +2823,16 @@ cdef class ListArray(BaseListArray):
     Concrete class for Arrow arrays of a list data type.
     """
 
+    cdef object _getitem_py(self, int64_t i):
+        cdef CListArray* arr = <CListArray*> self.ap
+        if arr.IsNull(i):
+            return None
+        if self._children_cache is None:
+            self._children_cache = pyarrow_wrap_array(arr.values())
+        cdef Array values = <Array> self._children_cache
+        cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
+        return [values._getitem_py(j) for j in range(start, end)]
+
     @staticmethod
     def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
         """
@@ -2940,6 +3017,16 @@ cdef class LargeListArray(BaseListArray):
 
     Identical to ListArray, but 64-bit offsets.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        cdef CLargeListArray* arr = <CLargeListArray*> self.ap
+        if arr.IsNull(i):
+            return None
+        if self._children_cache is None:
+            self._children_cache = pyarrow_wrap_array(arr.values())
+        cdef Array values = <Array> self._children_cache
+        cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
+        return [values._getitem_py(j) for j in range(start, end)]
 
     @staticmethod
     def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None, mask=None):
@@ -3531,6 +3618,19 @@ cdef class MapArray(ListArray):
     Concrete class for Arrow arrays of a map data type.
     """
 
+    cdef object _getitem_py(self, int64_t i):
+        cdef CListArray* arr = <CListArray*> self.ap
+        if arr.IsNull(i):
+            return None
+        if self._children_cache is None:
+            self._children_cache = (self.keys, self.items)
+        cdef Array keys = <Array> (<tuple> self._children_cache)[0]
+        cdef Array items = <Array> (<tuple> self._children_cache)[1]
+        cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
+        # Matches MapScalar.as_py with the default maps_as_pydicts=None:
+        # an association list of (key, value) tuples.
+        return [(keys._getitem_py(j), items._getitem_py(j)) for j in range(start, end)]
+
     @staticmethod
     def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None, mask=None):
         """
@@ -3667,6 +3767,16 @@ cdef class FixedSizeListArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a fixed size list data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
+        if arr.IsNull(i):
+            return None
+        if self._children_cache is None:
+            self._children_cache = pyarrow_wrap_array(arr.values())
+        cdef Array values = <Array> self._children_cache
+        cdef int64_t j, start = arr.value_offset(i), end = arr.value_offset(i + 1)
+        return [values._getitem_py(j) for j in range(start, end)]
 
     @staticmethod
     def from_arrays(values, list_size=None, DataType type=None, mask=None):
@@ -3954,6 +4064,13 @@ cdef class StringArray(Array):
     Concrete class for Arrow arrays of string (or utf8) data type.
     """
 
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CBinaryArray*> self.ap).GetView(i)
+        # Matches StringScalar.as_py, which is str(buf, 'utf8').
+        return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
+
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
                      Buffer null_bitmap=None, int null_count=-1,
@@ -3985,6 +4102,12 @@ cdef class LargeStringArray(Array):
     """
     Concrete class for Arrow arrays of large string (or utf8) data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CLargeBinaryArray*> self.ap).GetView(i)
+        return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
 
     @staticmethod
     def from_buffers(int length, Buffer value_offsets, Buffer data,
@@ -4018,11 +4141,24 @@ cdef class StringViewArray(Array):
     Concrete class for Arrow arrays of string (or utf8) view data type.
     """
 
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CBinaryViewArray*> self.ap).GetView(i)
+        return cp.PyUnicode_DecodeUTF8(view.data(), <Py_ssize_t> view.size(), NULL)
+
 
 cdef class BinaryArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CBinaryArray*> self.ap).GetView(i)
+        return cp.PyBytes_FromStringAndSize(view.data(), <Py_ssize_t> view.size())
+
     @property
     def total_values_length(self):
         """
@@ -4036,6 +4172,13 @@ cdef class LargeBinaryArray(Array):
     """
     Concrete class for Arrow arrays of large variable-sized binary data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CLargeBinaryArray*> self.ap).GetView(i)
+        return cp.PyBytes_FromStringAndSize(view.data(), <Py_ssize_t> view.size())
+
     @property
     def total_values_length(self):
         """
@@ -4049,6 +4192,12 @@ cdef class BinaryViewArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary view data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef cpp_string_view view = (<CBinaryViewArray*> self.ap).GetView(i)
+        return cp.PyBytes_FromStringAndSize(view.data(), <Py_ssize_t> view.size())
 
 
 cdef class DictionaryArray(Array):
@@ -4208,6 +4357,28 @@ cdef class StructArray(Array):
     """
     Concrete class for Arrow arrays of a struct data type.
     """
+
+    cdef object _getitem_py(self, int64_t i):
+        if self.ap.IsNull(i):
+            return None
+        cdef int64_t k, num_fields = self.type.num_fields
+        if self._children_cache is None:
+            names = [self.type.field(k).name for k in range(num_fields)]
+            if len(set(names)) != len(names):
+                # Matches StructScalar.as_py
+                raise ValueError(
+                    "Converting to Python dictionary is not supported when "
+                    "duplicate field names are present")
+            self._children_cache = (
+                names, [self.field(k) for k in range(num_fields)])
+        names = (<tuple> self._children_cache)[0]
+        fields = (<tuple> self._children_cache)[1]
+        cdef Array field_arr
+        result = {}
+        for k in range(num_fields):
+            field_arr = <Array> fields[k]
+            result[names[k]] = field_arr._getitem_py(i)
+        return result
 
     def field(self, index):
         """
@@ -4386,7 +4557,7 @@ cdef class StructArray(Array):
         result.validate()
         return result
 
-    def sort(self, order="ascending", by=None, **kwargs):
+    def sort(self, order="ascending", null_placement="at_end", by=None, **kwargs):
         """
         Sort the StructArray
 
@@ -4395,6 +4566,9 @@ cdef class StructArray(Array):
         order : str, default "ascending"
             Which order to sort values in.
             Accepted values are "ascending", "descending".
+        null_placement : str, default "at_end"
+            Whether nulls and NaNs are placed at the start or at the end.
+            Accepted values are "at_end", "at_start".
         by : str or None, default None
             If to sort the array by one of its fields
             or by the whole array.
@@ -4407,9 +4581,10 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort, sort_keys = self._flattened_field(by), [("", order)]
+            tosort, sort_keys = self._flattened_field(by), [("", order, null_placement)]
         else:
-            tosort, sort_keys = self, [(field.name, order) for field in self.type]
+            tosort, sort_keys = self, [
+                (field.name, order, null_placement) for field in self.type]
         indices = _pc().sort_indices(
             tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )
@@ -4689,6 +4864,30 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         200,
         300,
         400
+      ]
+    ]
+
+    Create an extension array from a list of multi-dimensional NumPy arrays.
+    Each element is flattened in row-major (C) order, and its shape must match
+    the tensor shape.
+
+    >>> import numpy as np
+    >>> pa.array([np.array([[1, 2], [3, 4]], dtype=np.int32),
+    ...           np.array([[10, 20], [30, 40]], dtype=np.int32)],
+    ...          type=tensor_type)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
       ]
     ]
     """

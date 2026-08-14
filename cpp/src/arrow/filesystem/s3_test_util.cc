@@ -192,6 +192,19 @@ void MinioTestEnvironment::SetUp() {
       MakeReadaheadGenerator(std::move(impl_->server_generator_), pool->GetCapacity());
 }
 
+bool MinioTestEnvironment::IsAvailable() {
+  if (!available_.has_value()) {
+    // If external S3-compatible service is configured there's no need to check for Minio
+    available_ = std::getenv(kEnvConnectString) && std::getenv(kEnvAccessKey) &&
+                 std::getenv(kEnvSecretKey);
+    if (!available_.value()) {
+      ::arrow::util::Process process;
+      available_ = process.SetExecutable(kMinioExecutableName).ok();
+    }
+  }
+  return available_.value();
+}
+
 Result<std::shared_ptr<MinioTestServer>> MinioTestEnvironment::GetOneServer() {
   return impl_->server_generator_().result();
 }

@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,12 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
-
-ARCH=$(uname -m)
-if [ "$ARCH" != "x86_64" ]; then
-  exit 0
-fi
-
-apt update
-apt install -y attr ceph-common ceph-fuse ceph-mds ceph-mgr ceph-mon ceph-osd
+class TestCriteria < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    def test_string
+      expression = "expression"
+      criteria = ArrowFlight::Criteria.try_convert(expression)
+      assert_equal(expression,
+                   criteria.expression.to_s)
+    end
+  end
+end

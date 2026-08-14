@@ -35,7 +35,9 @@ task default: :test
 desc "Run tests"
 task :test do
   cd(base_dir.to_s) do
-    ruby("test/run.rb")
+    args = []
+    args << "-v" if ENV["RUNNER_DEBUG"]
+    ruby("test/run.rb", *args)
   end
 end
 

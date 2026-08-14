@@ -128,7 +128,7 @@ if(ARROW_S3)
     endif()
   endif()
 
-  if(ARROW_S3_MODULE)
+  if(ARROW_S3_MODULE AND ARROW_BUILD_TESTS)
     add_arrow_test(s3fs_module_test
                    SOURCES
                    s3fs_module_test.cc

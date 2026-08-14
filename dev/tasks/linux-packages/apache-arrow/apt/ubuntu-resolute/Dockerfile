@@ -32,6 +32,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
+    ccache \
     clang \
     clang-tools \
     cmake \
@@ -52,6 +53,7 @@ RUN \
     libgrpc++-dev \
     libgtest-dev \
     liblz4-dev \
+    libopentelemetry-proto-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libre2-dev \
@@ -67,6 +69,7 @@ RUN \
     mold \
     ninja-build \
     nlohmann-json3-dev \
+    opentelemetry-cpp-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
@@ -76,6 +79,8 @@ RUN \
     tzdata \
     valac \
     zlib1g-dev && \
+  # Ensure updating symlinks in /usr/lib/ccache/
+  update-ccache-symlinks && \
   if apt list | grep -q '^libcuda'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   else \

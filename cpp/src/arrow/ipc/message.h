@@ -419,6 +419,11 @@ class ARROW_EXPORT MessageDecoder {
   /// \return the current state
   State state() const;
 
+  /// \brief Return the number of bytes buffered in the decoder.
+  ///
+  /// This method is mainly useful for testing and debugging.
+  int64_t buffered_size() const;
+
  private:
   class MessageDecoderImpl;
   std::unique_ptr<MessageDecoderImpl> impl_;
@@ -453,9 +458,12 @@ using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessF
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset. If the message has a body with non-zero length, it will also be
-/// read
+/// read.
 ///
-/// The metadata_length includes at least the length prefix and the flatbuffer
+/// The metadata_length includes the IPC encapsulation prefix and the
+/// Flatbuffers-serialized message.
+///
+/// This function should only be used when a RecordBatch message is expected.
 ///
 /// \param[in] offset the position in the file where the message starts. The
 /// first 4 bytes after the offset are the message length
@@ -474,7 +482,8 @@ Result<std::unique_ptr<Message>> ReadMessage(
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset.
 ///
-/// The metadata_length includes at least the length prefix and the flatbuffer
+/// The metadata_length includes the IPC encapsulation prefix and the
+/// Flatbuffers-serialized message.
 ///
 /// \param[in] offset the position in the file where the message starts. The
 /// first 4 bytes after the offset are the message length
@@ -578,6 +587,7 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* stream);
 /// \param[out] message_length the total size of the payload written including
 /// padding
 /// \return Status
+ARROW_EXPORT
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length);
 

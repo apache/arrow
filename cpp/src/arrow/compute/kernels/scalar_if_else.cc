@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include "arrow/array/builder_nested.h"
@@ -1327,7 +1328,7 @@ void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
                             const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec =
-        internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec, ArrayKernelExec,
+        internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec,
                                                     /*AllocateMem=*/std::true_type>(
             *type);
     // cond array needs to be boolean always
@@ -1494,13 +1495,11 @@ struct CaseWhenFunction : ScalarFunction {
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 
-  static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
+  // For case_when exact dispatch, all value arguments must have identical DataType.
+  static std::shared_ptr<MatchConstraint> AllValueTypesMatchConstraint() {
     static auto constraint =
         MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
           DCHECK_GE(types.size(), 2);
-          DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
-            return is_decimal(type.id());
-          }));
           return std::all_of(
               types.begin() + 2, types.end(),
               [&types](const TypeHolder& type) { return type == types[1]; });
@@ -1607,26 +1606,14 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 
     if (cond_array.GetNullCount() == 0) {
       // If no valid buffer, visit mask & cond bitmap simultaneously
-      BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values, cond_offset,
-                                    batch.length);
-      while (offset < batch.length) {
-        const auto block = counter.NextAndWord();
-        if (block.AllSet()) {
-          CopyValues<Type>(value, offset, block.length, out_valid, out_values,
-                           out_offset + offset);
-          bit_util::SetBitsTo(mask, offset, block.length, false);
-        } else if (block.popcount) {
-          for (int64_t j = 0; j < block.length; ++j) {
-            if (bit_util::GetBit(mask, offset + j) &&
-                bit_util::GetBit(cond_values, cond_offset + offset + j)) {
-              CopyValues<Type>(value, offset + j, /*length=*/1, out_valid, out_values,
-                               out_offset + offset + j);
-              bit_util::SetBitTo(mask, offset + j, false);
-            }
-          }
-        }
-        offset += block.length;
-      }
+      auto visit_run = [&](int64_t position, int64_t run_length) {
+        CopyValues<Type>(value, position, run_length, out_valid, out_values,
+                         out_offset + position);
+        bit_util::SetBitsTo(mask, position, run_length, false);
+        return Status::OK();
+      };
+      RETURN_NOT_OK(::arrow::internal::VisitTwoSetBitRuns(
+          mask, /*start_offset=*/0, cond_values, cond_offset, batch.length, visit_run));
     } else {
       // Visit mask & cond bitmap & cond validity
       const uint8_t* cond_valid = cond_array.buffers[0].data;
@@ -1657,32 +1644,20 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   }
   if (!have_else_arg) {
     // Need to initialize any remaining null slots (uninitialized memory)
-    BitBlockCounter counter(mask, /*offset=*/0, batch.length);
-    int64_t offset = 0;
     auto bit_width = checked_cast<const FixedWidthType&>(*out->type()).bit_width();
     auto byte_width = bit_util::BytesForBits(bit_width);
-    while (offset < batch.length) {
-      const auto block = counter.NextWord();
-      if (block.AllSet()) {
-        if (bit_width == 1) {
-          bit_util::SetBitsTo(out_values, out_offset + offset, block.length, false);
-        } else {
-          std::memset(out_values + (out_offset + offset) * byte_width, 0x00,
-                      byte_width * block.length);
-        }
-      } else if (!block.NoneSet()) {
-        for (int64_t j = 0; j < block.length; ++j) {
-          if (bit_util::GetBit(out_valid, out_offset + offset + j)) continue;
-          if (bit_width == 1) {
-            bit_util::ClearBit(out_values, out_offset + offset + j);
-          } else {
-            std::memset(out_values + (out_offset + offset + j) * byte_width, 0x00,
-                        byte_width);
-          }
-        }
+
+    auto visit_run = [&](int64_t position, int64_t run_length) {
+      if (bit_width == 1) {
+        bit_util::SetBitsTo(out_values, out_offset + position, run_length, false);
+      } else {
+        std::memset(out_values + (out_offset + position) * byte_width, 0x00,
+                    byte_width * run_length);
       }
-      offset += block.length;
-    }
+      bit_util::SetBitsTo(mask, position, run_length, false);
+    };
+
+    ::arrow::internal::VisitSetBitRunsVoid(mask, /*offset=*/0, batch.length, visit_run);
   }
   return Status::OK();
 }
@@ -2761,10 +2736,10 @@ struct ChooseFunction : ScalarFunction {
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec,
-                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
+                       const std::shared_ptr<MatchConstraint>& constraint) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
-                            /*is_varargs=*/true, std::move(constraint)),
+                            /*is_varargs=*/true, constraint),
       exec);
   if (is_fixed_width(get_id.id)) {
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -2779,38 +2754,42 @@ void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
 }
 
 void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                                 const std::vector<std::shared_ptr<DataType>>& types) {
+                                 const std::vector<std::shared_ptr<DataType>>& types,
+                                 const std::shared_ptr<MatchConstraint>& constraint) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
-    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+    AddCaseWhenKernel(scalar_function, type, std::move(exec), constraint);
   }
 }
 
 void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                              const std::vector<std::shared_ptr<DataType>>& types) {
+                              const std::vector<std::shared_ptr<DataType>>& types,
+                              const std::shared_ptr<MatchConstraint>& constraint) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
-    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+    AddCaseWhenKernel(scalar_function, type, std::move(exec), constraint);
   }
 }
 
 template <typename ArrowNestedType>
-void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                             const std::shared_ptr<MatchConstraint>& constraint) {
   AddCaseWhenKernel(scalar_function, ArrowNestedType::type_id,
-                    CaseWhenFunctor<ArrowNestedType>::Exec);
+                    CaseWhenFunctor<ArrowNestedType>::Exec, constraint);
 }
 
-void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
-  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function);
-  AddNestedCaseWhenKernel<ListType>(scalar_function);
-  AddNestedCaseWhenKernel<LargeListType>(scalar_function);
-  AddNestedCaseWhenKernel<ListViewType>(scalar_function);
-  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function);
-  AddNestedCaseWhenKernel<MapType>(scalar_function);
-  AddNestedCaseWhenKernel<StructType>(scalar_function);
-  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function);
-  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function);
-  AddNestedCaseWhenKernel<DictionaryType>(scalar_function);
+void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                              const std::shared_ptr<MatchConstraint>& constraint) {
+  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<ListType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<LargeListType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<ListViewType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<MapType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<StructType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function, constraint);
+  AddNestedCaseWhenKernel<DictionaryType>(scalar_function, constraint);
 }
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
@@ -2932,19 +2911,21 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<CaseWhenFunction>(
         "case_when", Arity::VarArgs(/*min_args=*/2), case_when_doc);
-    AddPrimitiveCaseWhenKernels(func, NumericTypes());
-    AddPrimitiveCaseWhenKernels(func, TemporalTypes());
-    AddPrimitiveCaseWhenKernels(func, IntervalTypes());
-    AddPrimitiveCaseWhenKernels(func, DurationTypes());
-    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()});
+    auto all_value_types_match = CaseWhenFunction::AllValueTypesMatchConstraint();
+    AddPrimitiveCaseWhenKernels(func, NumericTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, TemporalTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, IntervalTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, DurationTypes(), all_value_types_match);
+    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()},
+                                all_value_types_match);
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
-                      CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+                      CaseWhenFunctor<FixedSizeBinaryType>::Exec, all_value_types_match);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
-                      CaseWhenFunction::DecimalMatchConstraint());
+                      all_value_types_match);
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
-                      CaseWhenFunction::DecimalMatchConstraint());
-    AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
-    AddNestedCaseWhenKernels(func);
+                      all_value_types_match);
+    AddBinaryCaseWhenKernels(func, BaseBinaryTypes(), all_value_types_match);
+    AddNestedCaseWhenKernels(func, all_value_types_match);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

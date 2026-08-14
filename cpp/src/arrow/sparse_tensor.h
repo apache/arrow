@@ -204,6 +204,10 @@ enum class SparseMatrixCompressedAxis : char {
 };
 
 ARROW_EXPORT
+Result<int64_t> ComputeSparseCSXIndptrLength(SparseMatrixCompressedAxis compressed_axis,
+                                             const std::vector<int64_t>& shape);
+
+ARROW_EXPORT
 Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::shared_ptr<DataType>& indices_type,
                               const std::vector<int64_t>& indptr_shape,
@@ -252,7 +256,9 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
       std::shared_ptr<Buffer> indices_data) {
-    std::vector<int64_t> indptr_shape({shape[0] + 1});
+    ARROW_ASSIGN_OR_RAISE(auto indptr_length,
+                          ComputeSparseCSXIndptrLength(COMPRESSED_AXIS, shape));
+    std::vector<int64_t> indptr_shape({indptr_length});
     std::vector<int64_t> indices_shape({non_zero_length});
     return Make(indptr_type, indices_type, indptr_shape, indices_shape, indptr_data,
                 indices_data);

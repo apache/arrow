@@ -57,7 +57,8 @@
     "json": {
       "description": "JSON support",
       "dependencies": [
-        "rapidjson"
+        "rapidjson",
+        "simdjson"
       ]
     },
     "gandiva": {

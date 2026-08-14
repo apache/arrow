@@ -1649,15 +1649,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeDate) {
-#ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
-#else
+#ifdef _WIN32
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
+#endif
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
@@ -1762,15 +1762,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTime) {
-#ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
-#else
+#ifdef _WIN32
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
+#endif
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
@@ -1874,15 +1874,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
-#ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
-#else
+#ifdef _WIN32
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
+#endif
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInvalidDataType) {

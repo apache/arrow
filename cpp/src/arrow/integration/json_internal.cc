@@ -36,6 +36,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -63,6 +64,8 @@ using arrow::internal::Zip;
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
 using arrow::ipc::internal::FieldPosition;
+
+using JsonWriter = arrow::json::JsonWriter;
 
 namespace arrow::internal::integration::json {
 
@@ -118,7 +121,7 @@ Result<std::string_view> GetStringView(const rj::Value& str) {
 class SchemaWriter {
  public:
   explicit SchemaWriter(const Schema& schema, const DictionaryFieldMapper& mapper,
-                        RjWriter* writer)
+                        JsonWriter* writer)
       : schema_(schema), mapper_(mapper), writer_(writer) {}
 
   Status Write() {
@@ -460,7 +463,7 @@ class SchemaWriter {
  private:
   const Schema& schema_;
   const DictionaryFieldMapper& mapper_;
-  RjWriter* writer_;
+  JsonWriter* writer_;
 };
 
 Status SchemaWriter::VisitType(const DataType& type) {
@@ -469,7 +472,7 @@ Status SchemaWriter::VisitType(const DataType& type) {
 
 class ArrayWriter {
  public:
-  ArrayWriter(const std::string& name, const Array& array, RjWriter* writer)
+  ArrayWriter(const std::string& name, const Array& array, JsonWriter* writer)
       : name_(name), array_(array), writer_(writer) {}
 
   Status Write() { return VisitArray(name_, array_); }
@@ -490,11 +493,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(std::string_view v) {
-    // Avoid RawNumber() as it misleadingly adds quotes
-    // (see https://github.com/Tencent/rapidjson/pull/1155)
-    writer_->RawValue(v.data(), v.size(), rj::kNumberType);
-  }
+  void WriteRawNumber(std::string_view v) { writer_->RawValue(v); }
 
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
             typename CType = typename TypeClass::c_type>
@@ -522,11 +521,10 @@ class ArrayWriter {
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
         fmt(arr.Value(i), [&](std::string_view repr) {
-          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
+          writer_->String(std::string_view(repr.data(), repr.size()));
         });
       } else {
-        writer_->String(null_string.data(),
-                        static_cast<rj::SizeType>(null_string.size()));
+        writer_->String(std::string_view(null_string.data(), null_string.size()));
       }
     }
   }
@@ -553,7 +551,7 @@ class ArrayWriter {
       if constexpr (Type::is_utf8) {
         // UTF8 string, write as is
         auto view = arr.GetView(i);
-        writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+        writer_->String(std::string_view(view.data(), view.size()));
       } else {
         // Binary, encode to hexadecimal.
         writer_->String(HexEncode(arr.GetView(i)));
@@ -598,7 +596,7 @@ class ArrayWriter {
         const Decimal32 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -610,7 +608,7 @@ class ArrayWriter {
         const Decimal64 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -622,7 +620,7 @@ class ArrayWriter {
         const Decimal128 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -634,7 +632,7 @@ class ArrayWriter {
         const Decimal256 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -670,7 +668,7 @@ class ArrayWriter {
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
       auto append = [this](std::string_view v) {
-        writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
+        writer_->String(std::string_view(v.data(), v.size()));
         return Status::OK();
       };
       for (int i = 0; i < length; ++i) {
@@ -692,7 +690,8 @@ class ArrayWriter {
       if (s.is_inline()) {
         writer_->Key("INLINED");
         if constexpr (ArrayType::TypeClass::is_utf8) {
-          writer_->String(reinterpret_cast<const char*>(s.inline_data()), s.size());
+          writer_->String(
+              std::string_view(reinterpret_cast<const char*>(s.inline_data()), s.size()));
         } else {
           writer_->String(HexEncode(s.inline_data(), s.size()));
         }
@@ -863,7 +862,7 @@ class ArrayWriter {
  private:
   const std::string& name_;
   const Array& array_;
-  RjWriter* writer_;
+  JsonWriter* writer_;
 };
 
 Result<TimeUnit::type> GetUnitFromString(const std::string& unit_str) {
@@ -2035,13 +2034,13 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 }
 
 Status WriteSchema(const Schema& schema, const DictionaryFieldMapper& mapper,
-                   RjWriter* json_writer) {
+                   JsonWriter* json_writer) {
   SchemaWriter converter(schema, mapper, json_writer);
   return converter.Write();
 }
 
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
-                       RjWriter* writer) {
+                       JsonWriter* writer) {
   writer->StartObject();
   writer->Key("id");
   writer->Int(static_cast<int32_t>(id));
@@ -2055,7 +2054,7 @@ Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
   return Status::OK();
 }
 
-Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
+Status WriteRecordBatch(const RecordBatch& batch, JsonWriter* writer) {
   writer->StartObject();
   writer->Key("count");
   writer->Int(static_cast<int32_t>(batch.num_rows()));
@@ -2076,7 +2075,7 @@ Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
   return Status::OK();
 }
 
-Status WriteArray(const std::string& name, const Array& array, RjWriter* json_writer) {
+Status WriteArray(const std::string& name, const Array& array, JsonWriter* json_writer) {
   ArrayWriter converter(name, array, json_writer);
   return converter.Write();
 }

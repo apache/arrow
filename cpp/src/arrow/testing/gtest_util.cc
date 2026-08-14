@@ -237,9 +237,17 @@ void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
-  ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
-  ASSERT_TRUE(buffer.Equals(expected));
+void AssertBufferEqual(const Buffer& buffer, const Buffer& expected, bool verbose) {
+  ASSERT_EQ(buffer.size(), expected.size())
+      << "Mismatching buffer size, got " << buffer.size() << ", expected "
+      << expected.size();
+  if (verbose) {
+    ASSERT_TRUE(buffer.Equals(expected))
+        << "Mismatching buffers, got : " << buffer.ToHexString()
+        << " but expected: " << expected.ToHexString();
+  } else {
+    ASSERT_TRUE(buffer.Equals(expected));
+  }
 }
 
 template <typename T>

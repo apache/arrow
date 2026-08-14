@@ -216,6 +216,7 @@ utility_test_srcs = [
     'time_test.cc',
     'tracing_test.cc',
     'trie_test.cc',
+    'ulp_distance_test.cc',
     'uri_test.cc',
     'utf8_util_test.cc',
     'value_parsing_test.cc',

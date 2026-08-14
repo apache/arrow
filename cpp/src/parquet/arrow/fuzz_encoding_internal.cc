@@ -290,23 +290,24 @@ struct TypedFuzzEncoding {
     }
 
     // Re-encode and re-decode using roundtrip encoding
-    {
-      auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
-        return CompareChunkAgainstReference(offset, chunk_values);
-      };
+    auto compare_chunk = [&](int offset, std::span<const c_type> chunk_values) {
+      return CompareChunkAgainstReference(offset, chunk_values);
+    };
+    auto do_roundtrip = [&]() -> Status {
       auto encoder = MakeEncoder(roundtrip_encoding_);
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       if constexpr (arrow_supported()) {
         encoder->Put(*reference_array_);
         auto reencoded_buffer = encoder->FlushValues();
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
-        auto array = DecodeArrow(roundtrip_encoding_, reencoded_data).ValueOrDie();
-        ARROW_CHECK_OK(array->ValidateFull());
-        ARROW_CHECK_OK(CompareAgainstReference(array));
+        ARROW_ASSIGN_OR_RAISE(auto array,
+                              DecodeArrow(roundtrip_encoding_, reencoded_data));
+        RETURN_NOT_OK(array->ValidateFull());
+        RETURN_NOT_OK(CompareAgainstReference(array));
         // Compare with reading raw values
         for (const int chunk_size : chunk_sizes()) {
-          ARROW_CHECK_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
-                                            chunk_size, compare_chunk));
+          RETURN_NOT_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
+                                           chunk_size, compare_chunk));
         }
       } else {
         encoder->Put(reference_values_.data(),
@@ -315,14 +316,19 @@ struct TypedFuzzEncoding {
         auto reencoded_data = reencoded_buffer->template span_as<uint8_t>();
         // Vary chunk sizes
         for (const int chunk_size : chunk_sizes()) {
-          ARROW_CHECK_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
-                                            chunk_size, compare_chunk));
+          RETURN_NOT_OK(RunOnDecodedChunks(roundtrip_encoding_, reencoded_data,
+                                           chunk_size, compare_chunk));
         }
       }
       END_PARQUET_CATCH_EXCEPTIONS
+      return Status::OK();
+    };
+    Status roundtrip_status = do_roundtrip();
+    // OOM when attempting to roundtrip is not a hard failure, any other error is.
+    if (!roundtrip_status.IsOutOfMemory()) {
+      ARROW_CHECK_OK(roundtrip_status);
     }
-
-    return Status::OK();
+    return roundtrip_status;
   }
 
  protected:

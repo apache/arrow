@@ -19,6 +19,7 @@
 #  define M_PI 3.14159265358979323846
 #endif
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -61,11 +62,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int32(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int32(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 
   for (int64_t i = 0; i <= 20; ++i) {
@@ -79,11 +81,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int64(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int64(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 }
 
@@ -125,7 +128,7 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
       log_int32_int32(reinterpret_cast<gdv_int64>(&context), 1 /*base*/, 10 /*value*/);
   VerifyFuzzyEquals(out, 0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"))
       << context.get_error();
 
   gandiva::ExecutionContext context1;

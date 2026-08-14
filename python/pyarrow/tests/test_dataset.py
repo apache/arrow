@@ -3699,6 +3699,7 @@ def test_column_names_encoding(tempdir, dataset_reader):
     assert dataset_transcoded.to_table().equals(expected_table)
 
 
+@pytest.mark.filterwarnings("ignore:Feather V1:DeprecationWarning")
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
@@ -4191,7 +4192,7 @@ def test_write_to_dataset_given_null_just_works(tempdir):
 def _sort_table(tab, sort_col):
     import pyarrow.compute as pc
     sorted_indices = pc.sort_indices(
-        tab, options=pc.SortOptions([(sort_col, 'ascending')]))
+        tab, options=pc.SortOptions([(sort_col, 'ascending', 'at_end')]))
     return pc.take(tab, sorted_indices)
 
 
@@ -4983,6 +4984,47 @@ def test_write_dataset_csv(tempdir):
     assert result.equals(table)
 
 
+def test_csv_make_write_options_uses_parse_delimiter():
+    # CsvFileFormat.make_write_options propagates the parse delimiter
+    # to write options when no explicit delimiter is given
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter="|"))
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == "|"
+
+    # delimiter=None is treated as "unspecified" and the propagated
+    # value is preserved (matches WriteOptions(**kwargs) semantics)
+    write_opts = csv_format.make_write_options(delimiter=None)
+    assert write_opts.write_options.delimiter == "|"
+
+    # An explicitly passed delimiter takes precedence
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    write_opts = csv_format.make_write_options(delimiter="|")
+    assert write_opts.write_options.delimiter == "|"
+
+    # The default delimiter is still "," when no parse options are given
+    csv_format = ds.CsvFileFormat()
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == ","
+
+
+def test_write_dataset_uses_csv_parse_delimiter(tempdir):
+    table = pa.table({
+        "B": ["B1", "B2"],
+        "C": ["C1", "C2"],
+    })
+
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    ds.write_dataset(table, tempdir, format=csv_format)
+
+    with open(tempdir / "part-0.csv") as fh:
+        content = fh.read()
+    assert content == '"B">"C"\n"B1">"C1"\n"B2">"C2"\n'
+
+    # Roundtrip: reading back with the same delimiter recovers the table
+    result = ds.dataset(tempdir, format=csv_format).to_table()
+    assert result.equals(table)
+
+
 @pytest.mark.parquet
 def test_write_dataset_parquet_file_visitor(tempdir):
     table = pa.table([
@@ -5617,7 +5659,7 @@ def test_write_dataset_with_scanner_use_projected_schema(tempdir):
 @pytest.mark.parametrize("format", ("ipc", "parquet"))
 def test_read_table_nested_columns(tempdir, format):
     if format == "parquet":
-        pytest.importorskip("pyarrow.parquet")
+        pytest.importorskip("pyarrow.parquet", exc_type=ImportError)
 
     table = pa.table({"user_id": ["abc123", "qrs456"],
                       "a.dotted.field": [1, 2],
@@ -5786,7 +5828,7 @@ def test_dataset_sort_by(tempdir, dstype):
         "values": [1, 2, 3, 4, 5]
     }
 
-    assert dt.sort_by([("values", "descending")]).to_table().to_pydict() == {
+    assert dt.sort_by([("values", "descending", "at_end")]).to_table().to_pydict() == {
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
@@ -5804,12 +5846,12 @@ def test_dataset_sort_by(tempdir, dstype):
     ], names=["a", "b"])
     dt = ds.dataset(table)
 
-    sorted_tab = dt.sort_by([("a", "descending")])
+    sorted_tab = dt.sort_by([("a", "descending", "at_end")])
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [35, 7, 7, 5]
     assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
 
-    sorted_tab = dt.sort_by([("a", "ascending")])
+    sorted_tab = dt.sort_by([("a", "ascending", "at_end")])
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]

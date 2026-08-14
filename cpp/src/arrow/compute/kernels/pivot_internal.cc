@@ -23,10 +23,11 @@
 
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/row/grouper.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
@@ -45,6 +46,7 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
                                     static_cast<size_t>(kMaxPivotKey), " columns: got ",
                                     options->key_names.size());
     }
+    ctx_ = ctx;
     unexpected_key_behavior_ = options->unexpected_key_behavior;
     ARROW_ASSIGN_OR_RAISE(grouper_, Grouper::Make({&key_type}, ctx));
     // Build a binary array of the pivot key values, and cast it to the desired key type
@@ -61,9 +63,9 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
     ARROW_ASSIGN_OR_RAISE(auto binary_key_array, builder.Finish());
     ARROW_ASSIGN_OR_RAISE(auto key_array,
                           Cast(*binary_key_array, &key_type, CastOptions::Safe(), ctx));
-    // Populate the grouper with the keys from the array
+    // Populate the grouper with the keys from the array, and get the key group ids
     ExecSpan batch({ExecValue(*key_array->data())}, key_array->length());
-    RETURN_NOT_OK(grouper_->Populate(batch));
+    ARROW_ASSIGN_OR_RAISE(auto key_indices_to_group_ids, grouper_->Consume(batch));
     if (grouper_->num_groups() != options->key_names.size()) {
       // There's a duplicate key, find it to emit a nicer error message
       std::unordered_set<std::string_view> seen;
@@ -75,6 +77,23 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
       }
       Unreachable("Grouper doesn't agree with std::unordered_set");
     }
+    // GH-48679: the fast grouper implementation may produce non-monotonic
+    // group ids, for example [0,1,2,4,3] rather than [0,1,2,3,4].
+    // Therefore, we need to produce a mapping of group ids to key indices.
+    // TODO: revisit this if the fast grouper is amended to guarantee monotonic
+    // group ids.
+    auto key_indices_to_group_ids_data = key_indices_to_group_ids.array()->Copy();
+    // InversePermutation doesn't allow unsigned integers, patch to signed.
+    DCHECK_EQ(key_indices_to_group_ids_data->type->id(), Type::UINT32);
+    key_indices_to_group_ids_data->type = int32();
+    ARROW_ASSIGN_OR_RAISE(auto group_ids_to_key_indices,
+                          InversePermutation(key_indices_to_group_ids_data,
+                                             InversePermutationOptions::Defaults(), ctx));
+    auto group_ids_to_key_indices_data = group_ids_to_key_indices.array()->Copy();
+    group_ids_to_key_indices_data->type = uint32();
+    DCHECK_EQ(group_ids_to_key_indices.length(), grouper_->num_groups());
+    DCHECK_EQ(group_ids_to_key_indices.null_count(), 0);
+    group_ids_to_key_indices_ = Datum(std::move(group_ids_to_key_indices_data));
     return Status::OK();
   }
 
@@ -134,12 +153,22 @@ struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
       }
       return Status::KeyError("Unexpected pivot key: ", key_scalar->ToString());
     }
-    return group_id_array;
+    // Map back the group ids to indices in the original keys array
+    // NOTE Instead of materializing the Take result here, we could instead expose
+    // the group_ids_to_key_indices_ mapping to the caller and let them
+    // apply the mapping as needed. This would spare a memory allocation.
+    ARROW_ASSIGN_OR_RAISE(result, Take(group_ids_to_key_indices_, result,
+                                       TakeOptions::NoBoundsCheck(), ctx_));
+    DCHECK(result.is_array());
+    DCHECK_EQ(result.type()->id(), Type::UINT32);
+    return result.array();
   }
 
   Status NullKeyName() { return Status::KeyError("pivot key name cannot be null"); }
 
+  ExecContext* ctx_;
   std::unique_ptr<Grouper> grouper_;
+  Datum group_ids_to_key_indices_;
   PivotWiderOptions::UnexpectedKeyBehavior unexpected_key_behavior_;
   std::shared_ptr<Buffer> last_group_ids_;
 };

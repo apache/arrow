@@ -37,11 +37,12 @@ github:
     - EnricoMi
     - hiroyuki-sato
     - HyukjinKwon
+    - Reranko05
     - tadeja
 
   copilot_code_review:
     enabled: true
-    review_drafts: true
+    review_drafts: false
     review_on_push: true
 
 notifications:
