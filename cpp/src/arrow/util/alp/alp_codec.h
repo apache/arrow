@@ -70,8 +70,9 @@ class AlpCodec {
   /// \param[in] input pointer to the input that is to be encoded
   /// \param[in] num_elements number of elements to encode
   /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
-  /// \param[in] vector_size number of elements per vector (must be a power of 2,
-  ///            at most 2^kMaxLogVectorSize)
+  /// \param[in] vector_size number of elements per vector (must be a power of 2
+  ///            in the inclusive range [2^kMinLogVectorSize, 2^kMaxLogVectorSize],
+  ///            i.e. 8 to 32768)
   /// \param[out] output pointer to the memory region we will encode into.
   ///             Must be at least GetMaxCompressedSize(num_elements, vector_size) bytes.
   ///             Behavior is undefined if `output` is smaller.
@@ -82,8 +83,8 @@ class AlpCodec {
   ///                `output` and an out-of-bounds write of the header).
   /// \return Status::OK on success, or Status::Invalid if any precondition is
   ///         violated: `num_elements >= 0`, `num_elements <= INT32_MAX`, and
-  ///         `vector_size` a positive power of two no larger than
-  ///         `2^kMaxLogVectorSize`.
+  ///         `vector_size` a power of two in
+  ///         `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
   static Status EncodeWithPreset(const T* input, int64_t num_elements,
                                  const AlpSamplerResult& preset,
                                  int32_t vector_size,
@@ -93,8 +94,9 @@ class AlpCodec {
   ///
   /// \param[in] input pointer to the input that is to be encoded
   /// \param[in] num_elements number of elements to encode
-  /// \param[in] vector_size number of elements per vector (must be a power of 2,
-  ///            at most 2^kMaxLogVectorSize)
+  /// \param[in] vector_size number of elements per vector (must be a power of 2
+  ///            in the inclusive range [2^kMinLogVectorSize, 2^kMaxLogVectorSize],
+  ///            i.e. 8 to 32768)
   /// \param[out] output pointer to the memory region we will encode into.
   ///             Must be at least GetMaxCompressedSize(num_elements, vector_size) bytes.
   ///             Behavior is undefined if `output` is smaller.
@@ -105,8 +107,8 @@ class AlpCodec {
   ///                `output` and an out-of-bounds write of the header).
   /// \return Status::OK on success, or Status::Invalid if any precondition is
   ///         violated: `num_elements >= 0`, `num_elements <= INT32_MAX`, and
-  ///         `vector_size` a positive power of two no larger than
-  ///         `2^kMaxLogVectorSize`.
+  ///         `vector_size` a power of two in
+  ///         `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
   static Status Encode(const T* input, int64_t num_elements,
                        int32_t vector_size,
                        uint8_t* output, int64_t* output_size);
@@ -134,11 +136,12 @@ class AlpCodec {
   /// \brief Get the maximum compressed size for a given number of elements
   ///
   /// \param[in] num_elements number of elements to compress
-  /// \param[in] vector_size number of elements per vector (must be a positive
-  ///            power of 2, at most 2^kMaxLogVectorSize)
+  /// \param[in] vector_size number of elements per vector (must be a power of 2
+  ///            in the inclusive range [2^kMinLogVectorSize, 2^kMaxLogVectorSize],
+  ///            i.e. 8 to 32768)
   /// \return the maximum size of the compressed buffer in bytes, or
   ///         Status::Invalid if `num_elements < 0` or `vector_size` is not a
-  ///         positive power of two no larger than `2^kMaxLogVectorSize`.
+  ///         power of two in `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
   static Result<int64_t> GetMaxCompressedSize(
       int64_t num_elements,
       int32_t vector_size = AlpConstants::kAlpVectorSize);
