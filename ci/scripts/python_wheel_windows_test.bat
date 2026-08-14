@@ -26,7 +26,9 @@ set PYARROW_TEST_GANDIVA=OFF
 set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
 set PYARROW_TEST_ORC=ON
-set PYARROW_TEST_PANDAS=ON
+@REM TODO: To be removed once pandas provides wheels for Python 3.15
+%PYTHON_CMD% -c "import sys; sys.exit(0 if sys.version_info < (3, 15) else 1)"
+if errorlevel 1 (set PYARROW_TEST_PANDAS=OFF) else (set PYARROW_TEST_PANDAS=ON)
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON
@@ -59,9 +61,6 @@ py -0p
 
 @REM Validate wheel contents
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
-
-@REM TODO: This check added for cp315, which does not yet have pandas wheels. Remove when shipped. 
-%PYTHON_CMD% -c "import pandas" 2>NUL || set PYARROW_TEST_PANDAS=OFF
 
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1

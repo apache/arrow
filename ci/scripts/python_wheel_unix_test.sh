@@ -47,7 +47,12 @@ export PYARROW_TEST_GANDIVA=OFF
 export PYARROW_TEST_GCS=${ARROW_GCS}
 export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
-export PYARROW_TEST_PANDAS=ON
+# TODO: To be removed once pandas provides wheels for Python 3.15
+if python -c "import sys; sys.exit(0 if sys.version_info < (3, 15) else 1)"; then
+  export PYARROW_TEST_PANDAS=ON
+else
+  export PYARROW_TEST_PANDAS=OFF
+fi
 export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PARQUET_ENCRYPTION=ON
 export PYARROW_TEST_SUBSTRAIT=${ARROW_SUBSTRAIT}
@@ -103,9 +108,6 @@ fi
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
   python -m pip install -U -r "${source_dir}/python/requirements-wheel-test.txt"
-
-  # TODO: This check added for cp315, which does not yet have pandas wheels. Remove when shipped. 
-  python -c "import pandas" 2>/dev/null || export PYARROW_TEST_PANDAS=OFF
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
