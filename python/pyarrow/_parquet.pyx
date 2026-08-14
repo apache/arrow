@@ -2283,7 +2283,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         writer_engine_version=None,
         use_compliant_nested_type=True,
         store_schema=True,
-        write_time_adjusted_to_utc=False) except *:
+        write_time_adjusted_to_utc=False,
+        use_threads=False) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2334,6 +2335,10 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
 
     arrow_props.set_time_adjusted_to_utc(write_time_adjusted_to_utc)
 
+    # Only honored on the buffered row group path, see
+    # ParquetWriter._write_table_parallel_columns.
+    arrow_props.set_use_threads(use_threads)
+
     arrow_properties = arrow_props.build()
 
     return arrow_properties
@@ -2372,6 +2377,7 @@ cdef class ParquetWriter(_Weakrefable):
         unique_ptr[FileWriter] writer
         shared_ptr[COutputStream] sink
         bint own_sink
+        bint use_threads
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -2398,12 +2404,17 @@ cdef class ParquetWriter(_Weakrefable):
                   store_decimal_as_integer=False,
                   use_content_defined_chunking=False,
                   write_time_adjusted_to_utc=False,
-                  bloom_filter_options=None):
+                  bloom_filter_options=None,
+                  use_threads=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
             c_string c_where
             CMemoryPool* pool
+
+        # Same fallback as ParquetReader.set_use_threads: a libarrow built
+        # without threading writes serially whatever the caller asked for.
+        self.use_threads = bool(use_threads) and is_threading_enabled()
 
         try:
             where = _stringify_path(where)
@@ -2445,6 +2456,7 @@ cdef class ParquetWriter(_Weakrefable):
             use_compliant_nested_type=use_compliant_nested_type,
             store_schema=store_schema,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+            use_threads=self.use_threads,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)
@@ -2471,9 +2483,64 @@ cdef class ParquetWriter(_Weakrefable):
         else:
             c_row_group_size = row_group_size
 
+        if self.use_threads and ctable.num_rows() > 0:
+            # FileWriter::WriteTable latches chunk_size to
+            # max_row_group_length; do the same so both paths produce the
+            # same row groups.
+            self._write_table_parallel_columns(
+                table, min(c_row_group_size, _MAX_ROW_GROUP_SIZE))
+            return
+
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
+
+    cdef _write_table_parallel_columns(self, Table table,
+                                       int64_t row_group_size):
+        """
+        Write `table` as row groups of `row_group_size` rows, encoding the
+        columns of each row group on the CPU thread pool.
+
+        FileWriter::WriteTable encodes the columns of a row group one after
+        another.  Only the buffered row group path (NewBufferedRowGroup +
+        WriteRecordBatch) honors ArrowWriterProperties::use_threads, so this
+        opens one buffered row group per `row_group_size` rows and writes the
+        table's batches for that range into it.  The row group layout is the
+        same as WriteTable's; the difference is that a whole row group is
+        held in memory until it is complete, instead of one column chunk.
+        """
+        cdef:
+            CTable* ctable = table.table
+            FileWriter* writer = self.writer.get()
+            shared_ptr[CTable] window
+            shared_ptr[CRecordBatch] batch
+            unique_ptr[TableBatchReader] reader
+            int64_t num_rows = ctable.num_rows()
+            int64_t offset = 0
+            int64_t length
+
+        # WriteTable checks these itself; WriteRecordBatch does not.
+        if not ctable.schema().get().Equals(deref(writer.schema()), False):
+            raise ValueError(
+                "Table schema does not match schema used to create file: \n"
+                f"table:\n{table.schema!s} vs. \n"
+                f"file:\n{pyarrow_wrap_schema(writer.schema())!s}")
+
+        with nogil:
+            check_status(ctable.Validate())
+            while offset < num_rows:
+                length = num_rows - offset
+                if length > row_group_size:
+                    length = row_group_size
+                window = ctable.Slice(offset, length)
+                reader.reset(new TableBatchReader(window))
+                check_status(writer.NewBufferedRowGroup())
+                while True:
+                    check_status(reader.get().ReadNext(&batch))
+                    if batch.get() == NULL:
+                        break
+                    check_status(writer.WriteRecordBatch(deref(batch)))
+                offset += length
 
     def add_key_value_metadata(self, key_value_metadata):
         cdef:

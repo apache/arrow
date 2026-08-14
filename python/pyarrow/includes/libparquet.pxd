@@ -22,8 +22,8 @@ from pyarrow.includes.libarrow cimport (Type, CChunkedArray, CScalar, CSchema,
                                         CStatus, CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata, CRandomAccessFile,
                                         COutputStream, CCacheOptions,
-                                        TimeUnit, CRecordBatchReader,
-                                        CSecureString)
+                                        TimeUnit, CRecordBatch,
+                                        CRecordBatchReader, CSecureString)
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -531,6 +531,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
             Builder* set_time_adjusted_to_utc(c_bool adjusted)
+            Builder* set_use_threads(c_bool use_threads)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
@@ -620,8 +621,11 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
                                              const shared_ptr[WriterProperties]& properties,
                                              const shared_ptr[ArrowWriterProperties]& arrow_properties)
 
+        shared_ptr[CSchema] schema() const
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup()
+        CStatus NewBufferedRowGroup()
+        CStatus WriteRecordBatch(const CRecordBatch& batch)
         CStatus Close()
         CStatus AddKeyValueMetadata(const shared_ptr[const CKeyValueMetadata]& key_value_metadata)
 
