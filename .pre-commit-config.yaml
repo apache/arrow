@@ -291,7 +291,7 @@ repos:
         # TODO: Remove this when we fix all lint failures
         files: >-
           (
-          ?^c_glib/test/run-test\.sh$|
+          ?^c_glib/.*\.sh$|
           ?^ci/.*\.sh$|
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|

@@ -30,7 +30,7 @@ modules=(
   parquet-glib
 )
 
-for module in "${modules[@]}"; do
+for module in ${modules[@]}; do
   module_build_dir="${build_dir}/${module}"
   if [ -d "${module_build_dir}" ]; then
     LD_LIBRARY_PATH="${module_build_dir}:${LD_LIBRARY_PATH}"
