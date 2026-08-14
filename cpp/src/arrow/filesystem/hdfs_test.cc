@@ -19,14 +19,19 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 
+#include "arrow/buffer.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
@@ -200,6 +205,26 @@ class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTest
     GTEST_SKIP() << "Driver not loaded, skipping"; \
   }
 
+TEST_F(TestHadoopFileSystem, ConnectsAgain) {
+  SKIP_IF_NO_DRIVER();
+
+  std::shared_ptr<FileSystem> fs;
+  ASSERT_OK_AND_ASSIGN(fs, HadoopFileSystem::Make(this->options_));
+}
+
+TEST_F(TestHadoopFileSystem, MultipleClients) {
+  SKIP_IF_NO_DRIVER();
+
+  std::shared_ptr<FileSystem> fs1, fs2;
+  ASSERT_OK_AND_ASSIGN(fs1, HadoopFileSystem::Make(this->options_));
+  ASSERT_OK_AND_ASSIGN(fs2, HadoopFileSystem::Make(this->options_));
+
+  // fs2 continues to function independently of fs1
+  ASSERT_OK(fs2->CreateDir("multiple-clients"));
+  AssertFileInfo(fs2.get(), "multiple-clients", FileType::Directory);
+  ASSERT_OK(fs2->DeleteDir("multiple-clients"));
+}
+
 TEST_F(TestHadoopFileSystem, CreateDirDeleteDir) {
   SKIP_IF_NO_DRIVER();
 
@@ -271,6 +296,78 @@ TEST_F(TestHadoopFileSystem, WriteReadFile) {
   ASSERT_EQ(0, std::memcmp(buffer, data.c_str(), kDataSize));
 
   ASSERT_OK(this->fs_->DeleteDir("CD"));
+}
+
+TEST_F(TestHadoopFileSystem, LargeFile) {
+  SKIP_IF_NO_DRIVER();
+
+  ASSERT_OK(this->fs_->CreateDir("EF"));
+  std::string file_name = "EF/large-file";
+  constexpr int64_t kDataSize = 1000000;
+
+  std::vector<uint8_t> data(kDataSize);
+  random_bytes(kDataSize, /*seed=*/0, data.data());
+
+  std::shared_ptr<io::OutputStream> stream;
+  ASSERT_OK_AND_ASSIGN(stream, this->fs_->OpenOutputStream(file_name));
+  ASSERT_OK(stream->Write(data.data(), kDataSize));
+  ASSERT_OK(stream->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, this->fs_->OpenInputFile(file_name));
+  ASSERT_OK_AND_EQ(kDataSize, file->GetSize());
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, AllocateBuffer(kDataSize));
+  ASSERT_OK_AND_EQ(kDataSize, file->Read(kDataSize, buffer->mutable_data()));
+  ASSERT_EQ(0, std::memcmp(buffer->data(), data.data(), kDataSize));
+
+  ASSERT_OK(this->fs_->DeleteDir("EF"));
+}
+
+TEST_F(TestHadoopFileSystem, ThreadSafety) {
+  SKIP_IF_NO_DRIVER();
+
+  ASSERT_OK(this->fs_->CreateDir("GH"));
+  std::string file_name = "GH/threadsafety";
+  std::string data = "foobar";
+  CreateFile(this->fs_.get(), file_name, data);
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, this->fs_->OpenInputFile(file_name));
+
+  std::atomic<int> correct_count(0);
+  constexpr int kNumIterations = 1000;
+
+  auto ReadData = [&]() {
+    for (int i = 0; i < kNumIterations; ++i) {
+      std::shared_ptr<Buffer> buffer;
+      if (i % 2 == 0) {
+        ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(3, 3));
+        if (0 == std::memcmp(data.c_str() + 3, buffer->data(), 3)) {
+          correct_count += 1;
+        }
+      } else {
+        ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(0, 4));
+        if (0 == std::memcmp(data.c_str() + 0, buffer->data(), 4)) {
+          correct_count += 1;
+        }
+      }
+    }
+  };
+
+  std::thread thread1(ReadData);
+  std::thread thread2(ReadData);
+  std::thread thread3(ReadData);
+  std::thread thread4(ReadData);
+
+  thread1.join();
+  thread2.join();
+  thread3.join();
+  thread4.join();
+
+  ASSERT_EQ(kNumIterations * 4, correct_count);
+
+  ASSERT_OK(this->fs_->DeleteDir("GH"));
 }
 
 TEST_F(TestHadoopFileSystem, GetFileInfoRelative) {
