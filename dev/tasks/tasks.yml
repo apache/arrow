@@ -521,7 +521,7 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
-        PYTHON: 3.13
+        PYTHON: 3.14
       image: conda-python-emscripten
 
   test-conda-python-3.11-hypothesis:

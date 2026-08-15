@@ -981,10 +981,10 @@ services:
         arch_short: ${ARCH_SHORT}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
-        pyodide_version: "0.28.1"
+        pyodide_version: "314.0.4"
         chrome_version: "latest"
         selenium_version: "4.41.0"
-        required_python_min: "(3,13)"
+        required_python_min: "(3,14)"
         python: ${PYTHON}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
