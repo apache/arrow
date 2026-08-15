@@ -55,6 +55,7 @@
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
+#include "parquet/fsst_internal.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
@@ -264,6 +265,10 @@ class SerializedPageWriter : public PageWriter {
         pool_(pool),
         num_values_(0),
         dictionary_page_offset_(0),
+        has_dictionary_page_(false),
+        symbol_table_page_offset_(0),
+        symbol_table_page_length_(0),
+        has_symbol_table_page_(false),
         data_page_offset_(0),
         total_uncompressed_size_(0),
         total_compressed_size_(0),
@@ -284,6 +289,10 @@ class SerializedPageWriter : public PageWriter {
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
+    if (has_symbol_table_page_) {
+      throw ParquetException(
+          "Dictionary and symbol table pages cannot coexist in a column chunk");
+    }
     int64_t uncompressed_size = page.buffer()->size();
     if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
       throw ParquetException(
@@ -338,6 +347,7 @@ class SerializedPageWriter : public PageWriter {
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
+    has_dictionary_page_ = true;
 
     if (meta_encryptor_) {
       UpdateEncryption(encryption::kDictionaryPageHeader);
@@ -353,6 +363,83 @@ class SerializedPageWriter : public PageWriter {
     return uncompressed_size + header_size;
   }
 
+  int64_t WriteSymbolTablePage(const SymbolTablePage& page) override {
+    if (has_dictionary_page_) {
+      throw ParquetException(
+          "Dictionary and symbol table pages cannot coexist in a column chunk");
+    }
+    if (has_symbol_table_page_) {
+      throw ParquetException("Column cannot have more than one symbol table page");
+    }
+    if (page.symbol_table_type() != SymbolTableType::FSST) {
+      throw ParquetException("Only FSST8 symbol tables are currently supported");
+    }
+    if (page.buffer() == nullptr) {
+      throw ParquetException("Symbol table page has no body");
+    }
+    internal::FsstSymbolTable::Deserialize(page.buffer());
+    const int64_t uncompressed_size = page.buffer()->size();
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Uncompressed symbol table page exceeds INT32_MAX");
+    }
+
+    std::shared_ptr<Buffer> output_data = page.buffer();
+    bool is_compressed = false;
+    if (has_compressor() && uncompressed_size > 0) {
+      auto compressed = std::static_pointer_cast<ResizableBuffer>(
+          AllocateBuffer(pool_, uncompressed_size));
+      Compress(*page.buffer(), compressed.get());
+      if (compressed->size() < uncompressed_size) {
+        output_data = std::move(compressed);
+        is_compressed = true;
+      }
+    }
+
+    const uint8_t* output_data_buffer = output_data->data();
+    int32_t output_data_len = static_cast<int32_t>(output_data->size());
+    if (data_encryptor_ != nullptr) {
+      UpdateEncryption(encryption::kDictionaryPage);
+      PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
+          data_encryptor_->CiphertextLength(output_data_len), false));
+      output_data_len =
+          data_encryptor_->Encrypt(output_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
+      output_data_buffer = encryption_buffer_->data();
+    }
+
+    format::SymbolTablePageHeader symbol_header;
+    symbol_header.__set_type(ToThrift(page.symbol_table_type()));
+    symbol_header.__set_is_compressed(is_compressed);
+
+    format::PageHeader page_header;
+    page_header.__set_type(format::PageType::SYMBOL_TABLE_PAGE);
+    page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+    page_header.__set_compressed_page_size(output_data_len);
+    page_header.__set_symbol_table_page_header(symbol_header);
+    if (page_checksum_verification_) {
+      const uint32_t crc32 =
+          ::arrow::internal::crc32(0, output_data_buffer, output_data_len);
+      page_header.__set_crc(static_cast<int32_t>(crc32));
+    }
+
+    PARQUET_ASSIGN_OR_THROW(const int64_t start_pos, sink_->Tell());
+    symbol_table_page_offset_ = start_pos;
+    has_symbol_table_page_ = true;
+    if (meta_encryptor_ != nullptr) {
+      UpdateEncryption(encryption::kDictionaryPageHeader);
+    }
+    const int64_t header_size =
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
+    PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
+    if (header_size + output_data_len > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Serialized symbol table page exceeds INT32_MAX");
+    }
+    symbol_table_page_length_ = static_cast<int32_t>(header_size + output_data_len);
+    total_uncompressed_size_ += uncompressed_size + header_size;
+    total_compressed_size_ += output_data_len + header_size;
+    return uncompressed_size + header_size;
+  }
+
   void Close(bool has_dictionary, bool fallback) override {
     if (meta_encryptor_ != nullptr) {
       UpdateEncryption(encryption::kColumnMetaData);
@@ -363,6 +450,7 @@ class SerializedPageWriter : public PageWriter {
 
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
+                      symbol_table_page_offset_, symbol_table_page_length_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback, dict_encoding_stats_, data_encoding_stats_,
                       meta_encryptor_);
@@ -534,6 +622,12 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t dictionary_page_offset() { return dictionary_page_offset_; }
 
+  int64_t symbol_table_page_offset() { return symbol_table_page_offset_; }
+
+  bool has_symbol_table_page() { return has_symbol_table_page_; }
+
+  int32_t symbol_table_page_length() { return symbol_table_page_length_; }
+
   int64_t data_page_offset() { return data_page_offset_; }
 
   int64_t total_compressed_size() { return total_compressed_size_; }
@@ -604,6 +698,10 @@ class SerializedPageWriter : public PageWriter {
   MemoryPool* pool_;
   int64_t num_values_;
   int64_t dictionary_page_offset_;
+  bool has_dictionary_page_;
+  int64_t symbol_table_page_offset_;
+  int32_t symbol_table_page_length_;
+  bool has_symbol_table_page_;
   int64_t data_page_offset_;
   // The uncompressed page size the page writer has already
   //  written.
@@ -664,6 +762,10 @@ class BufferedPageWriter : public PageWriter {
     return pager_->WriteDictionaryPage(page);
   }
 
+  int64_t WriteSymbolTablePage(const SymbolTablePage& page) override {
+    return pager_->WriteSymbolTablePage(page);
+  }
+
   void Close(bool has_dictionary, bool fallback) override {
     if (pager_->meta_encryptor_ != nullptr) {
       pager_->UpdateEncryption(encryption::kColumnMetaData);
@@ -673,8 +775,13 @@ class BufferedPageWriter : public PageWriter {
     // dictionary page offset should be 0 iff there are no dictionary pages
     auto dictionary_page_offset =
         has_dictionary_pages_ ? pager_->dictionary_page_offset() + final_position : 0;
+    const auto symbol_table_page_offset =
+        !pager_->has_symbol_table_page()
+            ? 0
+            : pager_->symbol_table_page_offset() + final_position;
     metadata_->Finish(pager_->num_values(), dictionary_page_offset, -1,
                       pager_->data_page_offset() + final_position,
+                      symbol_table_page_offset, pager_->symbol_table_page_length(),
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
                       has_dictionary, fallback, pager_->dict_encoding_stats_,
                       pager_->data_encoding_stats_, pager_->meta_encryptor_);
@@ -792,6 +899,9 @@ class ColumnWriterImpl {
 
   // Serializes Dictionary Page if enabled
   virtual void WriteDictionaryPage() = 0;
+
+  // Finalize auxiliary encoding state after all buffered data pages are written.
+  virtual void FinalizeEncoding() {}
 
   // A convenience struct to combine the encoded statistics and size statistics
   struct StatisticsPair {
@@ -1116,6 +1226,7 @@ int64_t ColumnWriterImpl::Close() {
     }
 
     FlushBufferedDataPages();
+    FinalizeEncoding();
 
     auto [chunk_statistics, chunk_size_statistics] = GetChunkStatistics();
     chunk_statistics.ApplyStatSizeLimits(
@@ -1289,8 +1400,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                         BloomFilter* bloom_filter)
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
                          properties) {
-    current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
-                                   descr_, properties->memory_pool());
+    if (!use_dictionary && encoding == Encoding::FSST) {
+      current_encoder_ =
+          MakeFsstEncoder(descr_, properties->fsst_offset_encoding(descr_->path()),
+                          properties->memory_pool());
+    } else {
+      current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
+                                     descr_, properties->memory_pool());
+    }
     // We have to dynamic_cast as some compilers don't want to static_cast
     // through virtual inheritance.
     current_value_encoder_ =
@@ -1507,7 +1624,30 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
-    return current_encoder_->FlushValues();
+    auto values = current_encoder_->FlushValues();
+    if (current_encoder_->encoding() == Encoding::FSST) {
+      encoding_ = current_encoder_->page_encoding();
+      if (!fsst_symbol_table_written_) {
+        auto symbol_table = current_encoder_->fsst_symbol_table();
+        if (symbol_table == nullptr) {
+          throw ParquetException("FSST encoder did not provide a symbol table");
+        }
+        SymbolTablePage page(symbol_table, current_encoder_->fsst_symbol_table_type(),
+                             /*is_compressed=*/false);
+        total_bytes_written_ += pager_->WriteSymbolTablePage(page);
+        fsst_symbol_table_written_ = true;
+      }
+    }
+    return values;
+  }
+
+  void FinalizeEncoding() override {
+    if (current_encoder_->encoding() == Encoding::FSST && !fsst_symbol_table_written_) {
+      auto values = GetValuesBuffer();
+      if (values->size() != 0) {
+        throw ParquetException("FSST encoder retained values after the final data page");
+      }
+    }
   }
 
   // Internal function to handle direct writing of ::arrow::DictionaryArray,
@@ -1648,6 +1788,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   using TypedStats = TypedStatistics<ParquetType>;
   using BloomFilterWriter = TypedBloomFilterWriter<ParquetType>;
   std::unique_ptr<Encoder> current_encoder_;
+  bool fsst_symbol_table_written_ = false;
   // Downcasted observers of current_encoder_.
   // The downcast is performed once as opposed to at every use since
   // dynamic_cast is so expensive, and static_cast is not available due

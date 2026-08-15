@@ -52,6 +52,8 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_EQ(ParquetVersion::PARQUET_2_6, props->version());
   ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
   ASSERT_FALSE(props->page_checksum_enabled());
+  ASSERT_EQ(FsstOffsetEncoding::PLAIN,
+            props->fsst_offset_encoding(ColumnPath::FromDotString("any")));
 }
 
 TEST(TestWriterProperties, DefaultCompression) {
@@ -314,6 +316,8 @@ TEST_P(WriterPropertiesTest, RoundTripThroughBuilder) {
     ASSERT_EQ(round_tripped_col.dictionary_enabled(),
               column_properties.dictionary_enabled());
     ASSERT_EQ(round_tripped_col.encoding(), column_properties.encoding());
+    ASSERT_EQ(round_tripped_col.fsst_offset_encoding(),
+              column_properties.fsst_offset_encoding());
     ASSERT_EQ(round_tripped_col.max_statistics_size(),
               column_properties.max_statistics_size());
     ASSERT_EQ(round_tripped_col.page_index_enabled(),
@@ -390,6 +394,12 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     builder.encoding(Encoding::UNDEFINED);
     builder.encoding(column_a, Encoding::BYTE_STREAM_SPLIT);
     test_cases.emplace_back(builder.build(), "encoding_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.fsst_offset_encoding(FsstOffsetEncoding::DELTA_BINARY_PACKED);
+    builder.fsst_offset_encoding(column_a, FsstOffsetEncoding::PLAIN);
+    test_cases.emplace_back(builder.build(), "fsst_column_override");
   }
   {
     WriterProperties::Builder builder;

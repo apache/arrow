@@ -50,6 +50,7 @@
 #include "arrow/visit_data_inline.h"
 
 #include "parquet/exception.h"
+#include "parquet/fsst_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -1707,6 +1708,175 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 };
 
 // ----------------------------------------------------------------------
+// FSST decoder
+
+class FsstDecoder final : public TypedDecoderImpl<ByteArrayType> {
+ public:
+  FsstDecoder(const ColumnDescriptor* descr,
+              const std::shared_ptr<Buffer>& symbol_table_body, MemoryPool* pool)
+      : TypedDecoderImpl<ByteArrayType>(descr, Encoding::FSST),
+        pool_(pool),
+        symbol_table_(internal::FsstSymbolTable::Deserialize(symbol_table_body)) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override;
+
+  int Decode(ByteArray* buffer, int max_values) override {
+    max_values = std::min(max_values, this->num_values_);
+    for (int i = 0; i < max_values; ++i) {
+      const int32_t begin = decoded_offsets_[value_index_];
+      const int32_t end = decoded_offsets_[value_index_ + 1];
+      buffer[i].ptr = begin == end ? nullptr : decoded_data_.data() + begin;
+      buffer[i].len = static_cast<uint32_t>(end - begin);
+      ++value_index_;
+    }
+    this->num_values_ -= max_values;
+    return max_values;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+    const int physical_values = num_values - null_count;
+    std::vector<ByteArray> values(physical_values);
+    const int decoded = Decode(values.data(), physical_values);
+    if (decoded != physical_values) {
+      throw ParquetException("Expected to decode ", physical_values,
+                             " FSST values, but decoded ", decoded);
+    }
+    auto append_values = [&](auto* helper) {
+      int index = 0;
+      RETURN_NOT_OK(VisitBitRuns(
+          valid_bits, valid_bits_offset, num_values,
+          [&](int64_t position, int64_t run_length, bool is_valid) {
+            if (!is_valid) {
+              return helper->AppendNulls(run_length);
+            }
+            for (int64_t i = 0; i < run_length; ++i) {
+              RETURN_NOT_OK(helper->AppendValue(values[index].ptr,
+                                                static_cast<int32_t>(values[index].len)));
+              ++index;
+            }
+            return Status::OK();
+          }));
+      return Status::OK();
+    };
+    PARQUET_THROW_NOT_OK(DispatchArrowBinaryHelper<ByteArrayType>(
+        out, num_values, /*estimated_data_length=*/{}, append_values));
+    return physical_values;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::DictAccumulator* out) override {
+    const int physical_values = num_values - null_count;
+    std::vector<ByteArray> values(physical_values);
+    const int decoded = Decode(values.data(), physical_values);
+    if (decoded != physical_values) {
+      throw ParquetException("Expected to decode ", physical_values,
+                             " FSST values, but decoded ", decoded);
+    }
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    int index = 0;
+    VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          PARQUET_THROW_NOT_OK(out->Append(values[index].ptr, values[index].len));
+          ++index;
+        },
+        [&]() { PARQUET_THROW_NOT_OK(out->AppendNull()); });
+    return physical_values;
+  }
+
+ private:
+  MemoryPool* pool_;
+  std::shared_ptr<internal::FsstSymbolTable> symbol_table_;
+  std::vector<int32_t> decoded_offsets_;
+  std::vector<uint8_t> decoded_data_;
+  size_t value_index_ = 0;
+};
+
+void FsstDecoder::SetData(int num_values, const uint8_t* data, int len) {
+  if (len < 9) {
+    throw ParquetException("FSST data section is shorter than its 9-byte header");
+  }
+  const auto offset_encoding = static_cast<FsstOffsetEncoding::type>(data[0]);
+  if (offset_encoding != FsstOffsetEncoding::PLAIN &&
+      offset_encoding != FsstOffsetEncoding::DELTA_BINARY_PACKED) {
+    throw ParquetException("Unsupported FSST offset encoding ",
+                           static_cast<int>(data[0]));
+  }
+  const int32_t physical_values =
+      ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data + 1));
+  const int32_t offset_section_size =
+      ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data + 5));
+  if (physical_values < 0 || physical_values > num_values) {
+    throw ParquetException("Invalid FSST physical value count ", physical_values,
+                           " for data page containing ", num_values, " values");
+  }
+  if (offset_section_size < 0 || offset_section_size > len - 9) {
+    throw ParquetException("Invalid FSST offset section length ", offset_section_size);
+  }
+
+  const uint8_t* offset_data = data + 9;
+  std::vector<int32_t> compressed_offsets;
+  if (offset_encoding == FsstOffsetEncoding::PLAIN) {
+    const int64_t expected_size = static_cast<int64_t>(physical_values) * sizeof(int32_t);
+    if (offset_section_size != expected_size) {
+      throw ParquetException("FSST PLAIN offset section has length ", offset_section_size,
+                             "; expected ", expected_size);
+    }
+    compressed_offsets.resize(physical_values);
+    for (int32_t i = 0; i < physical_values; ++i) {
+      compressed_offsets[i] = ::arrow::bit_util::FromLittleEndian(
+          SafeLoadAs<int32_t>(offset_data + static_cast<int64_t>(i) * 4));
+    }
+  } else if (physical_values == 0) {
+    if (offset_section_size != 0) {
+      throw ParquetException("Empty FSST page has a non-empty offset section");
+    }
+  } else {
+    DeltaBitPackDecoder<Int32Type> offset_decoder(nullptr, pool_);
+    offset_decoder.SetData(physical_values, offset_data, offset_section_size);
+    if (offset_decoder.ValidValuesCount() != physical_values) {
+      throw ParquetException("FSST delta offset count does not match value count");
+    }
+    compressed_offsets.resize(physical_values);
+    if (offset_decoder.Decode(compressed_offsets.data(), physical_values) !=
+        physical_values) {
+      throw ParquetException("FSST delta offset count does not match value count");
+    }
+  }
+
+  const uint8_t* compressed_data = offset_data + offset_section_size;
+  const int32_t compressed_data_size = len - 9 - offset_section_size;
+  int32_t previous_offset = 0;
+  decoded_offsets_.clear();
+  decoded_offsets_.reserve(static_cast<size_t>(physical_values) + 1);
+  decoded_offsets_.push_back(0);
+  decoded_data_.clear();
+  std::vector<uint8_t> decoded_value;
+  for (int32_t end_offset : compressed_offsets) {
+    if (end_offset < previous_offset || end_offset > compressed_data_size) {
+      throw ParquetException("FSST offsets are not monotonic or exceed data size");
+    }
+    symbol_table_->Decompress(compressed_data + previous_offset,
+                              end_offset - previous_offset, &decoded_value);
+    if (decoded_data_.size() >
+        static_cast<size_t>(std::numeric_limits<int32_t>::max()) - decoded_value.size()) {
+      throw ParquetException("FSST decoded data exceeds INT32_MAX");
+    }
+    decoded_data_.insert(decoded_data_.end(), decoded_value.begin(), decoded_value.end());
+    decoded_offsets_.push_back(static_cast<int32_t>(decoded_data_.size()));
+    previous_offset = end_offset;
+  }
+  if (previous_offset != compressed_data_size) {
+    throw ParquetException("Final FSST offset does not equal compressed data size");
+  }
+  this->num_values_ = physical_values;
+  value_index_ = 0;
+}
+
+// ----------------------------------------------------------------------
 // DELTA_LENGTH_BYTE_ARRAY decoder
 
 class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
@@ -2377,6 +2547,19 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
 // ----------------------------------------------------------------------
 // Factory functions
 
+std::unique_ptr<Decoder> MakeFsstDecoder(const ColumnDescriptor* descr,
+                                         SymbolTableType::type symbol_table_type,
+                                         const std::shared_ptr<Buffer>& symbol_table_body,
+                                         ::arrow::MemoryPool* pool) {
+  if (descr == nullptr || descr->physical_type() != Type::BYTE_ARRAY) {
+    throw ParquetException("FSST decoder only supports BYTE_ARRAY");
+  }
+  if (symbol_table_type != SymbolTableType::FSST) {
+    throw ParquetException("Only FSST8 symbol tables are currently supported");
+  }
+  return std::make_unique<FsstDecoder>(descr, symbol_table_body, pool);
+}
+
 std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encoding,
                                      const ColumnDescriptor* descr,
                                      ::arrow::MemoryPool* pool) {
@@ -2448,6 +2631,8 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::make_unique<RleBooleanDecoder>(descr);
     }
     throw ParquetException("RLE encoding only supports BOOLEAN");
+  } else if (encoding == Encoding::FSST) {
+    throw ParquetException("FSST decoder requires a symbol table page");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }

@@ -240,6 +240,14 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
+  void set_fsst_offset_encoding(FsstOffsetEncoding::type encoding) {
+    if (encoding != FsstOffsetEncoding::PLAIN &&
+        encoding != FsstOffsetEncoding::DELTA_BINARY_PACKED) {
+      throw ParquetException("Unsupported FSST offset encoding");
+    }
+    fsst_offset_encoding_ = encoding;
+  }
+
   void set_compression(Compression::type codec) { codec_ = codec; }
 
   void set_dictionary_enabled(bool dictionary_enabled) {
@@ -284,6 +292,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   Encoding::type encoding() const { return encoding_; }
 
+  FsstOffsetEncoding::type fsst_offset_encoding() const { return fsst_offset_encoding_; }
+
   Compression::type compression() const { return codec_; }
 
   bool dictionary_enabled() const { return dictionary_enabled_; }
@@ -311,6 +321,7 @@ class PARQUET_EXPORT ColumnProperties {
 
  private:
   Encoding::type encoding_;
+  FsstOffsetEncoding::type fsst_offset_encoding_ = FsstOffsetEncoding::PLAIN;
   Compression::type codec_;
   bool dictionary_enabled_;
   bool statistics_enabled_;
@@ -570,6 +581,27 @@ class PARQUET_EXPORT WriterProperties {
     Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
                       Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
+    }
+
+    /// Select PLAIN or DELTA_BINARY_PACKED end offsets for FSST data pages.
+    Builder* fsst_offset_encoding(FsstOffsetEncoding::type encoding) {
+      default_column_properties_.set_fsst_offset_encoding(encoding);
+      return this;
+    }
+
+    Builder* fsst_offset_encoding(const std::string& path,
+                                  FsstOffsetEncoding::type encoding) {
+      if (encoding != FsstOffsetEncoding::PLAIN &&
+          encoding != FsstOffsetEncoding::DELTA_BINARY_PACKED) {
+        throw ParquetException("Unsupported FSST offset encoding");
+      }
+      fsst_offset_encodings_[path] = encoding;
+      return this;
+    }
+
+    Builder* fsst_offset_encoding(const std::shared_ptr<schema::ColumnPath>& path,
+                                  FsstOffsetEncoding::type encoding) {
+      return fsst_offset_encoding(path->ToDotString(), encoding);
     }
 
     /// Specify compression codec in general for all columns.
@@ -877,6 +909,8 @@ class PARQUET_EXPORT WriterProperties {
       };
 
       for (const auto& item : encodings_) get(item.first).set_encoding(item.second);
+      for (const auto& item : fsst_offset_encodings_)
+        get(item.first).set_fsst_offset_encoding(item.second);
       for (const auto& item : codecs_) get(item.first).set_compression(item.second);
       for (const auto& item : codec_options_)
         get(item.first).set_codec_options(item.second);
@@ -930,6 +964,7 @@ class PARQUET_EXPORT WriterProperties {
     // Settings used for each column unless overridden in any of the maps below
     ColumnProperties default_column_properties_;
     std::unordered_map<std::string, Encoding::type> encodings_;
+    std::unordered_map<std::string, FsstOffsetEncoding::type> fsst_offset_encodings_;
     std::unordered_map<std::string, Compression::type> codecs_;
     std::unordered_map<std::string, std::shared_ptr<CodecOptions>> codec_options_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
@@ -1001,6 +1036,11 @@ class PARQUET_EXPORT WriterProperties {
 
   Encoding::type encoding(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).encoding();
+  }
+
+  FsstOffsetEncoding::type fsst_offset_encoding(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).fsst_offset_encoding();
   }
 
   Compression::type compression(const std::shared_ptr<schema::ColumnPath>& path) const {

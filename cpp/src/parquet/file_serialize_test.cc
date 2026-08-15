@@ -440,6 +440,112 @@ TEST(TestBufferedRowGroupWriter, MultiPageDisabledDictionary) {
   }
 }
 
+TEST(TestBufferedRowGroupWriter, FsstSymbolTablePage) {
+  constexpr int kValueCount = 1000;
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding(Encoding::FSST)
+                          ->data_pagesize(512)
+                          ->enable_page_checksum()
+#ifdef ARROW_WITH_ZSTD
+                          ->compression(Compression::ZSTD)
+#endif
+                          ->build();
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("col", Repetition::REQUIRED, Type::BYTE_ARRAY));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  auto file_writer = ParquetFileWriter::Open(sink, schema, writer_props);
+  auto rg_writer = file_writer->AppendBufferedRowGroup();
+  auto col_writer = static_cast<ByteArrayWriter*>(rg_writer->column(0));
+  std::vector<std::string> strings;
+  std::vector<ByteArray> values;
+  strings.reserve(kValueCount);
+  values.reserve(kValueCount);
+  for (int i = 0; i < kValueCount; ++i) {
+    strings.push_back("https://arrow.apache.org/parquet/fsst/record/" +
+                      std::to_string(i % 23));
+    values.emplace_back(strings.back());
+  }
+  col_writer->WriteBatch(kValueCount, nullptr, nullptr, values.data());
+  rg_writer->Close();
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto column_metadata = file_reader->metadata()->RowGroup(0)->ColumnChunk(0);
+  ASSERT_TRUE(column_metadata->has_symbol_table_page());
+  ASSERT_GT(column_metadata->symbol_table_page_offset(), 0);
+  ASSERT_GT(column_metadata->symbol_table_page_length(), 0);
+  ASSERT_LT(column_metadata->symbol_table_page_offset(),
+            column_metadata->data_page_offset());
+
+  auto rg_reader = file_reader->RowGroup(0);
+  auto byte_array_reader =
+      std::static_pointer_cast<ByteArrayReader>(rg_reader->Column(0));
+  std::vector<ByteArray> actual(kValueCount);
+  int64_t values_read = 0;
+  ASSERT_EQ(byte_array_reader->ReadBatch(kValueCount, nullptr, nullptr, actual.data(),
+                                         &values_read),
+            kValueCount);
+  ASSERT_EQ(values_read, kValueCount);
+  for (int i = 0; i < kValueCount; ++i) {
+    ASSERT_EQ(actual[i], values[i]);
+  }
+
+  auto page_buffer =
+      ::arrow::SliceBuffer(buffer, column_metadata->symbol_table_page_offset(),
+                           column_metadata->total_compressed_size());
+  auto page_source = std::make_shared<::arrow::io::BufferReader>(page_buffer);
+  ReaderProperties reader_properties;
+  reader_properties.set_page_checksum_verification(true);
+  auto page_reader =
+      PageReader::Open(page_source, kValueCount,
+#ifdef ARROW_WITH_ZSTD
+                       Compression::ZSTD,
+#else
+                       Compression::UNCOMPRESSED,
+#endif
+                       reader_properties, *file_reader->metadata()->schema()->Column(0));
+  auto page = page_reader->NextPage();
+  ASSERT_NE(page, nullptr);
+  ASSERT_EQ(page->type(), PageType::SYMBOL_TABLE_PAGE);
+  auto* symbol_table_page = static_cast<SymbolTablePage*>(page.get());
+  ASSERT_EQ(symbol_table_page->symbol_table_type(), SymbolTableType::FSST);
+  ASSERT_GE(symbol_table_page->size(), 9);
+  ASSERT_LE(symbol_table_page->size(), 2049);
+}
+
+TEST(TestBufferedRowGroupWriter, EmptyFsstColumnWritesSymbolTablePage) {
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding(Encoding::FSST)
+                          ->build();
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("col", Repetition::REQUIRED, Type::BYTE_ARRAY));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  auto file_writer = ParquetFileWriter::Open(sink, schema, writer_props);
+  auto rg_writer = file_writer->AppendBufferedRowGroup();
+  static_cast<ByteArrayWriter*>(rg_writer->column(0))->Close();
+  rg_writer->Close();
+  file_writer->Close();
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto row_group = file_reader->metadata()->RowGroup(0);
+  ASSERT_EQ(row_group->num_rows(), 0);
+  auto column_metadata = row_group->ColumnChunk(0);
+  ASSERT_TRUE(column_metadata->has_symbol_table_page());
+  ASSERT_GT(column_metadata->symbol_table_page_offset(), 0);
+  ASSERT_GT(column_metadata->symbol_table_page_length(), 0);
+  ASSERT_EQ(row_group->file_offset(), column_metadata->symbol_table_page_offset());
+}
+
 TEST(ParquetRoundtrip, AllNulls) {
   auto primitive_node =
       PrimitiveNode::Make("nulls", Repetition::OPTIONAL, nullptr, Type::INT32);

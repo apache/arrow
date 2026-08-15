@@ -136,6 +136,9 @@ def test_parquet_metadata_api():
     assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
+    assert col_meta.has_symbol_table_page is False
+    assert col_meta.symbol_table_page_offset is None
+    assert col_meta.symbol_table_page_length is None
     assert col_meta.data_page_offset > 0
     assert col_meta.total_compressed_size > 0
     assert col_meta.total_uncompressed_size > 0
@@ -143,6 +146,24 @@ def test_parquet_metadata_api():
         col_meta.has_index_page
     with pytest.raises(NotImplementedError):
         col_meta.index_page_offset
+
+
+def test_fsst_column_metadata():
+    table = pa.table({
+        'value': [
+            f'https://arrow.apache.org/parquet/fsst/value/{i % 17}'
+            for i in range(500)
+        ]
+    })
+    sink = io.BytesIO()
+    pq.write_table(table, sink, use_dictionary=False, column_encoding='FSST')
+    metadata = pq.ParquetFile(pa.BufferReader(sink.getvalue())).metadata
+    column = metadata.row_group(0).column(0)
+    assert column.has_symbol_table_page is True
+    assert column.symbol_table_page_offset > 0
+    assert column.symbol_table_page_length > 0
+    assert column.symbol_table_page_offset < column.data_page_offset
+    assert 'FSST' in column.encodings
 
 
 def test_parquet_metadata_lifetime(tempdir):
