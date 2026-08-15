@@ -20,6 +20,10 @@ class RactorTest < Test::Unit::TestCase
 
   ractor
   test("ChunkedArray") do
+    if Gem.win_platform?
+      omit("Ractor is unstable on Windows: " +
+           "https://github.com/apache/arrow/issues/48752")
+    end
     require_ruby(3, 1, 0)
     array = Arrow::Array.new([1, 2, 3])
     chunked_array = Arrow::ChunkedArray.new([array])

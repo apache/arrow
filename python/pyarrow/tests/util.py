@@ -419,24 +419,12 @@ def _configure_s3_limited_user(s3_server, policy, username, password):
         # ... and a sample bucket for that user to write to
         _run_mc_command(mcdir, 'mb', 'myminio/existing-bucket',
                         '--ignore-existing')
+        # Create a protected bucket for testing no-delete-bucket policy
+        _run_mc_command(mcdir, 'mb', 'myminio/no-delete-bucket',
+                        '--ignore-existing')
 
     except FileNotFoundError:
         pytest.skip("Configuring limited s3 user failed")
-
-
-def windows_has_tzdata():
-    """
-    This is the default location where tz.cpp will look for (until we make
-    this configurable at run-time)
-    """
-    tzdata_bool = False
-    if "PYARROW_TZDATA_PATH" in os.environ:
-        tzdata_bool = os.path.exists(os.environ['PYARROW_TZDATA_PATH'])
-    if not tzdata_bool:
-        tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-        tzdata_bool = os.path.exists(tzdata_path)
-
-    return tzdata_bool
 
 
 def running_on_musllinux():

@@ -27,7 +27,7 @@ size_t GetNumArgs(const gandiva::FunctionSignature& sig,
   auto num_args = 0;
   num_args += func.NeedsContext() ? 1 : 0;
   num_args += func.NeedsFunctionHolder() ? 1 : 0;
-  for (auto const& arg : sig.param_types()) {
+  for (const auto& arg : sig.param_types()) {
     num_args += arg->id() == arrow::Type::STRING ? 2 : 1;
   }
   num_args += sig.ret_type()->id() == arrow::Type::STRING ? 1 : 0;
@@ -47,7 +47,7 @@ arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignatu
   if (func.NeedsFunctionHolder()) {
     arg_llvm_types.push_back(types->i64_type());
   }
-  for (auto const& arg : sig.param_types()) {
+  for (const auto& arg : sig.param_types()) {
     arg_llvm_types.push_back(types->IRType(arg->id()));
     if (arg->id() == arrow::Type::STRING) {
       // string type needs an additional length argument
@@ -65,10 +65,10 @@ arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignatu
 
 namespace gandiva {
 Status ExternalCFunctions::AddMappings(Engine* engine) const {
-  auto const& c_funcs = function_registry_->GetCFunctions();
-  auto const types = engine->types();
+  const auto& c_funcs = function_registry_->GetCFunctions();
+  const auto types = engine->types();
   for (auto& [func, func_ptr] : c_funcs) {
-    for (auto const& sig : func.signatures()) {
+    for (const auto& sig : func.signatures()) {
       ARROW_ASSIGN_OR_RAISE(auto llvm_signature, MapToLLVMSignature(sig, func, types));
       auto& [args, ret_llvm_type] = llvm_signature;
       engine->AddGlobalMappingForFunc(func.pc_name(), ret_llvm_type, args, func_ptr);

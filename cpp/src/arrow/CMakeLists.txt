@@ -61,6 +61,12 @@ if(ARROW_WITH_LZ4)
   endif()
 endif()
 
+if(ARROW_WITH_SIMDJSON)
+  if(simdjson_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS simdjson::simdjson)
+  endif()
+endif()
+
 if(ARROW_WITH_SNAPPY)
   if(Snappy_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
@@ -80,13 +86,13 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  if(ORC_SOURCE STREQUAL "SYSTEM")
+  if(orc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc)
   endif()
 endif()
 
 if(ARROW_USE_GLOG)
-  if(GLOG_SOURCE STREQUAL "SYSTEM")
+  if(glog_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   endif()
 endif()
@@ -108,7 +114,7 @@ if(ARROW_S3)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
-  if(opentelemetry_SOURCE STREQUAL "SYSTEM")
+  if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENTELEMETRY_LIBS})
   endif()
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
@@ -137,7 +143,7 @@ if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Threads::Threads)
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK_MAIN})
 set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_static
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
@@ -202,7 +208,7 @@ function(arrow_add_object_library PREFIX)
       add_library(${prefix}_shared OBJECT ${SOURCES})
       set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
       target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
-      target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
+      target_compile_features(${prefix}_shared PRIVATE cxx_std_20)
       set(${PREFIX}_TARGET_SHARED
           ${prefix}_shared
           PARENT_SCOPE)
@@ -212,7 +218,7 @@ function(arrow_add_object_library PREFIX)
       add_library(${prefix}_static OBJECT ${SOURCES})
       set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
       target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
-      target_compile_features(${prefix}_static PRIVATE cxx_std_17)
+      target_compile_features(${prefix}_static PRIVATE cxx_std_20)
       set(${PREFIX}_TARGET_STATIC
           ${prefix}_static
           PARENT_SCOPE)
@@ -224,7 +230,7 @@ function(arrow_add_object_library PREFIX)
   else()
     add_library(${prefix} OBJECT ${SOURCES})
     set_target_properties(${prefix} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_features(${prefix} PRIVATE cxx_std_17)
+    target_compile_features(${prefix} PRIVATE cxx_std_20)
     set(${PREFIX}_TARGET_SHARED
         ${prefix}
         PARENT_SCOPE)
@@ -322,26 +328,77 @@ endfunction()
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_AVX2_FLAGS}")
   endif()
 endmacro()
 
 macro(append_runtime_avx2_bmi2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
-                                                  "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
+    set_source_files_properties(${SRC}
+                                PROPERTIES COMPILE_OPTIONS
+                                           "${ARROW_AVX2_FLAGS};${ARROW_BMI2_FLAG}")
   endif()
 endmacro()
 
 macro(append_runtime_avx512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
+    separate_arguments(AVX512_FLAG_LIST NATIVE_COMMAND "${ARROW_AVX512_FLAG}")
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${AVX512_FLAG_LIST}")
+  endif()
+endmacro()
+
+macro(append_runtime_sve128_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SVE128)
+    list(APPEND ${SRCS} ${SRC})
+    set(_flags ${ARROW_SVE128_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
+  endif()
+endmacro()
+
+macro(append_runtime_sve256_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SVE256)
+    list(APPEND ${SRCS} ${SRC})
+    set(_flags ${ARROW_SVE256_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
+  endif()
+endmacro()
+
+macro(append_runtime_sve512_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SVE512)
+    list(APPEND ${SRCS} ${SRC})
+    set(_flags ${ARROW_SVE512_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 # Write out compile-time configuration constants
+string(REPLACE "${CMAKE_SOURCE_DIR}" "<CMAKE_SOURCE_DIR>" REDACTED_CXX_FLAGS
+               ${CMAKE_CXX_FLAGS})
+string(REPLACE "${CMAKE_BINARY_DIR}" "<CMAKE_BINARY_DIR>" REDACTED_CXX_FLAGS
+               ${REDACTED_CXX_FLAGS})
+cmake_path(GET PROJECT_SOURCE_DIR PARENT_PATH ARROW_PROJECT_SOURCE_DIR)
+string(REPLACE "${ARROW_PROJECT_SOURCE_DIR}" "<ARROW_PROJECT_SOURCE_DIR>"
+               REDACTED_CXX_FLAGS ${REDACTED_CXX_FLAGS})
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
@@ -360,6 +417,7 @@ set(ARROW_SRCS
     extension_type.cc
     extension/bool8.cc
     extension/json.cc
+    extension/parquet_variant.cc
     extension/uuid.cc
     pretty_print.cc
     record_batch.cc
@@ -428,7 +486,24 @@ if(ARROW_JEMALLOC)
   set_source_files_properties(memory_pool_jemalloc.cc
                               PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
+if(ARROW_MIMALLOC)
+  list(APPEND ARROW_MEMORY_POOL_SRCS memory_pool_mimalloc.cc)
+  set_source_files_properties(memory_pool_mimalloc.cc
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+  # GH-50083: make sure some allocation-related public symbols are interposable,
+  # for the benefit of memory profilers and other runtime analyzers.
+  # Ideally we would scope a specific subset of symbols, but it doesn't seem
+  # easily doable. See `memory_pool_internal.h`.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set_source_files_properties(${ARROW_MEMORY_POOL_SRCS}
+                                PROPERTIES COMPILE_OPTIONS "-fsemantic-interposition")
+  endif()
+endif()
+
 arrow_add_object_library(ARROW_MEMORY_POOL ${ARROW_MEMORY_POOL_SRCS})
+
 if(ARROW_JEMALLOC)
   foreach(ARROW_MEMORY_POOL_TARGET ${ARROW_MEMORY_POOL_TARGETS})
     target_link_libraries(${ARROW_MEMORY_POOL_TARGET} PRIVATE jemalloc::jemalloc)
@@ -490,6 +565,8 @@ set(ARROW_UTIL_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/bpacking_scalar.cc
+    util/bpacking_simd_128.cc
     util/byte_size.cc
     util/byte_stream_split_internal.cc
     util/cancel.cc
@@ -505,6 +582,7 @@ set(ARROW_UTIL_SRCS
     util/float16.cc
     util/formatting.cc
     util/future.cc
+    util/fuzz_internal.cc
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
@@ -525,6 +603,7 @@ set(ARROW_UTIL_SRCS
     util/time.cc
     util/tracing.cc
     util/trie.cc
+    util/ulp_distance.cc
     util/union_util.cc
     util/unreachable.cc
     util/uri.cc
@@ -533,11 +612,10 @@ set(ARROW_UTIL_SRCS
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
-append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_avx2.cc)
-append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_avx512.cc)
-if(ARROW_HAVE_NEON)
-  list(APPEND ARROW_UTIL_SRCS util/bpacking_neon.cc)
-endif()
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
+append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
+
+append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)
@@ -567,6 +645,9 @@ arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
   target_compile_definitions(${ARROW_UTIL_TARGET} PRIVATE URI_STATIC_BUILD)
 endforeach()
+foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+  target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
+endforeach()
 
 if(ARROW_USE_BOOST)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
@@ -581,11 +662,6 @@ endif()
 if(ARROW_USE_OPENSSL)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
     target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_OPENSSL_LIBS})
-  endforeach()
-endif()
-if(ARROW_USE_XSIMD)
-  foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
-    target_link_libraries(${ARROW_UTIL_TARGET} PRIVATE ${ARROW_XSIMD})
   endforeach()
 endif()
 if(ARROW_WITH_BROTLI)
@@ -680,10 +756,11 @@ set(ARROW_TESTING_SRCS
 #
 
 if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
-  arrow_add_object_library(ARROW_INTEGRATION integration/c_data_integration_internal.cc
-                           integration/json_integration.cc integration/json_internal.cc)
+  arrow_add_object_library(ARROW_INTEGRATION integration/json_integration.cc
+                           integration/json_internal.cc)
   foreach(ARROW_INTEGRATION_TARGET ${ARROW_INTEGRATION_TARGETS})
-    target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON)
+    target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON
+                                                              simdjson::simdjson)
   endforeach()
 else()
   set(ARROW_INTEGRATION_TARGET_SHARED)
@@ -700,11 +777,9 @@ if(ARROW_CSV)
                            csv/parser.cc
                            csv/reader.cc
                            csv/writer.cc)
-  if(ARROW_USE_XSIMD)
-    foreach(ARROW_CSV_TARGET ${ARROW_CSV_TARGETS})
-      target_link_libraries(${ARROW_CSV_TARGET} PRIVATE ${ARROW_XSIMD})
-    endforeach()
-  endif()
+  foreach(ARROW_CSV_TARGET ${ARROW_CSV_TARGETS})
+    target_link_libraries(${ARROW_CSV_TARGET} PRIVATE ${ARROW_XSIMD})
+  endforeach()
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 else()
@@ -735,11 +810,13 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_numeric.cc
     compute/kernels/scalar_cast_string.cc
     compute/kernels/scalar_cast_temporal.cc
+    compute/kernels/temporal_internal.cc
     compute/kernels/vector_hash.cc
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
-    compute/kernels/vector_selection_take_internal.cc)
+    compute/kernels/vector_selection_take_internal.cc
+    compute/kernels/vector_swizzle.cc)
 
 if(ARROW_COMPUTE)
   # If libarrow_compute.a is only built, "pkg-config --cflags --libs
@@ -789,7 +866,6 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc
-       compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc
        compute/light_array_internal.cc
@@ -820,14 +896,12 @@ if(ARROW_COMPUTE)
   list(APPEND ARROW_COMPUTE_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
   list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS arrow_static)
   list(APPEND ARROW_COMPUTE_SHARED_LINK_LIBS arrow_shared)
+  list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
 
   if(ARROW_USE_BOOST)
     list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS Boost::headers)
     list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS Boost::headers)
-  endif()
-  if(ARROW_USE_XSIMD)
-    list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_XSIMD})
-    list(APPEND ARROW_COMPUTE_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
   endif()
   if(ARROW_WITH_OPENTELEMETRY)
     list(APPEND ARROW_COMPUTE_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
@@ -875,11 +949,9 @@ endif()
 
 arrow_add_object_library(ARROW_COMPUTE_CORE ${ARROW_COMPUTE_SRCS})
 
-if(ARROW_USE_XSIMD)
-  foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
-    target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
-  endforeach()
-endif()
+foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
+  target_link_libraries(${ARROW_COMPUTE_CORE_TARGET} PRIVATE ${ARROW_XSIMD})
+endforeach()
 if(ARROW_WITH_OPENTELEMETRY)
   foreach(ARROW_COMPUTE_CORE_TARGET ${ARROW_COMPUTE_CORE_TARGETS})
     target_link_libraries(${ARROW_COMPUTE_CORE_TARGET}
@@ -904,6 +976,13 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    # Suppress documentation warnings from google-cloud-cpp headers
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+      set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "-Wno-documentation;-Wno-documentation-deprecated-sync"
+      )
+    endif()
   endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
@@ -980,17 +1059,19 @@ if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
                            extension/opaque.cc
+                           extension/tensor_internal.cc
+                           extension/variable_shape_tensor.cc
                            json/options.cc
                            json/chunked_builder.cc
                            json/chunker.cc
                            json/converter.cc
                            json/from_string.cc
+                           json/json_writer_internal.cc
                            json/object_parser.cc
-                           json/object_writer.cc
                            json/parser.cc
                            json/reader.cc)
   foreach(ARROW_JSON_TARGET ${ARROW_JSON_TARGETS})
-    target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON)
+    target_link_libraries(${ARROW_JSON_TARGET} PRIVATE RapidJSON arrow::simdjson)
   endforeach()
 else()
   set(ARROW_JSON_TARGET_SHARED)
@@ -1168,8 +1249,8 @@ endif()
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-  # C++17 is required to compile against Arrow C++ headers and libraries
-  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_17)
+  # C++20 is required to compile against Arrow C++ headers and libraries
+  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_20)
 endforeach()
 
 if(ARROW_WITH_BACKTRACE)

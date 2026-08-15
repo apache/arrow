@@ -208,13 +208,23 @@ class RandomAccessFileConcurrencyWrapper : public RandomAccessFile {
   // to use the exclusive_guard.
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) final {
+    return ReadAt(position, nbytes, /*allow_short_read=*/true, out);
+  }
+
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                         void* out) final {
     auto guard = lock_.shared_guard();
-    return derived()->DoReadAt(position, nbytes, out);
+    return derived()->DoReadAt(position, nbytes, allow_short_read, out);
   }
 
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) final {
+    return ReadAt(position, nbytes, /*allow_short_read=*/true);
+  }
+
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes,
+                                         bool allow_short_read) final {
     auto guard = lock_.shared_guard();
-    return derived()->DoReadAt(position, nbytes);
+    return derived()->DoReadAt(position, nbytes, allow_short_read);
   }
 
   /*

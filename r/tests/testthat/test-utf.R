@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("We handle non-UTF strings", {
   x <- iconv("Veitingastaðir", to = "latin1")
   df <- tibble::tibble(
@@ -65,9 +64,9 @@ test_that("We handle non-UTF strings", {
   expect_equal_data_frame(record_batch(df_struct, schema = df_struct_schema), df_struct)
 
   # Serialization
-  feather_file <- tempfile()
-  write_feather(df_struct, feather_file)
-  expect_identical(read_feather(feather_file), df_struct)
+  ipc_file <- tempfile()
+  write_ipc_file(df_struct, ipc_file)
+  expect_identical(read_ipc_file(ipc_file), df_struct)
 
   if (arrow_with_parquet()) {
     parquet_file <- tempfile()

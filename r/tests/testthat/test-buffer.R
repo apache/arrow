@@ -61,14 +61,15 @@ test_that("can convert Buffer to raw", {
 
 test_that("can read remaining bytes of a RandomAccessFile", {
   tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
   tab <- Table$create(!!!tbl)
 
   tf <- tempfile()
-  all_bytes <- write_feather(tab, tf)
+  all_bytes <- write_ipc_file(tab, tf)
 
   file <- ReadableFile$create(tf)
   expect_equal(file$tell(), 0)

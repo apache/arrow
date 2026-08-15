@@ -666,6 +666,17 @@ TEST(BlockParser, MismatchingNumColumns) {
   }
 }
 
+TEST(BlockParser, TooManyValues) {
+  // A first line carrying millions of fields drives num_cols high enough that
+  // the per-chunk value count (rows x columns) would overflow the 31-bit value
+  // offset, so the parser errors out instead of overflowing.
+  uint32_t out_size;
+  BlockParser parser(ParseOptions::Defaults(), /*num_cols=*/5000000);
+  Status st = Parse(parser, MakeCSVData({"a,b\n"}), &out_size);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("exceeds the maximum number of values"), st);
+}
+
 TEST(BlockParser, MismatchingNumColumnsHandler) {
   struct CustomHandler {
     operator InvalidRowHandler() {
@@ -922,6 +933,50 @@ TEST(BlockParser, RowNumberAppendedToError) {
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #6: Bad value"),
                                     status);
+  }
+}
+
+TEST(BlockParser, EmbeddedNulBytesDisableBulkFilter) {
+  // Regression test for GH-50481: disables the bulk filter for any block
+  // with an embedded NUL, so every cell here carries one.
+  constexpr int32_t num_cols = 64;
+  // 4x the ~512-row ParseChunk cap for num_cols == 64, so the filler block
+  // spans multiple calls even if that internal constant changes.
+  constexpr int32_t num_filler_rows = 4 * 512;
+
+  // 12 bytes/value, above the bulk filter's activation threshold.
+  std::string filler_cell = "xxxxxxxxxxx";
+  filler_cell += '\0';
+
+  std::string csv;
+  for (int32_t r = 0; r < num_filler_rows; ++r) {
+    for (int32_t c = 0; c < num_cols; ++c) {
+      if (c) csv += ',';
+      csv += filler_cell;
+    }
+    csv += '\n';
+  }
+  // NUL right before the closing quote: the misaligned-SIMD-scan trigger.
+  csv += "\"abc";
+  csv += '\0';
+  csv += "def\"";
+  for (int32_t c = 1; c < num_cols; ++c) {
+    csv += ',';
+    csv += filler_cell;
+  }
+  csv += '\n';
+
+  BlockParser parser(ParseOptions::Defaults(), num_cols, /*first_row=*/0);
+  AssertParseFinal(parser, csv);
+  ASSERT_EQ(parser.num_rows(), num_filler_rows + 1);
+
+  std::vector<std::string> last_row;
+  GetLastRow(parser, &last_row);
+  ASSERT_EQ(last_row.size(), static_cast<size_t>(num_cols));
+  ASSERT_EQ(last_row[0], std::string("abc\0def", 7));
+  // Other NUL-bearing fields in the row must come through unmangled too.
+  for (size_t c = 1; c < last_row.size(); ++c) {
+    ASSERT_EQ(last_row[c], filler_cell) << "column " << c;
   }
 }
 

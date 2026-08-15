@@ -38,7 +38,7 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
   std::string WrapKey(const ::arrow::util::SecureString& key_bytes,
                       const std::string& master_key_identifier) override;
 
-  ::arrow::util::SecureString UnWrapKey(
+  ::arrow::util::SecureString UnwrapKey(
       const std::string& wrapped_key, const std::string& master_key_identifier) override;
 
  protected:

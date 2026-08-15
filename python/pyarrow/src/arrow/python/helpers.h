@@ -92,6 +92,10 @@ PyObject* BorrowPandasDataOffsetType();
 ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
+// \brief Check whether obj is a uuid.UUID instance
+ARROW_PYTHON_EXPORT
+bool IsPyUuid(PyObject* obj);
+
 inline bool IsPyBinary(PyObject* obj) {
   return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
 }
@@ -151,9 +155,6 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
 // \brief Print Python object __repr__
 void DebugPrint(PyObject* obj);
-
-ARROW_PYTHON_EXPORT
-bool IsThreadingEnabled();
 
 }  // namespace internal
 }  // namespace py

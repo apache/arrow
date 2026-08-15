@@ -1084,8 +1084,8 @@ extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP fil
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group, bool create_directory, bool preserve_order);
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp, SEXP preserve_order_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
@@ -1101,12 +1101,14 @@ BEGIN_CPP11
 	arrow::r::Input<uint64_t>::type max_rows_per_file(max_rows_per_file_sexp);
 	arrow::r::Input<uint64_t>::type min_rows_per_group(min_rows_per_group_sexp);
 	arrow::r::Input<uint64_t>::type max_rows_per_group(max_rows_per_group_sexp);
-	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group);
+	arrow::r::Input<bool>::type create_directory(create_directory_sexp);
+	arrow::r::Input<bool>::type preserve_order(preserve_order_sexp);
+	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp, SEXP preserve_order_sexp){
 	Rf_error("Cannot call ExecPlan_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -2587,6 +2589,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::shared_ptr<arrow::DataType> SmallestDecimal__initialize(int32_t precision, int32_t scale);
+extern "C" SEXP _arrow_SmallestDecimal__initialize(SEXP precision_sexp, SEXP scale_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
+	return cpp11::as_sexp(SmallestDecimal__initialize(precision, scale));
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::DataType> DayTimeInterval__initialize();
 extern "C" SEXP _arrow_DayTimeInterval__initialize(){
 BEGIN_CPP11
@@ -3217,12 +3228,46 @@ BEGIN_CPP11
 END_CPP11
 }
 // field.cpp
-bool Field__Equals(const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Field>& other);
-extern "C" SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
+bool Field__Equals(const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Field>& other, bool check_metadata);
+extern "C" SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type other(other_sexp);
-	return cpp11::as_sexp(Field__Equals(field, other));
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
+	return cpp11::as_sexp(Field__Equals(field, other, check_metadata));
+END_CPP11
+}
+// field.cpp
+bool Field__HasMetadata(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__HasMetadata(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__HasMetadata(field));
+END_CPP11
+}
+// field.cpp
+cpp11::writable::list Field__metadata(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__metadata(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__metadata(field));
+END_CPP11
+}
+// field.cpp
+std::shared_ptr<arrow::Field> Field__WithMetadata(const std::shared_ptr<arrow::Field>& field, cpp11::strings metadata);
+extern "C" SEXP _arrow_Field__WithMetadata(SEXP field_sexp, SEXP metadata_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
+	return cpp11::as_sexp(Field__WithMetadata(field, metadata));
+END_CPP11
+}
+// field.cpp
+std::shared_ptr<arrow::Field> Field__RemoveMetadata(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__RemoveMetadata(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__RemoveMetadata(field));
 END_CPP11
 }
 // field.cpp
@@ -3628,6 +3673,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_fs___GcsFileSystem__options(SEXP fs_sexp){
 	Rf_error("Cannot call fs___GcsFileSystem__options(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_AZURE)
+std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list options);
+extern "C" SEXP _arrow_fs___AzureFileSystem__Make(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(fs___AzureFileSystem__Make(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___AzureFileSystem__Make(SEXP options_sexp){
+	Rf_error("Cannot call fs___AzureFileSystem__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5680,6 +5740,15 @@ return Rf_ScalarLogical(
 #endif
 );
 }
+extern "C" SEXP _azure_available() {
+return Rf_ScalarLogical(
+#if defined(ARROW_R_WITH_AZURE)
+  TRUE
+#else
+  FALSE
+#endif
+);
+}
 extern "C" SEXP _json_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_JSON)
@@ -5696,6 +5765,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_gcs_available", (DL_FUNC)& _gcs_available, 0 },
+		{ "_azure_available", (DL_FUNC)& _azure_available, 0 },
 		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_test_arrow_altrep_set_string_elt", (DL_FUNC) &_arrow_test_arrow_altrep_set_string_elt, 3}, 
@@ -5814,7 +5884,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecNode_has_ordered_batches", (DL_FUNC) &_arrow_ExecNode_has_ordered_batches, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
-		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
+		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 16}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 3}, 
@@ -5932,6 +6002,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Decimal64Type__initialize", (DL_FUNC) &_arrow_Decimal64Type__initialize, 2}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
+		{ "_arrow_SmallestDecimal__initialize", (DL_FUNC) &_arrow_SmallestDecimal__initialize, 2}, 
 		{ "_arrow_DayTimeInterval__initialize", (DL_FUNC) &_arrow_DayTimeInterval__initialize, 0}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
 		{ "_arrow_FixedSizeBinary__byte_width", (DL_FUNC) &_arrow_FixedSizeBinary__byte_width, 1}, 
@@ -6007,7 +6078,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
 		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 
-		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 2}, 
+		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 3}, 
+		{ "_arrow_Field__HasMetadata", (DL_FUNC) &_arrow_Field__HasMetadata, 1}, 
+		{ "_arrow_Field__metadata", (DL_FUNC) &_arrow_Field__metadata, 1}, 
+		{ "_arrow_Field__WithMetadata", (DL_FUNC) &_arrow_Field__WithMetadata, 2}, 
+		{ "_arrow_Field__RemoveMetadata", (DL_FUNC) &_arrow_Field__RemoveMetadata, 1}, 
 		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
 		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
 		{ "_arrow_fs___FileInfo__type", (DL_FUNC) &_arrow_fs___FileInfo__type, 1}, 
@@ -6048,6 +6123,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FinalizeS3", (DL_FUNC) &_arrow_FinalizeS3, 0}, 
 		{ "_arrow_fs___GcsFileSystem__Make", (DL_FUNC) &_arrow_fs___GcsFileSystem__Make, 2}, 
 		{ "_arrow_fs___GcsFileSystem__options", (DL_FUNC) &_arrow_fs___GcsFileSystem__options, 1}, 
+		{ "_arrow_fs___AzureFileSystem__Make", (DL_FUNC) &_arrow_fs___AzureFileSystem__Make, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 
@@ -6248,9 +6324,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 
-  #if defined(HAS_ALTREP)
   arrow::r::altrep::Init_Altrep_classes(dll);
-  #endif
 
   _arrow_compute__Initialize();
 }

@@ -141,7 +141,9 @@ of adding a basic feature.
 
 #. **Push the branch on your fork and create a Pull Request**
 
-   See detailed instructions on :ref:`create_pr`
+   See detailed instructions on :ref:`create_pr`. If you have used AI tools
+   to help generate your contribution, please also read our guidance on
+   :ref:`ai-generated-code`.
 
 
 If you are ready you can start with building Arrow or choose to follow

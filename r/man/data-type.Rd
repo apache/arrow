@@ -171,13 +171,14 @@ A few functions have aliases:
 \code{date32()} creates a datetime type with a "day" unit, like the R \code{Date}
 class. \code{date64()} has a "ms" unit.
 
-\code{uint32} (32 bit unsigned integer), \code{uint64} (64 bit unsigned integer), and
-\code{int64} (64-bit signed integer) types may contain values that exceed the
-range of R's \code{integer} type (32-bit signed integer). When these arrow objects
-are translated to R objects, \code{uint32} and \code{uint64} are converted to \code{double}
-("numeric") and \code{int64} is converted to \code{bit64::integer64}. For \code{int64}
-types, this conversion can be disabled (so that \code{int64} always yields a
-\code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
+\code{uint64} (64 bit unsigned integer) is always converted to \code{double}
+("numeric") in R. Note that doubles cannot exactly represent all uint64
+values; precision may be lost for values above 2^53. \code{uint32} (32 bit unsigned integer) and \code{int64} (64-bit
+signed integer) types may contain values that exceed the range of R's
+\code{integer} type (32-bit signed integer). When they do, \code{uint32} is converted
+to \code{double} ("numeric") and \code{int64} is converted to \code{bit64::integer64}. For
+\code{int64} types, this conversion can be disabled (so that \code{int64} always yields
+a \code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
 
 \code{decimal128()} creates a \code{Decimal128Type}. Arrow decimals are fixed-point
 decimal numbers encoded as a scalar integer. The \code{precision} is the number of
@@ -207,7 +208,7 @@ Use \code{decimal128()} or \code{decimal256()} as the names are more informative
 \code{decimal()}.
 }
 \examples{
-\dontshow{if (arrow_with_acero()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_acero()) withAutoprint(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
@@ -227,11 +228,11 @@ my_chunked_array$cast(date32()) # date32[day]
 # You can also use `cast()` in an Arrow dplyr query.
 if (requireNamespace("dplyr", quietly = TRUE)) {
   library(dplyr, warn.conflicts = FALSE)
-  arrow_table(mtcars) \%>\%
+  arrow_table(mtcars) |>
     transmute(
       col1 = cast(cyl, string()),
       col2 = cast(cyl, int8())
-    ) \%>\%
+    ) |>
     compute()
 }
 \dontshow{\}) # examplesIf}

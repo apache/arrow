@@ -17,12 +17,11 @@
 
 #include "parquet/encryption/encryption.h"
 
-#include <string.h>
-
 #include <map>
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
@@ -44,13 +43,8 @@ void StringKeyIdRetriever::PutKey(std::string key_id, SecureString key) {
   key_map_.insert({std::move(key_id), std::move(key)});
 }
 
-SecureString StringKeyIdRetriever::GetKeyById(const std::string& key_id) {
+SecureString StringKeyIdRetriever::GetKey(const std::string& key_id) {
   return key_map_.at(key_id);
-}
-
-ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
-    std::string column_key) {
-  return key(SecureString(std::move(column_key)));
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
@@ -92,11 +86,6 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_key
 
   column_decryption_properties_ = std::move(column_decryption_properties);
   return this;
-}
-
-FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
-    std::string footer_key) {
-  return this->footer_key(SecureString(std::move(footer_key)));
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
@@ -189,16 +178,12 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
   return this;
 }
 
-ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
-                                                       std::string column_path,
-                                                       SecureString key,
+ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted, SecureString key,
                                                        std::string key_metadata)
-    : column_path_(std::move(column_path)),
-      encrypted_(encrypted),
+    : encrypted_(encrypted),
       encrypted_with_footer_key_(encrypted && key.empty()),
       key_(std::move(key)),
       key_metadata_(std::move(key_metadata)) {
-  DCHECK(!column_path_.empty());
   if (!encrypted) {
     DCHECK(key_.empty() && key_metadata_.empty());
   }
@@ -208,6 +193,22 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   if (encrypted_with_footer_key_) {
     DCHECK(key_metadata_.empty());
   }
+}
+
+std::shared_ptr<ColumnEncryptionProperties> ColumnEncryptionProperties::Unencrypted() {
+  return std::shared_ptr<ColumnEncryptionProperties>(
+      new ColumnEncryptionProperties(/*encrypted=*/false, {}, {}));
+}
+
+std::shared_ptr<ColumnEncryptionProperties> ColumnEncryptionProperties::WithFooterKey() {
+  return std::shared_ptr<ColumnEncryptionProperties>(
+      new ColumnEncryptionProperties(/*encrypted=*/true, {}, {}));
+}
+
+std::shared_ptr<ColumnEncryptionProperties> ColumnEncryptionProperties::WithColumnKey(
+    ::arrow::util::SecureString key, std::string key_metadata) {
+  return std::shared_ptr<ColumnEncryptionProperties>(new ColumnEncryptionProperties(
+      /*encrypted=*/true, std::move(key), std::move(key_metadata)));
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
@@ -275,11 +276,22 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 std::shared_ptr<ColumnEncryptionProperties>
 FileEncryptionProperties::column_encryption_properties(const std::string& column_path) {
   if (encrypted_columns_.size() == 0) {
-    auto builder = std::make_shared<ColumnEncryptionProperties::Builder>(column_path);
-    return builder->build();
+    return ColumnEncryptionProperties::WithFooterKey();
   }
-  if (encrypted_columns_.find(column_path) != encrypted_columns_.end()) {
-    return encrypted_columns_[column_path];
+  auto it = encrypted_columns_.find(column_path);
+  if (it != encrypted_columns_.end()) {
+    return it->second;
+  }
+
+  // We do not have an exact match of column_path in encrypted_columns_
+  // there might be the root parent field in encrypted_columns_.
+  auto pos = column_path.find('.');
+  if (pos != std::string::npos) {
+    std::string root = column_path.substr(0, pos);
+    it = encrypted_columns_.find(root);
+    if (it != encrypted_columns_.end()) {
+      return it->second;
+    }
   }
 
   return nullptr;
@@ -302,7 +314,7 @@ FileEncryptionProperties::FileEncryptionProperties(
 
   uint8_t aad_file_unique[kAadFileUniqueLength];
   encryption::RandBytes(aad_file_unique, kAadFileUniqueLength);
-  std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
+  std::string aad_file_unique_str(reinterpret_cast<const char*>(aad_file_unique),
                                   kAadFileUniqueLength);
 
   bool supply_aad_prefix = false;

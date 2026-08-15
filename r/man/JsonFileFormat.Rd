@@ -30,10 +30,6 @@ characters? (default \code{FALSE})
 }
 }
 
-\examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-\dontshow{\}) # examplesIf}
-}
 \seealso{
 \link{FileFormat}
 }

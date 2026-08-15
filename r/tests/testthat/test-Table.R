@@ -144,7 +144,7 @@ test_that("[[<- assignment", {
   # can use $
   tab$new <- NULL
   expect_null(as.vector(tab$new))
-  expect_identical(dim(tab), c(10L, 4L))
+  expect_shape(tab, dim = c(10L, 4L))
 
   tab$int <- 1:10
   expect_as_vector(tab$int, 1:10)
@@ -329,7 +329,8 @@ test_that("==.Table", {
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
   tab2 <- Table$create(
-    x = 1:2, y = c("a", "b"),
+    x = 1:2,
+    y = c("a", "b"),
     schema = tab1$schema$WithMetadata(list(some = "metadata"))
   )
 
@@ -356,18 +357,18 @@ test_that("Table handles null type (ARROW-7064)", {
 
 test_that("Can create table with specific dictionary types", {
   fact <- example_data[, "fct"]
-  int_types <- c(int8(), int16(), int32(), int64())
-  # TODO: test uint types when format allows
-  # uint_types <- c(uint8(), uint16(), uint32(), uint64()) # nolint
-  for (i in int_types) {
+  index_types <- c(int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64())
+  for (i in index_types) {
     sch <- schema(fct = dictionary(i, utf8()))
     tab <- Table$create(fact, schema = sch)
     expect_equal(sch, tab$schema)
-    if (i != int64()) {
-      # TODO: same downcast to int32 as we do for int64() type elsewhere
-      expect_equal_data_frame(tab, fact)
-    }
+    expect_equal_data_frame(tab, fact)
   }
+
+  # large_utf8 values exercise the non-ALTREP conversion path
+  tab_large <- Table$create(fact, schema = schema(fct = dictionary(uint32(), large_utf8())))
+  expect_equal(tab_large$schema, schema(fct = dictionary(uint32(), large_utf8())))
+  expect_equal_data_frame(tab_large, fact)
 })
 
 test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
@@ -476,6 +477,20 @@ test_that("Tables can be combined with concat_tables()", {
   # concat_tables() with one argument returns identical table
   expected <- arrow_table(a = 1:10)
   expect_equal(expected, concat_tables(expected))
+})
+
+test_that("concat_tables() handles RecordBatch objects (GH-47000)", {
+  # concat_tables() should automatically convert RecordBatch to Table
+  tbl <- arrow_table(a = 1:5, b = letters[1:5])
+  rb <- record_batch(a = 6:10, b = letters[6:10])
+
+  # Concatenating a Table with a RecordBatch should work (not segfault)
+  result <- concat_tables(tbl, rb)
+  expect_s3_class(result, "Table")
+  expect_equal(
+    result,
+    arrow_table(a = 1:10, b = letters[1:10])
+  )
 })
 
 test_that("Table supports rbind", {
@@ -597,15 +612,15 @@ test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   )
 
   expect_identical(
-    tbl %>%
-      Table$create() %>%
+    tbl |>
+      Table$create() |>
       dplyr::group_vars(),
     dplyr::group_vars(tbl)
   )
   expect_identical(
-    tbl %>%
-      dplyr::group_by(fct, fct2) %>%
-      Table$create() %>%
+    tbl |>
+      dplyr::group_by(fct, fct2) |>
+      Table$create() |>
       dplyr::group_vars(),
     c("fct", "fct2")
   )

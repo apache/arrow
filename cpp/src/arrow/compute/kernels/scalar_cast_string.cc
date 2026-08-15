@@ -20,12 +20,14 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
@@ -196,8 +198,8 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
     static const std::string kFormatString = "%Y-%m-%d %H:%M:%S%z";
     static const std::string kUtcFormatString = "%Y-%m-%d %H:%M:%SZ";
     DCHECK(!timezone.empty());
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz, LocateZone(timezone));
-    ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale("C"));
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+    ARROW_ASSIGN_OR_RAISE(auto locale, GetLocale("C"));
     TimestampFormatter<Duration> formatter{
         timezone == "UTC" ? kUtcFormatString : kFormatString, tz, locale};
     return VisitArraySpanInline<TimestampType>(
@@ -304,10 +306,34 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
-  // Start with a zero-copy cast, but change indices to expected size
+  // Start with a zero-copy cast, but change indices to the correct size and set validity
+  // bitmap and offset if needed.
   RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
-  return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
-      ctx, input, out->array_data().get());
+  if constexpr (sizeof(typename I::offset_type) != sizeof(typename O::offset_type)) {
+    std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
+    ArrayData* output = out->array_data().get();
+
+    // Slice buffers to minimize the output's offset. We need a small offset because
+    // CastBinaryToBinaryOffsets() will reallocate the offsets buffer with size
+    // (out_length + out_offset + 1) * sizeof(offset_type).
+    int64_t input_offset = input_arr->offset;
+    size_t input_offset_type_size = sizeof(typename I::offset_type);
+    if (output->null_count != 0 && output->buffers[0]) {
+      // Avoid reallocation of the validity buffer by allowing some padding bits
+      output->offset = input_offset % 8;
+    } else {
+      output->offset = 0;
+    }
+    if (output->buffers[0]) {
+      output->buffers[0] = SliceBuffer(output->buffers[0], input_offset / 8);
+    }
+    output->buffers[1] = SliceBuffer(
+        output->buffers[1], (input_offset - output->offset) * input_offset_type_size);
+
+    return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
+        ctx, input, out->array_data().get());
+  }
+  return Status::OK();
 }
 
 // String View -> Offset String
@@ -412,8 +438,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
 
-  // If all entries are inline, we can drop the extra data buffer for
-  // large strings in output->buffers[2].
+  // If all entries are inline, there are no variadic data buffers to expose.
   bool all_entries_are_inline = true;
   VisitSetBitRunsVoid(
       validity, output->offset, output->length,
@@ -437,8 +462,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
         }
       });
   if (all_entries_are_inline) {
-    output->buffers[2] = nullptr;
+    output->buffers.resize(2);
   }
+
   return Status::OK();
 }
 
@@ -482,11 +508,15 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
   const int32_t fixed_size_width = input.type->byte_width();
   const int64_t total_length = input.offset + input.length;
+  // Values of width <= BinaryViewType::kInlineSize are stored inline in the
+  // views, so the output only needs a variadic data buffer for larger widths.
+  const bool values_are_inline = fixed_size_width <= BinaryViewType::kInlineSize;
+  const size_t num_buffers = values_are_inline ? 2 : 3;
 
   ArrayData* output = out->array_data().get();
   DCHECK_EQ(output->length, input.length);
   output->offset = input.offset;
-  output->buffers.resize(3);
+  output->buffers.resize(num_buffers);
   output->SetNullCount(input.null_count);
   // Share the validity bitmap buffer
   output->buffers[0] = input.GetBuffer(0);
@@ -513,7 +543,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
 
   // Inline string and non-inline string loops
-  if (fixed_size_width <= BinaryViewType::kInlineSize) {
+  if (values_are_inline) {
     int32_t data_offset = static_cast<int32_t>(input.offset) * fixed_size_width;
     for (int64_t i = 0; i < input.length; i++) {
       auto& out_view = out_views[i];

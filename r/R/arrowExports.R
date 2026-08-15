@@ -468,8 +468,8 @@ ExecNode_Scan <- function(plan, dataset, filter, projection) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
-ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -940,6 +940,10 @@ Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
 }
 
+SmallestDecimal__initialize <- function(precision, scale) {
+  .Call(`_arrow_SmallestDecimal__initialize`, precision, scale)
+}
+
 DayTimeInterval__initialize <- function() {
   .Call(`_arrow_DayTimeInterval__initialize`)
 }
@@ -1240,8 +1244,24 @@ Field__name <- function(field) {
   .Call(`_arrow_Field__name`, field)
 }
 
-Field__Equals <- function(field, other) {
-  .Call(`_arrow_Field__Equals`, field, other)
+Field__Equals <- function(field, other, check_metadata) {
+  .Call(`_arrow_Field__Equals`, field, other, check_metadata)
+}
+
+Field__HasMetadata <- function(field) {
+  .Call(`_arrow_Field__HasMetadata`, field)
+}
+
+Field__metadata <- function(field) {
+  .Call(`_arrow_Field__metadata`, field)
+}
+
+Field__WithMetadata <- function(field, metadata) {
+  .Call(`_arrow_Field__WithMetadata`, field, metadata)
+}
+
+Field__RemoveMetadata <- function(field) {
+  .Call(`_arrow_Field__RemoveMetadata`, field)
 }
 
 Field__nullable <- function(field) {
@@ -1402,6 +1422,10 @@ fs___GcsFileSystem__Make <- function(anonymous, options) {
 
 fs___GcsFileSystem__options <- function(fs) {
   .Call(`_arrow_fs___GcsFileSystem__options`, fs)
+}
+
+fs___AzureFileSystem__Make <- function(options) {
+  .Call(`_arrow_fs___AzureFileSystem__Make`, options)
 }
 
 io___Readable__Read <- function(x, nbytes) {

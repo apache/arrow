@@ -25,8 +25,11 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
+
+#include "arrow/flight/transport/grpc/customize_grpc.h"
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/support/client_callback.h>
@@ -58,8 +61,6 @@
 #include "arrow/flight/types_async.h"
 
 namespace arrow {
-
-using internal::EndsWith;
 
 namespace flight {
 namespace transport {
@@ -173,25 +174,25 @@ class GrpcClientInterceptorAdapterFactory
 
     FlightMethod flight_method = FlightMethod::Invalid;
     std::string_view method(info->method());
-    if (EndsWith(method, "/Handshake")) {
+    if (method.ends_with("/Handshake")) {
       flight_method = FlightMethod::Handshake;
-    } else if (EndsWith(method, "/ListFlights")) {
+    } else if (method.ends_with("/ListFlights")) {
       flight_method = FlightMethod::ListFlights;
-    } else if (EndsWith(method, "/GetFlightInfo")) {
+    } else if (method.ends_with("/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
-    } else if (EndsWith(method, "/PollFlightInfo")) {
+    } else if (method.ends_with("/PollFlightInfo")) {
       flight_method = FlightMethod::PollFlightInfo;
-    } else if (EndsWith(method, "/GetSchema")) {
+    } else if (method.ends_with("/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
-    } else if (EndsWith(method, "/DoGet")) {
+    } else if (method.ends_with("/DoGet")) {
       flight_method = FlightMethod::DoGet;
-    } else if (EndsWith(method, "/DoPut")) {
+    } else if (method.ends_with("/DoPut")) {
       flight_method = FlightMethod::DoPut;
-    } else if (EndsWith(method, "/DoExchange")) {
+    } else if (method.ends_with("/DoExchange")) {
       flight_method = FlightMethod::DoExchange;
-    } else if (EndsWith(method, "/DoAction")) {
+    } else if (method.ends_with("/DoAction")) {
       flight_method = FlightMethod::DoAction;
-    } else if (EndsWith(method, "/ListActions")) {
+    } else if (method.ends_with("/ListActions")) {
       flight_method = FlightMethod::ListActions;
     } else {
       ARROW_LOG(WARNING) << "Unknown Flight method: " << info->method();
@@ -446,10 +447,11 @@ arrow::Result<std::pair<std::string, std::string>> GetBearerTokenHeader(
   // Get the auth token if it exists, this can be in the initial or the trailing metadata.
   auto trailing_headers = context.GetServerTrailingMetadata();
   auto initial_headers = context.GetServerInitialMetadata();
-  auto bearer_iter = trailing_headers.find(internal::kAuthHeader);
-  if (bearer_iter == trailing_headers.end()) {
-    bearer_iter = initial_headers.find(internal::kAuthHeader);
-    if (bearer_iter == initial_headers.end()) {
+  auto [bearer_iter, bearer_end] = trailing_headers.equal_range(internal::kAuthHeader);
+  if (bearer_iter == bearer_end) {
+    std::tie(bearer_iter, bearer_end) =
+        initial_headers.equal_range(internal::kAuthHeader);
+    if (bearer_iter == bearer_end) {
       return std::make_pair("", "");
     }
   }
@@ -730,19 +732,31 @@ class GrpcClientImpl : public internal::ClientTransport {
 #  endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
 
 #  if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+#    if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+          auto certificate_provider =
+              std::make_shared<::grpc::experimental::InMemoryCertificateProvider>();
+          RETURN_NOT_OK(FromAbslStatus(certificate_provider->UpdateRoot(kDummyRootCert)));
+#    else
           auto certificate_provider =
               std::make_shared<::grpc::experimental::StaticDataCertificateProvider>(
                   kDummyRootCert);
+#    endif
 #    if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options(
               certificate_provider);
-#    else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
-            // While gRPC >= 1.36 does not require a root cert (it has a default)
-            // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+#    else  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+           // While gRPC >= 1.36 does not require a root cert (it has a default)
+           // in practice the path it hardcodes is broken. See grpc/grpc#21655.
           ::grpc::experimental::TlsChannelCredentialsOptions tls_options;
+#      if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+          tls_options.set_root_certificate_provider(certificate_provider);
+#      else
           tls_options.set_certificate_provider(certificate_provider);
+#      endif
 #    endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+#    if !GRPC_CPP_VERSION_CHECK(1, 80, 0)
           tls_options.watch_root_certs();
+#    endif
           tls_options.set_root_cert_name("dummy");
 #    if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_certificate_verifier(std::move(cert_verifier));

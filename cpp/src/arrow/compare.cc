@@ -53,6 +53,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/memory_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/ulp_distance_internal.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
@@ -71,88 +72,119 @@ using util::Float16;
 
 namespace {
 
-// TODO also handle HALF_FLOAT NaNs
-
-template <bool Approximate, bool NansEqual, bool SignedZerosEqual>
+template <bool AbsoluteTolerance, bool NansEqual, bool SignedZerosEqual,
+          bool UlpDistanceEqual>
 struct FloatingEqualityFlags {
-  static constexpr bool approximate = Approximate;
+  static constexpr bool absolute_tolerance = AbsoluteTolerance;
   static constexpr bool nans_equal = NansEqual;
   static constexpr bool signed_zeros_equal = SignedZerosEqual;
+  static constexpr bool ulp_distance_equal = UlpDistanceEqual;
 };
 
 template <typename T, typename Flags>
 struct FloatingEquality {
   explicit FloatingEquality(const EqualOptions& options)
-      : epsilon(static_cast<T>(options.atol())) {}
+      : epsilon(static_cast<T>(options.atol().value_or(-1))),
+        ulp_distance(options.ulp_distance().value_or(-1)) {}
 
   bool operator()(T x, T y) const {
     if (x == y) {
       return Flags::signed_zeros_equal || (std::signbit(x) == std::signbit(y));
     }
-    if (Flags::nans_equal && std::isnan(x) && std::isnan(y)) {
+
+    if constexpr (Flags::nans_equal) {
+      if (std::isnan(x) && std::isnan(y)) {
+        return true;
+      }
+    } else if (std::isnan(x) || std::isnan(y)) {
+      return false;
+    }
+
+    if (Flags::absolute_tolerance && (std::fabs(x - y) <= epsilon)) {
       return true;
     }
-    if (Flags::approximate && (fabs(x - y) <= epsilon)) {
+    if (Flags::ulp_distance_equal && internal::WithinUlp(x, y, ulp_distance)) {
       return true;
     }
     return false;
   }
 
   const T epsilon;
+  const int32_t ulp_distance;
 };
 
 // For half-float equality.
 template <typename Flags>
 struct FloatingEquality<uint16_t, Flags> {
   explicit FloatingEquality(const EqualOptions& options)
-      : epsilon(static_cast<float>(options.atol())) {}
+      : epsilon(static_cast<float>(options.atol().value_or(-1))),
+        ulp_distance(options.ulp_distance().value_or(-1)) {}
 
   bool operator()(uint16_t x, uint16_t y) const {
     Float16 f_x = Float16::FromBits(x);
     Float16 f_y = Float16::FromBits(y);
-    if (x == y) {
+    if (f_x == f_y) {
       return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
     }
-    if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
+    if constexpr (Flags::nans_equal) {
+      if (f_x.is_nan() && f_y.is_nan()) {
+        return true;
+      }
+    } else if (f_x.is_nan() || f_y.is_nan()) {
+      return false;
+    }
+    if (Flags::absolute_tolerance &&
+        (std::fabs(f_x.ToFloat() - f_y.ToFloat()) <= epsilon)) {
       return true;
     }
-    if (Flags::approximate && (fabs(f_x.ToFloat() - f_y.ToFloat()) <= epsilon)) {
+    if (Flags::ulp_distance_equal && internal::WithinUlp(f_x, f_y, ulp_distance)) {
       return true;
     }
     return false;
   }
 
   const float epsilon;
+  const int32_t ulp_distance;
 };
 
 template <typename T, typename Visitor>
 struct FloatingEqualityDispatcher {
   const EqualOptions& options;
-  bool floating_approximate;
   Visitor&& visit;
 
-  template <bool Approximate, bool NansEqual>
-  void DispatchL3() {
-    if (options.signed_zeros_equal()) {
-      visit(FloatingEquality<T, FloatingEqualityFlags<Approximate, NansEqual, true>>{
+  template <bool AbsoluteTolerance, bool NansEqual, bool SignedZero>
+  void DispatchL4() {
+    if (options.ulp_distance()) {
+      visit(FloatingEquality<
+            T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero, true>>{
           options});
     } else {
-      visit(FloatingEquality<T, FloatingEqualityFlags<Approximate, NansEqual, false>>{
+      visit(FloatingEquality<
+            T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero, false>>{
           options});
     }
   }
 
-  template <bool Approximate>
+  template <bool AbsoluteTolerance, bool NansEqual>
+  void DispatchL3() {
+    if (options.signed_zeros_equal()) {
+      DispatchL4<AbsoluteTolerance, NansEqual, true>();
+    } else {
+      DispatchL4<AbsoluteTolerance, NansEqual, false>();
+    }
+  }
+
+  template <bool AbsoluteTolerance>
   void DispatchL2() {
     if (options.nans_equal()) {
-      DispatchL3<Approximate, true>();
+      DispatchL3<AbsoluteTolerance, true>();
     } else {
-      DispatchL3<Approximate, false>();
+      DispatchL3<AbsoluteTolerance, false>();
     }
   }
 
   void Dispatch() {
-    if (floating_approximate) {
+    if (options.atol()) {
       DispatchL2<true>();
     } else {
       DispatchL2<false>();
@@ -163,15 +195,14 @@ struct FloatingEqualityDispatcher {
 // Call `visit(equality_func)` where `equality_func` has the signature `bool(T, T)`
 // and returns true if the two values compare equal.
 template <typename T, typename Visitor>
-void VisitFloatingEquality(const EqualOptions& options, bool floating_approximate,
-                           Visitor&& visit) {
-  FloatingEqualityDispatcher<T, Visitor>{options, floating_approximate,
-                                         std::forward<Visitor>(visit)}
+void VisitFloatingEquality(const EqualOptions& options, Visitor&& visit) {
+  FloatingEqualityDispatcher<T, Visitor>{options, std::forward<Visitor>(visit)}
       .Dispatch();
 }
 
 inline bool IdentityImpliesEqualityNansNotEqual(const DataType& type) {
-  if (type.id() == Type::FLOAT || type.id() == Type::DOUBLE) {
+  if (type.id() == Type::FLOAT || type.id() == Type::DOUBLE ||
+      type.id() == Type::HALF_FLOAT) {
     return false;
   }
   for (const auto& child : type.fields()) {
@@ -191,20 +222,17 @@ inline bool IdentityImpliesEquality(const DataType& type, const EqualOptions& op
 
 bool CompareArrayRanges(const ArrayData& left, const ArrayData& right,
                         int64_t left_start_idx, int64_t left_end_idx,
-                        int64_t right_start_idx, const EqualOptions& options,
-                        bool floating_approximate);
+                        int64_t right_start_idx, const EqualOptions& options);
 
 class RangeDataEqualsImpl {
  public:
   // PRE-CONDITIONS:
   // - the types are equal
   // - the ranges are in bounds
-  RangeDataEqualsImpl(const EqualOptions& options, bool floating_approximate,
-                      const ArrayData& left, const ArrayData& right,
-                      int64_t left_start_idx, int64_t right_start_idx,
-                      int64_t range_length)
+  RangeDataEqualsImpl(const EqualOptions& options, const ArrayData& left,
+                      const ArrayData& right, int64_t left_start_idx,
+                      int64_t right_start_idx, int64_t range_length)
       : options_(options),
-        floating_approximate_(floating_approximate),
         left_(left),
         right_(right),
         left_start_idx_(left_start_idx),
@@ -350,7 +378,7 @@ class RangeDataEqualsImpl {
     const ArrayData& right_data = *right_.child_data[0];
 
     auto compare_runs = [&](int64_t i, int64_t length) -> bool {
-      RangeDataEqualsImpl impl(options_, floating_approximate_, left_data, right_data,
+      RangeDataEqualsImpl impl(options_, left_data, right_data,
                                (left_start_idx_ + left_.offset + i) * list_size,
                                (right_start_idx_ + right_.offset + i) * list_size,
                                length * list_size);
@@ -365,8 +393,7 @@ class RangeDataEqualsImpl {
 
     auto compare_runs = [&](int64_t i, int64_t length) -> bool {
       for (int32_t f = 0; f < num_fields; ++f) {
-        RangeDataEqualsImpl impl(options_, floating_approximate_, *left_.child_data[f],
-                                 *right_.child_data[f],
+        RangeDataEqualsImpl impl(options_, *left_.child_data[f], *right_.child_data[f],
                                  left_start_idx_ + left_.offset + i,
                                  right_start_idx_ + right_.offset + i, length);
         if (!impl.Compare()) {
@@ -400,11 +427,11 @@ class RangeDataEqualsImpl {
         const auto previous_child_num = child_ids[left_codes[left_start_idx_ + i - 1]];
         int64_t run_length = i - run_start;
 
-        RangeDataEqualsImpl impl(
-            options_, floating_approximate_, *left_.child_data[previous_child_num],
-            *right_.child_data[previous_child_num],
-            left_start_idx_ + left_.offset + run_start,
-            right_start_idx_ + right_.offset + run_start, run_length);
+        RangeDataEqualsImpl impl(options_, *left_.child_data[previous_child_num],
+                                 *right_.child_data[previous_child_num],
+                                 left_start_idx_ + left_.offset + run_start,
+                                 right_start_idx_ + right_.offset + run_start,
+                                 run_length);
 
         if (!impl.Compare()) {
           result_ = false;
@@ -422,7 +449,7 @@ class RangeDataEqualsImpl {
       int64_t final_run_length = range_length_ - run_start;
 
       RangeDataEqualsImpl impl(
-          options_, floating_approximate_, *left_.child_data[final_child_num],
+          options_, *left_.child_data[final_child_num],
           *right_.child_data[final_child_num], left_start_idx_ + left_.offset + run_start,
           right_start_idx_ + right_.offset + run_start, final_run_length);
 
@@ -448,9 +475,8 @@ class RangeDataEqualsImpl {
       }
       const auto child_num = child_ids[type_id];
       RangeDataEqualsImpl impl(
-          options_, floating_approximate_, *left_.child_data[child_num],
-          *right_.child_data[child_num], left_offsets[left_start_idx_ + i],
-          right_offsets[right_start_idx_ + i], 1);
+          options_, *left_.child_data[child_num], *right_.child_data[child_num],
+          left_offsets[left_start_idx_ + i], right_offsets[right_start_idx_ + i], 1);
       if (!impl.Compare()) {
         result_ = false;
         break;
@@ -465,7 +491,7 @@ class RangeDataEqualsImpl {
         *left_.dictionary, *right_.dictionary,
         /*left_start_idx=*/0,
         /*left_end_idx=*/std::max(left_.dictionary->length, right_.dictionary->length),
-        /*right_start_idx=*/0, options_, floating_approximate_);
+        /*right_start_idx=*/0, options_);
     if (result_) {
       // Compare indices
       result_ &= CompareWithType(*type.index_type());
@@ -517,7 +543,7 @@ class RangeDataEqualsImpl {
         return compare_func(x, y);
       });
     };
-    VisitFloatingEquality<CType>(options_, floating_approximate_, std::move(visitor));
+    VisitFloatingEquality<CType>(options_, std::move(visitor));
     return Status::OK();
   }
 
@@ -548,8 +574,8 @@ class RangeDataEqualsImpl {
 
     const auto compare_ranges = [&](int64_t left_offset, int64_t right_offset,
                                     int64_t length) -> bool {
-      RangeDataEqualsImpl impl(options_, floating_approximate_, left_data, right_data,
-                               left_offset, right_offset, length);
+      RangeDataEqualsImpl impl(options_, left_data, right_data, left_offset, right_offset,
+                               length);
       return impl.Compare();
     };
 
@@ -577,8 +603,8 @@ class RangeDataEqualsImpl {
         if (size == 0) {
           continue;
         }
-        RangeDataEqualsImpl impl(options_, floating_approximate_, left_values,
-                                 right_values, left_offsets[j], right_offsets[j], size);
+        RangeDataEqualsImpl impl(options_, left_values, right_values, left_offsets[j],
+                                 right_offsets[j], size);
         if (!impl.Compare()) {
           return false;
         }
@@ -603,7 +629,7 @@ class RangeDataEqualsImpl {
 
     auto it = ree_util::MergedRunsIterator(left, right);
     for (; !it.is_end(); ++it) {
-      RangeDataEqualsImpl impl(options_, floating_approximate_, left_values, right_values,
+      RangeDataEqualsImpl impl(options_, left_values, right_values,
                                it.index_into_left_array(), it.index_into_right_array(),
                                /*range_length=*/1);
       if (!impl.Compare()) {
@@ -671,7 +697,6 @@ class RangeDataEqualsImpl {
   }
 
   const EqualOptions& options_;
-  const bool floating_approximate_;
   const ArrayData& left_;
   const ArrayData& right_;
   const int64_t left_start_idx_;
@@ -683,8 +708,7 @@ class RangeDataEqualsImpl {
 
 bool CompareArrayRanges(const ArrayData& left, const ArrayData& right,
                         int64_t left_start_idx, int64_t left_end_idx,
-                        int64_t right_start_idx, const EqualOptions& options,
-                        bool floating_approximate) {
+                        int64_t right_start_idx, const EqualOptions& options) {
   if (left.type->id() != right.type->id() ||
       !TypeEquals(*left.type, *right.type, false /* check_metadata */)) {
     return false;
@@ -705,8 +729,8 @@ bool CompareArrayRanges(const ArrayData& left, const ArrayData& right,
     return true;
   }
   // Compare values
-  RangeDataEqualsImpl impl(options, floating_approximate, left, right, left_start_idx,
-                           right_start_idx, range_length);
+  RangeDataEqualsImpl impl(options, left, right, left_start_idx, right_start_idx,
+                           range_length);
   return impl.Compare();
 }
 
@@ -876,22 +900,13 @@ class TypeEqualsVisitor {
   bool result_;
 };
 
-bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts,
-                 bool floating_approximate);
-bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options,
-                  bool floating_approximate);
-
 class ScalarEqualsVisitor {
  public:
   // PRE-CONDITIONS:
   // - the types are equal
   // - the scalars are non-null
-  explicit ScalarEqualsVisitor(const Scalar& right, const EqualOptions& opts,
-                               bool floating_approximate)
-      : right_(right),
-        options_(opts),
-        floating_approximate_(floating_approximate),
-        result_(false) {}
+  explicit ScalarEqualsVisitor(const Scalar& right, const EqualOptions& opts)
+      : right_(right), options_(opts), result_(false) {}
 
   Status Visit(const NullScalar& left) {
     result_ = true;
@@ -953,37 +968,37 @@ class ScalarEqualsVisitor {
 
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
-    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ArrayEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const LargeListScalar& left) {
     const auto& right = checked_cast<const LargeListScalar&>(right_);
-    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ArrayEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const ListViewScalar& left) {
     const auto& right = checked_cast<const ListViewScalar&>(right_);
-    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ArrayEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const LargeListViewScalar& left) {
     const auto& right = checked_cast<const LargeListViewScalar&>(right_);
-    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ArrayEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const MapScalar& left) {
     const auto& right = checked_cast<const MapScalar&>(right_);
-    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ArrayEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListScalar& left) {
     const auto& right = checked_cast<const FixedSizeListScalar&>(right_);
-    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ArrayEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
@@ -995,8 +1010,7 @@ class ScalarEqualsVisitor {
     } else {
       bool all_equals = true;
       for (size_t i = 0; i < left.value.size() && all_equals; i++) {
-        all_equals &= ScalarEquals(*left.value[i], *right.value[i], options_,
-                                   floating_approximate_);
+        all_equals &= ScalarEquals(*left.value[i], *right.value[i], options_);
       }
       result_ = all_equals;
     }
@@ -1006,35 +1020,33 @@ class ScalarEqualsVisitor {
 
   Status Visit(const DenseUnionScalar& left) {
     const auto& right = checked_cast<const DenseUnionScalar&>(right_);
-    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ScalarEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const SparseUnionScalar& left) {
     const auto& right = checked_cast<const SparseUnionScalar&>(right_);
-    result_ = ScalarEquals(*left.value[left.child_id], *right.value[right.child_id],
-                           options_, floating_approximate_);
+    result_ =
+        ScalarEquals(*left.value[left.child_id], *right.value[right.child_id], options_);
     return Status::OK();
   }
 
   Status Visit(const DictionaryScalar& left) {
     const auto& right = checked_cast<const DictionaryScalar&>(right_);
-    result_ = ScalarEquals(*left.value.index, *right.value.index, options_,
-                           floating_approximate_) &&
-              ArrayEquals(*left.value.dictionary, *right.value.dictionary, options_,
-                          floating_approximate_);
+    result_ = ScalarEquals(*left.value.index, *right.value.index, options_) &&
+              ArrayEquals(*left.value.dictionary, *right.value.dictionary, options_);
     return Status::OK();
   }
 
   Status Visit(const RunEndEncodedScalar& left) {
     const auto& right = checked_cast<const RunEndEncodedScalar&>(right_);
-    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ScalarEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
   Status Visit(const ExtensionScalar& left) {
     const auto& right = checked_cast<const ExtensionScalar&>(right_);
-    result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
+    result_ = ScalarEquals(*left.value, *right.value, options_);
     return Status::OK();
   }
 
@@ -1049,13 +1061,12 @@ class ScalarEqualsVisitor {
     auto visitor = [&](auto&& compare_func) {
       result_ = compare_func(left.value, right.value);
     };
-    VisitFloatingEquality<CType>(options_, floating_approximate_, std::move(visitor));
+    VisitFloatingEquality<CType>(options_, std::move(visitor));
     return Status::OK();
   }
 
   const Scalar& right_;
   const EqualOptions options_;
-  const bool floating_approximate_;
   bool result_;
 };
 
@@ -1108,12 +1119,13 @@ Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
   return PrintDiff(left, right, 0, left.length(), 0, right.length(), os);
 }
 
+}  // namespace
+
 bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
                       int64_t left_end_idx, int64_t right_start_idx,
-                      const EqualOptions& options, bool floating_approximate) {
-  bool are_equal =
-      CompareArrayRanges(*left.data(), *right.data(), left_start_idx, left_end_idx,
-                         right_start_idx, options, floating_approximate);
+                      const EqualOptions& options) {
+  bool are_equal = CompareArrayRanges(*left.data(), *right.data(), left_start_idx,
+                                      left_end_idx, right_start_idx, options);
   if (!are_equal) {
     ARROW_IGNORE_EXPR(PrintDiff(
         left, right, left_start_idx, left_end_idx, right_start_idx,
@@ -1122,17 +1134,34 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
   return are_equal;
 }
 
-bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts,
-                 bool floating_approximate) {
+bool ArrayRangeApproxEquals(const Array& left, const Array& right, int64_t left_start_idx,
+                            int64_t left_end_idx, int64_t right_start_idx,
+                            const EqualOptions& options) {
+  auto resolved_options = options;
+  if (!resolved_options.atol()) {
+    resolved_options = options.atol(kDefaultAbsoluteTolerance);
+  }
+  return ArrayRangeEquals(left, right, left_start_idx, left_end_idx, right_start_idx,
+                          resolved_options);
+}
+
+bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
   if (left.length() != right.length()) {
     ARROW_IGNORE_EXPR(PrintDiff(left, right, opts.diff_sink()));
     return false;
   }
-  return ArrayRangeEquals(left, right, 0, left.length(), 0, opts, floating_approximate);
+  return ArrayRangeEquals(left, right, 0, left.length(), 0, opts);
 }
 
-bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options,
-                  bool floating_approximate) {
+bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
+  auto resolved_options = opts;
+  if (!resolved_options.atol()) {
+    resolved_options = resolved_options.atol(kDefaultAbsoluteTolerance);
+  }
+  return ArrayEquals(left, right, resolved_options);
+}
+
+bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options) {
   if (&left == &right && IdentityImpliesEquality(*left.type, options)) {
     return true;
   }
@@ -1145,46 +1174,19 @@ bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& o
   if (!left.is_valid) {
     return true;
   }
-  ScalarEqualsVisitor visitor(right, options, floating_approximate);
+  ScalarEqualsVisitor visitor(right, options);
   auto error = VisitScalarInline(left, &visitor);
   DCHECK_OK(error);
   return visitor.result();
 }
 
-}  // namespace
-
-bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
-                      int64_t left_end_idx, int64_t right_start_idx,
-                      const EqualOptions& options) {
-  return ArrayRangeEquals(left, right, left_start_idx, left_end_idx, right_start_idx,
-                          options, options.use_atol());
-}
-
-bool ArrayRangeApproxEquals(const Array& left, const Array& right, int64_t left_start_idx,
-                            int64_t left_end_idx, int64_t right_start_idx,
-                            const EqualOptions& options) {
-  const bool floating_approximate = true;
-  return ArrayRangeEquals(left, right, left_start_idx, left_end_idx, right_start_idx,
-                          options, floating_approximate);
-}
-
-bool ArrayEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  return ArrayEquals(left, right, opts, opts.use_atol());
-}
-
-bool ArrayApproxEquals(const Array& left, const Array& right, const EqualOptions& opts) {
-  const bool floating_approximate = true;
-  return ArrayEquals(left, right, opts, floating_approximate);
-}
-
-bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options) {
-  return ScalarEquals(left, right, options, options.use_atol());
-}
-
 bool ScalarApproxEquals(const Scalar& left, const Scalar& right,
                         const EqualOptions& options) {
-  const bool floating_approximate = true;
-  return ScalarEquals(left, right, options, floating_approximate);
+  auto resolved_options = options;
+  if (!options.atol()) {
+    resolved_options = options.atol(kDefaultAbsoluteTolerance);
+  }
+  return ScalarEquals(left, right, resolved_options);
 }
 
 namespace {
@@ -1275,8 +1277,7 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
       }
     };
 
-    VisitFloatingEquality<c_type>(opts, /*floating_approximate=*/false,
-                                  std::move(visitor));
+    VisitFloatingEquality<c_type>(opts, std::move(visitor));
     return result;
   }
 
@@ -1529,7 +1530,7 @@ namespace {
 bool DoubleEquals(const double& left, const double& right, const EqualOptions& options) {
   bool result;
   auto visitor = [&](auto&& compare_func) { result = compare_func(left, right); };
-  VisitFloatingEquality<double>(options, options.use_atol(), std::move(visitor));
+  VisitFloatingEquality<double>(options, std::move(visitor));
   return result;
 }
 
@@ -1562,8 +1563,13 @@ bool ArrayStatisticsOptionalValueEquals(const std::optional<Type>& left,
 
 bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
                                const EqualOptions& equal_options) {
-  return left.null_count == right.null_count &&
+  return ArrayStatisticsOptionalValueEquals(left.row_count, right.row_count,
+                                            equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.null_count, right.null_count,
+                                            equal_options) &&
          ArrayStatisticsOptionalValueEquals(left.distinct_count, right.distinct_count,
+                                            equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.max_byte_width, right.max_byte_width,
                                             equal_options) &&
          left.is_average_byte_width_exact == right.is_average_byte_width_exact &&
          left.is_min_exact == right.is_min_exact &&

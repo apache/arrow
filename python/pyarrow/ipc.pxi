@@ -125,7 +125,6 @@ class ReadStats(_ReadStats):
     __slots__ = ()
 
 
-@staticmethod
 cdef _wrap_read_stats(CIpcReadStats c):
     return ReadStats(c.num_messages, c.num_record_batches,
                      c.num_dictionary_batches, c.num_dictionary_deltas,
@@ -197,6 +196,34 @@ cdef class IpcReadOptions(_Weakrefable):
     @included_fields.setter
     def included_fields(self, list value not None):
         self.c_options.included_fields = value
+
+    def __repr__(self):
+        alignment = Alignment(self.ensure_alignment).name
+
+        return (f"<pyarrow.ipc.IpcReadOptions "
+                f"ensure_native_endian={self.ensure_native_endian} "
+                f"ensure_alignment={alignment} "
+                f"use_threads={self.use_threads} "
+                f"included_fields={self.included_fields}>")
+
+
+cdef IpcReadOptions wrap_ipc_read_options(CIpcReadOptions c):
+    """Get Python's IpcReadOptions from C++'s IpcReadOptions
+    """
+
+    return IpcReadOptions(
+        ensure_native_endian=c.ensure_native_endian,
+        ensure_alignment=c.ensure_alignment,
+        use_threads=c.use_threads,
+        included_fields=c.included_fields,
+    )
+
+
+cdef object _get_compression_from_codec(shared_ptr[CCodec] codec):
+    if codec == nullptr:
+        return None
+    else:
+        return frombytes(codec.get().name())
 
 
 cdef class IpcWriteOptions(_Weakrefable):
@@ -278,10 +305,7 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     @property
     def compression(self):
-        if self.c_options.codec == nullptr:
-            return None
-        else:
-            return frombytes(self.c_options.codec.get().name())
+        return _get_compression_from_codec(self.c_options.codec)
 
     @compression.setter
     def compression(self, value):
@@ -324,6 +348,36 @@ cdef class IpcWriteOptions(_Weakrefable):
     @unify_dictionaries.setter
     def unify_dictionaries(self, bint value):
         self.c_options.unify_dictionaries = value
+
+    def __repr__(self):
+        compression_repr = f"compression=\"{self.compression}\" " \
+            if self.compression is not None else ""
+
+        metadata_version = MetadataVersion(self.metadata_version).name
+
+        return (f"<pyarrow.ipc.IpcWriteOptions "
+                f"allow_64bit={self.allow_64bit} "
+                f"use_legacy_format={self.use_legacy_format} "
+                f"metadata_version={metadata_version} "
+                f"{compression_repr}"
+                f"use_threads={self.use_threads} "
+                f"emit_dictionary_deltas={self.emit_dictionary_deltas} "
+                f"unify_dictionaries={self.unify_dictionaries}>")
+
+
+cdef IpcWriteOptions wrap_ipc_write_options(CIpcWriteOptions c):
+    """Get Python's IpcWriteOptions from C++'s IpcWriteOptions
+    """
+
+    return IpcWriteOptions(
+        metadata_version=c.metadata_version,
+        allow_64bit=c.allow_64bit,
+        use_legacy_format=c.write_legacy_ipc_format,
+        compression=_get_compression_from_codec(c.codec),
+        use_threads=c.use_threads,
+        emit_dictionary_deltas=c.emit_dictionary_deltas,
+        unify_dictionaries=c.unify_dictionaries,
+    )
 
 
 cdef class Message(_Weakrefable):
@@ -425,7 +479,7 @@ cdef class Message(_Weakrefable):
         body = self.body
         body_len = 0 if body is None else body.size
 
-        return """pyarrow.Message
+        return f"""pyarrow.Message
 type: {self.type}
 metadata length: {metadata_len}
 body length: {body_len}"""
@@ -1137,6 +1191,36 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         The number of record batches in the IPC file.
         """
         return self.reader.get().num_record_batches()
+
+    def count_rows(self):
+        """
+        The total number of rows in the IPC file.
+
+        This reads the metadata of each record batch in the file, without
+        deserializing the record batches themselves.
+
+        Returns
+        -------
+        count : int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([('a', pa.int64())])
+        >>> sink = pa.BufferOutputStream()
+        >>> with pa.ipc.new_file(sink, schema) as writer:
+        ...     for i in range(3):
+        ...         writer.write_batch(pa.record_batch([[1, 2]], schema=schema))
+        >>> with pa.ipc.open_file(sink.getvalue()) as reader:
+        ...     reader.count_rows()
+        6
+        """
+        cdef int64_t nrows
+
+        with nogil:
+            nrows = GetResultValue(self.reader.get().CountRows())
+
+        return nrows
 
     def get_batch(self, int i):
         """

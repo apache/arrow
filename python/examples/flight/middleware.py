@@ -138,6 +138,11 @@ def main():
               "simply call the given server for the response. Demonstrates "
               "propagation of the trace ID between servers."),
     )
+    server.add_argument(
+        "--otel",
+        action="store_true",
+        help="Use OpenTelemetry instrumentation."
+    )
 
     args = parser.parse_args()
     if not getattr(args, "command"):
@@ -145,10 +150,13 @@ def main():
         return 1
 
     if args.command == "server":
+        middleware = {"trace": TracingServerMiddlewareFactory()}
+        if args.otel:
+            middleware["otel"] = flight.TracingServerMiddlewareFactory()
         server = FlightServer(
             args.delegate,
             location=args.listen,
-            middleware={"trace": TracingServerMiddlewareFactory()})
+            middleware=middleware)
         server.serve()
     elif args.command == "client":
         client = flight.connect(

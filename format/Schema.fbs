@@ -125,7 +125,7 @@ table FixedSizeList {
 /// may be set in the metadata for this field.
 ///
 /// In a field with Map type, the field has a child Struct field, which then
-/// has two children: key type and the second the value type. The names of the
+/// has two children: the key type and the value type. The names of the
 /// child fields may be respectively "entries", "key", and "value", but this is
 /// not enforced.
 ///
@@ -424,7 +424,7 @@ table Interval {
 // ("t1") naively (i.e. simply summing the two numbers) is acceptable even
 // though in some cases the resulting Timestamp (t2) would not account for
 // leap-seconds during the elapsed time between "t1" and "t2".  Similarly,
-// representing the difference between two Unix timestamp is acceptable, but
+// representing the difference between two Unix timestamps is acceptable, but
 // would yield a value that is possibly a few seconds off from the true elapsed
 // time.
 //
@@ -497,7 +497,7 @@ table DictionaryEncoding {
   indexType: Int;
 
   /// By default, dictionaries are not ordered, or the order does not have
-  /// semantic meaning. In some statistical, applications, dictionary-encoding
+  /// semantic meaning. In some statistical applications, dictionary-encoding
   /// is used to represent ordered categorical data, and we provide a way to
   /// preserve that metadata here
   isOrdered: bool;

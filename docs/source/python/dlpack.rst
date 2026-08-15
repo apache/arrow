@@ -68,36 +68,36 @@ Examples
 
 Convert a PyArrow CPU array into a NumPy array:
 
-.. code-block::
+.. code-block:: python
 
     >>> import pyarrow as pa
-    >>> array = pa.array([2, 0, 2, 4])
-    <pyarrow.lib.Int64Array object at 0x121fd4880>
-    [
-    2,
-    0,
-    2,
-    4
-    ]
-
     >>> import numpy as np
+    >>> array = pa.array([2, 0, 2, 4])
+    >>> array
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      2,
+      0,
+      2,
+      4
+    ]
     >>> np.from_dlpack(array)
     array([2, 0, 2, 4])
 
 Convert a PyArrow CPU array into a PyTorch tensor:
 
-.. code-block::
+.. code-block:: python
 
-    >>> import torch
-    >>> torch.from_dlpack(array)
+    >>> import torch  # doctest: +SKIP
+    >>> torch.from_dlpack(array)  # doctest: +SKIP
     tensor([2, 0, 2, 4])
 
 Convert a PyArrow CPU array into a JAX array:
 
-.. code-block::
+.. code-block:: python
 
-    >>> import jax
-    >>> jax.numpy.from_dlpack(array)
+    >>> import jax  # doctest: +SKIP
+    >>> jax.numpy.from_dlpack(array)  # doctest: +SKIP
     Array([2, 0, 2, 4], dtype=int32)
-    >>> jax.dlpack.from_dlpack(array)
+    >>> jax.dlpack.from_dlpack(array)  # doctest: +SKIP
     Array([2, 0, 2, 4], dtype=int32)

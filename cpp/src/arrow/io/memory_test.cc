@@ -580,8 +580,7 @@ class TestTransformInputStream : public ::testing::Test {
     auto stream = std::make_shared<TransformInputStream>(
         std::make_shared<BufferReader>(src), this->transform());
     std::shared_ptr<Buffer> actual;
-    AccumulateReads(
-        stream, [&]() -> int64_t { return chunk_sizes(gen); }, &actual);
+    AccumulateReads(stream, [&]() -> int64_t { return chunk_sizes(gen); }, &actual);
     AssertBufferEqual(*actual, *expected);
   }
 
@@ -613,8 +612,7 @@ class TestTransformInputStream : public ::testing::Test {
 
   void AccumulateReads(const std::shared_ptr<InputStream>& stream, int64_t chunk_size,
                        std::shared_ptr<Buffer>* out) {
-    return AccumulateReads(
-        stream, [=]() { return chunk_size; }, out);
+    return AccumulateReads(stream, [=]() { return chunk_size; }, out);
   }
 
  protected:
@@ -735,9 +733,10 @@ class CountingBufferReader : public BufferReader {
  public:
   using BufferReader::BufferReader;
   Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext& context, int64_t position,
-                                            int64_t nbytes) override {
+                                            int64_t nbytes,
+                                            bool allow_short_read) override {
     read_count_++;
-    return BufferReader::ReadAsync(context, position, nbytes);
+    return BufferReader::ReadAsync(context, position, nbytes, allow_short_read);
   }
   int64_t read_count() const { return read_count_; }
 

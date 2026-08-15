@@ -23,13 +23,18 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/server.h"
 #include "arrow/flight/test_util.h"
+#include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
@@ -728,6 +733,74 @@ TEST(GrpcTransport, FlightDataDeserialize) {
 #else
   GTEST_SKIP() << "Can't use Protobuf symbols on Windows";
 #endif
+}
+
+// ----------------------------------------------------------------------
+// Transport-agnostic serialization roundtrip tests
+
+TEST(FlightSerialization, RoundtripPayloadWithBody) {
+  // Use RecordBatchStream to generate FlightPayloads
+  auto schema = arrow::schema({arrow::field("a", arrow::int32())});
+  auto arr = ArrayFromJSON(arrow::int32(), "[1, 2, 3]");
+  auto batch = RecordBatch::Make(schema, 3, {arr});
+  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
+  RecordBatchStream stream(std::move(reader));
+
+  // Get a FlightPayload from the stream
+  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
+  ASSERT_OK_AND_ASSIGN(auto flight_payload, stream.Next());
+
+  // Add app_metadata to the flight payload
+  flight_payload.app_metadata = Buffer::FromString("test-metadata");
+
+  // Serialize FlightPayload to BufferVector
+  ASSERT_OK_AND_ASSIGN(auto buffers, internal::SerializePayloadToBuffers(flight_payload));
+  ASSERT_GT(buffers.size(), 0);
+
+  // Concatenate to a single buffer for deserialization and deserialize.
+  ASSERT_OK_AND_ASSIGN(auto concat, ConcatenateBuffers(buffers));
+  ASSERT_OK_AND_ASSIGN(auto data, internal::DeserializeFlightData(concat));
+
+  // Verify IPC metadata (data_header) is present
+  ASSERT_NE(data.metadata, nullptr);
+  ASSERT_GT(data.metadata->size(), 0);
+
+  // Verify app_metadata
+  ASSERT_NE(data.app_metadata, nullptr);
+  ASSERT_EQ(data.app_metadata->ToString(), "test-metadata");
+
+  // Verify body and message are present
+  ASSERT_NE(data.body, nullptr);
+  ASSERT_GT(data.body->size(), 0);
+  ASSERT_OK_AND_ASSIGN(auto message, data.OpenMessage());
+  ASSERT_NE(message, nullptr);
+  // Also verify the RecordBatch roundtrips correctly
+  ipc::DictionaryMemo dict_memo;
+  ASSERT_OK_AND_ASSIGN(auto result_batch,
+                       ipc::ReadRecordBatch(*message, schema, &dict_memo,
+                                            ipc::IpcReadOptions::Defaults()));
+  ASSERT_TRUE(result_batch->Equals(*batch));
+}
+
+TEST(FlightSerialization, RoundtripMetadataOnly) {
+  // A metadata-only payload (no IPC body, no descriptor)
+  auto app_meta = Buffer::FromString("metadata-only-message");
+
+  FlightPayload payload;
+  payload.app_metadata = std::move(app_meta);
+
+  // Serialize
+  ASSERT_OK_AND_ASSIGN(auto buffers, internal::SerializePayloadToBuffers(payload));
+  ASSERT_OK_AND_ASSIGN(auto concat, ConcatenateBuffers(buffers));
+
+  // Deserialize
+  ASSERT_OK_AND_ASSIGN(auto data, internal::DeserializeFlightData(concat));
+
+  // Verify: no descriptor, no IPC metadata, just app_metadata
+  ASSERT_EQ(data.descriptor, nullptr);
+  ASSERT_EQ(data.metadata, nullptr);
+  ASSERT_NE(data.app_metadata, nullptr);
+  ASSERT_EQ(data.app_metadata->ToString(), "metadata-only-message");
 }
 
 // ----------------------------------------------------------------------

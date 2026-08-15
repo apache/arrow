@@ -246,9 +246,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
 namespace altrep {
 
-#if defined(HAS_ALTREP)
 void Init_Altrep_classes(DllInfo* dll);
-#endif
 
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
 bool is_arrow_altrep(SEXP x);

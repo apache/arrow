@@ -33,6 +33,6 @@ sphinx-copybutton
 sphinx-lint
 sphinxcontrib-jquery
 sphinxcontrib-mermaid
-sphinx==6.2
+sphinx
 pytest-cython
 pandas

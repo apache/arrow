@@ -21,6 +21,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/cpu_info.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
@@ -37,6 +39,14 @@
 #include "parquet/test_util.h"
 #include "parquet/types.h"
 #include "parquet/xxhasher.h"
+
+// Both dispatch targets included directly so the test can exercise the
+// un-picked one too -- DynamicDispatch resolves once at static init.
+#include "parquet/bloom_filter_block_impl_internal.h"
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#  include "parquet/bloom_filter_avx2_internal.h"
+#endif
 
 namespace parquet {
 namespace test {
@@ -433,6 +443,86 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
   }
   AssertBufferEqual(*buffer, *batch_insert_buffer);
 }
+
+// Guards against silent drift between the baseline and AVX2 probe bodies --
+// DynamicDispatch only runs one of them per host.
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+namespace {
+
+// Aliased from the class constant for brevity in array bounds below.
+constexpr int kBitsSetPerBlock = BlockSplitBloomFilter::kBitsSetPerBlock;
+
+// Test-only SALT (matches the Parquet SBBF spec values used in
+// bloom_filter.h). Kernel-vs-kernel agreement holds for any SALT, so this
+// duplication is a contained test-side convenience, not a spec mirror.
+constexpr uint32_t kProbeTestSalt[kBitsSetPerBlock] = {
+    0x47b6137bU, 0x44974d91U, 0x8824ad5bU, 0xa2b7289dU,
+    0x705495c7U, 0x2df1424bU, 0x9efc4947U, 0x5c6bfb31U,
+};
+
+inline void InsertIntoBlock(uint32_t* block, uint32_t key) {
+  for (int i = 0; i < kBitsSetPerBlock; ++i) {
+    block[i] |= uint32_t{1} << ((key * kProbeTestSalt[i]) >> 27);
+  }
+}
+
+void AssertKernelsAgree(std::span<const uint32_t, kBitsSetPerBlock> block, uint32_t key) {
+  const bool standard = internal::FindHashBlockImpl(block, kProbeTestSalt, key);
+  const bool avx2 = internal::FindHashBlockAvx2(block, kProbeTestSalt, key);
+  ASSERT_EQ(standard, avx2) << "dispatch targets diverged for key=0x" << std::hex << key;
+}
+
+}  // namespace
+
+class BloomFilterProbeKernel : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    if (!::arrow::internal::CpuInfo::GetInstance()->IsSupported(
+            ::arrow::internal::CpuInfo::AVX2)) {
+      GTEST_SKIP() << "AVX2 not available at runtime";
+    }
+  }
+};
+
+// Random-block fuzz: exercises the full bit lattice, catches reduction /
+// operand-order bugs that don't depend on realistic fill density.
+TEST_F(BloomFilterProbeKernel, AgreeOnRandomBlocks) {
+  std::mt19937_64 rng(0xC0FFEE);
+  constexpr int kNumTrials = 20000;
+  for (int trial = 0; trial < kNumTrials; ++trial) {
+    uint32_t block[kBitsSetPerBlock];
+    for (uint32_t& word : block) {
+      word = static_cast<uint32_t>(rng());
+    }
+    AssertKernelsAgree(block, static_cast<uint32_t>(rng()));
+  }
+}
+
+// Production-fill fuzz: blocks populated by the same SALT-derived insert the
+// writer uses, then probed with both inserted keys (must match) and fresh
+// keys (mostly miss). Catches bugs that only surface on real fill density.
+TEST_F(BloomFilterProbeKernel, AgreeOnPopulatedBlocks) {
+  std::mt19937_64 rng(0xBABECAFE);
+  constexpr int kNumBlocks = 200;
+  constexpr int kKeysPerBlock = 6;  // ~k inserts per 256-bit block, realistic FPP.
+  for (int b = 0; b < kNumBlocks; ++b) {
+    uint32_t block[kBitsSetPerBlock] = {0};
+    std::vector<uint32_t> inserted;
+    inserted.reserve(kKeysPerBlock);
+    for (int k = 0; k < kKeysPerBlock; ++k) {
+      const uint32_t key = static_cast<uint32_t>(rng());
+      InsertIntoBlock(block, key);
+      inserted.push_back(key);
+    }
+    for (uint32_t key : inserted) {
+      AssertKernelsAgree(block, key);
+    }
+    for (int q = 0; q < 50; ++q) {
+      AssertKernelsAgree(block, static_cast<uint32_t>(rng()));
+    }
+  }
+}
+#endif
 
 }  // namespace test
 }  // namespace parquet

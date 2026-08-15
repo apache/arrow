@@ -17,17 +17,21 @@
 
 import ast
 import base64
+from datetime import datetime
+import gc
 import itertools
+import json
 import os
 import pathlib
 import signal
 import struct
+import subprocess
+import sys
 import tempfile
 import threading
 import time
 import traceback
-import json
-from datetime import datetime
+import weakref
 
 try:
     import numpy as np
@@ -36,7 +40,7 @@ except ImportError:
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import IpcReadOptions, tobytes
+from pyarrow.lib import IpcReadOptions, ReadStats, is_opentelemetry_enabled, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -47,6 +51,7 @@ try:
         ServerAuthHandler, ClientAuthHandler,
         ServerMiddleware, ServerMiddlewareFactory,
         ClientMiddleware, ClientMiddlewareFactory,
+        FlightCallOptions,
     )
 except ImportError:
     flight = None
@@ -54,6 +59,7 @@ except ImportError:
     ServerAuthHandler, ClientAuthHandler = object, object
     ServerMiddleware, ServerMiddlewareFactory = object, object
     ClientMiddleware, ClientMiddlewareFactory = object, object
+    FlightCallOptions = object
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -114,12 +120,12 @@ def simple_ints_table():
 
 def simple_dicts_table():
     dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
-    new_dict_values = pa.array(["bar", "qux"], type=pa.utf8())
+    new_dict_values = pa.array(["foo", "baz", "quux", "new"], type=pa.utf8())
     data = [
         pa.chunked_array([
             pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
             pa.DictionaryArray.from_arrays([2, 1], dict_values),
-            pa.DictionaryArray.from_arrays([0, 1], new_dict_values)
+            pa.DictionaryArray.from_arrays([0, 3], new_dict_values)
         ])
     ]
     return pa.Table.from_arrays(data, names=['some_dicts'])
@@ -185,6 +191,7 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
+        assert reader.stats.num_messages == 1
         for batch, buf in reader:
             assert batch.equals(pa.RecordBatch.from_arrays(
                 [pa.array([expected_data[counter]])],
@@ -195,6 +202,8 @@ class MetadataFlightServer(FlightServerBase):
             assert counter == client_counter
             writer.write(struct.pack('<i', counter))
             counter += 1
+        assert reader.stats.num_messages == 6
+        assert reader.stats.num_record_batches == 5
 
     @staticmethod
     def number_batches(table):
@@ -231,6 +240,40 @@ class EchoStreamFlightServer(EchoFlightServer):
         return flight.GeneratorStream(
             self.last_message.schema,
             self.last_message.to_batches(max_chunksize=1024))
+
+    def list_actions(self, context):
+        return []
+
+    def do_action(self, context, action):
+        if action.type == "who-am-i":
+            return [context.peer_identity(), context.peer().encode("utf-8")]
+        raise NotImplementedError
+
+
+class EchoTableStreamFlightServer(EchoFlightServer):
+    """An echo server that streams the whole table."""
+
+    def do_get(self, context, ticket):
+        return flight.GeneratorStream(
+            self.last_message.schema,
+            [self.last_message])
+
+    def list_actions(self, context):
+        return []
+
+    def do_action(self, context, action):
+        if action.type == "who-am-i":
+            return [context.peer_identity(), context.peer().encode("utf-8")]
+        raise NotImplementedError
+
+
+class EchoRecordBatchReaderStreamFlightServer(EchoFlightServer):
+    """An echo server that streams the whole table as a RecordBatchReader."""
+
+    def do_get(self, context, ticket):
+        return flight.GeneratorStream(
+            self.last_message.schema,
+            [self.last_message.to_reader()])
 
     def list_actions(self, context):
         return []
@@ -421,6 +464,7 @@ class ExchangeFlightServer(FlightServerBase):
         self.options = options
 
     def do_exchange(self, context, descriptor, reader, writer):
+        assert reader.stats.num_messages == 0
         if descriptor.descriptor_type != flight.DescriptorType.CMD:
             raise pa.ArrowInvalid("Must provide a command descriptor")
         elif descriptor.command == b"echo":
@@ -449,11 +493,14 @@ class ExchangeFlightServer(FlightServerBase):
         for chunk in reader:
             if not chunk.data:
                 raise pa.ArrowInvalid("All chunks must have data.")
+            assert reader.stats.num_messages != 0
             num_batches += 1
+        assert reader.stats.num_record_batches == num_batches
         writer.write_metadata(str(num_batches).encode("utf-8"))
 
     def exchange_echo(self, context, reader, writer):
         """Run a simple echo server."""
+        assert reader.stats.num_messages == 0
         started = False
         for chunk in reader:
             if not started and chunk.data:
@@ -464,16 +511,19 @@ class ExchangeFlightServer(FlightServerBase):
             elif chunk.app_metadata:
                 writer.write_metadata(chunk.app_metadata)
             elif chunk.data:
+                assert reader.stats.num_messages != 0
                 writer.write_batch(chunk.data)
             else:
                 assert False, "Should not happen"
 
     def exchange_transform(self, context, reader, writer):
         """Sum rows in an uploaded table."""
+        assert reader.stats.num_messages == 0
         for field in reader.schema:
             if not pa.types.is_integer(field.type):
                 raise pa.ArrowInvalid("Invalid field: " + repr(field))
         table = reader.read_all()
+        assert reader.stats.num_messages != 0
         sums = [0] * table.num_rows
         for column in table:
             for row, value in enumerate(column):
@@ -1080,6 +1130,42 @@ def test_flight_server_location_argument():
             assert isinstance(server, FlightServerBase)
 
 
+# The following tests are for GH-50684, which was a memory leak
+# in FlightServerBase.
+def test_flight_server_is_freed():
+    # Calling server.shutdown manually should free the server object.
+    server = FlightServerBase('grpc://localhost:0')
+    server.shutdown()
+    ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
+def test_flight_server_is_freed_on_exit():
+    # Using FlightServerBase as a context manager should free
+    # the server object on exit.
+    with FlightServerBase('grpc://localhost:0') as server:
+        ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
+@pytest.mark.xfail(
+    reason="GH-50684: FlightServerBase is not freed on delete without shutdown"
+)
+def test_flight_server_is_freed_without_shutdown():
+    # GH-50684: Not calling server.shutdown() currently leaks the server object.
+    # This test is expected to fail until the issue is fixed but is included
+    # for completeness and further discussion.
+    server = FlightServerBase('grpc://localhost:0')
+    ref = weakref.ref(server)
+    del server
+    gc.collect()
+    assert ref() is None
+
+
 def test_server_exit_reraises_exception():
     with pytest.raises(ValueError):
         with FlightServerBase():
@@ -1170,8 +1256,17 @@ def test_flight_do_get_dicts():
 
     with ConstantFlightServer() as server, \
             flight.connect(('localhost', server.port)) as client:
-        data = client.do_get(flight.Ticket(b'dicts')).read_all()
+        reader = client.do_get(flight.Ticket(b'dicts'))
+        assert reader.stats.num_messages == 1
+        data = reader.read_all()
         assert data.equals(table)
+        assert reader.stats == ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
 
 
 def test_flight_do_get_ticket():
@@ -1341,13 +1436,108 @@ def test_flight_large_message():
         assert result.equals(data)
 
 
-def test_flight_generator_stream():
+def test_flight_generator_stream_of_batches():
     """Try downloading a flight of RecordBatches in a GeneratorStream."""
     data = pa.Table.from_arrays([
         pa.array(range(0, 10 * 1024))
     ], names=['a'])
 
     with EchoStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_batches_with_dict():
+    """
+    Try downloading a flight of RecordBatches with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_table():
+    """Try downloading a flight of Table in a GeneratorStream."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=['a'])
+
+    with EchoTableStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_table_with_dict():
+    """
+    Try downloading a flight of Table with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_record_batch_reader():
+    """Try downloading a flight of RecordBatchReader in a GeneratorStream."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=['a'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_record_batch_reader_with_dict():
+    """
+    Try downloading a flight of RecordBatchReader with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
         writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
                                   data.schema)
@@ -2090,6 +2280,8 @@ def test_doexchange_put():
             assert chunk.data is None
             expected_buf = str(len(batches)).encode("utf-8")
             assert chunk.app_metadata == expected_buf
+            # Metadata only message is not counted as an ipc data message
+            assert reader.stats.num_messages == 0
 
 
 def test_doexchange_echo():
@@ -2114,12 +2306,15 @@ def test_doexchange_echo():
 
             # Now write data without metadata.
             writer.begin(data.schema)
+            num_batches = 0
             for batch in batches:
                 writer.write_batch(batch)
                 assert reader.schema == data.schema
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata is None
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
             # And write data with metadata.
             for i, batch in enumerate(batches):
@@ -2128,6 +2323,8 @@ def test_doexchange_echo():
                 chunk = reader.read_chunk()
                 assert chunk.data == batch
                 assert chunk.app_metadata == buf
+                num_batches += 1
+                assert reader.stats.num_record_batches == num_batches
 
 
 def test_doexchange_echo_v4():
@@ -2487,6 +2684,38 @@ def test_tracing():
             pass
 
 
+# More info about the skip: GH-49447
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Opentelemetry traces don't appear on stdout on Windows")
+def test_tracing_server_middleware_emits_traces():
+    # Validate that we are able to emit traces to stdout when
+    # ARROW_TRACING_BACKEND=ostream
+    if not is_opentelemetry_enabled():
+        pytest.skip("Arrow not built with OpenTelemetry")
+    code = """if 1:
+        import pyarrow.flight as flight
+        from pyarrow.flight import FlightServerBase, FlightClient
+
+        class SimpleServer(FlightServerBase):
+            def do_action(self, context, action):
+                return []
+
+        with SimpleServer(
+            middleware={"otel": flight.TracingServerMiddlewareFactory()}
+        ) as server:
+            with FlightClient(('localhost', server.port)) as client:
+                list(client.do_action((b"", b"")))
+        """
+    env = os.environ.copy()
+    env['ARROW_TRACING_BACKEND'] = "ostream"
+    env['OTEL_SERVICE_NAME'] = "pyarrow-testing-service"
+    res = subprocess.run([sys.executable, "-c", code], env=env,
+                         capture_output=True)
+    assert res.returncode == 0, res.stderr
+    msg = "Expected service name in trace output"
+    assert b"service.name: pyarrow-testing-service" in res.stdout, msg
+
+
 def test_do_put_does_not_crash_when_schema_is_none():
     client = FlightClient('grpc+tls://localhost:9643',
                           disable_server_verification=True)
@@ -2536,3 +2765,97 @@ def test_headers_trailers():
         assert ("x-header-bin", b"header\x01value") in factory.headers
         assert ("x-trailer", "trailer-value") in factory.headers
         assert ("x-trailer-bin", b"trailer\x01value") in factory.headers
+
+
+def test_flight_dictionary_deltas_do_exchange():
+    expected_stats = {
+        'dict_deltas': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=1,
+            num_replaced_dictionaries=0
+        ),
+        'dict_replacement': ReadStats(
+            num_messages=6,
+            num_record_batches=3,
+            num_dictionary_batches=2,
+            num_dictionary_deltas=0,
+            num_replaced_dictionaries=1
+        )
+    }
+
+    class DeltaFlightServer(ConstantFlightServer):
+        def do_exchange(self, context, descriptor, reader, writer):
+            expected_table = simple_dicts_table()
+            received_table = reader.read_all()
+            assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[descriptor.command.decode()]
+            if descriptor.command == b'dict_deltas':
+                options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
+                writer.begin(expected_table.schema, options=options)
+                writer.write_table(expected_table)
+            if descriptor.command == b'dict_replacement':
+                writer.begin(expected_table.schema)
+                writer.write_table(expected_table)
+
+    with DeltaFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        expected_table = simple_dicts_table()
+        for command in ["dict_deltas", "dict_replacement"]:
+            descriptor = flight.FlightDescriptor.for_command(command)
+            writer, reader = client.do_exchange(
+                descriptor,
+                options=flight.FlightCallOptions(
+                    write_options=pa.ipc.IpcWriteOptions(
+                        emit_dictionary_deltas=True)
+                )
+            )
+            # Send client table with dictionary updates
+            with writer:
+                writer.begin(expected_table.schema, options=pa.ipc.IpcWriteOptions(
+                    emit_dictionary_deltas=(command == "dict_deltas")))
+                writer.write_table(expected_table)
+                writer.done_writing()
+                received_table = reader.read_all()
+
+            assert received_table.equals(expected_table)
+            assert reader.stats == expected_stats[command]
+
+
+@pytest.fixture
+def call_options_args(request):
+    if request.param == "default":
+        return {
+            "timeout": 3,
+            "headers": None,
+            "write_options": None,
+            "read_options": None,
+        }
+    elif request.param == "all":
+        return {
+            "timeout": 7,
+            "headers": [(b"abc", b"def")],
+            "write_options": pa.ipc.IpcWriteOptions(compression="zstd"),
+            "read_options": pa.ipc.IpcReadOptions(
+                use_threads=False,
+                ensure_alignment=pa.ipc.Alignment.DataTypeSpecific,
+            ),
+        }
+    else:
+        return {}
+
+
+@pytest.mark.parametrize(
+    "call_options_args", ["default", "all"], indirect=True)
+def test_call_options_repr(call_options_args):
+    # https://github.com/apache/arrow/issues/47358
+    call_options = FlightCallOptions(**call_options_args)
+    repr = call_options.__repr__()
+
+    for arg, val in call_options_args.items():
+        if val is None:
+            assert arg in repr
+            continue
+
+        assert f"{arg}={val}" in repr

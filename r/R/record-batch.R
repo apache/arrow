@@ -78,7 +78,8 @@
 #' @rdname RecordBatch-class
 #' @name RecordBatch
 #' @export
-RecordBatch <- R6Class("RecordBatch",
+RecordBatch <- R6Class(
+  "RecordBatch",
   inherit = ArrowTabular,
   public = list(
     column = function(i) RecordBatch__column(self, i),
@@ -203,7 +204,8 @@ cbind_check_length <- function(inputs, call = caller_env()) {
   if (!all(ok_lengths)) {
     first_bad_one <- which.min(ok_lengths)
     abort(
-      c("Non-scalar inputs must have an equal number of rows.",
+      c(
+        "Non-scalar inputs must have an equal number of rows.",
         i = sprintf("..1 has %d, ..%d has %d", sizes[[1]], first_bad_one, sizes[[first_bad_one]])
       ),
       call = call
@@ -232,14 +234,13 @@ cbind.RecordBatch <- function(...) {
     } else if (inherits(input, "data.frame")) {
       as.list(input)
     } else if (inherits(input, "Table") || inherits(input, "ChunkedArray")) {
-      abort("Cannot cbind a RecordBatch with Tables or ChunkedArrays",
+      abort(
+        "Cannot cbind a RecordBatch with Tables or ChunkedArrays",
         i = "Hint: consider converting the RecordBatch into a Table first"
       )
     } else {
       if (name == "") {
-        abort("Vector and array arguments must have names",
-          i = sprintf("Argument ..%d is missing a name", i)
-        )
+        abort("Vector and array arguments must have names", i = sprintf("Argument ..%d is missing a name", i))
       }
       list2("{name}" := input)
     }

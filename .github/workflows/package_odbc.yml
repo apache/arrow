@@ -1,0 +1,178 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Package Apache Arrow Flight SQL ODBC Driver
+
+on:
+  push:
+    tags:
+      - "apache-arrow-*-rc*"
+  workflow_dispatch:
+    inputs:
+      odbc_release_step:
+        description: 'ODBC MSI release step'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  # GH-49537 CPack only packages from a single build directory, so the build
+  # cannot be reused and we need to rebuild the MSI in a separate workflow. This
+  # means both the odbc-msvc-upload-dll and odbc-msvc-upload-msi jobs do a full build.
+  odbc-msvc-upload-dll:
+    name: ODBC Windows Upload Unsigned DLL
+    runs-on: windows-2022
+    if: github.event_name == 'push'
+    timeout-minutes: 240
+    permissions:
+      packages: write
+    env: &odbc_msvc_env
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_TYPE: release
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
+      ARROW_CSV: OFF
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
+      ARROW_HOME: /usr
+      CMAKE_GENERATOR: Ninja
+      CMAKE_INSTALL_PREFIX: /usr
+      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rename Unsigned ODBC DLL
+        run: |
+          Rename-Item `
+            -Path build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc.dll `
+            -NewName arrow_flight_sql_odbc_unsigned.dll
+      - name: Upload ODBC DLL to the job
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-dll
+          path: build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc_unsigned.dll
+          if-no-files-found: error
+
+  odbc-dll-release:
+    needs: odbc-msvc-upload-dll
+    name: Upload Unsigned ODBC DLL to Release
+    runs-on: ubuntu-latest
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download the artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-dll
+      - name: Wait for creating GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            arrow_flight_sql_odbc_unsigned.dll
+
+  odbc-msvc-upload-msi:
+    name: ODBC Windows Build & Upload Unsigned MSI
+    runs-on: windows-2022
+    if: inputs.odbc_release_step
+    timeout-minutes: 240
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+      packages: write
+    env: *odbc_msvc_env
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download signed ODBC DLL
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download $env:GITHUB_REF_NAME `
+          --pattern arrow_flight_sql_odbc.dll `
+          --clobber
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Replace unsigned DLL with signed DLL
+        run: |
+          Move-Item `
+          -Path ./arrow_flight_sql_odbc.dll `
+          -Destination build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc.dll `
+          -Force
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
+          Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
+          echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build MSI ODBC installer
+        shell: pwsh
+        run: |
+          # Verify WiX version
+          wix --version
+          cd build/cpp
+          cpack
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd build/cpp
+          gh release upload $env:GITHUB_REF_NAME `
+            --clobber `
+            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi

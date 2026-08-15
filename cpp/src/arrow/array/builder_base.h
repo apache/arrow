@@ -207,16 +207,6 @@ class ARROW_EXPORT ArrayBuilder {
   virtual std::shared_ptr<DataType> type() const = 0;
 
  protected:
-  /// Append to null bitmap
-  Status AppendToBitmap(bool is_valid);
-
-  /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
-  /// assume all of length bits are valid.
-  Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
-
-  /// Uniform append.  Append N times the same validity bit.
-  Status AppendToBitmap(int64_t num_bits, bool value);
-
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 

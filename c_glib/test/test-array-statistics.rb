@@ -45,8 +45,20 @@ class TestArrayStatistics < Test::Unit::TestCase
     end
   end
 
-  test("#null_count") do
-    assert_equal(1, @statistics.null_count)
+  test("#null_count_exact?") do
+    assert do
+      @statistics.null_count_exact?
+    end
+  end
+
+  test("#null_count_exact") do
+    assert_equal(1, @statistics.null_count_exact)
+  end
+
+  test("#null_count_approximate") do
+    assert do
+      @statistics.null_count_approximate.nan?
+    end
   end
 
   test("#has_distinct_count?") do

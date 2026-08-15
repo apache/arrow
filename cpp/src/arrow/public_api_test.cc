@@ -122,6 +122,8 @@ TEST(Misc, BuildInfo) {
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
 
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
+ARROW_SUPPRESS_DEPRECATION_WARNING
 TEST(Misc, SetTimezoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
@@ -150,7 +152,8 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
 
   // Validate that setting tzdb to that dir fails
-  arrow::GlobalOptions options = {std::make_optional(tempdir->path().ToString())};
+  arrow::GlobalOptions options;
+  options.timezone_db_path = std::make_optional(tempdir->path().ToString());
   ASSERT_NOT_OK(arrow::Initialize(options));
 
   // Copy tzdb data from ~/Downloads
@@ -163,5 +166,6 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK(arrow::Initialize(options));
 #endif
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace arrow

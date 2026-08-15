@@ -35,6 +35,8 @@
     Arrow*;
     # ARROW-14771: export Protobuf symbol table
     descriptor_table_Flight*_2eproto;
+    # Export Arrow Flight SQL ODBC symbols
+    SQL*;
 
   # Symbols marked as 'local' are not exported by the DSO and thus may not
   # be used by client applications.  Everything except the above falls here.

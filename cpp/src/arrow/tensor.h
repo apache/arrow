@@ -78,6 +78,10 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::vector<std::string>& dim_names);
 
 ARROW_EXPORT
+Status TableToTensor(const Table& table, bool null_to_nan, bool row_major,
+                     MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
+
+ARROW_EXPORT
 Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_major,
                            MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
 

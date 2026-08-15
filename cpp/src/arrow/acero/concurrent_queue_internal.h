@@ -113,7 +113,7 @@ class ConcurrentQueue {
 };
 
 template <typename T>
-class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
+class BackpressureConcurrentQueue : private ConcurrentQueue<T> {
  private:
   struct DoHandle {
     explicit DoHandle(BackpressureConcurrentQueue& queue)
@@ -134,6 +134,9 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
   explicit BackpressureConcurrentQueue(BackpressureHandler handler)
       : handler_(std::move(handler)) {}
 
+  using ConcurrentQueue<T>::Empty;
+  using ConcurrentQueue<T>::Front;
+
   // Pops the last item from the queue but waits if the queue is empty until new items are
   // pushed.
   T WaitAndPop() {
@@ -152,6 +155,7 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
 
   // Pushes an item to the queue
   void Push(const T& item) {
+    if (shutdown_) return;
     std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
     DoHandle do_handle(*this);
     ConcurrentQueue<T>::PushUnlocked(item);
@@ -164,10 +168,14 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
     ConcurrentQueue<T>::ClearUnlocked();
   }
 
-  Status ForceShutdown() { return handler_.ForceShutdown(); }
+  void ForceShutdown() {
+    shutdown_ = true;
+    Clear();
+  }
 
  private:
   BackpressureHandler handler_;
+  std::atomic<bool> shutdown_{false};
 };
 
 }  // namespace arrow::acero

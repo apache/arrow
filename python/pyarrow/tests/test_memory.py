@@ -30,9 +30,7 @@ import pytest
 pytestmark = pytest.mark.processes
 
 possible_backends = ["system", "jemalloc", "mimalloc"]
-# Backends which are expected to be present in all builds of PyArrow,
-# except if the user manually recompiled Arrow C++.
-mandatory_backends = ["system", "mimalloc"]
+mandatory_backends = ["system"]
 
 
 def backend_factory(backend_name):
@@ -40,9 +38,8 @@ def backend_factory(backend_name):
 
 
 def supported_factories():
-    yield pa.default_memory_pool
-    for backend_name in pa.supported_memory_backends():
-        yield backend_factory(backend_name)
+    factories = [pa.default_memory_pool]
+    return factories + [backend_factory(bn) for bn in pa.supported_memory_backends()]
 
 
 @contextlib.contextmanager

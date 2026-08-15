@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -30,7 +31,6 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -121,7 +121,7 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Construct a new std::string with a hexadecimal representation of the buffer.
   /// \return std::string
-  std::string ToHexString();
+  std::string ToHexString() const;
 
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes
@@ -236,8 +236,8 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Return the buffer's data as a span
   template <typename T>
-  util::span<const T> span_as() const {
-    return util::span(data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
+  std::span<const T> span_as() const {
+    return std::span(data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 
   /// \brief Return a writable pointer to the buffer's data
@@ -269,8 +269,8 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Return the buffer's mutable data as a span
   template <typename T>
-  util::span<T> mutable_span_as() {
-    return util::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
+  std::span<T> mutable_span_as() {
+    return std::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 
   /// \brief Return the device address of the buffer's data

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <iosfwd>
 #include <memory>
 #include <ostream>
 #include <string>

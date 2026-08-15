@@ -33,13 +33,13 @@ Gem::Specification.new do |spec|
   ]
   spec.version = version_components.compact.join(".")
   spec.homepage = "https://arrow.apache.org/"
-  spec.authors = ["Apache Arrow Developers"]
+  spec.authors = ["The Apache Software Foundation"]
   spec.email = ["dev@arrow.apache.org"]
 
   spec.summary = "Red Arrow is the Ruby bindings of Apache Arrow"
   spec.description =
     "Apache Arrow is a common in-memory columnar data store. " +
-    "It's useful to share and process large data."
+    "It's useful to share and process large data efficiently."
   spec.license = "Apache-2.0"
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
@@ -58,7 +58,7 @@ Gem::Specification.new do |spec|
     spec.requirements << "jar org.apache.arrow, arrow-vector, #{spec.version}"
     spec.requirements << "jar org.apache.arrow, arrow-memory-netty, #{spec.version}"
   else
-    spec.add_runtime_dependency("extpp", ">= 0.1.1")
+    spec.add_runtime_dependency("extpp", ">= 0.1.2")
     spec.add_runtime_dependency("gio2", ">= 4.2.3")
     spec.add_runtime_dependency("pkg-config")
 
@@ -97,6 +97,8 @@ Gem::Specification.new do |spec|
       ["debian", "libarrow-glib-dev"],
 
       ["fedora", "libarrow-glib-devel"],
+
+      ["homebrew", "apache-arrow-glib"],
 
       # Try without additional repository
       ["rhel", "arrow-glib-devel"],

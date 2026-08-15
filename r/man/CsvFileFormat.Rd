@@ -19,7 +19,7 @@ objects, this is not recommended as options set in these objects are not validat
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)

@@ -47,7 +47,6 @@ RUN \
     llvm-devel \
     llvm-static \
     lz4-devel \
-    make \
     ncurses-devel \
     ninja-build \
     openssl-devel \
@@ -60,9 +59,9 @@ RUN \
     snappy-devel \
     tar \
     thrift-devel \
+    unixODBC-devel \
     utf8proc-devel \
     vala \
     which \
-    xsimd-devel \
     zlib-devel && \
   dnf clean ${quiet} all

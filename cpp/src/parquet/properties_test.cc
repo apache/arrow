@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <limits>
+#include <optional>
 #include <string>
 
 #include "arrow/buffer.h"
@@ -24,6 +27,7 @@
 
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
+#include "parquet/test_util.h"
 
 namespace parquet {
 
@@ -81,9 +85,13 @@ TEST(TestWriterProperties, AdvancedHandling) {
 }
 
 TEST(TestWriterProperties, SetCodecOptions) {
+  constexpr int ZSTD_c_windowLog = 101;
+
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);
-  builder.compression("zstd", Compression::ZSTD);
+  auto zstd_codec_options = std::make_shared<::arrow::util::ZstdCodecOptions>();
+  zstd_codec_options->compression_context_params = {{ZSTD_c_windowLog, 23}};
+  builder.codec_options("zstd", zstd_codec_options);
   builder.compression("brotli", Compression::BROTLI);
   auto gzip_codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
   gzip_codec_options->compression_level = 5;
@@ -109,6 +117,104 @@ TEST(TestWriterProperties, SetCodecOptions) {
   ASSERT_EQ(20, std::dynamic_pointer_cast<::arrow::util::BrotliCodecOptions>(
                     props->codec_options(ColumnPath::FromDotString("brotli")))
                     ->window_bits);
+}
+
+TEST(TestWriterProperties, BloomFilterNdvDefaults) {
+  BloomFilterOptions options;
+  ASSERT_FALSE(options.ndv.has_value());
+  ASSERT_TRUE(options.fold);
+  options.fpp = 0.05;
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(12345, resolved->ndv.value());
+  ASSERT_EQ(options.fpp, resolved->fpp);
+  ASSERT_TRUE(resolved->fold);
+}
+
+TEST(TestWriterProperties, BloomFilterExplicitNdv) {
+  BloomFilterOptions options{.ndv = 777, .fpp = 0.05};
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(777, resolved->ndv.value());
+}
+
+TEST(TestWriterProperties, BloomFilterNdvDefaultWithoutFolding) {
+  BloomFilterOptions options{.ndv = std::nullopt, .fpp = 0.05, .fold = false};
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(12345, resolved->ndv.value());
+  ASSERT_EQ(options.fpp, resolved->fpp);
+  ASSERT_FALSE(resolved->fold);
+}
+
+TEST(TestWriterProperties, BloomFilterExplicitNdvWithoutFolding) {
+  BloomFilterOptions options{.ndv = 777, .fpp = 0.05, .fold = false};
+
+  auto props = WriterProperties::Builder()
+                   .max_row_group_length(12345)
+                   ->enable_bloom_filter("a", options)
+                   ->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(777, resolved->ndv.value());
+  ASSERT_FALSE(resolved->fold);
+}
+
+TEST(TestWriterProperties, BloomFilterRejectsNegativeNdv) {
+  BloomFilterOptions options{.ndv = -1, .fpp = 0.05};
+
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().enable_bloom_filter("a", options)->build(); },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("Bloom filter number of distinct values must be >= 0")));
+}
+
+TEST(TestWriterProperties, BloomFilterRejectsNanFpp) {
+  BloomFilterOptions options{.ndv = 777, .fpp = std::numeric_limits<double>::quiet_NaN()};
+
+  EXPECT_THROW_THAT(
+      [&]() { WriterProperties::Builder().enable_bloom_filter("a", options)->build(); },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr(
+              "Bloom filter false positive probability must be in (0.0, 1.0)")));
+}
+
+TEST(TestWriterProperties, BloomFilterAllowsZeroNdv) {
+  BloomFilterOptions options{.ndv = 0, .fpp = 0.05};
+
+  auto props = WriterProperties::Builder().enable_bloom_filter("a", options)->build();
+
+  const auto resolved = props->bloom_filter_options(ColumnPath::FromDotString("a"));
+  ASSERT_TRUE(resolved.has_value());
+  ASSERT_TRUE(resolved->ndv.has_value());
+  ASSERT_EQ(0, resolved->ndv.value());
 }
 
 TEST(TestWriterProperties, ContentDefinedChunkingSettings) {
@@ -143,11 +249,167 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
     FAIL() << "No exception raised";
   } catch (const ParquetException& e) {
     std::string ex_what =
-        ("Tried reading 15 bytes starting at position 12"
-         " from file but only got 9");
+        "IOError: File too short: expected to be able to read 15 bytes, got 9";
     ASSERT_EQ(ex_what, e.what());
   }
 }
+
+struct WriterPropertiesTestCase {
+  WriterPropertiesTestCase(std::shared_ptr<WriterProperties> props, std::string label)
+      : properties(std::move(props)), label(std::move(label)) {}
+
+  std::shared_ptr<WriterProperties> properties;
+  std::string label;
+};
+
+void PrintTo(const WriterPropertiesTestCase& p, std::ostream* os) { *os << p.label; }
+
+class WriterPropertiesTest : public testing::TestWithParam<WriterPropertiesTestCase> {};
+
+TEST_P(WriterPropertiesTest, RoundTripThroughBuilder) {
+  const std::shared_ptr<WriterProperties>& properties = GetParam().properties;
+  const std::vector<std::shared_ptr<ColumnPath>> columns{
+      ColumnPath::FromDotString("a"),
+      ColumnPath::FromDotString("b"),
+  };
+
+  const auto round_tripped = WriterProperties::Builder(*properties).build();
+
+  ASSERT_EQ(round_tripped->content_defined_chunking_enabled(),
+            properties->content_defined_chunking_enabled());
+  ASSERT_EQ(round_tripped->created_by(), properties->created_by());
+  ASSERT_EQ(round_tripped->data_pagesize(), properties->data_pagesize());
+  ASSERT_EQ(round_tripped->data_page_version(), properties->data_page_version());
+  ASSERT_EQ(round_tripped->dictionary_index_encoding(),
+            properties->dictionary_index_encoding());
+  ASSERT_EQ(round_tripped->dictionary_pagesize_limit(),
+            properties->dictionary_pagesize_limit());
+  ASSERT_EQ(round_tripped->file_encryption_properties(),
+            properties->file_encryption_properties());
+  ASSERT_EQ(round_tripped->max_rows_per_page(), properties->max_rows_per_page());
+  ASSERT_EQ(round_tripped->max_row_group_length(), properties->max_row_group_length());
+  ASSERT_EQ(round_tripped->memory_pool(), properties->memory_pool());
+  ASSERT_EQ(round_tripped->page_checksum_enabled(), properties->page_checksum_enabled());
+  ASSERT_EQ(round_tripped->size_statistics_level(), properties->size_statistics_level());
+  ASSERT_EQ(round_tripped->sorting_columns(), properties->sorting_columns());
+  ASSERT_EQ(round_tripped->store_decimal_as_integer(),
+            properties->store_decimal_as_integer());
+  ASSERT_EQ(round_tripped->write_batch_size(), properties->write_batch_size());
+  ASSERT_EQ(round_tripped->version(), properties->version());
+
+  const auto cdc_options = properties->content_defined_chunking_options();
+  const auto round_tripped_cdc_options =
+      round_tripped->content_defined_chunking_options();
+  ASSERT_EQ(round_tripped_cdc_options.min_chunk_size, cdc_options.min_chunk_size);
+  ASSERT_EQ(round_tripped_cdc_options.max_chunk_size, cdc_options.max_chunk_size);
+  ASSERT_EQ(round_tripped_cdc_options.norm_level, cdc_options.norm_level);
+
+  for (const auto& column : columns) {
+    const auto& column_properties = properties->column_properties(column);
+    const auto& round_tripped_col = round_tripped->column_properties(column);
+
+    ASSERT_EQ(round_tripped_col.compression(), column_properties.compression());
+    ASSERT_EQ(round_tripped_col.compression_level(),
+              column_properties.compression_level());
+    ASSERT_EQ(round_tripped_col.dictionary_enabled(),
+              column_properties.dictionary_enabled());
+    ASSERT_EQ(round_tripped_col.encoding(), column_properties.encoding());
+    ASSERT_EQ(round_tripped_col.max_statistics_size(),
+              column_properties.max_statistics_size());
+    ASSERT_EQ(round_tripped_col.page_index_enabled(),
+              column_properties.page_index_enabled());
+    ASSERT_EQ(round_tripped_col.statistics_enabled(),
+              column_properties.statistics_enabled());
+    const auto round_tripped_bloom_filter_options =
+        round_tripped_col.bloom_filter_options();
+    const auto bloom_filter_options = column_properties.bloom_filter_options();
+    ASSERT_EQ(round_tripped_bloom_filter_options.has_value(),
+              bloom_filter_options.has_value());
+    if (bloom_filter_options.has_value()) {
+      ASSERT_EQ(round_tripped_bloom_filter_options->ndv, bloom_filter_options->ndv);
+      ASSERT_EQ(round_tripped_bloom_filter_options->fpp, bloom_filter_options->fpp);
+      ASSERT_EQ(round_tripped_bloom_filter_options->fold, bloom_filter_options->fold);
+    }
+  }
+}
+
+std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
+  std::vector<WriterPropertiesTestCase> test_cases;
+
+  test_cases.emplace_back(default_writer_properties(), "default_properties");
+
+  {
+    WriterProperties::Builder builder;
+    const auto column_a = ColumnPath::FromDotString("a");
+
+    builder.created_by("parquet-cpp-properties-test");
+    builder.encoding(Encoding::BYTE_STREAM_SPLIT);
+    builder.compression(Compression::ZSTD);
+    builder.compression_level(2);
+    builder.disable_dictionary();
+    builder.disable_statistics();
+    builder.enable_content_defined_chunking();
+    builder.dictionary_pagesize_limit(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT - 1);
+    builder.write_batch_size(DEFAULT_WRITE_BATCH_SIZE - 1);
+    builder.max_row_group_length(DEFAULT_MAX_ROW_GROUP_LENGTH - 1);
+    builder.data_pagesize(kDefaultDataPageSize - 1);
+    builder.max_rows_per_page(kDefaultMaxRowsPerPage - 1);
+    builder.data_page_version(ParquetDataPageVersion::V2);
+    builder.version(ParquetVersion::type::PARQUET_2_4);
+    builder.enable_store_decimal_as_integer();
+    builder.disable_write_page_index();
+    builder.set_size_statistics_level(SizeStatisticsLevel::ColumnChunk);
+    builder.set_sorting_columns(
+        std::vector<SortingColumn>{SortingColumn{1, true, false}});
+
+    test_cases.emplace_back(builder.build(), "override_defaults");
+  }
+
+  const auto column_a = ColumnPath::FromDotString("a");
+  {
+    WriterProperties::Builder builder;
+    builder.disable_dictionary();
+    builder.enable_dictionary(column_a);
+    test_cases.emplace_back(builder.build(), "dictionary_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.disable_statistics();
+    builder.enable_statistics(column_a);
+    test_cases.emplace_back(builder.build(), "statistics_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.compression(Compression::SNAPPY);
+    builder.compression(column_a, Compression::UNCOMPRESSED);
+    builder.compression_level(column_a, 2);
+    test_cases.emplace_back(builder.build(), "compression_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.encoding(Encoding::UNDEFINED);
+    builder.encoding(column_a, Encoding::BYTE_STREAM_SPLIT);
+    test_cases.emplace_back(builder.build(), "encoding_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.disable_write_page_index();
+    builder.enable_write_page_index(column_a);
+    test_cases.emplace_back(builder.build(), "page_index_column_override");
+  }
+  {
+    WriterProperties::Builder builder;
+    builder.max_row_group_length(12345);
+    builder.enable_bloom_filter(
+        column_a, BloomFilterOptions{.ndv = std::nullopt, .fpp = 0.05, .fold = false});
+    test_cases.emplace_back(builder.build(), "bloom_filter_column_override");
+  }
+
+  return test_cases;
+}
+
+INSTANTIATE_TEST_SUITE_P(WriterPropertiesTest, WriterPropertiesTest,
+                         ::testing::ValuesIn(writer_properties_test_cases()));
 
 }  // namespace test
 }  // namespace parquet

@@ -214,10 +214,11 @@ test_apt() {
 
   case "$(arch)" in
     "x86_64")
-      for target in "debian:bookworm" \
-                    "debian:trixie" \
+      for target in "debian:trixie" \
+                    "debian:forky" \
                     "ubuntu:jammy" \
-                    "ubuntu:noble"; do \
+                    "ubuntu:noble" \
+                    "ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/x86_64 \
                --rm \
@@ -233,10 +234,11 @@ test_apt() {
       done
       ;;
     "aarch64")
-      for target in "arm64v8/debian:bookworm" \
-                    "arm64v8/debian:trixie" \
+      for target in "arm64v8/debian:trixie" \
+                    "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
-                    "arm64v8/ubuntu:noble"; do \
+                    "arm64v8/ubuntu:noble" \
+                    "arm64v8/ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/arm64 \
                --rm \
@@ -268,8 +270,7 @@ test_yum() {
                     "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "centos:7"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/x86_64 \
                --rm \
@@ -330,49 +331,6 @@ setup_tempdir() {
   echo "Working in sandbox ${ARROW_TMPDIR}"
 }
 
-install_csharp() {
-  # Install C# if doesn't already exist
-  if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
-    show_info "C# already installed $(which csharp) (.NET $(dotnet --version))"
-    return 0
-  fi
-
-  show_info "Ensuring that C# is installed..."
-
-  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
-    local csharp_bin=$(dirname $(which dotnet))
-    show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
-  else
-    if which dotnet > /dev/null 2>&1; then
-      show_info "dotnet found but it is the wrong version and will be ignored."
-    fi
-    local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=8.0.204
-    local dotnet_platform=
-    case "$(uname)" in
-      Linux)
-        dotnet_platform=linux
-        ;;
-      Darwin)
-        dotnet_platform=macos
-        ;;
-    esac
-    local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
-    local dotnet_download_url=$( \
-      curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'directLink' | \
-        grep -E -o 'https://builds.dotnet[^"]+' | \
-        sed -n 2p)
-    mkdir -p ${csharp_bin}
-    curl -sL ${dotnet_download_url} | \
-      tar xzf - -C ${csharp_bin}
-    PATH=${csharp_bin}:${PATH}
-    show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
-  fi
-
-  CSHARP_ALREADY_INSTALLED=1
-}
-
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
   show_info "Ensuring that Conda is installed..."
@@ -404,7 +362,7 @@ install_conda() {
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${CONDA_ENV:-source}"
-  local pyver=${PYTHON_VERSION:-3}
+  local pyver=${PYTHON_VERSION:-3.12}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     show_info "Configuring Conda environment..."
@@ -419,9 +377,10 @@ maybe_setup_conda() {
     if ! conda env list | cut -d" " -f 1 | grep $env; then
       mamba create -y -n $env python=${pyver}
     fi
-    # Install dependencies
+    # Install dependencies. Python version pinned so an unversioned
+    # python dependency does not replace it
     if [ $# -gt 0 ]; then
-      mamba install -y -n $env $@
+      mamba install -y -n $env python=${pyver} $@
     fi
     # Activate the environment
     conda activate $env
@@ -561,7 +520,15 @@ test_and_install_cpp() {
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
-  cmake --build . --target install
+  # On macOS, conda package-cache binaries intermittently fail to load their @rpath
+  # dependencies even though the libs are present. Add the env lib dir to the fallback
+  # path (searched last, to not override system libs) so they resolve.
+  # See https://github.com/conda-forge/cmake-feedstock/issues/230
+  if [ "$(uname)" = "Darwin" ] && [ "${USE_CONDA}" -gt 0 ] && [ -n "${CONDA_PREFIX:-}" ]; then
+    DYLD_FALLBACK_LIBRARY_PATH="${CONDA_PREFIX}/lib" cmake --build . --target install
+  else
+    cmake --build . --target install
+  fi
 
   if [ ${TEST_CPP} -gt 0 ]; then
     LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
@@ -578,14 +545,14 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv
+  maybe_setup_virtualenv -r python/requirements-build.txt
   maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   fi
 
-  export PYARROW_PARALLEL=$NPROC
+  export CMAKE_BUILD_PARALLEL_LEVEL=$NPROC
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_HDFS=1
   export PYARROW_WITH_ORC=1
@@ -610,7 +577,9 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python -m pip install -e .
+  python -m pip install --no-build-isolation .
+
+  popd
 
   # Check mandatory and optional imports
   python -c "
@@ -641,12 +610,10 @@ import pyarrow.parquet
 
 
   # Install test dependencies
-  pip install -r requirements-test.txt
+  pip install -r python/requirements-test.txt
 
   # Execute pyarrow unittests
-  pytest pyarrow -v
-
-  popd
+  pytest --pyargs pyarrow -v
 }
 
 test_glib() {
@@ -717,26 +684,6 @@ test_ruby() {
     bundle exec ruby test/run-test.rb
     popd
   done
-
-  popd
-}
-
-test_csharp() {
-  show_header "Build and test C# libraries"
-
-  install_csharp
-
-  pushd csharp
-
-  dotnet test
-
-  if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
-    dotnet pack -c Release
-  else
-    mv dummy.git ../.git
-    dotnet pack -c Release
-    mv ../.git dummy.git
-  fi
 
   popd
 }
@@ -841,10 +788,10 @@ test_source_distribution() {
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
-    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
   else
     NPROC=$(nproc)
-    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
   fi
 
   pushd $ARROW_SOURCE_DIR
@@ -870,9 +817,6 @@ test_source_distribution() {
     popd
   fi
 
-  if [ ${TEST_CSHARP} -gt 0 ]; then
-    test_csharp
-  fi
   if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
   fi
@@ -916,7 +860,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.9 3.10 3.11 3.12 3.13}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.11 3.12 3.13 3.14}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
@@ -955,11 +899,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.9 3.10 3.11 3.12 3.13"
+    local python_versions="3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_x86_64"
   fi
 
@@ -1060,7 +1004,6 @@ test_wheels() {
 # Source verification tasks
 : ${TEST_SOURCE_REPRODUCIBLE:=0}
 : ${TEST_CPP:=${TEST_SOURCE}}
-: ${TEST_CSHARP:=${TEST_SOURCE}}
 : ${TEST_GLIB:=${TEST_SOURCE}}
 : ${TEST_RUBY:=${TEST_SOURCE}}
 : ${TEST_PYTHON:=${TEST_SOURCE}}
@@ -1092,7 +1035,9 @@ TEST_SUCCESS=no
 
 setup_tempdir
 ensure_source_directory
-test_source_distribution
+# Run source tests in a subshell so environment variables
+# set for source testing aren't exposed to the binary tests.
+(test_source_distribution)
 test_binary_distribution
 
 TEST_SUCCESS=yes

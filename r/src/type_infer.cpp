@@ -72,6 +72,8 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<INTSXP>(SEXP x) {
     if (Rf_isNull(tzone_sexp)) {
       auto systzone_sexp = cpp11::package("base")["Sys.timezone"];
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(systzone_sexp(), 0)));
+    } else if (TYPEOF(tzone_sexp) != STRSXP) {
+      cpp11::stop("`tzone` attribute of a `POSIXct` vector must be a character vector");
     } else {
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(tzone_sexp, 0)));
     }
@@ -89,6 +91,8 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
     if (Rf_isNull(tzone_sexp)) {
       auto systzone_sexp = cpp11::package("base")["Sys.timezone"];
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(systzone_sexp(), 0)));
+    } else if (TYPEOF(tzone_sexp) != STRSXP) {
+      cpp11::stop("`tzone` attribute of a `POSIXct` vector must be a character vector");
     } else {
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(tzone_sexp, 0)));
     }
@@ -218,7 +222,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     cpp11::sexp type_result = cpp11::package("arrow")["infer_type"](
         x, cpp11::named_arg("from_array_infer_type") = true);
     if (!Rf_inherits(type_result, "DataType")) {
-      cpp11::stop("type() did not return an object of type DataType");
+      cpp11::stop("infer_type() did not return an object of type DataType");
     }
 
     return cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(type_result);

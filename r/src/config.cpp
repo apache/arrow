@@ -41,7 +41,9 @@ void set_timezone_database(cpp11::strings path) {
     cpp11::stop("Must provide a single path to the timezone database.");
   }
 
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   arrow::GlobalOptions options;
   options.timezone_db_path = std::make_optional(paths[0]);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   arrow::StopIfNotOk(arrow::Initialize(options));
 }

@@ -36,6 +36,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
+#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -512,7 +513,12 @@ class PyValue {
 
   static Status Convert(const FixedSizeBinaryType* type, const O&, I obj,
                         PyBytesView& view) {
-    ARROW_RETURN_NOT_OK(view.ParseString(obj));
+    // Check if obj is a uuid.UUID instance
+    if (internal::IsPyUuid(obj)) {
+      ARROW_RETURN_NOT_OK(view.ParseUuid(obj));
+    } else {
+      ARROW_RETURN_NOT_OK(view.ParseString(obj));
+    }
     if (view.size != type->byte_width()) {
       std::stringstream ss;
       ss << "expected to be length " << type->byte_width() << " was " << view.size;
@@ -577,6 +583,14 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
         });
   }
 };
+
+// Helper function to unwrap extension scalar to its storage scalar
+const Scalar& GetStorageScalar(const Scalar& scalar) {
+  if (scalar.type->id() == Type::EXTENSION) {
+    return *checked_cast<const ExtensionScalar&>(scalar).value;
+  }
+  return scalar;
+}
 
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
@@ -657,7 +671,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -678,7 +693,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -704,7 +720,8 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -741,7 +758,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -785,7 +803,7 @@ class PyDictionaryConverter<U, enable_if_has_c_type<U>>
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->value_builder_->AppendScalar(*scalar, 1);
+      return this->value_builder_->AppendScalar(GetStorageScalar(*scalar), 1);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
@@ -804,7 +822,7 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->value_builder_->AppendScalar(*scalar, 1);
+      return this->value_builder_->AppendScalar(GetStorageScalar(*scalar), 1);
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
@@ -890,12 +908,29 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendNdarray(PyObject* value) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(value);
-    if (PyArray_NDIM(ndarray) != 1) {
-      return Status::Invalid("Can only convert 1-dimensional array values");
-    }
     if (PyArray_ISBYTESWAPPED(ndarray)) {
       // TODO
       return Status::NotImplemented("Byte-swapped arrays not supported");
+    }
+    OwnedRef flattened;
+    if (PyArray_NDIM(ndarray) != 1) {
+      // GH-49644: a fixed-size list (e.g. fixed-shape-tensor storage) is built
+      // from a multi- or 0-dimensional array by flattening it in C order.
+      if (this->list_type_->id() != Type::FIXED_SIZE_LIST) {
+        return Status::Invalid("Can only convert 1-dimensional array values of ",
+                               this->list_type_->ToString(), " to a variable-sized list");
+      }
+      // Get an aligned, C-contiguous array (copying only if needed).
+      PyObject* contiguous =
+          PyArray_CheckFromAny(value, nullptr, /*min_depth=*/0, /*max_depth=*/0,
+                               NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, nullptr);
+      RETURN_IF_PYERROR();
+      flattened.reset(
+          PyArray_Ravel(reinterpret_cast<PyArrayObject*>(contiguous), NPY_CORDER));
+      Py_DECREF(contiguous);
+      RETURN_IF_PYERROR();
+      value = flattened.obj();
+      ndarray = reinterpret_cast<PyArrayObject*>(value);
     }
     const int64_t size = PyArray_SIZE(ndarray);
     RETURN_NOT_OK(AppendTo(this->list_type_, size));
@@ -977,7 +1012,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->struct_builder_->AppendScalar(*scalar);
+      return this->struct_builder_->AppendScalar(GetStorageScalar(*scalar));
     }
     switch (input_kind_) {
       case InputKind::DICT:
@@ -1224,6 +1259,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     OwnedRef iter_ref(iter);
     PyObject* lst = PyList_New(n);
     RETURN_IF_PYERROR();
+    OwnedRef lst_ref(lst);
     for (i = 0; i < n; i++) {
       PyObject* item = PyIter_Next(iter);
       if (!item) {
@@ -1235,10 +1271,9 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     }
     // Shrink list if len(iterator) < size
     if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
-      Py_DECREF(lst);
       RETURN_IF_PYERROR();
     }
-    *seq = lst;
+    *seq = lst_ref.detach();
     *size = std::min<int64_t>(i, *size);
   }
   return Status::OK();
@@ -1268,9 +1303,16 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   // In some cases, type inference may be "loose", like strings. If the user
   // passed pa.string(), then we will error if we encounter any non-UTF8
   // value. If not, then we will allow the result to be a BinaryArray
+  std::shared_ptr<DataType> extension_type;
   if (options.type == nullptr) {
     ARROW_ASSIGN_OR_RAISE(options.type, InferArrowType(seq, mask, options.from_pandas));
     options.strict = false;
+    // If type inference returned an extension type, convert using
+    // the storage type and then wrap the result as an extension array
+    if (options.type->id() == Type::EXTENSION) {
+      extension_type = options.type;
+      options.type = checked_cast<const ExtensionType&>(*options.type).storage_type();
+    }
   } else {
     options.strict = true;
   }
@@ -1278,6 +1320,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));
+  std::shared_ptr<ChunkedArray> result;
   if (converter->may_overflow()) {
     // The converter hierarchy contains binary- or list-like builders which can overflow
     // depending on the input values. Wrap the converter with a chunker which detects
@@ -1288,7 +1331,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     } else {
       RETURN_NOT_OK(chunked_converter->Extend(seq, size));
     }
-    return chunked_converter->ToChunkedArray();
+    ARROW_ASSIGN_OR_RAISE(result, chunked_converter->ToChunkedArray());
   } else {
     // If the converter can't overflow spare the capacity error checking on the hot-path,
     // this improves the performance roughly by ~10% for primitive types.
@@ -1297,8 +1340,13 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     } else {
       RETURN_NOT_OK(converter->Extend(seq, size));
     }
-    return converter->ToChunkedArray();
+    ARROW_ASSIGN_OR_RAISE(result, converter->ToChunkedArray());
   }
+  // If we inferred an extension type, wrap as an extension array
+  if (extension_type != nullptr) {
+    return ExtensionType::WrapArray(extension_type, result);
+  }
+  return result;
 }
 
 }  // namespace py

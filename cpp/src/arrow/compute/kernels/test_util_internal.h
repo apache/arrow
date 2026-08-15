@@ -155,10 +155,22 @@ void TestRandomPrimitiveCTypes() {
   DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI));
 }
 
+// Check that DispatchExact on a given function yields a valid Kernel
+void CheckDispatchExact(std::string func_name, std::vector<TypeHolder> types);
+
 // Check that DispatchBest on a given function yields the same Kernel as
 // produced by DispatchExact on another set of types
 void CheckDispatchBest(std::string func_name, std::vector<TypeHolder> types,
                        std::vector<TypeHolder> exact_types);
+
+// Check that DispatchBest on a given function yields a valid Kernel and casts the input
+// types as expected
+void CheckDispatchBestWithCastedTypes(std::string func_name,
+                                      std::vector<TypeHolder> types,
+                                      const std::vector<TypeHolder>& expected_types);
+
+// Check that function fails to produce a Kernel via DispatchExact for the set of types
+void CheckDispatchExactFails(std::string func_name, std::vector<TypeHolder> types);
 
 // Check that function fails to produce a Kernel for the set of types
 void CheckDispatchFails(std::string func_name, std::vector<TypeHolder> types);

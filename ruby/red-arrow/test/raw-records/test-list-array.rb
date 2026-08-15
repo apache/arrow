@@ -466,6 +466,63 @@ module RawRecordsListArrayTests
     assert_equal(records, actual_records(target))
   end
 
+  def test_large_list
+    records = [
+      [
+        [
+          [
+            true,
+            nil,
+          ],
+          nil,
+          [
+            nil,
+            false,
+          ],
+        ],
+      ],
+      [nil],
+    ]
+    target = build({
+                     type: :large_list,
+                     field: {
+                       name: :sub_element,
+                       type: :boolean,
+                     },
+                   },
+                   records)
+    assert_equal(records, actual_records(target))
+  end
+
+  def test_fixed_size_list
+    records = [
+      [
+        [
+          [
+            true,
+            nil,
+          ],
+          nil,
+          [
+            nil,
+            false,
+          ],
+        ],
+      ],
+      [nil],
+    ]
+    target = build({
+                     type: :fixed_size_list,
+                     field: {
+                       name: :sub_element,
+                       type: :boolean,
+                     },
+                     size: 2,
+                   },
+                   records)
+    assert_equal(records, actual_records(target))
+  end
+
   def test_struct
     records = [
       [

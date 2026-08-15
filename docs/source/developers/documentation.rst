@@ -32,6 +32,10 @@ If you're using Conda, the required software can be installed in a single line:
 
    conda install -c conda-forge --file=arrow/ci/conda_env_sphinx.txt
 
+.. note::
+
+   ``linuxdoc`` cannot be installed by Conda. It has to be installed via pip separately.
+
 Otherwise, you'll first need to install `Doxygen <http://www.doxygen.nl/>`_
 yourself (for example from your distribution's official repositories, if
 using Linux).  Then you can install the Python-based requirements with the
@@ -67,8 +71,9 @@ These two steps are mandatory and must be executed in order.
       this step requires that ``pyarrow`` library is installed
       in your python environment.  One way to accomplish
       this is to follow the build instructions at :ref:`python-development`
-      and then run ``python setup.py install`` in arrow/python
+      and then run ``pip install --no-build-isolation .`` in arrow/python
       (it is best to do this in a dedicated conda/virtual environment).
+      Add ``-vv`` to the pip command to get output of the build process.
 
       You can still build the documentation without ``pyarrow``
       library installed but note that Python part of the documentation

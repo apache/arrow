@@ -22,13 +22,13 @@ This multi-file data set is comprised of 158 distinct Parquet files, each corres
 If you have Amazon S3 support enabled in arrow (true for most users; see links at the end of this article if you need to troubleshoot this), you can connect to a copy of the "tiny taxi data" stored on S3 with this command:
 
 ```r
-bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi-tiny")
+bucket <- s3_bucket("arrow-datasets/nyc-taxi-tiny")
 ```
 
 Alternatively you could connect to a copy of the data on Google Cloud Storage (GCS) using the following command:
 
 ```r
-bucket <- gs_bucket("voltrondata-labs-datasets/nyc-taxi-tiny", anonymous = TRUE)
+bucket <- gs_bucket("arrow-datasets/nyc-taxi-tiny", anonymous = TRUE)
 ```
 
 If you want to use the full data set, replace `nyc-taxi-tiny` with `nyc-taxi` in the code above. Apart from size -- and with it the cost in time, bandwidth usage, and CPU cycles -- there is no difference in the two versions of the data: you can test your code using the tiny taxi data and then check how it scales using the full data set.
@@ -56,7 +56,7 @@ Two questions naturally follow from this: what kind of files does `open_dataset(
 By default `open_dataset()` looks for Parquet files but you can override this using the `format` argument. For example if the data were encoded as CSV files we could set `format = "csv"` to connect to the data. The Arrow Dataset interface supports several file formats including: 
 
 * `"parquet"` (the default)
-* `"feather"` or `"ipc"` (aliases for `"arrow"`; as Feather version 2 is the Arrow file format)
+* `"ipc"` or `"arrow"` (aliases for the Arrow IPC file format)
 * `"csv"` (comma-delimited files) and `"tsv"` (tab-delimited files)
 * `"text"` (generic text-delimited files - use the `delimiter` argument to specify which to use)
 
@@ -142,16 +142,16 @@ month: int32
 Now that we have a Dataset object that refers to our data, we can construct dplyr-style queries. This is possible because arrow supplies a back end that allows users to manipulate tabular Arrow data using dplyr verbs. Here's an example: suppose you are curious about tipping behavior in the longest taxi rides. Let's find the median tip percentage for rides with fares greater than $100 in 2015, broken down by the number of passengers:
 
 ```{r, eval = file.exists("nyc-taxi")}
-system.time(ds %>%
-  filter(total_amount > 100, year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
-  group_by(passenger_count) %>%
+system.time(ds |>
+  filter(total_amount > 100, year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  mutate(tip_pct = 100 * tip_amount / total_amount) |>
+  group_by(passenger_count) |>
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
-  ) %>%
-  collect() %>%
+  ) |>
+  collect() |>
   print())
 ```
 
@@ -183,11 +183,11 @@ There are three reasons arrow can accomplish this task so quickly:
 First, arrow adopts a lazy evaluation approach to queries: when dplyr verbs are called on the Dataset, they record their actions but do not evaluate those actions on the data until you run `collect()`. We can see this by taking the same code as before and leaving off the final step:
 
 ```{r, eval = file.exists("nyc-taxi")}
-ds %>%
-  filter(total_amount > 100, year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
-  group_by(passenger_count) %>%
+ds |>
+  filter(total_amount > 100, year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  mutate(tip_pct = 100 * tip_amount / total_amount) |>
+  group_by(passenger_count) |>
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
@@ -225,11 +225,11 @@ As an example, to randomly sample a Dataset, use `map_batches` to sample a
 percentage of rows from each batch:
 
 ```{r, eval = file.exists("nyc-taxi")}
-sampled_data <- ds %>%
-  filter(year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) %>%
-  mutate(tip_pct = tip_amount / total_amount) %>%
+sampled_data <- ds |>
+  filter(year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  map_batches(~ as_record_batch(sample_frac(as.data.frame(.), 1e-4))) |>
+  mutate(tip_pct = tip_amount / total_amount) |>
   collect()
 
 str(sampled_data)
@@ -253,19 +253,19 @@ and then use `map_batches` to compute the MSE on the full Dataset.
 ```{r, eval = file.exists("nyc-taxi")}
 model <- lm(tip_pct ~ total_amount + passenger_count, data = sampled_data)
 
-ds %>%
-  filter(year == 2015) %>%
-  select(tip_amount, total_amount, passenger_count) %>%
-  mutate(tip_pct = tip_amount / total_amount) %>%
+ds |>
+  filter(year == 2015) |>
+  select(tip_amount, total_amount, passenger_count) |>
+  mutate(tip_pct = tip_amount / total_amount) |>
   map_batches(function(batch) {
-    batch %>%
-      as.data.frame() %>%
-      mutate(pred_tip_pct = predict(model, newdata = .)) %>%
-      filter(!is.nan(tip_pct)) %>%
-      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) %>%
+    batch |>
+      as.data.frame() |>
+      mutate(pred_tip_pct = predict(model, newdata = .)) |>
+      filter(!is.nan(tip_pct)) |>
+      summarize(sse_partial = sum((pred_tip_pct - tip_pct)^2), n_partial = n()) |>
       as_record_batch()
-  }) %>%
-  summarize(mse = sum(sse_partial) / sum(n_partial)) %>%
+  }) |>
+  summarize(mse = sum(sse_partial) / sum(n_partial)) |>
   pull(mse)
 ```
 
@@ -322,7 +322,7 @@ instead of a file path, or concatenate them with a command like
 ## Writing Datasets
 
 As you can see, querying a large Dataset can be made quite fast by storage in an
-efficient binary columnar format like Parquet or Feather and partitioning based on
+efficient binary columnar format like Parquet or Arrow IPC and partitioning based on
 columns commonly used for filtering. However, data isn't always stored that way.
 Sometimes you might start with one giant CSV. The first step in analyzing data 
 is cleaning is up and reshaping it into a more usable form.
@@ -337,11 +337,11 @@ Assume that you have a version of the NYC Taxi data as CSV:
 ds <- open_dataset("nyc-taxi/csv/", format = "csv")
 ```
 
-You can write it to a new location and translate the files to the Feather format
+You can write it to a new location and translate the files to the Arrow IPC format
 by calling `write_dataset()` on it:
 
 ```r
-write_dataset(ds, "nyc-taxi/feather", format = "feather")
+write_dataset(ds, "nyc-taxi/ipc", format = "ipc")
 ```
 
 Next, let's imagine that the `payment_type` column is something you often filter
@@ -353,19 +353,19 @@ One natural way to express the columns you want to partition on is to use the
 `group_by()` method:
 
 ```r
-ds %>%
-  group_by(payment_type) %>%
-  write_dataset("nyc-taxi/feather", format = "feather")
+ds |>
+  group_by(payment_type) |>
+  write_dataset("nyc-taxi/ipc", format = "ipc")
 ```
 
 This will write files to a directory tree that looks like this:
 
 ```r
-system("tree nyc-taxi/feather")
+system("tree nyc-taxi/ipc")
 ```
 
 ```
-## feather
+## ipc
 ## ├── payment_type=1
 ## │   └── part-18.arrow
 ## ├── payment_type=2
@@ -389,9 +389,9 @@ and you just want to drop the rest and have a smaller working set.
 For this, you can `filter()` them out when writing:
 
 ```r
-ds %>%
-  filter(payment_type == "Cash") %>%
-  write_dataset("nyc-taxi/feather", format = "feather")
+ds |>
+  filter(payment_type == "Cash") |>
+  write_dataset("nyc-taxi/ipc", format = "ipc")
 ```
 
 The other thing you can do when writing Datasets is select a subset of columns 
@@ -399,10 +399,10 @@ or reorder them. Suppose you never care about `vendor_id`, and being a string co
 it can take up a lot of space when you read it in, so let's drop it:
 
 ```r
-ds %>%
-  group_by(payment_type) %>%
-  select(-vendor_id) %>%
-  write_dataset("nyc-taxi/feather", format = "feather")
+ds |>
+  group_by(payment_type) |>
+  select(-vendor_id) |>
+  write_dataset("nyc-taxi/ipc", format = "ipc")
 ```
 
 Note that while you can select a subset of columns,

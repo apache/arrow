@@ -308,7 +308,8 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// initialization, preallocation for fixed-width types, and default null
   /// handling (intersect validity bitmaps of inputs).
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                   ArrayKernelExec exec, KernelInit init = NULLPTR);
+                   ArrayKernelExec exec, KernelInit init = NULLPTR,
+                   std::shared_ptr<MatchConstraint> constraint = NULLPTR);
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.

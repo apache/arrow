@@ -20,12 +20,12 @@ Functionally, it is similar to \code{dplyr::explain()}. This function is used as
 the \code{dplyr::explain()} and \code{dplyr::show_query()} methods.
 }
 \examples{
-\dontshow{if (arrow_with_dataset() && requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() && requireNamespace("dplyr", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 library(dplyr)
-mtcars \%>\%
-  arrow_table() \%>\%
-  filter(mpg > 20) \%>\%
-  mutate(x = gear / carb) \%>\%
+mtcars |>
+  arrow_table() |>
+  filter(mpg > 20) |>
+  mutate(x = gear / carb) |>
   show_exec_plan()
 \dontshow{\}) # examplesIf}
 }

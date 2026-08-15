@@ -360,8 +360,9 @@ class OneShotFragment : public Fragment {
     ARROW_ASSIGN_OR_RAISE(
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
-    return MakeTransferredGenerator(std::move(background_gen),
-                                    ::arrow::internal::GetCpuThreadPool());
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    return MakeTransferredGenerator(std::move(background_gen), cpu_executor);
   }
   std::string type_name() const override { return "one-shot"; }
 
@@ -387,7 +388,7 @@ Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
@@ -395,7 +396,7 @@ Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesUnorderedAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, scan_options_->cpu_executor);
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
@@ -405,7 +406,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool(),
+  return ScanBatchesUnorderedAsync(scan_options_->cpu_executor
+                                       ? scan_options_->cpu_executor
+                                       : ::arrow::internal::GetCpuThreadPool(),
                                    /*sequence_fragments=*/false);
 }
 
@@ -606,7 +609,9 @@ Result<std::shared_ptr<Table>> AsyncScanner::Head(int64_t num_rows) {
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(::arrow::internal::GetCpuThreadPool());
+  return ScanBatchesAsync(scan_options_->cpu_executor
+                              ? scan_options_->cpu_executor
+                              : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
@@ -783,7 +788,9 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
 }
 
 Future<int64_t> AsyncScanner::CountRowsAsync() {
-  return CountRowsAsync(::arrow::internal::GetCpuThreadPool());
+  return CountRowsAsync(scan_options_->cpu_executor
+                            ? scan_options_->cpu_executor
+                            : ::arrow::internal::GetCpuThreadPool());
 }
 
 Result<int64_t> AsyncScanner::CountRows() {

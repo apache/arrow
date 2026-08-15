@@ -103,3 +103,8 @@ def s3_example_fs(s3_server):
     fs.create_dir("mybucket")
 
     yield fs, uri, path
+
+
+@pytest.fixture(scope="class")
+def reusable_tempdir(tmp_path_factory):
+    return tmp_path_factory.mktemp('pyarrow-parquet')

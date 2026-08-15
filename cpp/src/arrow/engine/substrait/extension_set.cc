@@ -175,7 +175,7 @@ void SubstraitCall::SetValueArg(int index, compute::Expression value_arg) {
   value_args_[index] = std::move(value_arg);
 }
 
-std::optional<std::vector<std::string> const*> SubstraitCall::GetOption(
+std::optional<const std::vector<std::string>*> SubstraitCall::GetOption(
     std::string_view option_name) const {
   auto opt = options_.find(std::string(option_name));
   if (opt == options_.end()) {
@@ -762,11 +762,11 @@ Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view optio
                                const EnumParser<Enum>& parser,
                                const std::vector<Enum>& implemented_options,
                                Enum fallback) {
-  std::optional<std::vector<std::string> const*> enum_arg = call.GetOption(option_name);
+  std::optional<const std::vector<std::string>*> enum_arg = call.GetOption(option_name);
   if (!enum_arg.has_value()) {
     return fallback;
   }
-  std::vector<std::string> const* prefs = *enum_arg;
+  const std::vector<std::string>* prefs = *enum_arg;
   for (const std::string& pref : *prefs) {
     ARROW_ASSIGN_OR_RAISE(Enum parsed, parser.Parse(pref));
     for (Enum implemented_opt : implemented_options) {

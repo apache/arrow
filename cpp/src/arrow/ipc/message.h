@@ -419,6 +419,11 @@ class ARROW_EXPORT MessageDecoder {
   /// \return the current state
   State state() const;
 
+  /// \brief Return the number of bytes buffered in the decoder.
+  ///
+  /// This method is mainly useful for testing and debugging.
+  int64_t buffered_size() const;
+
  private:
   class MessageDecoderImpl;
   std::unique_ptr<MessageDecoderImpl> impl_;
@@ -449,13 +454,16 @@ class ARROW_EXPORT MessageReader {
 // org::apache::arrow::flatbuf::RecordBatch*)
 using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessFile*)>;
 
-/// \brief Read encapsulated RPC message from position in file
+/// \brief Read encapsulated IPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset. If the message has a body with non-zero length, it will also be
-/// read
+/// read.
 ///
-/// The metadata_length includes at least the length prefix and the flatbuffer
+/// The metadata_length includes the IPC encapsulation prefix and the
+/// Flatbuffers-serialized message.
+///
+/// This function should only be used when a RecordBatch message is expected.
 ///
 /// \param[in] offset the position in the file where the message starts. The
 /// first 4 bytes after the offset are the message length
@@ -469,7 +477,28 @@ Result<std::unique_ptr<Message>> ReadMessage(
     const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader = {});
 
-/// \brief Read encapsulated RPC message from cached buffers
+/// \brief Read encapsulated IPC message from position in file
+///
+/// Read a length-prefixed message flatbuffer starting at the indicated file
+/// offset.
+///
+/// The metadata_length includes the IPC encapsulation prefix and the
+/// Flatbuffers-serialized message.
+///
+/// \param[in] offset the position in the file where the message starts. The
+/// first 4 bytes after the offset are the message length
+/// \param[in] metadata_length the total number of bytes to read from file
+/// \param[in] body_length the number of bytes for the message body
+/// \param[in] file the seekable file interface to read from
+/// \return the message read
+
+ARROW_EXPORT
+Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
+                                             const int32_t metadata_length,
+                                             const int64_t body_length,
+                                             io::RandomAccessFile* file);
+
+/// \brief Read encapsulated IPC message from cached buffers
 ///
 /// The buffers should contain an entire message.  Partial reads are not handled.
 ///
@@ -558,6 +587,7 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* stream);
 /// \param[out] message_length the total size of the payload written including
 /// padding
 /// \return Status
+ARROW_EXPORT
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length);
 

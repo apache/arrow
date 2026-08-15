@@ -259,6 +259,11 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CStatus ConfigureClientSecretCredential(c_string tenant_id,
                                                 c_string client_id,
                                                 c_string client_secret)
+        c_string SasToken()
+        c_string AccountKey()
+        c_string TenantId()
+        c_string ClientId()
+        c_string ClientSecret()
 
     cdef cppclass CAzureFileSystem "arrow::fs::AzureFileSystem":
         @staticmethod

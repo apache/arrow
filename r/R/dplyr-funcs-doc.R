@@ -19,9 +19,9 @@
 
 #' Functions available in Arrow dplyr queries
 #'
-#' The `arrow` package contains methods for 37 `dplyr` table functions, many of
+#' The `arrow` package contains methods for 38 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 222 R functions to the corresponding
+#' The package also has mappings of 229 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -45,6 +45,7 @@
 #' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` returns a non-missing value if present, only returning missing values if all are missing.
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
+#' * [`filter_out()`][dplyr::filter_out()]
 #' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
@@ -83,7 +84,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 280 compute
+#' In addition to these functions, you can call any of Arrow's 281 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -99,24 +100,24 @@
 #'
 #' ## base
 #'
-#' * [`!`][!()]
-#' * [`!=`][!=()]
-#' * [`%%`][%%()]
-#' * [`%/%`][%/%()]
-#' * [`%in%`][%in%()]
-#' * [`&`][&()]
-#' * [`*`][*()]
-#' * [`+`][+()]
-#' * [`-`][-()]
-#' * [`/`][/()]
-#' * [`<`][<()]
-#' * [`<=`][<=()]
-#' * [`==`][==()]
-#' * [`>`][>()]
-#' * [`>=`][>=()]
+#' * [`!`][base::!()]
+#' * [`!=`][base::!=()]
+#' * [`%%`][base::%%()]
+#' * [`%/%`][base::%/%()]
+#' * [`%in%`][base::%in%()]
+#' * [`&`][base::&()]
+#' * [`*`][base::*()]
+#' * [`+`][base::+()]
+#' * [`-`][base::-()]
+#' * [`/`][base::/()]
+#' * [`<`][base::<()]
+#' * [`<=`][base::<=()]
+#' * [`==`][base::==()]
+#' * [`>`][base::>()]
+#' * [`>=`][base::>=()]
 #' * [`ISOdate()`][base::ISOdate()]
 #' * [`ISOdatetime()`][base::ISOdatetime()]
-#' * [`^`][^()]
+#' * [`^`][base::^()]
 #' * [`abs()`][base::abs()]
 #' * [`acos()`][base::acos()]
 #' * [`acosh()`][base::acosh()]
@@ -194,7 +195,7 @@
 #' * [`tolower()`][base::tolower()]
 #' * [`toupper()`][base::toupper()]
 #' * [`trunc()`][base::trunc()]
-#' * [`|`][|()]
+#' * [`|`][base::|()]
 #'
 #' ## bit64
 #'
@@ -213,11 +214,16 @@
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
+#' * [`recode_values()`][dplyr::recode_values()]: `ptype` argument and `unmatched = "error"` not supported
+#' * [`replace_values()`][dplyr::replace_values()]
+#' * [`replace_when()`][dplyr::replace_when()]
+#' * [`when_all()`][dplyr::when_all()]
+#' * [`when_any()`][dplyr::when_any()]
 #'
 #' ## hms
 #'
-#' * [`as_hms()`][hms::as_hms()]
-#' * [`hms()`][hms::hms()]
+#' * [`as_hms()`][hms::as_hms()]: subsecond precision not supported for character input
+#' * [`hms()`][hms::hms()]: nanosecond times not supported
 #'
 #' ## lubridate
 #'
@@ -235,17 +241,17 @@
 #' * [`dmilliseconds()`][lubridate::dmilliseconds()]
 #' * [`dminutes()`][lubridate::dminutes()]
 #' * [`dmonths()`][lubridate::dmonths()]
-#' * [`dmy()`][lubridate::dmy()]: `locale` argument not supported
-#' * [`dmy_h()`][lubridate::dmy_h()]: `locale` argument not supported
-#' * [`dmy_hm()`][lubridate::dmy_hm()]: `locale` argument not supported
-#' * [`dmy_hms()`][lubridate::dmy_hms()]: `locale` argument not supported
+#' * [`dmy()`][lubridate::dmy()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`dmy_h()`][lubridate::dmy_h()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`dmy_hm()`][lubridate::dmy_hm()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`dmy_hms()`][lubridate::dmy_hms()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
 #' * [`dnanoseconds()`][lubridate::dnanoseconds()]
 #' * [`dpicoseconds()`][lubridate::dpicoseconds()]: not supported
 #' * [`dseconds()`][lubridate::dseconds()]
 #' * [`dst()`][lubridate::dst()]
 #' * [`dweeks()`][lubridate::dweeks()]
 #' * [`dyears()`][lubridate::dyears()]
-#' * [`dym()`][lubridate::dym()]: `locale` argument not supported
+#' * [`dym()`][lubridate::dym()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
 #' * [`epiweek()`][lubridate::epiweek()]
 #' * [`epiyear()`][lubridate::epiyear()]
 #' * [`fast_strptime()`][lubridate::fast_strptime()]: non-default values of `lt` and `cutoff_2000` not supported
@@ -267,17 +273,17 @@
 #' * [`make_difftime()`][lubridate::make_difftime()]: only supports `units = "secs"` (the default);
 #' providing both `num` and `...` is not supported
 #' * [`mday()`][lubridate::mday()]
-#' * [`mdy()`][lubridate::mdy()]: `locale` argument not supported
-#' * [`mdy_h()`][lubridate::mdy_h()]: `locale` argument not supported
-#' * [`mdy_hm()`][lubridate::mdy_hm()]: `locale` argument not supported
-#' * [`mdy_hms()`][lubridate::mdy_hms()]: `locale` argument not supported
+#' * [`mdy()`][lubridate::mdy()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`mdy_h()`][lubridate::mdy_h()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`mdy_hm()`][lubridate::mdy_hm()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`mdy_hms()`][lubridate::mdy_hms()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
 #' * [`minute()`][lubridate::minute()]
 #' * [`month()`][lubridate::month()]
-#' * [`my()`][lubridate::my()]: `locale` argument not supported
-#' * [`myd()`][lubridate::myd()]: `locale` argument not supported
+#' * [`my()`][lubridate::my()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`myd()`][lubridate::myd()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
 #' * [`parse_date_time()`][lubridate::parse_date_time()]: `quiet = FALSE` is not supported
 #' Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
-#' On Linux and OS X additionally a, A, b, B, Om, p, r are available.
+#' On Linux and macOS additionally a, A, b, B, Om, p, r are available.
 #' * [`pm()`][lubridate::pm()]
 #' * [`qday()`][lubridate::qday()]
 #' * [`quarter()`][lubridate::quarter()]
@@ -289,17 +295,17 @@
 #' * [`week()`][lubridate::week()]
 #' * [`with_tz()`][lubridate::with_tz()]
 #' * [`yday()`][lubridate::yday()]
-#' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported
-#' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported
-#' * [`ydm_hm()`][lubridate::ydm_hm()]: `locale` argument not supported
-#' * [`ydm_hms()`][lubridate::ydm_hms()]: `locale` argument not supported
+#' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ydm_hm()`][lubridate::ydm_hm()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ydm_hms()`][lubridate::ydm_hms()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
 #' * [`year()`][lubridate::year()]
-#' * [`ym()`][lubridate::ym()]: `locale` argument not supported
-#' * [`ymd()`][lubridate::ymd()]: `locale` argument not supported
-#' * [`ymd_h()`][lubridate::ymd_h()]: `locale` argument not supported
-#' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported
-#' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported
-#' * [`yq()`][lubridate::yq()]: `locale` argument not supported
+#' * [`ym()`][lubridate::ym()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ymd()`][lubridate::ymd()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ymd_h()`][lubridate::ymd_h()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
+#' * [`yq()`][lubridate::yq()]: `locale` argument not supported; see docs for `parse_date_time()` mapping for supported formats
 #'
 #' ## methods
 #'
@@ -334,6 +340,7 @@
 #' * [`str_detect()`][stringr::str_detect()]
 #' * [`str_dup()`][stringr::str_dup()]
 #' * [`str_ends()`][stringr::str_ends()]
+#' * [`str_ilike()`][stringr::str_ilike()]
 #' * [`str_length()`][stringr::str_length()]
 #' * [`str_like()`][stringr::str_like()]
 #' * [`str_pad()`][stringr::str_pad()]
@@ -341,6 +348,7 @@
 #' * [`str_remove_all()`][stringr::str_remove_all()]
 #' * [`str_replace()`][stringr::str_replace()]
 #' * [`str_replace_all()`][stringr::str_replace_all()]
+#' * [`str_replace_na()`][stringr::str_replace_na()]
 #' * [`str_split()`][stringr::str_split()]: Case-insensitive string splitting and splitting into 0 parts not supported
 #' * [`str_starts()`][stringr::str_starts()]
 #' * [`str_sub()`][stringr::str_sub()]: `start` and `end` must be length 1

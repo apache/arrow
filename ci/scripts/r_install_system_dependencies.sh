@@ -19,34 +19,44 @@
 
 set -ex
 
-: ${ARROW_SOURCE_HOME:=/arrow}
+: "${ARROW_SOURCE_HOME:=/arrow}"
 
 # Figure out what package manager we have
-if [ "`which dnf`" ]; then
+if [ "$(which dnf)" ]; then
   PACKAGE_MANAGER=dnf
-elif [ "`which yum`" ]; then
+elif [ "$(which yum)" ]; then
   PACKAGE_MANAGER=yum
-elif [ "`which zypper`" ]; then
+elif [ "$(which zypper)" ]; then
   PACKAGE_MANAGER=zypper
+elif [ "$(which apk)" ]; then
+  PACKAGE_MANAGER=apk
 else
   PACKAGE_MANAGER=apt-get
   apt-get update
 fi
 
-# Install curl and OpenSSL (technically, only needed for S3/GCS support, but
-# installing the R curl package fails without it)
+# Install curl, OpenSSL, libuv, and libxml2
+# - curl/OpenSSL: technically only needed for S3/GCS support, but
+#   installing the R curl package fails without it
+# - libpng: required by the png R package
+# - libuv: required by the fs R package (no longer bundles libuv by default)
+# - libxml2: the bundled Azure C++ SDK links against libxml2, so the final
+#   link of arrow.so needs it (even when installing a prebuilt libarrow binary)
 case "$PACKAGE_MANAGER" in
   apt-get)
-    apt-get install -y libcurl4-openssl-dev libssl-dev
+    apt-get install -y libcurl4-openssl-dev libpng-dev libssl-dev libuv1-dev libxml2-dev
+    ;;
+  apk)
+    "$PACKAGE_MANAGER" add curl-dev openssl-dev libuv-dev libxml2-dev
     ;;
   *)
-    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
+    "$PACKAGE_MANAGER" install -y libcurl-devel openssl-devel libuv-devel libxml2-devel
     ;;
 esac
 
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   # The Dockerfile should have put this file here
-  if [ "$ARROW_S3" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
+  if [ "$ARROW_S3" == "ON" ] && [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" ] && [ "$(which wget)" ]; then
     "${ARROW_SOURCE_HOME}/ci/scripts/install_minio.sh" latest /usr/local
   fi
 
@@ -54,13 +64,18 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
     case "$PACKAGE_MANAGER" in
       zypper)
         # python3 is Python 3.6 on OpenSUSE 15.3.
-        # PyArrow supports Python 3.9 or later.
-        $PACKAGE_MANAGER install -y python39-pip
-        ln -s /usr/bin/python3.9 /usr/local/bin/python
-        ln -s /usr/bin/pip3.9 /usr/local/bin/pip
+        # PyArrow supports Python 3.11 or later.
+        "$PACKAGE_MANAGER" install -y python311-pip
+        ln -s /usr/bin/python3.11 /usr/local/bin/python
+        ln -s /usr/bin/pip3.11 /usr/local/bin/pip
+        ;;
+      apk)
+        "$PACKAGE_MANAGER" add py3-pip
+        ln -s /usr/bin/python3 /usr/local/bin/python
+        ln -s /usr/bin/pip3 /usr/local/bin/pip
         ;;
       *)
-        $PACKAGE_MANAGER install -y python3-pip
+        "$PACKAGE_MANAGER" install -y python3-pip
         ln -s /usr/bin/python3 /usr/local/bin/python
         ln -s /usr/bin/pip3 /usr/local/bin/pip
         ;;

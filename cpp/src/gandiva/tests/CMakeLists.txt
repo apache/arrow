@@ -20,6 +20,7 @@ add_gandiva_test(projector-test
                  binary_test.cc
                  boolean_expr_test.cc
                  date_time_test.cc
+                 decimal_alignment_test.cc
                  decimal_single_test.cc
                  decimal_test.cc
                  filter_project_test.cc
@@ -50,6 +51,24 @@ if(ARROW_BUILD_STATIC)
                       "gandiva"
                       EXTRA_LINK_LIBS
                       gandiva_static)
+
+  # Calls the precompiled REPLACE functions directly, so it compiles
+  # string_ops.cc/context_helper.cc with GANDIVA_UNIT_TEST=1 (which exposes them
+  # as linkable symbols). Only built when ARROW_BUILD_BENCHMARKS is ON.
+  add_arrow_benchmark(string_ops_benchmark
+                      SOURCES
+                      string_ops_benchmark.cc
+                      ../precompiled/string_ops.cc
+                      PREFIX
+                      "gandiva"
+                      EXTRA_LINK_LIBS
+                      gandiva_static)
+  if(TARGET gandiva-string-ops-benchmark)
+    target_compile_definitions(gandiva-string-ops-benchmark
+                               PRIVATE GANDIVA_UNIT_TEST=1 ARROW_STATIC GANDIVA_STATIC)
+    target_include_directories(gandiva-string-ops-benchmark SYSTEM
+                               PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  endif()
 endif()
 
 add_subdirectory(external_functions)

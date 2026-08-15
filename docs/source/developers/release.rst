@@ -38,7 +38,18 @@ The Apache Arrow Release follows the guidelines defined at the
 Preparing for the release
 =========================
 
-Before creating a source release, the Release Manager must ensure that any
+In advance to the Release date the Release Manager communicates with the community
+usually via Zulip, Mailing List or the bi-weekly community call about the
+upcoming release and proposes a feature freeze date.
+
+The feature freeze date is the date the maintenance branch is created and
+from that point no new features are allowed to be added to the release, unless there
+is community consensus to allow it, and only bug fixes will be accepted.
+
+Once the feature freeze is in place issues labelled as ``blocker`` must be resolved before
+the first release candidate can be created.
+
+Before creating a release candidate, the Release Manager must ensure that any
 resolved GitHub issues have the appropriate milestone set so that the changelog
 is generated properly.
 
@@ -58,7 +69,7 @@ default branch after the release maintenance branch has been created.
 
     - Install the :ref:`Archery <archery>` utility which is required for the release.
     - You must not have any arrow-cpp or parquet-cpp environment variables defined except CC or CXX if you want to build with something other than GCC by default (e.g. clang).
-    - A GPG key in the Apache Web of Trust to sign artifacts. This will have to be cross signed by other Apache committers/PMC members. If you have multiple GPG keys, you must set the correct GPG key ID in ``~/.gnupg/gpg.conf`` by adding:
+    - A GPG key in the Apache Web of Trust to sign binary artifacts. This will have to be cross signed by other Apache committers/PMC members. If you have multiple GPG keys, you must set the correct GPG key ID in ``~/.gnupg/gpg.conf`` by adding:
 
     .. code-block::
 
@@ -71,6 +82,7 @@ default branch after the release maintenance branch has been created.
     - Create dev/release/.env from dev/release/.env.example. See the comments in dev/release/.env.example how to set each variable.
     - Setup :ref:`Crossbow<Crossbow>` as defined.
     - Have Docker and Docker Compose installed.
+    - Have GitHub CLI installed.
 
 
 Before creating a Release Candidate
@@ -84,7 +96,7 @@ assigned.
     # Delete the local tag for RC1 or later
     git tag -d apache-arrow-<version>
 
-    # Setup gpg agent for signing artifacts
+    # Setup gpg agent for signing binary artifacts
     source dev/release/setup-gpg-agent.sh
 
     # Curate the release
@@ -130,22 +142,21 @@ Creating a Release Candidate
 These are the different steps that are required to create a Release Candidate.
 
 For the initial Release Candidate on a major release, we will create a maintenance
-branch from main.
+branch from main. This is done on the feature freeze date.
 
 Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
 
 For the initial Release Candidate for a minor or a patch release we will create
-a maintenance branch from the previous corresponding release. For example,
-for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and for
-a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is
-created we will update the created maintenance branch by cherry-picking specific
-commits.
+a maintenance branch from the previous corresponding release tag. For example,
+for a 25.0.1 patch we will create the maintenance branch from the
+``apache-arrow-25.0.0``. This is automatically done by ``archery release cherry-pick``.
+The maintenance branch is named after the release series, not after the exact version being
+released, for example for patch release (``25.0.1``) the maintenance branch will be
+``maint-25.0.x``.
 
-We have implemented a Feature Freeze policy between Release Candidates.
-This means that, in general, we should only add bug fixes between Release Candidates.
-In rare cases, critical features can be added between Release Candidates, if
-there is community consensus.
+If further patch releases are prepared, i.e., 25.0.2 it will be created on the same
+``maint-25.0.x`` branch.
 
 Create or update the corresponding maintenance branch
 -----------------------------------------------------
@@ -157,12 +168,12 @@ Create or update the corresponding maintenance branch
       .. code-block::
 
             # Execute the following from an up to date main branch.
-            # This will create a branch locally called maint-X.Y.Z.
+            # This will create the maintenance branch locally.
             # X.Y.Z corresponds with the Major, Minor and Patch version number
             # of the release respectively. As an example 9.0.0
             archery release cherry-pick X.Y.Z --execute
             # Push the maintenance branch to the remote repository
-            git push -u apache maint-X.Y.Z
+            git push -u upstream <maintenance-branch>
 
    .. tab-item:: Follow up Release Candidates
 
@@ -175,7 +186,7 @@ Create or update the corresponding maintenance branch
             # Update the maintenance branch with the previous commits
             archery release cherry-pick X.Y.Z --continue --execute
             # Push the updated maintenance branch to the remote repository
-            git push -u apache maint-X.Y.Z
+            git push -u upstream <maintenance-branch>
 
 Optional: Test Before Creating a Release Candidate
 --------------------------------------------------
@@ -186,8 +197,8 @@ a given release.
 
 To test before creating a release candidate:
 
-* Create a pull request from the up-to-date maint-X.Y.Z branch onto main
-* Title the pull request "WIP: Dummy PR to check maint-X.Y.Z status"
+* Create a pull request from the up-to-date ``<maintenance-branch>`` onto main
+* Title the pull request "WIP: Dummy PR to check <maintenance-branch> status"
 * Comment on the pull request to trigger the relevant Crossbow jobs:
 
   * ``@github-actions crossbow submit --group verify-rc-source``
@@ -199,7 +210,7 @@ Create the Release Candidate branch from the updated maintenance branch
 .. code-block::
 
     # Start from the updated maintenance branch.
-    git checkout maint-X.Y.Z
+    git checkout <maintenance-branch>
 
     # The following script will create a branch for the Release Candidate,
     # place the necessary commits updating the version number and then create a git tag
@@ -210,16 +221,23 @@ Create the Release Candidate branch from the updated maintenance branch
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
 
     # Push the release candidate tag
-    git push -u apache apache-arrow-<version>-rc<rc-number>
+    git push -u upstream apache-arrow-<version>-rc<rc-number>
     # Push the release candidate branch in order to trigger verification jobs later
-    git push -u apache release-<version>-rc<rc-number>
+    git push -u upstream release-<version>-rc<rc-number>
+
+
+Once the tag is created the GitHub Actions workflow on ``verify-rc.yml`` will be triggered to verify
+the release candidate.
+
+The ``release_candidate.yml`` workflow will also be triggered which will sign the source code
+for the release and will create a GitHub pre-release with the corresponding source and signatures.
 
 Build source and binaries and submit them
 -----------------------------------------
 
 .. code-block::
 
-    # Build the source release tarball and create Pull Request with verification tasks
+    # Waits for previous workflows to finish and uploads source and signatures to SVN.
     #
     # NOTE: This must be run by a PMC member
     # NOTE: You need to have GitHub CLI installed to run this script.
@@ -232,7 +250,8 @@ Build source and binaries and submit them
     archery crossbow status <crossbow-build-id>
 
     # Download the produced binaries
-    # This will download packages to a directory called packages/release-<version>-rc<rc-number>
+    # This will download packages generated from the archery tasks
+    # to a directory called packages/release-<version>-rc<rc-number>
     dev/release/04-binary-download.sh <version> <rc-number>
 
     # Sign and upload the binaries
@@ -249,8 +268,25 @@ Build source and binaries and submit them
     # NOTE: You need to have GitHub CLI installed to run this script.
     dev/release/06-matlab-upload.sh <version> <rc-number>
 
+    # Sign, build the installer for, and sign the installer for the FlightSQL
+    # ODBC Windows driver
+    #
+    # NOTE: This must be run by a PMC member
+    # Note: You need to have jsign installed and an available credential from
+    # ASF to sign artifacts. Not all PMC members will have access to code
+    # signing.
+    # Note: The script requires setup of ssl.com environment variables.
+    # Note: Invoking this script costs money.
+    dev/release/07-flightsqlodbc-upload.sh <version> <rc-number>
+
+    # Move the Release Candidate GitHub Release from draft to published state
+    # This will update the artifacts download URL which will be available for the
+    # verification step.
+    dev/release/08-publish-gh-release.sh <version> <rc-number>
+
     # Start verifications for binaries and wheels
-    dev/release/07-binary-verify.sh <version> <rc-number>
+    dev/release/09-binary-verify.sh <version> <rc-number>
+
 
 Verify the Release
 ------------------
@@ -259,7 +295,7 @@ Verify the Release
 
     # Once the automatic verification has passed start the vote thread
     # on dev@arrow.apache.org. To regenerate the email template use
-    SOURCE_DEFAULT=0 SOURCE_VOTE=1 dev/release/02-source.sh <version> <rc-number>
+    dev/release/10-vote-email.sh <version> <rc-number>
 
 See :ref:`release_verification` for details.
 
@@ -287,7 +323,6 @@ Be sure to go through on the following checklist:
 #. Update Homebrew packages
 #. Update MSYS2 package
 #. Upload RubyGems
-#. Upload C# packages
 #. Update conda recipes
 #. Upload wheels/sdist to pypi
 #. Update R packages
@@ -306,16 +341,16 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.Z``:
+   Merge ``release-X.Y.Z-rcN`` to ``maint-X.Y.x``:
 
    .. code-block:: Bash
 
-      # git checkout maint-10.0.0
-      git checkout maint-X.Y.Z
-      # git merge release-10.0.0-rc0
+      # git checkout maint-25.0.x
+      git checkout maint-X.Y.x
+      # git merge release-25.0.1-rc0
       git merge release-X.Y.Z-rcN
-      # git push -u apache maint-10.0.0
-      git push -u apache maint-X.Y.Z
+      # git push -u upstream maint-25.0.x
+      git push -u upstream maint-X.Y.x
 
 .. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down
@@ -374,8 +409,8 @@ Be sure to go through on the following checklist:
       # git clone git@github.com:kou/arrow-site.git ../
       git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
       cd ../arrow-site
-      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
-      git remote add apache git@github.com:apache/arrow-site.git
+      ## Add git@github.com:apache/arrow-site.git as "upstream" remote.
+      git remote add upstream git@github.com:apache/arrow-site.git
       cd -
 
       ## Generate a release note for the new version, update the
@@ -419,8 +454,8 @@ Be sure to go through on the following checklist:
       git remote add <YOUR_GITHUB_ID> git@github.com:<YOUR_GITHUB_ID>/homebrew-core.git
       cd -
 
-      # dev/release/post-13-homebrew.sh 10.0.0 kou
-      dev/release/post-13-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
+      # dev/release/post-12-homebrew.sh 10.0.0 kou
+      dev/release/post-12-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
 
    This script pushes a ``apache-arrow-X.Y.Z`` branch to your ``Homebrew/homebrew-core`` fork. You need to create a pull request from the ``apache-arrow-X.Y.Z`` branch with ``apache-arrow, apache-arrow-glib: X.Y.Z`` title on your Web browser.
 
@@ -445,8 +480,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/msys2/MINGW-packages.git
       cd -
 
-      # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
+      # dev/release/post-11-msys2.sh 10.0.0 ../MINGW-packages
+      dev/release/post-11-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -473,22 +508,6 @@ Be sure to go through on the following checklist:
       # dev/release/post-06-ruby.sh 10.0.0
       dev/release/post-06-ruby.sh X.Y.Z
 
-.. dropdown:: Update C# packages
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-   You need an account on https://www.nuget.org/. You need to join owners of Apache.Arrow package. Existing owners can invite you to the owners at https://www.nuget.org/packages/Apache.Arrow/Manage .
-
-   You need to create an API key at https://www.nuget.org/account/apikeys to upload from command line.
-
-   Install the latest .NET Core SDK from https://dotnet.microsoft.com/download .
-
-   .. code-block:: Bash
-
-      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-07-csharp.sh 10.0.0
-      NUGET_API_KEY=<your NuGet API key> dev/release/post-07-csharp.sh X.Y.Z
-
 .. dropdown:: Upload wheels/sdist to PyPI
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
@@ -500,8 +519,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-10-python.sh 10.0.0
-      dev/release/post-10-python.sh <version>
+      # dev/release/post-09-python.sh 10.0.0
+      dev/release/post-09-python.sh <version>
 
 .. dropdown:: Update R packages
    :animate: fade-in-slide-down
@@ -564,8 +583,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/microsoft/vcpkg.git
       cd -
 
-      # dev/release/post-14-vcpkg.sh 10.0.0 ../vcpkg
-      dev/release/post-14-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
+      # dev/release/post-13-vcpkg.sh 10.0.0 ../vcpkg
+      dev/release/post-13-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``microsoft/vcpkg`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``[arrow] Update to X.Y.Z`` title on your Web browser.
 
@@ -590,8 +609,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/conan-io/conan-center-index.git
       cd -
 
-      # dev/release/post-15-conan.sh 10.0.1 ../conan-center-index
-      dev/release/post-15-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
+      # dev/release/post-14-conan.sh 10.0.1 ../conan-center-index
+      dev/release/post-14-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``conan-io/conan-center-index`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch on your Web browser.
 
@@ -605,8 +624,8 @@ Be sure to go through on the following checklist:
       # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
       # this will avoid default pushing to main and pushing the tag
       # but you will require to push manually after reviewing the commits.
-      # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
-      dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # dev/release/post-10-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-10-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down
@@ -623,12 +642,12 @@ Be sure to go through on the following checklist:
       # git clone git@github.com:kou/arrow-site.git ../
       git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
       cd ../arrow-site
-      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
-      git remote add apache git@github.com:apache/arrow-site.git
+      ## Add git@github.com:apache/arrow-site.git as "upstream" remote.
+      git remote add upstream git@github.com:apache/arrow-site.git
       cd -
 
-      # dev/release/post-09-docs.sh 10.0.0 9.0.0
-      dev/release/post-09-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
+      # dev/release/post-08-docs.sh 10.0.0 9.0.0
+      dev/release/post-08-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
 
    This script pushes a ``release-docs-X.Y.Z`` branch to your ``arrow-site`` fork. You need to create a Pull Request and use the ``asf-site`` branch as base for it.
 
@@ -696,6 +715,23 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      dev/release/post-08-remove-old-artifacts.sh
+      dev/release/post-07-remove-old-artifacts.sh
 
    Note: This step must be done by a PMC member.
+
+Trouble shooting
+================
+
+How to recover broken metadata of APT/Yum repositories
+------------------------------------------------------
+
+Our release system has only one RC space for APT/Yum
+repositories. apache/arrow and apache/arrow-adbc shares the RC
+space. So metadata APT/Yum repositories may be broken when we cut an
+RC for apache/arrow and apache/arrow-adbc at the same time.
+
+We can re-generate and upload metadata by the following command line:
+
+.. code-block:: shell
+
+   dev/release/binary-recover.sh

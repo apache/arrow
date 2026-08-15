@@ -29,6 +29,7 @@ void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& s
                                const std::shared_ptr<arrow::Table>& table, int version,
                                int chunk_size, arrow::Compression::type compression,
                                int compression_level) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   auto properties = arrow::ipc::feather::WriteProperties::Defaults();
   properties.version = version;
   properties.chunksize = chunk_size;
@@ -37,6 +38,7 @@ void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& s
     properties.compression_level = compression_level;
   }
   StopIfNotOk(arrow::ipc::feather::WriteTable(*table, stream.get(), properties));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 // ----------- Reader
@@ -82,8 +84,12 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::ipc::feather::Reader>>(
-      [&]() { return arrow::ipc::feather::Reader::Open(stream); });
+  auto result =
+      RunWithCapturedRIfPossible<std::shared_ptr<arrow::ipc::feather::Reader>>([&]() {
+        ARROW_SUPPRESS_DEPRECATION_WARNING
+        return arrow::ipc::feather::Reader::Open(stream);
+        ARROW_UNSUPPRESS_DEPRECATION_WARNING
+      });
   return ValueOrStop(result);
 }
 

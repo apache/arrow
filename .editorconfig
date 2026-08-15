@@ -42,6 +42,10 @@ indent_style = space
 indent_size = 2
 indent_style = space
 
+[{meson.build,meson_options.txt}]
+indent_size = 4
+indent_style = space
+
 [*.cs]
 indent_size = 4
 indent_style = space

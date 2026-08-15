@@ -17,8 +17,10 @@
 
 #include "gandiva/random_generator_holder.h"
 
+#include <limits>
 #include <memory>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
@@ -85,6 +87,163 @@ TEST_F(TestRandGenHolder, WithInValidSeed) {
   auto& random_1 = *rand_gen_holder_1;
   auto& random_2 = *rand_gen_holder_2;
   EXPECT_EQ(random_1(), random_2());
+}
+
+// Test that non-literal seed argument is rejected
+TEST_F(TestRandGenHolder, NonLiteralSeedRejected) {
+  auto field_node = std::make_shared<FieldNode>(arrow::field("seed", arrow::int32()));
+  FunctionNode rand_func = {"rand", {field_node}, arrow::float64()};
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("requires a literal as parameter"),
+                                  RandomGeneratorHolder::Make(rand_func).status());
+}
+
+class TestRandIntGenHolder : public ::testing::Test {
+ public:
+  FunctionNode BuildRandIntFunc() { return {"rand_integer", {}, arrow::int32()}; }
+
+  FunctionNode BuildRandIntWithRangeFunc(int32_t range, bool range_is_null) {
+    auto range_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(range),
+                                                    range_is_null);
+    return {"rand_integer", {range_node}, arrow::int32()};
+  }
+
+  FunctionNode BuildRandIntWithMinMaxFunc(int32_t min, bool min_is_null, int32_t max,
+                                          bool max_is_null) {
+    auto min_node =
+        std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(min), min_is_null);
+    auto max_node =
+        std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(max), max_is_null);
+    return {"rand_integer", {min_node, max_node}, arrow::int32()};
+  }
+};
+
+TEST_F(TestRandIntGenHolder, NoParams) {
+  FunctionNode rand_func = BuildRandIntFunc();
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are integers
+  for (int i = 0; i < 10; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, std::numeric_limits<int32_t>::min());
+    EXPECT_LE(val, std::numeric_limits<int32_t>::max());
+  }
+}
+
+TEST_F(TestRandIntGenHolder, WithRange) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(100, false);
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are in range [0, 99]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, 0);
+    EXPECT_LT(val, 100);
+  }
+}
+
+TEST_F(TestRandIntGenHolder, WithMinMax) {
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(10, false, 20, false);
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are in range [10, 20]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, 10);
+    EXPECT_LE(val, 20);
+  }
+}
+
+TEST_F(TestRandIntGenHolder, WithNegativeMinMax) {
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(-50, false, -10, false);
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are in range [-50, -10]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, -50);
+    EXPECT_LE(val, -10);
+  }
+}
+
+TEST_F(TestRandIntGenHolder, InvalidRangeZero) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(0, false);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("range must be positive"),
+                                  RandomIntegerGeneratorHolder::Make(rand_func).status());
+}
+
+TEST_F(TestRandIntGenHolder, InvalidRangeNegative) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(-5, false);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("range must be positive"),
+                                  RandomIntegerGeneratorHolder::Make(rand_func).status());
+}
+
+TEST_F(TestRandIntGenHolder, InvalidMinGreaterThanMax) {
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(20, false, 10, false);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("min must be <= max"),
+                                  RandomIntegerGeneratorHolder::Make(rand_func).status());
+}
+
+TEST_F(TestRandIntGenHolder, NullRangeDefaultsToMaxInt) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(0, true);  // null range
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // With NULL range defaulting to INT32_MAX, values should be in [0, INT32_MAX-1]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, 0);
+    EXPECT_LT(val, std::numeric_limits<int32_t>::max());
+  }
+}
+
+// Test that non-literal arguments are rejected
+TEST_F(TestRandIntGenHolder, NonLiteralRangeRejected) {
+  // Create a FieldNode instead of LiteralNode for the range parameter
+  auto field_node = std::make_shared<FieldNode>(arrow::field("range", arrow::int32()));
+  FunctionNode rand_func = {"rand_integer", {field_node}, arrow::int32()};
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("requires a literal as parameter"),
+                                  RandomIntegerGeneratorHolder::Make(rand_func).status());
+}
+
+TEST_F(TestRandIntGenHolder, NonLiteralMinMaxRejected) {
+  // Create FieldNodes instead of LiteralNodes for min/max parameters
+  auto min_field = std::make_shared<FieldNode>(arrow::field("min", arrow::int32()));
+  auto max_literal =
+      std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(100), false);
+  FunctionNode rand_func = {"rand_integer", {min_field, max_literal}, arrow::int32()};
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("requires literals as parameters"),
+                                  RandomIntegerGeneratorHolder::Make(rand_func).status());
+}
+
+TEST_F(TestRandIntGenHolder, NullMinMaxDefaults) {
+  // Test null handling for 2-arg form: NULL min defaults to 0, NULL max defaults to
+  // INT32_MAX
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(0, true, 0, true);  // both null
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // With NULL min=0, NULL max=INT32_MAX, values should be in [0, INT32_MAX]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, 0);
+    EXPECT_LE(val, std::numeric_limits<int32_t>::max());
+  }
 }
 
 }  // namespace gandiva

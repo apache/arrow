@@ -20,6 +20,11 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libparquet_encryption cimport *
+from pyarrow.includes.libparquet cimport (
+    CSecureString,
+    CFileDecryptionPropertiesBuilder,
+    CFileEncryptionPropertiesBuilder,
+)
 from pyarrow._parquet cimport (ParquetCipher,
                                CFileEncryptionProperties,
                                CFileDecryptionProperties,
@@ -49,6 +54,14 @@ cdef class KmsConnectionConfig(_Weakrefable):
     @staticmethod
     cdef wrap(const CKmsConnectionConfig& config)
 
+cdef class KeyMaterial(_Weakrefable):
+    cdef shared_ptr[CKeyMaterial] key_material
+
+    @staticmethod
+    cdef inline KeyMaterial wrap(shared_ptr[CKeyMaterial] key_material)
+
+cdef class FileSystemKeyMaterialStore(_Weakrefable):
+    cdef shared_ptr[CFileSystemKeyMaterialStore] store
 
 cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *
 cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *

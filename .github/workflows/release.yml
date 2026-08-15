@@ -20,9 +20,8 @@ name: Release
 on:
   push:
     tags:
-      # Trigger workflow when a tag whose name matches the pattern
-      # pattern "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
-      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+"
+      - "apache-arrow-*"
+      - "!apache-arrow-*-rc*"
 
 permissions:
   contents: write
@@ -74,3 +73,14 @@ jobs:
             --title "${RELEASE_TITLE}" \
             --verify-tag \
             release_candidate_artifacts/*
+      - name: Remove Draft GitHub Releases
+        run: |
+          gh release list \
+            --jq '.[] | select(.isDraft).tagName' \
+            --json isDraft,tagName \
+            --repo ${GITHUB_REPOSITORY} |
+              while read tag; do \
+                gh release delete ${tag} \
+                  --repo ${GITHUB_REPOSITORY} \
+                  --yes; \
+              done

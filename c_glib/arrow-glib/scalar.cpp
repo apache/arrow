@@ -104,6 +104,9 @@ G_BEGIN_DECLS
  * #GArrowMonthDayNanoIntervalScalar is a class for the month day nano
  * intarval scalar.
  *
+ * #GArrowDurationScalar is a class for the elapsed time in a 64-bit
+ * signed integer scalar.
+ *
  * #GArrowDecimal32Scalar is a class for a 32-bit decimal scalar.
  *
  * #GArrowDecimal64Scalar is a class for a 64-bit decimal scalar.
@@ -1635,6 +1638,57 @@ garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar
   return priv->value;
 }
 
+G_DEFINE_TYPE(GArrowDurationScalar, garrow_duration_scalar, GARROW_TYPE_SCALAR)
+
+static void
+garrow_duration_scalar_init(GArrowDurationScalar *object)
+{
+}
+
+static void
+garrow_duration_scalar_class_init(GArrowDurationScalarClass *klass)
+{
+}
+
+/**
+ * garrow_duration_scalar_new:
+ * @data_type: A #GArrowDurationDataType for this scalar.
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowDurationScalar.
+ *
+ * Since: 23.0.0
+ */
+GArrowDurationScalar *
+garrow_duration_scalar_new(GArrowDurationDataType *data_type, gint64 value)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::DurationScalar>(value, arrow_data_type));
+  return GARROW_DURATION_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                      "scalar",
+                                                      &arrow_scalar,
+                                                      "data-type",
+                                                      data_type,
+                                                      nullptr));
+}
+
+/**
+ * garrow_duration_scalar_get_value:
+ * @scalar: A #GArrowDurationScalar.
+ *
+ * Returns: The value of this scalar.
+ *
+ * Since: 23.0.0
+ */
+gint64
+garrow_duration_scalar_get_value(GArrowDurationScalar *scalar)
+{
+  const auto arrow_scalar = std::static_pointer_cast<arrow::DurationScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->value;
+}
+
 typedef struct GArrowDecimal32ScalarPrivate_
 {
   GArrowDecimal32 *value;
@@ -2753,6 +2807,9 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     break;
   case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
     type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_SCALAR;
+    break;
+  case arrow::Type::type::DURATION:
+    type = GARROW_TYPE_DURATION_SCALAR;
     break;
   case arrow::Type::type::DECIMAL32:
     type = GARROW_TYPE_DECIMAL32_SCALAR;

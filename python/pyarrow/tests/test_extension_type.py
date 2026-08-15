@@ -16,6 +16,7 @@
 # under the License.
 
 import contextlib
+import datetime
 import os
 import shutil
 import subprocess
@@ -783,6 +784,38 @@ def test_cast_to_extension_with_nested_storage():
     assert result.equals(expected)
 
 
+def test_cast_table_with_extension_type_in_struct():
+    # https://github.com/apache/arrow/issues/37004
+
+    # fixed-size list
+    array = pa.array([[1, 2], [3, 4], [5, 6]], pa.list_(pa.int32(), 2))
+    ext_type = MyFixedListType(pa.list_(pa.int32(), 2))
+    ext_array = pa.ExtensionArray.from_storage(ext_type, array)
+    struct_array = pa.StructArray.from_arrays([ext_array], "x")
+
+    table = pa.Table.from_arrays([struct_array], ["field1"])
+    result = table.cast(table.schema)
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+    result = struct_array.cast(struct_array.type)
+    assert result.equals(struct_array)
+
+    # variable-size list
+    array = pa.array([[1, 2], [3, 4, 5], [6]], pa.list_(pa.int32()))
+    ext_type = MyListType(pa.list_(pa.int32()))
+    ext_array = pa.ExtensionArray.from_storage(ext_type, array)
+    struct_array = pa.StructArray.from_arrays([ext_array], "x")
+
+    table = pa.Table.from_arrays([struct_array], ["field1"])
+    result = table.cast(table.schema)
+    assert result.schema == table.schema
+    assert result.equals(table)
+
+    result = struct_array.cast(struct_array.type)
+    assert result.equals(struct_array)
+
+
 def test_concat():
     arr1 = pa.array([1, 2, 3], IntegerType())
     arr2 = pa.array([4, 5, 6], IntegerType())
@@ -1399,6 +1432,147 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+def test_uuid_scalar_from_python():
+    # Test with explicit type
+    py_uuid = uuid4()
+    scalar = pa.scalar(py_uuid, type=pa.uuid())
+    assert isinstance(scalar, pa.UuidScalar)
+    assert scalar.type == pa.uuid()
+    assert scalar.as_py() == py_uuid
+
+    # Test with specific UUID value
+    specific_uuid = UUID("12345678-1234-5678-1234-567812345678")
+    scalar = pa.scalar(specific_uuid, type=pa.uuid())
+    assert scalar.as_py() == specific_uuid
+    assert scalar.value.as_py() == specific_uuid.bytes
+
+    scalar = pa.scalar(None, type=pa.uuid())
+    assert scalar.is_valid is False
+    assert scalar.as_py() is None
+
+    # Test type inference from uuid.UUID
+    py_uuid = uuid4()
+    scalar = pa.scalar(py_uuid)
+    assert isinstance(scalar, pa.UuidScalar)
+    assert scalar.type == pa.uuid()
+    assert scalar.as_py() == py_uuid
+
+
+def test_uuid_array_from_python():
+    # Test array with explicit type
+    uuids = [uuid4() for _ in range(3)]
+    uuids.append(None)
+
+    arr = pa.array(uuids, type=pa.uuid())
+    assert arr.type == pa.uuid()
+    assert len(arr) == 4
+    assert arr.null_count == 1
+    for i, u in enumerate(uuids):
+        assert arr[i].as_py() == u
+
+    # Test type inference for arrays
+    arr = pa.array(uuids)
+    assert arr.type == pa.uuid()
+    for i, u in enumerate(uuids):
+        assert arr[i].as_py() == u
+
+
+@pytest.mark.parametrize("bytes_value,exc_type,match", [
+    (b"0123456789abcde", pa.ArrowInvalid, "expected to be length 16 was 15"),
+    (
+        "0123456789abcdef", TypeError,
+        "Expected uuid.UUID.bytes to return bytes, got 'str'"
+    ),
+    (None, TypeError, "Expected uuid.UUID.bytes to return bytes, got 'NoneType'"),
+])
+def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
+    class BadUuid(UUID):
+        @property
+        def bytes(self):
+            return bytes_value
+
+    bad = BadUuid(uuid4().hex)
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad], type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad, type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad])
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad)
+
+
+def test_uuid_bytes_property_raises():
+    class BadUuid(UUID):
+        @property
+        def bytes(self):
+            raise RuntimeError("broken")
+
+    bad = BadUuid(uuid4().hex)
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad], type=pa.uuid())
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.scalar(bad, type=pa.uuid())
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad])
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.scalar(bad)
+
+
+def test_array_from_extension_scalars():
+    # One case per C++ converter: FixedSizeBinary, Binary/String
+    builtin_cases = [
+        (pa.uuid(), [b"0123456789abcdef"]),
+        (pa.opaque(pa.binary(), "t", "v"), [b"x", b"y"]),
+    ]
+    for ext_type, values in builtin_cases:
+        scalars = [pa.scalar(v, type=ext_type) for v in values]
+        result = pa.array(scalars, type=ext_type)
+        assert result.equals(pa.array(values, type=ext_type))
+
+    # One case per C++ converter: Numeric, Timestamp/Duration, Struct
+    custom_cases = [
+        (IntegerType(), [100, 200]),
+        (AnnotatedType(pa.timestamp("us"), "ts"),
+         [datetime.datetime(2023, 1, 1)]),
+        (MyStructType(), [{"left": 1, "right": 2}]),
+    ]
+    for ext_type, values in custom_cases:
+        with registered_extension_type(ext_type):
+            scalars = [pa.scalar(v, type=ext_type) for v in values]
+            result = pa.array(scalars, type=ext_type)
+            assert result.equals(pa.array(values, type=ext_type))
+
+    # Null handling
+    uuid_type = pa.uuid()
+    scalars = [pa.scalar(b"0123456789abcdef", type=uuid_type),
+               pa.scalar(None, type=uuid_type)]
+    result = pa.array(scalars, type=uuid_type)
+    assert result[0].is_valid and not result[1].is_valid
+
+    # ExtensionScalar.from_storage path
+    scalars = [
+        pa.ExtensionScalar.from_storage(uuid_type, b"0123456789abcdef"),
+        pa.ExtensionScalar.from_storage(uuid_type, None),
+    ]
+    result = pa.array(scalars, type=uuid_type)
+    expected = pa.array([b"0123456789abcdef", None], type=uuid_type)
+    assert result.equals(expected)
+
+    # Type inference without explicit type
+    u = uuid4()
+    scalars = [pa.scalar(u, type=pa.uuid()), None]
+    result = pa.array(scalars)
+    assert result.type == pa.uuid()
+    assert result[0].as_py() == u
+    assert not result[1].is_valid
+
+    # Mixed extension scalars and raw Python objects
+    u1, u2 = uuid4(), uuid4()
+    result = pa.array([pa.scalar(u1, type=pa.uuid()), u2], type=pa.uuid())
+    assert result.equals(pa.array([u1, u2], type=pa.uuid()))
+
+
 def test_tensor_type():
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
@@ -1481,6 +1655,17 @@ def test_tensor_class_methods(np_type_str):
     assert result.type.shape == [2, 2, 3]
     assert result.to_tensor().shape == (1, 3, 2, 2)
     assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
+
+    tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[2, 1, 0])
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    expected = as_strided(flat_arr, shape=(1, 3, 2, 2),
+                          strides=(bw * 12, bw, bw * 3, bw * 6))
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+
+    assert result.type.permutation == [2, 1, 0]
+    assert result.type.shape == [2, 2, 3]
+    assert result.to_tensor().shape == (1, 3, 2, 2)
+    assert result.to_tensor().strides == (12 * bw, 1 * bw, 3 * bw, 6 * bw)
 
 
 @pytest.mark.numpy
@@ -1575,6 +1760,72 @@ def test_tensor_array_from_numpy(np_type_str):
 
     with pytest.raises(TypeError, match="Each element of dim_names must be a string"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr, dim_names=[0, 1])
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_list_of_ndarrays(np_type_str):
+    np_dtype = np.dtype(np_type_str)
+    tensor_type = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 3))
+
+    elements = [
+        np.arange(6, dtype=np_dtype).reshape(2, 3),
+        np.arange(6, 12, dtype=np_dtype).reshape(2, 3),
+    ]
+    result = pa.array(elements, type=tensor_type)
+    assert isinstance(result, pa.FixedShapeTensorArray)
+    assert result.type == tensor_type
+    assert len(result) == 2
+
+    expected = pa.FixedShapeTensorArray.from_numpy_ndarray(np.stack(elements))
+    assert result.storage.equals(expected.storage)
+
+    for scalar, original in zip(result, elements):
+        np.testing.assert_array_equal(scalar.to_numpy(), original)
+
+    tensor_3d = pa.fixed_shape_tensor(pa.from_numpy_dtype(np_dtype), (2, 2, 3))
+    elements_3d = [np.arange(12, dtype=np_dtype).reshape(2, 2, 3)]
+    result_3d = pa.array(elements_3d, type=tensor_3d)
+    assert result_3d.type == tensor_3d
+    np.testing.assert_array_equal(result_3d[0].to_numpy(), elements_3d[0])
+
+    result_with_null = pa.array([elements[0], None], type=tensor_type)
+    assert result_with_null.null_count == 1
+    assert result_with_null[1].as_py() is None
+
+    with pytest.raises(ValueError, match="shape"):
+        pa.array([np.arange(6, dtype=np_dtype).reshape(3, 2)], type=tensor_type)
+
+    permuted_type = pa.fixed_shape_tensor(
+        pa.from_numpy_dtype(np_dtype), (2, 3), permutation=[1, 0])
+    with pytest.raises(NotImplementedError, match="permutation"):
+        pa.array(elements, type=permuted_type)
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_mixed_layout():
+    # C- and F-ordered arrays with the same values must produce the same
+    # result, since the values are always flattened in C order.
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), (2, 3))
+    raw = [[1, 2, 3], [4, 5, 6]]
+    c_arr = np.array(raw, order="C")
+    f_arr = np.array(raw, order="F")
+    assert np.array_equal(c_arr, f_arr)
+    assert c_arr.tobytes("A") != f_arr.tobytes("A")
+
+    same = pa.array([c_arr, c_arr], type=tensor_type)
+    mixed = pa.array([c_arr, f_arr], type=tensor_type)
+    assert mixed.equals(same)
+    assert mixed.storage.to_pylist() == [[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]]
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_of_0d_arrays():
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), ())
+    result = pa.array([np.array(1, dtype=np.int64), np.array(2, dtype=np.int64)],
+                      type=tensor_type)
+    assert result.type == tensor_type
+    assert result.storage.to_pylist() == [[1], [2]]
 
 
 @pytest.mark.numpy
@@ -1967,3 +2218,75 @@ def test_json(storage_type, pickle_module):
                 pa.ArrowInvalid,
                 match=f"Invalid storage type for JsonExtensionType: {storage_type}"):
             pa.json_(storage_type)
+
+
+class ListExtensionType(pa.ExtensionType):
+    """Extension type with a list field for testing int32 overflow."""
+
+    def __init__(self):
+        super().__init__(
+            pa.struct({"data": pa.list_(pa.uint8())}),
+            "pyarrow.tests.ListExtensionType",
+        )
+
+    def __arrow_ext_serialize__(self):
+        return b""
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return cls()
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+@pytest.mark.numpy
+def test_extension_type_list_overflow():
+    """
+    Test that extension types with list fields handle int32 offset overflow.
+    """
+    with registered_extension_type(ListExtensionType()):
+        schema = pa.schema({"col": ListExtensionType()})
+
+        # Create data that exceeds int32 max cumulative values
+        # 5 rows × 500M values = 2.5B > int32 max (2,147,483,647)
+        arr = np.zeros(500_000_000, dtype=np.uint8)
+        rows = [{"col": {"data": arr}} for _ in range(5)]
+
+        result = pa.Table.from_pylist(rows, schema=schema)
+
+        assert result.num_rows == 5
+        assert result.num_columns == 1
+        assert result.schema[0].type == ListExtensionType()
+
+        col = result.column(0)
+        assert isinstance(col, pa.ChunkedArray)
+        assert col.type == ListExtensionType()
+
+        assert col.num_chunks > 1, "Expected multiple chunks due to int32 overflow"
+
+        for chunk_idx in range(col.num_chunks):
+            chunk_data = col.chunk(chunk_idx)
+            assert chunk_data.type == ListExtensionType()
+
+
+@pytest.mark.numpy
+def test_extension_type_no_overflow():
+    """Test that extension types work normally when there's no overflow."""
+    with registered_extension_type(ListExtensionType()):
+        schema = pa.schema({"col": ListExtensionType()})
+
+        # Small data that won't overflow
+        arr = np.array([1, 2, 3], dtype=np.uint8)
+        rows = [{"col": {"data": arr}} for _ in range(3)]
+
+        result = pa.Table.from_pylist(rows, schema=schema)
+
+        assert result.num_rows == 3
+        assert result.num_columns == 1
+        assert result.schema[0].type == ListExtensionType()
+
+        # The column should be a ChunkedArray with a single chunk
+        col = result.column(0)
+        assert isinstance(col, pa.ChunkedArray)
+        assert col.num_chunks == 1
+        assert col.type == ListExtensionType()

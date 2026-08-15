@@ -17,57 +17,40 @@
 
 #include "arrow/testing/math.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 
-#include "arrow/util/logging_internal.h"
+#include "arrow/util/float16.h"
+#include "arrow/util/ulp_distance_internal.h"
 
 namespace arrow {
 namespace {
 
 template <typename Float>
-bool WithinUlpOneWay(Float left, Float right, int n_ulps) {
-  // The delta between 1.0 and the FP value immediately before it.
-  // We're using this value because `frexp` returns a mantissa between 0.5 and 1.0.
-  static const Float kOneUlp = Float(1.0) - std::nextafter(Float(1.0), Float(0.0));
-
-  DCHECK_GE(n_ulps, 1);
-
-  if (left == 0) {
-    return left == right;
-  }
-  if (left < 0) {
-    left = -left;
-    right = -right;
+bool WithinUlpGeneric(Float left, Float right, int32_t n_ulps) {
+  if constexpr (std::is_same_v<Float, util::Float16>) {
+    if (left.is_nan() || right.is_nan()) {
+      return left.is_nan() == right.is_nan();
+    }
+  } else {
+    if (std::isnan(left) || std::isnan(right)) {
+      return std::isnan(left) == std::isnan(right);
+    }
   }
 
-  int left_exp;
-  Float left_mant = std::frexp(left, &left_exp);
-  Float delta = static_cast<Float>(n_ulps) * kOneUlp;
-  Float lower_bound = std::ldexp(left_mant - delta, left_exp);
-  Float upper_bound = std::ldexp(left_mant + delta, left_exp);
-  return right >= lower_bound && right <= upper_bound;
-}
-
-template <typename Float>
-bool WithinUlpGeneric(Float left, Float right, int n_ulps) {
-  if (std::isnan(left) || std::isnan(right)) {
-    return std::isnan(left) == std::isnan(right);
-  }
-  if (!std::isfinite(left) || !std::isfinite(right)) {
-    return left == right;
-  }
   if (n_ulps == 0) {
     return left == right;
   }
-  return (std::abs(left) <= std::abs(right)) ? WithinUlpOneWay(left, right, n_ulps)
-                                             : WithinUlpOneWay(right, left, n_ulps);
+
+  return internal::WithinUlp(left, right, n_ulps);
 }
 
 template <typename Float>
-void AssertWithinUlpGeneric(Float left, Float right, int n_ulps) {
+void AssertWithinUlpGeneric(Float left, Float right, int32_t n_ulps) {
   if (!WithinUlpGeneric(left, right, n_ulps)) {
     FAIL() << left << " and " << right << " are not within " << n_ulps << " ulps";
   }
@@ -75,19 +58,15 @@ void AssertWithinUlpGeneric(Float left, Float right, int n_ulps) {
 
 }  // namespace
 
-bool WithinUlp(float left, float right, int n_ulps) {
-  return WithinUlpGeneric(left, right, n_ulps);
-}
-
-bool WithinUlp(double left, double right, int n_ulps) {
-  return WithinUlpGeneric(left, right, n_ulps);
-}
-
-void AssertWithinUlp(float left, float right, int n_ulps) {
+void AssertWithinUlp(util::Float16 left, util::Float16 right, int32_t n_ulps) {
   AssertWithinUlpGeneric(left, right, n_ulps);
 }
 
-void AssertWithinUlp(double left, double right, int n_ulps) {
+void AssertWithinUlp(float left, float right, int32_t n_ulps) {
+  AssertWithinUlpGeneric(left, right, n_ulps);
+}
+
+void AssertWithinUlp(double left, double right, int32_t n_ulps) {
   AssertWithinUlpGeneric(left, right, n_ulps);
 }
 

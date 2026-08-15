@@ -26,7 +26,7 @@ test_that("set_io_thread_count() sets the number of io threads", {
   expect_identical(set_io_thread_count(current_io_thread_count), 2L)
 })
 
-test_that("set_io_thread_count() warns for num_threads == 1",  {
+test_that("set_io_thread_count() warns for num_threads == 1", {
   current_io_thread_count <- io_thread_count()
   on.exit(set_io_thread_count(current_io_thread_count))
 

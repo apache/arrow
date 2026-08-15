@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -243,6 +244,47 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
  private:
   class ProxyMemoryPoolImpl;
   std::unique_ptr<ProxyMemoryPoolImpl> impl_;
+};
+
+/// EXPERIMENTAL MemoryPool wrapper with an upper limit
+///
+/// Checking for limits is not done in a fully thread-safe way, therefore
+/// multi-threaded allocations might be able to go successfully above the
+/// configured limit.
+class ARROW_EXPORT CappedMemoryPool : public MemoryPool {
+ public:
+  CappedMemoryPool(MemoryPool* wrapped_pool, int64_t bytes_allocated_limit)
+      : wrapped_(wrapped_pool), bytes_allocated_limit_(bytes_allocated_limit) {}
+
+  using MemoryPool::Allocate;
+  using MemoryPool::Reallocate;
+
+  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                    uint8_t** ptr) override;
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
+
+  void ReleaseUnused() override { wrapped_->ReleaseUnused(); }
+
+  void PrintStats() override { wrapped_->PrintStats(); }
+
+  int64_t bytes_allocated() const override { return wrapped_->bytes_allocated(); }
+
+  int64_t max_memory() const override { return wrapped_->max_memory(); }
+
+  int64_t total_bytes_allocated() const override {
+    return wrapped_->total_bytes_allocated();
+  }
+
+  int64_t num_allocations() const override { return wrapped_->num_allocations(); }
+
+  std::string backend_name() const override { return wrapped_->backend_name(); }
+
+ private:
+  Status OutOfMemory(int64_t current_allocated, int64_t requested) const;
+
+  MemoryPool* wrapped_;
+  const int64_t bytes_allocated_limit_;
 };
 
 /// \brief Return a process-wide memory pool based on the system allocator.

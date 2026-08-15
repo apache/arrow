@@ -1,3 +1,39 @@
+apache-arrow (25.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Wed, 05 Aug 2026 17:06:46 -0000
+
+apache-arrow (25.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Fri, 03 Jul 2026 07:48:16 -0000
+
+apache-arrow (24.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 14 Apr 2026 14:21:10 -0000
+
+apache-arrow (23.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 10 Feb 2026 10:45:08 -0000
+
+apache-arrow (23.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 13 Jan 2026 13:05:35 -0000
+
+apache-arrow (22.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Mon, 20 Oct 2025 14:48:39 -0000
+
 apache-arrow (21.0.0-1) unstable; urgency=low
 
   * New upstream release.

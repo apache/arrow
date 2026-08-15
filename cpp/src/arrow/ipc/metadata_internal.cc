@@ -390,6 +390,17 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
+        // We always use "key"/"value"/"entries" field names instead
+        // of field names in FlatBuffers because the specification
+        // defines them:
+        //
+        // https://github.com/apache/arrow/blob/apache-arrow-23.0.1/format/Schema.fbs#L127-L130
+        //
+        //   In a field with Map type, the field has a child Struct
+        //   field, which then has two children: the key type and the
+        //   value type. The names of the child fields may be
+        //   respectively "entries", "key", and "value", but this is
+        //   not enforced.
         *out = std::make_shared<MapType>(children[0]->type()->field(0)->WithName("key"),
                                          children[0]->type()->field(1)->WithName("value"),
                                          map->keysSorted());
@@ -855,7 +866,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   std::shared_ptr<DataType> type;
 
   std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(internal::GetKeyValueMetadata(field->custom_metadata(), &metadata));
+  ARROW_ASSIGN_OR_RAISE(metadata,
+                        internal::GetKeyValueMetadata(field->custom_metadata()));
 
   // Reconstruct the data type
   // 1. Data type children
@@ -933,18 +945,6 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   return Status::OK();
 }
 
-// will return the endianness of the system we are running on
-// based the NUMPY_API function. See NOTICE.txt
-flatbuf::Endianness endianness() {
-  union {
-    uint32_t i;
-    char c[4];
-  } bint = {0x01020304};
-
-  return bint.c[0] == 1 ? flatbuf::Endianness::Endianness_Big
-                        : flatbuf::Endianness::Endianness_Little;
-}
-
 flatbuffers::Offset<KVVector> SerializeCustomMetadata(
     FBB& fbb, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   std::vector<KeyValueOffset> key_values;
@@ -970,7 +970,10 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   }
 
   auto fb_offsets = fbb.CreateVector(field_offsets);
-  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets,
+  auto fb_endianness = schema.endianness() == Endianness::Little
+                           ? flatbuf::Endianness::Endianness_Little
+                           : flatbuf::Endianness::Endianness_Big;
+  *out = flatbuf::CreateSchema(fbb, fb_endianness, fb_offsets,
                                SerializeCustomMetadata(fbb, schema.metadata()));
   return Status::OK();
 }
@@ -1277,11 +1280,10 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
 
 }  // namespace
 
-Status GetKeyValueMetadata(const KVVector* fb_metadata,
-                           std::shared_ptr<KeyValueMetadata>* out) {
+Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
+    const KVVector* fb_metadata) {
   if (fb_metadata == nullptr) {
-    *out = nullptr;
-    return Status::OK();
+    return nullptr;
   }
 
   auto metadata = std::make_shared<KeyValueMetadata>();
@@ -1293,36 +1295,33 @@ Status GetKeyValueMetadata(const KVVector* fb_metadata,
     metadata->Append(pair->key()->str(), pair->value()->str());
   }
 
-  *out = std::move(metadata);
-  return Status::OK();
+  return metadata;
 }
 
-Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& mapper,
-                          const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> WriteSchemaMessage(const Schema& schema,
+                                                   const DictionaryFieldMapper& mapper,
+                                                   const IpcWriteOptions& options) {
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, mapper, &fb_schema));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_Schema,
                         fb_schema.Union(),
                         /*body_length=*/0, options.metadata_version,
-                        /*custom_metadata=*/nullptr, options.memory_pool)
-      .Value(out);
+                        /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
-Status WriteRecordBatchMessage(
+Result<std::shared_ptr<Buffer>> WriteRecordBatchMessage(
     int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
-    std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
                                 variadic_buffer_counts, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_RecordBatch,
                         record_batch.Union(), body_length, options.metadata_version,
-                        custom_metadata, options.memory_pool)
-      .Value(out);
+                        custom_metadata, options.memory_pool);
 }
 
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
@@ -1371,12 +1370,11 @@ Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
                         /*custom_metadata=*/nullptr, options.memory_pool);
 }
 
-Status WriteDictionaryMessage(
+Result<std::shared_ptr<Buffer>> WriteDictionaryMessage(
     int64_t id, bool is_delta, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
-    std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options) {
   FBB fbb;
   RecordBatchOffset record_batch;
   RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
@@ -1385,8 +1383,7 @@ Status WriteDictionaryMessage(
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::MessageHeader_DictionaryBatch,
                         dictionary_batch, body_length, options.metadata_version,
-                        custom_metadata, options.memory_pool)
-      .Value(out);
+                        custom_metadata, options.memory_pool);
 }
 
 static flatbuffers::Offset<flatbuffers::Vector<const flatbuf::Block*>>
@@ -1460,7 +1457,8 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
   }
 
   std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
+  ARROW_ASSIGN_OR_RAISE(metadata,
+                        internal::GetKeyValueMetadata(schema->custom_metadata()));
   // set endianness using the value in flatbuf schema
   auto endianness = schema->endianness() == flatbuf::Endianness::Endianness_Little
                         ? Endianness::Little
@@ -1524,10 +1522,20 @@ Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_ind
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
 
-  const int ndim = static_cast<int>(sparse_index->axisOrder()->size());
+  auto* fb_axis_order = sparse_index->axisOrder();
+  auto* fb_indices_buffers = sparse_index->indicesBuffers();
+  // ValidateSparseCSFIndexMetadata already checks this, keep this check defensively.
+  if (fb_axis_order == nullptr || fb_indices_buffers == nullptr ||
+      fb_axis_order->size() != fb_indices_buffers->size()) {
+    return Status::Invalid(
+        "Inconsistent CSF sparse index: axisOrder and indicesBuffers have different "
+        "lengths");
+  }
+
+  const int ndim = static_cast<int>(fb_axis_order->size());
   for (int i = 0; i < ndim; ++i) {
-    axis_order->push_back(sparse_index->axisOrder()->Get(i));
-    indices_size->push_back(sparse_index->indicesBuffers()->Get(i)->length());
+    axis_order->push_back(fb_axis_order->Get(i));
+    indices_size->push_back(fb_indices_buffers->Get(i)->length());
   }
 
   return Status::OK();
@@ -1552,6 +1560,9 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
       auto dim = sparse_tensor->shape()->Get(i);
 
       if (shape) {
+        if (dim->size() < 0) {
+          return Status::Invalid("Invalid sparse tensor dimension size: ", dim->size());
+        }
         shape->push_back(dim->size());
       }
 
@@ -1562,6 +1573,10 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
   }
 
   if (non_zero_length) {
+    if (sparse_tensor->non_zero_length() < 0) {
+      return Status::Invalid("Invalid sparse tensor non-zero length: ",
+                             sparse_tensor->non_zero_length());
+    }
     *non_zero_length = sparse_tensor->non_zero_length();
   }
 

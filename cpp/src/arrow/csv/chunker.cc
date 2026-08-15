@@ -56,6 +56,10 @@ class Lexer {
 
   // Decide whether it's worth using a bulk filter over the given data area
   bool ShouldUseBulkFilter(const char* data, const char* data_end) {
+    if (!bulk_filter_.CanUseOnBlock(
+            std::string_view(data, static_cast<size_t>(data_end - data)))) {
+      return false;
+    }
     constexpr int32_t kWordSize = static_cast<int32_t>(sizeof(BulkWordType));
 
     // Only probe the 32 first words and assume they are representative of the rest
@@ -89,21 +93,21 @@ class Lexer {
       case AT_ESCAPE:
         // will never reach here if escaping = false
         // just to hint the compiler to remove dead code
-        if (!SpecializedOptions::escaping) return nullptr;
+        if constexpr (!SpecializedOptions::escaping) return nullptr;
         goto AtEscape;
       case IN_QUOTED_FIELD:
-        if (!SpecializedOptions::quoting) return nullptr;
+        if constexpr (!SpecializedOptions::quoting) return nullptr;
         goto InQuotedField;
       case AT_QUOTED_QUOTE:
-        if (!SpecializedOptions::quoting) return nullptr;
+        if constexpr (!SpecializedOptions::quoting) return nullptr;
         goto AtQuotedQuote;
       case AT_QUOTED_ESCAPE:
-        if (!SpecializedOptions::quoting) return nullptr;
+        if constexpr (!SpecializedOptions::quoting) return nullptr;
         goto AtQuotedEscape;
     }
 
   FieldStart:
-    if (!SpecializedOptions::quoting) {
+    if constexpr (!SpecializedOptions::quoting) {
       goto InField;
     } else {
       // At the start of a field

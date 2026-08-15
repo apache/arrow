@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
@@ -43,8 +44,16 @@ struct BitmapWordAlignParams {
 template <uint64_t ALIGN_IN_BYTES>
 inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_offset,
                                              int64_t length) {
-  static_assert(bit_util::IsPowerOf2(ALIGN_IN_BYTES),
+  // TODO: We can remove this condition once CRAN upgrades its macOS
+  // SDK from 11.3.
+  // __apple_build_version__ should be defined only on Apple clang
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+  static_assert((ALIGN_IN_BYTES != 0) && ((ALIGN_IN_BYTES & (ALIGN_IN_BYTES - 1)) == 0),
                 "ALIGN_IN_BYTES should be a positive power of two");
+#else
+  static_assert(std::has_single_bit(ALIGN_IN_BYTES),
+                "ALIGN_IN_BYTES should be a positive power of two");
+#endif
   constexpr uint64_t ALIGN_IN_BITS = ALIGN_IN_BYTES * 8;
 
   BitmapWordAlignParams p;

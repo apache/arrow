@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:24.04
-FROM ${base}
+ARG arch=amd64
+ARG base=ubuntu:24.04
+FROM --platform=linux/${arch} ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -74,10 +75,10 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
-        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libc6-dbg \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
@@ -94,6 +95,7 @@ RUN apt-get update -y -q && \
         libradospp-dev \
         libre2-dev \
         librtmp-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssh-dev \
@@ -108,6 +110,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         nlohmann-json3-dev \
         npm \
+        patch \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
@@ -118,9 +121,12 @@ RUN apt-get update -y -q && \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
+        sudo \
         tzdata \
         tzdata-legacy \
+        unixodbc-dev \
         uuid-runtime \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -161,9 +167,6 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_azurite.sh
 
-COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_ceph.sh
-
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
@@ -171,8 +174,15 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 #
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
+# - Abseil is old and we require a version that has CRC32C
 # - opentelemetry-cpp-dev is not packaged
-ENV ARROW_ACERO=ON \
+#
+# Ubuntu 24.04 apt mold is 2.30.0 which has a non-determinism bug in section placement:
+# https://github.com/rui314/mold/issues/1247 fixed in mold 2.31.0.
+# See https://github.com/apache/arrow/issues/49767
+# Re-enable ARROW_USE_MOLD if 2.31+ is released for apt Ubuntu 24.04.
+ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
@@ -192,7 +202,7 @@ ENV ARROW_ACERO=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
-    ARROW_USE_MOLD=ON \
+    ARROW_USE_MOLD=OFF \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -211,4 +221,5 @@ ENV ARROW_ACERO=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

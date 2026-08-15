@@ -235,7 +235,7 @@ master_doc = 'index'
 project = u'Apache Arrow'
 copyright = (
     f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
-    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "Apache Arrow, Arrow, Apache, the Apache logo, and the Apache Arrow "
     "project logo are either registered trademarks or trademarks of The Apache "
     "Software Foundation in the United States and other countries"
 )
@@ -273,7 +273,9 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store',
+                                       'developers/cpp/img/async.md',
+                                       '**/README.md',]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -329,10 +331,12 @@ html_theme = 'pydata_sphinx_theme'
 switcher_version = version
 if ".dev" in version:
     switcher_version = "dev/"
+    json_url = "https://arrow.apache.org/docs/_static/versions.json"
 else:
     # If we are not building dev version of the docs, we are building
     # docs for the stable version
     switcher_version = ""
+    json_url = "/docs/_static/versions.json"
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -363,7 +367,7 @@ html_theme_options = {
     ],
     "show_version_warning_banner": True,
     "switcher": {
-        "json_url": "/docs/_static/versions.json",
+        "json_url": json_url,
         "version_match": switcher_version,
     },
 }

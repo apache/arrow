@@ -18,7 +18,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <limits>
+#include <memory>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -56,11 +58,12 @@ TEST(TestStringOps, TestAscii) {
 }
 
 TEST(TestStringOps, TestChrBigInt) {
-  // CHR
+  // CHR returns the UTF-8 encoding of the given Unicode code point.
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   int32_t out_len = 0;
 
+  // 1-byte ASCII code points.
   auto out = chr_int32(ctx_ptr, 88, &out_len);
   EXPECT_EQ(std::string(out, out_len), "X");
 
@@ -70,62 +73,89 @@ TEST(TestStringOps, TestChrBigInt) {
   out = chr_int32(ctx_ptr, 49, &out_len);
   EXPECT_EQ(std::string(out, out_len), "1");
 
-  out = chr_int64(ctx_ptr, 84, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T");
-
-  out = chr_int32(ctx_ptr, 340, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "T");
-
-  out = chr_int64(ctx_ptr, 256, &out_len);
-  EXPECT_EQ(std::strcmp(out, "\0"), 0);
-
   out = chr_int32(ctx_ptr, 33, &out_len);
   EXPECT_EQ(std::string(out, out_len), "!");
 
-  out = chr_int64(ctx_ptr, 46, &out_len);
-  EXPECT_EQ(std::string(out, out_len), ".");
-
-  out = chr_int32(ctx_ptr, 63, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "?");
-
   out = chr_int64(ctx_ptr, 0, &out_len);
-  EXPECT_EQ(std::strcmp(out, "\0"), 0);
-
-  out = chr_int32(ctx_ptr, -158, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "b");
-
-  out = chr_int64(ctx_ptr, -5, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xFB");
-
-  out = chr_int32(ctx_ptr, -340, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xAC");
-
-  out = chr_int64(ctx_ptr, -66, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xBE");
-
-  //€
-  out = chr_int32(ctx_ptr, 128, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x80");
-
-  //œ
-  out = chr_int64(ctx_ptr, 156, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x9C");
-
-  //ÿ
-  out = chr_int32(ctx_ptr, 255, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\xFF");
+  EXPECT_EQ(std::string(out, out_len), std::string("\0", 1));
 
   // BACKSPACE
   out = chr_int64(ctx_ptr, 8, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\b");
 
-  // DEVICE CONTROL 3 (DC3)
-  out = chr_int32(ctx_ptr, 19, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "\x13");
-
   // ESCAPE (ESC)
   out = chr_int64(ctx_ptr, 27, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\x1B");
+
+  // Highest 1-byte code point (U+007F, DELETE).
+  out = chr_int32(ctx_ptr, 0x7F, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\x7F");
+
+  // 2-byte code points.
+  // Lowest 2-byte code point (U+0080).
+  out = chr_int32(ctx_ptr, 0x80, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xC2\x80");
+
+  // í (U+00ED)
+  out = chr_int32(ctx_ptr, 237, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xC3\xAD");
+
+  // Highest 2-byte code point (U+07FF).
+  out = chr_int64(ctx_ptr, 0x7FF, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xDF\xBF");
+
+  // 3-byte code points.
+  // Lowest 3-byte code point (U+0800).
+  out = chr_int32(ctx_ptr, 0x800, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xE0\xA0\x80");
+
+  // € (U+20AC)
+  out = chr_int32(ctx_ptr, 8364, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xE2\x82\xAC");
+
+  // 日 (U+65E5)
+  out = chr_int64(ctx_ptr, 26085, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xE6\x97\xA5");
+
+  // Highest 3-byte code point (U+FFFF).
+  out = chr_int32(ctx_ptr, 0xFFFF, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xEF\xBF\xBF");
+
+  // 4-byte code points.
+  // Lowest 4-byte code point (U+10000).
+  out = chr_int64(ctx_ptr, 0x10000, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xF0\x90\x80\x80");
+
+  // 😀 (U+1F600)
+  out = chr_int64(ctx_ptr, 0x1F600, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xF0\x9F\x98\x80");
+
+  // Highest valid code point (U+10FFFF).
+  out = chr_int64(ctx_ptr, 0x10FFFF, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\xF4\x8F\xBF\xBF");
+
+  EXPECT_FALSE(ctx.has_error());
+
+  // Invalid code points raise an error that includes the offending value.
+  chr_int64(ctx_ptr, -1, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
+      << ctx.get_error();
+  EXPECT_TRUE(ctx.get_error().find("-1") != std::string::npos) << ctx.get_error();
+  ctx.Reset();
+
+  chr_int64(ctx_ptr, 0x110000, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
+
+  // UTF-16 surrogate range is not a valid code point.
+  chr_int32(ctx_ptr, 0xD800, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.get_error().find("not a valid Unicode code point") != std::string::npos)
+      << ctx.get_error();
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestBeginsEnds) {
@@ -387,6 +417,13 @@ TEST(TestStringOps, TestRepeat) {
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
   ctx.Reset();
+
+  out_str = repeat_utf8_int32(ctx_ptr, "aa", 2,
+                              std::numeric_limits<int32_t>::max() / 2 + 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {
@@ -408,6 +445,10 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
 
   out_str = castVARCHAR_bool_int64(ctx_ptr, false, 5, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "false");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_bool_int64(ctx_ptr, true, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
 
   castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
@@ -1121,7 +1162,7 @@ TEST(TestStringOps, TestLevenshtein) {
   EXPECT_EQ(levenshtein(ctx_ptr, "book", -5, "back", 4), 0);
   EXPECT_TRUE(ctx.has_error());
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("String length must be greater than 0"));
+              ::testing::HasSubstr("LEVENSHTEIN: input lengths must be non-negative"));
   ctx.Reset();
 }
 
@@ -1134,26 +1175,46 @@ TEST(TestStringOps, TestQuote) {
   out_str = quote_utf8(ctx_ptr, "dont", 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "\'dont\'");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 
   out_str = quote_utf8(ctx_ptr, "abc", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "\'abc\'");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 
   out_str = quote_utf8(ctx_ptr, "don't", 5, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "\'don\\'t\'");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 
   out_str = quote_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 
   out_str = quote_utf8(ctx_ptr, "'", 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "'\\''");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 
   out_str = quote_utf8(ctx_ptr, "'''''''''", 9, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "'\\'\\'\\'\\'\\'\\'\\'\\'\\''");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  out_str = quote_utf8(ctx_ptr, "YYZ", bad_in_len, &out_len);
+  EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out_str, "");
+  ctx.Reset();
+
+  bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 20;
+  out_str = quote_utf8(ctx_ptr, "ABCDE", bad_in_len, &out_len);
+  EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out_str, "");
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestLtrim) {
@@ -1311,6 +1372,99 @@ TEST(TestStringOps, TestLpadString) {
 
   out_str = lpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "x", 1, 65536, "😀", 4, &out_len);
+  EXPECT_EQ(out_len, 65535 * 4 + 1);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[out_len - 1], 'x');
+  EXPECT_EQ(std::string_view(out_str, 4), "😀");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "A", 1, 65536, "哈", 3, &out_len);
+  EXPECT_EQ(out_len, 65535 * 3 + 1);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[out_len - 1], 'A');
+  EXPECT_EQ(std::string_view(out_str, 3), "哈");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, ".", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), ".X");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 65536, "@", 1, &out_len);
+  EXPECT_EQ(out_len, 65536);
+  for (int i = 0; i < 100; i++) {
+    EXPECT_EQ(out_str[i], '@') << "Mismatch at position " << i;
+  }
+  EXPECT_EQ(out_str[out_len - 1], 'Z');
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "END", 3, 11, "ab", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ababababEND");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "END", 3, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcaEND");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 5, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 9);
+  EXPECT_EQ(std::string(out_str, out_len), "αβαβX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 4, "中文", 6, &out_len);
+  EXPECT_EQ(out_len, 10);
+  EXPECT_EQ(std::string(out_str, out_len), "中文中Y");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 4, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 7, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 13, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcabcabcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabcabcX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "E", 1, 129, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 129);
+  EXPECT_EQ(out_str[0], 'a');
+  EXPECT_EQ(out_str[1], 'b');
+  EXPECT_EQ(out_str[126], 'a');
+  EXPECT_EQ(out_str[127], 'b');
+  EXPECT_EQ(out_str[128], 'E');
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "E", 1, 127, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 127);
+  EXPECT_EQ(out_str[0], 'a');
+  EXPECT_EQ(out_str[125], 'b');
+  EXPECT_EQ(out_str[126], 'E');
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, "abc", 3, &out_len);
+  EXPECT_EQ(out_len, 2);
+  EXPECT_EQ(std::string(out_str, out_len), "aX");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 3, "abcde", 5, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "abY");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 2, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "αZ");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "A", 1, 2, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 4);
+  EXPECT_EQ(std::string(out_str, out_len), "中A");
+
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, "B", 1, 3, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "中文B");
+
+  std::string large_text(5000, 'X');
+  std::string large_fill;
+  for (int i = 0; i < 50; ++i) {
+    large_fill += "α";
+  }
+  out_str = lpad_utf8_int32_utf8(ctx_ptr, large_text.c_str(), 5000, 5001,
+                                 large_fill.c_str(), 100, &out_len);
+  EXPECT_EQ(out_len, 5002);
+  EXPECT_EQ(std::string(out_str, 2), "α");
+  EXPECT_EQ(std::string(out_str + 2, 5000), large_text);
 }
 
 TEST(TestStringOps, TestRpadString) {
@@ -1389,6 +1543,153 @@ TEST(TestStringOps, TestRpadString) {
 
   out_str = rpad_utf8_int32(ctx_ptr, "TestString", 10, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "x", 1, 65536, "😀", 4, &out_len);
+  EXPECT_EQ(out_len, 1 + 65535 * 4);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[0], 'x');
+  EXPECT_EQ(std::string_view(out_str + out_len - 4, 4), "😀");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "A", 1, 65536, "哈", 3, &out_len);
+  EXPECT_EQ(out_len, 1 + 65535 * 3);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_str[0], 'A');
+  EXPECT_EQ(std::string_view(out_str + out_len - 3, 3), "哈");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, ".", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "X.");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 65536, "@", 1, &out_len);
+  EXPECT_EQ(out_len, 65536);
+  EXPECT_EQ(out_str[0], 'Z');
+  for (int i = 1; i < 100; i++) {
+    EXPECT_EQ(out_str[i], '@') << "Mismatch at position " << i;
+  }
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "BEG", 3, 11, "ab", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "BEGabababab");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "BEG", 3, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "BEGabcabca");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 5, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 9);
+  EXPECT_EQ(std::string(out_str, out_len), "Xαβαβ");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 4, "中文", 6, &out_len);
+  EXPECT_EQ(out_len, 10);
+  EXPECT_EQ(std::string(out_str, out_len), "Y中文中");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 4, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 7, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabcabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 13, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabcabcabcabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 10, "abc", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Xabcabcabc");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "S", 1, 129, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 129);
+  EXPECT_EQ(out_str[0], 'S');
+  EXPECT_EQ(out_str[1], 'a');
+  EXPECT_EQ(out_str[2], 'b');
+  EXPECT_EQ(out_str[127], 'a');
+  EXPECT_EQ(out_str[128], 'b');
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "S", 1, 127, "ab", 2, &out_len);
+  EXPECT_EQ(out_len, 127);
+  EXPECT_EQ(out_str[0], 'S');
+  EXPECT_EQ(out_str[125], 'a');
+  EXPECT_EQ(out_str[126], 'b');
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, "abc", 3, &out_len);
+  EXPECT_EQ(out_len, 2);
+  EXPECT_EQ(std::string(out_str, out_len), "Xa");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Y", 1, 3, "abcde", 5, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "Yab");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "Z", 1, 2, "αβ", 4, &out_len);
+  EXPECT_EQ(out_len, 3);
+  EXPECT_EQ(std::string(out_str, out_len), "Zα");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "A", 1, 2, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 4);
+  EXPECT_EQ(std::string(out_str, out_len), "A中");
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, "B", 1, 3, "中文字", 9, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "B中文");
+
+  std::string large_text(5000, 'X');
+  std::string large_fill;
+  for (int i = 0; i < 50; ++i) {
+    large_fill += "α";
+  }
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, large_text.c_str(), 5000, 5001,
+                                 large_fill.c_str(), 100, &out_len);
+  EXPECT_EQ(out_len, 5002);
+  EXPECT_EQ(std::string(out_str, 5000), large_text);
+  EXPECT_EQ(std::string(out_str + 5000, 2), "α");
+}
+
+TEST(TestStringOps, TestPadMalformedUtf8NoOverread) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // A 4-byte utf8 lead byte followed by non-continuation bytes and no trailing
+  // space. utf8_length_ignore_invalid() used to extend the glyph length past
+  // the end of the buffer while scanning the continuation bytes. The input is
+  // held in an exactly-sized heap buffer so any over-read trips AddressSanitizer.
+  const char bytes[] = {'\xF0', 'a', 'a', 'a'};
+  const auto text_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> text(new char[text_len]);
+  std::memcpy(text.get(), bytes, text_len);
+  const std::string text_str(text.get(), text_len);
+
+  // The lone lead byte counts as one invalid glyph and the three 'a's as one
+  // each, so the length is 4 and padding to width 6 adds two fill characters.
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 6, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 6);
+  EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 6, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 6);
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
+}
+
+TEST(TestStringOps, TestPadMalformedUtf8KeepsValidGlyph) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  // {0xF0, 'a', 0xE2, 0x82, 0xAC}: malformed 4-byte lead + ASCII 'a' + U+20AC €.
+  // 0xF0 alone counts as one invalid glyph, then 'a' and € follow on their own,
+  // so the count is 3. If the inner scan kept char_len at 4 it would advance the
+  // outer loop past 'a', 0xE2, 0x82 and only see the orphaned 0xAC, giving 2.
+  // The input sits in an exactly-sized heap buffer so any over-read trips ASAN.
+  const char bytes[] = {'\xF0', 'a', '\xE2', '\x82', '\xAC'};
+  const auto text_len = static_cast<gdv_int32>(sizeof(bytes));
+  std::unique_ptr<char[]> text(new char[text_len]);
+  std::memcpy(text.get(), bytes, text_len);
+  const std::string text_str(text.get(), text_len);
+
+  // 3 glyphs padded to width 5 adds two fill characters, out_len = 2 + 5 = 7.
+  const char* out_str =
+      lpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 5, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), "  " + text_str);
+
+  out_str = rpad_utf8_int32_utf8(ctx_ptr, text.get(), text_len, 5, " ", 1, &out_len);
+  EXPECT_EQ(out_len, 7);
+  EXPECT_EQ(std::string(out_str, out_len), text_str + "  ");
 }
 
 TEST(TestStringOps, TestRtrim) {
@@ -1686,6 +1987,20 @@ TEST(TestStringOps, TestByteSubstr) {
   out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -100, 10, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
+
+  // offset past the end of the text must yield an empty result, not a negative
+  // length that memcpy reads as an out-of-bounds copy
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 15, 10, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // a huge length must be truncated to the remaining bytes, not overflow
+  // startPos + length and copy far past the end of the text
+  out_str =
+      byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 2, 2147483647, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "estString");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestStringOps, TestStrPos) {
@@ -1773,6 +2088,68 @@ TEST(TestStringOps, TestReplace) {
       replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "abc", 3, "xyz", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
+
+  // No match on the large-expansion (counting) path: from "z" to "zzz" expands
+  // by more than from_len, so this exercises the count branch's zero-match
+  // early return.
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "z", 1, "zzz", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Large output (>64 KB) must not overflow: buffer is sized to the exact result.
+  std::string large_in(35000, 'X');
+  std::string large_expected(70000, '\0');
+  for (int i = 0; i < 35000; ++i) {
+    large_expected[2 * i] = 'X';
+    large_expected[2 * i + 1] = 'Y';
+  }
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, large_in.data(),
+                                   static_cast<int32_t>(large_in.size()), "X", 1, "XY", 2,
+                                   &out_len);
+  EXPECT_EQ(out_len, 70000);
+  EXPECT_EQ(std::string(out_str, out_len), large_expected);
+  EXPECT_FALSE(ctx.has_error());
+
+  // Large shrinking output ("XX" -> "X") on a >64 KB input.
+  std::string large_shrink_in(70000, 'X');
+  std::string large_shrink_expected(35000, 'X');
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, large_shrink_in.data(),
+                                   static_cast<int32_t>(large_shrink_in.size()), "XX", 2,
+                                   "X", 1, &out_len);
+  EXPECT_EQ(out_len, 35000);
+  EXPECT_EQ(std::string(out_str, out_len), large_shrink_expected);
+  EXPECT_FALSE(ctx.has_error());
+
+  // Edge case: result size of exactly 0 (every byte of text is removed). Takes
+  // the no-scan shrink path (to_str_len <= from_str_len).
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "aaaa", 4, "a", 1, "", 0, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Edge case: result size one past the INT_MAX boundary. 65536 single-char
+  // matches each expanding to 32768 bytes gives max_length = 65536 * 32768 =
+  // 2^31 = INT_MAX + 1, so it is reported cleanly (guard fires before any alloc).
+  std::string boundary_in(65536, 'a');
+  std::string boundary_to(32768, 'b');
+  replace_utf8_utf8_utf8(
+      ctx_ptr, boundary_in.data(), static_cast<int32_t>(boundary_in.size()), "a", 1,
+      boundary_to.data(), static_cast<int32_t>(boundary_to.size()), &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceeds maximum size"));
+  EXPECT_EQ(out_len, 0);
+  ctx.Reset();
+
+  // Output that would exceed INT_MAX (2GB) is reported cleanly rather than
+  // silently wrapping the int32 size. 50000 matches each expanding to 50000
+  // bytes implies max_length = 2.5e9; the guard fires before any large alloc.
+  std::string huge_in(50000, 'X');
+  std::string huge_to(50000, 'Z');
+  replace_utf8_utf8_utf8(ctx_ptr, huge_in.data(), static_cast<int32_t>(huge_in.size()),
+                         "X", 1, huge_to.data(), static_cast<int32_t>(huge_to.size()),
+                         &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("exceeds maximum size"));
+  EXPECT_EQ(out_len, 0);
+  ctx.Reset();
 
   replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5, 5,
                                       &out_len);
@@ -1883,10 +2260,6 @@ TEST(TestStringOps, TestBinaryString) {
   std::string output = std::string(out_str, out_len);
   EXPECT_EQ(output, "TestString");
 
-  out_str = binary_string(ctx_ptr, "", 0, &out_len);
-  output = std::string(out_str, out_len);
-  EXPECT_EQ(output, "");
-
   out_str = binary_string(ctx_ptr, "T", 1, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "T");
@@ -1910,6 +2283,22 @@ TEST(TestStringOps, TestBinaryString) {
   out_str = binary_string(ctx_ptr, "\\x4f\\x4D", 8, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "OM");
+}
+
+TEST(TestStringOps, TestBinaryStringNull) {
+  // This test is only valid if it is the first to trigger a memory allocation in the
+  // context.
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  std::string output;
+
+  out_str = binary_string(ctx_ptr, "", 0, &out_len);
+  ASSERT_FALSE(ctx.has_error());
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestSplitPart) {
@@ -2089,10 +2478,41 @@ TEST(TestStringOps, TestConcatWs) {
   EXPECT_EQ(std::string(out, out_len), "hey");
   EXPECT_EQ(out_result, true);
 
+  // Max word1 len
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
+                            std::numeric_limits<int32_t>::max(), true, word2, word2_len,
+                            true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+
+  // Max word2 len
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len, true,
+                            word2, std::numeric_limits<int32_t>::max(), true, &out_result,
+                            &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+
+  // Max separator len
+  out = concat_ws_utf8_utf8(ctx_ptr, separator, std::numeric_limits<int32_t>::max(), true,
+                            word1, word1_len, true, word2, word2_len, true, &out_result,
+                            &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+
   separator = "#";
   sep_len = static_cast<int32_t>(strlen(separator));
   const char* word3 = "wow";
   int32_t word3_len = static_cast<int32_t>(strlen(word3));
+
+  out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, std::numeric_limits<int32_t>::max(),
+                                 true, word1, word1_len, true, word2, word2_len, true,
+                                 word3, word3_len, true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
 
   out = concat_ws_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1, word1_len,
                                  true, word2, word2_len, true, word3, word3_len, true,
@@ -2135,6 +2555,14 @@ TEST(TestStringOps, TestConcatWs) {
   const char* word4 = "awesome";
   int32_t word4_len = static_cast<int32_t>(strlen(word4));
 
+  out = concat_ws_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
+                                      std::numeric_limits<int32_t>::max(), true, word2,
+                                      word2_len, true, word3, word3_len, true, word4,
+                                      word4_len, true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_result, false);
+
   out = concat_ws_utf8_utf8_utf8_utf8(
       ctx_ptr, separator, sep_len, true, word1, word1_len, true, word2, word2_len, true,
       word3, word3_len, true, word4, word4_len, true, &out_result, &out_len);
@@ -2145,6 +2573,20 @@ TEST(TestStringOps, TestConcatWs) {
   sep_len = static_cast<int32_t>(strlen(separator));
   const char* word5 = "super";
   int32_t word5_len = static_cast<int32_t>(strlen(word5));
+
+  out = concat_ws_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, separator, sep_len, true, word1, word1_len, true, word2, word2_len, true,
+      word3, word3_len, true, word4, std::numeric_limits<int32_t>::max(), true, word5,
+      std::numeric_limits<int32_t>::max(), true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_result, false);
+
+  out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
+                                           word1_len, true, word2, word2_len, true, word3,
+                                           word3_len, true, word4, -25, true, word5,
+                                           word5_len, true, &out_result, &out_len);
+  EXPECT_STREQ(out, "");
+  EXPECT_EQ(out_result, false);
 
   out = concat_ws_utf8_utf8_utf8_utf8_utf8(ctx_ptr, separator, sep_len, true, word1,
                                            word1_len, true, word2, word2_len, true, word3,
@@ -2289,6 +2731,27 @@ TEST(TestStringOps, TestToHex) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(out_len, 2 * in_len);
   EXPECT_EQ(output, "090A090A090A090A0A0A092061206C657474405D6572");
+  ctx.Reset();
+
+  int32_t bad_text_len = std::numeric_limits<int32_t>::max() / 2 + 20;
+  out_str = to_hex_binary(ctx_ptr, binary_string, bad_text_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out_str, "");
+  ctx.Reset();
+
+  bad_text_len = (std::numeric_limits<int32_t>::max() / 2) + 1;
+  out_str = to_hex_binary(ctx_ptr, binary_string, bad_text_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
+  ctx.Reset();
+
+  int32_t neg_in_len = -20;
+  out_str = to_hex_binary(ctx_ptr, binary_string, neg_in_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(ctx.get_error(), "Text length invalid (negative).");
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestToHexInt64) {

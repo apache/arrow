@@ -162,6 +162,9 @@ class ARROW_EXPORT BufferReader
   // Synchronous ReadAsync override
   Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                             int64_t nbytes) override;
+  Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
+                                            int64_t nbytes,
+                                            bool allow_short_read) override;
   Status WillNeed(const std::vector<ReadRange>& ranges) override;
 
  protected:
@@ -171,8 +174,10 @@ class ARROW_EXPORT BufferReader
 
   Result<int64_t> DoRead(int64_t nbytes, void* buffer);
   Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                           void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes,
+                                           bool allow_short_read);
   Result<std::string_view> DoPeek(int64_t nbytes) override;
 
   Result<int64_t> DoTell() const;

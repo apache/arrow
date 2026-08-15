@@ -17,10 +17,11 @@
 
 ARG repo
 ARG arch
+ARG arch_short
 ARG python="3.13"
-FROM ${repo}:${arch}-conda-python-${python}
+FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
-ARG selenium_version="4.15.2"
+ARG selenium_version="4.41.0"
 ARG pyodide_version="0.28.1"
 ARG chrome_version="latest"
 ARG required_python_min="(3,13)"
@@ -44,16 +45,17 @@ RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
     wget -q "${pyodide_dist_url}" -O- | tar -xj -C /
 
+# install node 22 (needed for async call support and JSPI)
+# and pthread-stubs for build, and unzip needed for chrome build to work
+# xz is needed by emsdk to extract node tarballs
+RUN conda install nodejs=22 unzip pthread-stubs make xz -c conda-forge
+
 # install correct version of emscripten for this pyodide
 COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
 RUN bash /arrow/ci/scripts/install_emscripten.sh ~ /pyodide
 
 # make sure zlib is cached in the EMSDK folder
 RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
-
-# install node 22 (needed for async call support and JSPI)
-# and pthread-stubs for build, and unzip needed for chrome build to work
-RUN conda install nodejs=22  unzip pthread-stubs make -c conda-forge
 
 # install chrome for testing browser based runner
 COPY ci/scripts/install_chromedriver.sh /arrow/ci/scripts/
