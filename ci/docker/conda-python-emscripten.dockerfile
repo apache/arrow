@@ -18,14 +18,14 @@
 ARG repo
 ARG arch
 ARG arch_short
-ARG python="3.13"
+ARG python="3.14"
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
-ARG pyodide_version="0.28.1"
+ARG pyodide_version="314.0.4"
 ARG chrome_version="latest"
-ARG required_python_min="(3,13)"
-# fail if python version < 3.13
+ARG required_python_min="(3,14)"
+# fail if python version < 3.14
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
 RUN apt-get update -y -q && \
