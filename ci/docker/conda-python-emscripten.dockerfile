@@ -23,6 +23,8 @@ FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
 ARG pyodide_version="314.0.4"
+# pyodide-build is versioned independently of Pyodide
+ARG pyodide_build_version="0.39.0"
 ARG chrome_version="latest"
 ARG required_python_min="(3,14)"
 # fail if python version < 3.14
@@ -39,7 +41,7 @@ SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
 # install selenium and recent pyodide-build and recent python
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
-    python -m pip install --no-cache-dir --upgrade pyodide-build>=${pyodide_version}
+    python -m pip install --no-cache-dir --upgrade "pyodide-build>=${pyodide_build_version}"
 
 # install pyodide dist directory to /pyodide
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
