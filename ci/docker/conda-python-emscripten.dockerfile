@@ -45,10 +45,10 @@ RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
     wget -q "${pyodide_dist_url}" -O- | tar -xj -C /
 
-# install node 22 (needed for async call support and JSPI)
+# install node 24 (needed for async call support and JSPI)
 # and pthread-stubs for build, and unzip needed for chrome build to work
 # xz is needed by emsdk to extract node tarballs
-RUN conda install nodejs=22 unzip pthread-stubs make xz -c conda-forge
+RUN conda install nodejs=24 unzip pthread-stubs make xz -c conda-forge
 
 # install correct version of emscripten for this pyodide
 COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
