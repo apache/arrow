@@ -66,6 +66,15 @@ compute functionality for each file type we'll work with in this article:
   :start-after: (Doc section: Includes)
   :end-before: (Doc section: Includes)
 
+.. note::
+   The dataset and Parquet headers come from libraries separate from ``arrow``,
+   so linking ``Arrow::arrow_shared`` alone is not enough to build this example.
+   Your ``CMakeLists.txt`` needs ``find_package(ArrowDataset REQUIRED)`` and
+   ``find_package(Parquet REQUIRED)``, linking both the
+   ``ArrowDataset::arrow_dataset_shared`` and ``Parquet::parquet_shared``
+   targets. See :ref:`cpp-build-system-linking-parquet` for a complete
+   ``CMakeLists.txt``.
+
 Main()
 ^^^^^^
 
