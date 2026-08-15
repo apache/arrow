@@ -63,19 +63,45 @@ std::shared_ptr<FsstSymbolTable> FsstSymbolTable::Train(
     const std::vector<std::string>& values) {
   std::vector<size_t> lengths;
   std::vector<const unsigned char*> inputs;
-  if (values.empty()) {
+  lengths.reserve(values.size());
+  inputs.reserve(values.size());
+  for (const std::string& value : values) {
+    lengths.push_back(value.size());
+    inputs.push_back(reinterpret_cast<const unsigned char*>(value.data()));
+  }
+  return TrainFromInputs(std::move(lengths), std::move(inputs));
+}
+
+std::shared_ptr<FsstSymbolTable> FsstSymbolTable::TrainBatches(
+    const std::vector<std::vector<std::string>>& value_batches) {
+  size_t num_values = 0;
+  for (const auto& batch : value_batches) {
+    if (batch.size() > std::numeric_limits<size_t>::max() - num_values) {
+      throw ParquetException("FSST training corpus contains too many values");
+    }
+    num_values += batch.size();
+  }
+  std::vector<size_t> lengths;
+  std::vector<const unsigned char*> inputs;
+  lengths.reserve(num_values);
+  inputs.reserve(num_values);
+  for (const auto& batch : value_batches) {
+    for (const std::string& value : batch) {
+      lengths.push_back(value.size());
+      inputs.push_back(reinterpret_cast<const unsigned char*>(value.data()));
+    }
+  }
+  return TrainFromInputs(std::move(lengths), std::move(inputs));
+}
+
+std::shared_ptr<FsstSymbolTable> FsstSymbolTable::TrainFromInputs(
+    std::vector<size_t> lengths, std::vector<const unsigned char*> inputs) {
+  if (inputs.empty()) {
     // CWI expects at least one input slot. A zero-length sample produces a
     // fully usable table for encoding values on later pages.
     static constexpr unsigned char kEmptyInput = 0;
     lengths.push_back(0);
     inputs.push_back(&kEmptyInput);
-  } else {
-    lengths.reserve(values.size());
-    inputs.reserve(values.size());
-    for (const std::string& value : values) {
-      lengths.push_back(value.size());
-      inputs.push_back(reinterpret_cast<const unsigned char*>(value.data()));
-    }
   }
 
   auto trained = std::make_unique<CwiState>();

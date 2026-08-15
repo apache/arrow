@@ -1301,11 +1301,18 @@ void DeltaBitPackEncoder<DType>::PutSpaced(const T* src, int num_values,
 class FsstEncoder final : public EncoderImpl, virtual public TypedEncoder<ByteArrayType> {
  public:
   FsstEncoder(const ColumnDescriptor* descr, FsstOffsetEncoding::type offset_encoding,
-              MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::FSST, pool), offset_encoding_(offset_encoding) {
+              MemoryPool* pool, int32_t training_data_pages)
+      : EncoderImpl(descr, Encoding::FSST, pool),
+        offset_encoding_(offset_encoding),
+        training_data_pages_(training_data_pages) {
     if (offset_encoding != FsstOffsetEncoding::PLAIN &&
         offset_encoding != FsstOffsetEncoding::DELTA_BINARY_PACKED) {
       throw ParquetException("Unsupported FSST offset encoding");
+    }
+    if (training_data_pages == 0 || training_data_pages < -1) {
+      throw ParquetException(
+          "FSST training data pages must be positive, or -1 for the entire column "
+          "chunk");
     }
   }
 
@@ -1326,6 +1333,16 @@ class FsstEncoder final : public EncoderImpl, virtual public TypedEncoder<ByteAr
   SymbolTableType::type fsst_symbol_table_type() const override {
     return SymbolTableType::FSST;
   }
+
+  bool fsst_training_complete() const override { return symbol_table_ != nullptr; }
+
+  void FinishFsstTraining() override;
+
+  size_t num_buffered_fsst_pages() const override {
+    return buffered_page_values_.size() - buffered_page_index_;
+  }
+
+  std::shared_ptr<Buffer> FlushBufferedFsstPage() override;
 
   void Put(const ByteArray* src, int num_values) override {
     if (num_values < 0 ||
@@ -1396,21 +1413,29 @@ class FsstEncoder final : public EncoderImpl, virtual public TypedEncoder<ByteAr
   }
 
  private:
-  std::shared_ptr<Buffer> EncodePlain() const;
+  std::shared_ptr<Buffer> EncodeValues(std::vector<std::string> values,
+                                       int64_t values_byte_size);
+  std::shared_ptr<Buffer> EncodePlain(const std::vector<std::string>& values,
+                                      int64_t values_byte_size) const;
 
   const FsstOffsetEncoding::type offset_encoding_;
+  const int32_t training_data_pages_;
   Encoding::type page_encoding_ = Encoding::FSST;
   std::shared_ptr<internal::FsstSymbolTable> symbol_table_;
   std::shared_ptr<Buffer> symbol_table_body_;
   std::vector<std::string> values_;
   int64_t values_byte_size_ = 0;
+  std::vector<std::vector<std::string>> buffered_page_values_;
+  std::vector<int64_t> buffered_page_byte_sizes_;
+  size_t buffered_page_index_ = 0;
 };
 
-std::shared_ptr<Buffer> FsstEncoder::EncodePlain() const {
+std::shared_ptr<Buffer> FsstEncoder::EncodePlain(const std::vector<std::string>& values,
+                                                 int64_t values_byte_size) const {
   ::arrow::BufferBuilder sink(pool_);
   PARQUET_THROW_NOT_OK(
-      sink.Reserve(values_byte_size_ + static_cast<int64_t>(values_.size()) * 4));
-  for (const std::string& value : values_) {
+      sink.Reserve(values_byte_size + static_cast<int64_t>(values.size()) * 4));
+  for (const std::string& value : values) {
     const uint32_t length =
         ::arrow::bit_util::ToLittleEndian(static_cast<uint32_t>(value.size()));
     PARQUET_THROW_NOT_OK(
@@ -1423,25 +1448,74 @@ std::shared_ptr<Buffer> FsstEncoder::EncodePlain() const {
 }
 
 std::shared_ptr<Buffer> FsstEncoder::FlushValues() {
-  if (symbol_table_ == nullptr) {
-    symbol_table_ = internal::FsstSymbolTable::Train(values_);
-    symbol_table_body_ = symbol_table_->Serialize(pool_);
+  if (symbol_table_ != nullptr) {
+    auto values = std::move(values_);
+    const int64_t values_byte_size = values_byte_size_;
+    values_.clear();
+    values_byte_size_ = 0;
+    return EncodeValues(std::move(values), values_byte_size);
   }
 
+  if (training_data_pages_ == 1) {
+    symbol_table_ = internal::FsstSymbolTable::Train(values_);
+    symbol_table_body_ = symbol_table_->Serialize(pool_);
+    auto values = std::move(values_);
+    const int64_t values_byte_size = values_byte_size_;
+    values_.clear();
+    values_byte_size_ = 0;
+    return EncodeValues(std::move(values), values_byte_size);
+  }
+
+  buffered_page_values_.push_back(std::move(values_));
+  buffered_page_byte_sizes_.push_back(values_byte_size_);
+  values_.clear();
+  values_byte_size_ = 0;
+  if (training_data_pages_ != -1 &&
+      buffered_page_values_.size() >= static_cast<size_t>(training_data_pages_)) {
+    FinishFsstTraining();
+  }
+  return nullptr;
+}
+
+void FsstEncoder::FinishFsstTraining() {
+  if (symbol_table_ != nullptr) {
+    return;
+  }
+  symbol_table_ = internal::FsstSymbolTable::TrainBatches(buffered_page_values_);
+  symbol_table_body_ = symbol_table_->Serialize(pool_);
+}
+
+std::shared_ptr<Buffer> FsstEncoder::FlushBufferedFsstPage() {
+  if (symbol_table_ == nullptr) {
+    throw ParquetException("FSST symbol table has not been trained");
+  }
+  if (buffered_page_index_ >= buffered_page_values_.size()) {
+    throw ParquetException("FSST encoder has no buffered data page");
+  }
+  auto output = EncodeValues(std::move(buffered_page_values_[buffered_page_index_]),
+                             buffered_page_byte_sizes_[buffered_page_index_]);
+  ++buffered_page_index_;
+  if (buffered_page_index_ == buffered_page_values_.size()) {
+    buffered_page_values_.clear();
+    buffered_page_byte_sizes_.clear();
+    buffered_page_index_ = 0;
+  }
+  return output;
+}
+
+std::shared_ptr<Buffer> FsstEncoder::EncodeValues(std::vector<std::string> values,
+                                                  int64_t values_byte_size) {
   std::vector<int32_t> end_offsets;
-  end_offsets.reserve(values_.size());
+  end_offsets.reserve(values.size());
   const int64_t plain_size =
-      values_byte_size_ + static_cast<int64_t>(values_.size()) * sizeof(uint32_t);
+      values_byte_size + static_cast<int64_t>(values.size()) * sizeof(uint32_t);
   const size_t maximum_compressed_data_size =
       static_cast<size_t>(plain_size > 9 ? plain_size - 9 : 0);
   std::vector<uint8_t> compressed_data;
-  if (!symbol_table_->CompressBatch(values_, maximum_compressed_data_size, &end_offsets,
+  if (!symbol_table_->CompressBatch(values, maximum_compressed_data_size, &end_offsets,
                                     &compressed_data)) {
     page_encoding_ = Encoding::PLAIN;
-    auto output = EncodePlain();
-    values_.clear();
-    values_byte_size_ = 0;
-    return output;
+    return EncodePlain(values, values_byte_size);
   }
 
   std::shared_ptr<Buffer> encoded_offsets;
@@ -1468,7 +1542,7 @@ std::shared_ptr<Buffer> FsstEncoder::FlushValues() {
                                     static_cast<int64_t>(compressed_data.size())));
   const uint8_t offset_encoding = static_cast<uint8_t>(offset_encoding_);
   const int32_t num_values =
-      ::arrow::bit_util::ToLittleEndian(static_cast<int32_t>(values_.size()));
+      ::arrow::bit_util::ToLittleEndian(static_cast<int32_t>(values.size()));
   const int32_t offset_size =
       ::arrow::bit_util::ToLittleEndian(static_cast<int32_t>(encoded_offsets->size()));
   PARQUET_THROW_NOT_OK(sink.Append(&offset_encoding, 1));
@@ -1484,13 +1558,11 @@ std::shared_ptr<Buffer> FsstEncoder::FlushValues() {
   std::shared_ptr<Buffer> output;
   if (fsst_output->size() >= plain_size) {
     page_encoding_ = Encoding::PLAIN;
-    output = EncodePlain();
+    output = EncodePlain(values, values_byte_size);
   } else {
     page_encoding_ = Encoding::FSST;
     output = std::move(fsst_output);
   }
-  values_.clear();
-  values_byte_size_ = 0;
   return output;
 }
 
@@ -1968,11 +2040,11 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 
 std::unique_ptr<Encoder> MakeFsstEncoder(const ColumnDescriptor* descr,
                                          FsstOffsetEncoding::type offset_encoding,
-                                         MemoryPool* pool) {
+                                         MemoryPool* pool, int32_t training_data_pages) {
   if (descr == nullptr || descr->physical_type() != Type::BYTE_ARRAY) {
     throw ParquetException("FSST encoder only supports BYTE_ARRAY");
   }
-  return std::make_unique<FsstEncoder>(descr, offset_encoding, pool);
+  return std::make_unique<FsstEncoder>(descr, offset_encoding, pool, training_data_pages);
 }
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,

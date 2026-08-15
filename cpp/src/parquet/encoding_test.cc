@@ -2709,6 +2709,65 @@ INSTANTIATE_TEST_SUITE_P(Fsst8WithBothOffsetEncodings, FsstEncodingTest,
                          ::testing::Values(FsstOffsetEncoding::PLAIN,
                                            FsstOffsetEncoding::DELTA_BINARY_PACKED));
 
+TEST(FsstEncoding, ConfigurableTrainingPageCount) {
+  auto node = schema::ByteArray("value", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  for (const int32_t training_pages : {2, 10, -1}) {
+    auto base_encoder = MakeFsstEncoder(&descr, FsstOffsetEncoding::PLAIN,
+                                        ::arrow::default_memory_pool(), training_pages);
+    auto* encoder = dynamic_cast<ByteArrayEncoder*>(base_encoder.get());
+    ASSERT_NE(encoder, nullptr);
+
+    std::vector<std::string> first_page;
+    std::vector<std::string> second_page;
+    for (int i = 0; i < 100; ++i) {
+      first_page.push_back("https://arrow.apache.org/fsst/first/" +
+                           std::to_string(i % 5));
+      second_page.push_back("https://arrow.apache.org/fsst/second/" +
+                            std::to_string(i % 7));
+    }
+    auto put_page = [&](const std::vector<std::string>& page) {
+      std::vector<ByteArray> values;
+      values.reserve(page.size());
+      for (const auto& value : page) {
+        values.emplace_back(value);
+      }
+      encoder->Put(values.data(), static_cast<int>(values.size()));
+      ASSERT_EQ(encoder->FlushValues(), nullptr);
+    };
+
+    put_page(first_page);
+    ASSERT_FALSE(base_encoder->fsst_training_complete());
+    ASSERT_EQ(base_encoder->num_buffered_fsst_pages(), 1);
+    put_page(second_page);
+    ASSERT_EQ(base_encoder->num_buffered_fsst_pages(), 2);
+    ASSERT_EQ(base_encoder->fsst_training_complete(), training_pages == 2);
+
+    base_encoder->FinishFsstTraining();
+    ASSERT_TRUE(base_encoder->fsst_training_complete());
+    ASSERT_NE(base_encoder->fsst_symbol_table(), nullptr);
+
+    for (const auto* expected : {&first_page, &second_page}) {
+      auto encoded = base_encoder->FlushBufferedFsstPage();
+      ASSERT_EQ(base_encoder->page_encoding(), Encoding::FSST);
+      auto decoder = MakeFsstDecoder(&descr, SymbolTableType::FSST,
+                                     base_encoder->fsst_symbol_table());
+      decoder->SetData(static_cast<int>(expected->size()), encoded->data(),
+                       static_cast<int>(encoded->size()));
+      auto* typed_decoder = dynamic_cast<ByteArrayDecoder*>(decoder.get());
+      ASSERT_NE(typed_decoder, nullptr);
+      std::vector<ByteArray> actual(expected->size());
+      ASSERT_EQ(typed_decoder->Decode(actual.data(), static_cast<int>(actual.size())),
+                actual.size());
+      for (size_t i = 0; i < actual.size(); ++i) {
+        ASSERT_EQ(static_cast<std::string_view>(actual[i]), (*expected)[i]);
+      }
+    }
+    ASSERT_EQ(base_encoder->num_buffered_fsst_pages(), 0);
+  }
+}
+
 TEST(FsstEncoding, FallsBackToPlainWhenEncodingExpandsPage) {
   auto node = schema::ByteArray("value", Repetition::REQUIRED);
   ColumnDescriptor descr(node, 0, 0);

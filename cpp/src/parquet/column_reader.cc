@@ -252,7 +252,7 @@ void CheckSymbolTablePageHeader(const format::PageHeader& page_header) {
   }
   const auto symbol_table_type = LoadEnumSafe(&page_header.symbol_table_page_header.type);
   if (symbol_table_type != SymbolTableType::FSST) {
-    throw ParquetException("Only FSST8 symbol tables are currently supported");
+    throw ParquetException("Unsupported symbol table type");
   }
   if (page_header.uncompressed_page_size < 9 ||
       page_header.uncompressed_page_size > 2049) {
@@ -867,10 +867,6 @@ class ColumnReaderImplBase {
   }
 
   void ConfigureDictionary(const DictionaryPage* page) {
-    if (fsst_symbol_table_body_ != nullptr) {
-      throw ParquetException(
-          "Dictionary and symbol table pages cannot coexist in a column chunk");
-    }
     int encoding = static_cast<int>(page->encoding());
     if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
         page->encoding() == Encoding::PLAIN) {
@@ -902,21 +898,16 @@ class ColumnReaderImplBase {
     }
 
     new_dictionary_ = true;
-    dictionary_configured_ = true;
     current_decoder_.SetDecoder(decoders_[encoding].get());
     ARROW_DCHECK(current_decoder_);
   }
 
   void ConfigureSymbolTable(const SymbolTablePage* page) {
-    if (dictionary_configured_) {
-      throw ParquetException(
-          "Dictionary and symbol table pages cannot coexist in a column chunk");
-    }
     if (fsst_symbol_table_body_ != nullptr) {
-      throw ParquetException("Column cannot have more than one symbol table page");
+      throw ParquetException("Duplicate symbol table page");
     }
     if (page->symbol_table_type() != SymbolTableType::FSST) {
-      throw ParquetException("Only FSST8 symbol tables are currently supported");
+      throw ParquetException("Unsupported symbol table type");
     }
     fsst_symbol_table_type_ = page->symbol_table_type();
     PARQUET_ASSIGN_OR_THROW(fsst_symbol_table_body_,
@@ -1042,10 +1033,6 @@ class ColumnReaderImplBase {
           if constexpr (!std::is_same_v<DType, ByteArrayType>) {
             throw ParquetException("FSST encoding only supports BYTE_ARRAY");
           } else {
-            if (fsst_symbol_table_body_ == nullptr) {
-              throw ParquetException(
-                  "FSST data page must be preceded by a symbol table page");
-            }
             auto decoder = MakeFsstDecoder(descr_, fsst_symbol_table_type_,
                                            fsst_symbol_table_body_, pool_);
             auto typed_decoder = std::unique_ptr<DecoderType>(
@@ -1117,7 +1104,6 @@ class ColumnReaderImplBase {
   /// Flag to signal when a new dictionary has been set, for the benefit of
   /// DictionaryRecordReader
   bool new_dictionary_ = false;
-  bool dictionary_configured_ = false;
 
   // The exposed encoding
   ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;
@@ -1133,7 +1119,6 @@ class ColumnReaderImplBase {
   void ResetFsstSymbolTable() {
     fsst_symbol_table_type_ = SymbolTableType::UNDEFINED;
     fsst_symbol_table_body_.reset();
-    dictionary_configured_ = false;
   }
 
   void ConsumeBufferedValues(int64_t num_values) {

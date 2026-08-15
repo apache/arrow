@@ -54,6 +54,8 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_FALSE(props->page_checksum_enabled());
   ASSERT_EQ(FsstOffsetEncoding::PLAIN,
             props->fsst_offset_encoding(ColumnPath::FromDotString("any")));
+  ASSERT_EQ(DEFAULT_FSST_TRAINING_DATA_PAGES,
+            props->fsst_training_data_pages(ColumnPath::FromDotString("any")));
 }
 
 TEST(TestWriterProperties, DefaultCompression) {
@@ -63,6 +65,15 @@ TEST(TestWriterProperties, DefaultCompression) {
             Compression::UNCOMPRESSED);
   ASSERT_EQ(props->compression_level(ColumnPath::FromDotString("any")),
             ::arrow::util::kUseDefaultCompressionLevel);
+}
+
+TEST(TestWriterProperties, FsstTrainingDataPagesValidation) {
+  WriterProperties::Builder builder;
+  ASSERT_THROW(builder.fsst_training_data_pages(0), ParquetException);
+  ASSERT_THROW(builder.fsst_training_data_pages(-2), ParquetException);
+  ASSERT_NO_THROW(builder.fsst_training_data_pages(1));
+  ASSERT_NO_THROW(builder.fsst_training_data_pages(10));
+  ASSERT_NO_THROW(builder.fsst_training_data_pages(-1));
 }
 
 TEST(TestWriterProperties, AdvancedHandling) {
@@ -318,6 +329,8 @@ TEST_P(WriterPropertiesTest, RoundTripThroughBuilder) {
     ASSERT_EQ(round_tripped_col.encoding(), column_properties.encoding());
     ASSERT_EQ(round_tripped_col.fsst_offset_encoding(),
               column_properties.fsst_offset_encoding());
+    ASSERT_EQ(round_tripped_col.fsst_training_data_pages(),
+              column_properties.fsst_training_data_pages());
     ASSERT_EQ(round_tripped_col.max_statistics_size(),
               column_properties.max_statistics_size());
     ASSERT_EQ(round_tripped_col.page_index_enabled(),
@@ -399,6 +412,8 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     WriterProperties::Builder builder;
     builder.fsst_offset_encoding(FsstOffsetEncoding::DELTA_BINARY_PACKED);
     builder.fsst_offset_encoding(column_a, FsstOffsetEncoding::PLAIN);
+    builder.fsst_training_data_pages(10);
+    builder.fsst_training_data_pages(column_a, -1);
     test_cases.emplace_back(builder.build(), "fsst_column_override");
   }
   {

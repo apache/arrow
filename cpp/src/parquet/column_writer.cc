@@ -265,7 +265,6 @@ class SerializedPageWriter : public PageWriter {
         pool_(pool),
         num_values_(0),
         dictionary_page_offset_(0),
-        has_dictionary_page_(false),
         symbol_table_page_offset_(0),
         symbol_table_page_length_(0),
         has_symbol_table_page_(false),
@@ -289,10 +288,6 @@ class SerializedPageWriter : public PageWriter {
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
-    if (has_symbol_table_page_) {
-      throw ParquetException(
-          "Dictionary and symbol table pages cannot coexist in a column chunk");
-    }
     int64_t uncompressed_size = page.buffer()->size();
     if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
       throw ParquetException(
@@ -347,7 +342,6 @@ class SerializedPageWriter : public PageWriter {
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
-    has_dictionary_page_ = true;
 
     if (meta_encryptor_) {
       UpdateEncryption(encryption::kDictionaryPageHeader);
@@ -364,15 +358,11 @@ class SerializedPageWriter : public PageWriter {
   }
 
   int64_t WriteSymbolTablePage(const SymbolTablePage& page) override {
-    if (has_dictionary_page_) {
-      throw ParquetException(
-          "Dictionary and symbol table pages cannot coexist in a column chunk");
-    }
     if (has_symbol_table_page_) {
-      throw ParquetException("Column cannot have more than one symbol table page");
+      throw ParquetException("Duplicate symbol table page");
     }
     if (page.symbol_table_type() != SymbolTableType::FSST) {
-      throw ParquetException("Only FSST8 symbol tables are currently supported");
+      throw ParquetException("Unsupported symbol table type");
     }
     if (page.buffer() == nullptr) {
       throw ParquetException("Symbol table page has no body");
@@ -698,7 +688,6 @@ class SerializedPageWriter : public PageWriter {
   MemoryPool* pool_;
   int64_t num_values_;
   int64_t dictionary_page_offset_;
-  bool has_dictionary_page_;
   int64_t symbol_table_page_offset_;
   int32_t symbol_table_page_length_;
   bool has_symbol_table_page_;
@@ -903,6 +892,13 @@ class ColumnWriterImpl {
   // Finalize auxiliary encoding state after all buffered data pages are written.
   virtual void FinalizeEncoding() {}
 
+  // Called after a data page has been retained while an FSST table is trained.
+  virtual void OnFsstDataPageDeferred() {}
+
+  // Encode the oldest data page retained by an FSST encoder.  Implementations
+  // update encoding_ to the encoding selected for that page.
+  virtual std::shared_ptr<Buffer> GetNextBufferedFsstValues() { return nullptr; }
+
   // A convenience struct to combine the encoded statistics and size statistics
   struct StatisticsPair {
     EncodedStatistics encoded_stats;
@@ -931,6 +927,8 @@ class ColumnWriterImpl {
   void BuildDataPageV2(int64_t definition_levels_rle_size,
                        int64_t repetition_levels_rle_size, int64_t uncompressed_size,
                        const std::shared_ptr<Buffer>& values);
+
+  void FlushDeferredFsstPages();
 
   // Serializes Data Pages
   void WriteDataPage(const DataPage& page) {
@@ -1022,6 +1020,20 @@ class ColumnWriterImpl {
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
 
+  struct DeferredFsstPage {
+    std::shared_ptr<Buffer> definition_levels;
+    int64_t definition_levels_size;
+    std::shared_ptr<Buffer> repetition_levels;
+    int64_t repetition_levels_size;
+    int32_t num_values;
+    int32_t null_count;
+    int32_t num_rows;
+    int64_t first_row_index;
+    EncodedStatistics statistics;
+    SizeStatistics size_statistics;
+  };
+  std::vector<DeferredFsstPage> deferred_fsst_pages_;
+
   std::optional<internal::ContentDefinedChunker> content_defined_chunker_;
 
  private:
@@ -1093,6 +1105,38 @@ void ColumnWriterImpl::AddDataPage() {
         descr_->max_repetition_level(), /*include_length_prefix=*/is_v1_data_page);
   }
 
+  if (values == nullptr) {
+    auto [page_stats, page_size_stats] = GetPageStatistics();
+    page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
+    page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
+    ResetPageStatistics();
+
+    DeferredFsstPage deferred;
+    PARQUET_ASSIGN_OR_THROW(
+        deferred.definition_levels,
+        definition_levels_rle_->CopySlice(0, definition_levels_rle_size, allocator_));
+    deferred.definition_levels_size = definition_levels_rle_size;
+    PARQUET_ASSIGN_OR_THROW(
+        deferred.repetition_levels,
+        repetition_levels_rle_->CopySlice(0, repetition_levels_rle_size, allocator_));
+    deferred.repetition_levels_size = repetition_levels_rle_size;
+    deferred.num_values = static_cast<int32_t>(num_buffered_values_);
+    deferred.null_count = static_cast<int32_t>(num_buffered_nulls_);
+    deferred.num_rows = static_cast<int32_t>(num_buffered_rows_);
+    deferred.first_row_index = rows_written_ - num_buffered_rows_;
+    deferred.statistics = std::move(page_stats);
+    deferred.size_statistics = std::move(page_size_stats);
+    deferred_fsst_pages_.push_back(std::move(deferred));
+
+    InitSinks();
+    num_buffered_values_ = 0;
+    num_buffered_encoded_values_ = 0;
+    num_buffered_rows_ = 0;
+    num_buffered_nulls_ = 0;
+    OnFsstDataPageDeferred();
+    return;
+  }
+
   int64_t uncompressed_size =
       definition_levels_rle_size + repetition_levels_rle_size + values->size();
 
@@ -1110,6 +1154,87 @@ void ColumnWriterImpl::AddDataPage() {
   num_buffered_encoded_values_ = 0;
   num_buffered_rows_ = 0;
   num_buffered_nulls_ = 0;
+}
+
+void ColumnWriterImpl::FlushDeferredFsstPages() {
+  const bool is_v1_data_page =
+      properties_->data_page_version() == ParquetDataPageVersion::V1;
+  for (auto& deferred : deferred_fsst_pages_) {
+    auto values = GetNextBufferedFsstValues();
+    if (values == nullptr) {
+      throw ParquetException("FSST encoder did not provide a buffered data page");
+    }
+
+    if (is_v1_data_page) {
+      const int64_t uncompressed_size = deferred.definition_levels_size +
+                                        deferred.repetition_levels_size + values->size();
+      PARQUET_THROW_NOT_OK(uncompressed_data_->Resize(uncompressed_size, false));
+      uint8_t* output = uncompressed_data_->mutable_data();
+      if (deferred.repetition_levels_size > 0) {
+        std::memcpy(output, deferred.repetition_levels->data(),
+                    static_cast<size_t>(deferred.repetition_levels_size));
+      }
+      output += deferred.repetition_levels_size;
+      if (deferred.definition_levels_size > 0) {
+        std::memcpy(output, deferred.definition_levels->data(),
+                    static_cast<size_t>(deferred.definition_levels_size));
+      }
+      output += deferred.definition_levels_size;
+      if (values->size() > 0) {
+        std::memcpy(output, values->data(), static_cast<size_t>(values->size()));
+      }
+
+      std::shared_ptr<Buffer> compressed_data;
+      if (pager_->has_compressor()) {
+        pager_->Compress(*uncompressed_data_, compressor_temp_buffer_.get());
+        compressed_data = compressor_temp_buffer_;
+      } else {
+        compressed_data = uncompressed_data_;
+      }
+      DataPageV1 page(compressed_data, deferred.num_values, encoding_, Encoding::RLE,
+                      Encoding::RLE, uncompressed_size, std::move(deferred.statistics),
+                      deferred.first_row_index, std::move(deferred.size_statistics));
+      WriteDataPage(page);
+    } else {
+      bool page_is_compressed = false;
+      if (pager_->has_compressor() && values->size() > 0) {
+        pager_->Compress(*values, compressor_temp_buffer_.get());
+        page_is_compressed = compressor_temp_buffer_->size() < values->size();
+      }
+      const std::shared_ptr<Buffer> compressed_values =
+          page_is_compressed ? compressor_temp_buffer_ : values;
+      const int64_t combined_size = deferred.definition_levels_size +
+                                    deferred.repetition_levels_size +
+                                    compressed_values->size();
+      auto combined = AllocateBuffer(allocator_, combined_size);
+      uint8_t* output = combined->mutable_data();
+      if (deferred.repetition_levels_size > 0) {
+        std::memcpy(output, deferred.repetition_levels->data(),
+                    static_cast<size_t>(deferred.repetition_levels_size));
+      }
+      output += deferred.repetition_levels_size;
+      if (deferred.definition_levels_size > 0) {
+        std::memcpy(output, deferred.definition_levels->data(),
+                    static_cast<size_t>(deferred.definition_levels_size));
+      }
+      output += deferred.definition_levels_size;
+      if (compressed_values->size() > 0) {
+        std::memcpy(output, compressed_values->data(),
+                    static_cast<size_t>(compressed_values->size()));
+      }
+
+      DataPageV2 page(combined, deferred.num_values, deferred.null_count,
+                      deferred.num_rows, encoding_,
+                      static_cast<int32_t>(deferred.definition_levels_size),
+                      static_cast<int32_t>(deferred.repetition_levels_size),
+                      deferred.definition_levels_size + deferred.repetition_levels_size +
+                          values->size(),
+                      page_is_compressed, std::move(deferred.statistics),
+                      deferred.first_row_index, std::move(deferred.size_statistics));
+      WriteDataPage(page);
+    }
+  }
+  deferred_fsst_pages_.clear();
 }
 
 void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
@@ -1403,7 +1528,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (!use_dictionary && encoding == Encoding::FSST) {
       current_encoder_ =
           MakeFsstEncoder(descr_, properties->fsst_offset_encoding(descr_->path()),
-                          properties->memory_pool());
+                          properties->memory_pool(),
+                          properties->fsst_training_data_pages(descr_->path()));
     } else {
       current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
                                      descr_, properties->memory_pool());
@@ -1626,27 +1752,39 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     auto values = current_encoder_->FlushValues();
     if (current_encoder_->encoding() == Encoding::FSST) {
-      encoding_ = current_encoder_->page_encoding();
-      if (!fsst_symbol_table_written_) {
-        auto symbol_table = current_encoder_->fsst_symbol_table();
-        if (symbol_table == nullptr) {
-          throw ParquetException("FSST encoder did not provide a symbol table");
-        }
-        SymbolTablePage page(symbol_table, current_encoder_->fsst_symbol_table_type(),
-                             /*is_compressed=*/false);
-        total_bytes_written_ += pager_->WriteSymbolTablePage(page);
-        fsst_symbol_table_written_ = true;
+      if (values != nullptr) {
+        encoding_ = current_encoder_->page_encoding();
       }
+      WriteFsstSymbolTableIfReady();
     }
     return values;
   }
 
+  void OnFsstDataPageDeferred() override {
+    if (current_encoder_->fsst_training_complete()) {
+      WriteFsstSymbolTableIfReady();
+      FlushDeferredFsstPages();
+    }
+  }
+
+  std::shared_ptr<Buffer> GetNextBufferedFsstValues() override {
+    auto values = current_encoder_->FlushBufferedFsstPage();
+    encoding_ = current_encoder_->page_encoding();
+    return values;
+  }
+
   void FinalizeEncoding() override {
-    if (current_encoder_->encoding() == Encoding::FSST && !fsst_symbol_table_written_) {
-      auto values = GetValuesBuffer();
-      if (values->size() != 0) {
-        throw ParquetException("FSST encoder retained values after the final data page");
-      }
+    if (current_encoder_->encoding() != Encoding::FSST) {
+      return;
+    }
+    current_encoder_->FinishFsstTraining();
+    WriteFsstSymbolTableIfReady();
+    if (current_encoder_->num_buffered_fsst_pages() != deferred_fsst_pages_.size()) {
+      throw ParquetException("FSST buffered page state is inconsistent");
+    }
+    FlushDeferredFsstPages();
+    if (current_encoder_->num_buffered_fsst_pages() != 0) {
+      throw ParquetException("FSST encoder retained data pages after finalization");
     }
   }
 
@@ -1789,6 +1927,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   using BloomFilterWriter = TypedBloomFilterWriter<ParquetType>;
   std::unique_ptr<Encoder> current_encoder_;
   bool fsst_symbol_table_written_ = false;
+
+  void WriteFsstSymbolTableIfReady() {
+    if (fsst_symbol_table_written_ || !current_encoder_->fsst_training_complete()) {
+      return;
+    }
+    auto symbol_table = current_encoder_->fsst_symbol_table();
+    if (symbol_table == nullptr) {
+      throw ParquetException("FSST encoder did not provide a symbol table");
+    }
+    SymbolTablePage page(symbol_table, current_encoder_->fsst_symbol_table_type(),
+                         /*is_compressed=*/false);
+    total_bytes_written_ += pager_->WriteSymbolTablePage(page);
+    fsst_symbol_table_written_ = true;
+  }
   // Downcasted observers of current_encoder_.
   // The downcast is performed once as opposed to at every use since
   // dynamic_cast is so expensive, and static_cast is not available due

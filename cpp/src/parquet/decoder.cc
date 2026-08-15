@@ -2555,7 +2555,7 @@ std::unique_ptr<Decoder> MakeFsstDecoder(const ColumnDescriptor* descr,
     throw ParquetException("FSST decoder only supports BYTE_ARRAY");
   }
   if (symbol_table_type != SymbolTableType::FSST) {
-    throw ParquetException("Only FSST8 symbol tables are currently supported");
+    throw ParquetException("FSST decoder requires an FSST symbol table");
   }
   return std::make_unique<FsstDecoder>(descr, symbol_table_body, pool);
 }

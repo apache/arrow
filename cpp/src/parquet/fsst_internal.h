@@ -40,6 +40,9 @@ class PARQUET_EXPORT FsstSymbolTable {
 
   static std::shared_ptr<FsstSymbolTable> Train(const std::vector<std::string>& values);
 
+  static std::shared_ptr<FsstSymbolTable> TrainBatches(
+      const std::vector<std::vector<std::string>>& value_batches);
+
   static std::shared_ptr<FsstSymbolTable> Deserialize(
       const std::shared_ptr<::arrow::Buffer>& body);
 
@@ -60,6 +63,8 @@ class PARQUET_EXPORT FsstSymbolTable {
   struct CwiState;
 
   explicit FsstSymbolTable(std::vector<std::string> symbols);
+  static std::shared_ptr<FsstSymbolTable> TrainFromInputs(
+      std::vector<size_t> lengths, std::vector<const unsigned char*> inputs);
   void InitializeCwiDecoder();
 
   std::vector<std::string> symbols_;

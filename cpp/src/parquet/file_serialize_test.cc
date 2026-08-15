@@ -546,6 +546,76 @@ TEST(TestBufferedRowGroupWriter, EmptyFsstColumnWritesSymbolTablePage) {
   ASSERT_EQ(row_group->file_offset(), column_metadata->symbol_table_page_offset());
 }
 
+TEST(ParquetRoundtrip, FsstTrainingPageFlushPolicy) {
+  for (const int32_t training_pages : {2, -1}) {
+    auto sink = CreateOutputStream();
+    auto writer_props = parquet::WriterProperties::Builder()
+                            .disable_dictionary()
+                            ->encoding(Encoding::FSST)
+                            ->fsst_training_data_pages(training_pages)
+                            ->data_pagesize(64)
+                            ->build();
+    schema::NodeVector fields;
+    fields.push_back(PrimitiveNode::Make("col", Repetition::REQUIRED, Type::BYTE_ARRAY));
+    auto schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED, fields));
+    auto file_writer = ParquetFileWriter::Open(sink, schema, writer_props);
+    auto row_group_writer = file_writer->AppendRowGroup();
+    auto column_writer = static_cast<ByteArrayWriter*>(row_group_writer->NextColumn());
+
+    std::vector<std::string> strings;
+    std::vector<ByteArray> values;
+    for (int i = 0; i < 300; ++i) {
+      strings.push_back("https://arrow.apache.org/parquet/fsst/training/" +
+                        std::to_string(i % 17));
+    }
+    values.reserve(strings.size());
+    for (const auto& value : strings) {
+      values.emplace_back(value);
+    }
+
+    column_writer->WriteBatch(100, nullptr, nullptr, values.data());
+    ASSERT_EQ(column_writer->total_compressed_bytes_written(), 0);
+    column_writer->WriteBatch(100, nullptr, nullptr, values.data() + 100);
+    const int64_t bytes_after_second_page =
+        column_writer->total_compressed_bytes_written();
+    if (training_pages == -1) {
+      ASSERT_EQ(bytes_after_second_page, 0);
+    } else {
+      ASSERT_GT(bytes_after_second_page, 0);
+    }
+    column_writer->WriteBatch(100, nullptr, nullptr, values.data() + 200);
+    if (training_pages == -1) {
+      ASSERT_EQ(column_writer->total_compressed_bytes_written(), 0);
+    } else {
+      ASSERT_GT(column_writer->total_compressed_bytes_written(), bytes_after_second_page);
+    }
+
+    column_writer->Close();
+    row_group_writer->Close();
+    file_writer->Close();
+    PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+
+    auto file_reader = ParquetFileReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(std::move(buffer)));
+    auto reader =
+        std::static_pointer_cast<ByteArrayReader>(file_reader->RowGroup(0)->Column(0));
+    std::vector<ByteArray> actual(values.size());
+    int64_t total_values_read = 0;
+    while (reader->HasNext()) {
+      int64_t values_read = 0;
+      reader->ReadBatch(actual.size() - total_values_read, nullptr, nullptr,
+                        actual.data() + total_values_read, &values_read);
+      for (int64_t i = 0; i < values_read; ++i) {
+        ASSERT_EQ(static_cast<std::string_view>(actual[total_values_read + i]),
+                  static_cast<std::string_view>(values[total_values_read + i]));
+      }
+      total_values_read += values_read;
+    }
+    ASSERT_EQ(total_values_read, actual.size());
+  }
+}
+
 TEST(ParquetRoundtrip, AllNulls) {
   auto primitive_node =
       PrimitiveNode::Make("nulls", Repetition::OPTIONAL, nullptr, Type::INT32);

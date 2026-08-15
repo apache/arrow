@@ -487,34 +487,39 @@ TEST(FsstEncoding, ArrowRoundTripAndMetadata) {
   for (auto offset_encoding :
        {FsstOffsetEncoding::PLAIN, FsstOffsetEncoding::DELTA_BINARY_PACKED}) {
     for (auto page_version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-      ARROW_SCOPED_TRACE("offset encoding = ", offset_encoding,
-                         ", page version = ", static_cast<int>(page_version));
-      auto properties = WriterProperties::Builder()
-                            .disable_dictionary()
-                            ->encoding(Encoding::FSST)
-                            ->fsst_offset_encoding(offset_encoding)
-                            ->data_page_version(page_version)
-                            ->data_pagesize(512)
-                            ->enable_write_page_index()
-                            ->build();
+      for (const int32_t training_pages : {1, 3, -1}) {
+        ARROW_SCOPED_TRACE("offset encoding = ", offset_encoding,
+                           ", page version = ", static_cast<int>(page_version),
+                           ", training pages = ", training_pages);
+        auto properties = WriterProperties::Builder()
+                              .disable_dictionary()
+                              ->encoding(Encoding::FSST)
+                              ->fsst_offset_encoding(offset_encoding)
+                              ->fsst_training_data_pages(training_pages)
+                              ->data_page_version(page_version)
+                              ->data_pagesize(512)
+                              ->enable_write_page_index()
+                              ->build();
 
-      CheckConfiguredRoundtrip(table, nullptr, properties);
+        CheckConfiguredRoundtrip(table, nullptr, properties);
 
-      ASSERT_OK_AND_ASSIGN(auto buffer,
-                           WriteTableToBuffer(table, table->num_rows(), properties));
-      auto reader =
-          ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-      auto column = reader->metadata()->RowGroup(0)->ColumnChunk(0);
-      ASSERT_TRUE(column->has_symbol_table_page());
-      ASSERT_GT(column->symbol_table_page_offset(), 0);
-      ASSERT_GT(column->symbol_table_page_length(), 0);
-      ASSERT_THAT(column->encodings(), ::testing::Contains(Encoding::FSST));
-      ASSERT_THAT(column->encoding_stats(),
-                  ::testing::Contains(::testing::AllOf(
-                      ::testing::Field(&PageEncodingStats::page_type,
-                                       PageType::SYMBOL_TABLE_PAGE),
-                      ::testing::Field(&PageEncodingStats::encoding, Encoding::FSST),
-                      ::testing::Field(&PageEncodingStats::count, 1))));
+        ASSERT_OK_AND_ASSIGN(auto buffer,
+                             WriteTableToBuffer(table, table->num_rows(), properties));
+        auto reader =
+            ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+        auto column = reader->metadata()->RowGroup(0)->ColumnChunk(0);
+        ASSERT_TRUE(column->has_symbol_table_page());
+        ASSERT_GT(column->symbol_table_page_offset(), 0);
+        ASSERT_GT(column->symbol_table_page_length(), 0);
+        ASSERT_LT(column->symbol_table_page_offset(), column->data_page_offset());
+        ASSERT_THAT(column->encodings(), ::testing::Contains(Encoding::FSST));
+        ASSERT_THAT(column->encoding_stats(),
+                    ::testing::Contains(::testing::AllOf(
+                        ::testing::Field(&PageEncodingStats::page_type,
+                                         PageType::SYMBOL_TABLE_PAGE),
+                        ::testing::Field(&PageEncodingStats::encoding, Encoding::FSST),
+                        ::testing::Field(&PageEncodingStats::count, 1))));
+      }
     }
   }
 
