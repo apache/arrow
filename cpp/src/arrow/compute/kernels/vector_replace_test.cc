@@ -2106,5 +2106,229 @@ TEST_F(TestFillNullType, TestFillOnNullType) {
   this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null])"),
                             this->array(R"([null, null])"));
 }
+
+// ----------------------------------------------------------------------------
+// Tests for replace_with_mask with list<int32> and large_list<int32>
+// ----------------------------------------------------------------------------
+
+// Helper: assert ReplaceWithMask output for list types, calling ValidateFull.
+static void AssertReplaceWithMaskList(const Datum& values, const Datum& mask,
+                                      const Datum& replacements,
+                                      const Datum& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(values, mask, replacements));
+  if (actual.is_array()) {
+    ASSERT_OK(actual.make_array()->ValidateFull());
+  } else if (actual.is_arraylike()) {
+    ASSERT_OK(actual.chunked_array()->ValidateFull());
+  }
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+// Scalar mask: false → copy input unchanged
+TEST(TestReplaceWithMaskList, ScalarMaskFalse) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3, 4], [5]])");
+  auto mask = std::make_shared<BooleanScalar>(false);
+  auto replacements = ArrayFromJSON(ty, R"([])");
+  auto expected = ArrayFromJSON(ty, R"([[1, 2], [3, 4], [5]])");
+  AssertReplaceWithMaskList(values, Datum(mask), replacements, expected);
+}
+
+// Scalar mask: true → all elements replaced by successive replacements
+TEST(TestReplaceWithMaskList, ScalarMaskTrue) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3, 4]])");
+  auto mask = std::make_shared<BooleanScalar>(true);
+  auto replacements = ArrayFromJSON(ty, R"([[10, 20], [30]])");
+  auto expected = ArrayFromJSON(ty, R"([[10, 20], [30]])");
+  AssertReplaceWithMaskList(values, Datum(mask), replacements, expected);
+}
+
+// Scalar mask: null → all outputs become null
+TEST(TestReplaceWithMaskList, ScalarMaskNull) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3]])");
+  auto mask = std::make_shared<BooleanScalar>();
+  mask->is_valid = false;
+  auto replacements = ArrayFromJSON(ty, R"([])");
+  auto expected = ArrayFromJSON(ty, R"([null, null])");
+  AssertReplaceWithMaskList(values, Datum(mask), replacements, expected);
+}
+
+// Array mask: mixed true/false, no nulls in values or replacements
+TEST(TestReplaceWithMaskList, ArrayMaskMixed) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3, 4], [5, 6]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, false, true])");
+  auto replacements = ArrayFromJSON(ty, R"([[10, 20], [30, 40]])");
+  auto expected = ArrayFromJSON(ty, R"([[10, 20], [3, 4], [30, 40]])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Array mask: all false → input unchanged
+TEST(TestReplaceWithMaskList, ArrayMaskAllFalse) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1], [2], [3]])");
+  auto mask = ArrayFromJSON(boolean(), R"([false, false, false])");
+  auto replacements = ArrayFromJSON(ty, R"([])");
+  auto expected = ArrayFromJSON(ty, R"([[1], [2], [3]])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Array mask: all true → all replaced
+TEST(TestReplaceWithMaskList, ArrayMaskAllTrue) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1], [2], [3]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, true, true])");
+  auto replacements = ArrayFromJSON(ty, R"([[10], [20], [30]])");
+  auto expected = ArrayFromJSON(ty, R"([[10], [20], [30]])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Array mask: null mask entries → null output
+TEST(TestReplaceWithMaskList, NullMaskEntries) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3, 4], [5]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, null, false])");
+  auto replacements = ArrayFromJSON(ty, R"([[10, 20]])");
+  auto expected = ArrayFromJSON(ty, R"([[10, 20], null, [5]])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Null elements in the values array: preserve nulls when mask is false
+TEST(TestReplaceWithMaskList, NullsInValues) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([null, [1, 2], null])");
+  auto mask = ArrayFromJSON(boolean(), R"([false, true, false])");
+  auto replacements = ArrayFromJSON(ty, R"([[10]])");
+  auto expected = ArrayFromJSON(ty, R"([null, [10], null])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Null elements in the replacements array
+TEST(TestReplaceWithMaskList, NullsInReplacements) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1], [2], [3]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, true, false])");
+  auto replacements = ArrayFromJSON(ty, R"([null, [20]])");
+  auto expected = ArrayFromJSON(ty, R"([null, [20], [3]])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Scalar replacement (null scalar)
+TEST(TestReplaceWithMaskList, ScalarReplacementNull) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1], [2], [3]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, false, true])");
+  auto replacement_scalar = MakeNullScalar(ty);
+  auto expected = ArrayFromJSON(ty, R"([null, [2], null])");
+  AssertReplaceWithMaskList(values, mask, Datum(replacement_scalar), expected);
+}
+
+// Scalar replacement (valid scalar)
+TEST(TestReplaceWithMaskList, ScalarReplacementValid) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3], [4, 5, 6]])");
+  auto mask = ArrayFromJSON(boolean(), R"([false, true, true])");
+  auto replacement_scalar = ScalarFromJSON(ty, R"([99, 100])");
+  auto expected = ArrayFromJSON(ty, R"([[1, 2], [99, 100], [99, 100]])");
+  AssertReplaceWithMaskList(values, mask, Datum(replacement_scalar), expected);
+}
+
+// Empty arrays → empty output
+TEST(TestReplaceWithMaskList, EmptyArrays) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([])");
+  auto mask = ArrayFromJSON(boolean(), R"([])");
+  auto replacements = ArrayFromJSON(ty, R"([])");
+  auto expected = ArrayFromJSON(ty, R"([])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Variable-length children: each list slot has different child count
+TEST(TestReplaceWithMaskList, VariableLengthChildren) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[], [1], [1, 2], [1, 2, 3]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, false, true, false])");
+  auto replacements = ArrayFromJSON(ty, R"([[9, 8, 7, 6], []])");
+  auto expected = ArrayFromJSON(ty, R"([[9, 8, 7, 6], [1], [], [1, 2, 3]])");
+  AssertReplaceWithMaskList(values, mask, replacements, expected);
+}
+
+// Chunked array input
+TEST(TestReplaceWithMaskList, ChunkedArray) {
+  auto ty = list(int32());
+  auto chunk0 = ArrayFromJSON(ty, R"([[1, 2], [3]])");
+  auto chunk1 = ArrayFromJSON(ty, R"([[4, 5]])");
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{chunk0, chunk1});
+  auto mask = ArrayFromJSON(boolean(), R"([true, false, true])");
+  auto replacements = ArrayFromJSON(ty, R"([[10, 20], [30, 40, 50]])");
+  // Expected: chunked output with same chunk boundaries
+  auto exp0 = ArrayFromJSON(ty, R"([[10, 20], [3]])");
+  auto exp1 = ArrayFromJSON(ty, R"([[30, 40, 50]])");
+  auto expected = std::make_shared<ChunkedArray>(ArrayVector{exp0, exp1});
+  AssertReplaceWithMaskList(Datum(values), mask, replacements, Datum(expected));
+}
+
+// Scalar mask (true) with chunked array input
+TEST(TestReplaceWithMaskList, ChunkedArrayScalarMaskTrue) {
+  auto ty = list(int32());
+  auto chunk0 = ArrayFromJSON(ty, R"([[1], [2]])");
+  auto chunk1 = ArrayFromJSON(ty, R"([[3]])");
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{chunk0, chunk1});
+  auto mask = std::make_shared<BooleanScalar>(true);
+  auto replacements = ArrayFromJSON(ty, R"([[10], [20], [30]])");
+  auto exp0 = ArrayFromJSON(ty, R"([[10], [20]])");
+  auto exp1 = ArrayFromJSON(ty, R"([[30]])");
+  auto expected = std::make_shared<ChunkedArray>(ArrayVector{exp0, exp1});
+  AssertReplaceWithMaskList(Datum(values), Datum(mask), replacements, Datum(expected));
+}
+
+// large_list<int32>: smoke test to ensure LARGE_LIST is registered
+TEST(TestReplaceWithMaskLargeList, ArrayMaskMixed) {
+  auto ty = large_list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1, 2], [3, 4], [5]])");
+  auto mask = ArrayFromJSON(boolean(), R"([false, true, false])");
+  auto replacements = ArrayFromJSON(ty, R"([[10, 20]])");
+  auto expected = ArrayFromJSON(ty, R"([[1, 2], [10, 20], [5]])");
+  ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(values, mask, replacements));
+  ASSERT_OK(actual.make_array()->ValidateFull());
+  AssertArraysEqual(*ArrayFromJSON(ty, R"([[1, 2], [10, 20], [5]])"),
+                    *actual.make_array(), /*verbose=*/true);
+}
+
+// large_list: null mask entry → null output
+TEST(TestReplaceWithMaskLargeList, NullMaskEntry) {
+  auto ty = large_list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1], [2]])");
+  auto mask = ArrayFromJSON(boolean(), R"([null, true])");
+  auto replacements = ArrayFromJSON(ty, R"([[99]])");
+  auto expected = ArrayFromJSON(ty, R"([null, [99]])");
+  ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(values, mask, replacements));
+  ASSERT_OK(actual.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *actual.make_array(), /*verbose=*/true);
+}
+
+// Replacement length mismatch → Status::Invalid
+TEST(TestReplaceWithMaskList, ReplacementLengthMismatch) {
+  auto ty = list(int32());
+  auto values = ArrayFromJSON(ty, R"([[1], [2], [3]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, true, false])");
+  // mask has 2 true entries but replacements has only 1 element
+  auto replacements = ArrayFromJSON(ty, R"([[10]])");
+  auto result = ReplaceWithMask(values, mask, replacements);
+  ASSERT_FALSE(result.ok());
+}
+
+// Type mismatch → Status::Invalid
+TEST(TestReplaceWithMaskList, TypeMismatch) {
+  auto values = ArrayFromJSON(list(int32()), R"([[1], [2]])");
+  auto mask = ArrayFromJSON(boolean(), R"([true, false])");
+  auto replacements = ArrayFromJSON(list(int64()), R"([[10]])");
+  auto result = ReplaceWithMask(values, mask, replacements);
+  ASSERT_FALSE(result.ok());
+}
+
 }  // namespace compute
 }  // namespace arrow
+
