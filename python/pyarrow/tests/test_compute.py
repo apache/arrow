@@ -1730,6 +1730,17 @@ def test_filter_table():
         assert result.equals(expected_null)
 
 
+@pytest.mark.parametrize("dictionary_encode", [False, True],
+                         ids=["string", "dictionary-string"])
+def test_filter_table_expression_empty_set(dictionary_encode):
+    values = pa.array(["a", "b"])
+    if dictionary_encode:
+        values = values.dictionary_encode()
+
+    table = pa.table({"a": values})
+    assert table.filter(pc.field("a").isin([])).equals(table.slice(0, 0))
+
+
 def test_filter_errors():
     arr = pa.chunked_array([["a", None], ["c", "d", "e"]])
     batch = pa.record_batch(
