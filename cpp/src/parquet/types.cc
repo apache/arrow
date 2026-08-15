@@ -1177,10 +1177,8 @@ std::string LogicalType::Impl::Decimal::ToJSON() const {
   ::arrow::json::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Decimal");
-  writer.Key("precision");
-  writer.Int(precision_);
-  writer.Key("scale");
-  writer.Int(scale_);
+  writer.IntField("precision", precision_);
+  writer.IntField("scale", scale_);
   writer.EndObject();
   PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
   return std::string(json);
@@ -1673,8 +1671,7 @@ std::string LogicalType::Impl::Int::ToJSON() const {
   ::arrow::json::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Int");
-  writer.Key("bitWidth");
-  writer.Int(width_);
+  writer.IntField("bitWidth", width_);
   writer.BoolField("isSigned", signed_);
   writer.EndObject();
   PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
@@ -2014,8 +2011,7 @@ std::string LogicalType::Impl::Variant::ToJSON() const {
   ::arrow::json::JsonWriter writer;
   writer.StartObject();
   writer.StringField("Type", "Variant");
-  writer.Key("SpecVersion");
-  writer.Int(static_cast<int>(spec_version_));
+  writer.IntField("SpecVersion", static_cast<int>(spec_version_));
   writer.EndObject();
   PARQUET_ASSIGN_OR_THROW(std::string_view json, writer.GetString());
   return std::string(json);

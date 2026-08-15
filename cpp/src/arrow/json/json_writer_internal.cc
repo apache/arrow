@@ -218,4 +218,9 @@ void JsonWriter::BoolField(std::string_view key, bool value) {
   Bool(value);
 }
 
+void JsonWriter::IntField(std::string_view key, int32_t value) {
+  Key(key);
+  Int(value);
+}
+
 }  // namespace arrow::json
