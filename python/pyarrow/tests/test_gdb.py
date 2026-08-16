@@ -1091,6 +1091,24 @@ def test_arrays_heap(gdb_arrow):
         gdb_arrow, "heap_binary_array_sliced",
         (r'arrow::BinaryArray of length 1, offset 1, unknown null count = '
          r'{[0] = "abcd"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_binary_view_array",
+        (r'arrow::BinaryViewArray of length 4, offset 0, null count 1 = {'
+         r'[0] = null, [1] = "abcd", [2] = "\000\037\377", '
+         r'[3] = "12345678901234567890"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_string_view_array",
+        (r'arrow::StringViewArray of length 4, offset 0, null count 1 = {'
+         r'[0] = null, [1] = "héhé", [2] = "invalid \\xff char", '
+         r'[3] = "this string is longer than 12 bytes for view"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_binary_view_array_sliced",
+        (r'arrow::BinaryViewArray of length 2, offset 1, unknown null count = '
+         r'{[0] = "abcd", [1] = "\000\037\377"}'))
+    check_heap_repr(
+        gdb_arrow, "heap_string_view_array_sliced",
+        (r'arrow::StringViewArray of length 2, offset 1, unknown null count = '
+         r'{[0] = "héhé", [1] = "invalid \\xff char"}'))
 
     # Nested
     check_heap_repr(
