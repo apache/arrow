@@ -89,12 +89,16 @@ Status SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t ou
     // Input is all nulls, so all output bits are the same.
     bit_util::SetBitsTo(out_bitmap, out_offset, span.length, set_on_null);
   } else if (t == Type::SPARSE_UNION) {
+    // TODO: propagate `nan_is_null`
     union_util::SetLogicalNullBitsSparse(span, out_bitmap, out_offset, set_on_null);
   } else if (t == Type::DENSE_UNION) {
+    // TODO: propagate `nan_is_null`
     union_util::SetLogicalNullBitsDense(span, out_bitmap, out_offset, set_on_null);
   } else if (t == Type::RUN_END_ENCODED) {
+    // TODO: propagate `nan_is_null`
     ree_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
   } else if (t == Type::DICTIONARY) {
+    // TODO: propagate `nan_is_null`
     dict_util::SetLogicalNullBits(span, out_bitmap, out_offset, set_on_null);
   } else {
     // Input is a type for which logical and physical nulls are the same, so we can
