@@ -30,7 +30,9 @@ class ObjectParser::Impl {
     padded_json_ = simdjson::padded_string(json);
 
     // Store parsed document
-    document_ = parser_.iterate(padded_json_);
+    if (auto error = parser_.iterate(padded_json_).get(document_)) {
+      return Status::Invalid("JSON parse error: ", simdjson::error_message(error));
+    }
 
     // Validate root is an object
     auto object = document_.get_object();
@@ -69,7 +71,12 @@ class ObjectParser::Impl {
                              "': ", simdjson::error_message(str_result.error()));
     }
 
-    return std::string(str_result.value());
+    std::string_view str;
+    if (auto error = std::move(str_result).get(str)) {
+      return Status::Invalid("Error getting string for key '", key,
+                             "': ", simdjson::error_message(error));
+    }
+    return std::string(str);
   }
 
   Result<std::unordered_map<std::string, std::string>> GetStringMap() {
@@ -80,13 +87,10 @@ class ObjectParser::Impl {
     auto object = document_.get_object();
 
     for (auto field : object) {
-      auto key_result = field.unescaped_key();
-
-      auto key = key_result.value();
-
-      if (key_result.error()) {
-        return Status::Invalid("Error getting value for key '", std::string(key),
-                               "': ", simdjson::error_message(key_result.error()));
+      std::string_view key;
+      if (auto error = field.unescaped_key().get(key)) {
+        return Status::Invalid("Error getting object key: ",
+                               simdjson::error_message(error));
       }
 
       auto value = field.value();
@@ -102,7 +106,13 @@ class ObjectParser::Impl {
                                "': (code=", static_cast<int>(str_result.error()), ")");
       }
 
-      map.emplace(std::string(key), std::string(str_result.value()));
+      std::string_view str;
+      if (auto error = std::move(str_result).get(str)) {
+        return Status::Invalid("Error getting value for key '", std::string(key),
+                               "': ", simdjson::error_message(error));
+      }
+
+      map.emplace(std::string(key), std::string(str));
     }
 
     return map;
@@ -132,7 +142,13 @@ class ObjectParser::Impl {
                              "': ", simdjson::error_message(bool_result.error()));
     }
 
-    return bool_result.value();
+    bool value;
+    if (auto error = std::move(bool_result).get(value)) {
+      return Status::Invalid("Error getting bool for key '", key,
+                             "': ", simdjson::error_message(error));
+    }
+
+    return value;
   }
 
  private:

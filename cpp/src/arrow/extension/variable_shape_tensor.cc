@@ -21,6 +21,7 @@
 #include "arrow/extension/variable_shape_tensor.h"
 
 #include "arrow/array/array_primitive.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/scalar.h"
 #include "arrow/tensor.h"
@@ -30,9 +31,9 @@
 #include "arrow/util/string.h"
 
 #include <rapidjson/document.h>
-#include <rapidjson/writer.h>
 
 namespace rj = arrow::rapidjson;
+using ::arrow::json::JsonWriter;
 
 namespace arrow::extension {
 
@@ -82,42 +83,47 @@ std::string VariableShapeTensorType::ToString(bool show_metadata) const {
 }
 
 std::string VariableShapeTensorType::Serialize() const {
-  rj::Document document;
-  document.SetObject();
-  rj::Document::AllocatorType& allocator = document.GetAllocator();
+  JsonWriter writer;
+
+  writer.StartObject();
 
   if (!permutation_.empty()) {
-    rj::Value permutation(rj::kArrayType);
+    writer.Key("permutation");
+    writer.StartArray();
     for (auto v : permutation_) {
-      permutation.PushBack(v, allocator);
+      writer.Int64(v);
     }
-    document.AddMember(rj::Value("permutation", allocator), permutation, allocator);
+    writer.EndArray();
   }
 
   if (!dim_names_.empty()) {
-    rj::Value dim_names(rj::kArrayType);
-    for (const std::string& v : dim_names_) {
-      dim_names.PushBack(rj::Value{}.SetString(v.c_str(), allocator), allocator);
+    writer.Key("dim_names");
+    writer.StartArray();
+    for (const auto& v : dim_names_) {
+      writer.String(v);
     }
-    document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
+    writer.EndArray();
   }
 
   if (!uniform_shape_.empty()) {
-    rj::Value uniform_shape(rj::kArrayType);
-    for (auto v : uniform_shape_) {
+    writer.Key("uniform_shape");
+    writer.StartArray();
+    for (const auto& v : uniform_shape_) {
       if (v.has_value()) {
-        uniform_shape.PushBack(v.value(), allocator);
+        writer.Int64(*v);
       } else {
-        uniform_shape.PushBack(rj::Value{}.SetNull(), allocator);
+        writer.Null();
       }
     }
-    document.AddMember(rj::Value("uniform_shape", allocator), uniform_shape, allocator);
+    writer.EndArray();
   }
 
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  document.Accept(writer);
-  return buffer.GetString();
+  writer.EndObject();
+
+  Result<std::string_view> json = writer.GetString();
+  // can only fail in OutOfMemory scenarios
+  ARROW_CHECK_OK(json.status());
+  return std::string(*json);
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(

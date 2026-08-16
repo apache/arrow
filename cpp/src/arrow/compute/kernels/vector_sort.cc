@@ -231,19 +231,19 @@ void VisitConstantRanges(const ArrayType& array, std::span<uint64_t> indices,
   if (indices.empty()) {
     return;
   }
-  auto range_start = indices.begin();
-  auto range_cur = range_start;
-  auto last_value = GetView::LogicalValue(array.GetView(*range_cur - offset));
-  while (++range_cur != indices.end()) {
-    auto v = GetView::LogicalValue(array.GetView(*range_cur - offset));
+  size_t range_start = 0;
+  size_t range_cur = 0;
+  auto last_value = GetView::LogicalValue(array.GetView(indices[range_cur] - offset));
+  while (++range_cur != indices.size()) {
+    auto v = GetView::LogicalValue(array.GetView(indices[range_cur] - offset));
     if (v != last_value) {
-      visit({range_start, range_cur});
+      visit(indices.subspan(range_start, range_cur - range_start));
       range_start = range_cur;
       last_value = v;
     }
   }
   if (range_start != range_cur) {
-    visit({range_start, range_cur});
+    visit(indices.subspan(range_start, range_cur - range_start));
   }
 }
 

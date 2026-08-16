@@ -4583,3 +4583,42 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+@pytest.mark.parametrize("index_type", [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                                        pa.uint8(), pa.uint16(), pa.uint32(),
+                                        pa.uint64()])
+def test_dictionary_array_preserves_index_type(index_type):
+    # GH-37476: an unsigned dictionary index type must be preserved, not replaced by the
+    # signed integer type of the same width. Signed index types are kept as-is.
+    dict_type = pa.dictionary(index_type, pa.string())
+
+    arr = pa.array(["a", "b", None, "a"], type=dict_type)
+    assert arr.type == dict_type
+    assert arr.to_pylist() == ["a", "b", None, "a"]
+    arr.validate(full=True)
+
+    chunked = pa.chunked_array([["a", "b", "a"]], dict_type)
+    assert chunked.type == dict_type
+
+
+@pytest.mark.parametrize("start_type, widened_type", [(pa.int8(), pa.int16()),
+                                                      (pa.uint8(), pa.uint16())])
+def test_dictionary_array_index_width_adapts(start_type, widened_type):
+    # The index width adapts to the number of distinct values, as it does for signed
+    # indices; only the signedness of the requested type is preserved.
+    values = [str(i) for i in range(200)]
+    arr = pa.array(values, type=pa.dictionary(start_type, pa.string()))
+    assert arr.type == pa.dictionary(widened_type, pa.string())
+    assert arr.to_pylist() == values
+
+
+@pytest.mark.pandas
+def test_dictionary_uint64_index_to_pandas():
+    # GH-37476: uint64 dictionary indices are preserved, and converting them to pandas
+    # maps the indices to int64 categorical codes, which is safe because the indices are
+    # bounded by the dictionary length.
+    arr = pa.array(["a", "b", None, "a"], type=pa.dictionary(pa.uint64(), pa.string()))
+    result = arr.to_pandas()
+    assert list(result.cat.categories) == ["a", "b"]
+    assert result.cat.codes.tolist() == [0, 1, -1, 0]

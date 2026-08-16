@@ -446,7 +446,7 @@ tasks:
         ARCH: "amd64"
         DEBIAN: "experimental"
         GCC: "15"
-        LLVM: "20"
+        LLVM: "22"
       image: debian-cpp
 
   test-fedora-42-cpp:
@@ -645,7 +645,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e simdjson_SOURCE=BUNDLED -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
 
   test-r-dev-duckdb:

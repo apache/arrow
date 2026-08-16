@@ -4149,21 +4149,14 @@ def test_dictionary_with_pandas():
         d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
         d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-        if index_type == 'uint64':
-            # uint64 is not supported due to overflow risk (values > 2^63-1)
-            with pytest.raises(TypeError,
-                               match="UInt64 dictionary indices"):
-                d1.to_pandas()
-            continue
-
         pandas1 = d1.to_pandas()
         # Pandas Categorical uses signed int codes. Arrow converts:
-        # uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+        # uint8 to int16, uint16 to int32, uint32 and uint64 to int64, signed unchanged
         if index_type == 'uint8':
             compare_indices = indices.astype('int16')
         elif index_type == 'uint16':
             compare_indices = indices.astype('int32')
-        elif index_type == 'uint32':
+        elif index_type in ('uint32', 'uint64'):
             compare_indices = indices.astype('int64')
         else:
             compare_indices = indices
@@ -4179,7 +4172,7 @@ def test_dictionary_with_pandas():
             signed_indices = indices.astype('int16')
         elif index_type == 'uint16':
             signed_indices = indices.astype('int32')
-        elif index_type == 'uint32':
+        elif index_type in ('uint32', 'uint64'):
             signed_indices = indices.astype('int64')
         else:
             signed_indices = indices

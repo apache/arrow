@@ -2974,6 +2974,49 @@ def test_round_temporal(unit):
         _check_temporal_rounding(ts_zoned, values, unit)
 
 
+@pytest.mark.parametrize(
+    ("unit", "base_frequency", "round_frequency"),
+    (
+        ("nanosecond", "1ns", "4ns"),
+        ("microsecond", "1us", "4us"),
+        ("millisecond", "1ms", "4ms"),
+        ("second", "1s", "4s"),
+        ("minute", "1min", "4min"),
+        ("hour", "1h", "4h"),
+        ("day", "1D", "4D"),
+        ("week", "7D", "28D"),
+    ),
+)
+@pytest.mark.pandas
+def test_round_temporal_duration(unit, base_frequency, round_frequency):
+    base = pd.Timedelta(base_frequency)
+    values = pd.Series([
+        -7 * base,
+        -4 * base,
+        -1 * base,
+        0 * base,
+        1 * base,
+        4 * base,
+        7 * base,
+        pd.NaT,
+    ])
+    arrow_values = pa.array(values)
+    assert pa.types.is_duration(arrow_values.type)
+
+    options = pc.RoundTemporalOptions(4, unit)
+
+    for arrow_round, pandas_round in (
+        (pc.ceil_temporal, values.dt.ceil),
+        (pc.floor_temporal, values.dt.floor),
+        (pc.round_temporal, values.dt.round),
+    ):
+        result = arrow_round(
+            arrow_values, options=options
+        ).to_pandas()
+        expected = pandas_round(round_frequency)
+        np.testing.assert_array_equal(result, expected)
+
+
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3

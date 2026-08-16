@@ -1151,6 +1151,43 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
+TEST(TestGdvFnStubs, TestMaskTruncatedUtf8NoOverread) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = -1;
+
+  // A byte > 127 routes the mask functions through the utf8proc multi-byte path.
+  // The buffer holds a complete euro sign (0xE2 0x82 0xAC) but the reported
+  // length stops one byte short, so the trailing glyph is truncated. The
+  // functions must not read the byte past data_len: utf8proc_iterate has to be
+  // told only data_len - offset bytes remain, otherwise it consumes the
+  // out-of-range continuation byte and decodes a full glyph instead of
+  // reporting the truncated input.
+  const char buf[] = {'a', static_cast<char>(0xE2), static_cast<char>(0x82),
+                      static_cast<char>(0xAC)};
+  const int32_t truncated_len = 3;  // 'a' + first two bytes of the euro sign
+
+  ctx.Reset();
+  gdv_mask_first_n_utf8_int32(ctx_ptr, buf, truncated_len, 4, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  out_len = -1;
+  ctx.Reset();
+  mask_utf8(ctx_ptr, buf, truncated_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+
+  // gdv_mask_last_n_utf8_int32 catches the truncated glyph in its
+  // utf8proc_decompose pre-pass, so it reports the invalid input rather than
+  // reading past data_len in the iterate loop.
+  out_len = -1;
+  ctx.Reset();
+  gdv_mask_last_n_utf8_int32(ctx_ptr, buf, truncated_len, 4, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_TRUE(ctx.has_error());
+}
+
 TEST(TestGdvFnStubs, TestTranslate) {
   gandiva::ExecutionContext ctx;
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);

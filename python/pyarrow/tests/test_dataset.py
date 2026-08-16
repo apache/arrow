@@ -1927,7 +1927,6 @@ def test_fragments_parquet_subset_with_nested_fields(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_fragments_repr(tempdir, dataset):
     # partitioned parquet dataset
     fragment = list(dataset.get_fragments())[0]
@@ -3700,7 +3699,7 @@ def test_column_names_encoding(tempdir, dataset_reader):
     assert dataset_transcoded.to_table().equals(expected_table)
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
+@pytest.mark.filterwarnings("ignore:Feather V1:DeprecationWarning")
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
@@ -4082,7 +4081,6 @@ def test_dataset_project_null_column(tempdir, dataset_reader):
     assert dataset_reader.to_table(dataset).equals(expected)
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_dataset_project_columns(tempdir, dataset_reader):
     # basic column re-projection with expressions
     from pyarrow import feather
@@ -4434,7 +4432,6 @@ def test_write_dataset_with_dataset(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_existing_data(tempdir):
     directory = tempdir / 'ds'
     table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
@@ -5099,7 +5096,6 @@ def test_write_dataset_arrow_schema_metadata(tempdir):
     assert result["a"].type.tz == "Europe/Brussels"
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_schema_metadata(tempdir):
     # ensure that schema metadata gets written
     from pyarrow import feather

@@ -18,6 +18,7 @@ Build-Depends:
   libgrpc++-dev,
   libgtest-dev,
   liblz4-dev,
+@USE_SYSTEM_OPEN_TELEMETRY@  libopentelemetry-proto-dev,
   libprotobuf-dev,
   libprotoc-dev,
   libre2-dev,
@@ -35,6 +36,7 @@ Build-Depends:
 # in the debian-forky Dockerfile) skips this build dependency and the CUDA
 # packages below.
   nvidia-cuda-toolkit [!arm64] <!pkg.apache-arrow.nocuda>,
+@USE_SYSTEM_OPEN_TELEMETRY@  opentelemetry-cpp-dev,
   pkg-config,
   protobuf-compiler,
   protobuf-compiler-grpc,
@@ -162,6 +164,7 @@ Depends:
   libbz2-dev,
   libc-ares-dev,
   libcurl4-openssl-dev,
+@SYSTEM_OPEN_TELEMETRY_REQUIRE_GRPC@  libgrpc++-dev,
   liblz4-dev,
   libprotobuf-dev,
   libprotoc-dev,
@@ -172,6 +175,7 @@ Depends:
   libxxhash-dev,
   libzstd-dev,
   nlohmann-json-dev | nlohmann-json3-dev,
+@USE_SYSTEM_OPEN_TELEMETRY@  opentelemetry-cpp-dev,
   protobuf-compiler-grpc,
   zlib1g-dev
 Description: Apache Arrow is a data processing library for analysis
