@@ -158,6 +158,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      absl_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
