@@ -62,6 +62,9 @@ class ARROW_EXPORT JsonWriter {
 
   Result<std::string_view> GetString() const;
 
+  Result<std::string> GetPrettyString(
+      const simdjson::fractured_json_options& options = {}) const;
+
   void Clear();
 
  private:

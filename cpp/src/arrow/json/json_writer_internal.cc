@@ -197,6 +197,12 @@ Result<std::string_view> JsonWriter::GetString() const {
   return view;
 }
 
+Result<std::string> JsonWriter::GetPrettyString(
+    const simdjson::fractured_json_options& options) const {
+  ARROW_ASSIGN_OR_RAISE(std::string_view json, GetString());
+  return simdjson::fractured_json_string(json, options);
+}
+
 void JsonWriter::Clear() {
   builder_.clear();
   needs_comma_ = false;
