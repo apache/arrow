@@ -153,13 +153,7 @@ Status SparseUnionBuilder::AppendArraySlice(const ArraySpan& array, const int64_
 }
 
 Status DenseUnionBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   const auto& union_type = checked_cast<const DenseUnionType&>(*type());
   const auto& s = checked_cast<const DenseUnionScalar&>(scalar);
   const auto scalar_field_index = union_type.child_ids()[s.type_code];
@@ -188,13 +182,7 @@ Status DenseUnionBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) 
 }
 
 Status SparseUnionBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   const auto& union_type = checked_cast<const SparseUnionType&>(*type());
   const auto& s = checked_cast<const SparseUnionScalar&>(scalar);
   const auto scalar_field_index = union_type.child_ids()[s.type_code];

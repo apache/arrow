@@ -38,13 +38,7 @@ namespace {
 template <typename BuilderType, typename ScalarType>
 Status DecimalAppendScalar(BuilderType* builder, const Scalar& scalar,
                            int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return builder->AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != builder->type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", builder->type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*builder, scalar));
   const auto& s = internal::checked_cast<const ScalarType&>(scalar);
   ARROW_RETURN_NOT_OK(builder->Reserve(n_repeats));
   if (s.is_valid) {
@@ -61,17 +55,10 @@ Status DecimalAppendScalar(BuilderType* builder, const Scalar& scalar,
 
 template <typename BuilderType, typename ScalarType>
 Status DecimalAppendScalars(BuilderType* builder, const ScalarVector& scalars) {
-  if (scalars.empty()) return Status::OK();
-  const auto ty_id = builder->type()->id();
-  for (const auto& scalar : scalars) {
-    if (scalar->type->id() != Type::NA && scalar->type->id() != ty_id) {
-      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
-                             " to builder for type ", builder->type()->ToString());
-    }
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*builder, scalars));
   ARROW_RETURN_NOT_OK(builder->Reserve(static_cast<int64_t>(scalars.size())));
   for (const auto& scalar : scalars) {
-    if (scalar->type->id() == Type::NA || !scalar->is_valid) {
+    if (!scalar->is_valid) {
       builder->UnsafeAppendNull();
     } else {
       const auto& s = internal::checked_cast<const ScalarType&>(*scalar);

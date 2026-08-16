@@ -304,13 +304,7 @@ std::shared_ptr<DataType> StructBuilder::type() const {
 template <typename TYPE>
 Status VarLengthListLikeBuilder<TYPE>::AppendScalar(const Scalar& scalar,
                                                     int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   const auto& s = internal::checked_cast<const BaseListScalar&>(scalar);
   if (s.is_valid) {
     const Array& list = *s.value;
@@ -336,13 +330,7 @@ Status VarLengthListLikeBuilder<TYPE>::AppendScalar(const Scalar& scalar,
 }
 
 Status MapBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   const auto& s = internal::checked_cast<const MapScalar&>(scalar);
   if (s.is_valid) {
     const Array& list = *s.value;
@@ -363,13 +351,7 @@ Status MapBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
 }
 
 Status FixedSizeListBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   const auto& s = internal::checked_cast<const FixedSizeListScalar&>(scalar);
   if (s.is_valid) {
     const Array& list = *s.value;
@@ -390,13 +372,7 @@ Status FixedSizeListBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeat
 }
 
 Status StructBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   const auto& s = internal::checked_cast<const StructScalar&>(scalar);
   const int num_fields_count = static_cast<int>(children_.size());
   RETURN_NOT_OK(Reserve(n_repeats));

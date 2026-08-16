@@ -162,13 +162,7 @@ class NumericBuilder
   }
 
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
-    if (scalar.type->id() == Type::NA) {
-      return AppendNulls(n_repeats);
-    }
-    if (scalar.type->id() != type()->id()) {
-      return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                             " to builder for type ", type()->ToString());
-    }
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
     const auto& s =
         internal::checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar);
     ARROW_RETURN_NOT_OK(Reserve(n_repeats));
@@ -185,17 +179,10 @@ class NumericBuilder
   }
 
   Status AppendScalars(const ScalarVector& scalars) override {
-    if (scalars.empty()) return Status::OK();
-    const auto ty_id = type()->id();
-    for (const auto& scalar : scalars) {
-      if (scalar->type->id() != Type::NA && scalar->type->id() != ty_id) {
-        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
-                               " to builder for type ", type()->ToString());
-      }
-    }
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*this, scalars));
     ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
     for (const auto& scalar : scalars) {
-      if (scalar->type->id() == Type::NA || !scalar->is_valid) {
+      if (!scalar->is_valid) {
         UnsafeAppendNull();
       } else {
         const auto& s =
@@ -601,13 +588,7 @@ class ARROW_EXPORT BooleanBuilder
   }
 
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
-    if (scalar.type->id() == Type::NA) {
-      return AppendNulls(n_repeats);
-    }
-    if (scalar.type->id() != type()->id()) {
-      return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                             " to builder for type ", type()->ToString());
-    }
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
     const auto& s = internal::checked_cast<const BooleanScalar&>(scalar);
     ARROW_RETURN_NOT_OK(Reserve(n_repeats));
     if (s.is_valid) {
@@ -623,17 +604,10 @@ class ARROW_EXPORT BooleanBuilder
   }
 
   Status AppendScalars(const ScalarVector& scalars) override {
-    if (scalars.empty()) return Status::OK();
-    const auto ty_id = type()->id();
-    for (const auto& scalar : scalars) {
-      if (scalar->type->id() != Type::NA && scalar->type->id() != ty_id) {
-        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
-                               " to builder for type ", type()->ToString());
-      }
-    }
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*this, scalars));
     ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(scalars.size())));
     for (const auto& scalar : scalars) {
-      if (scalar->type->id() == Type::NA || !scalar->is_valid) {
+      if (!scalar->is_valid) {
         UnsafeAppendNull();
       } else {
         const auto& s = internal::checked_cast<const BooleanScalar&>(*scalar);

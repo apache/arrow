@@ -73,19 +73,37 @@ Status ArrayBuilder::Resize(int64_t capacity) {
   return null_bitmap_builder_.Resize(capacity);
 }
 
-Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (scalar.type->id() == Type::NA) {
-    return AppendNulls(n_repeats);
-  }
-  if (scalar.type->id() != type()->id()) {
+namespace internal {
+
+Status ValidateAppendScalar(const ArrayBuilder& builder, const Scalar& scalar) {
+  if (!scalar.type->Equals(*builder.type())) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
+                           " to builder for type ", builder.type()->ToString());
   }
+  return Status::OK();
+}
+
+Status ValidateAppendScalars(const ArrayBuilder& builder, const ScalarVector& scalars) {
+  if (scalars.empty()) return Status::OK();
+  const auto& ty = *builder.type();
+  for (const auto& scalar : scalars) {
+    if (!scalar->type->Equals(ty)) {
+      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                             " to builder for type ", ty.ToString());
+    }
+  }
+  return Status::OK();
+}
+
+}  // namespace internal
+
+Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
   return Status::NotImplemented("AppendScalar for builder for ", *type());
 }
 
 Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
-  if (scalars.empty()) return Status::OK();
+  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalars(*this, scalars));
   for (const auto& scalar : scalars) {
     RETURN_NOT_OK(AppendScalar(*scalar, 1));
   }
