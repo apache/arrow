@@ -1204,24 +1204,6 @@ void AddAsciiStringPad(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Exact pattern detection
 
-using StrToBoolTransformFunc =
-    std::function<void(const void*, const uint8_t*, int64_t, int64_t, uint8_t*)>;
-
-// Apply `transform` to input character data- this function cannot change the
-// length
-template <typename Type>
-void StringBoolTransform(KernelContext* ctx, const ExecSpan& batch,
-                         StrToBoolTransformFunc transform, ExecResult* out) {
-  using offset_type = typename Type::offset_type;
-  const ArraySpan& input = batch[0].array;
-  ArraySpan* out_arr = out->array_span_mutable();
-  if (input.length > 0) {
-    transform(reinterpret_cast<const offset_type*>(input.buffers[1].data) + input.offset,
-              input.buffers[2].data, input.length, out_arr->offset,
-              out_arr->buffers[1].data);
-  }
-}
-
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
 // This is an implementation of the Knuth-Morris-Pratt algorithm
@@ -1341,45 +1323,24 @@ template <typename Type, typename Matcher>
 struct MatchSubstringImpl {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
                      const Matcher* matcher) {
-    if constexpr (is_binary_view_like_type<Type>::value) {
-      // Views have no packed offset buffer, so evaluate per element. Null slots are
-      // skipped: a view's null header is not validated and may carry a bogus
-      // buffer_index/offset that decoding would dereference.
-      const ArraySpan& input = batch[0].array;
-      ArraySpan* out_arr = out->array_span_mutable();
-      FirstTimeBitmapWriter bitmap_writer(out_arr->buffers[1].data, out_arr->offset,
-                                          input.length);
-      VisitArrayValuesInline<Type>(
-          input,
-          [&](std::string_view val) {
-            if (matcher->Match(val)) {
-              bitmap_writer.Set();
-            }
-            bitmap_writer.Next();
-          },
-          [&]() { bitmap_writer.Next(); });
-      bitmap_writer.Finish();
-    } else {
-      using offset_type = typename Type::offset_type;
-      StringBoolTransform<Type>(
-          ctx, batch,
-          [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
-                     int64_t output_offset, uint8_t* output) {
-            const offset_type* offsets =
-                reinterpret_cast<const offset_type*>(raw_offsets);
-            FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-            for (int64_t i = 0; i < length; ++i) {
-              const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
-              int64_t current_length = offsets[i + 1] - offsets[i];
-              if (matcher->Match(std::string_view(current_data, current_length))) {
-                bitmap_writer.Set();
-              }
-              bitmap_writer.Next();
-            }
-            bitmap_writer.Finish();
-          },
-          out);
-    }
+    // Evaluate per element and skip null slots. The matcher may be expensive
+    // (e.g. a regex), so running it on nulls is wasteful; additionally, for the
+    // view types a null slot's header is unvalidated and may carry a bogus
+    // buffer_index/offset that decoding would dereference.
+    const ArraySpan& input = batch[0].array;
+    ArraySpan* out_arr = out->array_span_mutable();
+    FirstTimeBitmapWriter bitmap_writer(out_arr->buffers[1].data, out_arr->offset,
+                                        input.length);
+    VisitArrayValuesInline<Type>(
+        input,
+        [&](std::string_view val) {
+          if (matcher->Match(val)) {
+            bitmap_writer.Set();
+          }
+          bitmap_writer.Next();
+        },
+        [&]() { bitmap_writer.Next(); });
+    bitmap_writer.Finish();
     return Status::OK();
   }
 };
