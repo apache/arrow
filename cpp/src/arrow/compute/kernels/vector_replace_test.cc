@@ -2113,8 +2113,7 @@ TEST_F(TestFillNullType, TestFillOnNullType) {
 
 // Helper: assert ReplaceWithMask output for list types, calling ValidateFull.
 static void AssertReplaceWithMaskList(const Datum& values, const Datum& mask,
-                                      const Datum& replacements,
-                                      const Datum& expected) {
+                                      const Datum& replacements, const Datum& expected) {
   ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(values, mask, replacements));
   if (actual.is_array()) {
     ASSERT_OK(actual.make_array()->ValidateFull());
@@ -2331,4 +2330,3 @@ TEST(TestReplaceWithMaskList, TypeMismatch) {
 
 }  // namespace compute
 }  // namespace arrow
-

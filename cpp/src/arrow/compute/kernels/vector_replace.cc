@@ -333,10 +333,8 @@ struct ReplaceMaskImpl<Type, enable_if_var_size_list<Type>> {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
-                                         const BooleanScalar& mask,
-                                         ExecValue replacements,
-                                         int64_t replacements_offset,
-                                         ExecResult* out) {
+                                        const BooleanScalar& mask, ExecValue replacements,
+                                        int64_t replacements_offset, ExecResult* out) {
     if (!mask.is_valid) {
       // mask = null: output is all-null array
       ARROW_ASSIGN_OR_RAISE(
@@ -370,16 +368,15 @@ struct ReplaceMaskImpl<Type, enable_if_var_size_list<Type>> {
   }
 
   static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
-                                        const ArraySpan& mask, int64_t mask_offset,
-                                        ExecValue replacements,
-                                        int64_t replacements_offset,
-                                        ExecResult* out) {
+                                       const ArraySpan& mask, int64_t mask_offset,
+                                       ExecValue replacements,
+                                       int64_t replacements_offset, ExecResult* out) {
     // Build the output list array element-by-element.  We cannot pre-allocate a flat
     // buffer (unlike fixed-width types) because the child-array size of each list slot
     // is unknown in advance, so we use a list builder and copy slots individually.
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(),
-                                        array.type->GetSharedPtr(), &raw_builder));
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), array.type->GetSharedPtr(),
+                                        &raw_builder));
     auto& builder = checked_cast<BuilderType&>(*raw_builder);
     RETURN_NOT_OK(builder.Reserve(array.length));
 
@@ -1012,7 +1009,8 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
     AddKernel(Type::LIST, ReplaceMask<ListType>::GetSignature(Type::LIST),
               ReplaceMask<ListType>::Exec, ReplaceMaskChunked<ListType>::Exec, registry,
               func.get());
-    AddKernel(Type::LARGE_LIST, ReplaceMask<LargeListType>::GetSignature(Type::LARGE_LIST),
+    AddKernel(Type::LARGE_LIST,
+              ReplaceMask<LargeListType>::GetSignature(Type::LARGE_LIST),
               ReplaceMask<LargeListType>::Exec, ReplaceMaskChunked<LargeListType>::Exec,
               registry, func.get());
     DCHECK_OK(registry->AddFunction(std::move(func)));
