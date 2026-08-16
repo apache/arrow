@@ -49,8 +49,11 @@ full_version=${versions[$2]}
 if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
+    # Match python.org directory by truncating any pre-release suffix: 
+    # 3.15.0rc1 is https://www.python.org/ftp/python/3.15.0/python-3.15.0rc1-macos11.pkg
+    release_version="${full_version%%[abrc]*}"
     fname="python-${full_version}-macos11.pkg"
-    wget "https://www.python.org/ftp/python/${full_version}/${fname}"
+    wget "https://www.python.org/ftp/python/${release_version}/${fname}"
 
     echo "Installing Python..."
     if [[ $2 == *t ]]; then
