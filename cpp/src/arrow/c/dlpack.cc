@@ -17,9 +17,7 @@
 
 #include "arrow/c/dlpack.h"
 
-#include <functional>
 #include <memory>
-#include <numeric>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -122,14 +120,6 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
   return &ctx.release()->tensor;
 }
 
-template <typename Vec>
-Vec RowMajorStrides(const Vec& shape) {
-  auto out = Vec(shape.size());
-  std::exclusive_scan(shape.crbegin(), shape.crend(), out.rbegin(), 1,
-                      std::multiplies<>{});
-  return out;
-}
-
 template <typename DT>
 Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
@@ -172,7 +162,8 @@ Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
   params.buffer_offset *= type->byte_width();
   params.buffer_size *= type->byte_width();
   // Compute strides as row major.
-  params.strides = RowMajorStrides(params.shape);
+  params.strides.resize(params.shape.size());
+  RETURN_NOT_OK(internal::ComputeRowMajorStrides(params.shape, 1, params.strides));
 
   if (copy) {
     // We copy the buffer slice instead of using Array copy functions to avoid copying
@@ -219,6 +210,14 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
 
 namespace {
 
+template <typename T>
+std::vector<T> StridesInElements(std::vector<T> strides, T byte_width) {
+  for (auto& s : strides) {
+    s /= byte_width;
+  }
+  return strides;
+}
+
 template <typename DT>
 Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
   // Define DLDevice struct
@@ -228,18 +227,10 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
   const auto& type = *t->type();
   ARROW_ASSIGN_OR_RAISE(auto dtype, GetLeafDLDataType(type));
 
-  // Compute strides
-  std::vector<int64_t> strides = {};
-  strides.reserve(t->ndim());
-  const auto byte_width = type.byte_width();
-  for (auto i : t->strides()) {
-    strides.emplace_back(i / byte_width);
-  }
-
   auto params = ExportBufferParams<std::vector<int64_t>>{
       .buffer_size = t->size(),
       .ndim = t->ndim(),
-      .strides = std::move(strides),
+      .strides = StridesInElements<int64_t>(t->strides(), type.byte_width()),
       .shape = t->shape(),
       .device = device,
       .dtype = dtype,
