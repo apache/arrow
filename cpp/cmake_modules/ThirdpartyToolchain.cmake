@@ -1925,6 +1925,7 @@ function(build_absl)
   # This is necessary for bundled Protobuf otherwise it fails on configure.
   set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
+  include_directories(BEFORE SYSTEM "${absl_SOURCE_DIR}")
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)

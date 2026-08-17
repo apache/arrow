@@ -163,7 +163,7 @@ jobs:
       # https://github.com/apache/arrow/issues/50868
       absl_SOURCE: BUNDLED
       Protobuf_SOURCE: BUNDLED
-      gRPC_SOURCE: BUNDLED
+      #gRPC_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
