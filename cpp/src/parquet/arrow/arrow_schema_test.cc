@@ -1097,7 +1097,7 @@ TEST_F(TestConvertParquetSchema, ParquetFile) {
         ASSERT_OK(ConvertSchema({file}, metadata, props));
         CheckFlatSchema(::arrow::schema({::arrow::field("file", expected_type)}),
                         check_metadata);
-      };
+      };  // NOLINT(readability/braces)
 
   check_file_schema.operator()<true>(true, std::shared_ptr<const KeyValueMetadata>{},
                                      file_extension, true);
