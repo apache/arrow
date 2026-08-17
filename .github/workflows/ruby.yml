@@ -115,7 +115,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: ruby-ubuntu-${{ matrix.ubuntu }}
@@ -205,7 +205,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos
@@ -302,7 +302,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}
@@ -467,7 +467,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-msvc
