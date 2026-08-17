@@ -1925,7 +1925,6 @@ function(build_absl)
   # This is necessary for bundled Protobuf otherwise it fails on configure.
   set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
-  include_directories(BEFORE SYSTEM "${absl_SOURCE_DIR}")
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
@@ -2220,7 +2219,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP
    OR ARROW_WITH_GRPC
    OR ARROW_WITH_PROTOBUF)
   # Abseil 20230125 released CRC32C which is necessary for GCS builds
-  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
+  set(ARROW_ABSL_REQUIRED_VERSION 20250127)
   # Google Cloud C++ SDK, gRPC and any dependency that pulls Protobuf
   # requires Abseil.
   if(ARROW_WITH_GOOGLE_CLOUD_CPP
