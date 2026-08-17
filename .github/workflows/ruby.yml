@@ -159,7 +159,8 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       absl_SOURCE: BUNDLED
-      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      #Protobuf_SOURCE: BUNDLED
+      gRPC_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
