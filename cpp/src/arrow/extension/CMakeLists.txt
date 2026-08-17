@@ -27,4 +27,10 @@ add_arrow_test(test
                PREFIX
                "arrow-canonical-extensions")
 
+add_arrow_test(test
+               SOURCES
+               parquet_file_test.cc
+               PREFIX
+               "arrow-parquet-file-extension")
+
 arrow_install_all_headers("arrow/extension")
