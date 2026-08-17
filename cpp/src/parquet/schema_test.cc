@@ -1179,6 +1179,9 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   auto check_is_variant = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_variant();
   };
+  auto check_is_file = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_file();
+  };
   auto check_is_null = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_null();
   };
@@ -1193,6 +1196,7 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
       {LogicalType::UUID(), check_is_UUID},
       {LogicalType::Float16(), check_is_float16},
       {LogicalType::Variant(), check_is_variant},
+      {LogicalType::File(), check_is_file},
       {LogicalType::Null(), check_is_null},
       {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), check_is_time},
       {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), check_is_time},
@@ -1278,6 +1282,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {UUIDLogicalType::Make(), false, true, true},
       {Float16LogicalType::Make(), false, true, true},
       {VariantLogicalType::Make(), true, true, true},
+      {FileLogicalType::Make(), true, true, true},
       {NoLogicalType::Make(), false, false, true},
   };
 
@@ -1608,6 +1613,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
        R"({"Type": "Geography", "crs": "srid:1234", "algorithm": "karney"})"},
       {LogicalType::Variant(), "Variant(1)", R"({"Type": "Variant", "SpecVersion": 1})"},
       {LogicalType::Variant(2), "Variant(2)", R"({"Type": "Variant", "SpecVersion": 2})"},
+      {LogicalType::File(), "File", R"({"Type": "File"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1661,6 +1667,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::Geometry(), SortOrder::UNKNOWN},
       {LogicalType::Geography(), SortOrder::UNKNOWN},
       {LogicalType::Variant(), SortOrder::UNKNOWN},
+      {LogicalType::File(), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
@@ -1827,6 +1834,10 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(PrimitiveNode::Make("variant", Repetition::REQUIRED,
                                        VariantLogicalType::Make(),
                                        Type::FIXED_LEN_BYTE_ARRAY, 2));
+
+  // Incompatible primitive type ...
+  ASSERT_ANY_THROW(PrimitiveNode::Make("file", Repetition::REQUIRED,
+                                       FileLogicalType::Make(), Type::DOUBLE));
 
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("negative_length", Repetition::REQUIRED,
@@ -2381,6 +2392,7 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
   ConfirmGroupNodeRoundtrip("map", LogicalType::Map());
   ConfirmGroupNodeRoundtrip("list", LogicalType::List());
   ConfirmGroupNodeRoundtrip("variant", LogicalType::Variant());
+  ConfirmGroupNodeRoundtrip("file", LogicalType::File());
 }
 
 TEST(TestLogicalTypeSerialization, VariantSpecificationVersion) {
