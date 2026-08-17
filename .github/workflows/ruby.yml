@@ -158,8 +158,11 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      # Keep these dependencies bundled to avoid mixing Abseil ABIs until
+      # google-cloud-cpp supports Abseil 20260526.
+      # https://github.com/apache/arrow/issues/50868
       absl_SOURCE: BUNDLED
-      #Protobuf_SOURCE: BUNDLED
+      Protobuf_SOURCE: BUNDLED
       gRPC_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
