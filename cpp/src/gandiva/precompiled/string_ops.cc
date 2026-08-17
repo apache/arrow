@@ -3099,6 +3099,19 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //    4. If the string have too few letters in the word that you can't assign three
 //    numbers, append with zeros until there are three numbers. If you have four or more
 //    numbers, retain only the first three.
+//
+// The mappings table below is defined only for the 26 ASCII letters, so the
+// classification and case-folding used to index it must stay ASCII-only. The
+// locale-sensitive isalpha/toupper let bytes 0x80-0xFF count as letters under a
+// non-C locale, and toupper on such a byte yields an index past mappings.
+static FORCE_INLINE bool is_ascii_letter(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static FORCE_INLINE char ascii_toupper(char c) {
+  return (c >= 'a' && c <= 'z') ? static_cast<char>(c - ('a' - 'A')) : c;
+}
+
 FORCE_INLINE
 const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
                          bool in_validity, bool* out_valid, int32_t* out_len) {
@@ -3125,9 +3138,9 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
-    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
+    if (is_ascii_letter(in[i])) {
       // Retain the first letter
-      ret[0] = toupper(static_cast<unsigned char>(in[i]));
+      ret[0] = ascii_toupper(in[i]);
       start_idx = i + 1;
       break;
     }
@@ -3143,8 +3156,8 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   soundex[0] = '\0';
   // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
-    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
-      c = toupper(static_cast<unsigned char>(in[i])) - 65;
+    if (is_ascii_letter(in[i])) {
+      c = ascii_toupper(in[i]) - 'A';
       if (mappings[c] != soundex[si - 1]) {
         soundex[si] = mappings[c];
         si++;
