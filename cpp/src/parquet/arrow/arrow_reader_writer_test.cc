@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <type_traits>
@@ -41,6 +42,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/extension/json.h"
+#include "arrow/extension/parquet_file.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -6077,6 +6079,66 @@ TEST(TestArrowReadWrite, AllNulls) {
   auto expected_table = ::arrow::Table::Make(
       schema, {::arrow::ArrayFromJSON(::arrow::int8(), R"([null, null, null])")});
   ASSERT_TRUE(expected_table->Equals(*read_table));
+}
+
+class TestArrowReadWriteFileType : public ::testing::Test {
+ protected:
+  ::arrow::Result<std::unique_ptr<FileReader>> OpenReader(
+      const std::shared_ptr<::arrow::Buffer>& buffer,
+      const std::shared_ptr<::arrow::DataType>& file_type) {
+    extension_guard_.emplace(::arrow::DataTypeVector{file_type});
+    ArrowReaderProperties reader_properties;
+    reader_properties.set_arrow_extensions_enabled(true);
+    std::unique_ptr<FileReader> reader;
+    FileReaderBuilder builder;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    RETURN_NOT_OK(builder.properties(reader_properties)->Build(&reader));
+    return reader;
+  }
+
+ private:
+  std::optional<::arrow::ExtensionTypeGuard> extension_guard_;
+};
+
+TEST_F(TestArrowReadWriteFileType, FileExtensionRoundtrip) {
+  auto storage_type = ::arrow::struct_({::arrow::field("uri", ::arrow::utf8()),
+                                        ::arrow::field("offset", ::arrow::int64()),
+                                        ::arrow::field("inline", ::arrow::binary())});
+  auto file_type = ::arrow::extension::file(storage_type);
+  auto storage_array = ::arrow::ArrayFromJSON(
+      storage_type,
+      R"([{"uri":"u","offset":null,"inline":null},{"uri":null,"offset":null,"inline":"x"},null])");
+  auto file_array = ::arrow::ExtensionType::WrapArray(file_type, storage_array);
+  auto input =
+      ::arrow::Table::Make(::arrow::schema({::arrow::field("file", file_type)}),
+                           {std::make_shared<::arrow::ChunkedArray>(file_array)});
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK(WriteTable(*input, ::arrow::default_memory_pool(), sink, input->num_rows()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(buffer, file_type));
+
+  ASSERT_OK_AND_ASSIGN(auto full, reader->ReadTable());
+  ASSERT_EQ(full->schema()->field(0)->type()->id(), ::arrow::Type::EXTENSION);
+  auto full_extension =
+      ::arrow::internal::checked_pointer_cast<const ::arrow::ExtensionType>(
+          full->schema()->field(0)->type());
+  ASSERT_EQ(full_extension->storage_type()->num_fields(), 3);
+  ASSERT_TRUE(full->Equals(*input));
+
+  ASSERT_OK_AND_ASSIGN(auto partial, reader->ReadTable(std::vector<int>{0}));
+  ASSERT_EQ(partial->schema()->field(0)->type()->id(), ::arrow::Type::STRUCT);
+  ASSERT_EQ(partial->schema()->field(0)->type()->num_fields(), 1);
+  ASSERT_EQ(partial->schema()->field(0)->type()->field(0)->name(), "uri");
+  auto storage_struct =
+      ::arrow::internal::checked_pointer_cast<const ::arrow::StructArray>(storage_array);
+  ASSERT_OK_AND_ASSIGN(auto expected_partial,
+                       ::arrow::StructArray::Make({storage_struct->field(0)}, {"uri"},
+                                                  storage_struct->null_bitmap(),
+                                                  storage_struct->null_count()));
+  ASSERT_TRUE(partial->column(0)->Equals(
+      std::make_shared<::arrow::ChunkedArray>(std::move(expected_partial))));
 }
 
 }  // namespace arrow
