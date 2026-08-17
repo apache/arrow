@@ -165,6 +165,7 @@ jobs:
       #Protobuf_SOURCE: BUNDLED
       #gRPC_SOURCE: BUNDLED
       ARROW_WITH_GOOGLE_CLOUD_CPP: ON
+      ARROW_WITH_GCS: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
