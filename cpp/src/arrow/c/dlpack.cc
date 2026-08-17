@@ -191,6 +191,17 @@ Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
   return ExportBuffer<DT>(std::move(params));
 }
 
+template <typename T>
+Result<DLDevice> ExportDeviceImpl(const std::shared_ptr<T>& a) {
+  // ArrayData reports the device of its buffers and children
+  if (a->data()->device_type() == DeviceAllocationType::kCPU) {
+    return {{.device_type = DLDeviceType::kDLCPU, .device_id = 0}};
+  } else {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
+}
+
 }  // namespace
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
@@ -203,13 +214,7 @@ Result<DLManagedTensorVersioned*> ExportArrayVersioned(const std::shared_ptr<Arr
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
-  // ArrayData reports the device of its buffers and children
-  if (arr->data()->device_type() == DeviceAllocationType::kCPU) {
-    return {{.device_type = DLDeviceType::kDLCPU, .device_id = 0}};
-  } else {
-    return Status::NotImplemented(
-        "DLPack support is implemented only for buffers on CPU device.");
-  }
+  return ExportDeviceImpl(arr);
 }
 
 namespace {
@@ -273,13 +278,7 @@ Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Te
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
-  // Define DLDevice struct
-  if (t->data()->device_type() == DeviceAllocationType::kCPU) {
-    return {{.device_type = DLDeviceType::kDLCPU, .device_id = 0}};
-  } else {
-    return Status::NotImplemented(
-        "DLPack support is implemented only for buffers on CPU device.");
-  }
+  return ExportDeviceImpl(t);
 }
 
 }  // namespace arrow::dlpack
