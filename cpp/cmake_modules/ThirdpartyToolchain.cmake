@@ -2219,7 +2219,7 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP
    OR ARROW_WITH_GRPC
    OR ARROW_WITH_PROTOBUF)
   # Abseil 20230125 released CRC32C which is necessary for GCS builds
-  set(ARROW_ABSL_REQUIRED_VERSION 20250127)
+  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
   # Google Cloud C++ SDK, gRPC and any dependency that pulls Protobuf
   # requires Abseil.
   if(ARROW_WITH_GOOGLE_CLOUD_CPP
