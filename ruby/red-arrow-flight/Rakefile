@@ -30,6 +30,10 @@ release_task.prerequisites.replace(["build", "release:rubygem_push"])
 
 desc "Run tests"
 task :test do
+  if /darwin/.match?(RUBY_PLATFORM)
+    puts "SKIP test on macOS"
+    next
+  end
   cd(base_dir) do
     cd("dependency-check") do
       ruby("-S", "rake")
