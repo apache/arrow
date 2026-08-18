@@ -183,6 +183,7 @@ reference:
   - read_delim_arrow
   - read_parquet
   - read_feather
+  - read_ipc_file
   - read_ipc_stream
   - read_json_arrow
 
@@ -193,6 +194,7 @@ reference:
     - write_csv_arrow
     - write_parquet
     - write_feather
+    - write_ipc_file
     - write_ipc_stream
     - write_to_raw
 

@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <string_view>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow::json {
@@ -50,12 +52,14 @@ class ARROW_EXPORT JsonWriter {
 
   void Double(double value);
 
+  Status WriteValue(simdjson::ondemand::value value);
+
   void Null();
 
   void StringField(std::string_view key, std::string_view value);
   void BoolField(std::string_view key, bool value);
 
-  std::string_view GetString() const;
+  Result<std::string_view> GetString() const;
 
   void Clear();
 

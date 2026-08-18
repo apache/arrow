@@ -140,6 +140,7 @@ Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
   llvm::orc::JITTargetMachineBuilder jtmb(
       (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
+  jtmb.setRelocationModel(llvm::Reloc::PIC_);
   if (conf.target_host_cpu()) {
     jtmb.setCPU(cpu_name.str());
     jtmb.addFeatures(cpu_attrs);

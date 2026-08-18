@@ -61,6 +61,12 @@ if(ARROW_WITH_LZ4)
   endif()
 endif()
 
+if(ARROW_WITH_SIMDJSON)
+  if(simdjson_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS simdjson::simdjson)
+  endif()
+endif()
+
 if(ARROW_WITH_SNAPPY)
   if(Snappy_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
@@ -108,7 +114,7 @@ if(ARROW_S3)
 endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
-  if(opentelemetry_SOURCE STREQUAL "SYSTEM")
+  if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENTELEMETRY_LIBS})
   endif()
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
@@ -319,6 +325,13 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+macro(append_runtime_sse4_2_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_SSE4_2 AND ARROW_SIMD_LEVEL STREQUAL "NONE")
+    list(APPEND ${SRCS} ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SSE4_2_FLAG}")
+  endif()
+endmacro()
+
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
@@ -346,21 +359,42 @@ endmacro()
 macro(append_runtime_sve128_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE128)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE128_FLAGS}")
+    set(_flags ${ARROW_SVE128_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 macro(append_runtime_sve256_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE256)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE256_FLAGS}")
+    set(_flags ${ARROW_SVE256_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
 macro(append_runtime_sve512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_SVE512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_SVE512_FLAGS}")
+    set(_flags ${ARROW_SVE512_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # Disable LTO to work around GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=121412
+      list(APPEND ${_flags} "-fno-lto")
+    endif()
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
   endif()
 endmacro()
 
@@ -585,10 +619,17 @@ set(ARROW_UTIL_SRCS
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
+append_runtime_sse4_2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_sse4_2.cc)
+
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
-append_runtime_sve128_src(ARROW_UTIL_SRCS util/bpacking_simd_128_alt.cc)
+# also provides the NEON kernels on aarch64, so it stays in ARROW_UTIL_SRCS
+if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
+  set_source_files_properties(util/bpacking_simd_128.cc PROPERTIES COMPILE_OPTIONS
+                                                                   "${ARROW_SSE4_2_FLAG}")
+endif()
+
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)

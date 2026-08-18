@@ -171,6 +171,9 @@ class ARROW_PYFLIGHT_EXPORT PyFlightServer : public arrow::flight::FlightServerB
   Status ListActions(const arrow::flight::ServerCallContext& context,
                      std::vector<arrow::flight::ActionType>* actions) override;
 
+  // Breaks the reference cycle between the C++ FlightServerBase and the Python object.
+  void ReleasePythonServerRef();
+
  private:
   OwnedRefNoGIL server_;
   PyFlightServerVtable vtable_;

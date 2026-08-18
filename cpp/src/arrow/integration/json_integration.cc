@@ -78,7 +78,8 @@ class IntegrationJsonWriter::Impl {
     writer_.EndArray();  // Record batches
     writer_.EndObject();
 
-    return std::string(writer_.GetString());
+    ARROW_ASSIGN_OR_RAISE(std::string_view json, writer_.GetString());
+    return std::string(json);
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) {

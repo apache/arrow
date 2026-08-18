@@ -74,12 +74,6 @@ arrow_info <- function() {
   structure(out, class = "arrow_info")
 }
 
-#' @rdname arrow_info
-#' @export
-arrow_available <- function() {
-  .Deprecated(msg = "Arrow C++ is always available as of 7.0.0")
-  TRUE
-}
 
 #' @rdname arrow_info
 #' @export

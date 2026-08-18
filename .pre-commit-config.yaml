@@ -284,69 +284,15 @@ repos:
           'dangling-hyphen,line-too-long',
         ]
   - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
+    rev: v0.11.0
     hooks:
       - id: shellcheck
         alias: shell
         # TODO: Remove this when we fix all lint failures
         files: >-
           (
-          ?^c_glib/test/run-test\.sh$|
-          ?^ci/scripts/c_glib_build\.sh$|
-          ?^ci/scripts/c_glib_test\.sh$|
-          ?^ci/scripts/ccache_fix_perms\.sh$|
-          ?^ci/scripts/ccache_setup\.sh$|
-          ?^ci/scripts/cpp_build\.sh$|
-          ?^ci/scripts/cpp_test\.sh$|
-          ?^ci/scripts/download_tz_database\.sh$|
-          ?^ci/scripts/install_azurite\.sh$|
-          ?^ci/scripts/install_bison\.sh$|
-          ?^ci/scripts/install_ccache\.sh$|
-          ?^ci/scripts/install_chromedriver\.sh$|
-          ?^ci/scripts/install_cmake\.sh$|
-          ?^ci/scripts/install_conda\.sh$|
-          ?^ci/scripts/install_dask\.sh$|
-          ?^ci/scripts/install_emscripten\.sh$|
-          ?^ci/scripts/install_gcs_testbench\.sh$|
-          ?^ci/scripts/install_iwyu\.sh$|
-          ?^ci/scripts/install_minio\.sh$|
-          ?^ci/scripts/install_ninja\.sh$|
-          ?^ci/scripts/install_numba\.sh$|
-          ?^ci/scripts/install_numpy\.sh$|
-          ?^ci/scripts/install_pandas\.sh$|
-          ?^ci/scripts/install_python\.sh$|
-          ?^ci/scripts/install_sccache\.sh$|
-          ?^ci/scripts/install_spark\.sh$|
-          ?^ci/scripts/install_vcpkg\.sh$|
-          ?^ci/scripts/integration_arrow_build\.sh$|
-          ?^ci/scripts/integration_arrow\.sh$|
-          ?^ci/scripts/integration_dask\.sh$|
-          ?^ci/scripts/integration_hdfs\.sh$|
-          ?^ci/scripts/integration_spark\.sh$|
-          ?^ci/scripts/matlab_build\.sh$|
-          ?^ci/scripts/msys2_setup\.sh$|
-          ?^ci/scripts/msys2_system_clean\.sh$|
-          ?^ci/scripts/msys2_system_upgrade\.sh$|
-          ?^ci/scripts/nanoarrow_build\.sh$|
-          ?^ci/scripts/python_build_emscripten\.sh$|
-          ?^ci/scripts/python_build\.sh$|
-          ?^ci/scripts/python_sdist_build\.sh$|
-          ?^ci/scripts/python_sdist_test\.sh$|
-          ?^ci/scripts/python_test_emscripten\.sh$|
-          ?^ci/scripts/python_wheel_unix_test\.sh$|
-          ?^ci/scripts/python_test_type_annotations\.sh$|
-          ?^ci/scripts/python_test\.sh$|
-          ?^ci/scripts/python_wheel_macos_build\.sh$|
-          ?^ci/scripts/python_wheel_xlinux_build\.sh$|
-          ?^ci/scripts/r_build\.sh$|
-          ?^ci/scripts/r_revdepcheck\.sh$|
-          ?^ci/scripts/release_test\.sh$|
-          ?^ci/scripts/ruby_test\.sh$|
-          ?^ci/scripts/rust_build\.sh$|
-          ?^ci/scripts/util_download_apache\.sh$|
-          ?^ci/scripts/util_enable_core_dumps\.sh$|
-          ?^ci/scripts/util_free_space\.sh$|
-          ?^ci/scripts/util_log\.sh$|
+          ?^c_glib/.*\.sh$|
+          ?^ci/.*\.sh$|
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|
           ?^cpp/build-support/get-upstream-commit\.sh$|
@@ -375,7 +321,7 @@ repos:
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
           ?^dev/release/utils-watch-gh-workflow\.sh$|
-          ?^swift/gen-protobuffers\.sh$|
+          ?^r/.*\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
     # v3.11.0-1 or later requires pre-commit 3.2.0 or later but Ubuntu

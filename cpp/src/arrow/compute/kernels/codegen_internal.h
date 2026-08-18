@@ -23,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -479,9 +480,9 @@ struct UnboxScalar<Decimal256Type> {
 // values, such as Decimal128 rather than std::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type
-VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                       NullFunc&& null_func) {
+  requires std::is_void_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>>
+static void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                                   NullFunc&& null_func) {
   VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -491,9 +492,10 @@ VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
 }
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
-VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                       NullFunc&& null_func) {
+  requires std::is_same_v<std::invoke_result_t<VisitFunc, typename GetViewType<T>::T>,
+                          Status>
+static Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                                     NullFunc&& null_func) {
   return VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {

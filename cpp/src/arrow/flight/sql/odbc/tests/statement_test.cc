@@ -1984,14 +1984,7 @@ TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
 }
 
 TYPED_TEST(StatementTest, TestSQLMoreResultsWithoutQuery) {
-#ifdef __linux__
   ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
-#else  // Windows & Mac
-  // Verify function sequence error state is reported when SQLMoreResults is called
-  // without executing any queries
-  ASSERT_EQ(SQL_ERROR, SQLMoreResults(this->stmt));
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
-#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {

@@ -24,15 +24,12 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
-
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
 
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -1785,13 +1782,9 @@ namespace {
 void WriteCrsKeyAndValue(const std::string_view crs, std::ostream& json) {
   // There is no restriction on the crs value here, and it may contain quotes
   // or backslashes that would result in invalid JSON if unescaped.
-  namespace rj = ::arrow::rapidjson;
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  rj::Value v;
-  v.SetString(crs.data(), static_cast<int32_t>(crs.size()));
-  v.Accept(writer);
-  json << R"(, "crs": )" << buffer.GetString();
+  ::arrow::json::JsonWriter writer;
+  writer.String(crs);
+  json << R"(, "crs": )" << writer.GetString().ValueUnsafe();
 }
 }  // namespace
 

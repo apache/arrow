@@ -40,21 +40,6 @@ struct Empty {
 /// TODO(ARROW-12655) support function pointers
 struct call_traits {
  public:
-  template <typename R, typename... A>
-  static std::false_type is_overloaded_impl(R(A...));
-
-  template <typename F>
-  static std::false_type is_overloaded_impl(decltype(&F::operator())*);
-
-  template <typename F>
-  static std::true_type is_overloaded_impl(...);
-
-  template <typename F, typename R, typename... A>
-  static R return_type_impl(R (F::*)(A...));
-
-  template <typename F, typename R, typename... A>
-  static R return_type_impl(R (F::*)(A...) const);
-
   template <std::size_t I, typename F, typename R, typename... A>
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...));
@@ -77,20 +62,6 @@ struct call_traits {
   template <typename F, typename R, typename... A>
   static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...) &&);
 
-  /// bool constant indicating whether F is a callable with more than one possible
-  /// signature. Will be true_type for objects which define multiple operator() or which
-  /// define a template operator()
-  template <typename F>
-  using is_overloaded =
-      decltype(is_overloaded_impl<typename std::decay<F>::type>(NULLPTR));
-
-  template <typename F, typename T = void>
-  using enable_if_overloaded = typename std::enable_if<is_overloaded<F>::value, T>::type;
-
-  template <typename F, typename T = void>
-  using disable_if_overloaded =
-      typename std::enable_if<!is_overloaded<F>::value, T>::type;
-
   /// If F is not overloaded, the argument types of its call operator can be
   /// extracted via call_traits::argument_type<Index, F>
   template <std::size_t I, typename F>
@@ -98,20 +69,6 @@ struct call_traits {
 
   template <typename F>
   using argument_count = decltype(argument_count_impl(&std::decay<F>::type::operator()));
-
-  template <typename F>
-  using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));
-
-  template <typename F, typename T, typename RT = T>
-  using enable_if_return =
-      typename std::enable_if<std::is_same<return_type<F>, T>::value, RT>;
-
-  template <typename T, typename R = void>
-  using enable_if_empty = typename std::enable_if<std::is_same<T, Empty>::value, R>::type;
-
-  template <typename T, typename R = void>
-  using enable_if_not_empty =
-      typename std::enable_if<!std::is_same<T, Empty>::value, R>::type;
 };
 
 /// A type erased callable object which may only be invoked once.

@@ -18,28 +18,32 @@
 
 set -ex
 
-: ${R_BIN:=RDvalgrind}
+: "${R_BIN:=RDvalgrind}"
 
-source_dir=${1}/r
+source_dir="${1}/r"
 
 export CMAKE_BUILD_TYPE=RelWithDebInfo
 
-pushd ${source_dir}
+pushd "${source_dir}"
+
+# Convert the space-separated options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a R_INSTALL_ARGS <<< "${INSTALL_ARGS:-}"
 
 # build first so that any stray compiled files in r/src are ignored
-${R_BIN} CMD build --no-build-vignettes .
-${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
+"${R_BIN}" CMD build --no-build-vignettes .
+"${R_BIN}" CMD INSTALL "${R_INSTALL_ARGS[@]}" arrow*.tar.gz
 
 pushd tests
 
 # to generate suppression files run:
 # ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testthat.R
-${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --suppressions=/${1}/ci/etc/valgrind-cran.supp" -f testthat.R |& tee testthat.out
+"${R_BIN}" --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --suppressions=/${1}/ci/etc/valgrind-cran.supp" -f testthat.R |& tee testthat.out
 
 # valgrind --error-exitcode=1 should return an erroring exit code that we can catch,
 # but R eats that and returns 0, so we need to look at the output and make sure that
 # we have 0 errors instead.
-if [ $(grep -c "ERROR SUMMARY: 0 errors" testthat.out) != 1 ]; then
+if ! grep -q "ERROR SUMMARY: 0 errors" testthat.out; then
   cat testthat.out
   echo "Found Valgrind errors"
   exit 1

@@ -165,6 +165,7 @@ cd cpp
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_OPENTELEMETRY=ON \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
@@ -509,6 +510,7 @@ odbcinst -u -d -n "Apache Arrow Flight SQL ODBC Driver"
 %files -n %{name}%{so_version}-flight-sql-odbc-libs
 %defattr(-,root,root,-)
 %doc README.md
+%doc cpp/src/arrow/flight/sql/odbc/connection-options.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/arrow/flight/sql/odbc/arrow-flight-sql-odbc-template.ini
 %{_libdir}/libarrow_flight_sql_odbc.so.*
@@ -932,6 +934,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Wed Aug 05 2026 Raúl Cumplido <raulcumplido@gmail.com> - 25.0.1-1
+- New upstream release.
+
 * Fri Jul 03 2026 Raúl Cumplido <raulcumplido@gmail.com> - 25.0.0-1
 - New upstream release.
 

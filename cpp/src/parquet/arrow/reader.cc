@@ -732,12 +732,12 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       const int32_t expected_size = has_elements ? list_size : 0;
       std::span<const int32_t> run_offsets(offsets + start,
                                            static_cast<size_t>(length + 1));
-      const auto first_invalid_offset = std::ranges::adjacent_find(
-          run_offsets,
+      const auto first_invalid_offset = std::adjacent_find(
+          run_offsets.begin(), run_offsets.end(),
           [&](int32_t left, int32_t right) { return right - left != expected_size; });
       if (first_invalid_offset != run_offsets.end()) {
         const int64_t x =
-            start + std::ranges::distance(run_offsets.begin(), first_invalid_offset);
+            start + std::distance(run_offsets.begin(), first_invalid_offset);
         const int32_t size = offsets[x + 1] - offsets[x];
         if (has_elements) {
           return Status::Invalid("Expected all lists to be of size=", list_size,
@@ -1414,28 +1414,6 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
-Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader());
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp, GetRecordBatchReader(row_group_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
-Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<RecordBatchReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(auto tmp,
-                        GetRecordBatchReader(row_group_indices, column_indices));
-  out->reset(tmp.release());
-  return Status::OK();
-}
-
 Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
   ARROW_ASSIGN_OR_RAISE(*out, ReadTable());
   return Status::OK();
@@ -1468,22 +1446,6 @@ Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
 Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
                                  std::shared_ptr<Table>* out) {
   ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroups(row_groups));
-  return Status::OK();
-}
-
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
-                        const ArrowReaderProperties& properties,
-                        std::unique_ptr<FileReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out, Make(pool, std::move(reader), properties));
-  return Status::OK();
-}
-
-Status FileReader::Make(::arrow::MemoryPool* pool,
-                        std::unique_ptr<ParquetFileReader> reader,
-                        std::unique_ptr<FileReader>* out) {
-  ARROW_ASSIGN_OR_RAISE(*out,
-                        Make(pool, std::move(reader), default_arrow_reader_properties()));
   return Status::OK();
 }
 
