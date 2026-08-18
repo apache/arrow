@@ -544,13 +544,28 @@ logical type are its only valid Parquet representation.
 | uuid                                   | FIXED_LEN_BYTE_ARRAY[len=16]      | UUID                     | :ref:`UUID extension type <uuid_extension>` |
 +----------------------------------------+-----------------------------------+--------------------------+---------------------------------------------+
 
-The decimal precision bands follow the `Variant encoding types
+The decimal precision bands follow the *Decimal table* of the `Variant
+encoding specification
 <https://github.com/apache/parquet-format/blob/master/VariantEncoding.md#encoding-types>`__
-table: the bands are disjoint, so precision alone selects the row (the
-narrowest sufficient decimal type is required) and the scale must satisfy
-``0 <= S <= P``. Arrow decimal types outside these bounds (a negative scale,
-or a wider decimal type than the precision requires) are not valid
-``typed_value`` storage.
+(just below its *Encoding types* table). The bands are disjoint, so
+precision alone selects the row (the narrowest sufficient decimal type is
+required) and the scale must satisfy ``0 <= S <= P``. Arrow decimal types
+outside these bounds (a negative scale, or a wider decimal type than the
+precision requires) are not valid ``typed_value`` storage.
+
+.. note::
+
+   The bands reflect the underlying physical type: a Variant decimal
+   stores its unscaled value as a 4-, 8-, or 16-byte integer, capping the
+   precision at 9, 18, or 38 significant digits.
+
+   ``(P, S)`` refers to the Arrow data type of the ``typed_value`` field
+   (``Decimal32(7, 2)``, for example) and thus applies to the array as a
+   whole: an encoded decimal value carries only a scale (its precision is
+   implied by the unscaled value), while the field's type fixes one
+   precision and scale for every row. A value that the field's type cannot
+   represent is not shredded and remains Variant-encoded in the ``value``
+   field.
 
 .. note::
 
