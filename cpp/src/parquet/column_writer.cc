@@ -84,6 +84,8 @@ namespace parquet {
 namespace {
 
 bool CanWriteLegacyStatistics(const ColumnDescriptor& descr) {
+  // Legacy min/max fields use signed comparison; only populate them for
+  // TypeDefinedOrder with signed sort order, not for IEEE total order.
   return descr.column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER &&
          descr.sort_order() == SortOrder::SIGNED;
 }

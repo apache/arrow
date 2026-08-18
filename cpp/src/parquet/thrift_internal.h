@@ -528,8 +528,8 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   if (stats.has_distinct_count) {
     statistics.__set_distinct_count(stats.distinct_count);
   }
-  if (stats.has_nan_count) {
-    statistics.__set_nan_count(stats.nan_count);
+  if (stats.nan_count.has_value()) {
+    statistics.__set_nan_count(*stats.nan_count);
   }
 
   return statistics;

@@ -358,7 +358,7 @@ std::shared_ptr<GroupNode> MakeWriterSchema(const GroupNode& input_schema,
   descr.Init(writer_schema);
   std::vector<ColumnOrder> column_orders(descr.num_columns(), ColumnOrder::type_defined_);
   for (int column_index = 0; column_index < descr.num_columns(); ++column_index) {
-    if (schema::IsFloatingPoint(*descr.Column(column_index))) {
+    if (schema::IsFloatingPointType(*descr.Column(column_index))) {
       column_orders[column_index] = ColumnOrder(properties.floating_point_column_order());
     }
   }

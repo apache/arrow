@@ -510,9 +510,9 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
                                int16_t max_repetition_level = 0,
                                const std::vector<PageLevelHistogram>& page_levels = {}) {
   const bool build_size_stats = !page_levels.empty();
-  const bool has_nan_counts =
-      std::all_of(page_stats.begin(), page_stats.end(),
-                  [](const EncodedStatistics& stats) { return stats.has_nan_count; });
+  const bool has_nan_counts = std::all_of(
+      page_stats.begin(), page_stats.end(),
+      [](const EncodedStatistics& stats) { return stats.nan_count.has_value(); });
   if (build_size_stats) {
     ASSERT_EQ(page_levels.size(), page_stats.size());
   }
@@ -559,7 +559,7 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
       }
       if (has_nan_counts) {
-        ASSERT_EQ(page_stats[i].nan_count, column_index->nan_counts()[i]);
+        ASSERT_EQ(*page_stats[i].nan_count, column_index->nan_counts()[i]);
       }
       if (build_size_stats) {
         ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(
@@ -700,7 +700,7 @@ TEST(PageIndex, WriteFloatTotalOrder) {
   TestWriteTypedColumnIndex(node, page_stats, BoundaryOrder::Unordered,
                             /*has_null_counts=*/false);
 
-  page_stats[1].has_nan_count = false;
+  page_stats[1].nan_count.reset();
   std::static_pointer_cast<schema::PrimitiveNode>(node)->SetColumnOrder(
       ColumnOrder::ieee_754_total_order_);
   TestWriteTypedColumnIndex(std::move(node), page_stats, BoundaryOrder::Unordered,

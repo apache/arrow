@@ -999,7 +999,7 @@ class FileMetaData::FileMetaDataImpl {
           column_orders.push_back(ColumnOrder::type_defined_);
         } else if (column_order.__isset.IEEE_754_TOTAL_ORDER) {
           const auto* column = schema_.Column(static_cast<int>(i));
-          column_orders.push_back(schema::IsFloatingPoint(*column)
+          column_orders.push_back(schema::IsFloatingPointType(*column)
                                       ? ColumnOrder::ieee_754_total_order_
                                       : ColumnOrder::unknown_);
         } else {
@@ -2075,6 +2075,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
           break;
         case ColumnOrder::UNDEFINED:
         case ColumnOrder::UNKNOWN:
+          // Writer schemas have an effective order for every column.
           throw ParquetException("Invalid writer column order");
       }
       metadata_->column_orders.push_back(std::move(column_order));

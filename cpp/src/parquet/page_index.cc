@@ -505,7 +505,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     /// Initialize the null_counts vector as set. Invalid null_counts vector from
     /// any page will invalidate the null_counts vector of the column index.
     column_index_.__isset.null_counts = true;
-    column_index_.__isset.nan_counts = schema::IsFloatingPoint(*descr_);
+    column_index_.__isset.nan_counts = schema::IsFloatingPointType(*descr_);
     column_index_.boundary_order = format::BoundaryOrder::UNORDERED;
   }
 
@@ -544,8 +544,8 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_counts.clear();
     }
 
-    if (column_index_.__isset.nan_counts && stats.has_nan_count) {
-      column_index_.nan_counts.emplace_back(stats.nan_count);
+    if (column_index_.__isset.nan_counts && stats.nan_count.has_value()) {
+      column_index_.nan_counts.emplace_back(*stats.nan_count);
     } else {
       column_index_.__isset.nan_counts = false;
       column_index_.nan_counts.clear();

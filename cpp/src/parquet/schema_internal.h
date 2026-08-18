@@ -51,7 +51,7 @@ PARQUET_EXPORT
 void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out);
 
 PARQUET_EXPORT
-bool IsFloatingPoint(const ColumnDescriptor& descr);
+bool IsFloatingPointType(const ColumnDescriptor& descr);
 
 }  // namespace schema
 }  // namespace parquet

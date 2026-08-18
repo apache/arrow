@@ -323,10 +323,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     auto statistics2 = MakeStatistics<TestType>(
         this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
-        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/0,
+        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
         /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true,
-        /*has_nan_count=*/false, /*is_min_value_exact=*/true,
-        /*is_max_value_exact=*/true);
+        /*is_min_value_exact=*/true, /*is_max_value_exact=*/true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
@@ -339,9 +338,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     // Use old API without is_{min/max}_value_exact
     auto statistics4 = MakeStatistics<TestType>(
         this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
-        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/0,
-        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true,
-        /*has_nan_count=*/false);
+        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
+        /*has_min_max=*/true, /*has_null_count=*/true,
+        /*has_distinct_count=*/true);
     ASSERT_EQ(encoded_min, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
@@ -575,8 +574,8 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
   auto statistics2 = MakeStatistics<ByteArrayType>(
       this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
       /*null_count=*/0,
-      /*distinct_count=*/0, /*nan_count=*/0, /*has_min_max=*/true,
-      /*has_null_count=*/true, /*has_distinct_count=*/true, /*has_nan_count=*/false,
+      /*distinct_count=*/0, /*nan_count=*/std::nullopt, /*has_min_max=*/true,
+      /*has_null_count=*/true, /*has_distinct_count=*/true,
       /*is_min_value_exact=*/true,
       /*is_max_value_exact=*/true);
 
@@ -1495,17 +1494,17 @@ class TestFloatStatistics : public ::testing::Test {
 
     auto missing_nan_count = MakeStatistics<ParquetType>(
         descr, /*encoded_min=*/{}, /*encoded_max=*/{}, /*num_values=*/0,
-        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/0,
+        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
         /*has_min_max=*/false, /*has_null_count=*/true,
-        /*has_distinct_count=*/false, /*has_nan_count=*/false);
+        /*has_distinct_count=*/false);
     AssertMinMaxAre(missing_nan_count, some_nans, min, max);
     ASSERT_FALSE(missing_nan_count->HasNanCount());
 
     auto missing_spaced_nan_count = MakeStatistics<ParquetType>(
         descr, /*encoded_min=*/{}, /*encoded_max=*/{}, /*num_values=*/0,
-        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/0,
+        /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
         /*has_min_max=*/false, /*has_null_count=*/true,
-        /*has_distinct_count=*/false, /*has_nan_count=*/false);
+        /*has_distinct_count=*/false);
     AssertMinMaxAre(missing_spaced_nan_count, some_nans, &valid_bitmap_no_nans, min, max);
     ASSERT_FALSE(missing_spaced_nan_count->HasNanCount());
   }

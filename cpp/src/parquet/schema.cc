@@ -620,7 +620,7 @@ void ToParquet(const GroupNode* schema, std::vector<format::SchemaElement>* out)
   schema->VisitConst(&visitor);
 }
 
-bool IsFloatingPoint(const ColumnDescriptor& descr) {
+bool IsFloatingPointType(const ColumnDescriptor& descr) {
   return descr.physical_type() == Type::FLOAT || descr.physical_type() == Type::DOUBLE ||
          descr.logical_type()->type() == LogicalType::Type::FLOAT16;
 }
