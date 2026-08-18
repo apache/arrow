@@ -1070,6 +1070,18 @@ else()
   set(ARROW_IPC_TARGET_STATIC)
 endif()
 
+# Parquet (LogicalType::ToJSON, encryption, geospatial) calls JsonWriter
+# even when ARROW_JSON=OFF. Keep the writer in its own object library.
+if(ARROW_JSON OR ARROW_PARQUET)
+  arrow_add_object_library(ARROW_JSON_WRITER json/json_writer_internal.cc)
+  foreach(ARROW_JSON_WRITER_TARGET ${ARROW_JSON_WRITER_TARGETS})
+    target_link_libraries(${ARROW_JSON_WRITER_TARGET} PRIVATE arrow::simdjson)
+  endforeach()
+else()
+  set(ARROW_JSON_WRITER_TARGET_SHARED)
+  set(ARROW_JSON_WRITER_TARGET_STATIC)
+endif()
+
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
@@ -1081,7 +1093,6 @@ if(ARROW_JSON)
                            json/chunker.cc
                            json/converter.cc
                            json/from_string.cc
-                           json/json_writer_internal.cc
                            json/object_parser.cc
                            json/parser.cc
                            json/reader.cc)
@@ -1195,6 +1206,7 @@ add_arrow_lib(arrow
               ${ARROW_IO_TARGET_SHARED}
               ${ARROW_IPC_TARGET_SHARED}
               ${ARROW_JSON_TARGET_SHARED}
+              ${ARROW_JSON_WRITER_TARGET_SHARED}
               ${ARROW_MEMORY_POOL_TARGET_SHARED}
               ${ARROW_ORC_TARGET_SHARED}
               ${ARROW_TELEMETRY_TARGET_SHARED}
@@ -1211,6 +1223,7 @@ add_arrow_lib(arrow
               ${ARROW_IO_TARGET_STATIC}
               ${ARROW_IPC_TARGET_STATIC}
               ${ARROW_JSON_TARGET_STATIC}
+              ${ARROW_JSON_WRITER_TARGET_STATIC}
               ${ARROW_MEMORY_POOL_TARGET_STATIC}
               ${ARROW_ORC_TARGET_STATIC}
               ${ARROW_TELEMETRY_TARGET_STATIC}
