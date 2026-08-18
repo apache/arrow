@@ -865,28 +865,28 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
   // Validate permutation member must be an array with integer values. Error
   // message should include the JSON type name of the offending value.
   CheckDeserializationRaises(ext_type_, storage_type, R"({"permutation":"invalid"})",
-                             "permutation must be an array, got String");
+                             "permutation must be an array, got string");
   CheckDeserializationRaises(ext_type_, storage_type, R"({"permutation":[1.5,0.5,2.5]})",
-                             "permutation must contain integers, got Number");
+                             "permutation must contain integers, got number");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"permutation":[null,null,null]})",
-                             "permutation must contain integers, got Null");
+                             "permutation must contain integers, got null");
 
   // Validate dim_names member must be an array with string values
   CheckDeserializationRaises(ext_type_, storage_type, R"({"dim_names":"invalid"})",
-                             "dim_names must be an array, got String");
+                             "dim_names must be an array, got string");
   CheckDeserializationRaises(ext_type_, storage_type, R"({"dim_names":[1,2,3]})",
-                             "dim_names must contain strings, got Number");
+                             "dim_names must contain strings, got number");
 
   // Validate uniform_shape member must be an array with integer-or-null values
   CheckDeserializationRaises(ext_type_, storage_type, R"({"uniform_shape":"invalid"})",
-                             "uniform_shape must be an array, got String");
+                             "uniform_shape must be an array, got string");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"uniform_shape":[1.5,null,null]})",
-                             "uniform_shape must contain integers or nulls, got Number");
+                             "uniform_shape must contain integers or nulls, got number");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"uniform_shape":["x",null,null]})",
-                             "uniform_shape must contain integers or nulls, got String");
+                             "uniform_shape must contain integers or nulls, got string");
 }
 
 TEST_F(TestVariableShapeTensorType, RoundtripBatch) {
