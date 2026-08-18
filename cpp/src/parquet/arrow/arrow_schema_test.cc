@@ -25,6 +25,7 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
+#include "parquet/column_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
@@ -2169,6 +2170,31 @@ TEST(TestFromParquetSchema, UndefinedLogicalType) {
   ASSERT_OK(FromParquetSchema(parquet_schema, &arrow_schema));
   ASSERT_EQ(*arrow_schema->field(1),
             *::arrow::field("column with unknown type", ::arrow::binary()));
+}
+
+TEST(TestFromParquetSchema, IncompatibleLogicalTypeDropped) {
+  // A file with INT32 annotated as UUID. The reader should succeed and ignore the logical type
+  // and stats.
+  auto path = test::get_data_file("int32_with_uuid_logical_type.parquet");
+  std::unique_ptr<parquet::ParquetFileReader> reader =
+      parquet::ParquetFileReader::OpenFile(path);
+
+  const auto* pq_schema = reader->metadata()->schema();
+  ASSERT_EQ(pq_schema->num_columns(), 1);
+
+  const auto* col_desc = pq_schema->Column(0);
+  ASSERT_EQ(col_desc->physical_type(), parquet::Type::INT32);
+  ASSERT_FALSE(col_desc->logical_type()->is_valid());
+  ASSERT_FALSE(col_desc->can_use_min_max());
+
+  auto row_group = reader->RowGroup(0);
+  auto col_reader = std::static_pointer_cast<parquet::Int32Reader>(row_group->Column(0));
+  const auto num_rows = 10;
+  std::vector<int32_t> values(num_rows);
+  int64_t values_read = 0;
+  col_reader->ReadBatch(num_rows, nullptr, nullptr, values.data(), &values_read);
+  ASSERT_EQ(values_read, num_rows);
+  for (int32_t i = 0; i < num_rows; ++i) ASSERT_EQ(values[i], i);
 }
 
 //

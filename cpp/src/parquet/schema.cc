@@ -453,10 +453,17 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
   std::unique_ptr<PrimitiveNode> primitive_node;
   if (element->__isset.logicalType) {
     // updated writer with logical type present
-    primitive_node = std::unique_ptr<PrimitiveNode>(
-        new PrimitiveNode(element->name, LoadEnumSafe(&element->repetition_type),
-                          LogicalType::FromThrift(element->logicalType),
-                          LoadEnumSafe(&element->type), element->type_length, field_id));
+    auto physical_type = LoadEnumSafe(&element->type);
+    auto logical_type = LogicalType::FromThrift(element->logicalType);
+    // Tolerate unrecognized logical/physical type combinations by dropping the logical type
+    // annotation.
+    if (logical_type && !logical_type->is_nested() &&
+        !logical_type->is_applicable(physical_type, element->type_length)) {
+      logical_type = UndefinedLogicalType::Make();
+    }
+    primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
+        element->name, LoadEnumSafe(&element->repetition_type), std::move(logical_type),
+        physical_type, element->type_length, field_id));
   } else if (element->__isset.converted_type) {
     // legacy writer with converted type present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
