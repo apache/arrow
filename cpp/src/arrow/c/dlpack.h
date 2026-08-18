@@ -105,4 +105,33 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr);
 ARROW_EXPORT
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t);
 
+/// \brief Import a DLPack tensor as an Arrow Array.
+///
+/// Same restrictions on data types as `ExportArrayVersioned`, and only row-major
+/// tensors are supported. Dimensions beyond the first are imported as nested
+/// fixed size lists.
+/// Takes ownership of the `DLManagedTensorVersioned` though it may point to shared data.
+///
+/// \param[in] raw DLPack tensor
+/// \param[in] copy Whether to copy the data instead of sharing it with the DLPack
+///            producer.
+/// \return An Arrow Array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> ImportArrayVersioned(DLManagedTensorVersioned* raw,
+                                                    bool copy);
+
+/// \brief Import a DLPack tensor as an Arrow Tensor.
+///
+/// Same restrictions on data types as `ExportTensorVersioned`.
+/// Takes ownership of the `DLManagedTensorVersioned` though it may point to shared data.
+/// If the DLPack input is marked as readonly, this will produce an immutable tensor.
+///
+/// \param[in] raw Arrow array
+/// \param[in] copy Whether to copy the data instead of sharing it with the DLPack
+///            producer.
+/// \return An Arrow Tensor
+ARROW_EXPORT
+Result<std::shared_ptr<Tensor>> ImportTensorVersioned(DLManagedTensorVersioned* raw,
+                                                      bool copy);
+
 }  // namespace arrow::dlpack
