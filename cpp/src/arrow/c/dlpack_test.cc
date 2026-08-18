@@ -283,8 +283,16 @@ TYPED_TEST(TestExportTensor, TestTensorReadOnly) {
                        Tensor::Make(float32(), read_only_buffer, shape));
   ASSERT_FALSE(read_only_tensor->is_mutable());
 
-  CheckDLTensor<TypeParam>(read_only_tensor, float32(), DLDataTypeCode::kDLFloat, shape,
-                           dlpack_strides);
+  if constexpr (std::is_same_v<typename TypeParam::ManagedTensor, DLManagedTensor>) {
+    ASSERT_RAISES_WITH_MESSAGE(
+        NotImplemented,
+        "NotImplemented: Legacy DLPack support is not implemented for immutable tensors."
+        " Please move to the DLPack version >=1.0",
+        TypeParam::Export(read_only_tensor));
+  } else {
+    CheckDLTensor<TypeParam>(read_only_tensor, float32(), DLDataTypeCode::kDLFloat, shape,
+                             dlpack_strides);
+  }
 }
 
 TYPED_TEST(TestExportTensor, TestTensorStrided) {

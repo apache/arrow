@@ -304,6 +304,9 @@ strides: {self.strides}"""
         """
         Export a Tensor as a DLPack capsule.
 
+        Without supplying max_version, it will return a legacy DLPack "dltensor" PyCapsule.
+        Please specify a version as the legacy path is deprecated.
+
         Parameters
         ----------
         stream : int, optional
@@ -346,7 +349,11 @@ strides: {self.strides}"""
                     f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
                 )
             # Note: from March 2025 onwards, it's okay to raise BufferError here.
-            # Still we keep the V0 version that was added in August 2026.
+            # Still we keep the V0 version as the V1 was only added in August 2026.
+            warnings.warn(
+                "Exporting an unversioned DLPack capsule is deprecated, "
+                "pass max_version=(1, 0) or higher.",
+                DeprecationWarning, stacklevel=2)
             legacy_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
             return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 

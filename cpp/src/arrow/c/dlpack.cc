@@ -249,6 +249,13 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
 }  // namespace
 
 Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
+  // Legacy DLPack is not implemented initially for immutable tensor.
+  // We prefer users to over to the non-legacy DLPack rather than adding new behaviour.
+  if (!t->is_mutable()) {
+    return Status::NotImplemented(
+        "Legacy DLPack support is not implemented for immutable tensors."
+        " Please move to the DLPack version >=1.0");
+  }
   return ExportTensorImpl<DLManagedTensor>(t, /* copy= */ false);
 }
 

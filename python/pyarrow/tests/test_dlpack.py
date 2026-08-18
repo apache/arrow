@@ -34,7 +34,8 @@ def PyCapsule_IsValid(capsule, name):
 
 
 def check_dlpack_export(arr, expected_arr):
-    DLTensor = arr.__dlpack__()
+    with pytest.warns(DeprecationWarning, match="unversioned DLPack capsule"):
+        DLTensor = arr.__dlpack__()
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
 
     result = np.from_dlpack(arr)
@@ -161,8 +162,36 @@ def dlpack_objects():
 @pytest.mark.parametrize('obj', dlpack_objects())
 @pytest.mark.parametrize('max_version', [None, (0, 8)])
 def test_dlpack_legacy_capsule(obj, max_version):
-    capsule = obj.__dlpack__(max_version=max_version)
+    with pytest.warns(DeprecationWarning, match="unversioned DLPack capsule"):
+        capsule = obj.__dlpack__(max_version=max_version)
     assert PyCapsule_IsValid(capsule, b"dltensor") is True
+
+
+def immutable_tensor():
+    np_arr = np.array([[1, 2], [3, 4]], dtype=np.int32)
+    np_arr.flags.writeable = False
+    tensor = pa.Tensor.from_numpy(np_arr)
+    assert not tensor.is_mutable
+    return tensor
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('max_version', [None, (0, 8)])
+def test_dlpack_legacy_capsule_immutable_tensor(max_version):
+    tensor = immutable_tensor()
+    with pytest.raises(NotImplementedError,
+                       match="Legacy DLPack support is not implemented "
+                             "for immutable tensors"):
+        tensor.__dlpack__(max_version=max_version)
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize('max_version', [(1, 0), (1, 3), (2, 0)])
+@pytest.mark.parametrize('copy', [None, False, True])
+def test_dlpack_versioned_capsule_immutable_tensor(max_version, copy):
+    tensor = immutable_tensor()
+    capsule = tensor.__dlpack__(max_version=max_version, copy=copy)
+    assert PyCapsule_IsValid(capsule, b"dltensor_versioned") is True
 
 
 @check_bytes_allocated

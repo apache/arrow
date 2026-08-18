@@ -2250,6 +2250,9 @@ cdef class Array(_PandasConvertible):
         """
         Export a primitive array as a DLPack capsule.
 
+        Without supplying max_version, it will return a legacy DLPack "dltensor" PyCapsule.
+        Please specify a version as the legacy path is deprecated.
+
         Parameters
         ----------
         stream : int, optional
@@ -2259,7 +2262,7 @@ cdef class Array(_PandasConvertible):
         max_version : tuple[int, int], optional
             The maximum DLPack version the consumer supports, as (major, minor).
             A capsule of a different version may be returned, so the consumer must
-            check it. Default is None, exporting the legacy unversioned capsule.
+            check it. Default is None, exporting the unversioned capsule.
         dl_device : tuple[enum.Enum, int], optional
             The device of the exported capsule, in the format returned by
             :meth:`__dlpack_device__`. Default is None, meaning the device of the
@@ -2292,7 +2295,11 @@ cdef class Array(_PandasConvertible):
                     f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
                 )
             # Note: from March 2025 onwards, it's okay to raise BufferError here.
-            # Still we keep the V0 version that was added in August 2026.
+            # Still we keep the V0 version as the V1 was only added in August 2026.
+            warnings.warn(
+                "Exporting an unversioned DLPack capsule is deprecated, "
+                "pass max_version=(1, 0) or higher.",
+                DeprecationWarning, stacklevel=2)
             legacy_tensor = GetResultValue(ExportArrayToDLPack(self.sp_array))
             return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
