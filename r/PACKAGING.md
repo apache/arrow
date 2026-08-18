@@ -22,6 +22,8 @@
 
 For a high-level overview of the Arrow release process see the [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
+This checklist is also available as a Claude Code skill at [`.claude/skills/r-cran-release/SKILL.md`](../.claude/skills/r-cran-release/SKILL.md), which walks through the same steps in more detail.
+
 ## Before the Arrow Release Candidate Is Created
 
 - [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.Y.Z` and copy this checklist to the issue.
@@ -53,7 +55,7 @@ _Wait for the release candidate to be created._
 - [ ] Create a PR entitled `WIP: [R] Verify CRAN release-X.Y.Z-rcX`. Add a comment `@github-actions crossbow submit --group r` to run all R crossbow jobs against the CRAN-specific release branch.
 - [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
 - [ ] Commit the checksums: `git add -f tools/checksums/ && git commit -m "[CRAN] Add checksums"`
-- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`). This will clean old artifacts, regenerate documentation, sync C++ files, and build the package.
+- [ ] Regenerate arrow_X.Y.Z.tar.gz (i.e., `make build`). This will clean old artifacts, regenerate documentation, sync C++ files, and build the package. Because this will install the package, you will need to ensure that the version of Arrow C++ available to the configure script is the same as the version that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
 
 ## Check Binary Arrow C++ Distributions Specific to the R Package
 
