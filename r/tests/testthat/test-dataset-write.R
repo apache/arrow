@@ -1051,21 +1051,11 @@ test_that("Row order is preserved when writing large parquet dataset", {
 })
 
 test_that("write_dataset maps format 'text' to 'csv' (GH-38217)", {
-  df <- tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    chr = letters[1:10],
-  )
+  df <- example_data[c("int", "dbl", "chr")]
 
   dst_dir <- make_temp_dir()
   write_dataset(df, dst_dir, format = "text")
-  expect_true(dir.exists(dst_dir))
 
-  # Files should have .csv extension, not .text
-  written_files <- list.files(dst_dir)
-  expect_match(written_files, "\\.csv$")
-
-  # Data should round-trip correctly
-  result <- open_dataset(dst_dir, format = "csv") |> collect()
-  expect_equal(result, df)
+  expect_identical(dir(dst_dir), "part-0.csv")
+  expect_equal(open_dataset(dst_dir, format = "csv") |> collect(), df)
 })
