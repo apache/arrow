@@ -443,6 +443,12 @@ maybe_setup_virtualenv() {
 test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
+  # Ensure GCC uses libraries and headers from the Conda env
+  local conda_gcc_specs=()
+  if [ "$(uname)" = "Linux" ]; then
+    conda_gcc_specs=(conda-gcc-specs)
+  fi
+
   # Build and test C++
   maybe_setup_virtualenv numpy
   maybe_setup_conda \
@@ -452,7 +458,8 @@ test_and_install_cpp() {
     ncurses \
     numpy \
     sqlite \
-    compilers
+    compilers \
+    "${conda_gcc_specs[@]}"
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
