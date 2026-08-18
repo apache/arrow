@@ -523,6 +523,79 @@ def test_to_pylist_bulk_paths():
         dup.to_pylist()
 
 
+def test_to_pylist_maps_as_pydicts():
+    # GH-50429: maps_as_pydicts converts through the scalar-free path; the
+    # semantics must match MapScalar.as_py exactly.
+    map_type = pa.map_(pa.string(), pa.int32())
+    flat = pa.array(
+        [None, [("k1", 1), ("k2", None)], []], type=map_type)
+    # Expected values are written out literally so the reference stays
+    # independent of Array.to_pylist (ListScalar.as_py delegates to it).
+    cases = [
+        (flat, [None, {"k1": 1, "k2": None}, {}]),
+        (flat.slice(1), [{"k1": 1, "k2": None}, {}]),
+        (pa.array([[[('k', 1)], None], None], type=pa.list_(map_type)),
+         [[{"k": 1}, None], None]),
+        (pa.array([[[('k', 1)], None], None], type=pa.large_list(map_type)),
+         [[{"k": 1}, None], None]),
+        (pa.array([[[('k', 1)], None], None], type=pa.list_(map_type, 2)),
+         [[{"k": 1}, None], None]),
+        (pa.array([[("o", [("i", 5)])]],
+                  type=pa.map_(pa.string(), map_type)),
+         [{"o": {"i": 5}}]),
+        (pa.array([{"m": [("k", 1)]}, None],
+                  type=pa.struct([("m", map_type)])),
+         [{"m": {"k": 1}}, None]),
+    ]
+    for arr, expected in cases:
+        assert arr.to_pylist(maps_as_pydicts="strict") == expected
+
+    dup = pa.array([[("k", 1), ("k", 2)]], type=map_type)
+    with pytest.warns(UserWarning, match="already encountered"):
+        assert dup.to_pylist(maps_as_pydicts="lossy") == [{"k": 2}]
+    with pytest.raises(KeyError, match="strict mode"):
+        dup.to_pylist(maps_as_pydicts="strict")
+
+    # Duplicate keys must be detected before converting values: with a
+    # poison value *after* the duplicate, strict mode raises the outer
+    # duplicate-key error, and lossy mode warns before converting that value.
+    nested_map = pa.map_(pa.string(), map_type)
+    poison = pa.array(
+        [[("k1", [("a", 1)]), ("k1", [("d", 1), ("d", 2)])]], type=nested_map)
+    with pytest.raises(KeyError, match="duplicate key was 'k1'"):
+        poison.to_pylist(maps_as_pydicts="strict")
+    with pytest.warns(UserWarning) as caught:
+        assert poison.to_pylist(maps_as_pydicts="lossy") == [{"k1": {"d": 2}}]
+    assert [str(warning.message) for warning in caught] == [
+        "Encountered key 'k1' which was already encountered.",
+        "Encountered key 'd' which was already encountered.",
+    ]
+
+    # Preserve StructScalar.as_py's translation of nested KeyErrors.
+    nested_duplicate = pa.array(
+        [{"m": [("k", 1), ("k", 2)]}],
+        type=pa.struct([("m", map_type)]))
+    with pytest.raises(ValueError, match="duplicate field names"):
+        nested_duplicate.to_pylist(maps_as_pydicts="strict")
+
+    null_map = pa.array([None], type=map_type)
+    with pytest.raises(ValueError, match="Invalid value for 'maps_as_pydicts'"):
+        null_map.to_pylist(maps_as_pydicts="bogus")
+    # Invalid values are only rejected when a map value is converted.
+    assert pa.array([1, 2]).to_pylist(maps_as_pydicts="bogus") == [1, 2]
+
+    # The association-list mode does not hash unhashable map keys, while
+    # either dictionary mode raises at the first membership test.
+    struct_keyed = pa.MapArray.from_arrays(
+        [0, 2],
+        pa.array([{"a": 1}, {"a": 2}], type=pa.struct([("a", pa.int32())])),
+        pa.array([10, 20], type=pa.int32()))
+    assert struct_keyed.to_pylist() == [x.as_py() for x in struct_keyed]
+    for mode in ("lossy", "strict"):
+        with pytest.raises(TypeError, match="unhashable"):
+            struct_keyed.to_pylist(maps_as_pydicts=mode)
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
