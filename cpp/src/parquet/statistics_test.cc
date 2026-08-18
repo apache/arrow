@@ -340,7 +340,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
         this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
         /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
         /*has_min_max=*/true, /*has_null_count=*/true,
-        /*has_distinct_count=*/true);
+        /*has_distinct_count=*/true, /*is_min_value_exact=*/std::nullopt,
+        /*is_max_value_exact=*/std::nullopt);
     ASSERT_EQ(encoded_min, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
@@ -1496,7 +1497,8 @@ class TestFloatStatistics : public ::testing::Test {
         descr, /*encoded_min=*/{}, /*encoded_max=*/{}, /*num_values=*/0,
         /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
         /*has_min_max=*/false, /*has_null_count=*/true,
-        /*has_distinct_count=*/false);
+        /*has_distinct_count=*/false, /*is_min_value_exact=*/std::nullopt,
+        /*is_max_value_exact=*/std::nullopt);
     AssertMinMaxAre(missing_nan_count, some_nans, min, max);
     ASSERT_FALSE(missing_nan_count->HasNanCount());
 
@@ -1504,7 +1506,8 @@ class TestFloatStatistics : public ::testing::Test {
         descr, /*encoded_min=*/{}, /*encoded_max=*/{}, /*num_values=*/0,
         /*null_count=*/0, /*distinct_count=*/0, /*nan_count=*/std::nullopt,
         /*has_min_max=*/false, /*has_null_count=*/true,
-        /*has_distinct_count=*/false);
+        /*has_distinct_count=*/false, /*is_min_value_exact=*/std::nullopt,
+        /*is_max_value_exact=*/std::nullopt);
     AssertMinMaxAre(missing_spaced_nan_count, some_nans, &valid_bitmap_no_nans, min, max);
     ASSERT_FALSE(missing_spaced_nan_count->HasNanCount());
   }

@@ -1492,16 +1492,30 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
               encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }
 
-std::shared_ptr<Statistics> Statistics::Make(
-    const ColumnDescriptor* descr, const std::string& encoded_min,
-    const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, std::optional<int64_t> nan_count, bool has_min_max,
-    bool has_null_count, bool has_distinct_count, ::arrow::MemoryPool* pool) {
+std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
+                                             const std::string& encoded_min,
+                                             const std::string& encoded_max,
+                                             int64_t num_values, int64_t null_count,
+                                             int64_t distinct_count, bool has_min_max,
+                                             bool has_null_count, bool has_distinct_count,
+                                             ::arrow::MemoryPool* pool) {
   return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
-                          distinct_count, nan_count, has_min_max, has_null_count,
+                          distinct_count, std::nullopt, has_min_max, has_null_count,
                           has_distinct_count,
                           /*is_min_value_exact=*/std::nullopt,
                           /*is_max_value_exact=*/std::nullopt, pool);
+}
+
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
+  return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                          distinct_count, std::nullopt, has_min_max, has_null_count,
+                          has_distinct_count, is_min_value_exact, is_max_value_exact,
+                          pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(
