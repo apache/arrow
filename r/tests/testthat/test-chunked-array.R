@@ -17,7 +17,7 @@
 
 int_types <- c(int8(), int16(), int32(), int64())
 uint_types <- c(uint8(), uint16(), uint32(), uint64())
-float_types <- c(float32(), float64()) # float16() not really supported in C++ yet
+float_types <- c(float16(), float32(), float64())
 all_numeric_types <- c(int_types, uint_types, float_types)
 
 expect_chunked_roundtrip <- function(x, type) {
@@ -548,4 +548,16 @@ test_that("as_chunked_array() works for Array", {
     as_chunked_array(Array$create(1:6), type = float64()),
     chunked_array(Array$create(1:6, type = float64()))
   )
+})
+
+test_that("float16 values roundtrip to R correctly", {
+  # Values exactly representable in half-float, so the roundtrip is exact.
+  # Regression test for GH-50378 (values were previously decoded as raw uint16 bits)
+  x <- c(1, 2, 3.5, NA, -0.25, 1024, Inf)
+  a <- chunked_array(x[1:4], x[5:7], type = float16())
+  expect_type_equal(a$type, float16())
+  expect_identical(a$num_chunks, 2L)
+  expect_as_vector(a, x)
+  expect_as_vector(a$chunk(1), x[5:7])
+  expect_as_vector(a$Slice(1), x[-1])
 })
