@@ -1687,6 +1687,57 @@ def test_table_add_column(cls):
         (pa.RecordBatch)
     ]
 )
+@pytest.mark.parametrize('method', ['add_column', 'set_column'])
+def test_table_add_column_all_null_data_typed_field(cls, method):
+    # GH-46918: an explicitly typed field must win over the null type
+    # inferred from all-null column data
+    table = cls.from_arrays([pa.array([1.0, 2.0])], names=('a',))
+    column = [[None, None]] if cls is pa.Table else [None, None]
+
+    new_field = pa.field('b', pa.float64(), nullable=True)
+    result = getattr(table, method)(0, new_field, column)
+
+    assert result.schema.field('b').type == pa.float64()
+    assert result.column('b').to_pylist() == [None, None]
+
+    # a null field with null data stays null
+    null_field = pa.field('b', pa.null())
+    result = getattr(table, method)(0, null_field, column)
+    assert result.schema.field('b').type == pa.null()
+
+    # non-null data that does not match the field type is still rejected
+    values = [[1.5, 2.5]] if cls is pa.Table else [1.5, 2.5]
+    with pytest.raises(pa.ArrowInvalid if cls is pa.Table
+                       else pa.ArrowTypeError):
+        getattr(table, method)(0, pa.field('b', pa.int64()), values)
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_append_column_all_null_data_typed_field(cls):
+    # GH-46918
+    table = cls.from_arrays([pa.array([1.0, 2.0])], names=('a',))
+    column = [[None, None]] if cls is pa.Table else [None, None]
+
+    result = table.append_column(
+        pa.field('b', pa.float64(), nullable=True), column)
+
+    assert result.schema.field('b').type == pa.float64()
+    assert result.column('b').to_pylist() == [None, None]
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
 def test_table_set_column(cls):
     data = [
         pa.array(range(5)),
