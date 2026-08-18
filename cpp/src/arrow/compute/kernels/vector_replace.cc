@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/array/builder_nested.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -119,7 +120,8 @@ struct ReplaceMaskImpl {};
 
 template <typename Type>
 struct ReplaceMaskImpl<
-    Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value)>> {
+    Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value ||
+                        is_var_length_list_type<Type>::value)>> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
@@ -318,6 +320,108 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
     temp_output->type = array.type->GetSharedPtr();
     out->value = std::move(temp_output);
+    return replacements_offset;
+  }
+};
+
+// Specialization for variable-size list types (list<T> and large_list<T>).
+// Each list element is copied individually using AppendArraySlice, mirroring
+// the enable_if_base_binary specialization's per-element builder approach.
+template <typename Type>
+struct ReplaceMaskImpl<Type, enable_if_var_size_list<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
+                                        const BooleanScalar& mask, ExecValue replacements,
+                                        int64_t replacements_offset, ExecResult* out) {
+    if (!mask.is_valid) {
+      // mask = null: output is all-null array
+      ARROW_ASSIGN_OR_RAISE(
+          auto replacement_array,
+          MakeArrayOfNull(array.type->GetSharedPtr(), array.length, ctx->memory_pool()));
+      out->value = std::move(replacement_array->data());
+      return replacements_offset;
+    } else if (mask.value) {
+      // mask = true: output = replacement
+      if (replacements.is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto replacement_array,
+            MakeArrayFromScalar(*replacements.scalar, array.length, ctx->memory_pool()));
+        out->value = std::move(replacement_array->data());
+      } else {
+        // Zero-copy slice into the replacements array — same approach as base binary.
+        std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
+        result->offset += replacements_offset;
+        result->length = array.length;
+        // Null count from original replacements applies to the whole array, not this
+        // slice; mark as unknown so it is recomputed on demand.
+        result->null_count = kUnknownNullCount;
+        out->value = result;
+      }
+      return replacements_offset + array.length;
+    } else {
+      // mask = false: output = input (zero-copy)
+      out->value = array.ToArrayData();
+      return replacements_offset;
+    }
+  }
+
+  static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
+                                       const ArraySpan& mask, int64_t mask_offset,
+                                       ExecValue replacements,
+                                       int64_t replacements_offset, ExecResult* out) {
+    // Build the output list array element-by-element.  We cannot pre-allocate a flat
+    // buffer (unlike fixed-width types) because the child-array size of each list slot
+    // is unknown in advance, so we use a list builder and copy slots individually.
+    std::unique_ptr<ArrayBuilder> raw_builder;
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), array.type->GetSharedPtr(),
+                                        &raw_builder));
+    auto& builder = checked_cast<BuilderType&>(*raw_builder);
+    RETURN_NOT_OK(builder.Reserve(array.length));
+
+    // Source offset tracks our position in `array` (the values argument).
+    int64_t source_offset = 0;
+
+    // Narrow the mask span to [mask_offset, mask_offset + array.length).
+    ArraySpan adjusted_mask = mask;
+    adjusted_mask.offset += mask_offset;
+    adjusted_mask.length = std::min(adjusted_mask.length - mask_offset, array.length);
+
+    RETURN_NOT_OK(VisitArraySpanInline<BooleanType>(
+        adjusted_mask,
+        [&](bool replace) -> Status {
+          if (replace && replacements.is_scalar()) {
+            // Scalar replacement: append the scalar value once.
+            RETURN_NOT_OK(builder.AppendScalar(*replacements.scalar));
+          } else {
+            const ArraySpan& source = replace ? replacements.array : array;
+            const int64_t offset = replace ? replacements_offset++ : source_offset;
+            // Check validity of the source element at `offset`.
+            const bool is_valid =
+                !source.MayHaveNulls() ||
+                bit_util::GetBit(source.buffers[0].data, source.offset + offset);
+            if (is_valid) {
+              // AppendArraySlice copies one list element (offset, 1) including its
+              // child values and validity, correctly handling source.offset.
+              RETURN_NOT_OK(builder.AppendArraySlice(source, offset, 1));
+            } else {
+              RETURN_NOT_OK(builder.AppendNull());
+            }
+          }
+          source_offset++;
+          return Status::OK();
+        },
+        [&]() -> Status {
+          // Null mask entry → null output element.
+          RETURN_NOT_OK(builder.AppendNull());
+          source_offset++;
+          return Status::OK();
+        }));
+
+    std::shared_ptr<Array> temp_output;
+    RETURN_NOT_OK(builder.Finish(&temp_output));
+    out->value = std::move(temp_output->data());
     return replacements_offset;
   }
 };
@@ -862,8 +966,10 @@ void RegisterVectorFunction(FunctionRegistry* registry,
               GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor>(*ty), registry,
               func.get());
   }
-  // TODO: list types
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  // Note: list types (LIST, LARGE_LIST) are NOT added here.  RegisterVectorFunction is
+  // also used for fill_null_forward/fill_null_backward which do not yet support list
+  // types.  The caller is responsible for adding list kernels when appropriate and for
+  // calling registry->AddFunction.
 
   // TODO(ARROW-9431): "replace_with_indices"
 }
@@ -897,16 +1003,29 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
     auto func = std::make_shared<VectorFunction>("replace_with_mask", Arity::Ternary(),
                                                  replace_with_mask_doc);
     RegisterVectorFunction<ReplaceMask, ReplaceMaskChunked>(registry, func);
+    // Add LIST and LARGE_LIST support.  These are registered separately from
+    // RegisterVectorFunction because fill_null_forward/backward do not support list
+    // types yet; adding them here avoids requiring implementations for those kernels.
+    AddKernel(Type::LIST, ReplaceMask<ListType>::GetSignature(Type::LIST),
+              ReplaceMask<ListType>::Exec, ReplaceMaskChunked<ListType>::Exec, registry,
+              func.get());
+    AddKernel(Type::LARGE_LIST,
+              ReplaceMask<LargeListType>::GetSignature(Type::LARGE_LIST),
+              ReplaceMask<LargeListType>::Exec, ReplaceMaskChunked<LargeListType>::Exec,
+              registry, func.get());
+    DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_forward", Arity::Unary(),
                                                  fill_null_forward_doc);
     RegisterVectorFunction<FillNullForward, FillNullForwardChunked>(registry, func);
+    DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
     auto func = std::make_shared<VectorFunction>("fill_null_backward", Arity::Unary(),
                                                  fill_null_backward_doc);
     RegisterVectorFunction<FillNullBackward, FillNullBackwardChunked>(registry, func);
+    DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
 }  // namespace internal
