@@ -208,7 +208,12 @@ gdv_int32 utf8_length_ignore_invalid(const char* data, gdv_int32 data_len) {
     }
     for (int j = 1; j < char_len; ++j) {
       if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
-        char_len += 1;
+        // Only the bytes up to the mismatch belong to this (invalid) glyph, so
+        // advance past them and let the outer loop re-parse the rest. Keeping
+        // char_len at its declared width would swallow valid characters that
+        // fall inside the truncated sequence's window.
+        char_len = j;
+        break;
       }
     }
     ++count;
@@ -1412,12 +1417,32 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   return static_cast<gdv_int32>(static_cast<signed char>(data[0]));
 }
 
-// Returns the ASCII character having the binary equivalent to A.
-// If A is larger than 256 the result is equivalent to chr(A % 256).
+// Returns the UTF-8 encoding of the Unicode code point A.
+// Raises an error if A is not a valid code point, i.e. it is negative, greater
+// than 0x10FFFF, or falls within the UTF-16 surrogate range 0xD800-0xDFFF.
 FORCE_INLINE
-const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
-  in = in % 256;
-  *out_len = 1;
+const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
+  if (in < 0 || in > 0x10FFFF || (in >= 0xD800 && in <= 0xDFFF)) {
+    char err_msg[128];
+    snprintf(err_msg, sizeof(err_msg),
+             "Input %" PRId64
+             " is not a valid Unicode code point in the range 0 to 1114111, excluding "
+             "the surrogate range 0xD800–0xDFFF",
+             in);
+    gdv_fn_context_set_error_msg(context, err_msg);
+    *out_len = 0;
+    return "";
+  }
+
+  if (in <= 0x7F) {
+    *out_len = 1;
+  } else if (in <= 0x7FF) {
+    *out_len = 2;
+  } else if (in <= 0xFFFF) {
+    *out_len = 3;
+  } else {
+    *out_len = 4;
+  }
 
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
@@ -1425,25 +1450,34 @@ const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
     *out_len = 0;
     return "";
   }
-  ret[0] = char(in);
+
+  switch (*out_len) {
+    case 1:
+      ret[0] = static_cast<char>(in);
+      break;
+    case 2:
+      ret[0] = static_cast<char>(0xC0 | (in >> 6));
+      ret[1] = static_cast<char>(0x80 | (in & 0x3F));
+      break;
+    case 3:
+      ret[0] = static_cast<char>(0xE0 | (in >> 12));
+      ret[1] = static_cast<char>(0x80 | ((in >> 6) & 0x3F));
+      ret[2] = static_cast<char>(0x80 | (in & 0x3F));
+      break;
+    case 4:
+      ret[0] = static_cast<char>(0xF0 | (in >> 18));
+      ret[1] = static_cast<char>(0x80 | ((in >> 12) & 0x3F));
+      ret[2] = static_cast<char>(0x80 | ((in >> 6) & 0x3F));
+      ret[3] = static_cast<char>(0x80 | (in & 0x3F));
+      break;
+  }
   return ret;
 }
 
-// Returns the ASCII character having the binary equivalent to A.
-// If A is larger than 256 the result is equivalent to chr(A % 256).
+// Returns the UTF-8 encoding of the Unicode code point A. See chr_int64.
 FORCE_INLINE
-const char* chr_int64(gdv_int64 context, gdv_int64 in, gdv_int32* out_len) {
-  in = in % 256;
-  *out_len = 1;
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  ret[0] = char(in);
-  return ret;
+const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
+  return chr_int64(context, in, out_len);
 }
 
 FORCE_INLINE
@@ -1896,7 +1930,14 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
 
   for (; text_index <= text_len - from_str_len;) {
     if (memcmp(text + text_index, from_str, from_str_len) == 0) {
-      if (out_index + text_index - last_match_index + to_str_len > max_length) {
+      // Compute the prospective length in gdv_int64: now that the wrapper may
+      // pass a max_length near INT_MAX, out_index can approach INT_MAX and a
+      // 32-bit sum would overflow before this guard runs -- precisely the case
+      // the guard exists to catch. (text_index - last_match_index) is a bounded
+      // non-negative span.
+      gdv_int64 prospective_len = static_cast<gdv_int64>(out_index) +
+                                  (text_index - last_match_index) + to_str_len;
+      if (prospective_len > max_length) {
         gdv_fn_context_set_error_msg(context,
                                      "REPLACE: Buffer overflow for output string");
         *out_len = 0;
@@ -1932,7 +1973,8 @@ const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* t
     return text;
   }
 
-  if (out_index + text_len - last_match_index > max_length) {
+  gdv_int64 final_len = static_cast<gdv_int64>(out_index) + (text_len - last_match_index);
+  if (final_len > max_length) {
     gdv_fn_context_set_error_msg(context, "REPLACE: Buffer overflow for output string");
     *out_len = 0;
     return "";
@@ -1948,9 +1990,55 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 text_len, const char* from_str,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len) {
+  // Size the output buffer so large results are not capped by an arbitrary
+  // limit, while avoiding a second pass over the input in the common case.
+  //   - No replacement possible, or the result can only shrink/stay equal:
+  //     text_len is a safe exact-or-upper bound, no scan.
+  //   - Bounded-ratio expansion (per-match growth <= match length, upper bound
+  //     fits within kMaxEagerAllocBytes): use an O(1) upper bound that assumes
+  //     every position matches, skipping the match-counting scan.
+  //   - Otherwise: count non-overlapping matches for the exact output size.
+  static constexpr gdv_int64 kMaxEagerAllocBytes = 32 * 1024 * 1024;  // 32 MB
+  gdv_int64 max_length;
+  if (from_str_len <= 0 || from_str_len > text_len || to_str_len <= from_str_len) {
+    max_length = text_len;
+  } else {
+    gdv_int32 delta = to_str_len - from_str_len;  // > 0
+    gdv_int64 upper_bound = static_cast<gdv_int64>(text_len) +
+                            (static_cast<gdv_int64>(text_len) / from_str_len) * delta;
+    if (delta <= from_str_len && upper_bound <= kMaxEagerAllocBytes) {
+      max_length = upper_bound;
+    } else {
+      gdv_int64 num_matches = 0;
+      for (gdv_int32 i = 0; i <= text_len - from_str_len;) {
+        if (memcmp(text + i, from_str, from_str_len) == 0) {
+          num_matches++;
+          i += from_str_len;
+        } else {
+          i++;
+        }
+      }
+      // No matches: the result is the input unchanged; return it without calling
+      // the helper (which would otherwise scan the text a second time).
+      if (num_matches == 0) {
+        *out_len = text_len;
+        return text;
+      }
+      max_length = static_cast<gdv_int64>(text_len) + num_matches * delta;
+    }
+  }
+  // Gandiva variable-length output uses int32 offsets, so a single output string
+  // cannot exceed INT_MAX bytes. Report this explicitly instead of letting the
+  // cast below wrap silently.
+  if (max_length > INT_MAX) {
+    gdv_fn_context_set_error_msg(context,
+                                 "REPLACE: output string exceeds maximum size of 2GB");
+    *out_len = 0;
+    return "";
+  }
   return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
-                                             from_str_len, to_str, to_str_len, 65535,
-                                             out_len);
+                                             from_str_len, to_str, to_str_len,
+                                             static_cast<gdv_int32>(max_length), out_len);
 }
 
 // Returns the quoted string (Includes escape character for any single quotes)
@@ -2357,7 +2445,8 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
       char hd1 = text[i + 2];
       char hd2 = text[i + 3];
-      if (isxdigit(hd1) && isxdigit(hd2)) {
+      if (isxdigit(static_cast<unsigned char>(hd1)) &&
+          isxdigit(static_cast<unsigned char>(hd2))) {
         // [a-fA-F0-9]
         ret[j] = to_binary_from_hex(hd1) * 16 + to_binary_from_hex(hd2);
         i += 3;
@@ -2406,7 +2495,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
     int read_index = 0;                                                                 \
     while (read_index < in_len) {                                                       \
       char c1 = in[read_index];                                                         \
-      if (isxdigit(c1)) {                                                               \
+      if (isxdigit(static_cast<unsigned char>(c1))) {                                   \
         digit = to_binary_from_hex(c1);                                                 \
                                                                                         \
         OUT_TYPE next = result * 16 - digit;                                            \
@@ -2471,6 +2560,21 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     return "";
   }
 
+  int32_t startPos = 0;
+  if (offset >= 0) {
+    startPos = offset - 1;
+  } else if (text_len + offset >= 0) {
+    startPos = text_len + offset;
+  }
+
+  // an offset past the end of the text leaves nothing to copy; without this the
+  // truncation below yields a negative *out_len that memcpy reads as a huge size.
+  // check before allocating so a past-end offset needs no output buffer at all
+  if (startPos >= text_len) {
+    *out_len = 0;
+    return "";
+  }
+
   char* ret =
       reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
@@ -2480,15 +2584,11 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
     return "";
   }
 
-  int32_t startPos = 0;
-  if (offset >= 0) {
-    startPos = offset - 1;
-  } else if (text_len + offset >= 0) {
-    startPos = text_len + offset;
-  }
-
-  // calculate end position from length and truncate to upper value bounds
-  if (startPos + length > text_len) {
+  // calculate end position from length and truncate to upper value bounds.
+  // startPos < text_len is guaranteed above, so text_len - startPos is positive;
+  // comparing against it avoids the startPos + length overflow when length is
+  // near INT32_MAX, which would otherwise leave *out_len huge for the memcpy.
+  if (length > text_len - startPos) {
     *out_len = text_len - startPos;
   } else {
     *out_len = length;
@@ -2956,7 +3056,8 @@ const char* from_hex_utf8(int64_t context, const char* text, int32_t text_len,
   for (int32_t i = 0; i < text_len; i += 2) {
     char b1 = text[i];
     char b2 = text[i + 1];
-    if (isxdigit(b1) && isxdigit(b2)) {
+    if (isxdigit(static_cast<unsigned char>(b1)) &&
+        isxdigit(static_cast<unsigned char>(b2))) {
       // [a-fA-F0-9]
       ret[j++] = to_binary_from_hex(b1) * 16 + to_binary_from_hex(b2);
     } else {
@@ -3024,9 +3125,9 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
 
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
-    if (isalpha(in[i]) > 0) {
+    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
       // Retain the first letter
-      ret[0] = toupper(in[i]);
+      ret[0] = toupper(static_cast<unsigned char>(in[i]));
       start_idx = i + 1;
       break;
     }
@@ -3042,8 +3143,8 @@ const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   soundex[0] = '\0';
   // Replace consonants with digits and special letters with 0
   for (int i = start_idx; i < in_len; i++) {
-    if (isalpha(in[i]) > 0) {
-      c = toupper(in[i]) - 65;
+    if (isalpha(static_cast<unsigned char>(in[i])) > 0) {
+      c = toupper(static_cast<unsigned char>(in[i])) - 65;
       if (mappings[c] != soundex[si - 1]) {
         soundex[si] = mappings[c];
         si++;

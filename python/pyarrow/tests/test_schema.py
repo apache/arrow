@@ -27,12 +27,6 @@ except ImportError:
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
-from pyarrow.vendored.version import Version
-
-try:
-    import pandas as pd
-except ImportError:
-    pass
 
 
 def test_schema_constructor_errors():
@@ -55,8 +49,6 @@ def test_type_integers():
 @pytest.mark.pandas
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
-    if Version(pd.__version__) < Version("2.0.0"):
-        M8 = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
         (pa.bool_(), np.bool_),

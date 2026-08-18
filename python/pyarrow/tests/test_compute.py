@@ -2612,8 +2612,6 @@ def test_strftime():
 
 
 def _check_datetime_components(timestamps, timezone=None):
-    from pyarrow.vendored.version import Version
-
     ts = pd.to_datetime(timestamps).tz_localize(
         "UTC").tz_convert(timezone).to_series()
     tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
@@ -2626,17 +2624,11 @@ def _check_datetime_components(timestamps, timezone=None):
         pa.field('iso_day_of_week', pa.int64())
     ]
 
-    if Version(pd.__version__) < Version("1.1.0"):
-        # https://github.com/pandas-dev/pandas/issues/33206
-        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
-        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
-        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
-    else:
-        # Casting is required because pandas isocalendar returns int32
-        # while arrow isocalendar returns int64.
-        iso_year = ts.dt.isocalendar()["year"].astype("int64")
-        iso_week = ts.dt.isocalendar()["week"].astype("int64")
-        iso_day = ts.dt.isocalendar()["day"].astype("int64")
+    # Casting is required because pandas isocalendar returns int32
+    # while arrow isocalendar returns int64.
+    iso_year = ts.dt.isocalendar()["year"].astype("int64")
+    iso_week = ts.dt.isocalendar()["week"].astype("int64")
+    iso_day = ts.dt.isocalendar()["day"].astype("int64")
 
     iso_calendar = pa.StructArray.from_arrays(
         [iso_year, iso_week, iso_day],
@@ -2980,6 +2972,49 @@ def test_round_temporal(unit):
     for timezone in timezones:
         ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
         _check_temporal_rounding(ts_zoned, values, unit)
+
+
+@pytest.mark.parametrize(
+    ("unit", "base_frequency", "round_frequency"),
+    (
+        ("nanosecond", "1ns", "4ns"),
+        ("microsecond", "1us", "4us"),
+        ("millisecond", "1ms", "4ms"),
+        ("second", "1s", "4s"),
+        ("minute", "1min", "4min"),
+        ("hour", "1h", "4h"),
+        ("day", "1D", "4D"),
+        ("week", "7D", "28D"),
+    ),
+)
+@pytest.mark.pandas
+def test_round_temporal_duration(unit, base_frequency, round_frequency):
+    base = pd.Timedelta(base_frequency)
+    values = pd.Series([
+        -7 * base,
+        -4 * base,
+        -1 * base,
+        0 * base,
+        1 * base,
+        4 * base,
+        7 * base,
+        pd.NaT,
+    ])
+    arrow_values = pa.array(values)
+    assert pa.types.is_duration(arrow_values.type)
+
+    options = pc.RoundTemporalOptions(4, unit)
+
+    for arrow_round, pandas_round in (
+        (pc.ceil_temporal, values.dt.ceil),
+        (pc.floor_temporal, values.dt.floor),
+        (pc.round_temporal, values.dt.round),
+    ):
+        result = arrow_round(
+            arrow_values, options=options
+        ).to_pandas()
+        expected = pandas_round(round_frequency)
+        np.testing.assert_array_equal(result, expected)
 
 
 def test_count():

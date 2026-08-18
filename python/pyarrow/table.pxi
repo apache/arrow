@@ -2115,8 +2115,8 @@ cdef class _Tabular(_PandasConvertible):
             Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name
-            and sorting order ("ascending" or "descending") 
-            and nulls and NaNs are placed 
+            and sorting order ("ascending" or "descending")
+            and nulls and NaNs are placed
             at the start or at the end ("at_start" or "at_end")
         **kwargs : dict, optional
             Additional sorting options.
@@ -4070,10 +4070,6 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         c_options.extension_columns = make_shared[unordered_set[c_string]](
             unordered_set[c_string]({tobytes(col) for col in extension_columns}))
 
-    if pandas_api.is_v1():
-        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-        c_options.coerce_temporal_nanoseconds = True
-
     if c_options.self_destruct:
         # Move the shared_ptr, table is now unsafe to use further
         c_table = move(table.sp_table)
@@ -5865,7 +5861,7 @@ cdef class Table(_Tabular):
         ...                'n_legs': [5, 100],
         ...                'animal': ["Brittle stars", "Centipede"]})
 
-        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2)
+        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2).combine_chunks()
         pyarrow.Table
         id: int64
         year: int64

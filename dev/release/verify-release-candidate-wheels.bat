@@ -46,9 +46,6 @@ python dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
 set ARROW_TEST_DATA=%cd%\testing\data
 set PARQUET_TEST_DATA=%cd%\cpp\submodules\parquet-testing\data
 
-CALL :verify_wheel 3.10
-if errorlevel 1 GOTO error
-
 CALL :verify_wheel 3.11
 if errorlevel 1 GOTO error
 
@@ -56,6 +53,9 @@ CALL :verify_wheel 3.12
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.13
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.14
 if errorlevel 1 GOTO error
 
 :done
@@ -78,7 +78,7 @@ set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
 
 set CONDA_ENV_PATH=%_VERIFICATION_DIR%\_verify-wheel-%PY_VERSION%
 call conda create -p %CONDA_ENV_PATH% ^
-    --no-shortcuts -f -q -y python=%PY_VERSION% ^
+    --no-shortcuts -q -y python=%PY_VERSION% ^
     || EXIT /B 1
 call activate %CONDA_ENV_PATH%
 

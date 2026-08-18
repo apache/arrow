@@ -88,12 +88,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: ruby-ubuntu-${{ matrix.ubuntu }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -115,7 +115,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: ruby-ubuntu-${{ matrix.ubuntu }}
@@ -171,11 +171,6 @@ jobs:
           # We can remove this once GitHub hosted runners include
           # Meson 1.8.4 or later by default.
           brew update
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
           # For Meson.
@@ -197,7 +192,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos
@@ -210,7 +205,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos
@@ -283,7 +278,7 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           # CCACHE_DIR is set by `msys2_setup.sh`
           path: ${{ env.CCACHE_DIR }}
@@ -307,7 +302,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}
@@ -386,6 +381,9 @@ jobs:
       CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
+      # ccache does not support PDB files (https://github.com/ccache/ccache/issues/1040)
+      CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
+      CMAKE_UNITY_BUILD: ON
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       VCPKG_DEFAULT_TRIPLET: x64-windows
     permissions:
@@ -417,7 +415,7 @@ jobs:
         run: |
           ci/scripts/ccache_setup.sh
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-msvc
@@ -469,7 +467,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ruby-ccache-msvc

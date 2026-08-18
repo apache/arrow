@@ -362,7 +362,7 @@ install_conda() {
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${CONDA_ENV:-source}"
-  local pyver=${PYTHON_VERSION:-3}
+  local pyver=${PYTHON_VERSION:-3.12}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     show_info "Configuring Conda environment..."
@@ -377,9 +377,10 @@ maybe_setup_conda() {
     if ! conda env list | cut -d" " -f 1 | grep $env; then
       mamba create -y -n $env python=${pyver}
     fi
-    # Install dependencies
+    # Install dependencies. Python version pinned so an unversioned
+    # python dependency does not replace it
     if [ $# -gt 0 ]; then
-      mamba install -y -n $env $@
+      mamba install -y -n $env python=${pyver} $@
     fi
     # Activate the environment
     conda activate $env
@@ -859,7 +860,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13 3.14}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.11 3.12 3.13 3.14}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
@@ -898,11 +899,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.10 3.11 3.12 3.13 3.14"
+    local python_versions="3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.10 3.11 3.12 3.13 3.14"
+    local python_versions="3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_x86_64"
   fi
 

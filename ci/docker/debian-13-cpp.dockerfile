@@ -65,6 +65,7 @@ RUN apt-get update -y -q && \
         libprotobuf-dev \
         libprotoc-dev \
         libre2-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssl-dev \
@@ -138,4 +139,5 @@ ENV ARROW_ACERO=ON \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

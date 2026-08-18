@@ -55,9 +55,8 @@ compose.yaml @assignUser @jonkeane @kou @raulcd
 
 ## C++
 /cpp/src/arrow/ @pitrou
-/cpp/src/arrow/acero @westonpace
+/cpp/src/arrow/acero/ @pitrou @zanmato1984
 /cpp/src/arrow/adapters/orc @wgtmac
-/cpp/src/arrow/engine @westonpace
 /cpp/src/arrow/flight/ @lidavidm
 /cpp/src/gandiva @dmitry-chirkov-dremio @lriggs @akravchukdremio @xxlaykxx
 /cpp/src/parquet @wgtmac @pitrou

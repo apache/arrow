@@ -15,7 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pyarrow as pa  # noqa
-import sys
+module ArrowFlight
+  class Criteria
+    class << self
+      def try_convert(value)
+        case value
+        when String, GLib::Bytes
+          new(value)
+        else
+          nil
+        end
+      end
+    end
 
-assert 'pandas' not in sys.modules
+    alias_method :initialize_raw, :initialize
+    private :initialize_raw
+    def initialize(expression)
+      expression = GLib::Bytes.new(expression) if expression.is_a?(String)
+      initialize_raw(expression)
+      @expression = expression
+    end
+  end
+end

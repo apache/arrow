@@ -59,8 +59,15 @@ set ARROW_WITH_LZ4=ON
 set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
-set CMAKE_BUILD_TYPE=Release
+set CMAKE_BUILD_TYPE=RelWithDebInfo
+@rem Set CMAKE_CXX_FLAGS_RELWITHDEBINFO and CMAKE_C_FLAGS_RELWITHDEBINFO to
+@rem override default /DNDEBUG to be dropped so assertions are maintained.
+@rem A debug build would require linking against python3xx_d.lib (debug).
+@rem See details of discussion on PR GH-50406
+set CMAKE_CXX_FLAGS_RELWITHDEBINFO=/O2 /Ob1
+set CMAKE_C_FLAGS_RELWITHDEBINFO=/O2 /Ob1
 set CMAKE_GENERATOR=Ninja
+set CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded
 set CMAKE_UNITY_BUILD=ON
 
 mkdir %CPP_BUILD_DIR%
@@ -97,7 +104,10 @@ cmake ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
+    -DCMAKE_C_FLAGS_RELWITHDEBINFO="%CMAKE_C_FLAGS_RELWITHDEBINFO%" ^
+    -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="%CMAKE_CXX_FLAGS_RELWITHDEBINFO%" ^
     -DCMAKE_INSTALL_PREFIX=%CMAKE_INSTALL_PREFIX% ^
+    -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=%CMAKE_MSVC_DEBUG_INFORMATION_FORMAT% ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DPARQUET_REQUIRE_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION% ^
@@ -134,6 +144,10 @@ pushd %SOURCE_DIR%\python
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
 
 @REM Build PyArrow
-%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv -C build.verbose=true . || exit /B 1
+%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv  ^
+    -C build.verbose=true  ^
+    -C cmake.build-type=%CMAKE_BUILD_TYPE%  ^
+    -C cmake.define.CMAKE_C_FLAGS_RELWITHDEBINFO="%CMAKE_C_FLAGS_RELWITHDEBINFO%"  ^
+    -C cmake.define.CMAKE_CXX_FLAGS_RELWITHDEBINFO="%CMAKE_CXX_FLAGS_RELWITHDEBINFO%" . || exit /B 1
 
 popd

@@ -39,7 +39,7 @@ Status ConvertScalarToStringAndWrite(const ScalarT& scalar,
                                      rapidjson::Writer<rapidjson::StringBuffer>& writer) {
   ARROW_ASSIGN_OR_RAISE(auto string_scalar, scalar.CastTo(arrow::utf8()))
   const auto& view = reinterpret_cast<StringScalar*>(string_scalar.get())->view();
-  writer.String(view.data(), view.length(), true);
+  writer.String(view.data(), static_cast<rapidjson::SizeType>(view.length()), true);
   return Status::OK();
 }
 
@@ -50,7 +50,7 @@ Status ConvertBinaryToBase64StringAndWrite(
   size_t encoded_size = base64::encoded_size(view.length());
   std::vector<char> encoded(std::max(encoded_size, static_cast<size_t>(1)));
   base64::encode(&encoded[0], view.data(), view.length());
-  writer.String(&encoded[0], encoded_size, true);
+  writer.String(&encoded[0], static_cast<rapidjson::SizeType>(encoded_size), true);
   return Status::OK();
 }
 
@@ -164,7 +164,7 @@ class ScalarToJson : public ScalarVisitor {
 
   Status Visit(const StringScalar& scalar) override {
     const auto& view = scalar.view();
-    writer_.String(view.data(), view.length());
+    writer_.String(view.data(), static_cast<rapidjson::SizeType>(view.length()));
 
     return Status::OK();
   }
@@ -175,7 +175,7 @@ class ScalarToJson : public ScalarVisitor {
 
   Status Visit(const LargeStringScalar& scalar) override {
     const auto& view = scalar.view();
-    writer_.String(view.data(), view.length());
+    writer_.String(view.data(), static_cast<rapidjson::SizeType>(view.length()));
 
     return Status::OK();
   }
@@ -227,14 +227,16 @@ class ScalarToJson : public ScalarVisitor {
 
   Status Visit(const Decimal128Scalar& scalar) override {
     const auto& view = scalar.ToString();
-    writer_.RawValue(view.data(), view.length(), rapidjson::kNumberType);
+    writer_.RawValue(view.data(), static_cast<rapidjson::SizeType>(view.length()),
+                     rapidjson::kNumberType);
 
     return Status::OK();
   }
 
   Status Visit(const Decimal256Scalar& scalar) override {
     const auto& view = scalar.ToString();
-    writer_.RawValue(view.data(), view.length(), rapidjson::kNumberType);
+    writer_.RawValue(view.data(), static_cast<rapidjson::SizeType>(view.length()),
+                     rapidjson::kNumberType);
 
     return Status::OK();
   }

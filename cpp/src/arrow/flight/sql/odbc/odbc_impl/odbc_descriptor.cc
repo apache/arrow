@@ -485,7 +485,7 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
   highest_one_based_bound_record_ = records_.size() + 1;
 
   for (size_t i = 0; i < records_.size(); ++i) {
-    size_t one_based_index = i + 1;
+    int one_based_index = static_cast<int>(i + 1);
     int16_t concise_type = rsmd->GetConciseType(one_based_index);
 
     records_[i].base_column_name = rsmd->GetBaseColumnName(one_based_index);
@@ -509,10 +509,10 @@ void ODBCDescriptor::PopulateFromResultSetMetadata(ResultSetMetadata* rsmd) {
         rsmd->IsAutoUnique(one_based_index) ? SQL_TRUE : SQL_FALSE;
     records_[i].case_sensitive =
         rsmd->IsCaseSensitive(one_based_index) ? SQL_TRUE : SQL_FALSE;
-    records_[i].datetime_interval_precision;  // TODO - update when rsmd adds this
-    SQLINTEGER num_prec_radix = rsmd->GetNumPrecRadix(one_based_index);
+    // TODO - update datetime_interval_precision when rsmd adds this
+    auto num_prec_radix = static_cast<SQLINTEGER>(rsmd->GetNumPrecRadix(one_based_index));
     records_[i].num_prec_radix = num_prec_radix > 0 ? num_prec_radix : 0;
-    records_[i].datetime_interval_code;  // TODO
+    // TODO - update datetime_interval_code when rsmd adds this
     records_[i].fixed_prec_scale =
         rsmd->IsFixedPrecScale(one_based_index) ? SQL_TRUE : SQL_FALSE;
     records_[i].nullable = rsmd->IsNullable(one_based_index);

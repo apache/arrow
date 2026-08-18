@@ -27,6 +27,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
+      - '.github/workflows/cpp_windows.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -44,6 +45,7 @@ on:
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
+      - '.github/workflows/cpp_windows.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -121,14 +123,14 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: cpp-${{ matrix.image }}
       - name: Setup Python on hosted runner
         if: |
           matrix.runs-on == 'ubuntu-latest'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Python on self-hosted runner
@@ -152,7 +154,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: cpp-${{ matrix.image }}
@@ -239,21 +241,13 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
-          # Workaround for https://github.com/grpc/grpc/issues/41755
-          # Remove once the runner ships a newer Homebrew.
-          brew update
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Install Google Cloud Storage Testbench
@@ -268,7 +262,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-macos-${{ matrix.macos-version }}
@@ -291,7 +285,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-macos-${{ matrix.macos-version }}
@@ -383,7 +377,7 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ccache
           key: cpp-ccache-${{ matrix.msystem_lower}}
@@ -395,7 +389,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ccache
           key: cpp-ccache-${{ matrix.msystem_lower}}
@@ -417,7 +411,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2025-01-20T14-49-07Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         id: python-install
         with:
           python-version: '3.12'

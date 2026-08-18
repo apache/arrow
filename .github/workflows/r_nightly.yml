@@ -62,7 +62,7 @@ jobs:
           repository: ursacomputing/crossbow
           ref: main
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           cache: 'pip'
           python-version: 3.12

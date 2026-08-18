@@ -60,6 +60,7 @@ RUN dnf update -y && \
         python-pip \
         rapidjson-devel \
         re2-devel \
+        simdjson-devel \
         snappy-devel \
         thrift-devel \
         utf8proc-devel \
@@ -110,4 +111,5 @@ ENV ARROW_ACERO=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     PYARROW_TEST_GANDIVA=OFF \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

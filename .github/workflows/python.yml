@@ -66,36 +66,36 @@ jobs:
       matrix:
         name:
           - conda-python-docs
-          - conda-python-3.11-nopandas
-          - conda-python-3.10-pandas-1.3.4
-          - conda-python-3.13-pandas-latest
-          - conda-python-3.12-no-numpy
+          - conda-python-3.12-nopandas
+          - conda-python-3.11-pandas-2.0.3
+          - conda-python-3.14-pandas-latest
+          - conda-python-3.13-no-numpy
         include:
           - name: conda-python-docs
             image: conda-python-docs
-            title: AMD64 Conda Python 3.11 Sphinx & Numpydoc
-            python: "3.11"
-          - name: conda-python-3.11-nopandas
-            image: conda-python
-            title: AMD64 Conda Python 3.11 Without Pandas
-            python: "3.11"
-          - name: conda-python-3.10-pandas-1.3.4
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.10 Pandas 1.3.4
-            python: "3.10"
-            pandas: "1.3.4"
-            numpy: "1.21.2"
-          - name: conda-python-3.13-pandas-latest
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.13 Pandas latest
-            python: "3.13"
-            pandas: latest
-          - name: conda-python-3.12-no-numpy
-            image: conda-python-no-numpy
-            title: AMD64 Conda Python 3.12 without NumPy
+            title: AMD64 Conda Python 3.12 Sphinx & Numpydoc
             python: "3.12"
+          - name: conda-python-3.12-nopandas
+            image: conda-python
+            title: AMD64 Conda Python 3.12 Without Pandas
+            python: "3.12"
+          - name: conda-python-3.11-pandas-2.0.3
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.11 Pandas 2.0.3
+            python: "3.11"
+            pandas: "2.0.3"
+            numpy: "1.23.2"
+          - name: conda-python-3.14-pandas-latest
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.14 Pandas latest
+            python: "3.14"
+            pandas: latest
+          - name: conda-python-3.13-no-numpy
+            image: conda-python-no-numpy
+            title: AMD64 Conda Python 3.13 without NumPy
+            python: "3.13"
     env:
-      PYTHON: ${{ matrix.python || 3.10 }}
+      PYTHON: ${{ matrix.python || 3.11 }}
       UBUNTU: ${{ matrix.ubuntu || 22.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
@@ -107,12 +107,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: python-${{ matrix.name }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12
       - name: Setup Archery
@@ -127,7 +127,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: .docker
           key: python-${{ matrix.name }}
@@ -194,20 +194,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
-          # Workaround for https://github.com/grpc/grpc/issues/41755
-          # Remove once the runner ships a newer Homebrew.
-          brew update
-          # Install aws-sdk-cpp manually to avoid issues with the new default
-          # `brew --jobs auto` causing a lock.
-          # Remove once the upstream issue is solved:
-          # https://github.com/Homebrew/brew/issues/22899
-          brew install aws-sdk-cpp
           brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
@@ -224,7 +216,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}
@@ -251,7 +243,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}
@@ -283,7 +275,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.13
       - name: Install ccache
@@ -300,7 +292,7 @@ jobs:
         run: |
           echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows
@@ -313,7 +305,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@0ba14156c9f4c3cfbe4b0c9f36339ab0f8d81e53
+        uses: apache/infrastructure-actions/stash/save@bc817c8e9ad7d8216aab74223e32ea391e233b2c
         with:
           path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows

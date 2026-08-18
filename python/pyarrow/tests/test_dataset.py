@@ -1927,7 +1927,6 @@ def test_fragments_parquet_subset_with_nested_fields(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_fragments_repr(tempdir, dataset):
     # partitioned parquet dataset
     fragment = list(dataset.get_fragments())[0]
@@ -3700,7 +3699,7 @@ def test_column_names_encoding(tempdir, dataset_reader):
     assert dataset_transcoded.to_table().equals(expected_table)
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
+@pytest.mark.filterwarnings("ignore:Feather V1:DeprecationWarning")
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
@@ -4082,7 +4081,6 @@ def test_dataset_project_null_column(tempdir, dataset_reader):
     assert dataset_reader.to_table(dataset).equals(expected)
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_dataset_project_columns(tempdir, dataset_reader):
     # basic column re-projection with expressions
     from pyarrow import feather
@@ -4434,7 +4432,6 @@ def test_write_dataset_with_dataset(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_existing_data(tempdir):
     directory = tempdir / 'ds'
     table = pa.table({'b': ['x', 'y', 'z'], 'c': [1, 2, 3]})
@@ -4987,6 +4984,47 @@ def test_write_dataset_csv(tempdir):
     assert result.equals(table)
 
 
+def test_csv_make_write_options_uses_parse_delimiter():
+    # CsvFileFormat.make_write_options propagates the parse delimiter
+    # to write options when no explicit delimiter is given
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter="|"))
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == "|"
+
+    # delimiter=None is treated as "unspecified" and the propagated
+    # value is preserved (matches WriteOptions(**kwargs) semantics)
+    write_opts = csv_format.make_write_options(delimiter=None)
+    assert write_opts.write_options.delimiter == "|"
+
+    # An explicitly passed delimiter takes precedence
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    write_opts = csv_format.make_write_options(delimiter="|")
+    assert write_opts.write_options.delimiter == "|"
+
+    # The default delimiter is still "," when no parse options are given
+    csv_format = ds.CsvFileFormat()
+    write_opts = csv_format.make_write_options()
+    assert write_opts.write_options.delimiter == ","
+
+
+def test_write_dataset_uses_csv_parse_delimiter(tempdir):
+    table = pa.table({
+        "B": ["B1", "B2"],
+        "C": ["C1", "C2"],
+    })
+
+    csv_format = ds.CsvFileFormat(pa.csv.ParseOptions(delimiter=">"))
+    ds.write_dataset(table, tempdir, format=csv_format)
+
+    with open(tempdir / "part-0.csv") as fh:
+        content = fh.read()
+    assert content == '"B">"C"\n"B1">"C1"\n"B2">"C2"\n'
+
+    # Roundtrip: reading back with the same delimiter recovers the table
+    result = ds.dataset(tempdir, format=csv_format).to_table()
+    assert result.equals(table)
+
+
 @pytest.mark.parquet
 def test_write_dataset_parquet_file_visitor(tempdir):
     table = pa.table([
@@ -5058,7 +5096,6 @@ def test_write_dataset_arrow_schema_metadata(tempdir):
     assert result["a"].type.tz == "Europe/Brussels"
 
 
-@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_schema_metadata(tempdir):
     # ensure that schema metadata gets written
     from pyarrow import feather

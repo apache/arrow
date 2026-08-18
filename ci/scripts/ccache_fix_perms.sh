@@ -24,4 +24,4 @@ set -eux
 
 cache_dir=$(ccache --get-config cache_dir)
 
-find ${cache_dir} -type f -exec chmod 644 {} \;
+find "${cache_dir}" -type f -exec chmod 644 {} \;

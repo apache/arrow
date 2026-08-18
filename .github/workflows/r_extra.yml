@@ -61,7 +61,6 @@ permissions:
 
 jobs:
   check-labels:
-    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/check_labels.yml
     with:
       parent-workflow: r_extra
@@ -75,6 +74,7 @@ jobs:
     steps:
       - id: set_enabled
         if: >-
+          github.ref_type == 'tag' ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: R')
@@ -159,7 +159,7 @@ jobs:
           key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: extra-${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery

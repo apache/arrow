@@ -52,8 +52,8 @@ git rebase upstream/master
 
 branch="arrow-${version}"
 echo "Creating branch: ${branch}"
-git branch -D ${branch} || :
-git checkout -b ${branch}
+git branch -D "${branch}" || :
+git checkout -b "${branch}"
 
 port_arrow=ports/arrow
 echo "Updating: ${port_arrow}"
@@ -92,7 +92,7 @@ git commit -m "[arrow] Update to ${version}"
 git add versions
 git commit -m "Update versions"
 
-git push origin ${branch}
+git push origin "${branch}"
 
 
 owner=$(git remote get-url origin | \

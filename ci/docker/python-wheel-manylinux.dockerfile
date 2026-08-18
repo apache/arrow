@@ -30,9 +30,9 @@ RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd perl-Time-Piece wget
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
-# We therefore override the PATH with Python 3.10 in /opt/python
+# We therefore override the PATH with Python 3.11 in /opt/python
 # so that we have a consistent Python version across base images.
-ENV CPYTHON_VERSION=cp310
+ENV CPYTHON_VERSION=cp311
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
@@ -109,8 +109,8 @@ RUN --mount=type=secret,id=github_repository_owner \
 RUN pipx upgrade auditwheel>=6.4.0
 
 # Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.10
-ARG python_abi_tag=cp310
+ARG python=3.11
+ARG python_abi_tag=cp311
 ENV PYTHON_VERSION=${python}
 ENV PYTHON_ABI_TAG=${python_abi_tag}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \

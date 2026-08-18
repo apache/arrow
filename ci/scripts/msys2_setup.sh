@@ -45,6 +45,7 @@ case "${target}" in
     packages+=("${MINGW_PACKAGE_PREFIX}-protobuf")
     packages+=("${MINGW_PACKAGE_PREFIX}-rapidjson")
     packages+=("${MINGW_PACKAGE_PREFIX}-re2")
+    packages+=("${MINGW_PACKAGE_PREFIX}-simdjson")
     packages+=("${MINGW_PACKAGE_PREFIX}-snappy")
     packages+=("${MINGW_PACKAGE_PREFIX}-sqlite3")
     packages+=("${MINGW_PACKAGE_PREFIX}-thrift")

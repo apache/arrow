@@ -16,7 +16,7 @@
 # under the License.
 
 module ArrowFlightSQL
-  VERSION = "25.0.0-SNAPSHOT"
+  VERSION = "26.0.0-SNAPSHOT"
 
   module Version
     numbers, TAG = VERSION.split("-")

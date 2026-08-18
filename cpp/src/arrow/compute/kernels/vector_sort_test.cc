@@ -1858,6 +1858,33 @@ TEST_F(TestTableSortIndices, HeterogenousChunking) {
   AssertSortIndices(table, options, "[3, 4, 2, 5, 1, 0, 6, 7]");
 }
 
+TEST_F(TestTableSortIndices, NullPartitionAcrossChunks) {
+  auto schema = ::arrow::schema({
+      {field("a", utf8())},
+      {field("b", utf8())},
+      {field("c", utf8())},
+      {field("d", utf8())},
+  });
+
+  // Logical rows (a, b, c, d):
+  //   0: (null, null, null, "x")
+  //   1: (null, null, null, "y")
+  //   2: ("a",  "p",  null, null)
+  //   3: (null, "q",  null, null)
+  //   4: ("b",  "r",  null, null)
+  // Sorted ascending on every key (nulls last on every key)
+  auto col_a = ChunkedArrayFromJSON(utf8(), {R"([null, null])", R"(["a", null, "b"])"});
+  auto col_b = ChunkedArrayFromJSON(utf8(), {R"([null, null])", R"(["p", "q", "r"])"});
+  auto col_c = ChunkedArrayFromJSON(utf8(), {R"([null, null])", R"([null, null, null])"});
+  auto col_d = ChunkedArrayFromJSON(utf8(), {R"(["x", "y"])", R"([null, null, null])"});
+  auto table = Table::Make(schema, {col_a, col_b, col_c, col_d});
+
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Ascending),
+       SortKey("c", SortOrder::Ascending), SortKey("d", SortOrder::Ascending)});
+  AssertSortIndices(table, options, "[2, 4, 3, 0, 1]");
+}
+
 // Tests for temporal types
 template <typename ArrowType>
 class TestTableSortIndicesForTemporal : public TestTableSortIndices {

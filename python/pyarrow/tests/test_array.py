@@ -465,6 +465,64 @@ def test_array_getitem_numpy_scalars():
         assert arr[np.int32(idx)].as_py() == lst[idx]
 
 
+def test_to_pylist_bulk_paths():
+    # GH-50326: to_pylist converts through scalar-free _getitem_py
+    # specializations; the result must match the per-scalar conversion
+    # exactly.
+    arrays = [
+        pa.array([[1, None, 3], None, [], [4]], type=pa.list_(pa.int32())),
+        pa.array([["a", None], None, [], ["bcd", ""]],
+                 type=pa.list_(pa.string())),
+        pa.array([["a", None], None, [], ["bcd", ""]],
+                 type=pa.large_list(pa.large_string())),
+        pa.array([[1, None], None, [3, 4]], type=pa.list_(pa.int32(), 2)),
+        pa.array([[[1], [2, None]], None, [None, [3]]],
+                 type=pa.list_(pa.list_(pa.int32()))),
+        pa.array([[("k1", 1), ("k2", None)], None, []],
+                 type=pa.map_(pa.string(), pa.int32())),
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
+                 type=pa.string()),
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}"],
+                 type=pa.large_string()),
+        pa.array([b"a\x00b", None, b"", b"\xff"], type=pa.binary()),
+        pa.array([b"a\x00b", None, b""], type=pa.large_binary()),
+        # View types store short values inline and long values out-of-line;
+        # cover both, plus NUL bytes and non-ASCII data.
+        pa.array(["a", None, "", "\N{GRINNING FACE} \N{SNOWMAN}",
+                  "long string exceeding the inline view size"],
+                 type=pa.string_view()),
+        pa.array([b"a\x00b", None, b"", b"\xff",
+                  b"long binary value exceeding the inline view size"],
+                 type=pa.binary_view()),
+        pa.array([[b"x", None, b"\x00y"], None, []],
+                 type=pa.list_(pa.binary())),
+        pa.array([1, None, -(2**62), 2**62], type=pa.int64()),
+        pa.array([0, None, 2**63 + 7], type=pa.uint64()),
+        pa.array([-128, 127, None], type=pa.int8()),
+        pa.array([1.5, None, -0.5], type=pa.float64()),
+        pa.array([1.5, None], type=pa.float32()),
+        pa.array([True, None, False], type=pa.bool_()),
+        pa.array([{"a": 1, "b": "x"}, None, {"a": None, "b": None}],
+                 type=pa.struct([("a", pa.int32()), ("b", pa.string())])),
+        pa.array([], type=pa.list_(pa.int32())),
+        pa.array([None, None], type=pa.list_(pa.string())),
+    ]
+    for arr in arrays:
+        for view in (arr, arr.slice(1), arr.slice(0, 2), arr.slice(2)):
+            assert view.to_pylist() == [x.as_py() for x in view]
+
+    # Values inside numeric lists must stay Python ints/None, never floats
+    result = pa.array([[1, None, 3]], type=pa.list_(pa.int32())).to_pylist()
+    assert result == [[1, None, 3]]
+    assert [type(x) for x in result[0]] == [int, type(None), int]
+
+    # Duplicate struct field names raise like StructScalar.as_py does
+    dup = pa.StructArray.from_arrays(
+        [pa.array([1, 2]), pa.array(["a", "b"])], names=["x", "x"])
+    with pytest.raises(ValueError, match="duplicate field names"):
+        dup.to_pylist()
+
+
 def test_array_slice():
     arr = pa.array(range(10))
 
@@ -2762,11 +2820,10 @@ def test_interval_array_from_relativedelta():
     assert arr.equals(expected)
     assert arr.to_pandas().tolist() == [
         None, DateOffset(months=13, days=8,
-                         microseconds=(
+                         nanoseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
                                                 minutes=1, hours=1) //
-                             datetime.timedelta(microseconds=1)),
-                         nanoseconds=0)]
+                             datetime.timedelta(microseconds=1)) * 1000)]
     with pytest.raises(ValueError):
         pa.array([DateOffset(years=((1 << 32) // 12), months=100)])
     with pytest.raises(ValueError):
@@ -2814,12 +2871,11 @@ def test_interval_array_from_dateoffset():
     assert arr.equals(expected)
     expected_from_pandas = [
         None, DateOffset(months=13, days=8,
-                         microseconds=(
+                         nanoseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
                                                 minutes=1, hours=1) //
-                             datetime.timedelta(microseconds=1)),
-                         nanoseconds=1),
-        DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
+                             datetime.timedelta(microseconds=1) * 1000) + 1),
+        DateOffset(months=0, days=0, nanoseconds=0)]
 
     assert arr.to_pandas().tolist() == expected_from_pandas
 
@@ -4527,3 +4583,42 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+@pytest.mark.parametrize("index_type", [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                                        pa.uint8(), pa.uint16(), pa.uint32(),
+                                        pa.uint64()])
+def test_dictionary_array_preserves_index_type(index_type):
+    # GH-37476: an unsigned dictionary index type must be preserved, not replaced by the
+    # signed integer type of the same width. Signed index types are kept as-is.
+    dict_type = pa.dictionary(index_type, pa.string())
+
+    arr = pa.array(["a", "b", None, "a"], type=dict_type)
+    assert arr.type == dict_type
+    assert arr.to_pylist() == ["a", "b", None, "a"]
+    arr.validate(full=True)
+
+    chunked = pa.chunked_array([["a", "b", "a"]], dict_type)
+    assert chunked.type == dict_type
+
+
+@pytest.mark.parametrize("start_type, widened_type", [(pa.int8(), pa.int16()),
+                                                      (pa.uint8(), pa.uint16())])
+def test_dictionary_array_index_width_adapts(start_type, widened_type):
+    # The index width adapts to the number of distinct values, as it does for signed
+    # indices; only the signedness of the requested type is preserved.
+    values = [str(i) for i in range(200)]
+    arr = pa.array(values, type=pa.dictionary(start_type, pa.string()))
+    assert arr.type == pa.dictionary(widened_type, pa.string())
+    assert arr.to_pylist() == values
+
+
+@pytest.mark.pandas
+def test_dictionary_uint64_index_to_pandas():
+    # GH-37476: uint64 dictionary indices are preserved, and converting them to pandas
+    # maps the indices to int64 categorical codes, which is safe because the indices are
+    # bounded by the dictionary length.
+    arr = pa.array(["a", "b", None, "a"], type=pa.dictionary(pa.uint64(), pa.string()))
+    result = arr.to_pandas()
+    assert list(result.cat.categories) == ["a", "b"]
+    assert result.cat.codes.tolist() == [0, 1, -1, 0]

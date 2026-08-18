@@ -857,11 +857,10 @@ void RegisterVectorFunction(FunctionRegistry* registry,
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
             registry, func.get());
   for (const auto& ty : BaseBinaryTypes()) {
-    AddKernel(
-        ty->id(), Functor<FixedSizeBinaryType>::GetSignature(ty->id()),
-        GenerateTypeAgnosticVarBinaryBase<Functor, ArrayKernelExec>(*ty),
-        GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor, VectorKernel::ChunkedExec>(*ty),
-        registry, func.get());
+    AddKernel(ty->id(), Functor<FixedSizeBinaryType>::GetSignature(ty->id()),
+              GenerateTypeAgnosticVarBinaryBase<Functor>(*ty),
+              GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor>(*ty), registry,
+              func.get());
   }
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));

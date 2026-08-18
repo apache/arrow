@@ -64,6 +64,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     re2
     Protobuf
     RapidJSON
+    simdjson
     Snappy
     Substrait
     Thrift
@@ -209,6 +210,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
     build_rapidjson()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "simdjson")
+    build_simdjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
@@ -381,6 +384,7 @@ endif()
 
 if(ARROW_PARQUET)
   set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
@@ -409,6 +413,10 @@ endif()
 
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
+endif()
+
+if(ARROW_JSON)
+  set(ARROW_WITH_SIMDJSON ON)
 endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT)
@@ -761,6 +769,14 @@ else()
   set_urls(RAPIDJSON_SOURCE_URL
            "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_SIMDJSON_URL})
+  set(SIMDJSON_SOURCE_URL "$ENV{ARROW_SIMDJSON_URL}")
+else()
+  set_urls(SIMDJSON_SOURCE_URL
+           "https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_S2N_TLS_URL})
@@ -1436,8 +1452,7 @@ macro(build_snappy)
     # ignore linker flag errors, as Snappy sets
     # -Werror -Wall, and Emscripten doesn't support -soname
     list(APPEND SNAPPY_CMAKE_ARGS
-         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
-         "-Wno-error=linkflags")
+         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}")
   endif()
 
   externalproject_add(snappy_ep
@@ -1458,7 +1473,7 @@ macro(build_snappy)
   target_include_directories(${Snappy_TARGET} BEFORE INTERFACE "${SNAPPY_PREFIX}/include")
   add_dependencies(${Snappy_TARGET} snappy_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
@@ -1561,7 +1576,7 @@ macro(build_brotli)
   target_include_directories(Brotli::brotlidec BEFORE INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
-  list(APPEND
+  list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        Brotli::brotlicommon
        Brotli::brotlienc
@@ -1656,7 +1671,7 @@ macro(build_glog)
   target_include_directories(glog::glog BEFORE INTERFACE "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
 endmacro()
 
 if(ARROW_USE_GLOG)
@@ -1725,7 +1740,7 @@ macro(build_gflags)
 
   set(GFLAGS_VENDORED TRUE)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS gflags::gflags_static)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS gflags::gflags_static)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -1853,8 +1868,9 @@ function(build_thrift)
   set(THRIFT_VENDORED
       TRUE
       PARENT_SCOPE)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS thrift)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} thrift
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -1922,6 +1938,101 @@ function(build_absl)
     # Cannot use set_property on alias targets (absl::time is an alias)
     target_link_libraries(time INTERFACE ${CoreFoundation})
   endif()
+
+  list(PREPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       absl::bad_any_cast_impl
+       absl::bad_optional_access
+       absl::bad_variant_access
+       absl::base
+       absl::city
+       absl::civil_time
+       absl::cord
+       absl::cord_internal
+       absl::cordz_functions
+       absl::cordz_handle
+       absl::cordz_info
+       absl::cordz_sample_token
+       absl::crc32c
+       absl::crc_cord_state
+       absl::crc_cpu_detect
+       absl::crc_internal
+       absl::debugging_internal
+       absl::decode_rust_punycode
+       absl::demangle_internal
+       absl::demangle_rust
+       absl::die_if_null
+       absl::examine_stack
+       absl::exponential_biased
+       absl::failure_signal_handler
+       absl::flags_commandlineflag
+       absl::flags_commandlineflag_internal
+       absl::flags_config
+       absl::flags_internal
+       absl::flags_marshalling
+       absl::flags_parse
+       absl::flags_private_handle_accessor
+       absl::flags_program_name
+       absl::flags_reflection
+       absl::flags_usage
+       absl::flags_usage_internal
+       absl::graphcycles_internal
+       absl::hash
+       absl::hashtablez_sampler
+       absl::int128
+       absl::kernel_timeout_internal
+       absl::leak_check
+       absl::log_globals
+       absl::log_initialize
+       absl::log_internal_check_op
+       absl::log_internal_conditions
+       absl::log_internal_fnmatch
+       absl::log_internal_format
+       absl::log_internal_globals
+       absl::log_internal_log_sink_set
+       absl::log_internal_message
+       absl::log_internal_nullguard
+       absl::log_internal_proto
+       absl::log_internal_structured_proto
+       absl::log_severity
+       absl::log_sink
+       absl::low_level_hash
+       absl::malloc_internal
+       absl::periodic_sampler
+       absl::poison
+       absl::random_distributions
+       absl::random_internal_distribution_test_util
+       absl::random_internal_platform
+       absl::random_internal_pool_urbg
+       absl::random_internal_randen
+       absl::random_internal_randen_hwaes
+       absl::random_internal_randen_hwaes_impl
+       absl::random_internal_randen_slow
+       absl::random_internal_seed_material
+       absl::random_seed_gen_exception
+       absl::random_seed_sequences
+       absl::raw_hash_set
+       absl::raw_logging_internal
+       absl::scoped_set_env
+       absl::spinlock_wait
+       absl::stacktrace
+       absl::status
+       absl::statusor
+       absl::str_format_internal
+       absl::strerror
+       absl::strings
+       absl::strings_internal
+       absl::symbolize
+       absl::synchronization
+       absl::throw_delegate
+       absl::time
+       absl::time_zone
+       absl::utf8_for_code_point
+       absl::vlog_config_internal)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -2057,7 +2168,11 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf utf8_range)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -2065,15 +2180,14 @@ function(build_protobuf)
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
-    # cross-compiled (PyArrow on emscripten) needs utf8_range bundled explicitly.
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8_range)
-
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
+        -Dprotobuf_DEBUG_POSTFIX=
+        # OFF to avoid conda include dirs leaking into vendored Abseil
+        -Dprotobuf_WITH_ZLIB=OFF)
     if(ABSL_VENDORED)
       # Force protobuf to reuse Arrow's already-extracted absl source
       # so we don't re-download and we don't have issues with multiple abseil.
@@ -2094,102 +2208,8 @@ function(build_protobuf)
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
-    # For cross-compilation along with ExternalProject we need to
-    # manually include absl deps to the bundled static libs so that
-    # they are available for the generated code in protobuf v31.
-    list(APPEND
-         ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_any_cast_impl
-         absl::bad_optional_access
-         absl::bad_variant_access
-         absl::base
-         absl::city
-         absl::civil_time
-         absl::cord
-         absl::cord_internal
-         absl::cordz_functions
-         absl::cordz_handle
-         absl::cordz_info
-         absl::cordz_sample_token
-         absl::crc32c
-         absl::crc_cord_state
-         absl::crc_cpu_detect
-         absl::crc_internal
-         absl::debugging_internal
-         absl::decode_rust_punycode
-         absl::demangle_internal
-         absl::demangle_rust
-         absl::die_if_null
-         absl::examine_stack
-         absl::exponential_biased
-         absl::failure_signal_handler
-         absl::flags_commandlineflag
-         absl::flags_commandlineflag_internal
-         absl::flags_config
-         absl::flags_internal
-         absl::flags_marshalling
-         absl::flags_parse
-         absl::flags_private_handle_accessor
-         absl::flags_program_name
-         absl::flags_reflection
-         absl::flags_usage
-         absl::flags_usage_internal
-         absl::graphcycles_internal
-         absl::hash
-         absl::hashtablez_sampler
-         absl::int128
-         absl::kernel_timeout_internal
-         absl::leak_check
-         absl::log_globals
-         absl::log_initialize
-         absl::log_internal_check_op
-         absl::log_internal_conditions
-         absl::log_internal_fnmatch
-         absl::log_internal_format
-         absl::log_internal_globals
-         absl::log_internal_log_sink_set
-         absl::log_internal_message
-         absl::log_internal_nullguard
-         absl::log_internal_proto
-         absl::log_severity
-         absl::log_sink
-         absl::low_level_hash
-         absl::malloc_internal
-         absl::periodic_sampler
-         absl::poison
-         absl::random_distributions
-         absl::random_internal_distribution_test_util
-         absl::random_internal_platform
-         absl::random_internal_pool_urbg
-         absl::random_internal_randen
-         absl::random_internal_randen_hwaes
-         absl::random_internal_randen_hwaes_impl
-         absl::random_internal_randen_slow
-         absl::random_internal_seed_material
-         absl::random_seed_gen_exception
-         absl::random_seed_sequences
-         absl::raw_hash_set
-         absl::raw_logging_internal
-         absl::scoped_set_env
-         absl::spinlock_wait
-         absl::stacktrace
-         absl::status
-         absl::statusor
-         absl::str_format_internal
-         absl::strerror
-         absl::strings
-         absl::strings_internal
-         absl::symbolize
-         absl::synchronization
-         absl::throw_delegate
-         absl::time
-         absl::time_zone
-         absl::utf8_for_code_point
-         absl::vlog_config_internal)
   endif()
-  set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
-      PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -2427,13 +2447,17 @@ macro(build_substrait)
   set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
-  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  # Match Protobuf's visibility because target contains generated Protobuf code
+  set_target_properties(substrait
+                        PROPERTIES POSITION_INDEPENDENT_CODE ON
+                                   CXX_VISIBILITY_PRESET hidden
+                                   VISIBILITY_INLINES_HIDDEN ON)
   target_compile_options(substrait PRIVATE "${SUBSTRAIT_SUPPRESSED_FLAGS}")
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS substrait)
 endmacro()
 
 if(ARROW_SUBSTRAIT)
@@ -2517,7 +2541,7 @@ macro(build_jemalloc)
                              INTERFACE "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
 
   set(jemalloc_VENDORED TRUE)
   # For config.h.cmake
@@ -2565,13 +2589,25 @@ if(ARROW_MIMALLOC)
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX=${MIMALLOC_PREFIX}"
       -DMI_INSTALL_TOPLEVEL=ON
+      # Don't override default malloc
       -DMI_OVERRIDE=OFF
+      -DMI_OSX_INTERPOSE=OFF
+      -DMI_OSX_ZONE=OFF
+      # Allow usage through dlopen (i.e. when libarrow.so itself is dlopen'ed)
       -DMI_LOCAL_DYNAMIC_TLS=ON
       -DMI_BUILD_OBJECT=OFF
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF
       # GH-47229: Force mimalloc to generate armv8.0 binary
       -DMI_NO_OPT_ARCH=ON)
+
+  if(APPLE)
+    list(APPEND
+         MIMALLOC_CMAKE_ARGS
+         # GH-50428: Make sure several mimalloc instances can cohabit in the same process
+         # (also https://github.com/microsoft/mimalloc/issues/1327#issuecomment-4964140817)
+         -DMI_TLS_MODEL_LOCAL=ON)
+  endif()
 
   externalproject_add(mimalloc_ep
                       ${EP_COMMON_OPTIONS}
@@ -2593,7 +2629,7 @@ if(ARROW_MIMALLOC)
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
 
   set(mimalloc_VENDORED TRUE)
 endif()
@@ -2782,6 +2818,54 @@ if(ARROW_BUILD_BENCHMARKS)
                      FALSE)
 endif()
 
+function(build_simdjson)
+  list(APPEND CMAKE_MESSAGE_INDENT "simdjson: ")
+  message(STATUS "Building simdjson from source")
+
+  fetchcontent_declare(simdjson
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${SIMDJSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  fetchcontent_makeavailable(simdjson)
+
+  target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
+
+  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
+  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+    target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
+  endif()
+
+  set(SIMDJSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS simdjson)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+if(ARROW_WITH_SIMDJSON)
+  set(ARROW_SIMDJSON_REQUIRED_VERSION "4.0.0")
+  resolve_dependency(simdjson
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_SIMDJSON_REQUIRED_VERSION})
+  if(SIMDJSON_VENDORED)
+    add_library(arrow::simdjson ALIAS simdjson)
+  else()
+    add_library(arrow::simdjson ALIAS simdjson::simdjson)
+  endif()
+endif()
+
 function(build_rapidjson)
   list(APPEND CMAKE_MESSAGE_INDENT "RapidJSON: ")
   message(STATUS "Building from source")
@@ -2822,28 +2906,36 @@ if(ARROW_WITH_RAPIDJSON)
                      FALSE)
 endif()
 
-macro(build_xsimd)
+function(build_xsimd)
+  list(APPEND CMAKE_MESSAGE_INDENT "xsimd: ")
   message(STATUS "Building xsimd from source")
-  set(XSIMD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xsimd_ep/src/xsimd_ep-install")
-  set(XSIMD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${XSIMD_PREFIX}")
 
-  externalproject_add(xsimd_ep
-                      ${EP_COMMON_OPTIONS}
-                      PREFIX "${CMAKE_BINARY_DIR}"
-                      URL ${XSIMD_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
+  prepare_fetchcontent()
+  fetchcontent_declare(xsimd
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${XSIMD_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(xsimd)
 
-  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${XSIMD_INCLUDE_DIR}")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${xsimd_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
+  set(xsimd_INCLUDE_DIR "${xsimd_SOURCE_DIR}/include")
   add_library(arrow::xsimd INTERFACE IMPORTED)
-  target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-  add_dependencies(arrow::xsimd xsimd_ep)
+  target_include_directories(arrow::xsimd INTERFACE "${xsimd_INCLUDE_DIR}")
 
-  set(XSIMD_VENDORED TRUE)
-endmacro()
+  set(XSIMD_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(xsimd_INCLUDE_DIR
+      "${xsimd_INCLUDE_DIR}"
+      PARENT_SCOPE)
+  set(xsimd_FOUND
+      TRUE
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # Xsimd is mandatory as its CPU feature detection is the basis for Arrow CpuInfo
 resolve_dependency(xsimd
@@ -2882,7 +2974,7 @@ macro(build_zlib)
                  PROPERTY IMPORTED_LOCATION
                           "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
     target_include_directories(ZLIB::ZLIB INTERFACE "${EMSCRIPTEN_SYSROOT}/include")
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     if(MSVC)
@@ -2913,7 +3005,7 @@ macro(build_zlib)
     target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
 
     add_dependencies(ZLIB::ZLIB zlib_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   endif()
 
   set(ZLIB_VENDORED TRUE)
@@ -2959,8 +3051,9 @@ function(build_lz4)
 
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} lz4_static
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 endfunction()
 
@@ -3013,7 +3106,7 @@ macro(build_zstd)
 
   add_dependencies(zstd::libzstd_static zstd_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
 
   set(ZSTD_VENDORED TRUE)
 endmacro()
@@ -3080,9 +3173,11 @@ function(build_re2)
     set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3136,7 +3231,7 @@ macro(build_bzip2)
 
   add_dependencies(BZip2::BZip2 bzip2_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
 endmacro()
 
 if(ARROW_WITH_BZ2)
@@ -3192,7 +3287,7 @@ macro(build_utf8proc)
 
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
@@ -3229,9 +3324,11 @@ function(build_cares)
     target_link_libraries(c-ares INTERFACE ${LIBRESOLV_LIBRARY})
   endif()
 
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3359,15 +3456,16 @@ function(build_grpc)
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
   # Add gRPC libraries to bundled static libs.
-  list(APPEND
+  list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
        gRPC::grpcpp_for_bundling)
   set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
@@ -3533,9 +3631,9 @@ function(build_opentelemetry)
       opentelemetry-cpp::trace
       opentelemetry-cpp::version)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
   set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -3549,7 +3647,11 @@ if(ARROW_WITH_OPENTELEMETRY)
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
-  resolve_dependency(opentelemetry-cpp)
+  resolve_dependency(opentelemetry-cpp
+                     COMPONENTS
+                     exporters_ostream
+                     exporters_otlp_http
+                     sdk)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
       opentelemetry-cpp::logs
@@ -3662,54 +3764,14 @@ function(build_google_cloud_cpp_storage)
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
-  list(APPEND
+
+  list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
        google-cloud-cpp::storage
        google-cloud-cpp::rest_internal
        google-cloud-cpp::common)
-
-  if(ABSL_VENDORED)
-    # Figure out what absl libraries (not header-only) are required by the
-    # google-cloud-cpp libraries above and add them to the bundled_dependencies
-    #
-    #   pkg-config --libs absl_memory absl_strings absl_str_format absl_time absl_variant absl_base absl_memory absl_optional absl_span absl_time absl_variant
-    # (and then some regexing)
-    list(APPEND
-         ARROW_BUNDLED_STATIC_LIBS
-         absl::bad_optional_access
-         absl::bad_variant_access
-         absl::base
-         absl::civil_time
-         absl::cord
-         absl::cord_internal
-         absl::cordz_functions
-         absl::cordz_info
-         absl::cordz_handle
-         absl::crc32c
-         absl::crc_internal
-         absl::crc_cord_state
-         absl::crc_cpu_detect
-         absl::debugging_internal
-         absl::demangle_internal
-         absl::exponential_biased
-         absl::int128
-         absl::log_severity
-         absl::malloc_internal
-         absl::raw_logging_internal
-         absl::spinlock_wait
-         absl::stacktrace
-         absl::str_format_internal
-         absl::strings
-         absl::strings_internal
-         absl::symbolize
-         absl::synchronization
-         absl::throw_delegate
-         absl::time
-         absl::time_zone)
-  endif()
-
   set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -3830,6 +3892,10 @@ function(build_orc)
 
     fetchcontent_makeavailable(orc)
 
+    # ORC compiles generated Protobuf code into its static library
+    set_target_properties(orc PROPERTIES CXX_VISIBILITY_PRESET hidden
+                                         VISIBILITY_INLINES_HIDDEN ON)
+
     # ORC 2.2.1 unconditionally adds /std:c++17 on MSVC via
     # add_compile_options, which overrides CMAKE_CXX_STANDARD and causes
     # ABI mismatches with protobuf (GlobalEmptyStringConstexpr vs
@@ -3860,7 +3926,7 @@ function(build_orc)
     add_custom_target(orc_copy_lib ALL DEPENDS "${ORC_STATIC_LIBRARY_FOR_AR}")
     add_dependencies(orc::orc_for_bundling orc_copy_lib)
 
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc_for_bundling)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS orc::orc_for_bundling)
   else()
     set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
     set(ORC_HOME "${ORC_PREFIX}")
@@ -3897,7 +3963,9 @@ function(build_orc)
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         "-DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}"
+        -DCMAKE_CXX_VISIBILITY_PRESET=hidden
         "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+        -DCMAKE_VISIBILITY_INLINES_HIDDEN=ON
         -DSTOP_BUILD_ON_WARNING=OFF
         -DBUILD_LIBHDFSPP=OFF
         -DBUILD_JAVA=OFF
@@ -3956,7 +4024,7 @@ function(build_orc)
     endif()
     target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
     add_dependencies(orc::orc orc_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
+    list(PREPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
   endif()
 
   set(ORC_VENDORED
@@ -4153,8 +4221,9 @@ function(build_awssdk)
   set(AWSSDK_VENDORED
       TRUE
       PARENT_SCOPE)
+  list(PREPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LINK_LIBRARIES})
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} ${AWSSDK_LINK_LIBRARIES}
+      ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
@@ -4199,6 +4268,8 @@ endif()
 # Azure SDK for C++
 
 function(build_azure_sdk)
+  list(APPEND CMAKE_MESSAGE_INDENT "Azure SDK for C++: ")
+
   message(STATUS "Building Azure SDK for C++ from source")
 
   # On Windows, Azure SDK's WinHTTP transport requires WIL (Windows Implementation Libraries).
@@ -4241,14 +4312,18 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
+  list(PREPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Azure::azure-core
+       Azure::azure-identity
+       Azure::azure-storage-blobs
+       Azure::azure-storage-common
+       Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
-      Azure::azure-core
-      Azure::azure-identity
-      Azure::azure-storage-blobs
-      Azure::azure-storage-common
-      Azure::azure-storage-files-datalake
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)

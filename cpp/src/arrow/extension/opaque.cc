@@ -19,12 +19,14 @@
 
 #include <sstream>
 
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/util/logging_internal.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
-#include <rapidjson/writer.h>
+
+using ::arrow::json::JsonWriter;
 
 namespace arrow::extension {
 
@@ -46,19 +48,19 @@ bool OpaqueType::ExtensionEquals(const ExtensionType& other) const {
 }
 
 std::string OpaqueType::Serialize() const {
-  rapidjson::Document document;
-  document.SetObject();
-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  JsonWriter writer;
 
-  rapidjson::Value type_name(rapidjson::StringRef(type_name_));
-  document.AddMember(rapidjson::Value("type_name", allocator), type_name, allocator);
-  rapidjson::Value vendor_name(rapidjson::StringRef(vendor_name_));
-  document.AddMember(rapidjson::Value("vendor_name", allocator), vendor_name, allocator);
+  writer.StartObject();
 
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  document.Accept(writer);
-  return buffer.GetString();
+  writer.StringField("type_name", type_name_);
+  writer.StringField("vendor_name", vendor_name_);
+
+  writer.EndObject();
+
+  Result<std::string_view> json = writer.GetString();
+  // can only fail in OutOfMemory scenarios
+  ARROW_CHECK_OK(json.status());
+  return std::string(*json);
 }
 
 Result<std::shared_ptr<DataType>> OpaqueType::Deserialize(

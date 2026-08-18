@@ -191,8 +191,8 @@ test_that("vctrs extension type works", {
 
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_feather(arrow_table(col = array_in), tf)
-  table_out <- read_feather(tf, as_data_frame = FALSE)
+  write_ipc_file(arrow_table(col = array_in), tf)
+  table_out <- read_ipc_file(tf, as_data_frame = FALSE)
   array_out <- table_out$col$chunk(0)
 
   expect_r6_class(array_out$type, "VctrsExtensionType")

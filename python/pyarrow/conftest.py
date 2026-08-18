@@ -33,7 +33,6 @@ groups = [
     'cython',
     'dataset',
     'hypothesis',
-    'fastparquet',
     'flight',
     'gandiva',
     'gcs',
@@ -69,7 +68,6 @@ defaults = {
     'bz2': Codec.is_available('bz2'),
     'cython': False,
     'dataset': False,
-    'fastparquet': False,
     'flight': False,
     'gandiva': False,
     'gcs': False,
@@ -113,12 +111,6 @@ if sys.platform == "emscripten":
 try:
     import cython  # noqa
     defaults['cython'] = True
-except ImportError:
-    pass
-
-try:
-    import fastparquet  # noqa
-    defaults['fastparquet'] = True
 except ImportError:
     pass
 

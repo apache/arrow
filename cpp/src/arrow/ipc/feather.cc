@@ -770,7 +770,9 @@ class ReaderV2 : public Reader {
 
 Result<std::shared_ptr<Reader>> Reader::Open(
     const std::shared_ptr<io::RandomAccessFile>& source) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return Reader::Open(source, IpcReadOptions::Defaults());
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Result<std::shared_ptr<Reader>> Reader::Open(
@@ -803,6 +805,9 @@ Result<std::shared_ptr<Reader>> Reader::Open(
   }
 }
 
+// GCC warns about the deprecated type in these definitions, Clang doesn't
+ARROW_SUPPRESS_DEPRECATION_WARNING
+
 WriteProperties WriteProperties::Defaults() {
   WriteProperties result;
 #ifdef ARROW_WITH_LZ4
@@ -831,6 +836,8 @@ Status WriteTable(const Table& table, io::OutputStream* dst,
     return writer->Close();
   }
 }
+
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace feather
 }  // namespace ipc
