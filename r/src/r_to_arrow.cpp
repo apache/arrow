@@ -883,15 +883,13 @@ class RPrimitiveConverter<
  private:
   Status AppendUtf8Strings(const cpp11::strings& s, int64_t size, int64_t offset) {
     const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(size - offset));
 
     if constexpr (is_string_view_type<T>::value) {
-      RETURN_NOT_OK(this->primitive_builder_->Reserve(size - offset));
-
       // Use safe Append (not UnsafeAppend) because StringView's heap builder
       // has a 2GB-per-block limit that prevents bulk data pre-reservation.
-      p_strings += offset;
-      for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
-        SEXP si = *p_strings;
+      for (R_xlen_t i = offset; i < size; i++) {
+        SEXP si = p_strings[i];
         if (si == NA_STRING) {
           this->primitive_builder_->UnsafeAppendNull();
         } else {
@@ -899,20 +897,17 @@ class RPrimitiveConverter<
         }
       }
     } else {
-      RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
-
       // We know all the R strings are utf8 already, so we can get
       // a definite size and then use UnsafeAppend*()
       int64_t total_length = 0;
-      for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
-        SEXP si = *p_strings;
+      for (R_xlen_t i = offset; i < size; i++) {
+        SEXP si = p_strings[i];
         total_length += si == NA_STRING ? 0 : LENGTH(si);
       }
       RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
 
-      p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
-      for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
-        SEXP si = *p_strings;
+      for (R_xlen_t i = offset; i < size; i++) {
+        SEXP si = p_strings[i];
         if (si == NA_STRING) {
           this->primitive_builder_->UnsafeAppendNull();
         } else {
