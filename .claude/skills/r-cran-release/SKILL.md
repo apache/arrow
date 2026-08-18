@@ -260,19 +260,19 @@ Commit any changes and ask before pushing.
 
 Test that the package works with pre-compiled Arrow C++ binaries on different platforms.
 
-### Windows (win-builder)
+### 16.1 Windows (win-builder)
 
 Upload `r/arrow_<VERSION>.tar.gz` to https://win-builder.r-project.org/upload.aspx (r-devel only).
 
 Results are emailed to Jon (the package maintainer). Ping Jon and wait for confirmation that the check is clean - no ERRORs, WARNINGs, or unexpected NOTEs. NOTEs about package size are expected.
 
-### macOS Builder
+### 16.2 macOS Builder
 
 Upload `r/arrow_<VERSION>.tar.gz` to https://mac.r-project.org/macbuilder/submit.html
 
 Check the results link for any issues.
 
-### Ubuntu Binary Installation
+### 16.3 Ubuntu Binary Installation
 
 Test on Ubuntu that hosted binaries are used:
 
@@ -282,7 +282,7 @@ install.packages("r/arrow_<VERSION>.tar.gz", repos = NULL)
 
 The installation should download pre-compiled binaries rather than building from source.
 
-### Final Local Check
+### 16.4 Final Local Check
 
 Run one final local check:
 
@@ -345,12 +345,23 @@ For CRAN-only releases (no corresponding Arrow release):
 Rebuild news page:
 
 ```r
-pkgdown::build_news()
+pkgdown::build_news("./r")
 ```
 
 Submit a PR to the `asf-site` branch of https://github.com/apache/arrow-site with contents of `arrow/r/docs/news/index.html` replacing `arrow-site/docs/r/news/index.html`.
 
-Bump the version in `r/pkgdown/assets/versions.json` and update on the `asf-site` branch too.
+```bash
+cd ~/arrow-site
+git fetch upstream
+git checkout upstream/asf-site
+git checkout -b "r-25.0.0"
+cp ~/arrow/r/docs/news/index.html ./docs/r/news/index.html
+git add docs/r/news/index.html
+git commit -m "update R news page"
+git push --set-upstream origin r-25.0.0
+```
+
+If necessary, bump the version in `r/pkgdown/assets/versions.json` too.
 
 ## 24. Check C++ Updates
 
