@@ -56,13 +56,10 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
     const int value_elsize = tensor_.type()->byte_width();
 
     const int64_t ndim = tensor_.ndim();
-    if (ndim > 2) {
+    if (ndim == 0 || ndim > 2) {
       return Status::Invalid("Invalid tensor dimension");
     }
 
-    const int major_axis = static_cast<int>(axis_);
-    const int64_t n_major = tensor_.shape()[major_axis];
-    const int64_t n_minor = tensor_.shape()[1 - major_axis];
     ARROW_ASSIGN_OR_RAISE(int64_t nonzero_count, tensor_.CountNonZero());
 
     std::shared_ptr<Buffer> indptr_buffer;
@@ -74,9 +71,45 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
 
     const auto* tensor_data = tensor_.raw_data();
 
-    if (ndim <= 1) {
-      return Status::NotImplemented("TODO for ndim <= 1");
+    int64_t indptr_length;  // n_major + 1 for 2D; 2 for 1D
+
+    if (ndim == 1) {
+      // A 1D vector is treated as a single-row (CSR) or single-column (CSC)
+      // matrix. indptr has exactly 2 entries: [0, nnz].
+      const int64_t n = tensor_.shape()[0];
+
+      ARROW_ASSIGN_OR_RAISE(indptr_buffer, AllocateBuffer(index_elsize * 2, pool_));
+      auto* indptr = indptr_buffer->mutable_data();
+
+      ARROW_ASSIGN_OR_RAISE(indices_buffer,
+                            AllocateBuffer(index_elsize * nonzero_count, pool_));
+      auto* indices = indices_buffer->mutable_data();
+
+      // indptr[0] = 0
+      AssignIndex(indptr, 0, index_elsize);
+      indptr += index_elsize;
+
+      int64_t k = 0;
+      for (int64_t i = 0; i < n; ++i) {
+        const int64_t offset = i * value_elsize;
+        if (std::any_of(tensor_data + offset, tensor_data + offset + value_elsize,
+                        IsNonZero)) {
+          std::copy_n(tensor_data + offset, value_elsize, values);
+          values += value_elsize;
+          AssignIndex(indices, i, index_elsize);
+          indices += index_elsize;
+          k++;
+        }
+      }
+
+      // indptr[1] = nnz
+      AssignIndex(indptr, k, index_elsize);
+      indptr_length = 2;
     } else {
+      const int major_axis = static_cast<int>(axis_);
+      const int64_t n_major = tensor_.shape()[major_axis];
+      const int64_t n_minor = tensor_.shape()[1 - major_axis];
+
       ARROW_ASSIGN_OR_RAISE(indptr_buffer,
                             AllocateBuffer(index_elsize * (n_major + 1), pool_));
       auto* indptr = indptr_buffer->mutable_data();
@@ -111,9 +144,10 @@ class SparseCSXMatrixConverter : private SparseTensorConverterMixin {
         AssignIndex(indptr, k, index_elsize);
         indptr += index_elsize;
       }
+      indptr_length = n_major + 1;
     }
 
-    std::vector<int64_t> indptr_shape({n_major + 1});
+    std::vector<int64_t> indptr_shape({indptr_length});
     std::shared_ptr<Tensor> indptr_tensor =
         std::make_shared<Tensor>(index_value_type_, indptr_buffer, indptr_shape);
 
@@ -181,7 +215,7 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSXMatrix(
   std::vector<int64_t> strides;
   RETURN_NOT_OK(ComputeRowMajorStrides(fw_value_type, shape, &strides));
 
-  const auto nc = shape[1];
+  const auto nc = shape.size() > 1 ? shape[1] : shape[0];
 
   int64_t offset = 0;
   for (int64_t i = 0; i < indptr->size() - 1; ++i) {
