@@ -203,6 +203,13 @@ test_that("Array supports character vectors (ARROW-3339)", {
   # with NA
   expect_array_roundtrip(c("itsy", NA, "spider"), utf8())
   expect_array_roundtrip(c("itsy", NA, "spider"), large_utf8(), as = large_utf8())
+
+  expect_array_roundtrip(c("itsy", NA, "", "spider"), string_view(), as = string_view())
+  expect_array_roundtrip(
+    c("itsy", NA, "", "a long non-inlined string", "another long string"),
+    string_view(),
+    as = string_view()
+  )
 })
 
 test_that("Character vectors > 2GB become large_utf8", {
@@ -1465,4 +1472,13 @@ test_that("uint64 inside list columns always converts to double (GH-50339)", {
   result <- as.vector(list_arr)
   expect_type(result[[1]], "double")
   expect_type(result[[2]], "double")
+})
+
+test_that("binary_view Array roundtrips", {
+  bin <- list(as.raw(1:10), as.raw(1:10))
+  expect_array_roundtrip(bin, binary_view(), as = binary_view())
+
+  # with long values (>12 bytes, out-of-line storage)
+  bin_long <- list(as.raw(1:20), as.raw(1:5))
+  expect_array_roundtrip(bin_long, binary_view(), as = binary_view())
 })
