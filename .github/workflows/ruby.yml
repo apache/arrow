@@ -162,8 +162,8 @@ jobs:
       # google-cloud-cpp supports Abseil 20260526.
       # https://github.com/apache/arrow/issues/50868
       absl_SOURCE: BUNDLED
-      Protobuf_SOURCE: BUNDLED
-      gRPC_SOURCE: BUNDLED
+      #Protobuf_SOURCE: BUNDLED
+      #gRPC_SOURCE: BUNDLED
       #ARROW_WITH_GOOGLE_CLOUD_CPP: ON
       #ARROW_WITH_GCS: ON
     steps:
