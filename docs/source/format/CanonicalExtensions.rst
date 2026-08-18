@@ -489,18 +489,20 @@ Primitive Type Mappings
 -----------------------
 
 The following table defines the set of Arrow types that are valid as primitive
-``typed_value`` storage. It is derived from the `Shredded Value Types
+``typed_value`` storage. It follows the `Shredded Value Types
 <https://github.com/apache/parquet-format/blob/master/VariantShredding.md#shredded-value-types>`__
-table of the Parquet Variant Shredding specification: each row maps a Variant
+table of the Parquet Variant Shredding specification. Each row maps a Variant
 primitive type to the Parquet `physical type
 <https://parquet.apache.org/docs/file-format/types/>`__ and `logical type
 <https://parquet.apache.org/docs/file-format/types/logicaltypes/>`__
-annotation (empty when the physical type carries no annotation) required for
-a shredded ``typed_value`` column, and to the Arrow :ref:`data type(s)
-<data_types>` able to represent that Variant type's full value domain.
-A ``typed_value`` field of one of the listed Arrow types holds values of
-exactly the corresponding Variant type, and the listed Parquet physical and
-logical type are its only valid Parquet representation.
+annotation of a shredded ``typed_value`` column, and to the Arrow
+:ref:`data types <data_types>` covering that Variant type's full value
+domain. An empty *Parquet Logical Type* cell means the physical type carries
+no annotation.
+
+A ``typed_value`` field of a listed Arrow type holds values of exactly the
+corresponding Variant type, and the listed physical and logical types are its
+only valid Parquet representation.
 
 +----------------------------------------+-----------------------------------+--------------------------+---------------------------------------------+
 | Variant Type                           | Parquet Physical Type             | Parquet Logical Type     | Arrow ``typed_value`` Type                  |
@@ -579,9 +581,9 @@ precision requires) are not valid ``typed_value`` storage.
      together with a null ``value`` means the field is missing.
 
    * Variant has no unsigned integer types, so unsigned Arrow values must be
-     converted to a signed Variant type wide enough to hold them (for example,
-     ``Uint8`` values become ``int16``) before being stored in ``value`` or in
-     a signed integer ``typed_value`` column.
+     converted to a signed Variant type wide enough to hold them: for example,
+     ``UInt8`` values become Variant ``int16``, stored either Variant-encoded
+     in ``value`` or in an ``Int16`` ``typed_value`` column.
 
 .. _timestamp_with_offset_extension:
 
