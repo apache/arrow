@@ -998,6 +998,13 @@ if(ARROW_FILESYSTEM)
                                              "-Wno-documentation;-Wno-documentation-deprecated-sync"
       )
     endif()
+    # Workaround deprecated Abseil APIs used by google-cloud-cpp on macOS
+    # https://github.com/googleapis/google-cloud-cpp/issues/16354
+    if(APPLE)
+      set_property(SOURCE filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                   APPEND
+                   PROPERTY COMPILE_OPTIONS "-Wno-error=deprecated-declarations")
+    endif()
   endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
