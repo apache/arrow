@@ -1001,11 +1001,9 @@ if(ARROW_FILESYSTEM)
     # Workaround deprecated Abseil APIs used by google-cloud-cpp on macOS
     # https://github.com/apache/arrow/issues/50868
     if(APPLE)
-      set_property(
-        SOURCE filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
-        APPEND PROPERTY COMPILE_OPTIONS
-        "-Wno-error=deprecated-declarations"
-      )
+      set_property(SOURCE filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                   APPEND
+                   PROPERTY COMPILE_OPTIONS "-Wno-error=deprecated-declarations")
     endif()
   endif()
   if(ARROW_HDFS)
