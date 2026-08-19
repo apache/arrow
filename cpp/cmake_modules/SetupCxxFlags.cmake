@@ -719,17 +719,17 @@ if(ARROW_HARDENING AND NOT MSVC)
   include(CheckLinkerFlag)
 
   set(ARROW_HARDENING_FLAGS
-      -fstack-protector-strong
-      -fstack-clash-protection
-      -fstrict-flex-arrays=3
-      -fzero-init-padding-bits=all
-      -Wtrampolines
+      #-fstack-protector-strong
+      #-fstack-clash-protection
+      #-fstrict-flex-arrays=3
+      #-fzero-init-padding-bits=all
+      #-Wtrampolines
       -Wbidi-chars=any)
-  if(ARROW_CPU_FLAG STREQUAL "x86")
-    list(APPEND ARROW_HARDENING_FLAGS -fcf-protection=full)
-  elseif(ARROW_CPU_FLAG STREQUAL "aarch64")
-    list(APPEND ARROW_HARDENING_FLAGS -mbranch-protection=standard)
-  endif()
+  #if(ARROW_CPU_FLAG STREQUAL "x86")
+  #  list(APPEND ARROW_HARDENING_FLAGS -fcf-protection=full)
+  #elseif(ARROW_CPU_FLAG STREQUAL "aarch64")
+  #  list(APPEND ARROW_HARDENING_FLAGS -mbranch-protection=standard)
+  #endif()
 
   # TODO: Ensure there's no performance regression.
   # list(APPEND ARROW_HARDENING_FLAGS
@@ -750,25 +750,25 @@ if(ARROW_HARDENING AND NOT MSVC)
   endforeach()
 
   # _FORTIFY_SOURCE is predefined by some toolchains, undefine first.
-  set(ARROW_FORTIFY_SOURCE_FLAGS "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3")
-  foreach(ARROW_HARDENING_CONFIG RELEASE RELWITHDEBINFO MINSIZEREL)
-    string(APPEND CMAKE_C_FLAGS_${ARROW_HARDENING_CONFIG}
-           " ${ARROW_FORTIFY_SOURCE_FLAGS}")
-    string(APPEND CMAKE_CXX_FLAGS_${ARROW_HARDENING_CONFIG}
-           " ${ARROW_FORTIFY_SOURCE_FLAGS}")
-  endforeach()
+  #set(ARROW_FORTIFY_SOURCE_FLAGS "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3")
+  #foreach(ARROW_HARDENING_CONFIG RELEASE RELWITHDEBINFO MINSIZEREL)
+  #  string(APPEND CMAKE_C_FLAGS_${ARROW_HARDENING_CONFIG}
+  #         " ${ARROW_FORTIFY_SOURCE_FLAGS}")
+  #  string(APPEND CMAKE_CXX_FLAGS_${ARROW_HARDENING_CONFIG}
+  #         " ${ARROW_FORTIFY_SOURCE_FLAGS}")
+  #endforeach()
 
-  foreach(ARROW_HARDENING_LINKER_FLAG "-Wl,-z,relro" "-Wl,-z,now" "-Wl,-z,noexecstack")
-    string(MAKE_C_IDENTIFIER "CXX_SUPPORTS_${ARROW_HARDENING_LINKER_FLAG}"
-                             ARROW_HARDENING_LINKER_FLAG_VAR)
-    check_linker_flag(CXX ${ARROW_HARDENING_LINKER_FLAG}
-                      ${ARROW_HARDENING_LINKER_FLAG_VAR})
-    if(${ARROW_HARDENING_LINKER_FLAG_VAR})
-      string(APPEND CMAKE_EXE_LINKER_FLAGS " ${ARROW_HARDENING_LINKER_FLAG}")
-      string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${ARROW_HARDENING_LINKER_FLAG}")
-      string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${ARROW_HARDENING_LINKER_FLAG}")
-    endif()
-  endforeach()
+  #foreach(ARROW_HARDENING_LINKER_FLAG "-Wl,-z,relro" "-Wl,-z,now" "-Wl,-z,noexecstack")
+  #  string(MAKE_C_IDENTIFIER "CXX_SUPPORTS_${ARROW_HARDENING_LINKER_FLAG}"
+  #                           ARROW_HARDENING_LINKER_FLAG_VAR)
+  #  check_linker_flag(CXX ${ARROW_HARDENING_LINKER_FLAG}
+  #                    ${ARROW_HARDENING_LINKER_FLAG_VAR})
+  #  if(${ARROW_HARDENING_LINKER_FLAG_VAR})
+  #    string(APPEND CMAKE_EXE_LINKER_FLAGS " ${ARROW_HARDENING_LINKER_FLAG}")
+  #    string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${ARROW_HARDENING_LINKER_FLAG}")
+  #    string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${ARROW_HARDENING_LINKER_FLAG}")
+  #  endif()
+  #endforeach()
 endif()
 
 # ----------------------------------------------------------------------
