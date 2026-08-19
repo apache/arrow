@@ -353,9 +353,7 @@ class GcsFileSystem::Impl {
     // "Directory" convention, so if there is at least one object that
     // matches the prefix we assume it is a directory.
     std::string canonical = internal::EnsureTrailingSlash(path.object);
-    ARROW_SUPPRESS_DEPRECATION_WARNING
     auto list_result = client_.ListObjects(path.bucket, gcs::Prefix(canonical));
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     for (auto&& object_metadata : list_result) {
       if (!object_metadata) {

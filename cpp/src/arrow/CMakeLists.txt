@@ -991,6 +991,13 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    if(APPLE)
+      set_source_files_properties(
+        filesystem/gcsfs.cc
+        PROPERTIES
+        COMPILE_OPTIONS "-Wno-error=deprecated-declarations"
+      )
+    endif()
     # Suppress documentation warnings from google-cloud-cpp headers
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
       set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
