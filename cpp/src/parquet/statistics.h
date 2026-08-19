@@ -77,6 +77,11 @@ class TypedComparator : public Comparator {
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements without any nulls
+  ///
+  /// For floating-point types with ColumnOrder::TYPE_DEFINED_ORDER, NaNs are
+  /// ignored. With ColumnOrder::IEEE_754_TOTAL_ORDER, NaNs participate in the
+  /// result. IEEE total-order bounds must not be written directly as Parquet
+  /// statistics, which exclude NaNs when valid bounds exist.
   virtual std::pair<T, T> GetMinMax(const T* values, int64_t length) const = 0;
 
   /// \brief Compute minimum and maximum elements from an Arrow array. Only
@@ -87,6 +92,11 @@ class TypedComparator : public Comparator {
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements with accompanying bitmap indicating which elements are
   /// included (bit set) and excluded (bit not set)
+  ///
+  /// For floating-point types with ColumnOrder::TYPE_DEFINED_ORDER, NaNs are
+  /// ignored. With ColumnOrder::IEEE_754_TOTAL_ORDER, NaNs participate in the
+  /// result. IEEE total-order bounds must not be written directly as Parquet
+  /// statistics, which exclude NaNs when valid bounds exist.
   ///
   /// \param[in] values the sequence of values
   /// \param[in] length the length of the sequence
