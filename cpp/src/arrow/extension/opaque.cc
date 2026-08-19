@@ -66,18 +66,14 @@ Result<std::shared_ptr<DataType>> OpaqueType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
   simdjson::padded_string padded_json(serialized_data);
   simdjson::ondemand::parser parser;
-  simdjson::ondemand::document document;
 
-  if (auto error = parser.iterate(padded_json).get(document);
-      error != simdjson::SUCCESS) {
-    return Status::Invalid("Invalid serialized JSON data for OpaqueType: ",
-                           serialized_data);
-  }
+  ARROW_ASSIGN_OR_RAISE(auto document,
+                        internal::ResolveSimdjsonResult(parser.iterate(padded_json),
+                                                        "Failed to parse JSON"));
 
-  simdjson::ondemand::object object;
-  if (auto error = document.get_object().get(object); error != simdjson::SUCCESS) {
-    return Status::Invalid("Invalid serialized JSON data for OpaqueType: not an object");
-  }
+  ARROW_ASSIGN_OR_RAISE(auto object,
+                        internal::ResolveSimdjsonResult(document.get_object(),
+                                                        "Failed to get JSON object"));
 
   std::string type_name;
   std::string vendor_name;

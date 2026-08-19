@@ -127,13 +127,13 @@ TEST(OpaqueType, Deserialize) {
 
   auto type = internal::checked_pointer_cast<extension::OpaqueType>(
       extension::opaque(null(), "type", "vendor"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Invalid serialized JSON data for OpaqueType"),
-      type->Deserialize(null(), R"()"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Invalid serialized JSON data for OpaqueType"),
-      type->Deserialize(null(), R"({)"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("not an object"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Failed to parse JSON"),
+                                  type->Deserialize(null(), R"()"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Failed to get JSON object"),
+                                  type->Deserialize(null(), R"({)"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Failed to get JSON object"),
                                   type->Deserialize(null(), R"([])"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("missing type_name"),
                                   type->Deserialize(null(), R"({})"));
