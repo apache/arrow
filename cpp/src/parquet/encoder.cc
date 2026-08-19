@@ -541,6 +541,12 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     size_t buffer_position = buffered_indices_.size();
     buffered_indices_.resize(buffer_position +
                              static_cast<size_t>(data.length() - data.null_count()));
+    if (buffered_indices_.size() >
+        static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+      throw ParquetException("Total dictionary indices count (",
+                             buffered_indices_.size(),
+                             ") exceeds maximum int value");
+    }
     ::arrow::internal::VisitSetBitRunsVoid(
         data.null_bitmap_data(), data.offset(), data.length(),
         [&](int64_t position, int64_t length) {
