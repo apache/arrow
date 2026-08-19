@@ -312,21 +312,25 @@ class TestSchemaExport : public ::testing::Test {
     SchemaExportChecker checker(std::move(flattened_formats), std::move(flattened_names),
                                 std::move(flattened_flags),
                                 std::move(flattened_metadata));
-
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
-
+#endif
     struct ArrowSchema c_export;
     ASSERT_OK(ExportTraits<T>::ExportFunc(*schema_like, &c_export));
 
     SchemaExportGuard guard(&c_export);
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
     ASSERT_GT(new_bytes, orig_bytes);
+#endif
 
     checker(&c_export);
 
     // Release the ArrowSchema, underlying data should be destroyed
     guard.Release();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename T>
@@ -681,7 +685,9 @@ class TestArrayExport : public ::testing::Test {
 
   template <typename ArrayFactory, typename ExportCheckFunc>
   void TestWithArrayFactory(ArrayFactory&& factory, ExportCheckFunc&& check_func) {
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     std::shared_ptr<Array> arr;
     ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
@@ -692,17 +698,23 @@ class TestArrayExport : public ::testing::Test {
     ASSERT_OK(ExportArray(*arr, &c_export));
 
     ArrayExportGuard guard(&c_export);
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
     ASSERT_GT(new_bytes, orig_bytes);
+#endif
 
     // Release the shared_ptr<Array>, underlying data should be held alive
     arr.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     check_func(&c_export, data);
 
     // Release the ArrowArray, underlying data should be destroyed
     guard.Release();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename ArrayFactory>
@@ -726,7 +738,9 @@ class TestArrayExport : public ::testing::Test {
 
   template <typename ArrayFactory, typename ExportCheckFunc>
   void TestMoveWithArrayFactory(ArrayFactory&& factory, ExportCheckFunc&& check_func) {
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     std::shared_ptr<Array> arr;
     ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
@@ -739,18 +753,24 @@ class TestArrayExport : public ::testing::Test {
     ASSERT_TRUE(ArrowArrayIsReleased(&c_export_temp));
 
     ArrayExportGuard guard(&c_export_final);
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
     ASSERT_GT(new_bytes, orig_bytes);
+#endif
     check_func(&c_export_final, data);
 
     // Release the shared_ptr<Array>, underlying data should be held alive
     arr.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     check_func(&c_export_final, data);
 
     // Release the ArrowArray, underlying data should be destroyed
     guard.Release();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename ArrayFactory>
@@ -771,15 +791,18 @@ class TestArrayExport : public ::testing::Test {
   template <typename ArrayFactory, typename ExportCheckFunc>
   void TestMoveChildWithArrayFactory(ArrayFactory&& factory, int64_t child_id,
                                      ExportCheckFunc&& check_func) {
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     std::shared_ptr<Array> arr;
     ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
     struct ArrowArray c_export_parent, c_export_child;
     ASSERT_OK(ExportArray(*arr, &c_export_parent));
-
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto bytes_with_parent = pool_->bytes_allocated();
     ASSERT_GT(bytes_with_parent, orig_bytes);
+#endif
 
     // Move the child ArrowArray to its final location
     {
@@ -791,22 +814,28 @@ class TestArrayExport : public ::testing::Test {
 
     // Now parent is released
     ASSERT_TRUE(ArrowArrayIsReleased(&c_export_parent));
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto bytes_with_child = pool_->bytes_allocated();
     ASSERT_LT(bytes_with_child, bytes_with_parent);
     ASSERT_GT(bytes_with_child, orig_bytes);
+#endif
 
     const ArrayData& data = *arr->data()->child_data[child_id];  // non-owning reference
     check_func(&c_export_child, data);
 
     // Release the shared_ptr<Array>, some underlying data should be held alive
     arr.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_LT(pool_->bytes_allocated(), bytes_with_child);
     ASSERT_GT(pool_->bytes_allocated(), orig_bytes);
+#endif
     check_func(&c_export_child, data);
 
     // Release the ArrowArray, underlying data should be destroyed
     child_guard.Release();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename ArrayFactory>
@@ -825,15 +854,19 @@ class TestArrayExport : public ::testing::Test {
   void TestMoveChildrenWithArrayFactory(ArrayFactory&& factory,
                                         const std::vector<int64_t> children_ids,
                                         ExportCheckFunc&& check_func) {
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     std::shared_ptr<Array> arr;
     ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
     struct ArrowArray c_export_parent;
     ASSERT_OK(ExportArray(*arr, &c_export_parent));
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto bytes_with_parent = pool_->bytes_allocated();
     ASSERT_GT(bytes_with_parent, orig_bytes);
+#endif
 
     // Move the children ArrowArrays to their final locations
     std::vector<struct ArrowArray> c_export_children(children_ids.size());
@@ -853,17 +886,21 @@ class TestArrayExport : public ::testing::Test {
 
     // Now parent is released
     ASSERT_TRUE(ArrowArrayIsReleased(&c_export_parent));
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto bytes_with_child = pool_->bytes_allocated();
     ASSERT_LT(bytes_with_child, bytes_with_parent);
     ASSERT_GT(bytes_with_child, orig_bytes);
+#endif
     for (size_t i = 0; i < children_ids.size(); ++i) {
       check_func(&c_export_children[i], *child_data[i]);
     }
 
     // Release the shared_ptr<Array>, the children data should be held alive
     arr.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_LT(pool_->bytes_allocated(), bytes_with_child);
     ASSERT_GT(pool_->bytes_allocated(), orig_bytes);
+#endif
     for (size_t i = 0; i < children_ids.size(); ++i) {
       check_func(&c_export_children[i], *child_data[i]);
     }
@@ -872,7 +909,9 @@ class TestArrayExport : public ::testing::Test {
     for (auto& child_guard : child_guards) {
       child_guard.Release();
     }
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename ArrayFactory>
@@ -1468,7 +1507,9 @@ class TestDeviceArrayExport : public ::testing::Test {
 
   template <typename ArrayFactory, typename ExportCheckFunc>
   void TestWithArrayFactory(ArrayFactory&& factory, ExportCheckFunc&& check_func) {
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     std::shared_ptr<Array> arr;
     ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
@@ -1480,17 +1521,23 @@ class TestDeviceArrayExport : public ::testing::Test {
     ASSERT_OK(ExportDeviceArray(*arr, sync, &c_export));
 
     ArrayExportGuard guard(&c_export.array);
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
     ASSERT_GT(new_bytes, orig_bytes);
+#endif
 
     // Release the shared_ptr<Array>, underlying data should be held alive
     arr.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     check_func(&c_export, data, kMyDeviceType, 1, nullptr);
 
     // Release the ArrowArray, underlying data should be destroyed
     guard.Release();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename ArrayFactory>
@@ -3682,12 +3729,16 @@ class TestSchemaRoundtrip : public ::testing::Test {
     struct ArrowSchema c_schema {};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     type = factory();
     auto type_use_count = type.use_count();
     ASSERT_OK(ExportType(*type, &c_schema));
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_GT(pool_->bytes_allocated(), orig_bytes);
+#endif
     // Export stores no reference to the type
     ASSERT_EQ(type_use_count, type.use_count());
     type.reset();
@@ -3698,8 +3749,9 @@ class TestSchemaRoundtrip : public ::testing::Test {
     AssertTypeEqual(*type, *actual, /*check_metadata=*/true);
     type.reset();
     actual.reset();
-
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename TypeFactory>
@@ -3713,12 +3765,16 @@ class TestSchemaRoundtrip : public ::testing::Test {
     struct ArrowSchema c_schema {};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     schema = factory();
     auto schema_use_count = schema.use_count();
     ASSERT_OK(ExportSchema(*schema, &c_schema));
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_GT(pool_->bytes_allocated(), orig_bytes);
+#endif
     // Export stores no reference to the schema
     ASSERT_EQ(schema_use_count, schema.use_count());
     schema.reset();
@@ -3729,8 +3785,9 @@ class TestSchemaRoundtrip : public ::testing::Test {
     AssertSchemaEqual(*schema, *actual, /*check_metadata=*/true);
     schema.reset();
     actual.reset();
-
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
  protected:
@@ -3930,19 +3987,25 @@ class TestArrayRoundtrip : public ::testing::Test {
     ArrayExportGuard array_guard(&c_array);
     SchemaExportGuard schema_guard(&c_schema);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     ASSERT_OK_AND_ASSIGN(array, ToResult(factory()));
     ASSERT_OK(ExportType(*array->type(), &c_schema));
     ASSERT_OK(ExportArray(*array, &c_array));
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
     if (array->type_id() != Type::NA) {
       ASSERT_GT(new_bytes, orig_bytes);
     }
+#endif
 
     array.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     ASSERT_OK_AND_ASSIGN(array, ImportArray(&c_array, &c_schema));
     ASSERT_OK(array->ValidateFull());
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
@@ -3964,7 +4027,9 @@ class TestArrayRoundtrip : public ::testing::Test {
       AssertArraysEqual(*expected, *array, true);
     }
     array.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename BatchFactory>
@@ -3975,14 +4040,20 @@ class TestArrayRoundtrip : public ::testing::Test {
     ArrayExportGuard array_guard(&c_array);
     SchemaExportGuard schema_guard(&c_schema);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
     ASSERT_OK_AND_ASSIGN(batch, ToResult(factory()));
     ASSERT_OK(ExportSchema(*batch->schema(), &c_schema));
     ASSERT_OK(ExportRecordBatch(*batch, &c_array));
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
+#endif
     batch.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_array, &c_schema));
     ASSERT_OK(batch->ValidateFull());
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
@@ -4004,7 +4075,9 @@ class TestArrayRoundtrip : public ::testing::Test {
       AssertBatchesEqual(*expected, *batch);
     }
     batch.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   void TestWithJSON(std::shared_ptr<DataType> type, const char* json) {
@@ -4370,20 +4443,26 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     ArrayExportGuard array_guard(&c_array.array);
     SchemaExportGuard schema_guard(&c_schema);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
 
     ASSERT_OK_AND_ASSIGN(array, ToResult(factory()));
     ASSERT_OK(ExportType(*array->type(), &c_schema));
     std::shared_ptr<Device::SyncEvent> sync{nullptr};
     ASSERT_OK(ExportDeviceArray(*array, sync, &c_array));
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
     if (array->type_id() != Type::NA) {
       ASSERT_GT(new_bytes, orig_bytes);
     }
+#endif
 
     array.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     ASSERT_OK_AND_ASSIGN(array, ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
     ASSERT_OK(array->ValidateFull());
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
@@ -4405,7 +4484,9 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
       AssertArraysEqual(*expected, *array, true);
     }
     array.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   template <typename BatchFactory>
@@ -4419,15 +4500,21 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     ArrayExportGuard array_guard(&c_array.array);
     SchemaExportGuard schema_guard(&c_schema);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto orig_bytes = pool_->bytes_allocated();
+#endif
     ASSERT_OK_AND_ASSIGN(batch, ToResult(factory()));
     ASSERT_OK(ExportSchema(*batch->schema(), &c_schema));
     ASSERT_OK_AND_ASSIGN(auto sync, mm->MakeDeviceSyncEvent());
     ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array));
 
+#ifdef ENABLE_MEMORY_POOL_STATS
     auto new_bytes = pool_->bytes_allocated();
+#endif
     batch.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+#endif
     ASSERT_OK_AND_ASSIGN(batch,
                          ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
     ASSERT_OK(batch->ValidateFull());
@@ -4451,7 +4538,9 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
       AssertBatchesEqual(*expected, *batch);
     }
     batch.reset();
+#ifdef ENABLE_MEMORY_POOL_STATS
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+#endif
   }
 
   void TestWithJSON(const std::shared_ptr<MemoryManager>& mm,
@@ -4509,7 +4598,11 @@ class BaseArrayStreamTest : public ::testing::Test {
     orig_allocated_ = pool_->bytes_allocated();
   }
 
-  void TearDown() override { ASSERT_EQ(pool_->bytes_allocated(), orig_allocated_); }
+  void TearDown() override {
+#ifdef ENABLE_MEMORY_POOL_STATS
+    ASSERT_EQ(pool_->bytes_allocated(), orig_allocated_);
+#endif
+  }
 
   RecordBatchVector MakeBatches(std::shared_ptr<Schema> schema, ArrayVector arrays) {
     DCHECK_EQ(schema->num_fields(), 1);
@@ -4632,7 +4725,9 @@ TEST_F(TestArrayStreamExport, ArrayLifetime) {
     AssertSchemaEqual(*schema, *got_schema, /*check_metadata=*/true);
   }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+#endif
   ASSERT_OK_AND_ASSIGN(auto batch, ImportRecordBatch(&c_array1, schema));
   AssertBatchesEqual(*batches[1], *batch);
   ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_array0, schema));
@@ -4715,7 +4810,9 @@ TEST_F(TestArrayStreamExport, ChunkedArrayExport) {
     AssertTypeEqual(*chunked_array->type(), *got_type);
   }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+#endif
   ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_array0, chunked_array->type()));
   AssertArraysEqual(*chunked_array->chunk(0), *array);
   ASSERT_OK_AND_ASSIGN(array, ImportArray(&c_array1, chunked_array->type()));
@@ -5071,7 +5168,9 @@ TEST_F(TestArrayDeviceStreamExport, ArrayLifetime) {
   ASSERT_EQ(kMyDeviceType, c_array0.device_type);
   ASSERT_EQ(kMyDeviceType, c_array1.device_type);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+#endif
   ASSERT_OK_AND_ASSIGN(
       auto batch,
       ImportDeviceRecordBatch(&c_array1, schema, TestDeviceArrayRoundtrip::DeviceMapper));
@@ -5174,7 +5273,9 @@ TEST_F(TestArrayDeviceStreamExport, ChunkedArrayExport) {
   ASSERT_EQ(kMyDeviceType, c_array0.device_type);
   ASSERT_EQ(kMyDeviceType, c_array1.device_type);
 
+#ifdef ENABLE_MEMORY_POOL_STATS
   ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+#endif
   ASSERT_OK_AND_ASSIGN(auto array,
                        ImportDeviceArray(&c_array0, chunked_array->type(),
                                          TestDeviceArrayRoundtrip::DeviceMapper));
