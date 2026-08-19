@@ -123,13 +123,14 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   simdjson::ondemand::parser parser;
   simdjson::ondemand::document document;
 
-  if (auto error = parser.iterate(padded_json).get(document);
-      error != simdjson::SUCCESS) {
+  auto error = parser.iterate(padded_json).get(document);
+  if (error != simdjson::SUCCESS) {
     return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
   }
 
   simdjson::ondemand::object object;
-  if (auto error = document.get_object().get(object); error != simdjson::SUCCESS) {
+  error = document.get_object().get(object);
+  if (error != simdjson::SUCCESS) {
     return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
   }
 
@@ -153,8 +154,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
       has_shape = true;
 
       simdjson::ondemand::json_type type;
-      if (auto error = value.type().get(type);
-          error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
+      auto error = value.type().get(type);
+      if (error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
         return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
       }
 
@@ -200,8 +201,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
 
     } else if (key == "permutation") {
       simdjson::ondemand::json_type type;
-      if (auto error = value.type().get(type);
-          error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
+      auto error = value.type().get(type);
+      if (error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
         return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
       }
 
@@ -247,8 +248,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
 
     } else if (key == "dim_names") {
       simdjson::ondemand::json_type type;
-      if (auto error = value.type().get(type);
-          error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
+      auto error = value.type().get(type);
+      if (error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
         return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
       }
 
