@@ -1282,6 +1282,27 @@ Containment tests
 * \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
+Hash Functions
+~~~~~~~~~~~~~~
+
+Not to be confused with the "group by" functions, Hash functions produce an array of hash
+values corresponding to the length of the input. Currently, these functions take a single
+array as input.
+
++---------------+-------+-------------+-------------+---------------+-------+
+| Function name | Arity | Input types | Output type | Options class | Notes |
++===============+=======+=============+=============+===============+=======+
+| hash32        | Unary | Any         | UInt32      |               | \(1)  |
++---------------+-------+-------------+-------------+---------------+-------+
+| hash64        | Unary | Any         | UInt64      |               | \(1)  |
++---------------+-------+-------------+-------------+---------------+-------+
+
+* \(1) The implementation doesn't guarantee hash stability across different versions of
+       the library. Union, view and run end encoded types are not supported yet. A null
+       input value produces a null output value. For a struct, a field that is null makes
+       the whole struct row's output null; for a list or map, by contrast, a null element
+       does not, since only the row's own validity matters there.
+
 Categorizations
 ~~~~~~~~~~~~~~~
 
