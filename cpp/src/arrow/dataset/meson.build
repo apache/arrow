@@ -139,12 +139,7 @@ if needs_csv
 endif
 
 if needs_json
-    dataset_tests += {
-        'file_json': {
-            'sources': ['file_json_test.cc'],
-            'dependencies': [rapidjson_dep],
-        },
-    }
+    dataset_tests += {'file_json': {'sources': ['file_json_test.cc']}}
 endif
 
 if needs_orc
