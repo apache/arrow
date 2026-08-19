@@ -175,6 +175,73 @@ TEST(Comparison, SignedFLBA) {
   }
 }
 
+TEST(Comparison, SignedLittleEndianFLBA12Timestamp) {
+  NodePtr node =
+      PrimitiveNode::Make("ts_flba12", Repetition::REQUIRED,
+                          LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+                          Type::FIXED_LEN_BYTE_ARRAY, 12);
+  ColumnDescriptor descr(node, 0, 0);
+  ASSERT_EQ(SortOrder::SIGNED, descr.sort_order());
+  auto comparator = MakeComparator<FLBAType>(&descr);
+
+  // large_neg: 0x80 00…00  (most negative 96-bit LE value, sign byte=0x80)
+  // neg256:    0x00 FF FF…FF (= -256 in LE two's complement)
+  // minus_one: FF FF…FF     (= -1)
+  // zero:      00 00…00
+  // plus_one:  01 00…00
+  // large_pos: 7F FF…FF     (= near max positive)
+  std::vector<uint8_t> large_neg_bytes = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
+  std::vector<uint8_t> neg256_bytes = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                       0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  std::vector<uint8_t> minus_one_bytes = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  std::vector<uint8_t> zero_bytes = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> plus_one_bytes = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> large_pos_bytes = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
+
+  std::vector<FLBA> vals = {FLBA(large_neg_bytes.data()), FLBA(neg256_bytes.data()),
+                            FLBA(minus_one_bytes.data()), FLBA(zero_bytes.data()),
+                            FLBA(plus_one_bytes.data()),  FLBA(large_pos_bytes.data())};
+
+  for (size_t x = 0; x < vals.size(); x++) {
+    EXPECT_FALSE(comparator->Compare(vals[x], vals[x])) << x;
+    for (size_t y = x + 1; y < vals.size(); y++) {
+      EXPECT_TRUE(comparator->Compare(vals[x], vals[y])) << x << " < " << y;
+      EXPECT_FALSE(comparator->Compare(vals[y], vals[x])) << y << " < " << x;
+    }
+  }
+}
+
+TEST(Comparison, SignedLittleEndianFLBA12TimestampMinMax) {
+  // Guards the DefaultMin/DefaultMax accumulator seeds: over positive-only values.
+  NodePtr node =
+      PrimitiveNode::Make("ts_flba12", Repetition::REQUIRED,
+                          LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+                          Type::FIXED_LEN_BYTE_ARRAY, 12);
+  ColumnDescriptor descr(node, 0, 0);
+  auto comparator = MakeComparator<FLBAType>(&descr);
+
+  std::vector<uint8_t> plus_one = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> plus_five = {0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> large_pos = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
+  std::vector<FLBA> vals = {FLBA(plus_five.data()), FLBA(large_pos.data()),
+                            FLBA(plus_one.data())};
+
+  auto min_max = comparator->GetMinMax(vals.data(), vals.size());
+  // min == plus_one and max == large_pos.
+  EXPECT_FALSE(comparator->Compare(min_max.first, FLBA(plus_one.data())));
+  EXPECT_FALSE(comparator->Compare(FLBA(plus_one.data()), min_max.first));
+  EXPECT_FALSE(comparator->Compare(min_max.second, FLBA(large_pos.data())));
+  EXPECT_FALSE(comparator->Compare(FLBA(large_pos.data()), min_max.second));
+}
+
 TEST(Comparison, UnsignedFLBA) {
   int size = 10;
   auto comparator =

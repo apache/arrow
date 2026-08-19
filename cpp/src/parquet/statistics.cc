@@ -463,6 +463,56 @@ struct RebindLogical<Float16LogicalType> {
   using c_type = DType::c_type;
 };
 
+// Tag type for FLBA(12) timestamps.
+struct Flba12TimestampType {};
+
+// Max / min representable signed 96-bit two's-complement, little-endian.
+constexpr uint8_t kFlba12SignedMax[12] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
+constexpr uint8_t kFlba12SignedMin[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
+
+template <>
+struct CompareHelper<Flba12TimestampType, /*is_signed=*/true> {
+  using T = FLBA;
+
+  // Seed for the running minimum is the maximum value; for the maximum, the minimum
+  // value.
+  static T DefaultMin() { return T{kFlba12SignedMax}; }
+  static T DefaultMax() { return T{kFlba12SignedMin}; }
+
+  static T Coalesce(T val, T fallback) { return val.ptr == nullptr ? fallback : val; }
+
+  // Signed little-endian comparison.
+  // Differing signs: negative (MSB >= 0x80) is smaller.
+  // Same sign: unsigned scan and comparison.
+  static inline bool Compare(int /*type_length*/, const T& a, const T& b) {
+    const bool a_neg = (a.ptr[11] & 0x80) != 0;
+    const bool b_neg = (b.ptr[11] & 0x80) != 0;
+    if (a_neg != b_neg) return a_neg;
+    for (int i = 11; i >= 0; --i) if (a.ptr[i] != b.ptr[i]) return a.ptr[i] < b.ptr[i];
+    return false;
+  }
+
+  static T Min(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? a : b;
+  }
+
+  static T Max(int type_length, const T& a, const T& b) {
+    if (a.ptr == nullptr) return b;
+    if (b.ptr == nullptr) return a;
+    return Compare(type_length, a, b) ? b : a;
+  }
+};
+
+template <>
+struct RebindLogical<Flba12TimestampType> {
+  using DType = FLBAType;
+  using c_type = DType::c_type;
+};
+
 template <bool is_signed, typename DType>
 class TypedComparatorImpl
     : virtual public TypedComparator<typename RebindLogical<DType>::DType> {
@@ -1012,6 +1062,10 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
       case Type::FIXED_LEN_BYTE_ARRAY:
         if (logical_type == LogicalType::Type::FLOAT16) {
           return std::make_shared<TypedComparatorImpl<true, Float16LogicalType>>(
+              type_length);
+        }
+        if (logical_type == LogicalType::Type::TIMESTAMP) {
+          return std::make_shared<TypedComparatorImpl<true, Flba12TimestampType>>(
               type_length);
         }
         return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
