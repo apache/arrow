@@ -208,6 +208,8 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
       }
 
       return ::arrow::fixed_size_binary(physical_length);
+    case LogicalType::Type::TIMESTAMP:
+      return ::arrow::fixed_size_binary(physical_length);
     default:
       return Status::NotImplemented("Unhandled logical_type ", logical_type.ToString(),
                                     " for fixed-length binary array");
