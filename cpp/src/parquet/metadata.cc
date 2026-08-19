@@ -416,6 +416,28 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return column_metadata_->dictionary_page_offset;
   }
 
+  inline bool has_symbol_table_page() const {
+    if (column_metadata_->__isset.symbol_table_page_offset !=
+        column_metadata_->__isset.symbol_table_page_length) {
+      throw ParquetException(
+          "Symbol table page metadata must contain both offset and length");
+    }
+    if (column_metadata_->__isset.symbol_table_page_offset &&
+        (column_metadata_->symbol_table_page_offset <= 0 ||
+         column_metadata_->symbol_table_page_length <= 0)) {
+      throw ParquetException("Invalid symbol table page offset or length");
+    }
+    return column_metadata_->__isset.symbol_table_page_offset;
+  }
+
+  inline int64_t symbol_table_page_offset() const {
+    return column_metadata_->symbol_table_page_offset;
+  }
+
+  inline int32_t symbol_table_page_length() const {
+    return column_metadata_->symbol_table_page_length;
+  }
+
   inline int64_t data_page_offset() const { return column_metadata_->data_page_offset; }
 
   inline bool has_index_page() const {
@@ -549,6 +571,18 @@ bool ColumnChunkMetaData::has_dictionary_page() const {
 
 int64_t ColumnChunkMetaData::dictionary_page_offset() const {
   return impl_->dictionary_page_offset();
+}
+
+bool ColumnChunkMetaData::has_symbol_table_page() const {
+  return impl_->has_symbol_table_page();
+}
+
+int64_t ColumnChunkMetaData::symbol_table_page_offset() const {
+  return impl_->symbol_table_page_offset();
+}
+
+int32_t ColumnChunkMetaData::symbol_table_page_length() const {
+  return impl_->symbol_table_page_length();
 }
 
 int64_t ColumnChunkMetaData::data_page_offset() const {
@@ -1678,6 +1712,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
+              int64_t symbol_table_page_offset, int32_t symbol_table_page_length,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
               bool dictionary_fallback,
               const std::map<Encoding::type, int32_t>& dict_encoding_stats,
@@ -1685,6 +1720,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
               const std::shared_ptr<Encryptor>& encryptor) {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
+    }
+    if (symbol_table_page_offset > 0) {
+      column_chunk_->meta_data.__set_symbol_table_page_offset(symbol_table_page_offset);
+      column_chunk_->meta_data.__set_symbol_table_page_length(symbol_table_page_length);
     }
     // The `file_offset` field is deprecated and should be set to 0.
     // See https://github.com/apache/parquet-format/pull/440 for detail.
@@ -1735,6 +1774,14 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
       add_encoding(data_encoding);
+    }
+    if (symbol_table_page_offset > 0) {
+      format::PageEncodingStats symbol_table_stat;
+      symbol_table_stat.__set_page_type(format::PageType::SYMBOL_TABLE_PAGE);
+      symbol_table_stat.__set_encoding(format::Encoding::FSST);
+      symbol_table_stat.__set_count(1);
+      thrift_encoding_stats.push_back(symbol_table_stat);
+      add_encoding(format::Encoding::FSST);
     }
     column_chunk_->meta_data.__set_encodings(std::move(thrift_encodings));
     column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
@@ -1867,8 +1914,23 @@ void ColumnChunkMetaDataBuilder::Finish(
     const std::map<Encoding::type, int32_t>& dict_encoding_stats,
     const std::map<Encoding::type, int32_t>& data_encoding_stats,
     const std::shared_ptr<Encryptor>& encryptor) {
+  Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
+         /*symbol_table_page_offset=*/0, /*symbol_table_page_length=*/0, compressed_size,
+         uncompressed_size, has_dictionary, dictionary_fallback, dict_encoding_stats,
+         data_encoding_stats, encryptor);
+}
+
+void ColumnChunkMetaDataBuilder::Finish(
+    int64_t num_values, int64_t dictionary_page_offset, int64_t index_page_offset,
+    int64_t data_page_offset, int64_t symbol_table_page_offset,
+    int32_t symbol_table_page_length, int64_t compressed_size, int64_t uncompressed_size,
+    bool has_dictionary, bool dictionary_fallback,
+    const std::map<Encoding::type, int32_t>& dict_encoding_stats,
+    const std::map<Encoding::type, int32_t>& data_encoding_stats,
+    const std::shared_ptr<Encryptor>& encryptor) {
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
-                compressed_size, uncompressed_size, has_dictionary, dictionary_fallback,
+                symbol_table_page_offset, symbol_table_page_length, compressed_size,
+                uncompressed_size, has_dictionary, dictionary_fallback,
                 dict_encoding_stats, data_encoding_stats, encryptor);
 }
 
@@ -1947,12 +2009,17 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       if (i == 0) {
         const format::ColumnMetaData& first_col = row_group_->columns[0].meta_data;
         // As per spec, file_offset for the row group points to the first
-        // dictionary or data page of the column.
+        // dictionary, symbol table, or data page of the column.
         if (first_col.__isset.dictionary_page_offset &&
             first_col.dictionary_page_offset > 0) {
           file_offset = first_col.dictionary_page_offset;
         } else {
           file_offset = first_col.data_page_offset;
+        }
+        if (first_col.__isset.symbol_table_page_offset &&
+            first_col.symbol_table_page_offset > 0 &&
+            (file_offset <= 0 || first_col.symbol_table_page_offset < file_offset)) {
+          file_offset = first_col.symbol_table_page_offset;
         }
       }
       // sometimes column metadata is encrypted and not available to read,

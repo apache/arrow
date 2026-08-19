@@ -297,7 +297,15 @@ struct Encoding {
      * Added in 2.8 for FLOAT and DOUBLE.
      * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
      */
-    BYTE_STREAM_SPLIT = 9
+    BYTE_STREAM_SPLIT = 9,
+    /**
+     * Adaptive Lossless floating-Point encoding. Reserved by the Parquet format.
+     */
+    ALP = 10,
+    /**
+     * Fast Static Symbol Table encoding for BYTE_ARRAY values.
+     */
+    FSST = 11
   };
 };
 
@@ -340,7 +348,8 @@ struct PageType {
     DATA_PAGE = 0,
     INDEX_PAGE = 1,
     DICTIONARY_PAGE = 2,
-    DATA_PAGE_V2 = 3
+    DATA_PAGE_V2 = 3,
+    SYMBOL_TABLE_PAGE = 4
   };
 };
 
@@ -349,6 +358,21 @@ extern const std::map<int, const char*> _PageType_VALUES_TO_NAMES;
 std::ostream& operator<<(std::ostream& out, const PageType::type& val);
 
 std::string to_string(const PageType::type& val);
+
+/**
+ * The representation used by a symbol table page.
+ */
+struct SymbolTableType {
+  enum type {
+    FSST = 0
+  };
+};
+
+extern const std::map<int, const char*> _SymbolTableType_VALUES_TO_NAMES;
+
+std::ostream& operator<<(std::ostream& out, const SymbolTableType::type& val);
+
+std::string to_string(const SymbolTableType::type& val);
 
 /**
  * Enum to annotate whether lists of min/max elements inside ColumnIndex
@@ -444,6 +468,8 @@ class BloomFilterCompression;
 
 class BloomFilterHeader;
 
+class SymbolTablePageHeader;
+
 class PageHeader;
 
 class KeyValue;
@@ -520,7 +546,7 @@ class SizeStatistics {
    * schema information multiplied by the number of non-null and null values.
    * The number of null/non-null values can be inferred from the histograms
    * below.
-   * 
+   *
    * For example, if a column chunk is dictionary-encoded with dictionary
    * ["a", "bc", "cde"], and a data page contains the indices [0, 0, 1, 2],
    * then this value for that data page should be 7 (1 + 1 + 2 + 3).
@@ -2456,13 +2482,62 @@ void swap(BloomFilterHeader &a, BloomFilterHeader &b) noexcept;
 
 std::ostream& operator<<(std::ostream& out, const BloomFilterHeader& obj);
 
+
+/**
+ * Header for a shared symbol table page.
+ */
+class SymbolTablePageHeader {
+ public:
+
+  SymbolTablePageHeader(const SymbolTablePageHeader&) noexcept;
+  SymbolTablePageHeader(SymbolTablePageHeader&&) noexcept;
+  SymbolTablePageHeader& operator=(const SymbolTablePageHeader&) noexcept;
+  SymbolTablePageHeader& operator=(SymbolTablePageHeader&&) noexcept;
+  SymbolTablePageHeader() noexcept;
+
+  ~SymbolTablePageHeader() noexcept;
+  /**
+   * The representation of the symbol table and its encoded values.
+   *
+   * @see SymbolTableType
+   */
+  SymbolTableType::type type;
+  /**
+   * Whether the page body is compressed with the column chunk codec.
+   */
+  bool is_compressed;
+
+  void __set_type(const SymbolTableType::type val);
+
+  void __set_is_compressed(const bool val);
+
+  bool operator == (const SymbolTablePageHeader & rhs) const;
+  bool operator != (const SymbolTablePageHeader &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const SymbolTablePageHeader & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  void printTo(std::ostream& out) const;
+};
+
+void swap(SymbolTablePageHeader &a, SymbolTablePageHeader &b) noexcept;
+
+std::ostream& operator<<(std::ostream& out, const SymbolTablePageHeader& obj);
+
 typedef struct _PageHeader__isset {
-  _PageHeader__isset() : crc(false), data_page_header(false), index_page_header(false), dictionary_page_header(false), data_page_header_v2(false) {}
+  _PageHeader__isset() : crc(false), data_page_header(false), index_page_header(false), dictionary_page_header(false), data_page_header_v2(false), symbol_table_page_header(false) {}
   bool crc :1;
   bool data_page_header :1;
   bool index_page_header :1;
   bool dictionary_page_header :1;
   bool data_page_header_v2 :1;
+  bool symbol_table_page_header :1;
 } _PageHeader__isset;
 
 class PageHeader {
@@ -2512,6 +2587,7 @@ class PageHeader {
   IndexPageHeader index_page_header;
   DictionaryPageHeader dictionary_page_header;
   DataPageHeaderV2 data_page_header_v2;
+  SymbolTablePageHeader symbol_table_page_header;
 
   _PageHeader__isset __isset;
 
@@ -2530,6 +2606,8 @@ class PageHeader {
   void __set_dictionary_page_header(const DictionaryPageHeader& val);
 
   void __set_data_page_header_v2(const DataPageHeaderV2& val);
+
+  void __set_symbol_table_page_header(const SymbolTablePageHeader& val);
 
   bool operator == (const PageHeader & rhs) const;
   bool operator != (const PageHeader &rhs) const {
@@ -2706,7 +2784,7 @@ void swap(PageEncodingStats &a, PageEncodingStats &b) noexcept;
 std::ostream& operator<<(std::ostream& out, const PageEncodingStats& obj);
 
 typedef struct _ColumnMetaData__isset {
-  _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false) {}
+  _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false), symbol_table_page_offset(false), symbol_table_page_length(false) {}
   bool key_value_metadata :1;
   bool index_page_offset :1;
   bool dictionary_page_offset :1;
@@ -2716,6 +2794,8 @@ typedef struct _ColumnMetaData__isset {
   bool bloom_filter_length :1;
   bool size_statistics :1;
   bool geospatial_statistics :1;
+  bool symbol_table_page_offset :1;
+  bool symbol_table_page_length :1;
 } _ColumnMetaData__isset;
 
 /**
@@ -2814,6 +2894,14 @@ class ColumnMetaData {
    * Optional statistics specific for Geometry and Geography logical types
    */
   GeospatialStatistics geospatial_statistics;
+  /**
+   * Byte offset from the beginning of the file to the symbol table page.
+   */
+  int64_t symbol_table_page_offset;
+  /**
+   * Serialized symbol table page length, including its page header.
+   */
+  int32_t symbol_table_page_length;
 
   _ColumnMetaData__isset __isset;
 
@@ -2850,6 +2938,10 @@ class ColumnMetaData {
   void __set_size_statistics(const SizeStatistics& val);
 
   void __set_geospatial_statistics(const GeospatialStatistics& val);
+
+  void __set_symbol_table_page_offset(const int64_t val);
+
+  void __set_symbol_table_page_length(const int32_t val);
 
   bool operator == (const ColumnMetaData & rhs) const;
   bool operator != (const ColumnMetaData &rhs) const {

@@ -51,6 +51,7 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
+#include "parquet/fsst_internal.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 #include "parquet/properties.h"
@@ -245,6 +246,21 @@ void CheckNumValuesInHeader(int num_values) {
   }
 }
 
+void CheckSymbolTablePageHeader(const format::PageHeader& page_header) {
+  if (!page_header.__isset.symbol_table_page_header) {
+    throw ParquetException("Symbol table page is missing its page header");
+  }
+  const auto symbol_table_type = LoadEnumSafe(&page_header.symbol_table_page_header.type);
+  if (symbol_table_type != SymbolTableType::FSST) {
+    throw ParquetException("Unsupported symbol table type");
+  }
+  if (page_header.uncompressed_page_size < 9 ||
+      page_header.uncompressed_page_size > 2049) {
+    throw ParquetException("Invalid symbol table page body size: ",
+                           page_header.uncompressed_page_size);
+  }
+}
+
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
 // assembled in a serialized stream for storing in a Parquet files
@@ -420,6 +436,8 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
     const format::DictionaryPageHeader& dict_header =
         current_page_header_.dictionary_page_header;
     CheckNumValuesInHeader(dict_header.num_values);
+  } else if (page_type == PageType::SYMBOL_TABLE_PAGE) {
+    CheckSymbolTablePageHeader(current_page_header_);
   } else {
     // We don't know what this page type is. We're allowed to skip non-data
     // pages.
@@ -534,6 +552,23 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       return std::make_shared<DictionaryPage>(page_buffer, dict_header.num_values,
                                               LoadEnumSafe(&dict_header.encoding),
                                               is_sorted);
+    } else if (page_type == PageType::SYMBOL_TABLE_PAGE) {
+      crypto_ctx_.start_decrypt_with_dictionary_page = false;
+      const format::SymbolTablePageHeader& symbol_header =
+          current_page_header_.symbol_table_page_header;
+      if (symbol_header.is_compressed) {
+        if (decompressor_ == nullptr) {
+          throw ParquetException(
+              "Compressed symbol table page has no column compression codec");
+        }
+        page_buffer =
+            DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
+      } else if (compressed_len != uncompressed_len) {
+        throw ParquetException(
+            "Uncompressed symbol table page has mismatched page sizes");
+      }
+      return std::make_shared<SymbolTablePage>(
+          page_buffer, LoadEnumSafe(&symbol_header.type), symbol_header.is_compressed);
     } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
@@ -808,6 +843,9 @@ class ColumnReaderImplBase {
       if (current_page_->type() == PageType::DICTIONARY_PAGE) {
         ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
         continue;
+      } else if (current_page_->type() == PageType::SYMBOL_TABLE_PAGE) {
+        ConfigureSymbolTable(static_cast<const SymbolTablePage*>(current_page_.get()));
+        continue;
       } else if (current_page_->type() == PageType::DATA_PAGE) {
         const auto* page = static_cast<const DataPageV1*>(current_page_.get());
         const int64_t levels_byte_size = InitializeLevelDecoders(
@@ -862,6 +900,19 @@ class ColumnReaderImplBase {
     new_dictionary_ = true;
     current_decoder_.SetDecoder(decoders_[encoding].get());
     ARROW_DCHECK(current_decoder_);
+  }
+
+  void ConfigureSymbolTable(const SymbolTablePage* page) {
+    if (fsst_symbol_table_body_ != nullptr) {
+      throw ParquetException("Duplicate symbol table page");
+    }
+    if (page->symbol_table_type() != SymbolTableType::FSST) {
+      throw ParquetException("Unsupported symbol table type");
+    }
+    fsst_symbol_table_type_ = page->symbol_table_type();
+    PARQUET_ASSIGN_OR_THROW(fsst_symbol_table_body_,
+                            page->buffer()->CopySlice(0, page->buffer()->size(), pool_));
+    internal::FsstSymbolTable::Deserialize(fsst_symbol_table_body_);
   }
 
   // Initialize repetition and definition level decoders on the next data page.
@@ -978,6 +1029,21 @@ class ColumnReaderImplBase {
           break;
         }
 
+        case Encoding::FSST: {
+          if constexpr (!std::is_same_v<DType, ByteArrayType>) {
+            throw ParquetException("FSST encoding only supports BYTE_ARRAY");
+          } else {
+            auto decoder = MakeFsstDecoder(descr_, fsst_symbol_table_type_,
+                                           fsst_symbol_table_body_, pool_);
+            auto typed_decoder = std::unique_ptr<DecoderType>(
+                dynamic_cast<DecoderType*>(decoder.release()));
+            ARROW_DCHECK(typed_decoder != nullptr);
+            current_decoder_.SetDecoder(typed_decoder.get());
+            decoders_[static_cast<int>(encoding)] = std::move(typed_decoder);
+            break;
+          }
+        }
+
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
 
@@ -1047,7 +1113,23 @@ class ColumnReaderImplBase {
   // plain-encoded data.
   std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
 
-  void ConsumeBufferedValues(int64_t num_values) { num_decoded_values_ += num_values; }
+  SymbolTableType::type fsst_symbol_table_type_ = SymbolTableType::UNDEFINED;
+  std::shared_ptr<Buffer> fsst_symbol_table_body_;
+
+  void ResetFsstSymbolTable() {
+    fsst_symbol_table_type_ = SymbolTableType::UNDEFINED;
+    fsst_symbol_table_body_.reset();
+  }
+
+  void ConsumeBufferedValues(int64_t num_values) {
+    num_decoded_values_ += num_values;
+    if (current_encoding_ == Encoding::FSST &&
+        num_decoded_values_ == num_buffered_values_ && current_decoder_ &&
+        current_decoder_->values_left() != 0) {
+      throw ParquetException(
+          "FSST physical value count does not match definition levels");
+    }
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -1241,6 +1323,15 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
     const int64_t available_values = this->available_values_current_page();
     if (values_to_skip >= available_values) {
       values_to_skip -= available_values;
+      // FSST validates its physical value count when the logical page is
+      // consumed.  Drain the already-decoded values before taking the generic
+      // whole-page skip fast path.
+      if (this->current_encoding_ == Encoding::FSST) {
+        const int physical_values = this->current_decoder_->values_left();
+        if (this->current_decoder_.Skip(physical_values) != physical_values) {
+          ParquetException::EofException("Could not skip all FSST values in data page");
+        }
+      }
       this->ConsumeBufferedValues(available_values);
     } else {
       // Skip within the current Page. Since `values_to_skip < available_values`, the
@@ -1829,7 +1920,10 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   const ColumnDescriptor* descr() const override { return this->descr_; }
 
   // Dictionary decoders must be reset when advancing row groups
-  void ResetDecoders() { this->decoders_.clear(); }
+  void ResetDecoders() {
+    this->decoders_.clear();
+    this->ResetFsstSymbolTable();
+  }
 
   virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
     uint8_t* valid_bits = valid_bits_->mutable_data();

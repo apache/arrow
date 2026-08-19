@@ -407,12 +407,21 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
+| FSST                     | ✓        | ✓        | \(3)    |
++--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,
   and boolean values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.4 or greater is selected in :func:`WriterProperties::version`.
+
+* \(3) Supported for BYTE_ARRAY columns. Disable dictionary encoding and select
+  ``Encoding::FSST``. Writers use the vendored CWI FSST8 codec and can choose
+  PLAIN or DELTA_BINARY_PACKED end offsets with ``fsst_offset_encoding()``.
+  Supports FSST symbol tables. ``fsst_training_data_pages()`` configures the
+  number of data pages used to train the symbol table; -1 uses the complete
+  column chunk.
 
 Types
 -----

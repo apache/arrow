@@ -190,6 +190,21 @@ class TestPageSerde : public ::testing::Test {
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
+  void WriteSymbolTablePageHeader(format::SymbolTableType::type type,
+                                  int32_t uncompressed_size, int32_t compressed_size,
+                                  bool is_compressed = false) {
+    format::SymbolTablePageHeader symbol_table_page_header;
+    symbol_table_page_header.__set_type(type);
+    symbol_table_page_header.__set_is_compressed(is_compressed);
+    page_header_.__set_symbol_table_page_header(symbol_table_page_header);
+    page_header_.uncompressed_page_size = uncompressed_size;
+    page_header_.compressed_page_size = compressed_size;
+    page_header_.type = format::PageType::SYMBOL_TABLE_PAGE;
+
+    ThriftSerializer serializer;
+    ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
+  }
+
   void WriteIndexPageHeader(int32_t uncompressed_size = 0, int32_t compressed_size = 0) {
     page_header_.__set_index_page_header(index_page_header_);
     page_header_.uncompressed_page_size = uncompressed_size;
@@ -632,6 +647,28 @@ TEST_F(TestPageSerde, DoesNotFilterDictionaryPages) {
   ASSERT_EQ(current_page->type(), PageType::DICTIONARY_PAGE);
   // The data page after dictionary page is skipped.
   ASSERT_EQ(page_reader_->NextPage(), nullptr);
+}
+
+TEST_F(TestPageSerde, RejectsInvalidSymbolTablePageBodySize) {
+  ASSERT_NO_FATAL_FAILURE(WriteSymbolTablePageHeader(format::SymbolTableType::FSST,
+                                                     /*uncompressed_size=*/8,
+                                                     /*compressed_size=*/0));
+  InitSerializedPageReader(/*num_rows=*/1);
+  ASSERT_THROW(page_reader_->NextPage(), ParquetException);
+
+  ResetStream();
+  ASSERT_NO_FATAL_FAILURE(WriteSymbolTablePageHeader(format::SymbolTableType::FSST,
+                                                     /*uncompressed_size=*/2050,
+                                                     /*compressed_size=*/0));
+  InitSerializedPageReader(/*num_rows=*/1);
+  ASSERT_THROW(page_reader_->NextPage(), ParquetException);
+
+  ResetStream();
+  ASSERT_NO_FATAL_FAILURE(WriteSymbolTablePageHeader(
+      static_cast<format::SymbolTableType::type>(1), /*uncompressed_size=*/33,
+      /*compressed_size=*/0));
+  InitSerializedPageReader(/*num_rows=*/1);
+  ASSERT_THROW(page_reader_->NextPage(), ParquetException);
 }
 
 // Tests that we successfully skip non-data pages.

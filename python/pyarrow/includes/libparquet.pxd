@@ -131,6 +131,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetEncoding_RLE_DICTIONARY" parquet::Encoding::RLE_DICTIONARY"
         ParquetEncoding_BYTE_STREAM_SPLIT \
             " parquet::Encoding::BYTE_STREAM_SPLIT"
+        ParquetEncoding_ALP" parquet::Encoding::ALP"
+        ParquetEncoding_FSST" parquet::Encoding::FSST"
 
     enum ParquetCompression" parquet::Compression::type":
         ParquetCompression_UNCOMPRESSED" parquet::Compression::UNCOMPRESSED"
@@ -367,6 +369,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         int64_t has_dictionary_page() const
         int64_t dictionary_page_offset() const
+        int64_t has_symbol_table_page() const
+        int64_t symbol_table_page_offset() const
+        int32_t symbol_table_page_length() const
         int64_t data_page_offset() const
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
