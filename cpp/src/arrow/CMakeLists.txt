@@ -999,7 +999,7 @@ if(ARROW_FILESYSTEM)
       )
     endif()
     # Workaround deprecated Abseil APIs used by google-cloud-cpp on macOS
-    # https://github.com/apache/arrow/issues/50868
+    # https://github.com/googleapis/google-cloud-cpp/issues/16354
     if(APPLE)
       set_property(SOURCE filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
                    APPEND
