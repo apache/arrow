@@ -37,6 +37,7 @@ RUN mamba install -q -y \
         "python < 3.12" \
         numpy \
         compilers \
+        conda-gcc-specs \
         go \
         maven=${maven} \
         nodejs=${node} \
