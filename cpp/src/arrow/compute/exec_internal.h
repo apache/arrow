@@ -132,9 +132,6 @@ class ARROW_EXPORT KernelExecutor {
   /// for all scanned batches in a dataset filter.
   virtual Status Init(KernelContext*, KernelInitArgs) = 0;
 
-  // TODO(wesm): per ARROW-16819, adding ExecBatch variant so that a batch
-  // length can be passed in for scalar functions; will have to return and
-  // clean a bunch of things up
   virtual Status Execute(const ExecBatch& batch, ExecListener* listener) = 0;
 
   virtual Datum WrapResults(const std::vector<Datum>& args,
