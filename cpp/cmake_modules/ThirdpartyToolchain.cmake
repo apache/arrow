@@ -2183,6 +2183,10 @@ function(build_protobuf)
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
+        # Explicitly set the C++ standard for the host build. Without this,
+        # Abseil may be compiled with the host compiler's default standard,
+        # which can be older than C++17.
+        "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}"
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=

@@ -148,8 +148,14 @@ class NodeDriver:
     import subprocess
 
     def __init__(self, hostname, port):
+        # handle different syntax for util-linux script and macOS BSD-style script
+        if sys.platform == "darwin":
+            script_command = [shutil.which("script"), "-q", "/dev/null",
+                              shutil.which("node")]
+        else:
+            script_command = [shutil.which("script"), "-c", shutil.which("node")]
         self.process = subprocess.Popen(
-            [shutil.which("script"), "-c", shutil.which("node")],
+            script_command,
             stdin=subprocess.PIPE,
             shell=False,
             bufsize=0,
@@ -320,6 +326,7 @@ import micropip
 if "pyarrow" not in sys.modules:
     await micropip.install("hypothesis")
     import pyodide_js as pjs
+    await pjs.loadPackage("packaging")
     await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")

@@ -18,32 +18,39 @@
 ARG repo
 ARG arch
 ARG arch_short
-ARG python="3.12"
+ARG python="3.14"
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
-ARG pyodide_version="0.26.0"
+ARG pyodide_version="314.0.4"
+# pyodide-build is versioned independently of Pyodide
+ARG pyodide_build_version="0.39.0"
 ARG chrome_version="latest"
-ARG required_python_min="(3,12)"
-# fail if python version < 3.12
+ARG required_python_min="(3,14)"
+# fail if python version < 3.14
 RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
-# install selenium and recent pyodide-build and recent python
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        libatomic1 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
+# install selenium and recent pyodide-build and recent python
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
-    python -m pip install --no-cache-dir --upgrade pyodide-build>=${pyodide_version}
+    python -m pip install --no-cache-dir --upgrade "pyodide-build>=${pyodide_build_version}"
 
 # install pyodide dist directory to /pyodide
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
     wget -q "${pyodide_dist_url}" -O- | tar -xj -C /
 
-# install node 20 (needed for async call support)
+# install node 24 (needed for async call support and JSPI)
 # and pthread-stubs for build, and unzip needed for chrome build to work
 # xz is needed by emsdk to extract node tarballs
-RUN conda install nodejs=20 unzip pthread-stubs make xz -c conda-forge
+RUN conda install nodejs=24 unzip pthread-stubs make xz -c conda-forge
 
 # install correct version of emscripten for this pyodide
 COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
