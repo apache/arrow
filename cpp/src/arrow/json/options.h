@@ -19,8 +19,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "arrow/json/type_fwd.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -68,6 +70,26 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Create read options with default values
   static ReadOptions Defaults();
+};
+
+struct ARROW_EXPORT WriteOptions {
+  /// \brief Maximum number of rows processed at a time
+  ///
+  /// The JSON writer converts and writes data in batches of N rows.
+  /// This number can impact performance.
+  int32_t batch_size = 1024;
+
+  /// \brief Whether to emit null values in the JSON output
+  ///
+  /// If true, null values are included as JSON null.
+  /// If false, null values are omitted from the output entirely.
+  bool emit_null = false;
+
+  /// Create write options with default values
+  static WriteOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 }  // namespace json

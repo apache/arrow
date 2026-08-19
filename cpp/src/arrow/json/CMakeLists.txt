@@ -25,6 +25,7 @@ add_arrow_test(test
                object_parser_test.cc
                parser_test.cc
                reader_test.cc
+               writer_test.cc
                PREFIX
                "arrow-json"
                EXTRA_LINK_LIBS
@@ -32,6 +33,12 @@ add_arrow_test(test
                simdjson::simdjson)
 
 add_arrow_benchmark(parser_benchmark
+                    PREFIX
+                    "arrow-json"
+                    EXTRA_LINK_LIBS
+                    RapidJSON)
+
+add_arrow_benchmark(writer_benchmark
                     PREFIX
                     "arrow-json"
                     EXTRA_LINK_LIBS
