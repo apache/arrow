@@ -158,7 +158,12 @@ if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
       "MAX"
       CACHE STRING "Max runtime SIMD optimization level")
 endif()
+
+option(ARROW_USE_ASAN "Enable Address Sanitizer checks" OFF)
+option(ARROW_USE_UBSAN "Enable Undefined Behavior sanitizer checks" OFF)
+
 include(SetupCxxFlags)
+include(san-config)
 
 if($ENV{PYODIDE})
   # These variables are needed for building PyArrow on Emscripten.

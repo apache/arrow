@@ -142,6 +142,10 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - fedora-r-clang
+  - pixi-cpp:
+    - pixi-cpp-sanitizer
+  - pixi-python:
+    - pixi-python-sanitizer
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -200,6 +204,14 @@ volumes:
     name: ${ARCH_SHORT}-fedora-${FEDORA}-ccache
   maven-cache:
     name: maven-cache
+  pixi-cpp-build:
+    name: ${ARCH}-pixi-cpp-build
+  pixi-cpp-sanitizer-build:
+    name: ${ARCH}-pixi-cpp-sanitizer-build
+  pixi-python-build:
+    name: ${ARCH}-pixi-python-build
+  pixi-python-sanitizer-build:
+    name: ${ARCH}-pixi-python-sanitizer-build
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
@@ -1167,6 +1179,99 @@ services:
         apt remove -y git &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
+
+  ############################  Pixi builds  ##################################
+
+  pixi-cpp:
+    # C++ build with pixi
+    #
+    # Usage:
+    #   docker compose build pixi-cpp
+    #   docker compose run --rm pixi-cpp
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-cpp-build:/arrow/ci/pixi/default/cpp/.pixi:delegated
+    command:  >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/default/cpp &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/default/cpp test"
+
+  pixi-cpp-sanitizer:
+    # C++ build with pixi and Address/Undefined Behavior sanitizers enabled
+    #
+    # Usage:
+    #   docker compose build pixi-cpp-sanitizer
+    #   docker compose run --rm pixi-cpp-sanitizer
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    cap_add:
+      # For LeakSanitizer
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-cpp-sanitizer-build:/arrow/ci/pixi/asan/cpp/.pixi:delegated
+    command:  >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/asan/cpp &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/asan/cpp test"
+
+  pixi-python:
+    # CPython build with pixi
+    #
+    # Usage:
+    #   docker compose build pixi-python
+    #   docker compose run --rm pixi-python
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-python-build:/arrow/ci/pixi/default/python/.pixi:delegated
+    command: >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/default/python &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/default/python test"
+
+  pixi-python-sanitizer:
+    # PyArrow build with pixi against sanitizer-instrumented CPython, NumPy
+    # and Arrow C++. Builds CPython and NumPy from source via pixi-build.
+    #
+    # Usage:
+    #   docker compose build pixi-python-sanitizer
+    #   docker compose run --rm pixi-python-sanitizer
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    cap_add:
+      # For LeakSanitizer
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-python-sanitizer-build:/arrow/ci/pixi/asan/python/.pixi:delegated
+    command: >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/asan/python &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/asan/python test"
 
   ############################ Python wheels ##################################
 
