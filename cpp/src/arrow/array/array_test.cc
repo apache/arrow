@@ -50,6 +50,7 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_compat.h"
@@ -1216,6 +1217,54 @@ TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
   std::shared_ptr<Buffer> data = *AllocateBuffer(40);
   Int32Array arr(10, data);
   ASSERT_EQ(arr.data()->null_count, 0);
+}
+
+TEST(TestPrimitiveArray, ToTensor) {
+  const std::vector<int64_t> shape = {5};
+  const std::vector<int64_t> strides = {sizeof(int32_t)};
+
+  auto array = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]");
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(int32(), tensor->type());
+  EXPECT_EQ(shape, std::vector<int64_t>{5});
+  EXPECT_EQ(strides, std::vector<int64_t>{sizeof(int32_t)});
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(strides, tensor->strides());
+  EXPECT_TRUE(tensor->is_contiguous());
+  EXPECT_TRUE(
+      TensorFromJSON(int32(), "[1, 2, 3, 4, 5]", shape, strides)->Equals(*tensor));
+}
+
+TEST(TestPrimitiveArray, ToTensorSliced) {
+  const std::vector<int64_t> shape = {3};
+  const std::vector<int64_t> strides = {sizeof(int64_t)};
+
+  auto array = ArrayFromJSON(int64(), "[1, 2, 3, 4, 5]")->Slice(2);
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_TRUE(TensorFromJSON(int64(), "[3, 4, 5]", shape, strides)->Equals(*tensor));
+}
+
+TEST(TestPrimitiveArray, ToTensorNulls) {
+  // Nulls are ignored, leaving unspecified values in the output tensor.
+  const std::vector<int64_t> shape = {3};
+
+  auto array = ArrayFromJSON(int32(), "[1, null, 3]");
+  ASSERT_OK_AND_ASSIGN(auto tensor, array->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  EXPECT_EQ(shape, tensor->shape());
+}
+
+TEST(TestPrimitiveArray, ToTensorUnsupportedType) {
+  auto array = ArrayFromJSON(date32(), "[1, 2, 3]");
+  ASSERT_RAISES(Invalid, array->ToTensor());
+
+  ASSERT_RAISES(NotImplemented, ArrayFromJSON(utf8(), R"(["a"])")->ToTensor());
 }
 
 class TestBuilder : public ::testing::Test {

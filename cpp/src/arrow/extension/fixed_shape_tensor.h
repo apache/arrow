@@ -43,7 +43,10 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
   /// dimension as length equal to the FixedShapeTensorArray's length and the remaining
   /// dimensions as the FixedShapeTensorType's shape. Shape and dim_names will be
   /// permuted according to permutation stored in the FixedShapeTensorType metadata.
-  const Result<std::shared_ptr<Tensor>> ToTensor() const;
+  ///
+  /// Nulls are ignored, leaving the output tensor with unspecified values where this
+  /// array null entries.
+  Result<std::shared_ptr<Tensor>> ToTensor() const override;
 };
 
 /// \brief Concrete type class for constant-size Tensor data.

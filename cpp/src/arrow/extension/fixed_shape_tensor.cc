@@ -319,7 +319,7 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
   return std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
 }
 
-const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
+Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 
