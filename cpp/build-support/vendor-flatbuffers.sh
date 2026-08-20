@@ -25,7 +25,7 @@ set -eu
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 VENDOR_LOCATION=$SOURCE_DIR/../thirdparty/flatbuffers/include/flatbuffers
-mkdir -p $VENDOR_LOCATION
-cp -f $FLATBUFFERS_HOME/include/flatbuffers/base.h $VENDOR_LOCATION
-cp -f $FLATBUFFERS_HOME/include/flatbuffers/flatbuffers.h $VENDOR_LOCATION
-cp -f $FLATBUFFERS_HOME/include/flatbuffers/stl_emulation.h $VENDOR_LOCATION
+mkdir -p "$VENDOR_LOCATION"
+cp -f "$FLATBUFFERS_HOME/include/flatbuffers/base.h" "$VENDOR_LOCATION"
+cp -f "$FLATBUFFERS_HOME/include/flatbuffers/flatbuffers.h" "$VENDOR_LOCATION"
+cp -f "$FLATBUFFERS_HOME/include/flatbuffers/stl_emulation.h" "$VENDOR_LOCATION"
