@@ -323,6 +323,11 @@ Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
   return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
 }
 
+Result<Datum> ReplaceWithIndices(const Datum& values, const Datum& indices,
+                                 const Datum& replacements, ExecContext* ctx) {
+  return CallFunction("replace_with_indices", {values, indices, replacements}, ctx);
+}
+
 Result<Datum> FillNullForward(const Datum& values, ExecContext* ctx) {
   return CallFunction("fill_null_forward", {values}, ctx);
 }
