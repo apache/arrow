@@ -1841,6 +1841,28 @@ cdef class Array(_PandasConvertible):
             array = array.copy()
         return array
 
+    def to_tensor(self):
+        """
+        Convert this array to a pyarrow.Tensor.
+
+        This is supported when the data can reasonably be understood as a
+        multi-dimensional numeric tensor, such as numeric arrays (1D), nested
+        fixed size list arrays, and fixed shape tensor arrays.
+        The resulting tensor has a row major layout with the array elements
+        as the first dimension.
+        Null values are ignored, leaving the corresponding entries of the
+        tensor with unspecified values.
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        pyarrow.Tensor
+        """
+        cdef shared_ptr[CTensor] ctensor
+        with nogil:
+            ctensor = GetResultValue(self.ap.ToTensor())
+        return pyarrow_wrap_tensor(ctensor)
+
     def to_pylist(self, *, maps_as_pydicts=None):
         """
         Convert to a list of native Python objects.
@@ -4967,12 +4989,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             along the first dimension.
         """
 
-        cdef:
-            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
-            CResult[shared_ptr[CTensor]] ctensor
-        with nogil:
-            ctensor = ext_array.ToTensor()
-        return pyarrow_wrap_tensor(GetResultValue(ctensor))
+        return Array.to_tensor(self)
 
     @staticmethod
     def from_numpy_ndarray(obj, dim_names=None):

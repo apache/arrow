@@ -280,6 +280,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const shared_ptr[CArrayStatistics]& statistics() const
 
+        CResult[shared_ptr[CTensor]] ToTensor() const
+
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
         const shared_ptr[CDataType]& type, int64_t length, CMemoryPool* pool)
@@ -3087,10 +3089,6 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
-
-    cdef cppclass CFixedShapeTensorArray \
-            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
-        const CResult[shared_ptr[CTensor]] ToTensor() const
 
 
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
