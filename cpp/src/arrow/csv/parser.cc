@@ -436,7 +436,7 @@ class BlockParserImpl {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
       } else if (options_.pad_short_rows && num_cols < batch_.num_cols_) {
-        batch_.missing_fields_.emplace_back(batch_.num_rows_, num_cols);
+        batch_.missing_fields_.push_back({batch_.num_rows_, num_cols});
         while (num_cols < batch_.num_cols_) {
           values_writer->StartField(false /* quoted */);
           FinishField();

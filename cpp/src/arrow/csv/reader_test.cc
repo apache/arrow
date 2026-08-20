@@ -621,8 +621,8 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
 }
 
 TEST(ReaderTests, ShortRows) {
-  auto input = std::make_shared<io::BufferReader>(
-      std::make_shared<Buffer>("a,b,c\n1,2\n3,,"));
+  auto input =
+      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a,b,c\n1,2\n3,,"));
   auto read_options = ReadOptions::Defaults();
   read_options.block_size = 8;
   auto parse_options = ParseOptions::Defaults();
@@ -645,8 +645,7 @@ TEST(ReaderTests, ShortRows) {
 }
 
 TEST(ReaderTests, ShortRowsTypedConverters) {
-  auto input =
-      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("1,10\n2\n"));
+  auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>("1,10\n2\n"));
   auto read_options = ReadOptions::Defaults();
   read_options.autogenerate_column_names = true;
   auto parse_options = ParseOptions::Defaults();
@@ -691,8 +690,7 @@ TEST(ReaderTests, InferMaxColumns) {
 }
 
 TEST(ReaderTests, HeaderSetsNumColumns) {
-  auto input =
-      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a\n1,2,3\n"));
+  auto input = std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a\n1,2,3\n"));
   auto parse_options = ParseOptions::Defaults();
   parse_options.pad_short_rows = true;
 
