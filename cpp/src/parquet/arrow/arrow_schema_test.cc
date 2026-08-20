@@ -312,6 +312,29 @@ TEST_F(TestConvertParquetSchema, DuplicateFieldNames) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema(arrow_fields)));
 }
 
+TEST_F(TestConvertParquetSchema, FlbaTimestampConversion) {
+  auto make_fields = [] {
+    std::vector<NodePtr> fields;
+    fields.push_back(
+        PrimitiveNode::Make("ts", Repetition::REQUIRED,
+                            LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+                            ParquetType::FIXED_LEN_BYTE_ARRAY, /*length=*/12));
+    return fields;
+  };
+
+  // Should output the raw FLBA value.
+  ASSERT_OK(ConvertSchema(make_fields()));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(
+      ::arrow::schema({::arrow::field("ts", ::arrow::fixed_size_binary(12), false)})));
+
+  // Should convert to an Arrow timestamp.
+  ArrowReaderProperties props;
+  props.set_convert_flba_timestamps(true);
+  ASSERT_OK(ConvertSchema(make_fields(), /*key_value_metadata=*/{}, props));
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(::arrow::schema({::arrow::field(
+      "ts", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"), false)})));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
