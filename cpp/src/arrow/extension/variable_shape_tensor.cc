@@ -156,29 +156,22 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
 
   simdjson::padded_string padded_json(serialized_data);
   simdjson::ondemand::parser parser;
-  simdjson::ondemand::document document;
 
-  if (auto error = parser.iterate(padded_json).get(document);
-      error != simdjson::SUCCESS) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
+  ARROW_ASSIGN_OR_RAISE(auto document,
+                        internal::ResolveSimdjsonResult(parser.iterate(padded_json),
+                                                        "Invalid serialized JSON data"));
 
-  simdjson::ondemand::object object;
-  if (auto error = document.get_object().get(object); error != simdjson::SUCCESS) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
+  ARROW_ASSIGN_OR_RAISE(auto object,
+                        internal::ResolveSimdjsonResult(document.get_object(),
+                                                        "Invalid serialized JSON data"));
 
   std::vector<int64_t> permutation;
   std::vector<std::string> dim_names;
   std::vector<std::optional<int64_t>> uniform_shape;
 
   for (auto field_result : object) {
-    if (field_result.error() != simdjson::SUCCESS) {
-      return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-    }
-
     ARROW_ASSIGN_OR_RAISE(auto field, internal::ResolveSimdjsonResult(
-                                          field_result, "Failed to iterate JSON object"));
+                                          field_result, "Invalid serialized JSON data"));
 
     ARROW_ASSIGN_OR_RAISE(
         auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
@@ -187,9 +180,10 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     auto value = field.value();
 
     if (key == "permutation") {
-      simdjson::ondemand::json_type type;
-      if (auto error = value.type().get(type);
-          error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
+      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                           value.type(), "Invalid serialized JSON data"));
+
+      if (type == simdjson::ondemand::json_type::unknown) {
         return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
       }
 
@@ -238,9 +232,10 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
       RETURN_NOT_OK(internal::IsPermutationValid(permutation));
 
     } else if (key == "dim_names") {
-      simdjson::ondemand::json_type type;
-      if (auto error = value.type().get(type);
-          error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
+      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                           value.type(), "Invalid serialized JSON data"));
+
+      if (type == simdjson::ondemand::json_type::unknown) {
         return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
       }
 
@@ -282,9 +277,10 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
       }
 
     } else if (key == "uniform_shape") {
-      simdjson::ondemand::json_type type;
-      if (auto error = value.type().get(type);
-          error != simdjson::SUCCESS || type == simdjson::ondemand::json_type::unknown) {
+      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                           value.type(), "Invalid serialized JSON data"));
+
+      if (type == simdjson::ondemand::json_type::unknown) {
         return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
       }
 
