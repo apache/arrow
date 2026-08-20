@@ -76,6 +76,7 @@ needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
 needs_acero = get_option('acero').enabled() or needs_dataset
 needs_compute = get_option('compute').enabled() or needs_acero
+needs_cuda = get_option('cuda').enabled()
 needs_flight_sql = false
 needs_flight = get_option('flight').enabled() or needs_flight_sql
 needs_gandiva = false
@@ -83,6 +84,7 @@ needs_ipc = (get_option('ipc').enabled()
     or needs_tests
     or needs_acero
     or needs_benchmarks
+    or needs_cuda
     or needs_flight
     or needs_parquet
     or needs_substrait
