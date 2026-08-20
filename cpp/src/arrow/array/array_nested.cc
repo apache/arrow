@@ -1001,6 +1001,40 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
   return FlattenListArray(*this, memory_pool);
 }
 
+Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensor() const {
+  const auto* data = this->data().get();
+  auto type = this->type();
+  int64_t offset = data->offset;
+  int64_t length = data->length;
+  std::vector<int64_t> shape{length};
+
+  // Iterate over nested fixed length container types.
+  // Each nested container increase the tensor dimension.
+  while (type->id() == Type::FIXED_SIZE_LIST) {
+    const auto* fsl = internal::checked_cast<const FixedSizeListType*>(type.get());
+    type = fsl->value_type();
+    data = data->child_data.front().get();
+
+    offset = offset * fsl->list_size() + data->offset;
+    length *= fsl->list_size();
+    shape.push_back(fsl->list_size());
+  }
+
+  // Only checking byte_width and leaving Tensor::Make error on unsupported types.
+  if (!is_fixed_width(*type)) {
+    return Status::NotImplemented("Expected a fixed width leaf type, got ", type->name());
+  }
+
+  std::shared_ptr<Buffer> buffer = nullptr;
+  if (const auto& buf = data->buffers[1]; buf != NULLPTR) {
+    const int64_t byte_width = type->byte_width();
+    ARROW_ASSIGN_OR_RAISE(buffer,
+                          SliceBufferSafe(buf, offset * byte_width, length * byte_width));
+  }
+
+  return Tensor::Make(std::move(type), std::move(buffer), std::move(shape));
+}
+
 // ----------------------------------------------------------------------
 // Struct
 
