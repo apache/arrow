@@ -246,6 +246,18 @@ class ARROW_EXPORT Array {
   /// \return const std::shared_ptr<ArrayStatistics>&
   const std::shared_ptr<ArrayStatistics>& statistics() const { return data_->statistics; }
 
+  /// \brief Create a statistics array of this array
+  ///
+  /// The created array follows the C data interface statistics
+  /// specification. See
+  /// https://arrow.apache.org/docs/format/StatisticsSchema.html
+  /// for details.
+  ///
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the statistics array of this array
+  Result<std::shared_ptr<Array>> MakeStatisticsArray(
+      MemoryPool* pool = default_memory_pool()) const;
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
