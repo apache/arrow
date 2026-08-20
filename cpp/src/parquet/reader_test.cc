@@ -1821,6 +1821,13 @@ TEST(TestFileReader, TestFlba12Timestamp) {
       ASSERT_EQ(kNumRows, values_read);
       min_value.assign(reinterpret_cast<const char*>(values[kMinRow].ptr), 12);
       max_value.assign(reinterpret_cast<const char*>(values[kMaxRow].ptr), 12);
+
+      auto comparator = MakeComparator<FLBAType>(descr);
+      auto min_max = comparator->GetMinMax(values.data(), kNumRows);
+      ASSERT_EQ(min_value,
+                std::string(reinterpret_cast<const char*>(min_max.first.ptr), 12));
+      ASSERT_EQ(max_value,
+                std::string(reinterpret_cast<const char*>(min_max.second.ptr), 12));
     }
 
     auto stats = rg_reader->metadata()->ColumnChunk(c)->statistics();

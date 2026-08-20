@@ -1157,7 +1157,9 @@ class PARQUET_EXPORT ArrowReaderProperties {
         list_type_(kArrowDefaultListType),
         arrow_extensions_enabled_(false),
         should_load_statistics_(false),
-        smallest_decimal_enabled_(false) {}
+        smallest_decimal_enabled_(false),
+        convert_flba_timestamps_(false),
+        flba_timestamp_clamp_on_overflow_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -1295,6 +1297,29 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// this setting will be ignored.
   bool smallest_decimal_enabled() const { return smallest_decimal_enabled_; }
 
+  /// \brief Set whether to infer Arrow timestamps from Parquet FLBA types.
+  ///
+  /// When enabled, Parquet FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
+  /// VAlues that do not fit in 64 bit timestamps are handled per
+  /// flba_timestamp_clamp_on_overflow(). When disabled, Parquet FLBA(12) TIMESTAMP
+  /// columns are read as FixedSizeBinary(12).
+  void set_convert_flba_timestamps(bool convert) { convert_flba_timestamps_ = convert; }
+  /// \brief Whether FLBA(12) TIMESTAMP columns are read as Arrow timestamps.
+  bool convert_flba_timestamps() const { return convert_flba_timestamps_; }
+
+  /// \brief Set how out-of-range values are handled when convert_flba_timestamps() is
+  /// enabled.
+  ///
+  /// When true, Parquet FLBA(12) TIMESTAMP values that do not fit in 64 bit timestamps
+  /// are clamped to min/max INT64. When false, such values raise an error.
+  void set_flba_timestamp_clamp_on_overflow(bool clamp) {
+    flba_timestamp_clamp_on_overflow_ = clamp;
+  }
+  /// \brief Whether out-of-range FLBA(12) timestamps clamp (true) or error (false).
+  bool flba_timestamp_clamp_on_overflow() const {
+    return flba_timestamp_clamp_on_overflow_;
+  }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -1308,6 +1333,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool arrow_extensions_enabled_;
   bool should_load_statistics_;
   bool smallest_decimal_enabled_;
+  bool convert_flba_timestamps_;
+  bool flba_timestamp_clamp_on_overflow_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

@@ -29,6 +29,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
@@ -41,10 +42,12 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::bit_util::FromLittleEndian;
 using arrow::internal::checked_cast;
 using arrow::util::Float16;
 using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
+using arrow::util::SafeLoadAs;
 
 namespace parquet {
 namespace {
@@ -483,15 +486,17 @@ struct CompareHelper<Flba12TimestampType, /*is_signed=*/true> {
 
   static T Coalesce(T val, T fallback) { return val.ptr == nullptr ? fallback : val; }
 
-  // Signed little-endian comparison.
-  // Differing signs: negative (MSB >= 0x80) is smaller.
-  // Same sign: unsigned scan and comparison.
+  // FLBA(12) TIMESTAMP is a signed 96-bit little-endian value. Compare the
+  // most-significant 32 bits signed, then the low 64 bits unsigned.
   static inline bool Compare(int /*type_length*/, const T& a, const T& b) {
-    const bool a_neg = (a.ptr[11] & 0x80) != 0;
-    const bool b_neg = (b.ptr[11] & 0x80) != 0;
-    if (a_neg != b_neg) return a_neg;
-    for (int i = 11; i >= 0; --i) if (a.ptr[i] != b.ptr[i]) return a.ptr[i] < b.ptr[i];
-    return false;
+    const int32_t a_hi =
+        SafeCopy<int32_t>(FromLittleEndian(SafeLoadAs<uint32_t>(a.ptr + 8)));
+    const int32_t b_hi =
+        SafeCopy<int32_t>(FromLittleEndian(SafeLoadAs<uint32_t>(b.ptr + 8)));
+    if (a_hi != b_hi) return a_hi < b_hi;
+    const uint64_t a_lo = FromLittleEndian(SafeLoadAs<uint64_t>(a.ptr));
+    const uint64_t b_lo = FromLittleEndian(SafeLoadAs<uint64_t>(b.ptr));
+    return a_lo < b_lo;
   }
 
   static T Min(int type_length, const T& a, const T& b) {
