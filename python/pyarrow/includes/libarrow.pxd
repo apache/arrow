@@ -1936,7 +1936,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int64_t num_replaced_dictionaries
 
     cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
-        pass
+        c_bool HasDictionary(int64_t id) const
 
     cdef cppclass CIpcPayload" arrow::ipc::IpcPayload":
         MessageType type
@@ -1990,6 +1990,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             const CIpcReadOptions& options)
 
         CIpcReadStats stats()
+        CDictionaryMemo* dictionary_memo()
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
@@ -2014,6 +2015,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CResult[int64_t] CountRows()
 
         CIpcReadStats stats()
+        CDictionaryMemo* dictionary_memo()
 
         shared_ptr[const CKeyValueMetadata] metadata()
 
@@ -2042,11 +2044,20 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CDictionaryMemo* dictionary_memo,
         const CIpcReadOptions& options)
 
+    CStatus ReadDictionary(const CMessage& message,
+                           CDictionaryMemo* dictionary_memo,
+                           const CIpcReadOptions& options)
+
     CResult[shared_ptr[CBuffer]] SerializeSchema(
         const CSchema& schema, CMemoryPool* pool)
 
     CResult[shared_ptr[CBuffer]] SerializeRecordBatch(
         const CRecordBatch& schema, const CIpcWriteOptions& options)
+
+    CResult[vector[shared_ptr[CBuffer]]] CollectAndSerializeDictionaries(
+        const CRecordBatch& batch,
+        CDictionaryMemo* dictionary_memo,
+        const CIpcWriteOptions& options)
 
     CResult[shared_ptr[CSchema]] ReadSchema(const CMessage& message,
                                             CDictionaryMemo* dictionary_memo)
