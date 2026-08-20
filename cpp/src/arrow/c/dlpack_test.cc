@@ -173,7 +173,9 @@ TYPED_TEST(TestExportArray, TestErrors) {
   const std::shared_ptr<Array> array_null = ArrayFromJSON(null(), "[]");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +
-                                 array_null->type()->ToString(),
+                                 array_null->type()->ToString() +
+                                 ", try converting to a Tensor for multi"
+                                 " dimensional data support",
                              TypeParam::Export(array_null));
 
   const std::shared_ptr<Array> array_with_null = ArrayFromJSON(int8(), "[1, 100, null]");
@@ -185,7 +187,9 @@ TYPED_TEST(TestExportArray, TestErrors) {
       ArrayFromJSON(utf8(), R"(["itsy", "bitsy", "spider"])");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +
-                                 array_string->type()->ToString(),
+                                 array_string->type()->ToString() +
+                                 ", try converting to a Tensor for multi"
+                                 " dimensional data support",
                              TypeParam::Export(array_string));
 
   const std::shared_ptr<Array> array_boolean = ArrayFromJSON(boolean(), "[true, false]");
