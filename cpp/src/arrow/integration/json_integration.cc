@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -33,6 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
@@ -125,44 +127,48 @@ Status IntegrationJsonWriter::WriteRecordBatch(const RecordBatch& batch) {
 class IntegrationJsonReader::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<Buffer>& data)
-      : pool_(pool), data_(data), record_batches_(nullptr) {}
+      : pool_(pool), data_(data) {}
 
   Status ParseAndReadSchema() {
-    doc_.Parse(reinterpret_cast<const rj::Document::Ch*>(data_->data()),
-               static_cast<size_t>(data_->size()));
-    if (doc_.HasParseError()) {
-      return Status::IOError("JSON parsing failed");
-    }
+    ARROW_ASSIGN_OR_RAISE(doc_,
+                          internal::ResolveSimdjsonResult(
+                              parser_.parse(reinterpret_cast<const char*>(data_->data()),
+                                            static_cast<size_t>(data_->size())),
+                              "Failed to parse JSON"));
 
     ARROW_ASSIGN_OR_RAISE(schema_, json::ReadSchema(doc_, pool_, &dictionary_memo_));
 
-    auto it = std::as_const(doc_).FindMember("batches");
-    RETURN_NOT_ARRAY("batches", it, doc_);
-    record_batches_ = &it->value;
+    ARROW_ASSIGN_OR_RAISE(record_batches_,
+                          internal::ResolveSimdjsonResult(doc_["batches"].get_array(),
+                                                          "Failed to get batches"));
 
     return Status::OK();
   }
 
   Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) {
-    if (i < 0 || i >= static_cast<int>(record_batches_->GetArray().Size())) {
+    if (i < 0 || i >= static_cast<int>(record_batches_.size())) {
       return Status::IndexError("record batch index ", i, " out of bounds");
     }
-    return json::ReadRecordBatch(record_batches_->GetArray()[i], schema_,
-                                 &dictionary_memo_, pool_);
+
+    ARROW_ASSIGN_OR_RAISE(auto batch,
+                          internal::ResolveSimdjsonResult(record_batches_.at(i),
+                                                          "Failed to get record batch"));
+
+    return json::ReadRecordBatch(batch, schema_, &dictionary_memo_, pool_);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  int num_record_batches() const {
-    return static_cast<int>(record_batches_->GetArray().Size());
-  }
+  int num_record_batches() const { return static_cast<int>(record_batches_.size()); }
 
  private:
   MemoryPool* pool_;
   std::shared_ptr<Buffer> data_;
-  rj::Document doc_;
 
-  const rj::Value* record_batches_;
+  simdjson::dom::parser parser_;
+  JsonValue doc_;
+  JsonArray record_batches_;
+
   std::shared_ptr<Schema> schema_;
   DictionaryMemo dictionary_memo_;
 };
