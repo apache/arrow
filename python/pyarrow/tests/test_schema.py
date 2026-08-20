@@ -23,7 +23,7 @@ import pytest
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
@@ -251,7 +251,7 @@ baz: list<item: int8>
   child 0, item: int8"""
 
     with pytest.raises(TypeError):
-        pa.schema([None])
+        pa.schema([None])  # type: ignore[list-item]
 
 
 def test_schema_weakref():
@@ -540,7 +540,7 @@ def test_schema_equals_invalid_type():
 
     for val in [None, 'string', pa.array([1, 2])]:
         with pytest.raises(TypeError):
-            schema.equals(val)
+            schema.equals(val)  # type: ignore[invalid-argument-type]
 
 
 def test_schema_equality_operators():
@@ -586,7 +586,7 @@ def test_schema_get_fields():
     with pytest.raises(KeyError):
         schema.field('other')
     with pytest.raises(TypeError):
-        schema.field(0.0)
+        schema.field(0.0)  # type: ignore[arg-type]
     with pytest.raises(IndexError):
         schema.field(4)
 
@@ -698,6 +698,7 @@ def test_empty_table():
         assert table.schema == schema
 
 
+@pytest.mark.numpy
 @pytest.mark.pandas
 def test_schema_from_pandas():
     import pandas as pd
@@ -774,7 +775,7 @@ def test_schema_merge():
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):
-        pa.unify_schemas([a, 1])
+        pa.unify_schemas([a, 1])  # type: ignore[list-item]
 
 
 def test_undecodable_metadata():

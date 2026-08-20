@@ -1108,7 +1108,7 @@ cdef class StructScalar(Scalar, Mapping):
 
         Parameters
         ----------
-        index : Union[int, str]
+        key : Union[int, str]
             Index / position or name of the field.
 
         Returns
