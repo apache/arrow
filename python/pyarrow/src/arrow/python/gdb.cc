@@ -203,6 +203,10 @@ void TestSession() {
   StringType string_type;
   LargeBinaryType large_binary_type;
   LargeStringType large_string_type;
+  BinaryViewType binary_view_type;
+  StringViewType string_view_type;
+  auto heap_binary_view_type = binary_view();
+  auto heap_string_view_type = utf8_view();
   FixedSizeBinaryType fixed_size_binary_type(10);
   auto heap_fixed_size_binary_type = fixed_size_binary(10);
 
@@ -366,6 +370,10 @@ void TestSession() {
 
   LargeBinaryScalar large_binary_scalar_abc{Buffer::FromString("abc")};
   LargeStringScalar large_string_scalar_hehe{Buffer::FromString("héhé")};
+  BinaryViewScalar binary_view_scalar_null{binary_view()};
+  BinaryViewScalar binary_view_scalar_abc{Buffer::FromString("abc")};
+  StringViewScalar string_view_scalar_null{utf8_view()};
+  StringViewScalar string_view_scalar_hehe{Buffer::FromString("héhé")};
 
   FixedSizeBinaryScalar fixed_size_binary_scalar{Buffer::FromString("abc"),
                                                  fixed_size_binary(3)};
@@ -522,6 +530,18 @@ void TestSession() {
   auto heap_string_array = BinaryArrayFromStrings<StringBuilder>(utf8(), string_values);
   auto heap_large_string_array =
       BinaryArrayFromStrings<LargeStringBuilder>(large_utf8(), string_values);
+  const std::vector<std::optional<std::string>> binary_view_values = {
+      std::nullopt, "abcd", std::string("\x00\x1f\xff", 3), "12345678901234567890"};
+  auto heap_binary_view_array =
+      BinaryArrayFromStrings<BinaryViewBuilder>(binary_view(), binary_view_values);
+  auto heap_binary_view_array_sliced = heap_binary_view_array->Slice(1, 2);
+
+  const std::vector<std::optional<std::string>> string_view_values = {
+      std::nullopt, "héhé", "invalid \xff char", "this string is longer than 12 bytes for view"};
+  auto heap_string_view_array =
+      BinaryArrayFromStrings<StringViewBuilder>(utf8_view(), string_view_values);
+  auto heap_string_view_array_sliced = heap_string_view_array->Slice(1, 2);
+
   auto heap_binary_array_sliced = heap_binary_array->Slice(1, 1);
 
   // ChunkedArray
