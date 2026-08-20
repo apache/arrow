@@ -59,6 +59,10 @@ struct ARROW_EXPORT ParseOptions {
   /// Whether empty lines are ignored.  If false, an empty line represents
   /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
+  /// Whether rows with fewer columns than expected are padded with nulls.
+  /// If the number of columns is unknown, it is inferred from the rows passed to the
+  /// parser. Rows with more columns than expected remain invalid.
+  bool pad_short_rows = false;
   /// A handler function for rows which do not have the correct number of columns
   InvalidRowHandler invalid_row_handler;
 

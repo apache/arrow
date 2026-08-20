@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/io/interfaces.h"
@@ -38,6 +39,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
 
@@ -616,6 +618,87 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
         "f2":"000045.6700"
       }])"});
   ASSERT_TRUE(table->Equals(*expected_table));
+}
+
+TEST(ReaderTests, ShortRows) {
+  auto input = std::make_shared<io::BufferReader>(
+      std::make_shared<Buffer>("a,b,c\n1,2\n3,,"));
+  auto read_options = ReadOptions::Defaults();
+  read_options.block_size = 8;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.pad_short_rows = true;
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.default_column_type = utf8();
+  convert_options.null_values.clear();
+  convert_options.strings_can_be_null = false;
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+
+  auto expected_schema =
+      schema({field("a", utf8()), field("b", utf8()), field("c", utf8())});
+  auto expected_table = TableFromJSON(expected_schema, {R"([{"a":"1", "b":"2", "c":null},
+            {"a":"3", "b":"",  "c":""}])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
+TEST(ReaderTests, ShortRowsTypedConverters) {
+  auto input =
+      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("1,10\n2\n"));
+  auto read_options = ReadOptions::Defaults();
+  read_options.autogenerate_column_names = true;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.pad_short_rows = true;
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.column_types["f0"] = int64();
+  convert_options.column_types["f1"] = dictionary(int32(), utf8());
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_TRUE(table->column(0)->chunk(0)->Equals(*ArrayFromJSON(int64(), "[1, 2]")));
+  const auto& dict_array =
+      internal::checked_cast<const DictionaryArray&>(*table->column(1)->chunk(0));
+  ASSERT_TRUE(dict_array.indices()->Equals(*ArrayFromJSON(int32(), "[0, null]")));
+  ASSERT_TRUE(dict_array.dictionary()->Equals(*ArrayFromJSON(utf8(), "[\"10\"]")));
+}
+
+TEST(ReaderTests, InferMaxColumns) {
+  auto input =
+      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("1\n2,3,4\n5,6\n"));
+  auto read_options = ReadOptions::Defaults();
+  read_options.autogenerate_column_names = true;
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.pad_short_rows = true;
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.default_column_type = int64();
+
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, StreamingReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->ToTable());
+
+  auto expected_schema =
+      schema({field("f0", int64()), field("f1", int64()), field("f2", int64())});
+  auto expected_table = TableFromJSON(expected_schema, {R"([
+    {"f0":1, "f1":null, "f2":null},
+    {"f0":2, "f1":3,    "f2":4},
+    {"f0":5, "f1":6,    "f2":null}
+  ])"});
+  ASSERT_TRUE(table->Equals(*expected_table));
+}
+
+TEST(ReaderTests, HeaderSetsNumColumns) {
+  auto input =
+      std::make_shared<io::BufferReader>(std::make_shared<Buffer>("a\n1,2,3\n"));
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.pad_short_rows = true;
+
+  ASSERT_RAISES(Invalid, StreamingReader::Make(io::default_io_context(), input,
+                                               ReadOptions::Defaults(), parse_options,
+                                               ConvertOptions::Defaults()));
 }
 
 }  // namespace csv

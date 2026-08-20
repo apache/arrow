@@ -602,8 +602,22 @@ class ReaderMixin {
     }
 
     if (read_options_.column_names.empty()) {
-      // Parse one row (either to read column names or to know the number of columns)
-      BlockParser parser(io_context_.pool(), parse_options_, /*num_cols=*/-1,
+      int32_t num_cols = -1;
+      if (parse_options_.pad_short_rows && read_options_.autogenerate_column_names) {
+        // This reader path infers the width from sampled complete rows in the first
+        // input block. Dataset CSV inspection has its own column-name inference path.
+        BlockParser parser(io_context_.pool(), parse_options_, /*num_cols=*/-1,
+                           /*first_row=*/num_rows_seen);
+        uint32_t parsed_size = 0;
+        RETURN_NOT_OK(parser.Parse(
+            std::string_view(reinterpret_cast<const char*>(data), data_end - data),
+            &parsed_size));
+        num_cols = parser.num_cols();
+      }
+
+      // Parse one row to read column names or to determine the width when it wasn't
+      // inferred from the sample.
+      BlockParser parser(io_context_.pool(), parse_options_, num_cols,
                          /*first_row=*/num_rows_seen, /*max_num_rows=*/1);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser.Parse(

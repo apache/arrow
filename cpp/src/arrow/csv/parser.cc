@@ -276,8 +276,8 @@ class BlockParserImpl {
     return MismatchingColumns(row);
   }
 
-  template <typename SpecializedOptions, bool UseBulkFilter, typename ValueDescWriter,
-            typename DataWriter, typename BulkFilter>
+  template <typename SpecializedOptions, bool InferNumCols, bool UseBulkFilter,
+            typename ValueDescWriter, typename DataWriter, typename BulkFilter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
                    const char** out_data, const BulkFilter& bulk_filter) {
@@ -430,9 +430,18 @@ class BlockParserImpl {
     // At the end of line
     FinishField();
     ++num_cols;
-    if (ARROW_PREDICT_FALSE(num_cols != batch_.num_cols_)) {
+    if constexpr (InferNumCols) {
+      batch_.num_cols_ = std::max(batch_.num_cols_, num_cols);
+    } else if (ARROW_PREDICT_FALSE(num_cols != batch_.num_cols_)) {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
+      } else if (options_.pad_short_rows && num_cols < batch_.num_cols_) {
+        batch_.missing_fields_.emplace_back(batch_.num_rows_, num_cols);
+        while (num_cols < batch_.num_cols_) {
+          values_writer->StartField(false /* quoted */);
+          FinishField();
+          ++num_cols;
+        }
       } else {
         return HandleInvalidRow(values_writer, parsed_writer, start, data, num_cols,
                                 out_data);
@@ -493,6 +502,52 @@ class BlockParserImpl {
     }
   }
 
+  class ColumnCountingDataWriter {
+   public:
+    void BeginLine() {}
+    void PushFieldChar(char) {}
+    template <typename Word>
+    void PushFieldWord(Word) {}
+    void RollbackLine() {}
+    int64_t size() const { return 0; }
+  };
+
+  class ColumnCountingValueDescWriter {
+   public:
+    void BeginLine() {}
+    void StartField(bool) {}
+    void FinishField(ColumnCountingDataWriter*) {}
+    void RollbackLine() {}
+  };
+
+  template <typename SpecializedOptions, typename BulkFilter>
+  Status InferNumCols(const std::vector<std::string_view>& views, bool is_final,
+                      const BulkFilter& bulk_filter) {
+    ColumnCountingValueDescWriter values_writer;
+    ColumnCountingDataWriter parsed_writer;
+    batch_ = DataBatch{-1};
+
+    for (const auto& view : views) {
+      const char* data = view.data();
+      const char* data_end = view.data() + view.length();
+      while (data < data_end && batch_.num_rows_ < max_num_rows_) {
+        const char* line_end = data;
+        RETURN_NOT_OK((ParseLine<SpecializedOptions,
+                                 /*InferNumCols=*/true, /*UseBulkFilter=*/false>(
+            &values_writer, &parsed_writer, data, data_end, is_final, &line_end,
+            bulk_filter)));
+        if (line_end == data) {
+          break;
+        }
+        data = line_end;
+      }
+    }
+    if (batch_.num_cols_ == -1) {
+      return ParseError("Empty CSV file or block: cannot infer number of columns");
+    }
+    return Status::OK();
+  }
+
   template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter,
             typename BulkFilter>
   Status ParseChunk(ValueDescWriter* values_writer, DataWriter* parsed_writer,
@@ -505,9 +560,10 @@ class BlockParserImpl {
     if (use_bulk_filter_) {
       while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
         const char* line_end = data;
-        RETURN_NOT_OK((ParseLine<SpecializedOptions, true>(values_writer, parsed_writer,
-                                                           data, data_end, is_final,
-                                                           &line_end, bulk_filter)));
+        RETURN_NOT_OK((ParseLine<SpecializedOptions,
+                                 /*InferNumCols=*/false, /*UseBulkFilter=*/true>(
+            values_writer, parsed_writer, data, data_end, is_final, &line_end,
+            bulk_filter)));
         RETURN_NOT_OK(values_writer->status());
         if (line_end == data) {
           // Cannot parse any further
@@ -519,9 +575,10 @@ class BlockParserImpl {
     } else {
       while (data < data_end && batch_.num_rows_ < num_rows_deadline) {
         const char* line_end = data;
-        RETURN_NOT_OK((ParseLine<SpecializedOptions, false>(values_writer, parsed_writer,
-                                                            data, data_end, is_final,
-                                                            &line_end, bulk_filter)));
+        RETURN_NOT_OK((ParseLine<SpecializedOptions,
+                                 /*InferNumCols=*/false, /*UseBulkFilter=*/false>(
+            values_writer, parsed_writer, data, data_end, is_final, &line_end,
+            bulk_filter)));
         RETURN_NOT_OK(values_writer->status());
         if (line_end == data) {
           // Cannot parse any further
@@ -557,6 +614,9 @@ class BlockParserImpl {
                           uint32_t* out_size) {
     internal::PreferredBulkFilterType<SpecializedOptions> bulk_filter(options_);
 
+    if (batch_.num_cols_ == -1 && options_.pad_short_rows) {
+      RETURN_NOT_OK(InferNumCols<SpecializedOptions>(views, is_final, bulk_filter));
+    }
     batch_ = DataBatch{batch_.num_cols_};
     values_size_ = 0;
 
