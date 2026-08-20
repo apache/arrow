@@ -146,6 +146,11 @@ class RecordBatchSerializer {
   Status VisitArray(const Array& arr) {
     static std::shared_ptr<Buffer> kNullBuffer = std::make_shared<Buffer>(nullptr, 0);
 
+    const Array* physical_arr = &arr;
+    if (arr.type_id() == Type::EXTENSION) {
+      physical_arr = checked_cast<const ExtensionArray&>(arr).storage().get();
+    }
+
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
@@ -154,7 +159,8 @@ class RecordBatchSerializer {
       return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
-    if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+    if (physical_arr->offset() != 0 &&
+        physical_arr->device_type() != DeviceAllocationType::kCPU) {
       // https://github.com/apache/arrow/issues/43029
       return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
     }
@@ -164,10 +170,11 @@ class RecordBatchSerializer {
 
     // In V4, null types have no validity bitmap
     // In V5 and later, null and union types have no validity bitmap
-    if (internal::HasValidityBitmap(arr.type_id(), options_.metadata_version)) {
+    if (internal::HasValidityBitmap(physical_arr->type_id(), options_.metadata_version)) {
       if (arr.null_count() > 0) {
         std::shared_ptr<Buffer> bitmap;
-        RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
+        RETURN_NOT_OK(GetTruncatedBitmap(physical_arr->offset(), physical_arr->length(),
+                                         physical_arr->null_bitmap(),
                                          options_.memory_pool, &bitmap));
         out_->body_buffers.emplace_back(std::move(bitmap));
       } else {
@@ -175,7 +182,7 @@ class RecordBatchSerializer {
         out_->body_buffers.emplace_back(kNullBuffer);
       }
     }
-    return VisitType(arr);
+    return VisitType(*physical_arr);
   }
 
   // Override this for writing dictionary metadata
