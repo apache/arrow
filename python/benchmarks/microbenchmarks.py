@@ -22,7 +22,8 @@ from . import common
 
 class PandasObjectIsNull(object):
     size = 10 ** 5
-    types = ('int', 'float', 'object', 'decimal')
+    types = ('int', 'float', 'object', 'decimal',
+             'date32', 'timestamp', 'time64', 'duration')
 
     param_names = ['type']
     params = [types]
@@ -37,6 +38,14 @@ class PandasObjectIsNull(object):
             lst = gen.generate_object_list(self.size)
         elif type_name == 'decimal':
             lst = gen.generate_decimal_list(self.size)
+        elif type_name == 'date32':
+            lst = gen.generate_date_list(self.size)
+        elif type_name == 'timestamp':
+            lst = gen.generate_timestamp_list(self.size)
+        elif type_name == 'time64':
+            lst = gen.generate_time_list(self.size)
+        elif type_name == 'duration':
+            lst = gen.generate_duration_list(self.size)
         else:
             assert 0
         self.lst = lst
