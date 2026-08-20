@@ -24,9 +24,7 @@ set -euo pipefail
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR="$CWD/../src"
-#PYTHON_SOURCE_DIR="$CWD/../../python" # Unused ShellCheck (SC2034)
 FORMAT_DIR="$CWD/../../format"
-#TOP="$FORMAT_DIR/.." # Unused ShellCheck (SC2034)
 FLATC="flatc --cpp --cpp-std c++11 --scoped-enums"
 
 OUT_DIR="$SOURCE_DIR/generated"
