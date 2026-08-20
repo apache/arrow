@@ -455,10 +455,14 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
     // updated writer with logical type present
     auto physical_type = LoadEnumSafe(&element->type);
     auto logical_type = LogicalType::FromThrift(element->logicalType);
-    // Tolerate unrecognized logical/physical type combinations by dropping the logical type
-    // annotation.
-    if (logical_type && !logical_type->is_nested() &&
+    // Tolerate unrecognized logical/physical type combinations by dropping the logical
+    // type annotation.
+    if (logical_type &&
         !logical_type->is_applicable(physical_type, element->type_length)) {
+      ARROW_LOG(WARNING) << "Dropping unsupported logical type "
+                         << logical_type->ToString() << " on physical type "
+                         << TypeToString(physical_type) << " for column '"
+                         << element->name << "'";
       logical_type = UndefinedLogicalType::Make();
     }
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(

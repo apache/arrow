@@ -2173,8 +2173,8 @@ TEST(TestFromParquetSchema, UndefinedLogicalType) {
 }
 
 TEST(TestFromParquetSchema, IncompatibleLogicalTypeDropped) {
-  // A file with INT32 annotated as UUID. The reader should succeed and ignore the logical type
-  // and stats.
+  // A file with INT32 annotated as UUID. The reader should succeed and ignore the logical
+  // type and stats.
   auto path = test::get_data_file("int32_with_uuid_logical_type.parquet");
   std::unique_ptr<parquet::ParquetFileReader> reader =
       parquet::ParquetFileReader::OpenFile(path);
