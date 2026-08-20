@@ -20,7 +20,6 @@
 #include <array>
 #include <memory>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -71,13 +70,13 @@ struct ExportBufferParams {
   std::shared_ptr<Buffer> buffer = nullptr;
   /// Data offset in the buffer in bytes.
   int64_t buffer_offset = 0;
-  /// Total number of bytes to read in the buffer.
-  int64_t buffer_size = 0;
-  int32_t ndim = 0;
-  Vec strides = {};
-  Vec shape = {};
-  DLDevice device = {};
-  DLDataType dtype = {};
+  /// Total number of values, i.e. the product of the shape.
+  int64_t size;
+  int32_t ndim;
+  Vec strides;
+  Vec shape;
+  DLDevice device;
+  DLDataType dtype;
   uint64_t flags = 0;
 };
 
@@ -94,7 +93,7 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
-  if (p.buffer_size == 0) {
+  if (p.size == 0) {
     ctx->tensor.dl_tensor.data = nullptr;
   } else {
     ctx->tensor.dl_tensor.data =
@@ -122,41 +121,37 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
 
 template <typename DT>
 Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
-
-  using Vec = std::array<int64_t, 1>;
-
-  const auto* data = arr->data().get();  // lifetime of data is bound by arr
-  const auto& type = *arr->type();
-  auto params = ExportBufferParams<Vec>{
-      .buffer_offset = data->offset,
-      .buffer_size = data->length,
-      .ndim = 1,
-      .strides = {1},
-      .shape = {data->length},
-      .device = device,
-  };
-  if (data->GetNullCount() > 0) {
+  if (arr->null_count() > 0) {
     return Status::TypeError("Can only use DLPack on arrays with no nulls.");
   }
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
 
-  // Get the DLDataType struct of the type, or fail if it is not supported.
-  ARROW_ASSIGN_OR_RAISE(params.dtype, GetDLDataType(type));
-  // Use byte domain indexing.
-  params.buffer_offset *= type.byte_width();
-  params.buffer_size *= type.byte_width();
+  // Define the DLDataType struct, or fail if the type is not supported.
+  const auto& type = *arr->type();
+  ARROW_ASSIGN_OR_RAISE(auto dtype, GetDLDataType(type));
 
+  auto params = ExportBufferParams<std::array<int64_t, 1>>{
+      .size = arr->length(),
+      .ndim = 1,
+      .strides = {1},
+      .shape = {arr->length()},
+      .device = device,
+      .dtype = dtype,
+  };
+
+  const auto& data = *arr->data();
   if (copy) {
     // We copy the buffer slice instead of using Array copy functions to avoid copying
     // unused values outside of offset/length (e.g. with Slice).
-    const auto start = std::exchange(params.buffer_offset, 0);
-    const auto nbytes = params.buffer_size;
-    ARROW_ASSIGN_OR_RAISE(params.buffer, data->buffers[1]->CopySlice(start, nbytes));
+    const auto start = data.offset * type.byte_width();
+    const auto nbytes = data.length * type.byte_width();
+    ARROW_ASSIGN_OR_RAISE(params.buffer, data.buffers[1]->CopySlice(start, nbytes));
     // Since we make a copy only for the consumer, we do not need to mark it readonly.
     params.flags = DLPACK_FLAG_BITMASK_IS_COPIED;
   } else {
     // Shared buffer with Arrow Array. Arrays are readonly once constructed.
-    params.buffer = data->buffers[1];
+    params.buffer = data.buffers[1];
+    params.buffer_offset = data.offset * type.byte_width();
     params.flags = DLPACK_FLAG_BITMASK_READ_ONLY;
   }
 
@@ -191,14 +186,6 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
 
 namespace {
 
-template <typename T>
-std::vector<T> StridesInElements(std::vector<T> strides, T byte_width) {
-  for (auto& s : strides) {
-    s /= byte_width;
-  }
-  return strides;
-}
-
 template <typename DT>
 Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
   // Define DLDevice struct
@@ -208,10 +195,18 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
   const auto& type = *t->type();
   ARROW_ASSIGN_OR_RAISE(auto dtype, GetDLDataType(type));
 
+  // Compute strides
+  std::vector<int64_t> strides = {};
+  strides.reserve(t->ndim());
+  const auto byte_width = type.byte_width();
+  for (auto i : t->strides()) {
+    strides.emplace_back(i / byte_width);
+  }
+
   auto params = ExportBufferParams<std::vector<int64_t>>{
-      .buffer_size = t->size(),
+      .size = t->size(),
       .ndim = t->ndim(),
-      .strides = StridesInElements<int64_t>(t->strides(), type.byte_width()),
+      .strides = std::move(strides),
       .shape = t->shape(),
       .device = device,
       .dtype = dtype,
