@@ -564,6 +564,7 @@ arrow_lib = library(
 arrow_dep = declare_dependency(
     include_directories: [include_dir],
     link_with: arrow_lib,
+    dependencies: arrow_deps,
 )
 meson.override_dependency('arrow', arrow_dep)
 
