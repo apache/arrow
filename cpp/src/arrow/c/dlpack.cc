@@ -17,6 +17,7 @@
 
 #include "arrow/c/dlpack.h"
 
+#include <array>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -29,14 +30,12 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/small_vector.h"
 
 namespace arrow::dlpack {
 
 namespace {
 
-Result<DLDataType> GetLeafDLDataType(const DataType& type) {
+Result<DLDataType> GetDLDataType(const DataType& type) {
   auto dtype = DLDataType{};
   dtype.lanes = 1;
   dtype.bits = type.bit_width();
@@ -124,14 +123,15 @@ template <typename DT>
 Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
 
-  using Vec = internal::SmallVector<int64_t, 2>;
+  using Vec = std::array<int64_t, 1>;
 
   const auto* data = arr->data().get();  // lifetime of data is bound by arr
-  const auto* type = arr->type().get();  // lifetime of data is bound by arr
+  const auto& type = *arr->type();
   auto params = ExportBufferParams<Vec>{
       .buffer_offset = data->offset,
       .buffer_size = data->length,
       .ndim = 1,
+      .strides = {1},
       .shape = {data->length},
       .device = device,
   };
@@ -139,31 +139,11 @@ Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
     return Status::TypeError("Can only use DLPack on arrays with no nulls.");
   }
 
-  // Iterate over nested fixed length container types.
-  // Each nested container increase the DLPack tensor dimension.
-  // Nulls are not supported by DLPack, at any nesting level.
-  while (type->id() == Type::FIXED_SIZE_LIST) {
-    const auto* fsl = internal::checked_cast<const FixedSizeListType*>(type);
-    type = fsl->value_type().get();
-    data = data->child_data.front().get();
-    if (data->GetNullCount() > 0) {
-      return Status::TypeError("Can only use DLPack on arrays with no nulls.");
-    }
-
-    params.ndim++;
-    params.buffer_offset = params.buffer_offset * fsl->list_size() + data->offset;
-    params.buffer_size *= fsl->list_size();
-    params.shape.push_back(fsl->list_size());
-  }
-
-  // Get the DLDataType struct of the type leaf, or fail if it is not supported.
-  ARROW_ASSIGN_OR_RAISE(params.dtype, GetLeafDLDataType(*type));
+  // Get the DLDataType struct of the type, or fail if it is not supported.
+  ARROW_ASSIGN_OR_RAISE(params.dtype, GetDLDataType(type));
   // Use byte domain indexing.
-  params.buffer_offset *= type->byte_width();
-  params.buffer_size *= type->byte_width();
-  // Compute strides as row major.
-  params.strides.resize(params.shape.size());
-  RETURN_NOT_OK(internal::ComputeRowMajorStrides(params.shape, 1, params.strides));
+  params.buffer_offset *= type.byte_width();
+  params.buffer_size *= type.byte_width();
 
   if (copy) {
     // We copy the buffer slice instead of using Array copy functions to avoid copying
@@ -225,7 +205,7 @@ Result<DT*> ExportTensorImpl(const std::shared_ptr<Tensor>& t, bool copy) {
 
   // Define the DLDataType struct
   const auto& type = *t->type();
-  ARROW_ASSIGN_OR_RAISE(auto dtype, GetLeafDLDataType(type));
+  ARROW_ASSIGN_OR_RAISE(auto dtype, GetDLDataType(type));
 
   auto params = ExportBufferParams<std::vector<int64_t>>{
       .buffer_size = t->size(),
