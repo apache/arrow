@@ -1559,6 +1559,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
           "the number of values in a miniblock must be multiple of 32, but it's " +
           std::to_string(values_per_mini_block_));
     }
+    if (ARROW_PREDICT_FALSE(mini_blocks_per_block_ > decoder_->bytes_left())) {
+      throw ParquetException("mini_blocks_per_block_ is larger than available buffer size");
+    }
 
     total_values_remaining_ = total_value_count_;
     if (delta_bit_widths_ == nullptr) {
@@ -1790,6 +1793,11 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
 
     // get the number of encoded lengths
     int num_length = len_decoder_.ValidValuesCount();
+    int32_t bytes_left = decoder_->bytes_left();
+    if (ARROW_PREDICT_FALSE(num_length < 0 || bytes_left < 0 ||
+                            num_length > static_cast<int64_t>(bytes_left) * 10000)) {
+      throw ParquetException("Excessive num_length in DeltaLengthByteArrayDecoder");
+    }
     PARQUET_THROW_NOT_OK(buffered_length_->Resize(num_length * sizeof(int32_t)));
 
     // call len_decoder_.Decode to decode all the lengths.
@@ -1996,6 +2004,11 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
 
     // get the number of encoded prefix lengths
     int num_prefix = prefix_len_decoder_.ValidValuesCount();
+    int32_t bytes_left = decoder_->bytes_left();
+    if (ARROW_PREDICT_FALSE(num_prefix < 0 || bytes_left < 0 ||
+                            num_prefix > static_cast<int64_t>(bytes_left) * 10000)) {
+      throw ParquetException("Excessive num_prefix in DeltaByteArrayDecoder");
+    }
     // call prefix_len_decoder_.Decode to decode all the prefix lengths.
     // all the prefix lengths are buffered in buffered_prefix_length_.
     PARQUET_THROW_NOT_OK(buffered_prefix_length_->Resize(num_prefix * sizeof(int32_t)));
