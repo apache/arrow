@@ -168,7 +168,13 @@ def test_array_to_tensor_dlpack(arr, expected):
                     "strict keyword in assert_array_equal added in numpy version "
                     "1.24.0")
 
-    check_dlpack_export(arr.to_tensor(), expected)
+    tensor = arr.to_tensor()
+    # A Tensor sharing an Array buffer is immutable, so it can only be exported
+    # through the versioned DLPack protocol.
+    assert not tensor.is_mutable
+    result = np.from_dlpack(DLPackForwarder(tensor, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+    assert tensor.__dlpack_device__() == (1, 0)
 
 
 def dlpack_objects():
