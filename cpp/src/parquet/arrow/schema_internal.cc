@@ -209,6 +209,11 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(
 
       return ::arrow::fixed_size_binary(physical_length);
     case LogicalType::Type::TIMESTAMP:
+      // If configured, convert to a potentially lossy Arrow timestamp. Otherwise, return
+      // the raw lossless FLBA value.
+      if (physical_length == 12 && reader_properties.convert_flba_timestamps()) {
+        return MakeArrowTimestamp(logical_type);
+      }
       return ::arrow::fixed_size_binary(physical_length);
     default:
       return Status::NotImplemented("Unhandled logical_type ", logical_type.ToString(),
