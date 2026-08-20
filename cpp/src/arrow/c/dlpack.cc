@@ -49,8 +49,9 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
     // DLPack supports byte-packed boolean values
     return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
   } else {
-    return Status::TypeError("DataType is not compatible with DLPack spec: ",
-                             type.ToString());
+    return Status::TypeError(
+        "DataType is not compatible with DLPack spec: ", type.ToString(),
+        ", try converting to a Tensor for multi dimensional data support");
   }
   return {dtype};
 }
