@@ -4842,15 +4842,12 @@ cdef class ExtensionArray(Array):
         -------
         ext_array : ExtensionArray
         """
-        cdef:
-            shared_ptr[CExtensionArray] ext_array
-
         if storage.type != typ.storage_type:
             raise TypeError(f"Incompatible storage type {storage.type} "
                             f"for extension type {typ}")
 
-        ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
-        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        cdef Array result = pyarrow_wrap_array(
+            typ.ext_type.WrapArray(typ.sp_type, storage.sp_array))
         result.validate()
         return result
 
