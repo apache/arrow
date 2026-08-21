@@ -268,12 +268,16 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
     int64_t out_indptr_length = 0;
     int64_t out_indices_length = 0;
     for (int i = 0; i < ndim - 1; ++i) {
-      out_indptr_length += bit_util::RoundUpToMultipleOf8(
-          index_elem_size * resulted_sparse_index.indptr()[i]->size());
+      const auto& indptr = resulted_sparse_index.indptr()[i];
+      ASSERT_EQ(index_elem_size * indptr->size(), indptr->data()->size());
+      out_indptr_length +=
+          bit_util::RoundUpToMultipleOf8(index_elem_size * indptr->size());
     }
     for (int i = 0; i < ndim; ++i) {
-      out_indices_length += bit_util::RoundUpToMultipleOf8(
-          index_elem_size * resulted_sparse_index.indices()[i]->size());
+      const auto& indices = resulted_sparse_index.indices()[i];
+      ASSERT_EQ(index_elem_size * indices->size(), indices->data()->size());
+      out_indices_length +=
+          bit_util::RoundUpToMultipleOf8(index_elem_size * indices->size());
     }
 
     ASSERT_EQ(out_indptr_length, indptr_length);
@@ -587,6 +591,18 @@ TEST(TestSparseCSFIndex, RejectInconsistentBufferCounts) {
                                           /*num_indices_buffers=*/2,
                                           /*axis_order_size=*/3));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+}
+
+TEST(TestSparseCSFIndex, RejectInvalidAxisOrder) {
+  // MakeCSFSparseTensorMessage initializes axisOrder to all zeroes, which is not a
+  // permutation for a two-dimensional tensor.
+  ASSERT_OK_AND_ASSIGN(auto message, MakeCSFSparseTensorMessage(/*shape=*/{4, 4},
+                                                                /*num_indptr_buffers=*/1,
+                                                                /*num_indices_buffers=*/2,
+                                                                /*axis_order_size=*/2));
+  ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
+  ASSERT_RAISES(Invalid,
+                internal::ReadSparseTensorPayload(MakeSparseTensorPayload(message, 4)));
 }
 
 TEST(TestSparseCSFIndex, RejectInconsistentPayloadBufferCounts) {
