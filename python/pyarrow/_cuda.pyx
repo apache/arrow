@@ -16,11 +16,41 @@
 # under the License.
 
 
+import ctypes
+
+from pyarrow.vendored.version import Version
+
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *
 from pyarrow.lib import allocate_buffer, as_buffer, ArrowTypeError
 from pyarrow.util import get_contiguous_span
 cimport cpython as cp
+
+
+_NUMBA_CUDA_NATIVE_CONTEXT_VERSION = Version("0.28")
+
+
+def _numba_context_handle_value(handle):
+    """Return the integer value of a legacy or native Numba context handle."""
+    if hasattr(handle, "value"):
+        return handle.value
+    return int(handle)
+
+
+def _make_numba_context_handle(uintptr_t handle):
+    """Create the context handle representation expected by Numba."""
+    import numba.cuda
+
+    # numba-cuda 0.28 replaced ctypes context handles with CUContext type.
+    if getattr(numba.cuda, "implementation", None) == "NVIDIA":
+        import numba_cuda
+
+        version = Version(numba_cuda.__version__)
+        if version >= _NUMBA_CUDA_NATIVE_CONTEXT_VERSION:
+            from cuda.bindings.driver import CUcontext
+            return CUcontext(handle)
+
+    return ctypes.c_void_p(handle)
 
 
 cdef class Context(_Weakrefable):
@@ -81,7 +111,7 @@ cdef class Context(_Weakrefable):
             import numba.cuda
             context = numba.cuda.current_context()
         return Context(device_number=context.device.id,
-                       handle=context.handle.value)
+                       handle=_numba_context_handle_value(context.handle))
 
     def to_numba(self):
         """
@@ -92,10 +122,9 @@ cdef class Context(_Weakrefable):
         context : numba.cuda.cudadrv.driver.Context
           Numba CUDA context instance.
         """
-        import ctypes
         import numba.cuda
         device = numba.cuda.gpus[self.device_number]
-        handle = ctypes.c_void_p(self.handle)
+        handle = _make_numba_context_handle(self.handle)
         context = numba.cuda.cudadrv.driver.Context(device, handle)
 
         class DummyPendingDeallocs(object):

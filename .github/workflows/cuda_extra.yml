@@ -90,10 +90,6 @@ jobs:
             ubuntu: 24.04
             image: ubuntu-cuda-python
             title: AMD64 Ubuntu 24 CUDA 12.9.0 Python
-          - cuda: 11.7.1
-            ubuntu: 22.04
-            image: ubuntu-cuda-python
-            title: AMD64 Ubuntu 22 CUDA 11.7.1 Python
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
