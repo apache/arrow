@@ -203,6 +203,27 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
           arrow::internal::UnpackOptions{static_cast<int>(num_elements),
                                          info.bit_width()});
     } else {
+      // TODO: hand the frame of reference to the unpacker as a bias instead of
+      // adding it in a second pass over the output. The add is modular in
+      // UnsignedT, which is the same width as T, so the bits the unpacker
+      // stores are already the signed values: no scratch buffer, no second
+      // traversal, and no aliasing question to argue with the vectorizer about.
+      // Measured 1.45x on the six benchmark columns with a non-zero reference
+      // (paired A/B, median per group). What is paid for is the traversal, not
+      // the arithmetic -- a second pass that only copies costs the same as one
+      // that adds, and keeping the scratch L1-resident does not recover it.
+      //
+      // Done on branch pfor-encodingWithFastLanes as "Add a bias parameter to
+      // arrow::internal::unpack" plus "PFOR: drop the second output pass from
+      // three decode/encode paths"; backport both. Note the trap that follows:
+      // unpack_full is a memcpy when there is no bias and has to become a loop
+      // when there is one, and that loop only reaches memcpy speed with a
+      // constant-size std::memcpy for the load (not SafeLoadAs) and
+      // __restrict__ on both pointers, because `in` is a uint8_t* that may
+      // alias anything. Without both it is 10.8x slower than the memcpy, far
+      // worse than the pass this removes -- see "Keep unpack_full at memcpy
+      // speed when it carries a bias" on that branch.
+      //
       // Unpack into a scratch buffer that does NOT alias `values`, then add
       // FOR. Unpacking in place (aliasing the output as the unsigned scratch)
       // stops the compiler from vectorizing the FOR-add loop — it can't prove
