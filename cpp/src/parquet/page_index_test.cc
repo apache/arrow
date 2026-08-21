@@ -18,10 +18,13 @@
 #include "parquet/page_index.h"
 
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <cstdint>
 #include <memory>
 
 #include "arrow/io/file.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/ubsan.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
@@ -507,6 +510,9 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
                                int16_t max_repetition_level = 0,
                                const std::vector<PageLevelHistogram>& page_levels = {}) {
   const bool build_size_stats = !page_levels.empty();
+  const bool has_nan_counts = std::all_of(
+      page_stats.begin(), page_stats.end(),
+      [](const EncodedStatistics& stats) { return stats.nan_count.has_value(); });
   if (build_size_stats) {
     ASSERT_EQ(page_levels.size(), page_stats.size());
   }
@@ -536,6 +542,7 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   for (const auto& column_index : column_indexes) {
     ASSERT_EQ(boundary_order, column_index->boundary_order());
     ASSERT_EQ(has_null_counts, column_index->has_null_counts());
+    ASSERT_EQ(has_nan_counts, column_index->has_nan_counts());
     const size_t num_pages = column_index->null_pages().size();
     if (build_size_stats) {
       ASSERT_EQ(num_pages * (max_repetition_level + 1),
@@ -550,6 +557,9 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
       ASSERT_EQ(page_stats[i].max(), column_index->encoded_max_values()[i]);
       if (has_null_counts) {
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
+      }
+      if (has_nan_counts) {
+        ASSERT_EQ(*page_stats[i].nan_count, column_index->nan_counts()[i]);
       }
       if (build_size_stats) {
         ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(
@@ -666,6 +676,34 @@ TEST(PageIndex, WriteFloat16ColumnIndex) {
       "c1", Repetition::OPTIONAL, LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY,
       /*length=*/2);
   TestWriteTypedColumnIndex(std::move(node), page_stats, BoundaryOrder::Ascending,
+                            /*has_null_counts=*/false);
+}
+
+TEST(PageIndex, WriteFloatTotalOrder) {
+  auto encode = [](uint32_t bits) {
+    const auto value = ::arrow::util::SafeCopy<float>(bits);
+    return std::string(reinterpret_cast<const char*>(&value), sizeof(value));
+  };
+
+  std::vector<EncodedStatistics> page_stats(2);
+  // IEEE 754 encodings:
+  // page 0: [-1.0f, +1.0f], with no NaNs.
+  // page 1: [-qNaN(payload=1), +qNaN(payload=1)], all NaNs.
+  page_stats[0].set_min(encode(0xbf800000)).set_max(encode(0x3f800000));
+  page_stats[0].set_nan_count(0);
+  page_stats[1].set_min(encode(0xffc00001)).set_max(encode(0x7fc00001));
+  page_stats[1].set_nan_count(2);
+
+  auto node = schema::Float("c1");
+  std::static_pointer_cast<schema::PrimitiveNode>(node)->SetColumnOrder(
+      ColumnOrder::ieee_754_total_order_);
+  TestWriteTypedColumnIndex(node, page_stats, BoundaryOrder::Unordered,
+                            /*has_null_counts=*/false);
+
+  page_stats[1].nan_count.reset();
+  std::static_pointer_cast<schema::PrimitiveNode>(node)->SetColumnOrder(
+      ColumnOrder::ieee_754_total_order_);
+  TestWriteTypedColumnIndex(std::move(node), page_stats, BoundaryOrder::Unordered,
                             /*has_null_counts=*/false);
 }
 

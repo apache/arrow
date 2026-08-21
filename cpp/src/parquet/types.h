@@ -604,6 +604,8 @@ class PARQUET_EXPORT ColumnOrder {
     UNDEFINED,
     // File metadata uses TypeDefinedOrder from the Parquet format.
     TYPE_DEFINED_ORDER,
+    // File metadata uses IEEE754TotalOrder from the Parquet format.
+    IEEE_754_TOTAL_ORDER,
     // Column order value unsupported by this reader.
     UNKNOWN
   };
@@ -614,6 +616,7 @@ class PARQUET_EXPORT ColumnOrder {
 
   static ColumnOrder undefined_;
   static ColumnOrder type_defined_;
+  static ColumnOrder ieee_754_total_order_;
   static ColumnOrder unknown_;
 
  private:

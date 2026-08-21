@@ -23,9 +23,11 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
+#include "generated/parquet_types.h"
 #include "parquet/bloom_filter_writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -34,6 +36,7 @@
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/schema_internal.h"
 
 using arrow::MemoryPool;
 
@@ -335,15 +338,46 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 // An implementation of ParquetFileWriter::Contents that deals with the Parquet
 // file structure, Thrift serialization, and other internal matters
 
+namespace {
+
+std::shared_ptr<GroupNode> MakeWriterSchema(const GroupNode& input_schema,
+                                            const WriterProperties& properties) {
+  std::vector<format::SchemaElement> elements;
+  schema::ToParquet(&input_schema, &elements);
+  for (auto& element : elements) {
+    if (element.__isset.type && !element.__isset.type_length) {
+      // Unflatten reads the in-memory value even though non-FLBA schemas omit it.
+      element.type_length = -1;
+    }
+  }
+  auto root = schema::Unflatten(elements.data(), static_cast<int>(elements.size()));
+  auto writer_schema = std::shared_ptr<GroupNode>(
+      ::arrow::internal::checked_pointer_cast<GroupNode>(std::move(root)));
+
+  SchemaDescriptor descr;
+  descr.Init(writer_schema);
+  std::vector<ColumnOrder> column_orders(descr.num_columns(), ColumnOrder::type_defined_);
+  for (int column_index = 0; column_index < descr.num_columns(); ++column_index) {
+    if (schema::IsFloatingPointType(*descr.Column(column_index))) {
+      column_orders[column_index] = ColumnOrder(properties.floating_point_column_order());
+    }
+  }
+  descr.updateColumnOrders(column_orders);
+  return writer_schema;
+}
+
+}  // namespace
+
 class FileSerializer : public ParquetFileWriter::Contents {
  public:
   static std::unique_ptr<ParquetFileWriter::Contents> Open(
       std::shared_ptr<ArrowOutputStream> sink, std::shared_ptr<GroupNode> schema,
       std::shared_ptr<WriterProperties> properties,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+    auto writer_schema = MakeWriterSchema(*schema, *properties);
     std::unique_ptr<ParquetFileWriter::Contents> result(
-        new FileSerializer(std::move(sink), std::move(schema), std::move(properties),
-                           std::move(key_value_metadata)));
+        new FileSerializer(std::move(sink), std::move(writer_schema),
+                           std::move(properties), std::move(key_value_metadata)));
 
     return result;
   }

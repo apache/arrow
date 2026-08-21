@@ -452,6 +452,8 @@ SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& logical_t
 
 ColumnOrder ColumnOrder::undefined_ = ColumnOrder(ColumnOrder::UNDEFINED);
 ColumnOrder ColumnOrder::type_defined_ = ColumnOrder(ColumnOrder::TYPE_DEFINED_ORDER);
+ColumnOrder ColumnOrder::ieee_754_total_order_ =
+    ColumnOrder(ColumnOrder::IEEE_754_TOTAL_ORDER);
 ColumnOrder ColumnOrder::unknown_ = ColumnOrder(ColumnOrder::UNKNOWN);
 
 // Static methods for LogicalType class

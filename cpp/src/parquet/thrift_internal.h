@@ -271,6 +271,8 @@ static inline StatisticsMinMaxField GetStatisticsMinMaxField(
       return descr.sort_order() != SortOrder::UNKNOWN
                  ? StatisticsMinMaxField::kMinValueMaxValue
                  : StatisticsMinMaxField::kInvalid;
+    case ColumnOrder::IEEE_754_TOTAL_ORDER:
+      return StatisticsMinMaxField::kMinValueMaxValue;
     case ColumnOrder::UNDEFINED:
       return descr.sort_order() == SortOrder::SIGNED
                  ? StatisticsMinMaxField::kLegacyMinMax
@@ -311,6 +313,9 @@ static inline EncodedStatistics FromThrift(const format::Statistics& stats,
   }
   if (stats.__isset.distinct_count) {
     out.set_distinct_count(stats.distinct_count);
+  }
+  if (stats.__isset.nan_count) {
+    out.set_nan_count(stats.nan_count);
   }
 
   return out;
@@ -522,6 +527,9 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   }
   if (stats.has_distinct_count) {
     statistics.__set_distinct_count(stats.distinct_count);
+  }
+  if (stats.nan_count.has_value()) {
+    statistics.__set_nan_count(*stats.nan_count);
   }
 
   return statistics;
