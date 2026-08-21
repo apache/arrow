@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <type_traits>
@@ -41,6 +42,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/extension/json.h"
+#include "arrow/extension/parquet_file.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -6077,6 +6079,168 @@ TEST(TestArrowReadWrite, AllNulls) {
   auto expected_table = ::arrow::Table::Make(
       schema, {::arrow::ArrayFromJSON(::arrow::int8(), R"([null, null, null])")});
   ASSERT_TRUE(expected_table->Equals(*read_table));
+}
+
+class TestArrowReadWriteFileType : public ::testing::Test {
+ protected:
+  std::shared_ptr<::arrow::Array> MakeSelfReferenceStorage(int64_t offset,
+                                                           int64_t size) const {
+    return ::arrow::ArrayFromJSON(
+        self_reference_type_, "[{\"offset\":" + std::to_string(offset) + ",\"size\":" +
+                                  std::to_string(size) + ",\"inline\":null}]");
+  }
+
+  static ::arrow::Result<std::pair<int64_t, int64_t>> WritePayload(
+      const std::shared_ptr<::arrow::io::OutputStream>& sink,
+      const std::string& payload) {
+    ARROW_ASSIGN_OR_RAISE(auto offset, sink->Tell());
+    RETURN_NOT_OK(
+        sink->Write(reinterpret_cast<const uint8_t*>(payload.data()), payload.size()));
+    return std::make_pair(offset, static_cast<int64_t>(payload.size()));
+  }
+
+  ::arrow::Result<std::unique_ptr<FileReader>> OpenReader(
+      const std::shared_ptr<::arrow::Buffer>& buffer,
+      const std::shared_ptr<::arrow::DataType>& file_type) {
+    extension_guard_.emplace(::arrow::DataTypeVector{file_type});
+    ArrowReaderProperties reader_properties;
+    reader_properties.set_arrow_extensions_enabled(true);
+    std::unique_ptr<FileReader> reader;
+    FileReaderBuilder builder;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    RETURN_NOT_OK(builder.properties(reader_properties)->Build(&reader));
+    return reader;
+  }
+
+  const std::shared_ptr<::arrow::DataType> self_reference_type_ =
+      ::arrow::struct_({::arrow::field("offset", ::arrow::int64()),
+                        ::arrow::field("size", ::arrow::int64()),
+                        ::arrow::field("inline", ::arrow::binary())});
+
+ private:
+  std::optional<::arrow::ExtensionTypeGuard> extension_guard_;
+};
+
+TEST_F(TestArrowReadWriteFileType, FileExtensionRoundtrip) {
+  auto storage_type = ::arrow::struct_({::arrow::field("uri", ::arrow::utf8()),
+                                        ::arrow::field("offset", ::arrow::int64()),
+                                        ::arrow::field("inline", ::arrow::binary())});
+  auto file_type = ::arrow::extension::file(storage_type);
+  auto storage_array = ::arrow::ArrayFromJSON(
+      storage_type, R"([{"uri":"u","offset":1,"inline":"x"},null])");
+  auto file_array = ::arrow::ExtensionType::WrapArray(file_type, storage_array);
+  auto input =
+      ::arrow::Table::Make(::arrow::schema({::arrow::field("file", file_type)}),
+                           {std::make_shared<::arrow::ChunkedArray>(file_array)});
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK(WriteTable(*input, ::arrow::default_memory_pool(), sink, input->num_rows()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(buffer, file_type));
+
+  ASSERT_OK_AND_ASSIGN(auto full, reader->ReadTable());
+  ASSERT_EQ(full->schema()->field(0)->type()->id(), ::arrow::Type::EXTENSION);
+  auto full_extension =
+      ::arrow::internal::checked_pointer_cast<const ::arrow::ExtensionType>(
+          full->schema()->field(0)->type());
+  ASSERT_EQ(full_extension->storage_type()->num_fields(), 3);
+  ASSERT_TRUE(full->Equals(*input));
+
+  ASSERT_OK_AND_ASSIGN(auto partial, reader->ReadTable(std::vector<int>{0}));
+  ASSERT_EQ(partial->schema()->field(0)->type()->id(), ::arrow::Type::STRUCT);
+  ASSERT_EQ(partial->schema()->field(0)->type()->num_fields(), 1);
+  ASSERT_EQ(partial->schema()->field(0)->type()->field(0)->name(), "uri");
+  auto storage_struct =
+      ::arrow::internal::checked_pointer_cast<const ::arrow::StructArray>(storage_array);
+  ASSERT_OK_AND_ASSIGN(auto expected_partial,
+                       ::arrow::StructArray::Make({storage_struct->field(0)}, {"uri"},
+                                                  storage_struct->null_bitmap(),
+                                                  storage_struct->null_count()));
+  ASSERT_TRUE(partial->column(0)->Equals(
+      std::make_shared<::arrow::ChunkedArray>(std::move(expected_partial))));
+}
+
+TEST_F(TestArrowReadWriteFileType, FileSelfReferenceRoundtrip) {
+  auto file_type = ::arrow::extension::file(self_reference_type_);
+  auto schema = ::arrow::schema({::arrow::field("file", file_type)});
+  auto sink = CreateOutputStream();
+
+  ASSERT_OK_AND_ASSIGN(auto writer,
+                       FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink));
+
+  const std::string payload = "file self-reference payload";
+  ASSERT_OK_AND_ASSIGN(auto placement, WritePayload(sink, payload));
+  const auto offset = placement.first;
+  const auto size = placement.second;
+
+  auto storage_array = MakeSelfReferenceStorage(offset, size);
+  auto file_array = ::arrow::ExtensionType::WrapArray(file_type, storage_array);
+  auto batch = ::arrow::RecordBatch::Make(schema, 1, {file_array});
+  auto input = ::arrow::Table::Make(schema, {std::make_shared<ChunkedArray>(file_array)});
+  ASSERT_OK(writer->WriteRecordBatch(*batch));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_LE(offset + size, static_cast<int64_t>(buffer->size()));
+  ASSERT_EQ(payload,
+            std::string(reinterpret_cast<const char*>(buffer->data() + offset), size));
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(buffer, file_type));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
+  ASSERT_TRUE(result->Equals(*input));
+}
+
+TEST_F(TestArrowReadWriteFileType, FilePayloadBetweenChunks) {
+  auto file_type = ::arrow::extension::file(self_reference_type_);
+  auto schema = ::arrow::schema({::arrow::field("before", ::arrow::int64()),
+                                 ::arrow::field("file", file_type),
+                                 ::arrow::field("after", ::arrow::int64())});
+  auto writer_properties = WriterProperties::Builder()
+                               .disable_dictionary()
+                               ->compression(Compression::UNCOMPRESSED)
+                               ->build();
+  auto sink = CreateOutputStream();
+  ASSERT_OK_AND_ASSIGN(
+      auto writer,
+      FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink, writer_properties));
+  ASSERT_OK(writer->NewRowGroup());
+
+  auto before =
+      std::make_shared<ChunkedArray>(::arrow::ArrayFromJSON(::arrow::int64(), "[1]"));
+  ASSERT_OK(writer->WriteColumnChunk(before));
+
+  const std::string payload = "payload between chunks";
+  ASSERT_OK_AND_ASSIGN(auto placement, WritePayload(sink, payload));
+  const auto offset = placement.first;
+  const auto size = placement.second;
+
+  auto storage_array = MakeSelfReferenceStorage(offset, size);
+  auto file_array = ::arrow::ExtensionType::WrapArray(file_type, storage_array);
+  ASSERT_OK(writer->WriteColumnChunk(std::make_shared<ChunkedArray>(file_array)));
+
+  auto after =
+      std::make_shared<ChunkedArray>(::arrow::ArrayFromJSON(::arrow::int64(), "[2]"));
+  auto input = ::arrow::Table::Make(
+      schema, {before, std::make_shared<ChunkedArray>(file_array), after});
+  ASSERT_OK(writer->WriteColumnChunk(after));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenReader(buffer, file_type));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
+  ASSERT_TRUE(result->Equals(*input));
+
+  auto metadata = reader->parquet_reader()->metadata();
+  auto before_metadata = metadata->RowGroup(0)->ColumnChunk(0);
+  auto file_metadata = metadata->RowGroup(0)->ColumnChunk(1);
+  const auto before_end =
+      before_metadata->data_page_offset() + before_metadata->total_compressed_size();
+  ASSERT_EQ(offset, before_end);
+  ASSERT_EQ(offset + size, file_metadata->data_page_offset());
+  ASSERT_LT(offset + size, static_cast<int64_t>(buffer->size()));
+  ASSERT_EQ(payload,
+            std::string(reinterpret_cast<const char*>(buffer->data() + offset), size));
 }
 
 }  // namespace arrow

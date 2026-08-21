@@ -29,6 +29,7 @@
 #include "arrow/array.h"  // IWYU pragma: keep
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
+#include "arrow/extension/parquet_file.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
@@ -73,6 +74,7 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
+using arrow::extension::kFileExtensionName;
 
 using arrow::internal::checked_cast;
 using arrow::internal::Iota;
@@ -942,12 +944,15 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
   auto type_id = arrow_field->type()->id();
 
   if (type_id == ::arrow::Type::EXTENSION) {
-    auto storage_field = arrow_field->WithType(
-        checked_cast<const ExtensionType&>(*arrow_field->type()).storage_type());
+    const auto& extension_type = checked_cast<const ExtensionType&>(*arrow_field->type());
+    auto storage_field = arrow_field->WithType(extension_type.storage_type());
     RETURN_NOT_OK(GetReader(field, storage_field, ctx, out));
     if (*out) {
       auto storage_type = (*out)->field()->type();
       if (!storage_type->Equals(storage_field->type())) {
+        if (extension_type.extension_name() == kFileExtensionName) {
+          return Status::OK();
+        }
         return Status::Invalid(
             "Due to column pruning only part of an extension's storage type was loaded.  "
             "An extension type cannot be created without all of its fields");

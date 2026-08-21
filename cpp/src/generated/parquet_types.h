@@ -297,7 +297,15 @@ struct Encoding {
      * Added in 2.8 for FLOAT and DOUBLE.
      * Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
      */
-    BYTE_STREAM_SPLIT = 9
+    BYTE_STREAM_SPLIT = 9,
+    /**
+     * Adaptive Lossless floating-Point (ALP) encoding for FLOAT and DOUBLE.
+     * Losslessly converts decimal-like floating-point values to integers via
+     * decimal scaling, then applies Frame of Reference (FOR) encoding and
+     * bit-packing; values that cannot be converted losslessly are stored as
+     * exceptions. See Encodings.md for the detailed specification.
+     */
+    ALP = 10
   };
 };
 
@@ -418,6 +426,8 @@ class GeometryType;
 
 class GeographyType;
 
+class FileType;
+
 class LogicalType;
 
 class SchemaElement;
@@ -467,6 +477,8 @@ class RowGroup;
 class TypeDefinedOrder;
 
 class IEEE754TotalOrder;
+
+class Int96TimestampOrder;
 
 class ColumnOrder;
 
@@ -1633,8 +1645,48 @@ void swap(GeographyType &a, GeographyType &b) noexcept;
 
 std::ostream& operator<<(std::ostream& out, const GeographyType& obj);
 
+
+/**
+ * File logical type annotation
+ * 
+ * Annotates a group that represents a reference to a file, or to a range of
+ * bytes that may be stored inline, elsewhere in this file, or in an external
+ * file.
+ * 
+ * See LogicalTypes.md for details.
+ */
+class FileType {
+ public:
+
+  FileType(const FileType&) noexcept;
+  FileType(FileType&&) noexcept;
+  FileType& operator=(const FileType&) noexcept;
+  FileType& operator=(FileType&&) noexcept;
+  FileType() noexcept;
+
+  ~FileType() noexcept;
+
+  bool operator == (const FileType & /* rhs */) const;
+  bool operator != (const FileType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const FileType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  void printTo(std::ostream& out) const;
+};
+
+void swap(FileType &a, FileType &b) noexcept;
+
+std::ostream& operator<<(std::ostream& out, const FileType& obj);
+
 typedef struct _LogicalType__isset {
-  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false) {}
+  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false), FILE(false) {}
   bool STRING :1;
   bool MAP :1;
   bool LIST :1;
@@ -1652,6 +1704,7 @@ typedef struct _LogicalType__isset {
   bool VARIANT :1;
   bool GEOMETRY :1;
   bool GEOGRAPHY :1;
+  bool FILE :1;
 } _LogicalType__isset;
 
 /**
@@ -1688,6 +1741,7 @@ class LogicalType {
   VariantType VARIANT;
   GeometryType GEOMETRY;
   GeographyType GEOGRAPHY;
+  FileType FILE;
 
   _LogicalType__isset __isset;
 
@@ -1724,6 +1778,8 @@ class LogicalType {
   void __set_GEOMETRY(const GeometryType& val);
 
   void __set_GEOGRAPHY(const GeographyType& val);
+
+  void __set_FILE(const FileType& val);
 
   bool operator == (const LogicalType & rhs) const;
   bool operator != (const LogicalType &rhs) const {
@@ -3275,10 +3331,45 @@ void swap(IEEE754TotalOrder &a, IEEE754TotalOrder &b) noexcept;
 
 std::ostream& operator<<(std::ostream& out, const IEEE754TotalOrder& obj);
 
+
+/**
+ * Empty struct to signal chronological ordering of physical type INT96
+ */
+class Int96TimestampOrder {
+ public:
+
+  Int96TimestampOrder(const Int96TimestampOrder&) noexcept;
+  Int96TimestampOrder(Int96TimestampOrder&&) noexcept;
+  Int96TimestampOrder& operator=(const Int96TimestampOrder&) noexcept;
+  Int96TimestampOrder& operator=(Int96TimestampOrder&&) noexcept;
+  Int96TimestampOrder() noexcept;
+
+  ~Int96TimestampOrder() noexcept;
+
+  bool operator == (const Int96TimestampOrder & /* rhs */) const;
+  bool operator != (const Int96TimestampOrder &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Int96TimestampOrder & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  void printTo(std::ostream& out) const;
+};
+
+void swap(Int96TimestampOrder &a, Int96TimestampOrder &b) noexcept;
+
+std::ostream& operator<<(std::ostream& out, const Int96TimestampOrder& obj);
+
 typedef struct _ColumnOrder__isset {
-  _ColumnOrder__isset() : TYPE_ORDER(false), IEEE_754_TOTAL_ORDER(false) {}
+  _ColumnOrder__isset() : TYPE_ORDER(false), IEEE_754_TOTAL_ORDER(false), INT96_TIMESTAMP_ORDER(false) {}
   bool TYPE_ORDER :1;
   bool IEEE_754_TOTAL_ORDER :1;
+  bool INT96_TIMESTAMP_ORDER :1;
 } _ColumnOrder__isset;
 
 /**
@@ -3290,6 +3381,8 @@ typedef struct _ColumnOrder__isset {
  * * TypeDefinedOrder - the column uses the order defined by its logical or
  *                      physical type (if there is no logical type).
  * * IEEE754TotalOrder - the floating point column uses IEEE 754 total order.
+ * 
+ * * Int96TimestampOrder - the INT96 column uses chronological timestamp order.
  * 
  * If the reader does not support the value of this union, min and max stats
  * for this column should be ignored.
@@ -3331,25 +3424,29 @@ class ColumnOrder {
    *   VARIANT - undefined
    *   GEOMETRY - undefined
    *   GEOGRAPHY - undefined
+   *   FILE - undefined
    * 
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
    *   INT32 - signed comparison
    *   INT64 - signed comparison
-   *   INT96 (only used for legacy timestamps) - undefined(+)
+   *   INT96 (only used for legacy timestamps) - depends on sort order (+)
    *   FLOAT - signed comparison of the represented value (*)
    *   DOUBLE - signed comparison of the represented value (*)
    *   BYTE_ARRAY - unsigned byte-wise comparison
    *   FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
    * 
    * (+) While the INT96 type has been deprecated, at the time of writing it is
-   *    still used in many legacy systems. If a Parquet implementation chooses
-   *    to write statistics for INT96 columns, it is recommended to order them
-   *    according to the legacy rules:
-   *    - compare the last 4 bytes (days) as a little-endian 32-bit signed integer
-   *    - if equal last 4 bytes, compare the first 8 bytes as a little-endian
-   *      64-bit signed integer (nanos)
-   *    See https://github.com/apache/parquet-format/issues/502 for more details
+   *     still used in many legacy systems. It is optional for writers to emit
+   *     statistics for INT96 columns. Writers that emit stats for such columns
+   *     should use the INT96_TIMESTAMP_ORDER for this type and order the values
+   *     according to the legacy rules:
+   *     - compare the last 4 bytes (days) as a little-endian 32-bit signed integer
+   *     - if equal last 4 bytes, compare the first 8 bytes as a little-endian
+   *       64-bit signed integer (nanos)
+   *     If TYPE_ORDER is used for an INT96 column, readers should ignore all statistics
+   *     (`min`/`max` fields in `Statistics` and `min_values`/`max_values` fields in
+   *     `ColumnIndex`) for that column.
    * 
    * (*) Because TYPE_ORDER is ambiguous for floating point types due to
    *     underspecified handling of NaN and -0/+0, it is recommended that writers
@@ -3396,12 +3493,15 @@ class ColumnOrder {
    */
   TypeDefinedOrder TYPE_ORDER;
   IEEE754TotalOrder IEEE_754_TOTAL_ORDER;
+  Int96TimestampOrder INT96_TIMESTAMP_ORDER;
 
   _ColumnOrder__isset __isset;
 
   void __set_TYPE_ORDER(const TypeDefinedOrder& val);
 
   void __set_IEEE_754_TOTAL_ORDER(const IEEE754TotalOrder& val);
+
+  void __set_INT96_TIMESTAMP_ORDER(const Int96TimestampOrder& val);
 
   bool operator == (const ColumnOrder & rhs) const;
   bool operator != (const ColumnOrder &rhs) const {
@@ -3591,6 +3691,13 @@ class ColumnIndex {
    * - If the order of this column is IEEE754_TOTAL_ORDER, then min_values[i]
    *   and max_values[i] of that page must be set to the smallest and largest
    *   NaN values as defined by IEEE 754 total order.
+   * 
+   * For columns of physical type INT96, the writer must do the following:
+   * - If the order of this column is not INT96_TIMESTAMP_ORDER, then a column
+   *   index must not be written for this column chunk.
+   * - If the order of this column is INT96_TIMESTAMP_ORDER, the min_values[i]
+   *   and max_values[i] of that page must be set to the smallest and largest
+   *   values as defined by the INT96 chronological timestamp ordering.
    */
   std::vector<std::string>  min_values;
   std::vector<std::string>  max_values;
