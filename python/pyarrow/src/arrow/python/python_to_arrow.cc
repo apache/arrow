@@ -255,7 +255,7 @@ class PyValue {
   static Result<double> Convert(const DoubleType*, const O&, I obj) {
     double value;
     if (PyFloat_Check(obj)) {
-      value = PyFloat_AS_DOUBLE(obj);
+      value = PyFloat_AsDouble(obj);
     } else if (internal::PyFloatScalar_Check(obj)) {
       // Other kinds of float-y things
       value = PyFloat_AsDouble(obj);
@@ -445,12 +445,11 @@ class PyValue {
       return output;
     }
     if (PyTuple_Check(obj) && PyTuple_Size(obj) == 3) {
-      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 0), &output.months,
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GetItem(obj, 0), &output.months,
                                              "Months (tuple item #0) too large"));
-      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 1), &output.days,
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GetItem(obj, 1), &output.days,
                                              "Days (tuple item #1) too large"));
-      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 2),
-                                             &output.nanoseconds,
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GetItem(obj, 2), &output.nanoseconds,
                                              "Nanoseconds (tuple item #2) too large"));
       return output;
     }
@@ -1050,8 +1049,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       PyObject* unicode =
           PyUnicode_FromStringAndSize(field_name.c_str(), field_name.size());
       RETURN_IF_PYERROR();
-      PyList_SET_ITEM(bytes_field_names_.obj(), i, bytes);
-      PyList_SET_ITEM(unicode_field_names_.obj(), i, unicode);
+      PyList_SetItem(bytes_field_names_.obj(), i, bytes);
+      PyList_SetItem(unicode_field_names_.obj(), i, unicode);
     }
     return Status::OK();
   }
@@ -1111,7 +1110,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       return Status::Invalid("Tuple size must be equal to number of struct fields");
     }
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* value = PyTuple_GET_ITEM(tuple, i);
+      PyObject* value = PyTuple_GetItem(tuple, i);
       RETURN_NOT_OK(this->children_[i]->Append(value));
     }
     return Status::OK();
@@ -1267,7 +1266,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
         RETURN_IF_PYERROR();
         break;
       }
-      PyList_SET_ITEM(lst, i, item);
+      PyList_SetItem(lst, i, item);
     }
     // Shrink list if len(iterator) < size
     if (i < n && PyList_SetSlice(lst, i, n, NULL)) {

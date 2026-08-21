@@ -384,7 +384,6 @@ configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
 
 set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/arrow_to_pandas.cc
-    ${PYARROW_CPP_SOURCE_DIR}/benchmark.cc
     ${PYARROW_CPP_SOURCE_DIR}/common.cc
     ${PYARROW_CPP_SOURCE_DIR}/config.cc
     ${PYARROW_CPP_SOURCE_DIR}/datetime.cc
