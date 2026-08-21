@@ -53,7 +53,7 @@ pushd "$TEST_WORKDIR" >/dev/null || {
   echo "Failed to change to test working directory: $TEST_WORKDIR" >&2
   exit 1
 }
-rm -f *
+rm -f ./*
 
 set -o pipefail
 
