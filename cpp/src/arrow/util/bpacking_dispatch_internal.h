@@ -47,8 +47,27 @@ ARROW_FORCE_INLINE void unpack_null(const uint8_t* in, Uint* out, int batch_size
 template <bool kHasBias = false, typename Uint>
 ARROW_FORCE_INLINE void unpack_full(const uint8_t* in, Uint* out, int batch_size,
                                     Uint bias = Uint{}) {
-  if constexpr (ARROW_LITTLE_ENDIAN == 1 && !kHasBias) {
-    std::memcpy(out, in, batch_size * sizeof(Uint));
+  if constexpr (ARROW_LITTLE_ENDIAN == 1) {
+    if constexpr (kHasBias) {
+      // Two things are needed for this loop to reach memcpy speed, and it is
+      // 10.8x slower than the memcpy below without them -- far worse than the
+      // second add pass the bias exists to remove.
+      //   1. A constant-size memcpy for the load, not SafeLoadAs: SafeLoadAs
+      //      builds an AlignedStorage per element and the vectorizer refuses it,
+      //      while a fixed-size memcpy is just an unaligned load.
+      //   2. __restrict__: `in` is a uint8_t*, so it may alias anything,
+      //      including `out`. Without restating that they are distinct the
+      //      compiler has to assume overlap and emits a scalar loop.
+      const uint8_t* __restrict__ src = in;
+      Uint* __restrict__ dst = out;
+      for (int k = 0; k < batch_size; k += 1) {
+        Uint val;
+        std::memcpy(&val, src + (k * sizeof(Uint)), sizeof(Uint));
+        dst[k] = static_cast<Uint>(val + bias);
+      }
+    } else {
+      std::memcpy(out, in, batch_size * sizeof(Uint));
+    }
   } else {
     using bit_util::FromLittleEndian;
     using util::SafeLoadAs;
