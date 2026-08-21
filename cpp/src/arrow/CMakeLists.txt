@@ -1045,6 +1045,10 @@ if(ARROW_FILESYSTEM)
 
       add_library(arrow_s3fs MODULE filesystem/s3fs_module.cc filesystem/s3fs.cc)
       target_link_libraries(arrow_s3fs PRIVATE ${AWSSDK_LINK_LIBRARIES} arrow_shared)
+      if(CXX_LINKER_SUPPORTS_BSYMBOLIC_FUNCTIONS)
+        # Use this module's own S3 global state, not libarrow's copy of the same symbols
+        target_link_options(arrow_s3fs PRIVATE "-Wl,-Bsymbolic-functions")
+      endif()
       set_source_files_properties(filesystem/s3fs.cc filesystem/s3fs_module.cc
                                   PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
     endif()

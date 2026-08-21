@@ -367,6 +367,8 @@ else()
   check_linker_flag(CXX
                     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map"
                     CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+  check_linker_flag(CXX "-Wl,-Bsymbolic-functions"
+                    CXX_LINKER_SUPPORTS_BSYMBOLIC_FUNCTIONS)
 endif()
 
 #
