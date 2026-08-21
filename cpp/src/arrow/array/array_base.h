@@ -36,6 +36,8 @@
 
 namespace arrow {
 
+class Tensor;
+
 // ----------------------------------------------------------------------
 // User array accessor types
 
@@ -245,6 +247,15 @@ class ARROW_EXPORT Array {
   ///
   /// \return const std::shared_ptr<ArrayStatistics>&
   const std::shared_ptr<ArrayStatistics>& statistics() const { return data_->statistics; }
+
+  /// \brief Create a Tensor from this Array
+  ///
+  /// When the data can reasonably be understood as a multidimensional numeric Tensor,
+  /// return the data as such.
+  /// Examples include NumericArray, FixedShapeTensorArray, nested FixedSizeListArray.
+  /// Nulls are ignored, leaving the output tensor with unspecified values where this
+  /// array has null entries.
+  virtual Result<std::shared_ptr<Tensor>> ToTensor() const;
 
  protected:
   Array() = default;

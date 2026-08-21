@@ -35,34 +35,24 @@ namespace arrow::dlpack {
 namespace {
 
 Result<DLDataType> GetDLDataType(const DataType& type) {
-  DLDataType dtype;
+  auto dtype = DLDataType{};
   dtype.lanes = 1;
   dtype.bits = type.bit_width();
-  switch (type.id()) {
-    case Type::INT8:
-    case Type::INT16:
-    case Type::INT32:
-    case Type::INT64:
-      dtype.code = DLDataTypeCode::kDLInt;
-      return dtype;
-    case Type::UINT8:
-    case Type::UINT16:
-    case Type::UINT32:
-    case Type::UINT64:
-      dtype.code = DLDataTypeCode::kDLUInt;
-      return dtype;
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      dtype.code = DLDataTypeCode::kDLFloat;
-      return dtype;
-    case Type::BOOL:
-      // DLPack supports byte-packed boolean values
-      return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
-    default:
-      return Status::TypeError("DataType is not compatible with DLPack spec: ",
-                               type.ToString());
+  if (is_signed_integer(type.id())) {
+    dtype.code = DLDataTypeCode::kDLInt;
+  } else if (is_unsigned_integer(type.id())) {
+    dtype.code = DLDataTypeCode::kDLUInt;
+  } else if (is_floating(type.id())) {
+    dtype.code = DLDataTypeCode::kDLFloat;
+  } else if (type.id() == Type::BOOL) {
+    // DLPack supports byte-packed boolean values
+    return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
+  } else {
+    return Status::TypeError(
+        "DataType is not compatible with DLPack spec: ", type.ToString(),
+        ", try converting to a Tensor for multi dimensional data support");
   }
+  return {dtype};
 }
 
 template <typename DT, typename Vec>
@@ -78,6 +68,7 @@ struct ManagerCtx {
 template <typename Vec>
 struct ExportBufferParams {
   std::shared_ptr<Buffer> buffer = nullptr;
+  /// Data offset in the buffer in bytes.
   int64_t buffer_offset = 0;
   /// Total number of values, i.e. the product of the shape.
   int64_t size;
@@ -130,12 +121,12 @@ DT* ExportBuffer(ExportBufferParams<Vec>&& p) {
 
 template <typename DT>
 Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
-  // Define DLDevice struct and check if array type is supported
-  // by the DLPack protocol at the same time. Raise TypeError if not.
-  // Supported data types: int, uint, float with no validity buffer.
+  if (arr->null_count() > 0) {
+    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
+  }
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr));
 
-  // Define the DLDataType struct
+  // Define the DLDataType struct, or fail if the type is not supported.
   const auto& type = *arr->type();
   ARROW_ASSIGN_OR_RAISE(auto dtype, GetDLDataType(type));
 
@@ -167,6 +158,17 @@ Result<DT*> ExportArrayImpl(const std::shared_ptr<Array>& arr, bool copy) {
   return ExportBuffer<DT>(std::move(params));
 }
 
+template <typename T>
+Result<DLDevice> ExportDeviceImpl(const std::shared_ptr<T>& a) {
+  // ArrayData reports the device of its buffers and children
+  if (a->data()->device_type() == DeviceAllocationType::kCPU) {
+    return {{.device_type = DLDeviceType::kDLCPU, .device_id = 0}};
+  } else {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
+}
+
 }  // namespace
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
@@ -179,29 +181,7 @@ Result<DLManagedTensorVersioned*> ExportArrayVersioned(const std::shared_ptr<Arr
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
-  // Check if array is supported by the DLPack protocol.
-  if (arr->null_count() > 0) {
-    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
-  }
-  const DataType& type = *arr->type();
-  if (type.id() == Type::BOOL) {
-    return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
-  }
-  if (!is_integer(type.id()) && !is_floating(type.id())) {
-    return Status::TypeError("DataType is not compatible with DLPack spec: ",
-                             type.ToString());
-  }
-
-  // Define DLDevice struct
-  DLDevice device;
-  if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
-    device.device_id = 0;
-    device.device_type = DLDeviceType::kDLCPU;
-    return device;
-  } else {
-    return Status::NotImplemented(
-        "DLPack support is implemented only for buffers on CPU device.");
-  }
+  return ExportDeviceImpl(arr);
 }
 
 namespace {
@@ -265,16 +245,7 @@ Result<DLManagedTensorVersioned*> ExportTensorVersioned(const std::shared_ptr<Te
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
-  // Define DLDevice struct
-  DLDevice device;
-  if (t->data()->device_type() == DeviceAllocationType::kCPU) {
-    device.device_id = 0;
-    device.device_type = DLDeviceType::kDLCPU;
-    return device;
-  } else {
-    return Status::NotImplemented(
-        "DLPack support is implemented only for buffers on CPU device.");
-  }
+  return ExportDeviceImpl(t);
 }
 
 }  // namespace arrow::dlpack

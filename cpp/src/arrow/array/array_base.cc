@@ -323,6 +323,11 @@ Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
   return MakeArray(new_data);
 }
 
+Result<std::shared_ptr<Tensor>> Array::ToTensor() const {
+  return Status::NotImplemented("ToTensor is not implemented for Array type ",
+                                type()->name());
+}
+
 // ----------------------------------------------------------------------
 // NullArray
 

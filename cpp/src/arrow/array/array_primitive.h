@@ -25,11 +25,14 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
+#include "arrow/buffer.h"
 #include "arrow/stl_iterator.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -127,6 +130,23 @@ class NumericArray : public PrimitiveArray {
   IteratorType begin() const { return IteratorType(*this); }
 
   IteratorType end() const { return IteratorType(*this, length()); }
+
+  /// \brief Return a one dimensional Tensor.
+  Result<std::shared_ptr<Tensor>> ToTensor() const override {
+    // Could be non-templated
+    const int64_t byte_width = type()->byte_width();
+    std::shared_ptr<Buffer> buffer;
+    if (data_->buffers[1] != NULLPTR) {
+      int64_t boffset = 0;
+      int64_t blength = 0;
+      if (internal::MultiplyWithOverflow(data_->offset, byte_width, &boffset) ||
+          internal::MultiplyWithOverflow(length(), byte_width, &blength)) {
+        return Status::Invalid("Array byte size does not fit in an int64");
+      }
+      ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(data_->buffers[1], boffset, blength));
+    }
+    return Tensor::Make(type(), std::move(buffer), {length()});
+  }
 
  protected:
   NumericArray() : values_(NULLPTR) {}

@@ -135,6 +135,38 @@ def test_tensor_dlpack(np_type):
     check_dlpack_export(t, expected)
 
 
+def multidim_arrays():
+    np_arr = np.arange(12, dtype=np.int32).reshape(3, 2, 2)
+    values = pa.array(np_arr.ravel(), type=pa.int32())
+    nested_list = pa.FixedSizeListArray.from_arrays(
+        pa.FixedSizeListArray.from_arrays(values, 2), 2)
+    return [
+        pytest.param(nested_list, np_arr, id="nested_fixed_size_list"),
+        pytest.param(
+            pa.FixedShapeTensorArray.from_numpy_ndarray(np_arr),
+            np_arr,
+            id="fixed_shape_tensor",
+        ),
+    ]
+
+
+@check_bytes_allocated
+@pytest.mark.parametrize(('arr', 'expected'), multidim_arrays())
+def test_array_to_tensor_dlpack(arr, expected):
+    if Version(np.__version__) < Version("1.24.0"):
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
+                    "strict keyword in assert_array_equal added in numpy version "
+                    "1.24.0")
+
+    tensor = arr.to_tensor()
+    # A Tensor sharing an Array buffer is immutable, so it can only be exported
+    # through the versioned DLPack protocol.
+    assert not tensor.is_mutable
+    result = np.from_dlpack(DLPackForwarder(tensor, max_version=(1, 0)))
+    np.testing.assert_array_equal(result, expected, strict=True)
+    assert tensor.__dlpack_device__() == (1, 0)
+
+
 def dlpack_objects():
     arr = pa.array([1, 2, 3], type=pa.int32())
     return [

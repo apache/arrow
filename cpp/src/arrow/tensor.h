@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -56,9 +57,16 @@ constexpr bool is_tensor_supported(Type::type type_id) {
 namespace internal {
 
 ARROW_EXPORT
-Status ComputeRowMajorStrides(const FixedWidthType& type,
-                              const std::vector<int64_t>& shape,
+Status ComputeRowMajorStrides(const FixedWidthType& type, std::span<const int64_t> shape,
                               std::vector<int64_t>* strides);
+
+/// Compute the row-major strides of a tensor with the given shape.
+///
+/// Pass `elem_size=1` to get the strides in number of elements, or the element size in
+/// bytes to get them in bytes. On error, the contents of `strides` are unspecified.
+ARROW_EXPORT
+Status ComputeRowMajorStrides(std::span<const int64_t> shape, int64_t elem_size,
+                              std::span<int64_t> strides);
 
 ARROW_EXPORT
 Status ComputeColumnMajorStrides(const FixedWidthType& type,
