@@ -396,16 +396,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_JSON)
 
   define_option(ARROW_S3
-                "Build Arrow with S3 support (requires the AWS SDK for C++)"
+                "Build Arrow S3 Module (requires the AWS SDK for C++)"
                 OFF
                 DEPENDS
                 ARROW_FILESYSTEM)
-
-  define_option(ARROW_S3_MODULE
-                "Build the Arrow S3 filesystem as a dynamic module"
-                OFF
-                DEPENDS
-                ARROW_S3)
 
   define_option(ARROW_SUBSTRAIT
                 "Build the Arrow Substrait Consumer Module"
