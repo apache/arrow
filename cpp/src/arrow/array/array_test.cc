@@ -1252,6 +1252,33 @@ TEST_F(TestBuilder, TestResizeDownsize) {
   ASSERT_GE(500, builder.capacity());
   ASSERT_EQ(500, builder.length());
 }
+namespace {
+
+void AssertBuilderValidityAtIndices(const ArrayBuilder& builder,
+                                    const std::vector<int64_t>& indices,
+                                    const std::vector<bool>& expected_validity) {
+  for (size_t i = 0; i < indices.size(); ++i) {
+    ASSERT_EQ(expected_validity[i], builder.IsValid(indices[i]));
+  }
+}
+
+}  // namespace
+
+TEST_F(TestBuilder, TestIsNull) {
+  NullBuilder null_builder(pool_);
+  ASSERT_OK(null_builder.AppendNull());
+  ASSERT_OK(null_builder.Append(nullptr));
+  AssertBuilderValidityAtIndices(null_builder, {0, 1}, {false, false});
+
+  Int32Builder int32_builder(pool_);
+  ASSERT_OK(int32_builder.Append(0));
+  ASSERT_OK(int32_builder.AppendNull());
+  ASSERT_OK(int32_builder.Append(2));
+  ASSERT_OK(int32_builder.AppendNulls(3));
+  ASSERT_OK(int32_builder.Append(6));
+  ASSERT_OK(int32_builder.AppendEmptyValues(3));
+  AssertBuilderValidityAtIndices(int32_builder, {0, 1, 4, 7}, {true, false, false, true});
+}
 
 template <typename Attrs>
 class TestPrimitiveBuilder : public TestBuilder {
