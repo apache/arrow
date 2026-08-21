@@ -71,6 +71,73 @@ using MetadataVector = std::vector<std::shared_ptr<KeyValueMetadata>>;
 
 namespace test {
 
+class UnionExtensionArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+class UnionExtensionType : public ExtensionType {
+ public:
+  UnionExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name)
+      : ExtensionType(std::move(storage_type)),
+        extension_name_(std::move(extension_name)) {}
+
+  std::string extension_name() const override { return extension_name_; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name_;
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<UnionExtensionArray>(std::move(data));
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override {
+    if (serialized != extension_name_) {
+      return Status::Invalid("Type identifier did not match");
+    }
+    return std::make_shared<UnionExtensionType>(std::move(storage_type),
+                                                extension_name_);
+  }
+
+  std::string Serialize() const override { return extension_name_; }
+
+ private:
+  std::string extension_name_;
+};
+
+std::shared_ptr<DataType> dense_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      dense_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "dense-union-extension");
+}
+
+std::shared_ptr<DataType> sparse_union_extension_type() {
+  return std::make_shared<UnionExtensionType>(
+      sparse_union({field("floats", float64()), field("strings", large_utf8())}, {0, 1}),
+      "sparse-union-extension");
+}
+
+Status MakeDenseUnionExtension(std::shared_ptr<RecordBatch>* out) {
+  auto type = dense_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  auto storage = ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])");
+  auto array = ExtensionType::WrapArray(type, storage);
+  *out = RecordBatch::Make(schema({field("f0", type)}), array->length(), {array});
+  return Status::OK();
+}
+
+Status MakeSparseUnionExtension(std::shared_ptr<RecordBatch>* out) {
+  auto type = sparse_union_extension_type();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+  auto storage = ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])");
+  auto array = ExtensionType::WrapArray(type, storage);
+  *out = RecordBatch::Make(schema({field("f0", type)}), array->length(), {array});
+  return Status::OK();
+}
+
 const std::vector<MetadataVersion> kMetadataVersions = {MetadataVersion::V4,
                                                         MetadataVersion::V5};
 
@@ -404,7 +471,9 @@ static int g_file_number = 0;
 class ExtensionTypesMixin {
  public:
   // Register the extension types required to ensure roundtripping
-  ExtensionTypesMixin() : ext_guard_({uuid(), dict_extension_type(), complex128()}) {}
+  ExtensionTypesMixin()
+      : ext_guard_({uuid(), dict_extension_type(), complex128(),
+                    dense_union_extension_type(), sparse_union_extension_type()}) {}
 
  protected:
   ExtensionTypeGuard ext_guard_;
@@ -1953,6 +2022,22 @@ TEST_P(TestFileFormatGeneratorCoalesced, RoundTrip) {
 }
 
 TEST_P(TestStreamFormat, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
+
+TEST_F(TestFileFormat, DenseUnionExtensionRoundTrip) {
+  TestRoundTrip(MakeDenseUnionExtension, IpcWriteOptions::Defaults());
+}
+
+TEST_F(TestFileFormat, SparseUnionExtensionRoundTrip) {
+  TestRoundTrip(MakeSparseUnionExtension, IpcWriteOptions::Defaults());
+}
+
+TEST_F(TestStreamFormat, DenseUnionExtensionRoundTrip) {
+  TestRoundTrip(MakeDenseUnionExtension, IpcWriteOptions::Defaults());
+}
+
+TEST_F(TestStreamFormat, SparseUnionExtensionRoundTrip) {
+  TestRoundTrip(MakeSparseUnionExtension, IpcWriteOptions::Defaults());
+}
 
 TEST_P(TestStreamDecoderData, RoundTrip) { TestRoundTripWithOptions(*GetParam()); }
 
