@@ -1013,8 +1013,8 @@ struct LargeKernel {
   ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out,
                                                   unpacked_type bias) {
     using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
-    unpack_all_impl<true>(in, out, simd_batch(static_cast<typename Traits::uint_type>(bias)),
-                          ReadSeq{});
+    unpack_all_impl<true>(
+        in, out, simd_batch(static_cast<typename Traits::uint_type>(bias)), ReadSeq{});
     return in + (kPlan.kPlanSize.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
   }
 };
