@@ -38,6 +38,7 @@ shift
 TEST_DEBUGDIR="$OUTPUT_ROOT/build/$RUN_TYPE-debug"
 mkdir -p "$TEST_DEBUGDIR"
 
+TEST_FILENAME=$(basename "$1")
 TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd) || {
   echo "Failed to change to test directory: $(dirname "$1")" >&2
   exit 1
