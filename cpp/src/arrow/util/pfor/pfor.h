@@ -47,14 +47,19 @@ namespace pfor {
 /// For INT32 (7 bytes): [frame_of_reference(4B)] [bit_width(1B)] [num_exceptions(2B)]
 /// For INT64 (11 bytes): [frame_of_reference(8B)] [bit_width(1B)] [num_exceptions(2B)]
 ///
-/// The bit_width byte stores the actual bit width in bits 0..5 (range 0..64,
-/// masked to 6 bits); bits 6..7 are reserved (always written as 0 and ignored
-/// on load), leaving room for a future packing-mode field without changing the
-/// layout of existing buffers.
+/// The bit_width byte stores the actual bit width in bits 0..6; bit 7 is
+/// reserved (always written as 0 and ignored on load), leaving room for a
+/// future flag without changing the layout of existing buffers.
+///
+/// Seven bits, not six: the range is 0..64 inclusive, and 64 does not fit in
+/// six. A 6-bit mask stored an INT64 vector whose deltas need the full 64 bits
+/// as width 0, and since such a vector has no exceptions either, Load reported
+/// a constant vector and the decoder filled the output with the frame of
+/// reference -- silently, with no error and no size mismatch.
 template <typename T>
 class PforVectorInfo {
  public:
-  static constexpr uint8_t kBitWidthMask = 0x3F;
+  static constexpr uint8_t kBitWidthMask = 0x7F;
 
   PforVectorInfo() = default;
   PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions)
