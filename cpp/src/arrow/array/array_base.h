@@ -252,9 +252,9 @@ class ARROW_EXPORT Array {
   ///
   /// When the data can reasonably be understood as a multidimensional numeric Tensor,
   /// return the data as such.
-  /// Example include NumericArray, FixedShapeTensorArray, nested FixedSizeListArray.
+  /// Examples include NumericArray, FixedShapeTensorArray, nested FixedSizeListArray.
   /// Nulls are ignored, leaving the output tensor with unspecified values where this
-  /// array null entries.
+  /// array has null entries.
   virtual Result<std::shared_ptr<Tensor>> ToTensor() const;
 
  protected:

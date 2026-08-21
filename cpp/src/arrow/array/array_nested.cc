@@ -33,6 +33,7 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -40,6 +41,7 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/list_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
@@ -1015,8 +1017,11 @@ Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensor() const {
     type = fsl->value_type();
     data = data->child_data.front().get();
 
-    offset = offset * fsl->list_size() + data->offset;
-    length *= fsl->list_size();
+    if (internal::MultiplyWithOverflow(offset, int64_t{fsl->list_size()}, &offset) ||
+        internal::AddWithOverflow(offset, data->offset, &offset) ||
+        internal::MultiplyWithOverflow(length, int64_t{fsl->list_size()}, &length)) {
+      return Status::Invalid("Flattened fixed size list does not fit in an int64");
+    }
     shape.push_back(fsl->list_size());
   }
 
@@ -1028,8 +1033,13 @@ Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensor() const {
   std::shared_ptr<Buffer> buffer = nullptr;
   if (const auto& buf = data->buffers[1]; buf != NULLPTR) {
     const int64_t byte_width = type->byte_width();
-    ARROW_ASSIGN_OR_RAISE(buffer,
-                          SliceBufferSafe(buf, offset * byte_width, length * byte_width));
+    int64_t boffset = 0;
+    int64_t blength = 0;
+    if (internal::MultiplyWithOverflow(offset, byte_width, &boffset) ||
+        internal::MultiplyWithOverflow(length, byte_width, &blength)) {
+      return Status::Invalid("Array byte size does not fit in an int64");
+    }
+    ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(buf, boffset, blength));
   }
 
   return Tensor::Make(std::move(type), std::move(buffer), std::move(shape));

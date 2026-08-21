@@ -1228,8 +1228,6 @@ TEST(TestPrimitiveArray, ToTensor) {
   ASSERT_OK(tensor->Validate());
 
   EXPECT_EQ(int32(), tensor->type());
-  EXPECT_EQ(shape, std::vector<int64_t>{5});
-  EXPECT_EQ(strides, std::vector<int64_t>{sizeof(int32_t)});
   EXPECT_EQ(shape, tensor->shape());
   EXPECT_EQ(strides, tensor->strides());
   EXPECT_TRUE(tensor->is_contiguous());

@@ -45,7 +45,7 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
   /// permuted according to permutation stored in the FixedShapeTensorType metadata.
   ///
   /// Nulls are ignored, leaving the output tensor with unspecified values where this
-  /// array null entries.
+  /// array has null entries.
   Result<std::shared_ptr<Tensor>> ToTensor() const override;
 };
 

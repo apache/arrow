@@ -19,7 +19,6 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
-#include <span>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -99,11 +98,8 @@ void CheckDLTensor(const std::shared_ptr<Array>& arr,
 
   ASSERT_EQ(0, dltensor.byte_offset);
   ASSERT_EQ(shape.size(), static_cast<size_t>(dltensor.ndim));
-  ASSERT_THAT(std::span(dltensor.shape, dltensor.ndim),
-              ::testing::ElementsAreArray(shape));
-  // Strides must be non-null with ndim>0 since 1.2
-  ASSERT_THAT(std::span(dltensor.strides, dltensor.ndim),
-              ::testing::ElementsAreArray(strides));
+  ASSERT_THAT(shape, ::testing::ElementsAreArray(dltensor.shape, dltensor.ndim));
+  ASSERT_THAT(strides, ::testing::ElementsAreArray(dltensor.strides, dltensor.ndim));
 
   ASSERT_EQ(dlpack_type, dltensor.dtype.code);
   ASSERT_EQ(arrow_type->bit_width(), dltensor.dtype.bits);

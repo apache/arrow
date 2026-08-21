@@ -32,6 +32,7 @@
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -136,8 +137,12 @@ class NumericArray : public PrimitiveArray {
     const int64_t byte_width = type()->byte_width();
     std::shared_ptr<Buffer> buffer;
     if (data_->buffers[1] != NULLPTR) {
-      const auto boffset = data_->offset * byte_width;
-      const auto blength = length() * byte_width;
+      int64_t boffset = 0;
+      int64_t blength = 0;
+      if (internal::MultiplyWithOverflow(data_->offset, byte_width, &boffset) ||
+          internal::MultiplyWithOverflow(length(), byte_width, &blength)) {
+        return Status::Invalid("Array byte size does not fit in an int64");
+      }
       ARROW_ASSIGN_OR_RAISE(buffer, SliceBufferSafe(data_->buffers[1], boffset, blength));
     }
     return Tensor::Make(type(), std::move(buffer), {length()});

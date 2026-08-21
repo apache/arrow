@@ -647,10 +647,10 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
 
   /// \brief Return a Tensor sharing the data.
   ///
-  /// The output tensor has a row major layout with the number of element as the first
-  /// dimension and the fixed sized list as the remaining one (possibly nested).
+  /// The output tensor has a row major layout with the number of elements as the first
+  /// dimension and the fixed size list as the remaining ones (possibly nested).
   /// Nulls are ignored, leaving the output tensor with unspecified values where this
-  /// array null entries.
+  /// array has null entries.
   Result<std::shared_ptr<Tensor>> ToTensor() const override;
 
  protected:
