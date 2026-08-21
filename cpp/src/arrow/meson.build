@@ -192,6 +192,7 @@ arrow_util_srcs = [
     'util/fixed_width_internal.cc',
     'util/float16.cc',
     'util/formatting.cc',
+    'util/fuzz_internal.cc',
     'util/future.cc',
     'util/fuzz_internal.cc',
     'util/hashing.cc',
