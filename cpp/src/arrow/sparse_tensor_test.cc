@@ -869,6 +869,70 @@ TEST_F(TestSparseCSRMatrix, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
+TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor1D) {
+  // Dense 1D vector: [1, 0, 2, 0, 0, 3, 0, 4]
+  // Expected: indptr = [0, 4], indices = [0, 2, 5, 7], values = [1, 2, 3, 4]
+  std::vector<int64_t> values = {1, 0, 2, 0, 0, 3, 0, 4};
+  std::vector<int64_t> shape({static_cast<int64_t>(values.size())});
+  NumericTensor<Int64Type> dense_vector(Buffer::Wrap(values), shape);
+
+  std::shared_ptr<SparseCSRMatrix> st;
+  ASSERT_OK_AND_ASSIGN(st, SparseCSRMatrix::Make(dense_vector));
+
+  ASSERT_EQ(4, st->non_zero_length());
+  ASSERT_TRUE(st->is_mutable());
+
+  const int64_t* raw_data = reinterpret_cast<const int64_t*>(st->raw_data());
+  AssertNumericDataEqual(raw_data, {1, 2, 3, 4});
+
+  auto si = internal::checked_pointer_cast<SparseCSRIndex>(st->sparse_index());
+  ASSERT_EQ(1, si->indptr()->ndim());
+  ASSERT_EQ(1, si->indices()->ndim());
+
+  const int64_t* indptr_begin =
+      reinterpret_cast<const int64_t*>(si->indptr()->raw_data());
+  std::vector<int64_t> indptr_values(indptr_begin,
+                                     indptr_begin + si->indptr()->shape()[0]);
+  ASSERT_EQ(std::vector<int64_t>({0, 4}), indptr_values);
+
+  const int64_t* indices_begin =
+      reinterpret_cast<const int64_t*>(si->indices()->raw_data());
+  std::vector<int64_t> indices_values(indices_begin,
+                                      indices_begin + si->indices()->shape()[0]);
+  ASSERT_EQ(std::vector<int64_t>({0, 2, 5, 7}), indices_values);
+}
+
+TEST_F(TestSparseCSRMatrix, CreationFromAllZeroTensor1D) {
+  std::vector<int64_t> values = {0, 0, 0, 0};
+  std::vector<int64_t> shape({static_cast<int64_t>(values.size())});
+  NumericTensor<Int64Type> dense_vector(Buffer::Wrap(values), shape);
+
+  std::shared_ptr<SparseCSRMatrix> st;
+  ASSERT_OK_AND_ASSIGN(st, SparseCSRMatrix::Make(dense_vector));
+
+  ASSERT_EQ(0, st->non_zero_length());
+
+  auto si = internal::checked_pointer_cast<SparseCSRIndex>(st->sparse_index());
+  const int64_t* indptr_begin =
+      reinterpret_cast<const int64_t*>(si->indptr()->raw_data());
+  std::vector<int64_t> indptr_values(indptr_begin,
+                                     indptr_begin + si->indptr()->shape()[0]);
+  ASSERT_EQ(std::vector<int64_t>({0, 0}), indptr_values);
+}
+
+TEST_F(TestSparseCSRMatrix, TestToTensor1D) {
+  std::vector<int64_t> values = {1, 0, 2, 0, 0, 3, 0, 4};
+  std::vector<int64_t> shape({static_cast<int64_t>(values.size())});
+  Tensor tensor(int64(), Buffer::Wrap(values), shape);
+
+  std::shared_ptr<SparseCSRMatrix> st;
+  ASSERT_OK_AND_ASSIGN(st, SparseCSRMatrix::Make(tensor));
+
+  ASSERT_EQ(4, st->non_zero_length());
+  ASSERT_OK_AND_ASSIGN(auto dense_tensor, st->ToTensor());
+  ASSERT_TRUE(tensor.Equals(*dense_tensor));
+}
+
 template <typename ValueType>
 class TestSparseCSRMatrixEquality : public TestSparseTensorBase<ValueType> {
  public:
