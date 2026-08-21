@@ -203,65 +203,22 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
           arrow::internal::UnpackOptions{static_cast<int>(num_elements),
                                          info.bit_width()});
     } else {
-      // TODO: hand the frame of reference to the unpacker as a bias instead of
-      // adding it in a second pass over the output. The add is modular in
-      // UnsignedT, which is the same width as T, so the bits the unpacker
-      // stores are already the signed values: no scratch buffer, no second
-      // traversal, and no aliasing question to argue with the vectorizer about.
-      // Measured 1.45x on the six benchmark columns with a non-zero reference
-      // (paired A/B, median per group). What is paid for is the traversal, not
-      // the arithmetic -- a second pass that only copies costs the same as one
-      // that adds, and keeping the scratch L1-resident does not recover it.
+      // FOR is non-zero: hand it to the unpacker as a bias, so the add happens
+      // inside the kernel before its store and the output is traversed once.
+      // The obvious alternative — unpack, then a second pass adding FOR — is
+      // what this code used to do, and that pass measured 1.47x-2.40x the cost
+      // of the unpack it followed (median 1.68x). A pass that only copies costs
+      // the same as one that adds, so what is paid for is the extra traversal,
+      // not the arithmetic; keeping the scratch buffer small enough to stay in
+      // L1 (it was 4 KB on the stack) did not avoid it.
       //
-      // Done on branch pfor-encodingWithFastLanes as "Add a bias parameter to
-      // arrow::internal::unpack" plus "PFOR: drop the second output pass from
-      // three decode/encode paths"; backport both. Note the trap that follows:
-      // unpack_full is a memcpy when there is no bias and has to become a loop
-      // when there is one, and that loop only reaches memcpy speed with a
-      // constant-size std::memcpy for the load (not SafeLoadAs) and
-      // __restrict__ on both pointers, because `in` is a uint8_t* that may
-      // alias anything. Without both it is 10.8x slower than the memcpy, far
-      // worse than the pass this removes -- see "Keep unpack_full at memcpy
-      // speed when it carries a bias" on that branch.
-      //
-      // Unpack into a scratch buffer that does NOT alias `values`, then add
-      // FOR. Unpacking in place (aliasing the output as the unsigned scratch)
-      // stops the compiler from vectorizing the FOR-add loop — it can't prove
-      // values[] and (UnsignedT*)values[] don't overlap, even with ivdep — and
-      // the loop collapses to scalar (measured ~100x slower). Keep them
-      // separate; use the stack for the common (<=vector-size) case so there
-      // is still no per-vector heap allocation.
-      constexpr int32_t kStackScratch =
-          static_cast<int32_t>(PforConstants::kPforVectorSize);
-      UnsignedT stack_scratch[kStackScratch];
-      std::vector<UnsignedT> heap_scratch;
-      UnsignedT* scratch = stack_scratch;
-      if (num_elements > kStackScratch) {
-        heap_scratch.resize(num_elements);
-        scratch = heap_scratch.data();
-      }
-      // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
-      // then unpack_exact for the remainder.
-      arrow::internal::unpack(
-          read_ptr, scratch,
-          arrow::internal::UnpackOptions{static_cast<int>(num_elements),
-                                         info.bit_width()});
-
-      // Add the frame-of-reference back and reinterpret unsigned->signed.
-      // This loop MUST vectorize or it dominates decode (perf showed the bias
-      // add, not the unpack, taking ~65% at ~4 GB/s). Two things are needed:
-      //   1. static_cast, NOT util::SafeCopy: SafeCopy builds an AlignedStorage
-      //      + memcpy + destroy per element, which the vectorizer won't touch.
-      //      The unsigned->signed cast is well-defined (C++20, modular) and
-      //      gives the identical bit pattern, so it is a drop-in replacement.
-      //   2. __restrict__: scratch's address escaped to unpack() above, so
-      //      restate that scratch and values don't alias.
-      // With both, the loop vectorizes and decode runs ~4x faster (~4 -> ~17 GB/s).
-      const UnsignedT* __restrict__ in = scratch;
-      T* __restrict__ out = values;
-      for (int32_t i = 0; i < num_elements; ++i) {
-        out[i] = static_cast<T>(in[i] + unsigned_for);
-      }
+      // The add is modular in UnsignedT, so the bits the unpacker stores ARE the
+      // signed values, exactly as in the FOR==0 case above — no cast pass, no
+      // scratch, and no aliasing question. Exceptions are patched in Step 4.
+      arrow::internal::unpack_bias(read_ptr, reinterpret_cast<UnsignedT*>(values),
+                                   arrow::internal::UnpackOptions{
+                                       static_cast<int>(num_elements), info.bit_width()},
+                                   unsigned_for);
     }
 
     int64_t packed_size =
