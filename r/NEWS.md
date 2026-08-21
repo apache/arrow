@@ -63,10 +63,6 @@
 ## Installation
 
 - The R package now builds under `r-universe/r-wasm` (#49981).
-- Arrow `uint64` types are now always converted to R `double` (numeric) vectors,
-  regardless of the values. Previously, small `uint64` values were converted to
-  R `integer`, which could cause inconsistent types within list columns when
-  different list elements had different value ranges (#50339).
 
 # arrow 24.0.0
 
