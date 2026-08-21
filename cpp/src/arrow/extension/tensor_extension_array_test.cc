@@ -212,7 +212,7 @@ TEST_F(TestFixedShapeTensorType, MetadataSerializationRoundtrip) {
   CheckDeserializationRaises(ext_type_, storage_type, R"({"dim_names":["x","y"]})",
                              "Invalid serialized JSON data");
   CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":(3,4)})",
-                             "Invalid serialized JSON data");
+                             "shape must be an array, got unknown");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"shape":[3,4],"permutation":[1,0,2]})",
                              "Invalid permutation");

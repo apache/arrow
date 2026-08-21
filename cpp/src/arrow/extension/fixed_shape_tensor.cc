@@ -152,10 +152,6 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
       ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
                                            value.type(), "Invalid serialized JSON data"));
 
-      if (type == simdjson::ondemand::json_type::unknown) {
-        return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-      }
-
       if (type != simdjson::ondemand::json_type::array) {
         return Status::Invalid("shape must be an array, got ",
                                internal::JsonTypeName(type));
@@ -200,10 +196,6 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
       ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
                                            value.type(), "Invalid serialized JSON data"));
 
-      if (type == simdjson::ondemand::json_type::unknown) {
-        return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-      }
-
       if (type != simdjson::ondemand::json_type::array) {
         return Status::Invalid("permutation must be an array, got ",
                                internal::JsonTypeName(type));
@@ -247,10 +239,6 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     } else if (key == "dim_names") {
       ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
                                            value.type(), "Invalid serialized JSON data"));
-
-      if (type == simdjson::ondemand::json_type::unknown) {
-        return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-      }
 
       if (type != simdjson::ondemand::json_type::array) {
         return Status::Invalid("dim_names must be an array, got ",
