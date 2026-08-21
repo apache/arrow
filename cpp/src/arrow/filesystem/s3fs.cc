@@ -3668,7 +3668,7 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
   return resolver->ResolveRegion(bucket);
 }
 
-auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
+static auto kS3FileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "s3",
     [](const arrow::util::Uri& uri, const FileSystemFactoryOptions& options,
        const io::IOContext& io_context,
