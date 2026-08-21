@@ -69,6 +69,21 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
                                               MemoryPool* pool = default_memory_pool());
 
+/// \brief Create an array of evenly spaced integer values
+///
+/// Generates a sequence of integers from start (inclusive) to stop (exclusive)
+/// with the given step, similar to Python's range() or NumPy's arange().
+/// The resulting array will have type Int64.
+///
+/// \param[in] start First value in the sequence
+/// \param[in] stop End value (exclusive)
+/// \param[in] step Spacing between values (must not be zero)
+/// \param[in] pool the memory pool to allocate memory from
+/// \return the resulting Int64Array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
+                                      MemoryPool* pool = default_memory_pool());
+
 /// @}
 
 namespace internal {
