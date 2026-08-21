@@ -1376,10 +1376,12 @@ LogicalType::TimeUnit::unit TimeLogicalType::time_unit() const {
 }
 
 class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
-                                           public LogicalType::Impl::SimpleApplicable {
+                                           public LogicalType::Impl::Applicable {
  public:
   friend class TimestampLogicalType;
 
+  bool is_applicable(parquet::Type::type primitive_type,
+                     int32_t primitive_length = -1) const override;
   bool is_serialized() const override;
   bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
@@ -1400,7 +1402,6 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
   Timestamp(bool adjusted, LogicalType::TimeUnit::unit unit, bool is_from_converted_type,
             bool force_set_converted_type)
       : LogicalType::Impl(LogicalType::Type::TIMESTAMP, SortOrder::SIGNED),
-        LogicalType::Impl::SimpleApplicable(parquet::Type::INT64),
         adjusted_(adjusted),
         unit_(unit),
         is_from_converted_type_(is_from_converted_type),
@@ -1410,6 +1411,12 @@ class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
   bool is_from_converted_type_ = false;
   bool force_set_converted_type_ = false;
 };
+
+bool LogicalType::Impl::Timestamp::is_applicable(parquet::Type::type primitive_type,
+                                                 int32_t primitive_length) const {
+  return primitive_type == parquet::Type::INT64 ||
+         (primitive_type == parquet::Type::FIXED_LEN_BYTE_ARRAY && primitive_length == 12);
+}
 
 bool LogicalType::Impl::Timestamp::is_serialized() const {
   return !is_from_converted_type_;

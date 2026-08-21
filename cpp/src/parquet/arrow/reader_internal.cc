@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/datum.h"
 #include "arrow/io/memory.h"
@@ -855,6 +856,49 @@ Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
+// Read a TIMESTAMP-annotated FLBA(12) column as a 64-bit Arrow timestamp. Values that do
+// not fit in the 64 bit range either error or clamp to min/max int64, depending on
+// configuration.
+Status TransferFlbaTimestamp(RecordReader* reader, MemoryPool* pool,
+                             const std::shared_ptr<Field>& field, Datum* out,
+                             bool clamp_on_overflow) {
+  static const auto binary_type = ::arrow::fixed_size_binary(12);
+  std::shared_ptr<ChunkedArray> chunked_array;
+  RETURN_NOT_OK(
+      TransferBinary(reader, pool, field->WithType(binary_type), &chunked_array));
+
+  ::arrow::TimestampBuilder builder(field->type(), pool);
+  RETURN_NOT_OK(builder.Reserve(chunked_array->length()));
+  for (const auto& chunk : chunked_array->chunks()) {
+    const auto& values = checked_cast<const ::arrow::FixedSizeBinaryArray&>(*chunk);
+    for (int64_t i = 0; i < values.length(); ++i) {
+      if (values.IsNull(i)) {
+        builder.UnsafeAppendNull();
+        continue;
+      }
+      const uint8_t* bytes = values.GetValue(i);
+      const uint64_t low = bit_util::FromLittleEndian(SafeLoadAs<uint64_t>(bytes));
+      const uint32_t high = bit_util::FromLittleEndian(SafeLoadAs<uint32_t>(bytes + 8));
+      const int64_t low_signed = static_cast<int64_t>(low);
+      // Fits in int64 iff the high part is a pure sign-extension of the low part.
+      if (static_cast<int32_t>(high) != (low_signed < 0 ? -1 : 0)) {
+        if (!clamp_on_overflow) {
+          return Status::Invalid(
+              "FLBA(12) TIMESTAMP value does not fit in a 64-bit Arrow timestamp");
+        }
+        const bool negative = (bytes[11] & 0x80) != 0;
+        builder.UnsafeAppend(negative ? INT64_MIN : INT64_MAX);
+      } else {
+        builder.UnsafeAppend(low_signed);
+      }
+    }
+  }
+  std::shared_ptr<::arrow::Array> array;
+  RETURN_NOT_OK(builder.Finish(&array));
+  *out = array;
+  return Status::OK();
+}
+
 }  // namespace
 
 #define TRANSFER_INT32(ENUM, ArrowType)                                            \
@@ -966,6 +1010,10 @@ Status TransferColumnData(RecordReader* reader,
       if (descr->physical_type() == ::parquet::Type::INT96) {
         RETURN_NOT_OK(
             TransferInt96(reader, pool, value_field, &result, timestamp_type.unit()));
+      } else if (descr->physical_type() == ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
+        RETURN_NOT_OK(TransferFlbaTimestamp(
+            reader, pool, value_field, &result,
+            ctx->reader_properties->flba_timestamp_clamp_on_overflow()));
       } else {
         switch (timestamp_type.unit()) {
           case ::arrow::TimeUnit::MILLI:
