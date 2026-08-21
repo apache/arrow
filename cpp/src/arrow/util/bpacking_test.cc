@@ -321,4 +321,161 @@ TYPED_TEST(TestUnpack, UnpackSve256) {
 
 TYPED_TEST(TestUnpack, Unpack) { this->TestAll(&unpack<TypeParam>); }
 
+// ----------------------------------------------------------------------
+// unpack_bias
+
+template <typename Uint>
+using UnpackBiasFunc = void (*)(const uint8_t*, Uint*, const UnpackOptions&, Uint);
+
+template <typename Uint>
+class TestUnpackBias : public ::testing::Test {
+ protected:
+  /// `unpack_bias` must agree with `unpack` followed by an add, elementwise.
+  ///
+  /// This is a differential test against the plain unpacker on the same target,
+  /// which TestUnpack already covers, so it needs no second reference
+  /// implementation -- and it catches the failure mode that matters most here: a
+  /// kernel that folds the bias into some of its stores but not all of them.
+  void TestOne(UnpackBiasFunc<Uint> unpack_bias, UnpackFunc<Uint> unpack,
+               const UnpackOptions& opts, Uint bias) {
+    SCOPED_TRACE(::testing::Message() << "Testing bias=" << static_cast<uint64_t>(bias));
+
+    const auto original =
+        GenerateRandomValuesForPacking<Uint>(opts.batch_size, opts.bit_width);
+    const auto packed =
+        PackValues(original, opts.batch_size, opts.bit_width, opts.bit_offset);
+
+    std::vector<Uint> expected(opts.batch_size);
+    unpack(packed.data(), expected.data(), opts);
+    for (auto& v : expected) {
+      v = static_cast<Uint>(v + bias);
+    }
+
+    // Prefilled with a value the unpacker should never leave behind, so a store
+    // the kernel skips shows up as a mismatch rather than a lucky zero.
+    std::vector<Uint> actual(opts.batch_size, static_cast<Uint>(~Uint{0}));
+    unpack_bias(packed.data(), actual.data(), opts, bias);
+
+    ASSERT_EQ(expected, actual);
+  }
+
+  void TestAll(UnpackBiasFunc<Uint> unpack_bias, UnpackFunc<Uint> unpack) {
+    constexpr int kMaxBitWidth = 8 * sizeof(Uint);
+
+    // 0 must reproduce plain unpack. The top two force the add to wrap, which is
+    // the documented behaviour (the add is modular in Uint) and is what
+    // frame-of-reference callers rely on when they reinterpret the result as
+    // signed.
+    const std::vector<Uint> kBiases = {Uint{0}, Uint{1}, static_cast<Uint>(~Uint{0}),
+                                       static_cast<Uint>(Uint{1} << (kMaxBitWidth - 1))};
+
+    for (int num_values_base : {64, 128, 2048}) {
+      SCOPED_TRACE(::testing::Message() << "Testing num_values=" << num_values_base);
+
+      for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
+        SCOPED_TRACE(::testing::Message() << "Testing bit_width=" << bit_width);
+
+        // Every misalignment, to reach the prolog with a bias.
+        for (int bit_offset = 0; bit_offset < 8; ++bit_offset) {
+          SCOPED_TRACE(::testing::Message() << "Testing bit_offset=" << bit_offset);
+          const UnpackOptions opts{
+              .batch_size = num_values_base,
+              .bit_width = bit_width,
+              .bit_offset = bit_offset,
+              .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
+          };
+          for (Uint bias : kBiases) {
+            TestOne(unpack_bias, unpack, opts, bias);
+            if (testing::Test::HasFailure()) return;
+          }
+        }
+
+        // Every epilog size, to reach the tail with a bias.
+        for (int epilogue_size = 0; epilogue_size <= kMaxBitWidth; ++epilogue_size) {
+          SCOPED_TRACE(::testing::Message() << "Testing epilog_size=" << epilogue_size);
+          const UnpackOptions opts{
+              .batch_size = num_values_base + epilogue_size,
+              .bit_width = bit_width,
+              .bit_offset = 0,
+              .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
+          };
+          for (Uint bias : kBiases) {
+            TestOne(unpack_bias, unpack, opts, bias);
+            if (testing::Test::HasFailure()) return;
+          }
+        }
+      }
+    }
+  }
+};
+
+// No bool: an add has no meaning on a bool output and unpack_bias is not
+// instantiated for it.
+using UnpackBiasTypes = ::testing::Types<uint8_t, uint16_t, uint32_t, uint64_t>;
+
+TYPED_TEST_SUITE(TestUnpackBias, UnpackBiasTypes, UnpackTypeNames);
+
+TYPED_TEST(TestUnpackBias, UnpackBiasScalar) {
+  this->TestAll(&bpacking::unpack_bias_scalar<TypeParam>,
+                &bpacking::unpack_scalar<TypeParam>);
+}
+
+#if defined(ARROW_HAVE_SSE4_2)
+TYPED_TEST(TestUnpackBias, UnpackBiasSse4_2) {
+  this->TestAll(&bpacking::unpack_bias_sse4_2<TypeParam>,
+                &bpacking::unpack_sse4_2<TypeParam>);
+}
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+TYPED_TEST(TestUnpackBias, UnpackBiasAvx2) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
+    GTEST_SKIP() << "Test requires AVX2";
+  }
+  this->TestAll(&bpacking::unpack_bias_avx2<TypeParam>,
+                &bpacking::unpack_avx2<TypeParam>);
+}
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+TYPED_TEST(TestUnpackBias, UnpackBiasAvx512) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
+  this->TestAll(&bpacking::unpack_bias_avx512<TypeParam>,
+                &bpacking::unpack_avx512<TypeParam>);
+}
+#endif
+
+#if defined(ARROW_HAVE_NEON)
+TYPED_TEST(TestUnpackBias, UnpackBiasNeon) {
+  this->TestAll(&bpacking::unpack_bias_neon<TypeParam>,
+                &bpacking::unpack_neon<TypeParam>);
+}
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE128)
+TYPED_TEST(TestUnpackBias, UnpackBiasSve128) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE128)) {
+    GTEST_SKIP() << "Test requires SVE128";
+  }
+  this->TestAll(&bpacking::unpack_bias_sve128<TypeParam>,
+                &bpacking::unpack_sve128<TypeParam>);
+}
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE256)
+TYPED_TEST(TestUnpackBias, UnpackBiasSve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_bias_sve256<TypeParam>,
+                &bpacking::unpack_sve256<TypeParam>);
+}
+#endif
+
+TYPED_TEST(TestUnpackBias, UnpackBias) {
+  this->TestAll(&unpack_bias<TypeParam>, &unpack<TypeParam>);
+}
+
 }  // namespace arrow::internal

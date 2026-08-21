@@ -31,23 +31,34 @@
 namespace arrow::internal::bpacking {
 
 /// Unpack a zero bit packed array.
-template <typename Uint>
-ARROW_FORCE_INLINE void unpack_null(const uint8_t* in, Uint* out, int batch_size) {
-  std::memset(out, 0, batch_size * sizeof(Uint));
+template <bool kHasBias = false, typename Uint>
+ARROW_FORCE_INLINE void unpack_null(const uint8_t* in, Uint* out, int batch_size,
+                                    Uint bias = Uint{}) {
+  if constexpr (kHasBias) {
+    // Every unpacked value is zero, so every output value is the bias.
+    std::fill(out, out + batch_size, bias);
+  } else {
+    std::memset(out, 0, batch_size * sizeof(Uint));
+  }
 }
 
 /// Unpack a packed array where packed and unpacked values have exactly the same number of
 /// bits.
-template <typename Uint>
-ARROW_FORCE_INLINE void unpack_full(const uint8_t* in, Uint* out, int batch_size) {
-  if constexpr (ARROW_LITTLE_ENDIAN == 1) {
+template <bool kHasBias = false, typename Uint>
+ARROW_FORCE_INLINE void unpack_full(const uint8_t* in, Uint* out, int batch_size,
+                                    Uint bias = Uint{}) {
+  if constexpr (ARROW_LITTLE_ENDIAN == 1 && !kHasBias) {
     std::memcpy(out, in, batch_size * sizeof(Uint));
   } else {
     using bit_util::FromLittleEndian;
     using util::SafeLoadAs;
 
     for (int k = 0; k < batch_size; k += 1) {
-      out[k] = FromLittleEndian(SafeLoadAs<Uint>(in + (k * sizeof(Uint))));
+      Uint val = FromLittleEndian(SafeLoadAs<Uint>(in + (k * sizeof(Uint))));
+      if constexpr (kHasBias) {
+        val = static_cast<Uint>(val + bias);
+      }
+      out[k] = val;
     }
   }
 }
@@ -96,9 +107,9 @@ using SpreadBufferUint = std::conditional_t<
 /// This function works for all input batch sizes but is not the fastest.
 /// In prolog mode, instead of unpacking all required element, the function will
 /// stop if it finds a byte aligned value start.
-template <int kPackedBitWidth, bool kIsProlog, typename Uint>
+template <int kPackedBitWidth, bool kIsProlog, bool kHasBias = false, typename Uint>
 ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, const uint8_t* in_end, Uint* out,
-                                    int batch_size, int bit_offset) {
+                                    int batch_size, int bit_offset, Uint bias = Uint{}) {
   static_assert(kPackedBitWidth > 0);
 
   // For the epilog we adapt the max spread since better alignment give shorter spreads
@@ -168,6 +179,9 @@ ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, const uint8_t* in_end, Ui
       }
     }
 
+    if constexpr (kHasBias) {
+      val = static_cast<Uint>(val + bias);
+    }
     *out = val;
     out++;
     start_bit += kPackedBitWidth;
@@ -190,12 +204,12 @@ ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, const uint8_t* in_end, Ui
 ///                       This is used to safely overread.
 ///                       Negative value to deduce from batch_size.
 template <int kPackedBitWidth, template <typename, int> typename Unpacker,
-          typename UnpackedUInt>
+          bool kHasBias = false, typename UnpackedUInt>
 void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_offset,
-                  int max_read_bytes) {
+                  int max_read_bytes, UnpackedUInt bias = UnpackedUInt{}) {
   if constexpr (kPackedBitWidth == 0) {
     // Easy case to handle, simply setting memory to zero.
-    return unpack_null(in, out, batch_size);
+    return unpack_null<kHasBias>(in, out, batch_size, bias);
   } else {
     // Number of bytes to read according to batch_size.
     const int bytes_batch = static_cast<int>(
@@ -206,8 +220,8 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
     const uint8_t* in_end = in + (max_read_bytes >= 0 ? max_read_bytes : bytes_batch);
 
     // In case of misalignment, we need to run the prolog until aligned.
-    int extracted =
-        unpack_exact<kPackedBitWidth, true>(in, in_end, out, batch_size, bit_offset);
+    int extracted = unpack_exact<kPackedBitWidth, true, kHasBias>(
+        in, in_end, out, batch_size, bit_offset, bias);
     // We either extracted everything or found a alignment
     const int start_bit = extracted * kPackedBitWidth + bit_offset;
     ARROW_DCHECK((extracted == batch_size) || ((start_bit) % 8 == 0));
@@ -218,7 +232,7 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
 
     if constexpr (kPackedBitWidth == 8 * sizeof(UnpackedUInt)) {
       // Only memcpy / static_cast
-      return unpack_full(in, out, batch_size);
+      return unpack_full<kHasBias>(in, out, batch_size, bias);
     } else {
       using UnpackerForWidth = Unpacker<UnpackedUInt, kPackedBitWidth>;
       // Number of values extracted by one iteration of the kernel
@@ -229,9 +243,30 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
 
       if constexpr (kValuesUnpacked > 0) {
         const uint8_t* in_last = in_end - kBytesRead;
+        // Whether this unpacker family folds the bias into its own stores. The
+        // xsimd kernels do; the generated scalar and AVX-512 families do not, so
+        // they get a second pass over the values the kernel just wrote. That
+        // pass is over kValuesUnpacked elements still in L1, not over the whole
+        // output, but it is a second pass all the same and the measured cost of
+        // one is 1.47-2.40x the unpack -- so the fallback is for correctness on
+        // those targets, not a substitute for folding it in.
+        constexpr bool kUnpackerTakesBias =
+            requires(const uint8_t* i, UnpackedUInt* o, UnpackedUInt b) {
+              UnpackerForWidth::unpack(i, o, b);
+            };
+
         // Running the optimized kernel for batch extraction
         while ((batch_size >= kValuesUnpacked) && (in <= in_last)) {
-          in = UnpackerForWidth::unpack(in, out);
+          if constexpr (kHasBias && kUnpackerTakesBias) {
+            in = UnpackerForWidth::unpack(in, out, bias);
+          } else {
+            in = UnpackerForWidth::unpack(in, out);
+            if constexpr (kHasBias) {
+              for (int k = 0; k < kValuesUnpacked; ++k) {
+                out[k] = static_cast<UnpackedUInt>(out[k] + bias);
+              }
+            }
+          }
           out += kValuesUnpacked;
           batch_size -= kValuesUnpacked;
         }
@@ -245,406 +280,412 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
       // Running the epilog for the remaining values that don't fit in a kernel
       ARROW_DCHECK_GE(batch_size, 0);
       ARROW_COMPILER_ASSUME(batch_size >= 0);
-      unpack_exact<kPackedBitWidth, false>(in, in_end, out, batch_size,
-                                           /* bit_offset= */ 0);
+      unpack_exact<kPackedBitWidth, false, kHasBias>(in, in_end, out, batch_size,
+                                                     /* bit_offset= */ 0, bias);
     }
   }
 }
 
-template <template <typename, int> typename Unpacker, typename UnpackedUint>
-static void unpack_jump(const uint8_t* in, UnpackedUint* out, const UnpackOptions& opt) {
+template <template <typename, int> typename Unpacker, bool kHasBias = false,
+          typename UnpackedUint>
+static void unpack_jump(const uint8_t* in, UnpackedUint* out, const UnpackOptions& opt,
+                        UnpackedUint bias = UnpackedUint{}) {
+  // A bias on a bool output would have to saturate rather than add, which is not
+  // what any caller means by it.
+  static_assert(!(kHasBias && std::is_same_v<UnpackedUint, bool>),
+                "unpack with a bias is not defined for bool output");
   if constexpr (std::is_same_v<UnpackedUint, bool>) {
     switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<0, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<1, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
     }
   } else if constexpr (sizeof(UnpackedUint) == 1) {
     switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<0, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<1, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<2, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<3, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<4, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<5, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<6, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<7, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<8, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
     }
   } else if constexpr (sizeof(UnpackedUint) == 2) {
     switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<0, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<1, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<2, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<3, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<4, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<5, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<6, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<7, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<8, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 9:
-        return unpack_width<9, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<9, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 10:
-        return unpack_width<10, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<10, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 11:
-        return unpack_width<11, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<11, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 12:
-        return unpack_width<12, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<12, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 13:
-        return unpack_width<13, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<13, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 14:
-        return unpack_width<14, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<14, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 15:
-        return unpack_width<15, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<15, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 16:
-        return unpack_width<16, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<16, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
     }
   } else if constexpr (sizeof(UnpackedUint) == 4) {
     switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<0, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<1, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<2, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<3, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<4, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<5, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<6, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<7, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<8, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 9:
-        return unpack_width<9, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<9, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 10:
-        return unpack_width<10, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<10, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 11:
-        return unpack_width<11, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<11, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 12:
-        return unpack_width<12, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<12, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 13:
-        return unpack_width<13, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<13, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 14:
-        return unpack_width<14, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<14, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 15:
-        return unpack_width<15, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<15, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 16:
-        return unpack_width<16, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<16, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 17:
-        return unpack_width<17, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<17, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 18:
-        return unpack_width<18, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<18, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 19:
-        return unpack_width<19, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<19, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 20:
-        return unpack_width<20, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<20, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 21:
-        return unpack_width<21, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<21, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 22:
-        return unpack_width<22, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<22, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 23:
-        return unpack_width<23, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<23, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 24:
-        return unpack_width<24, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<24, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 25:
-        return unpack_width<25, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<25, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 26:
-        return unpack_width<26, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<26, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 27:
-        return unpack_width<27, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<27, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 28:
-        return unpack_width<28, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<28, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 29:
-        return unpack_width<29, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<29, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 30:
-        return unpack_width<30, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<30, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 31:
-        return unpack_width<31, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<31, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 32:
-        return unpack_width<32, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<32, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
     }
   } else if constexpr (sizeof(UnpackedUint) == 8) {
     switch (opt.bit_width) {
       case 0:
-        return unpack_width<0, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<0, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 1:
-        return unpack_width<1, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<1, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 2:
-        return unpack_width<2, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<2, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 3:
-        return unpack_width<3, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<3, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 4:
-        return unpack_width<4, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<4, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 5:
-        return unpack_width<5, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<5, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 6:
-        return unpack_width<6, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<6, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 7:
-        return unpack_width<7, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<7, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 8:
-        return unpack_width<8, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<8, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 9:
-        return unpack_width<9, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                         opt.max_read_bytes);
+        return unpack_width<9, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 10:
-        return unpack_width<10, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<10, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 11:
-        return unpack_width<11, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<11, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 12:
-        return unpack_width<12, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<12, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 13:
-        return unpack_width<13, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<13, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 14:
-        return unpack_width<14, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<14, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 15:
-        return unpack_width<15, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<15, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 16:
-        return unpack_width<16, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<16, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 17:
-        return unpack_width<17, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<17, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 18:
-        return unpack_width<18, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<18, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 19:
-        return unpack_width<19, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<19, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 20:
-        return unpack_width<20, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<20, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 21:
-        return unpack_width<21, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<21, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 22:
-        return unpack_width<22, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<22, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 23:
-        return unpack_width<23, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<23, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 24:
-        return unpack_width<24, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<24, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 25:
-        return unpack_width<25, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<25, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 26:
-        return unpack_width<26, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<26, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 27:
-        return unpack_width<27, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<27, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 28:
-        return unpack_width<28, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<28, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 29:
-        return unpack_width<29, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<29, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 30:
-        return unpack_width<30, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<30, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 31:
-        return unpack_width<31, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<31, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 32:
-        return unpack_width<32, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<32, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 33:
-        return unpack_width<33, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<33, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 34:
-        return unpack_width<34, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<34, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 35:
-        return unpack_width<35, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<35, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 36:
-        return unpack_width<36, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<36, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 37:
-        return unpack_width<37, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<37, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 38:
-        return unpack_width<38, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<38, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 39:
-        return unpack_width<39, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<39, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 40:
-        return unpack_width<40, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<40, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 41:
-        return unpack_width<41, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<41, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 42:
-        return unpack_width<42, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<42, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 43:
-        return unpack_width<43, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<43, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 44:
-        return unpack_width<44, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<44, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 45:
-        return unpack_width<45, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<45, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 46:
-        return unpack_width<46, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<46, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 47:
-        return unpack_width<47, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<47, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 48:
-        return unpack_width<48, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<48, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 49:
-        return unpack_width<49, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<49, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 50:
-        return unpack_width<50, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<50, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 51:
-        return unpack_width<51, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<51, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 52:
-        return unpack_width<52, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<52, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 53:
-        return unpack_width<53, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<53, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 54:
-        return unpack_width<54, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<54, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 55:
-        return unpack_width<55, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<55, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 56:
-        return unpack_width<56, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<56, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 57:
-        return unpack_width<57, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<57, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 58:
-        return unpack_width<58, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<58, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 59:
-        return unpack_width<59, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<59, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 60:
-        return unpack_width<60, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<60, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 61:
-        return unpack_width<61, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<61, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 62:
-        return unpack_width<62, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<62, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 63:
-        return unpack_width<63, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<63, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
       case 64:
-        return unpack_width<64, Unpacker>(in, out, opt.batch_size, opt.bit_offset,
-                                          opt.max_read_bytes);
+        return unpack_width<64, Unpacker, kHasBias>(
+            in, out, opt.batch_size, opt.bit_offset, opt.max_read_bytes, bias);
     }
   }
   ARROW_DCHECK(false) << "Unsupported num_bits " << opt.bit_width;

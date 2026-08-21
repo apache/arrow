@@ -645,9 +645,10 @@ struct MediumKernel {
   static constexpr int kValuesUnpacked = kPlan.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
 
-  template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
+  template <bool kHasBias, int kReadIdx, int kSwizzleIdx, int kShiftIdx>
   ARROW_FORCE_INLINE static void unpack_one_shift_impl(const simd_batch& words,
-                                                       unpacked_type* out) {
+                                                       unpacked_type* out,
+                                                       const simd_batch& bias) {
     constexpr auto kRightShiftsArr =
         kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
     constexpr auto kRightShifts = array_to_batch_constant<kRightShiftsArr, arch_type>();
@@ -662,44 +663,62 @@ struct MediumKernel {
     const auto shifted = right_shift_by_excess(words, kRightShifts);
     const auto vals = shifted & kMask;
     if constexpr (std::is_same_v<unpacked_type, bool>) {
+      static_assert(!kHasBias, "no bias on bool output");
       const xsimd::batch_bool<uint_type, arch_type> bools = vals != 0;
       bools.store_unaligned(out + kOutOffset);
+    } else if constexpr (kHasBias) {
+      // The whole point: the bias lands before the store, so there is no second
+      // pass over the output to add it.
+      (vals + bias).store_unaligned(out + kOutOffset);
     } else {
       vals.store_unaligned(out + kOutOffset);
     }
   }
 
-  template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
+  template <bool kHasBias, int kReadIdx, int kSwizzleIdx, int... kShiftIds>
   ARROW_FORCE_INLINE static void unpack_one_swizzle_impl(
-      const simd_bytes& bytes, unpacked_type* out,
+      const simd_bytes& bytes, unpacked_type* out, const simd_batch& bias,
       std::integer_sequence<int, kShiftIds...>) {
     constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
     constexpr auto kSwizzles = array_to_batch_constant<kSwizzlesArr, arch_type>();
 
     const auto swizzled = xsimd::swizzle(bytes, kSwizzles);
     const auto words = xsimd::bitwise_cast<uint_type>(swizzled);
-    (unpack_one_shift_impl<kReadIdx, kSwizzleIdx, kShiftIds>(words, out), ...);
+    (unpack_one_shift_impl<kHasBias, kReadIdx, kSwizzleIdx, kShiftIds>(words, out, bias),
+     ...);
   }
 
-  template <int kReadIdx, int... kSwizzleIds>
+  template <bool kHasBias, int kReadIdx, int... kSwizzleIds>
   ARROW_FORCE_INLINE static void unpack_one_read_impl(
-      const uint8_t* in, unpacked_type* out, std::integer_sequence<int, kSwizzleIds...>) {
+      const uint8_t* in, unpacked_type* out, const simd_batch& bias,
+      std::integer_sequence<int, kSwizzleIds...>) {
     using ShiftSeq = std::make_integer_sequence<int, kPlanSize.shifts_per_swizzle()>;
     const auto bytes =
         safe_load_bytes<kPlan.bytes_per_read(), arch_type>(in + kPlan.reads.at(kReadIdx));
-    (unpack_one_swizzle_impl<kReadIdx, kSwizzleIds>(bytes, out, ShiftSeq{}), ...);
+    (unpack_one_swizzle_impl<kHasBias, kReadIdx, kSwizzleIds>(bytes, out, bias,
+                                                              ShiftSeq{}),
+     ...);
   }
 
-  template <int... kReadIds>
+  template <bool kHasBias, int... kReadIds>
   ARROW_FORCE_INLINE static void unpack_all_impl(
-      const uint8_t* in, unpacked_type* out, std::integer_sequence<int, kReadIds...>) {
+      const uint8_t* in, unpacked_type* out, const simd_batch& bias,
+      std::integer_sequence<int, kReadIds...>) {
     using SwizzleSeq = std::make_integer_sequence<int, kPlanSize.swizzles_per_read()>;
-    (unpack_one_read_impl<kReadIds>(in, out, SwizzleSeq{}), ...);
+    (unpack_one_read_impl<kHasBias, kReadIds>(in, out, bias, SwizzleSeq{}), ...);
   }
 
   ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
     using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
-    unpack_all_impl(in, out, ReadSeq{});
+    unpack_all_impl<false>(in, out, simd_batch{}, ReadSeq{});
+    return in + (kPlan.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
+  }
+
+  /// Same, with `bias` added to every value before it is stored.
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out,
+                                                  unpacked_type bias) {
+    using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
+    unpack_all_impl<true>(in, out, simd_batch(static_cast<uint_type>(bias)), ReadSeq{});
     return in + (kPlan.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
   }
 };
@@ -934,9 +953,10 @@ struct LargeKernel {
   static constexpr int kValuesUnpacked = kPlanSize.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
 
-  template <int kReadIdx>
+  template <bool kHasBias, int kReadIdx>
   ARROW_FORCE_INLINE static void unpack_one_read_impl(const uint8_t* in,
-                                                      unpacked_type* out) {
+                                                      unpacked_type* out,
+                                                      const simd_batch& bias) {
     constexpr auto kLowSwizzles =
         array_to_batch_constant<kPlan.low_swizzles.at(kReadIdx), arch_type>();
     constexpr auto kLowRShifts =
@@ -967,18 +987,34 @@ struct LargeKernel {
     // We can have a single mask and apply it after OR because the shifts will ensure that
     // there are zeros where the high/low values are incomplete.
     const auto vals = (low_shifted | high_shifted) & kPlan.mask;
-    xsimd::store_unaligned(out + kReadIdx * kShape.unpacked_per_simd(), vals);
+    if constexpr (kHasBias) {
+      // As in MediumKernel: fold the bias into this store rather than sweeping
+      // the output again afterwards.
+      xsimd::store_unaligned(out + kReadIdx * kShape.unpacked_per_simd(), vals + bias);
+    } else {
+      xsimd::store_unaligned(out + kReadIdx * kShape.unpacked_per_simd(), vals);
+    }
   }
 
-  template <int... kReadIds>
+  template <bool kHasBias, int... kReadIds>
   ARROW_FORCE_INLINE static void unpack_all_impl(
-      const uint8_t* in, unpacked_type* out, std::integer_sequence<int, kReadIds...>) {
-    (unpack_one_read_impl<kReadIds>(in, out), ...);
+      const uint8_t* in, unpacked_type* out, const simd_batch& bias,
+      std::integer_sequence<int, kReadIds...>) {
+    (unpack_one_read_impl<kHasBias, kReadIds>(in, out, bias), ...);
   }
 
   ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
     using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
-    unpack_all_impl(in, out, ReadSeq{});
+    unpack_all_impl<false>(in, out, simd_batch{}, ReadSeq{});
+    return in + (kPlan.kPlanSize.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
+  }
+
+  /// Same, with `bias` added to every value before it is stored.
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out,
+                                                  unpacked_type bias) {
+    using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
+    unpack_all_impl<true>(in, out, simd_batch(static_cast<typename Traits::uint_type>(bias)),
+                          ReadSeq{});
     return in + (kPlan.kPlanSize.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
   }
 };
@@ -1013,6 +1049,26 @@ struct CastingKernel : WorkingKernel {
     in = WorkingKernel::unpack(in, buffer);
     for (int k = 0; k < kValuesUnpacked; ++k) {
       out[k] = static_cast<unpacked_type>(buffer[k]);
+    }
+    return in;
+  }
+
+  /// Same, with `bias` added to every value.
+  ///
+  /// The add goes in the cast loop, not in the working kernel's stores. The
+  /// working kernel can be *narrower* than `unpacked_type` (uint32 working /
+  /// uint64 unpacked on SSE4.2), and adding there would compute the bias modulo
+  /// the working width before widening -- wrong for any bias that does not fit.
+  /// Adding after the widening is correct for both directions, and the cast loop
+  /// was going to run anyway.
+  ARROW_FORCE_INLINE static const uint8_t* unpack(const uint8_t* in, unpacked_type* out,
+                                                  unpacked_type bias) {
+    using working_type = typename WorkingKernel::unpacked_type;
+
+    working_type buffer[kValuesUnpacked] = {};
+    in = WorkingKernel::unpack(in, buffer);
+    for (int k = 0; k < kValuesUnpacked; ++k) {
+      out[k] = static_cast<unpacked_type>(static_cast<unpacked_type>(buffer[k]) + bias);
     }
     return in;
   }

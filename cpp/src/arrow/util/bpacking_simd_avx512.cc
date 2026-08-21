@@ -33,4 +33,19 @@ template void unpack_avx512<uint16_t>(const uint8_t*, uint16_t*, const UnpackOpt
 template void unpack_avx512<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
 template void unpack_avx512<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
+template <typename Uint>
+void unpack_bias_avx512(const uint8_t* in, Uint* out, const UnpackOptions& opts,
+                        Uint bias) {
+  return unpack_jump<Simd512UnpackerForWidth, /*kHasBias=*/true>(in, out, opts, bias);
+}
+
+template void unpack_bias_avx512<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&,
+                                          uint8_t);
+template void unpack_bias_avx512<uint16_t>(const uint8_t*, uint16_t*,
+                                           const UnpackOptions&, uint16_t);
+template void unpack_bias_avx512<uint32_t>(const uint8_t*, uint32_t*,
+                                           const UnpackOptions&, uint32_t);
+template void unpack_bias_avx512<uint64_t>(const uint8_t*, uint64_t*,
+                                           const UnpackOptions&, uint64_t);
+
 }  // namespace arrow::internal::bpacking
