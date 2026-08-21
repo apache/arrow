@@ -358,22 +358,22 @@ struct TypeTraits<Decimal256Type> {
 };
 
 template <>
-struct CTypeTraits<Decimal32> : TypeTraits<Decimal32Type> {
+struct CTypeTraits<Decimal32> : public TypeTraits<Decimal32Type> {
   using ArrowType = Decimal32Type;
 };
 
 template <>
-struct CTypeTraits<Decimal64> : TypeTraits<Decimal64Type> {
+struct CTypeTraits<Decimal64> : public TypeTraits<Decimal64Type> {
   using ArrowType = Decimal64Type;
 };
 
 template <>
-struct CTypeTraits<Decimal128> : TypeTraits<Decimal128Type> {
+struct CTypeTraits<Decimal128> : public TypeTraits<Decimal128Type> {
   using ArrowType = Decimal128Type;
 };
 
 template <>
-struct CTypeTraits<Decimal256> : TypeTraits<Decimal256Type> {
+struct CTypeTraits<Decimal256> : public TypeTraits<Decimal256Type> {
   using ArrowType = Decimal256Type;
 };
 
