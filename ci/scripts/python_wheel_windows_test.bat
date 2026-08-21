@@ -26,7 +26,9 @@ set PYARROW_TEST_GANDIVA=OFF
 set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
 set PYARROW_TEST_ORC=ON
-set PYARROW_TEST_PANDAS=ON
+@REM TODO: To be removed once pandas provides wheels for Python 3.15
+%PYTHON_CMD% -c "import sys; sys.exit(0 if sys.version_info < (3, 15) else 1)"
+if errorlevel 1 (set PYARROW_TEST_PANDAS=OFF) else (set PYARROW_TEST_PANDAS=ON)
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON

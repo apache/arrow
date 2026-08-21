@@ -16,6 +16,7 @@ numpy~=1.23.2; python_version < "3.11"
 numpy~=1.23.2; python_version == "3.11"
 numpy~=1.26.0; python_version == "3.12"
 numpy~=2.1.0; python_version == "3.13"
-numpy~=2.3.3; python_version >= "3.14"
+numpy~=2.3.3; python_version == "3.14"
+numpy~=2.5.2; python_version == "3.15"  # TODO: 2.5.2 is for 3.15-rc1, after release, update to correct version  
 
-pandas
+pandas; python_version < "3.15"  # TODO: temporary - reenable when 3.15 wheels ship
