@@ -217,8 +217,9 @@ def test_dlpack_versioned_roundtrip(obj):
 
 @check_bytes_allocated
 def test_dlpack_copy_is_writeable():
-    if Version(np.__version__) < Version("2.1.0"):
-        pytest.skip("Read-only DLPack flag requires numpy 2.1.0 or later")
+    # NumPy did not set the writeable flag on DLPack imports before 2.2.5.
+    if Version(np.__version__) < Version("2.2.5"):
+        pytest.skip("Writable DLPack imports require numpy 2.2.5 or later")
 
     arr = pa.array([1, 2, 3], type=pa.int32())
 
