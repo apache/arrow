@@ -22,7 +22,7 @@ ARG python="3.12"
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
 ARG selenium_version="4.41.0"
-ARG pyodide_version="0.26.0"
+ARG pyodide_version="0.27.1"
 ARG chrome_version="latest"
 ARG required_python_min="(3,12)"
 # fail if python version < 3.12

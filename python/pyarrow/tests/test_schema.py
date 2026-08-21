@@ -51,7 +51,7 @@ def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
     cases = [
         (pa.null(), np.object_),
-        (pa.bool_(), np.bool_),
+        (pa.bool_(), np.bool),
         (pa.int8(), np.int8),
         (pa.int16(), np.int16),
         (pa.int32(), np.int32),

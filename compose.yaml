@@ -981,7 +981,7 @@ services:
         arch_short: ${ARCH_SHORT}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
-        pyodide_version: "0.26.0"
+        pyodide_version: "0.27.1"
         chrome_version: "latest"
         selenium_version: "4.41.0"
         required_python_min: "(3,12)"

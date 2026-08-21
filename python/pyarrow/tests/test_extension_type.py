@@ -31,7 +31,6 @@ except ImportError:
     np = None
 
 import pyarrow as pa
-from pyarrow.vendored.version import Version
 
 
 @contextlib.contextmanager
@@ -1965,13 +1964,9 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     assert result["ext"].dtype == pandas_dtype
 
     import pandas as pd
-    # Skip tests for 2.0.x, See: GH-35821
-    if (
-        Version(pd.__version__) >= Version("2.1.0")
-    ):
-        # Check the usage of types_mapper
-        result = table.to_pandas(types_mapper=pd.ArrowDtype)
-        assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+    # Check the usage of types_mapper
+    result = table.to_pandas(types_mapper=pd.ArrowDtype)
+    assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
 def test_tensor_type_is_picklable(pickle_module):
@@ -2127,7 +2122,7 @@ def test_bool8_to_numpy_conversion():
     )
 
     # zero-copy possible with non-null array
-    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool)
     arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([-1, 0, 1, 2], pa.int8()),
@@ -2149,7 +2144,7 @@ def test_bool8_to_numpy_conversion():
 
 @pytest.mark.numpy
 def test_bool8_from_numpy_conversion():
-    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool)
     canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([1, 0, 1, 1], pa.int8()),
@@ -2167,14 +2162,14 @@ def test_bool8_from_numpy_conversion():
         match="Cannot convert 2-D array to bool8 array",
     ):
         pa.Bool8Array.from_numpy(
-            np.array([[True, False], [False, True]], dtype=np.bool_),
+            np.array([[True, False], [False, True]], dtype=np.bool),
         )
 
     with pytest.raises(
         ValueError,
         match="Cannot convert 0-D array to bool8 array",
     ):
-        pa.Bool8Array.from_numpy(np.bool_())
+        pa.Bool8Array.from_numpy(np.bool())
 
     # must use compatible storage type
     with pytest.raises(
