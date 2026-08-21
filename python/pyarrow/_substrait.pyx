@@ -30,8 +30,17 @@ try:
     import substrait as py_substrait
 except ImportError:
     py_substrait = None
+    py_substrait_proto = None
+    py_substrait_extended_expression_pb2 = None
 else:
-    import substrait.proto  # no-cython-lint
+    try:
+        import substrait.proto as py_substrait_proto  # no-cython-lint
+    except ImportError:
+        py_substrait_proto = None
+    try:
+        from substrait import extended_expression_pb2 as py_substrait_extended_expression_pb2  # no-cython-lint
+    except ImportError:
+        py_substrait_extended_expression_pb2 = None
 
 
 # TODO GH-37235: Fix exception handling
@@ -213,9 +222,13 @@ class SubstraitSchema:
 
     def to_pysubstrait(self):
         """Convert the schema to a substrait-python ExtendedExpression object."""
-        if py_substrait is None:
-            raise ImportError("The 'substrait' package is required.")
-        return py_substrait.proto.ExtendedExpression.FromString(self.expression)
+        if py_substrait_proto is not None:
+            return py_substrait_proto.ExtendedExpression.FromString(self.expression)
+        if py_substrait_extended_expression_pb2 is not None:
+            return py_substrait_extended_expression_pb2.ExtendedExpression.FromString(
+                self.expression)
+        raise ImportError(
+            "The 'substrait' package or generated protobuf modules are required.")
 
 
 def serialize_schema(schema):
@@ -397,7 +410,7 @@ cdef class BoundExpressions(_Weakrefable):
         return self
 
     @classmethod
-    def from_substrait(cls, message):
+    def from_substrait(cls, message, schema=None):
         """
         Convert a Substrait message into a BoundExpressions object
 
@@ -405,6 +418,9 @@ cdef class BoundExpressions(_Weakrefable):
         ----------
         message : Buffer or bytes or protobuf Message
             The message to convert to a BoundExpressions object
+        schema : Schema, optional
+            The input schema to use when the Substrait message contains
+            unresolved field names or unknown types.
 
         Returns
         -------
@@ -412,18 +428,19 @@ cdef class BoundExpressions(_Weakrefable):
             The converted expressions, their names, and the bound schema
         """
         if isinstance(message, (bytes, memoryview)):
-            return deserialize_expressions(message)
+            return deserialize_expressions(message, schema=schema)
         elif isinstance(message, Buffer):
-            return deserialize_expressions(message)
+            return deserialize_expressions(message, schema=schema)
         else:
             try:
-                return deserialize_expressions(message.SerializeToString())
+                return deserialize_expressions(
+                    message.SerializeToString(), schema=schema)
             except AttributeError:
                 raise TypeError(
                     f"Expected 'pyarrow.Buffer' or bytes or protobuf Message, got '{type(message)}'")
 
 
-def deserialize_expressions(buf):
+def deserialize_expressions(buf, schema=None):
     """
     Deserialize an ExtendedExpression Substrait message into a BoundExpressions object
 
@@ -431,6 +448,9 @@ def deserialize_expressions(buf):
     ----------
     buf : Buffer or bytes
         The message to deserialize
+    schema : Schema, optional
+        The input schema to use when the Substrait message contains
+        unresolved field names or unknown types.
 
     Returns
     -------
@@ -450,9 +470,18 @@ def deserialize_expressions(buf):
         raise TypeError(
             f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
 
-    with nogil:
-        c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
-        c_bound_exprs = GetResultValue(c_res_bound_exprs)
+    if schema is None:
+        with nogil:
+            c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
+            c_bound_exprs = GetResultValue(c_res_bound_exprs)
+    else:
+        if not isinstance(schema, Schema):
+            raise TypeError(
+                f"Expected 'pyarrow.Schema' or None, got '{type(schema)}'")
+        with nogil:
+            c_res_bound_exprs = DeserializeExpressions(
+                deref(c_buffer), deref((<Schema> schema).sp_schema))
+            c_bound_exprs = GetResultValue(c_res_bound_exprs)
 
     return BoundExpressions.wrap(c_bound_exprs)
 

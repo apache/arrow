@@ -56,6 +56,10 @@ std::shared_ptr<DataType> interval_year();
 ARROW_ENGINE_EXPORT
 std::shared_ptr<DataType> interval_day();
 
+/// constructs the appropriate time type given the precision
+ARROW_ENGINE_EXPORT
+Result<std::shared_ptr<DataType>> precision_time(int precision);
+
 /// constructs the appropriate timestamp type given the precision
 /// no time zone
 ARROW_ENGINE_EXPORT
