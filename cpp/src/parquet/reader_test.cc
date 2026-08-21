@@ -37,6 +37,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/range.h"
 #include "arrow/util/simdjson_internal.h"
 
@@ -1724,7 +1725,9 @@ TEST(TestByteStreamSplit, FloatIntegrationFile) {
   {
     auto values =
         ReadColumnValues<FloatType>(file.get(), /*row_group=*/0, /*column=*/0, kNumRows);
+#  if ARROW_LITTLE_ENDIAN
     ASSERT_EQ(values[0], 1.7640524f);
+#  endif
     ASSERT_EQ(values[1], 0.4001572f);
     ASSERT_EQ(values[kNumRows - 2], -0.39944902f);
     ASSERT_EQ(values[kNumRows - 1], 0.37005588f);
