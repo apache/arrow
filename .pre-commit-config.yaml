@@ -288,12 +288,7 @@ repos:
           (
           ?^c_glib/.*\.sh$|
           ?^ci/.*\.sh$|
-          ?^cpp/build-support/build-lz4-lib\.sh$|
-          ?^cpp/build-support/build-zstd-lib\.sh$|
-          ?^cpp/build-support/get-upstream-commit\.sh$|
-          ?^cpp/build-support/update-flatbuffers\.sh$|
-          ?^cpp/build-support/update-thrift\.sh$|
-          ?^cpp/build-support/vendor-flatbuffers\.sh$|
+          ?^cpp/build-support/.*\.sh$|
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/install/mac/postinstall$|
