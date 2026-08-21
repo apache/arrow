@@ -17,22 +17,21 @@
 
 #include <sstream>
 
+#include <simdjson.h>
+
 #include "arrow/extension/tensor_internal.h"
 #include "arrow/extension/variable_shape_tensor.h"
 
 #include "arrow/array/array_primitive.h"
 #include "arrow/json/json_writer_internal.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/scalar.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
-#include <rapidjson/document.h>
-
-namespace rj = arrow::rapidjson;
 using ::arrow::json::JsonWriter;
 
 namespace arrow::extension {
@@ -155,62 +154,175 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
       internal::checked_cast<const FixedSizeListType&>(*storage_type->field(1)->type())
           .list_size();
 
-  rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
-      !document.IsObject()) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
+  simdjson::padded_string padded_json(serialized_data);
+  simdjson::ondemand::parser parser;
+
+  ARROW_ASSIGN_OR_RAISE(auto document,
+                        internal::ResolveSimdjsonResult(parser.iterate(padded_json),
+                                                        "Invalid serialized JSON data"));
+
+  ARROW_ASSIGN_OR_RAISE(auto object,
+                        internal::ResolveSimdjsonResult(document.get_object(),
+                                                        "Invalid serialized JSON data"));
 
   std::vector<int64_t> permutation;
-  if (document.HasMember("permutation")) {
-    const auto& json_permutation = document["permutation"];
-    if (!json_permutation.IsArray()) {
-      return Status::Invalid("permutation must be an array, got ",
-                             internal::JsonTypeName(json_permutation));
-    }
-    permutation.reserve(ndim);
-    for (const auto& x : json_permutation.GetArray()) {
-      if (!x.IsInt64()) {
-        return Status::Invalid("permutation must contain integers, got ",
-                               internal::JsonTypeName(x));
-      }
-      permutation.emplace_back(x.GetInt64());
-    }
-    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
-  }
   std::vector<std::string> dim_names;
-  if (document.HasMember("dim_names")) {
-    const auto& json_dim_names = document["dim_names"];
-    if (!json_dim_names.IsArray()) {
-      return Status::Invalid("dim_names must be an array, got ",
-                             internal::JsonTypeName(json_dim_names));
-    }
-    dim_names.reserve(ndim);
-    for (const auto& x : json_dim_names.GetArray()) {
-      if (!x.IsString()) {
-        return Status::Invalid("dim_names must contain strings, got ",
-                               internal::JsonTypeName(x));
-      }
-      dim_names.emplace_back(x.GetString());
-    }
-  }
-
   std::vector<std::optional<int64_t>> uniform_shape;
-  if (document.HasMember("uniform_shape")) {
-    const auto& json_uniform_shape = document["uniform_shape"];
-    if (!json_uniform_shape.IsArray()) {
-      return Status::Invalid("uniform_shape must be an array, got ",
-                             internal::JsonTypeName(json_uniform_shape));
-    }
-    uniform_shape.reserve(ndim);
-    for (const auto& x : json_uniform_shape.GetArray()) {
-      if (x.IsNull()) {
-        uniform_shape.emplace_back(std::nullopt);
-      } else if (x.IsInt64()) {
-        uniform_shape.emplace_back(x.GetInt64());
-      } else {
-        return Status::Invalid("uniform_shape must contain integers or nulls, got ",
-                               internal::JsonTypeName(x));
+
+  for (auto field_result : object) {
+    ARROW_ASSIGN_OR_RAISE(auto field, internal::ResolveSimdjsonResult(
+                                          field_result, "Invalid serialized JSON data"));
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
+                                                  "Failed to get JSON object key"));
+
+    auto value = field.value();
+
+    if (key == "permutation") {
+      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                           value.type(), "Invalid serialized JSON data"));
+
+      if (type != simdjson::ondemand::json_type::array) {
+        return Status::Invalid("permutation must be an array, got ",
+                               internal::JsonTypeName(type));
+      }
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto array, internal::ResolveSimdjsonResult(value.get_array(),
+                                                      "Failed to get permutation array"));
+
+      permutation.reserve(ndim);
+
+      for (auto element_result : array) {
+        ARROW_ASSIGN_OR_RAISE(auto element,
+                              internal::ResolveSimdjsonResult(
+                                  element_result, "Failed to iterate permutation array"));
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto element_type,
+            internal::ResolveSimdjsonResult(
+                element.type(), "Failed to determine permutation element JSON type"));
+
+        if (element_type != simdjson::ondemand::json_type::number) {
+          return Status::Invalid("permutation must contain integers, got ",
+                                 internal::JsonTypeName(element_type));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto number_type,
+                              internal::ResolveSimdjsonResult(
+                                  element.get_number_type(),
+                                  "Failed to determine permutation number type"));
+
+        if (number_type != simdjson::ondemand::number_type::signed_integer) {
+          return Status::Invalid("permutation must contain integers, got ",
+                                 internal::JsonNumberTypeName(number_type));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto number, internal::ResolveSimdjsonResult(
+                             element.get_int64(), "Failed to get permutation integer"));
+
+        permutation.emplace_back(number);
+      }
+
+      RETURN_NOT_OK(internal::IsPermutationValid(permutation));
+
+    } else if (key == "dim_names") {
+      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                           value.type(), "Invalid serialized JSON data"));
+
+      if (type != simdjson::ondemand::json_type::array) {
+        return Status::Invalid("dim_names must be an array, got ",
+                               internal::JsonTypeName(type));
+      }
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto array, internal::ResolveSimdjsonResult(value.get_array(),
+                                                      "Failed to get dim_names array"));
+
+      dim_names.reserve(ndim);
+
+      for (auto element_result : array) {
+        ARROW_ASSIGN_OR_RAISE(auto element,
+                              internal::ResolveSimdjsonResult(
+                                  element_result, "Failed to iterate dim_names array"));
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto element_type,
+            internal::ResolveSimdjsonResult(
+                element.type(), "Failed to determine dim_names element JSON type"));
+
+        if (element_type != simdjson::ondemand::json_type::string) {
+          return Status::Invalid("dim_names must contain strings, got ",
+                                 internal::JsonTypeName(element_type));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto name,
+                              internal::ResolveSimdjsonResult(element.get_string(),
+                                                              "Failed to get dim_name"));
+
+        dim_names.emplace_back(name);
+      }
+
+      if (dim_names.size() != static_cast<size_t>(ndim)) {
+        return Status::Invalid("Invalid: dim_names");
+      }
+
+    } else if (key == "uniform_shape") {
+      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
+                                           value.type(), "Invalid serialized JSON data"));
+
+      if (type != simdjson::ondemand::json_type::array) {
+        return Status::Invalid("uniform_shape must be an array, got ",
+                               internal::JsonTypeName(type));
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto array,
+                            internal::ResolveSimdjsonResult(
+                                value.get_array(), "Failed to get uniform_shape array"));
+
+      uniform_shape.reserve(ndim);
+
+      for (auto element_result : array) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto element, internal::ResolveSimdjsonResult(
+                              element_result, "Failed to iterate uniform_shape array"));
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto element_type,
+            internal::ResolveSimdjsonResult(
+                element.type(), "Failed to determine uniform_shape element JSON type"));
+
+        if (element_type == simdjson::ondemand::json_type::null) {
+          uniform_shape.emplace_back(std::nullopt);
+          continue;
+        }
+
+        if (element_type != simdjson::ondemand::json_type::number) {
+          return Status::Invalid("uniform_shape must contain integers or nulls, got ",
+                                 internal::JsonTypeName(element_type));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto number_type,
+                              internal::ResolveSimdjsonResult(
+                                  element.get_number_type(),
+                                  "Failed to determine uniform_shape number type"));
+
+        if (number_type != simdjson::ondemand::number_type::signed_integer) {
+          return Status::Invalid("uniform_shape must contain integers or nulls, got ",
+                                 internal::JsonNumberTypeName(number_type));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto number, internal::ResolveSimdjsonResult(
+                             element.get_int64(), "Failed to get uniform_shape integer"));
+
+        uniform_shape.emplace_back(number);
+      }
+
+      if (uniform_shape.size() != static_cast<size_t>(ndim)) {
+        return Status::Invalid("Invalid: uniform_shape");
       }
     }
   }
