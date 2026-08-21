@@ -21,6 +21,7 @@ import gc
 import pytest
 
 import pyarrow as pa
+from pyarrow.vendored.version import Version
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not numpy'

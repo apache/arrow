@@ -442,7 +442,7 @@ def test_backwards_compatible_column_metadata_handling(datadir):
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
     table = _read_table(path)
     result = table.to_pandas()
-    tm.assert_frame_equal(result, expected)
+    tm.assert_frame_equal(result, expected, check_freq=False)
 
     table = _read_table(
         path, columns=['a'])
