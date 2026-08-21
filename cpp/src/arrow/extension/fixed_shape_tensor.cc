@@ -182,7 +182,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
                                             "Failed to determine shape number type"));
 
         if (number_type != simdjson::ondemand::number_type::signed_integer) {
-          return Status::Invalid("shape must contain integers, got number");
+          return Status::Invalid("shape must contain integers, got ",
+                                 internal::JsonNumberTypeName(number_type));
         }
 
         ARROW_ASSIGN_OR_RAISE(
@@ -226,7 +227,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
                                   "Failed to determine permutation number type"));
 
         if (number_type != simdjson::ondemand::number_type::signed_integer) {
-          return Status::Invalid("permutation must contain integers, got number");
+          return Status::Invalid("permutation must contain integers, got ",
+                                 internal::JsonNumberTypeName(number_type));
         }
 
         ARROW_ASSIGN_OR_RAISE(

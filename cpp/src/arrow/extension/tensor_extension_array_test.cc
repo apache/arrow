@@ -223,7 +223,7 @@ TEST_F(TestFixedShapeTensorType, MetadataSerializationRoundtrip) {
   // Validate shape values must be integers. Error message should include the
   // JSON type name of the offending value.
   CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[3.5,4]})",
-                             "shape must contain integers, got number");
+                             "shape must contain integers, got floating-point number");
   CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":["3","4"]})",
                              "shape must contain integers, got string");
   CheckDeserializationRaises(ext_type_, storage_type, R"({"shape":[null]})",
@@ -248,9 +248,9 @@ TEST_F(TestFixedShapeTensorType, MetadataSerializationRoundtrip) {
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"shape":[3,4],"permutation":{"a":1}})",
                              "permutation must be an array, got object");
-  CheckDeserializationRaises(ext_type_, storage_type,
-                             R"({"shape":[3,4],"permutation":[1.5,0.5]})",
-                             "permutation must contain integers, got number");
+  CheckDeserializationRaises(
+      ext_type_, storage_type, R"({"shape":[3,4],"permutation":[1.5,0.5]})",
+      "permutation must contain integers, got floating-point number");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"shape":[3,4],"permutation":["a","b"]})",
                              "permutation must contain integers, got string");
@@ -866,8 +866,9 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
   // message should include the JSON type name of the offending value.
   CheckDeserializationRaises(ext_type_, storage_type, R"({"permutation":"invalid"})",
                              "permutation must be an array, got string");
-  CheckDeserializationRaises(ext_type_, storage_type, R"({"permutation":[1.5,0.5,2.5]})",
-                             "permutation must contain integers, got number");
+  CheckDeserializationRaises(
+      ext_type_, storage_type, R"({"permutation":[1.5,0.5,2.5]})",
+      "permutation must contain integers, got floating-point number");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"permutation":[null,null,null]})",
                              "permutation must contain integers, got null");
@@ -881,9 +882,9 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
   // Validate uniform_shape member must be an array with integer-or-null values
   CheckDeserializationRaises(ext_type_, storage_type, R"({"uniform_shape":"invalid"})",
                              "uniform_shape must be an array, got string");
-  CheckDeserializationRaises(ext_type_, storage_type,
-                             R"({"uniform_shape":[1.5,null,null]})",
-                             "uniform_shape must contain integers or nulls, got number");
+  CheckDeserializationRaises(
+      ext_type_, storage_type, R"({"uniform_shape":[1.5,null,null]})",
+      "uniform_shape must contain integers or nulls, got floating-point number");
   CheckDeserializationRaises(ext_type_, storage_type,
                              R"({"uniform_shape":["x",null,null]})",
                              "uniform_shape must contain integers or nulls, got string");
