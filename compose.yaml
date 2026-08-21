@@ -1178,7 +1178,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2026.05.31-3
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2026.08.08-1
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1203,7 +1203,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2026.05.31-3
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2026.08.08-1
         musllinux: 1_2
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1244,7 +1244,7 @@ services:
       args:
         base: "alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        build_date: "20260510"  # python-build-standalone release date
+        build_date: "20260807"  # python-build-standalone release date
         arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
@@ -1288,7 +1288,7 @@ services:
       args:
         base: "alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        build_date: "20260510"  # python-build-standalone release date
+        build_date: "20260807"  # python-build-standalone release date
         arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile

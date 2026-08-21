@@ -188,21 +188,12 @@ repos:
           ?^python/pyarrow/util\.py$|
           ?^python/pyarrow/vendored/|
           )
-  - repo: local
+  - repo: https://github.com/etiennebacher/jarl-pre-commit
+    rev: "0.5.0"
     hooks:
-      - id: lintr
+      - id: jarl-check
         alias: r
-        name: R Lint
-        language: r
-        additional_dependencies:
-          - cyclocomp
-          - lintr
-          - testthat
-        entry: |
-          Rscript -e "Sys.setenv(NOT_CRAN = 'TRUE'); lintr::expect_lint_free('r')"
-        pass_filenames: false
-        files: >-
-          ^r/.*\.(R|Rmd)$
+        name: R Lint (jarl)
   - repo: https://github.com/posit-dev/air-pre-commit
     rev: 0.8.2
     hooks:
