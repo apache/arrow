@@ -498,7 +498,9 @@ primitive type to the Parquet `physical type
 annotation of a shredded ``typed_value`` column, and to the Arrow
 :ref:`data types <data_types>` covering that Variant type's full value
 domain. An empty *Parquet Logical Type* cell means the physical type carries
-no annotation.
+no explicit annotation. This is intentional for ``int32`` and ``int64``:
+Parquet defines ``INT(32, true)`` and ``INT(64, true)`` as implied by the
+unannotated ``INT32`` and ``INT64`` physical types, respectively.
 
 A ``typed_value`` field of a listed Arrow type holds values of exactly the
 corresponding Variant type, and the listed physical and logical types are its
@@ -575,10 +577,13 @@ precision requires) are not valid ``typed_value`` storage.
    integer types) must not be used as ``typed_value`` storage, as they have no
    valid Parquet shredded representation:
 
-   * A Variant null is always encoded in the ``value`` field (as ``00``),
-     never in ``typed_value``: a null ``typed_value`` signals that the row is
-     not shredded, and for shredded object fields a null ``typed_value``
-     together with a null ``value`` means the field is missing.
+   * A Variant null is a present Variant value. It is distinct from a null slot
+     in the corresponding Arrow extension array, which is represented by the
+     storage ``Struct``'s validity bitmap. A Variant null is always encoded in
+     the ``value`` field (as ``00``), never in ``typed_value``. A null
+     ``typed_value`` signals that the row is not shredded. For shredded object
+     fields, a null ``typed_value`` together with a null ``value`` means the
+     field is missing.
 
    * Variant has no unsigned integer types, so unsigned Arrow values must be
      converted to a signed Variant type wide enough to hold them: for example,
