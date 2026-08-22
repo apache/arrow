@@ -84,7 +84,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 281 compute
+#' In addition to these functions, you can call any of Arrow's 282 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -100,24 +100,24 @@
 #'
 #' ## base
 #'
-#' * [`!`][!()]
-#' * [`!=`][!=()]
-#' * [`%%`][%%()]
-#' * [`%/%`][%/%()]
-#' * [`%in%`][%in%()]
-#' * [`&`][&()]
-#' * [`*`][*()]
-#' * [`+`][+()]
-#' * [`-`][-()]
-#' * [`/`][/()]
-#' * [`<`][<()]
-#' * [`<=`][<=()]
-#' * [`==`][==()]
-#' * [`>`][>()]
-#' * [`>=`][>=()]
+#' * [`!`][base::!()]
+#' * [`!=`][base::!=()]
+#' * [`%%`][base::%%()]
+#' * [`%/%`][base::%/%()]
+#' * [`%in%`][base::%in%()]
+#' * [`&`][base::&()]
+#' * [`*`][base::*()]
+#' * [`+`][base::+()]
+#' * [`-`][base::-()]
+#' * [`/`][base::/()]
+#' * [`<`][base::<()]
+#' * [`<=`][base::<=()]
+#' * [`==`][base::==()]
+#' * [`>`][base::>()]
+#' * [`>=`][base::>=()]
 #' * [`ISOdate()`][base::ISOdate()]
 #' * [`ISOdatetime()`][base::ISOdatetime()]
-#' * [`^`][^()]
+#' * [`^`][base::^()]
 #' * [`abs()`][base::abs()]
 #' * [`acos()`][base::acos()]
 #' * [`acosh()`][base::acosh()]
@@ -195,7 +195,7 @@
 #' * [`tolower()`][base::tolower()]
 #' * [`toupper()`][base::toupper()]
 #' * [`trunc()`][base::trunc()]
-#' * [`|`][|()]
+#' * [`|`][base::|()]
 #'
 #' ## bit64
 #'

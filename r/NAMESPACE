@@ -278,7 +278,6 @@ export(Type)
 export(UnionDataset)
 export(all_of)
 export(arrow_array)
-export(arrow_available)
 export(arrow_info)
 export(arrow_table)
 export(arrow_with_acero)
@@ -403,7 +402,6 @@ export(time64)
 export(timestamp)
 export(to_arrow)
 export(to_duckdb)
-export(type)
 export(uint16)
 export(uint32)
 export(uint64)
@@ -425,122 +423,136 @@ export(write_parquet)
 export(write_to_raw)
 export(write_tsv_dataset)
 importFrom(R6,R6Class)
-importFrom(assertthat,assert_that)
-importFrom(assertthat,is.string)
+importFrom(assertthat,
+  assert_that,
+  is.string
+)
 importFrom(bit64,integer64)
 importFrom(glue,glue)
 importFrom(methods,as)
-importFrom(purrr,as_mapper)
-importFrom(purrr,compact)
-importFrom(purrr,flatten)
-importFrom(purrr,imap)
-importFrom(purrr,imap_chr)
-importFrom(purrr,keep)
-importFrom(purrr,map)
-importFrom(purrr,map2)
-importFrom(purrr,map2_chr)
-importFrom(purrr,map_chr)
-importFrom(purrr,map_dbl)
-importFrom(purrr,map_dfr)
-importFrom(purrr,map_int)
-importFrom(purrr,map_lgl)
-importFrom(purrr,reduce)
-importFrom(purrr,walk)
-importFrom(rlang,"%||%")
-importFrom(rlang,":=")
-importFrom(rlang,.data)
-importFrom(rlang,abort)
-importFrom(rlang,arg_match)
-importFrom(rlang,as_function)
-importFrom(rlang,as_label)
-importFrom(rlang,as_quosure)
-importFrom(rlang,call2)
-importFrom(rlang,call_args)
-importFrom(rlang,call_name)
-importFrom(rlang,caller_env)
-importFrom(rlang,check_dots_empty)
-importFrom(rlang,check_dots_empty0)
-importFrom(rlang,dots_list)
-importFrom(rlang,dots_n)
-importFrom(rlang,enexpr)
-importFrom(rlang,enexprs)
-importFrom(rlang,enquo)
-importFrom(rlang,enquos)
-importFrom(rlang,env)
-importFrom(rlang,env_bind)
-importFrom(rlang,eval_tidy)
-importFrom(rlang,exec)
-importFrom(rlang,expr)
-importFrom(rlang,expr_text)
-importFrom(rlang,f_env)
-importFrom(rlang,f_rhs)
-importFrom(rlang,inform)
-importFrom(rlang,is_bare_character)
-importFrom(rlang,is_bare_list)
-importFrom(rlang,is_call)
-importFrom(rlang,is_character)
-importFrom(rlang,is_empty)
-importFrom(rlang,is_false)
-importFrom(rlang,is_formula)
-importFrom(rlang,is_integerish)
-importFrom(rlang,is_interactive)
-importFrom(rlang,is_list)
-importFrom(rlang,is_quosure)
-importFrom(rlang,is_string)
-importFrom(rlang,is_symbol)
-importFrom(rlang,list2)
-importFrom(rlang,new_data_mask)
-importFrom(rlang,new_environment)
-importFrom(rlang,new_quosure)
-importFrom(rlang,new_quosures)
-importFrom(rlang,parse_expr)
-importFrom(rlang,quo)
-importFrom(rlang,quo_get_env)
-importFrom(rlang,quo_get_expr)
-importFrom(rlang,quo_is_call)
-importFrom(rlang,quo_is_null)
-importFrom(rlang,quo_name)
-importFrom(rlang,quo_set_env)
-importFrom(rlang,quo_set_expr)
-importFrom(rlang,quos)
-importFrom(rlang,seq2)
-importFrom(rlang,set_names)
-importFrom(rlang,sym)
-importFrom(rlang,syms)
-importFrom(rlang,trace_back)
-importFrom(rlang,warn)
-importFrom(stats,median)
-importFrom(stats,na.exclude)
-importFrom(stats,na.fail)
-importFrom(stats,na.omit)
-importFrom(stats,na.pass)
-importFrom(stats,quantile)
-importFrom(stats,runif)
-importFrom(tidyselect,all_of)
-importFrom(tidyselect,contains)
-importFrom(tidyselect,ends_with)
-importFrom(tidyselect,eval_rename)
-importFrom(tidyselect,eval_select)
-importFrom(tidyselect,everything)
-importFrom(tidyselect,last_col)
-importFrom(tidyselect,matches)
-importFrom(tidyselect,num_range)
-importFrom(tidyselect,one_of)
-importFrom(tidyselect,starts_with)
-importFrom(tidyselect,vars_pull)
-importFrom(utils,capture.output)
-importFrom(utils,download.file)
-importFrom(utils,getFromNamespace)
-importFrom(utils,head)
-importFrom(utils,install.packages)
-importFrom(utils,modifyList)
-importFrom(utils,object.size)
-importFrom(utils,packageVersion)
-importFrom(utils,tail)
-importFrom(vctrs,s3_register)
-importFrom(vctrs,vec_cast)
-importFrom(vctrs,vec_ptype_abbr)
-importFrom(vctrs,vec_ptype_full)
-importFrom(vctrs,vec_size)
-importFrom(vctrs,vec_unique)
+importFrom(purrr,
+  as_mapper,
+  compact,
+  flatten,
+  imap,
+  imap_chr,
+  keep,
+  map,
+  map2,
+  map2_chr,
+  map_chr,
+  map_dbl,
+  map_dfr,
+  map_int,
+  map_lgl,
+  reduce,
+  walk
+)
+importFrom(rlang,
+  "%||%",
+  ":=",
+  .data,
+  abort,
+  arg_match,
+  as_function,
+  as_label,
+  as_quosure,
+  call2,
+  call_args,
+  call_name,
+  caller_env,
+  check_dots_empty,
+  check_dots_empty0,
+  dots_list,
+  dots_n,
+  enexpr,
+  enexprs,
+  enquo,
+  enquos,
+  env,
+  env_bind,
+  eval_tidy,
+  exec,
+  expr,
+  expr_text,
+  f_env,
+  f_rhs,
+  inform,
+  is_bare_character,
+  is_bare_list,
+  is_call,
+  is_character,
+  is_empty,
+  is_false,
+  is_formula,
+  is_integerish,
+  is_interactive,
+  is_list,
+  is_quosure,
+  is_string,
+  is_symbol,
+  list2,
+  new_data_mask,
+  new_environment,
+  new_quosure,
+  new_quosures,
+  parse_expr,
+  quo,
+  quo_get_env,
+  quo_get_expr,
+  quo_is_call,
+  quo_is_null,
+  quo_name,
+  quo_set_env,
+  quo_set_expr,
+  quos,
+  seq2,
+  set_names,
+  sym,
+  syms,
+  trace_back,
+  warn
+)
+importFrom(stats,
+  median,
+  na.exclude,
+  na.fail,
+  na.omit,
+  na.pass,
+  quantile,
+  runif
+)
+importFrom(tidyselect,
+  all_of,
+  contains,
+  ends_with,
+  eval_rename,
+  eval_select,
+  everything,
+  last_col,
+  matches,
+  num_range,
+  one_of,
+  starts_with,
+  vars_pull
+)
+importFrom(utils,
+  capture.output,
+  download.file,
+  getFromNamespace,
+  head,
+  install.packages,
+  modifyList,
+  object.size,
+  packageVersion,
+  tail
+)
+importFrom(vctrs,
+  s3_register,
+  vec_cast,
+  vec_ptype_abbr,
+  vec_ptype_full,
+  vec_size,
+  vec_unique
+)
 useDynLib(arrow, .registration = TRUE)

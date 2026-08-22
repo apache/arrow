@@ -2,7 +2,6 @@
 % Please edit documentation in R/arrow-info.R
 \name{arrow_info}
 \alias{arrow_info}
-\alias{arrow_available}
 \alias{arrow_with_acero}
 \alias{arrow_with_dataset}
 \alias{arrow_with_substrait}
@@ -13,8 +12,6 @@
 \title{Report information on the package's capabilities}
 \usage{
 arrow_info()
-
-arrow_available()
 
 arrow_with_acero()
 
