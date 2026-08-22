@@ -18,7 +18,10 @@
 #include "parquet/metadata.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cinttypes>
+#include <cstdlib>
+#include <limits>
 #include <memory>
 #include <ostream>
 #include <random>
@@ -1278,6 +1281,24 @@ ApplicationVersion::ApplicationVersion(std::string application, int major, int m
     : application_(std::move(application)), version{major, minor, patch, "", "", ""} {}
 
 namespace {
+// Parse a digit-only ASCII string into an int, saturating to INT_MAX on
+// overflow. The version components in a file's `created_by` string are
+// attacker-controlled, and std::atoi has undefined behavior when the
+// converted value falls outside the range of int (see [c.strtoint]).
+int ParseUnsignedVersionComponent(const std::string& s) {
+  if (s.empty()) {
+    return 0;
+  }
+  errno = 0;
+  char* end = nullptr;
+  unsigned long value = std::strtoul(s.c_str(), &end, 10);
+  if (errno == ERANGE ||
+      value > static_cast<unsigned long>(std::numeric_limits<int>::max())) {
+    return std::numeric_limits<int>::max();
+  }
+  return static_cast<int>(value);
+}
+
 // Parse the application version format and set parsed values to
 // ApplicationVersion.
 //
@@ -1445,7 +1466,7 @@ class ApplicationVersionParser {
     }
     auto version_major_string = version_string_.substr(
         version_major_start, version_major_end - version_major_start);
-    application_version_.version.major = atoi(version_major_string.c_str());
+    application_version_.version.major = ParseUnsignedVersionComponent(version_major_string);
     return true;
   }
 
@@ -1470,7 +1491,7 @@ class ApplicationVersionParser {
     }
     auto version_minor_string = version_string_.substr(
         version_minor_start, version_minor_end - version_minor_start);
-    application_version_.version.minor = atoi(version_minor_string.c_str());
+    application_version_.version.minor = ParseUnsignedVersionComponent(version_minor_string);
     return true;
   }
 
@@ -1488,7 +1509,7 @@ class ApplicationVersionParser {
     }
     auto version_patch_string = version_string_.substr(
         version_patch_start, version_patch_end - version_patch_start);
-    application_version_.version.patch = atoi(version_patch_string.c_str());
+    application_version_.version.patch = ParseUnsignedVersionComponent(version_patch_string);
     version_parsing_position_ = version_patch_end;
     return true;
   }
