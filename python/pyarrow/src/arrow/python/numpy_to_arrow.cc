@@ -27,6 +27,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -295,6 +296,9 @@ class NumPyConverter {
   template <typename T>
   Status VisitString(T* builder);
 
+  template <typename T>
+  Status VisitStringDType(T* builder);
+
   Status TypeNotImplemented(std::string type_name) {
     return Status::NotImplemented("NumPyConverter doesn't implement <", type_name,
                                   "> conversion. ");
@@ -340,6 +344,11 @@ Status NumPyConverter::Convert() {
 
   if (type_ == nullptr) {
     return Status::Invalid("Must pass data type for non-object arrays");
+  }
+
+  if (dtype_->type_num == NPY_VSTRING && !is_string_or_string_view(type_->id())) {
+    return Status::TypeError(
+        "NumPy StringDType can only be converted to Arrow string types");
   }
 
   // Visit the type to perform conversion
@@ -698,7 +707,54 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
 }  // namespace
 
 template <typename T>
+Status NumPyConverter::VisitStringDType(T* builder) {
+  const char* data = PyArray_BYTES(arr_);
+  auto* allocator =
+      NpyString_acquire_allocator(reinterpret_cast<PyArray_StringDTypeObject*>(dtype_));
+  if (allocator == nullptr) {
+    return Status::Invalid("Failed to acquire NumPy StringDType allocator");
+  }
+  std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
+      allocator_guard(allocator, &NpyString_release_allocator);
+
+  npy_static_string value = {0, nullptr};
+  const auto append_value = [&](const char* item) -> Status {
+    const auto* packed = reinterpret_cast<const npy_packed_static_string*>(item);
+    const int is_null = NpyString_load(allocator, packed, &value);
+    if (is_null == -1) {
+      return Status::Invalid("Failed to load NumPy StringDType value");
+    }
+    if (is_null) {
+      return builder->AppendNull();
+    }
+    return builder->Append(std::string_view(value.buf, value.size));
+  };
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(append_value(data));
+      }
+      data += stride_;
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      RETURN_NOT_OK(append_value(data));
+      data += stride_;
+    }
+  }
+  return Status::OK();
+}
+
+template <typename T>
 Status NumPyConverter::VisitString(T* builder) {
+  if (dtype_->type_num == NPY_VSTRING) {
+    return VisitStringDType(builder);
+  }
+
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
   char numpy_byteorder = dtype_->byteorder;
