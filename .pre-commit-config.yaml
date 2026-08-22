@@ -287,6 +287,7 @@ repos:
           ?^cpp/build-support/build-lz4-lib\.sh$|
           ?^cpp/build-support/build-zstd-lib\.sh$|
           ?^cpp/build-support/get-upstream-commit\.sh$|
+          ?^cpp/build-support/run-test\.sh$|
           ?^cpp/build-support/update-flatbuffers\.sh$|
           ?^cpp/build-support/update-thrift\.sh$|
           ?^cpp/build-support/vendor-flatbuffers\.sh$|
