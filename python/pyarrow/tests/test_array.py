@@ -2963,13 +2963,18 @@ def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
 
 
 @pytest.mark.numpy
-@pytest.mark.parametrize('na_object', [None, "__placeholder__"])
+@pytest.mark.parametrize('string_type', [
+    None,
+    pa.large_string(),
+    pa.string_view(),
+])
+@pytest.mark.parametrize('na_object', [None, "__placeholder__", np.nan])
 def test_array_from_numpy_string_dtype_nulls_and_mask(
-        numpy_string_dtype, na_object):
+        numpy_string_dtype, string_type, na_object):
     arr = np.array(["some", na_object, "strings"],
                    dtype=numpy_string_dtype(na_object=na_object))
 
-    arrow_arr = pa.array(arr)
+    arrow_arr = pa.array(arr, type=string_type)
     arrow_arr.validate(full=True)
     assert arrow_arr.to_pylist() == ["some", None, "strings"]
 
@@ -2977,6 +2982,19 @@ def test_array_from_numpy_string_dtype_nulls_and_mask(
     arrow_arr = pa.array(arr, mask=mask)
     arrow_arr.validate(full=True)
     assert arrow_arr.to_pylist() == ["some", None, None]
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize('string_type', [pa.large_string(), pa.string_view()])
+def test_array_from_numpy_string_dtype_batches(
+        numpy_string_dtype, string_type):
+    values = [None] * 4096 + [f"value-{i}" for i in range(904)]
+    arr = np.array(values, dtype=numpy_string_dtype(na_object=None))
+
+    arrow_arr = pa.array(arr, type=string_type)
+
+    arrow_arr.validate(full=True)
+    assert arrow_arr.to_pylist() == values
 
 
 @pytest.mark.numpy
