@@ -23,7 +23,7 @@
 #    $ARGN - arguments for executable
 #
 
-OUTPUT_ROOT=$1
+OUTPUT_ROOT="$1"
 shift
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || {
   echo "Failed to determine project root directory" >&2
@@ -38,11 +38,11 @@ shift
 TEST_DEBUGDIR="$OUTPUT_ROOT/build/$RUN_TYPE-debug"
 mkdir -p "$TEST_DEBUGDIR"
 
-TEST_FILENAME=$(basename "$1")
 TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd) || {
   echo "Failed to change to test directory: $(dirname "$1")" >&2
   exit 1
 }
+TEST_FILENAME=$(basename "$1")
 shift
 TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
 TEST_NAME=$(echo "$TEST_FILENAME" | sed -E -e 's/\..+$//') # Remove path and extension (if any).
@@ -101,12 +101,12 @@ function run_test() {
   # even when retries are successful.
   rm -f "$XMLFILE"
 
-  $TEST_EXECUTABLE "$@" > "${LOGFILE}.raw" 2>&1
+  "$TEST_EXECUTABLE" "$@" > "${LOGFILE}.raw" 2>&1
   STATUS=$?
   cat "${LOGFILE}.raw" \
-    | ${PYTHON:-python} "$ROOT"/build-support/asan_symbolize.py \
-    | ${CXXFILT:-c++filt} \
-    | $pipe_cmd 2>&1 | tee "$LOGFILE"
+    | "${PYTHON:-python}" "${ROOT}/build-support/asan_symbolize.py" \
+    | "${CXXFILT:-c++filt}" \
+    | "$pipe_cmd" 2>&1 | tee "$LOGFILE"
   rm -f "${LOGFILE}.raw"
 
   # TSAN doesn't always exit with a non-zero exit code due to a bug:
@@ -184,7 +184,7 @@ function post_process_tests() {
 
 function run_other() {
   # Generic run function for test like executables that aren't actually gtest
-  $TEST_EXECUTABLE "$@" 2>&1 | $pipe_cmd > "$LOGFILE"
+  "$TEST_EXECUTABLE" "$@" 2>&1 | "$pipe_cmd" > "$LOGFILE"
   STATUS=$?
 }
 
@@ -193,8 +193,8 @@ if [ "$RUN_TYPE" = "test" ]; then
 fi
 
 # Run the actual test.
-for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
-  if [ "$ATTEMPT_NUMBER" -lt $TEST_EXECUTION_ATTEMPTS ]; then
+for ATTEMPT_NUMBER in $(seq 1 "$TEST_EXECUTION_ATTEMPTS") ; do
+  if [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
     # If the test fails, the test output may or may not be left behind,
     # depending on whether the test cleaned up or exited immediately. Either
     # way we need to clean it up. We do this by comparing the data directory
@@ -204,7 +204,7 @@ for ATTEMPT_NUMBER in $(seq 1 $TEST_EXECUTION_ATTEMPTS) ; do
     TEST_TMPDIR_BEFORE=$(find "$TEST_TMPDIR" -maxdepth 1 -type d | sort)
   fi
 
-  if [ "$ATTEMPT_NUMBER" -lt $TEST_EXECUTION_ATTEMPTS ]; then
+  if [ "$ATTEMPT_NUMBER" -lt "$TEST_EXECUTION_ATTEMPTS" ]; then
     # Now delete any new test output.
     TEST_TMPDIR_AFTER=$(find "$TEST_TMPDIR" -maxdepth 1 -type d | sort)
     DIFF=$(comm -13 <(echo "$TEST_TMPDIR_BEFORE") \
