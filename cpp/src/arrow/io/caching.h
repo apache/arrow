@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -136,11 +137,22 @@ class ARROW_EXPORT ReadRangeCache {
   /// \brief Read a range previously given to Cache().
   Result<std::shared_ptr<Buffer>> Read(ReadRange range);
 
+  /// \brief Read a range if it is still cached.
+  ///
+  /// A cache miss returns an empty optional. I/O errors are propagated.
+  Result<std::optional<std::shared_ptr<Buffer>>> ReadIfCached(ReadRange range);
+
   /// \brief Wait until all ranges added so far have been cached.
   Future<> Wait();
 
   /// \brief Wait until all given ranges have been cached.
   Future<> WaitFor(std::vector<ReadRange> ranges);
+
+  /// \brief Evict cache entries ending at or before `end_offset`.
+  ///
+  /// An entry straddling `end_offset` is retained. Buffers already returned by
+  /// Read() stay valid through shared ownership.
+  void EvictEntriesBefore(int64_t end_offset);
 
  protected:
   struct Impl;
