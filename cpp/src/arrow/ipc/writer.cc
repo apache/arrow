@@ -164,7 +164,9 @@ class RecordBatchSerializer {
 
     // In V4, null types have no validity bitmap
     // In V5 and later, null and union types have no validity bitmap
-    if (internal::HasValidityBitmap(arr.type_id(), options_.metadata_version)) {
+    // Extension arrays use the physical layout of their storage type.
+    if (internal::HasValidityBitmap(arr.type()->storage_id(),
+                                    options_.metadata_version)) {
       if (arr.null_count() > 0) {
         std::shared_ptr<Buffer> bitmap;
         RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),

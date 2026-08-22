@@ -410,6 +410,40 @@ class ExtensionTypesMixin {
   ExtensionTypeGuard ext_guard_;
 };
 
+class IpcStorageExtensionType : public ExtensionType {
+ public:
+  IpcStorageExtensionType(std::shared_ptr<DataType> storage_type,
+                          std::string extension_name)
+      : ExtensionType(std::move(storage_type)),
+        extension_name_(std::move(extension_name)) {}
+
+  std::string extension_name() const override { return extension_name_; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return extension_name_ == other.extension_name() &&
+           storage_type()->Equals(*other.storage_type());
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<ExtensionArray>(std::move(data));
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized_data) const override {
+    if (serialized_data != extension_name_) {
+      return Status::Invalid("Unexpected extension metadata: ", serialized_data);
+    }
+    return std::make_shared<IpcStorageExtensionType>(std::move(storage_type),
+                                                     extension_name_);
+  }
+
+  std::string Serialize() const override { return extension_name_; }
+
+ private:
+  std::string extension_name_;
+};
+
 class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  public:
   void SetUp() {
@@ -693,6 +727,39 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
 
   CheckRoundtrip(bin_array);
   CheckRoundtrip(bin_array2);
+}
+
+TEST_F(TestIpcRoundTrip, ExtensionWithUnionStorage) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeUnion(&batch));
+
+  for (int i = 0; i < batch->num_columns(); ++i) {
+    auto extension_type = std::make_shared<IpcStorageExtensionType>(
+        batch->column(i)->type(), "ipc.union." + std::to_string(i));
+    ExtensionTypeGuard extension_guard(extension_type);
+    for (const auto version : kMetadataVersions) {
+      options_.metadata_version = version;
+      CheckRoundtrip(ExtensionType::WrapArray(extension_type, batch->column(i)),
+                     options_);
+    }
+  }
+}
+
+TEST_F(TestIpcRoundTrip, ExtensionWithNullStorage) {
+  auto extension_type = std::make_shared<IpcStorageExtensionType>(null(), "ipc.null");
+  ExtensionTypeGuard extension_guard(extension_type);
+
+  auto extension =
+      ExtensionType::WrapArray(extension_type, std::make_shared<NullArray>(3));
+  auto values = ArrayFromJSON(int64(), "[1, 2, 3]");
+  auto batch = RecordBatch::Make(
+      schema({field("extension", extension_type), field("values", int64())}), 3,
+      {extension, values});
+
+  for (const auto version : kMetadataVersions) {
+    options_.metadata_version = version;
+    CheckRoundtrip(*batch, options_);
+  }
 }
 
 TEST_F(TestIpcRoundTrip, SparseUnionOfStructsWithReusedBuffers) {
