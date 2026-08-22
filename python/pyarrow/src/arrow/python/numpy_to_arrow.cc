@@ -712,27 +712,25 @@ Status NumPyConverter::VisitStringDType(T* builder) {
   const char* data = PyArray_BYTES(arr_);
   auto* allocator =
       NpyString_acquire_allocator(reinterpret_cast<PyArray_StringDTypeObject*>(dtype_));
-  if (allocator == nullptr) {
-    return Status::Invalid("Failed to acquire NumPy StringDType allocator");
-  }
   std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
       allocator_guard(allocator, &NpyString_release_allocator);
+  const bool has_mask = mask_ != nullptr;
+  Ndarray1DIndexer<uint8_t> mask_values;
+  if (has_mask) {
+    mask_values = Ndarray1DIndexer<uint8_t>(mask_);
+  }
 
   if constexpr (std::is_same_v<T, ::arrow::internal::ChunkedStringBuilder>) {
-    RETURN_NOT_OK(builder->Reserve(length_));
-    npy_static_string value = {0, nullptr};
-    Ndarray1DIndexer<uint8_t> mask_values;
-    if (mask_ != nullptr) {
-      mask_values = Ndarray1DIndexer<uint8_t>(mask_);
-    }
+    npy_static_string value{};
     for (int64_t i = 0; i < length_; ++i) {
-      if (mask_ != nullptr && mask_values[i]) {
+      const char* item = data;
+      data += stride_;
+      if (has_mask && mask_values[i]) {
         RETURN_NOT_OK(builder->AppendNull());
-        data += stride_;
         continue;
       }
 
-      const auto* packed = reinterpret_cast<const npy_packed_static_string*>(data);
+      const auto* packed = reinterpret_cast<const npy_packed_static_string*>(item);
       const int is_null = NpyString_load(allocator, packed, &value);
       if (is_null == -1) {
         return Status::Invalid("Failed to load NumPy StringDType value");
@@ -746,20 +744,14 @@ Status NumPyConverter::VisitStringDType(T* builder) {
         }
         RETURN_NOT_OK(builder->Append(std::string_view(value.buf, value.size)));
       }
-      data += stride_;
     }
     return Status::OK();
   } else {
     constexpr int64_t kBatchSize = 4096;
-    // NpyString_load returns borrowed views into storage protected by allocator. Stage
-    // small batches while the allocator is locked, then reserve once and copy them into
-    // Arrow-owned storage with the unchecked builder APIs.
-    std::vector<npy_static_string> values(kBatchSize);
-    std::vector<uint8_t> valid(kBatchSize);
-    Ndarray1DIndexer<uint8_t> mask_values;
-    if (mask_ != nullptr) {
-      mask_values = Ndarray1DIndexer<uint8_t>(mask_);
-    }
+    // Loaded strings remain valid while the allocator is locked.
+    const int64_t batch_capacity = std::min(length_, kBatchSize);
+    std::vector<npy_static_string> values(batch_capacity);
+    std::vector<uint8_t> valid(batch_capacity);
 
     for (int64_t offset = 0; offset < length_; offset += kBatchSize) {
       const int64_t batch_length = std::min(kBatchSize, length_ - offset);
@@ -767,14 +759,15 @@ Status NumPyConverter::VisitStringDType(T* builder) {
       int64_t data_bytes = 0;
 
       for (int64_t i = 0; i < batch_length; ++i) {
-        if (mask_ != nullptr && mask_values[offset + i]) {
+        const char* item = data;
+        data += stride_;
+        if (has_mask && mask_values[offset + i]) {
           valid[i] = false;
           ++null_count;
-          data += stride_;
           continue;
         }
 
-        const auto* packed = reinterpret_cast<const npy_packed_static_string*>(data);
+        const auto* packed = reinterpret_cast<const npy_packed_static_string*>(item);
         const int is_null = NpyString_load(allocator, packed, &values[i]);
         if (is_null == -1) {
           return Status::Invalid("Failed to load NumPy StringDType value");
@@ -795,7 +788,6 @@ Status NumPyConverter::VisitStringDType(T* builder) {
           }
           data_bytes += static_cast<int64_t>(value_bytes);
         }
-        data += stride_;
       }
 
       if (null_count == batch_length) {
@@ -804,10 +796,8 @@ Status NumPyConverter::VisitStringDType(T* builder) {
       }
 
       RETURN_NOT_OK(builder->Reserve(batch_length));
-      bool use_safe_append = false;
-      if constexpr (std::is_same_v<T, StringViewBuilder>) {
-        use_safe_append = data_bytes > std::numeric_limits<int32_t>::max();
-      }
+      const bool use_safe_append = std::is_same_v<T, StringViewBuilder> &&
+                                   data_bytes > std::numeric_limits<int32_t>::max();
       if (!use_safe_append) {
         RETURN_NOT_OK(builder->ReserveData(data_bytes));
       }

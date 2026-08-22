@@ -2954,12 +2954,10 @@ def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
     assert arrow_arr.type == (string_type or pa.string())
     assert arrow_arr.to_pylist() == arr.tolist()
 
-    strided = np.array(list(itertools.chain.from_iterable(
-        zip(values, itertools.repeat("skip")))),
-        dtype=numpy_string_dtype())[::2]
-    arrow_arr = pa.array(strided, type=string_type)
-    arrow_arr.validate(full=True)
-    assert arrow_arr.to_pylist() == values
+    for sliced in (arr[:0], arr[::2], arr[::-1]):
+        arrow_arr = pa.array(sliced, type=string_type)
+        arrow_arr.validate(full=True)
+        assert arrow_arr.to_pylist() == sliced.tolist()
 
 
 @pytest.mark.numpy
@@ -2968,7 +2966,7 @@ def test_array_from_numpy_string_dtype(numpy_string_dtype, string_type):
     pa.large_string(),
     pa.string_view(),
 ])
-@pytest.mark.parametrize('na_object', [None, "__placeholder__", np.nan])
+@pytest.mark.parametrize('na_object', [None, "__placeholder__", float("nan")])
 def test_array_from_numpy_string_dtype_nulls_and_mask(
         numpy_string_dtype, string_type, na_object):
     arr = np.array(["some", na_object, "strings"],
@@ -2979,7 +2977,7 @@ def test_array_from_numpy_string_dtype_nulls_and_mask(
     assert arrow_arr.to_pylist() == ["some", None, "strings"]
 
     mask = np.array([False, False, True])
-    arrow_arr = pa.array(arr, mask=mask)
+    arrow_arr = pa.array(arr, mask=mask, type=string_type)
     arrow_arr.validate(full=True)
     assert arrow_arr.to_pylist() == ["some", None, None]
 
