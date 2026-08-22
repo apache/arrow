@@ -2112,6 +2112,33 @@ def test_fill_null():
     assert result.equals(expected)
 
 
+def test_fill_null_array_different_type():
+    # GH-35650: an array or chunked array fill value whose type differs from
+    # the values is cast, rather than raising AttributeError because only
+    # Scalar has an as_py() method.
+    arr = pa.array([1, 2, None, 4, None], type=pa.int64())
+
+    fill_value = pa.array([10, 20, 30, 40, 50], type=pa.int32())
+    result = arr.fill_null(fill_value)
+    expected = pa.array([1, 2, 30, 4, 50], type=pa.int64())
+    assert result.equals(expected)
+
+    chunked_fill = pa.chunked_array([[10, 20], [30, 40, 50]], type=pa.int32())
+    result = pa.chunked_array([arr]).fill_null(chunked_fill)
+    assert result.equals(pa.chunked_array([expected]))
+
+    # the reported case: a fixed size binary fill value for a string array
+    values = pa.array(['ab', None], type=pa.string())
+    fill_value = pa.array([b'cd', b'ef'], type=pa.binary(2))
+    result = values.fill_null(fill_value)
+    assert result.equals(pa.array(['ab', 'ef'], type=pa.string()))
+
+    # the result keeps the type of `values`, so a fill value that cannot be
+    # cast to it is an error rather than promoting the result
+    with pytest.raises(pa.ArrowInvalid):
+        arr.fill_null(pa.array([1.5, 2.5, 3.5, 4.5, 5.5], type=pa.float64()))
+
+
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_array(arrow_type):
     arr = pa.array([1, 2, None, 4], type=arrow_type)
