@@ -18,6 +18,7 @@
 #include "arrow/compute/kernels/chunked_internal.h"
 
 #include <algorithm>
+#include <numeric>
 #include <span>
 
 #include "arrow/record_batch.h"

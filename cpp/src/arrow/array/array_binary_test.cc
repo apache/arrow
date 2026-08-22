@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -673,6 +674,24 @@ class TestStringBuilder : public ::testing::Test {
     CheckStringArray(*result_, strings, valid_bytes, reps);
   }
 
+  void TestStringViewAppend() {
+    std::vector<std::string> strings = {"", "bb", "a", "ignored", "ccc"};
+    std::vector<std::string_view> views(strings.begin(), strings.end());
+    std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
+
+    constexpr int reps = 1000;
+    for (int j = 0; j < reps; ++j) {
+      ASSERT_OK(builder_->AppendValues(std::span<const std::string_view>(views),
+                                       valid_bytes.data()));
+    }
+    Done();
+
+    ASSERT_EQ(reps * static_cast<int>(strings.size()), result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 6, result_->value_data()->size());
+    CheckStringArray(*result_, strings, valid_bytes, reps);
+  }
+
   void TestAppendCStringsWithValidBytes() {
     const char* strings[] = {nullptr, "aaa", nullptr, "ignored", ""};
     std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
@@ -798,6 +817,8 @@ TYPED_TEST(TestStringBuilder, TestExtendCurrentUnsafe) {
 
 TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->TestVectorAppend(); }
 
+TYPED_TEST(TestStringBuilder, TestStringViewAppend) { this->TestStringViewAppend(); }
+
 TYPED_TEST(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   this->TestAppendCStringsWithValidBytes();
 }
@@ -811,6 +832,26 @@ TYPED_TEST(TestStringBuilder, TestCapacityReserve) { this->TestCapacityReserve()
 TYPED_TEST(TestStringBuilder, TestZeroLength) { this->TestZeroLength(); }
 
 TYPED_TEST(TestStringBuilder, TestOverflowCheck) { this->TestOverflowCheck(); }
+
+TEST(TestStringViewBuilder, AppendStringViews) {
+  std::vector<std::string> strings = {"short", "long string; not inlined", "ignored", ""};
+  std::vector<std::string_view> views(strings.begin(), strings.end());
+  std::vector<uint8_t> valid_bytes = {1, 1, 0, 1};
+  StringViewBuilder builder;
+
+  ASSERT_OK(
+      builder.AppendValues(std::span<const std::string_view>(views), valid_bytes.data()));
+  ASSERT_OK(builder.AppendValues(std::span<const std::string_view>(views).first(2)));
+  strings.clear();
+
+  ASSERT_OK_AND_ASSIGN(auto result, builder.Finish());
+  ASSERT_OK(result->ValidateFull());
+  AssertArraysEqual(
+      *ArrayFromJSON(
+          utf8_view(),
+          R"(["short", "long string; not inlined", null, "", "short", "long string; not inlined"])"),
+      *result);
+}
 
 // ----------------------------------------------------------------------
 // ChunkedBinaryBuilder tests
@@ -944,6 +985,37 @@ TEST_F(TestChunkedBinaryBuilder, LargeElementCount) {
     const auto& chunk = checked_cast<const BinaryArray&>(*boxed_chunk);
     ASSERT_EQ(chunk.value_offset(0), chunk.value_offset(chunk.length()));
   }
+}
+
+TEST_F(TestChunkedBinaryBuilder, AppendStringViews) {
+  Init(/*chunksize=*/6, /*chunklength=*/4);
+  std::vector<std::string> strings = {"aa", "bbb", "ignored", "cc", "", "1234567", "z"};
+  std::vector<std::string_view> views(strings.begin(), strings.end());
+  std::vector<uint8_t> valid_bytes = {1, 1, 0, 1, 1, 1, 1};
+
+  ASSERT_OK(builder_->AppendValues(std::span<const std::string_view>(views),
+                                   valid_bytes.data()));
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+
+  ASSERT_EQ(chunks.size(), 4);
+  AssertArraysEqual(*ArrayFromJSON(binary(), R"(["aa", "bbb", null])"), *chunks[0]);
+  AssertArraysEqual(*ArrayFromJSON(binary(), R"(["cc", ""])"), *chunks[1]);
+  AssertArraysEqual(*ArrayFromJSON(binary(), R"(["1234567"])"), *chunks[2]);
+  AssertArraysEqual(*ArrayFromJSON(binary(), R"(["z"])"), *chunks[3]);
+}
+
+TEST_F(TestChunkedBinaryBuilder, AppendNulls) {
+  Init(/*chunksize=*/6, /*chunklength=*/3);
+  ASSERT_OK(builder_->Append("a"));
+  ASSERT_OK(builder_->AppendNulls(5));
+
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+
+  ASSERT_EQ(chunks.size(), 2);
+  AssertArraysEqual(*ArrayFromJSON(binary(), R"(["a", null, null])"), *chunks[0]);
+  AssertArraysEqual(*ArrayFromJSON(binary(), R"([null, null, null])"), *chunks[1]);
 }
 
 TEST(TestChunkedStringBuilder, BasicOperation) {

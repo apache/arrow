@@ -17,6 +17,7 @@
 
 #include <functional>
 #include <memory>
+#include <numeric>
 
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
