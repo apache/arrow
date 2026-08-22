@@ -174,6 +174,16 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
+/// \brief Escape style for CSV writing
+enum class ARROW_EXPORT EscapeStyle {
+  /// Quotes are escaped by doubling them, e.g. `""` (RFC4180 default)
+  Double,
+  /// Quotes are escaped by a preceding backslash, e.g. `\"`
+  Backslash,
+  /// Quotes are not escaped
+  None
+};
+
 /// \brief Quoting style for CSV writing
 enum class ARROW_EXPORT QuotingStyle {
   /// Only enclose values in quotes which need them, because their CSV rendering can
@@ -218,6 +228,14 @@ struct ARROW_EXPORT WriteOptions {
   /// Note that `QuotingStyle::Needed` and `QuotingStyle::AllValid` have the same
   /// effect of quoting all column names.
   QuotingStyle quoting_header = QuotingStyle::Needed;
+
+  /// \brief Escape style for quoting
+  ///
+  /// Controls how quotes within quoted values are escaped.
+  /// - `Double`: quotes are escaped by doubling them (e.g. `""`). RFC4180 default.
+  /// - `Backslash`: quotes are escaped by a preceding backslash (e.g. `\"`).
+  /// - `None`: quotes are not escaped.
+  EscapeStyle escape_style = EscapeStyle::Double;
 
   /// Create write options with default values
   static WriteOptions Defaults();
