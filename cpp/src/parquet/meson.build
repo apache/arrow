@@ -124,7 +124,10 @@ parquet_lib = library(
     gnu_symbol_visibility: 'inlineshidden',
 )
 
-parquet_dep = declare_dependency(link_with: parquet_lib)
+parquet_dep = declare_dependency(
+    link_with: parquet_lib,
+    dependencies: parquet_deps,
+)
 
 subdir('api')
 subdir('arrow')
