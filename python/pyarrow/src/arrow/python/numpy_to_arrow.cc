@@ -24,11 +24,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -709,6 +708,10 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
 
 template <typename T>
 Status NumPyConverter::VisitStringDType(T* builder) {
+  if (length_ == 0) {
+    return Status::OK();
+  }
+
   const char* data = PyArray_BYTES(arr_);
   auto* allocator =
       NpyString_acquire_allocator(reinterpret_cast<PyArray_StringDTypeObject*>(dtype_));
@@ -720,13 +723,25 @@ Status NumPyConverter::VisitStringDType(T* builder) {
     mask_values = Ndarray1DIndexer<uint8_t>(mask_);
   }
 
-  if constexpr (std::is_same_v<T, ::arrow::internal::ChunkedStringBuilder>) {
-    npy_static_string value{};
-    for (int64_t i = 0; i < length_; ++i) {
+  constexpr int64_t kBatchSize = 4096;
+  // NpyString_load returns borrowed views that remain valid while the allocator is
+  // locked.
+  const int64_t batch_capacity = std::min(length_, kBatchSize);
+  std::vector<std::string_view> values(batch_capacity);
+  std::vector<uint8_t> valid(batch_capacity);
+  npy_static_string value{};
+
+  for (int64_t offset = 0; offset < length_; offset += kBatchSize) {
+    const int64_t batch_length = std::min(kBatchSize, length_ - offset);
+    int64_t null_count = 0;
+
+    for (int64_t i = 0; i < batch_length; ++i) {
       const char* item = data;
       data += stride_;
-      if (has_mask && mask_values[i]) {
-        RETURN_NOT_OK(builder->AppendNull());
+      if (has_mask && mask_values[offset + i]) {
+        values[i] = {};
+        valid[i] = false;
+        ++null_count;
         continue;
       }
 
@@ -735,98 +750,24 @@ Status NumPyConverter::VisitStringDType(T* builder) {
       if (is_null == -1) {
         return Status::Invalid("Failed to load NumPy StringDType value");
       }
+      valid[i] = !is_null;
       if (is_null) {
-        RETURN_NOT_OK(builder->AppendNull());
+        values[i] = {};
+        ++null_count;
       } else {
-        if (value.size > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
-          return Status::CapacityError("Arrow string values cannot exceed 2GB, got ",
-                                       value.size, " bytes");
-        }
-        RETURN_NOT_OK(builder->Append(std::string_view(value.buf, value.size)));
+        values[i] = std::string_view(value.buf, value.size);
       }
     }
-    return Status::OK();
-  } else {
-    constexpr int64_t kBatchSize = 4096;
-    // Loaded strings remain valid while the allocator is locked.
-    const int64_t batch_capacity = std::min(length_, kBatchSize);
-    std::vector<npy_static_string> values(batch_capacity);
-    std::vector<uint8_t> valid(batch_capacity);
 
-    for (int64_t offset = 0; offset < length_; offset += kBatchSize) {
-      const int64_t batch_length = std::min(kBatchSize, length_ - offset);
-      int64_t null_count = 0;
-      int64_t data_bytes = 0;
-
-      for (int64_t i = 0; i < batch_length; ++i) {
-        const char* item = data;
-        data += stride_;
-        if (has_mask && mask_values[offset + i]) {
-          valid[i] = false;
-          ++null_count;
-          continue;
-        }
-
-        const auto* packed = reinterpret_cast<const npy_packed_static_string*>(item);
-        const int is_null = NpyString_load(allocator, packed, &values[i]);
-        if (is_null == -1) {
-          return Status::Invalid("Failed to load NumPy StringDType value");
-        }
-        valid[i] = !is_null;
-        if (is_null) {
-          ++null_count;
-        } else {
-          size_t value_bytes = values[i].size;
-          if constexpr (std::is_same_v<T, StringViewBuilder>) {
-            if (value_bytes <= BinaryViewType::kInlineSize) {
-              value_bytes = 0;
-            }
-          }
-          if (value_bytes >
-              static_cast<size_t>(std::numeric_limits<int64_t>::max() - data_bytes)) {
-            return Status::CapacityError("String data size exceeds int64 capacity");
-          }
-          data_bytes += static_cast<int64_t>(value_bytes);
-        }
-      }
-
-      if (null_count == batch_length) {
-        RETURN_NOT_OK(builder->AppendNulls(batch_length));
-        continue;
-      }
-
-      RETURN_NOT_OK(builder->Reserve(batch_length));
-      const bool use_safe_append = std::is_same_v<T, StringViewBuilder> &&
-                                   data_bytes > std::numeric_limits<int32_t>::max();
-      if (!use_safe_append) {
-        RETURN_NOT_OK(builder->ReserveData(data_bytes));
-      }
-
-      if (use_safe_append) {
-        for (int64_t i = 0; i < batch_length; ++i) {
-          if (valid[i]) {
-            RETURN_NOT_OK(
-                builder->Append(std::string_view(values[i].buf, values[i].size)));
-          } else {
-            RETURN_NOT_OK(builder->AppendNull());
-          }
-        }
-      } else if (null_count == 0) {
-        for (int64_t i = 0; i < batch_length; ++i) {
-          builder->UnsafeAppend(std::string_view(values[i].buf, values[i].size));
-        }
-      } else {
-        for (int64_t i = 0; i < batch_length; ++i) {
-          if (valid[i]) {
-            builder->UnsafeAppend(std::string_view(values[i].buf, values[i].size));
-          } else {
-            builder->UnsafeAppendNull();
-          }
-        }
-      }
+    if (null_count == batch_length) {
+      RETURN_NOT_OK(builder->AppendNulls(batch_length));
+    } else {
+      RETURN_NOT_OK(builder->AppendValues(
+          std::span<const std::string_view>(values.data(), batch_length),
+          null_count == 0 ? NULLPTR : valid.data()));
     }
-    return Status::OK();
   }
+  return Status::OK();
 }
 
 template <typename T>

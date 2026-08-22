@@ -23,7 +23,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <numeric>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -190,30 +190,30 @@ class BaseBinaryBuilder
   /// \return Status
   Status AppendValues(const std::vector<std::string>& values,
                       const uint8_t* valid_bytes = NULLPTR) {
-    std::size_t total_length = std::accumulate(
-        values.begin(), values.end(), 0ULL,
-        [](uint64_t sum, const std::string& str) { return sum + str.size(); });
-    ARROW_RETURN_NOT_OK(Reserve(values.size()));
-    ARROW_RETURN_NOT_OK(ReserveData(total_length));
+    return AppendValuesInternal(values, valid_bytes);
+  }
 
-    if (valid_bytes != NULLPTR) {
-      for (std::size_t i = 0; i < values.size(); ++i) {
-        UnsafeAppendNextOffset();
-        if (valid_bytes[i]) {
-          value_data_builder_.UnsafeAppend(
-              reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size());
-        }
-      }
-    } else {
-      for (const auto& value : values) {
-        UnsafeAppendNextOffset();
-        value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()),
-                                         value.size());
-      }
-    }
+  /// \brief Append a sequence of borrowed string views in one shot.
+  ///
+  /// The referenced data is copied before this method returns.
+  ///
+  /// \param[in] values a span of string views
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
+  Status AppendValues(std::span<const std::string_view> values,
+                      const uint8_t* valid_bytes = NULLPTR) {
+    return AppendValuesInternal(values, valid_bytes);
+  }
 
-    UnsafeAppendToBitmap(valid_bytes, values.size());
-    return Status::OK();
+  /// \brief Append borrowed string views without checking capacity.
+  ///
+  /// Offsets and data should have been presized using Reserve() and
+  /// ReserveData(), respectively. The referenced data is copied before this
+  /// method returns.
+  void UnsafeAppendValues(std::span<const std::string_view> values,
+                          const uint8_t* valid_bytes = NULLPTR) {
+    UnsafeAppendValuesInternal(values, valid_bytes);
   }
 
   /// \brief Append a sequence of nul-terminated strings in one shot.
@@ -390,6 +390,48 @@ class BaseBinaryBuilder
   }
 
  protected:
+  template <typename StringSequence>
+  Status AppendValuesInternal(const StringSequence& values, const uint8_t* valid_bytes) {
+    uint64_t total_length = 0;
+    const uint64_t available =
+        static_cast<uint64_t>(memory_limit() - value_data_builder_.length());
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      if (valid_bytes == NULLPTR || valid_bytes[i]) {
+        if (values[i].size() > available - total_length) {
+          return Status::CapacityError("array cannot contain more than ", memory_limit(),
+                                       " bytes");
+        }
+        total_length += values[i].size();
+      }
+    }
+
+    ARROW_RETURN_NOT_OK(Reserve(static_cast<int64_t>(values.size())));
+    ARROW_RETURN_NOT_OK(ReserveData(static_cast<int64_t>(total_length)));
+    UnsafeAppendValuesInternal(values, valid_bytes);
+    return Status::OK();
+  }
+
+  template <typename StringSequence>
+  void UnsafeAppendValuesInternal(const StringSequence& values,
+                                  const uint8_t* valid_bytes) {
+    if (valid_bytes == NULLPTR) {
+      for (const auto& value : values) {
+        UnsafeAppendNextOffset();
+        value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()),
+                                         value.size());
+      }
+    } else {
+      for (std::size_t i = 0; i < values.size(); ++i) {
+        UnsafeAppendNextOffset();
+        if (valid_bytes[i]) {
+          value_data_builder_.UnsafeAppend(
+              reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size());
+        }
+      }
+    }
+    UnsafeAppendToBitmap(valid_bytes, static_cast<int64_t>(values.size()));
+  }
+
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
@@ -644,6 +686,17 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   void UnsafeAppend(std::string_view value) {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
   }
+
+  /// \brief Append a sequence of borrowed string views in one shot.
+  ///
+  /// The referenced data is copied before this method returns.
+  ///
+  /// \param[in] values a span of string views
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
+  Status AppendValues(std::span<const std::string_view> values,
+                      const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Ensures there is enough allocated available capacity in the
   /// out-of-line data heap to append the indicated number of bytes without
@@ -949,9 +1002,16 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   }
 
   Status Append(std::string_view value) {
+    if (ARROW_PREDICT_FALSE(value.size() >
+                            static_cast<size_t>(BinaryBuilder::memory_limit()))) {
+      return Status::CapacityError("Binary values cannot exceed 2GB");
+    }
     return Append(reinterpret_cast<const uint8_t*>(value.data()),
                   static_cast<int32_t>(value.size()));
   }
+
+  Status AppendValues(std::span<const std::string_view> values,
+                      const uint8_t* valid_bytes = NULLPTR);
 
   Status AppendNull() {
     if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
@@ -959,6 +1019,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     }
     return builder_->AppendNull();
   }
+
+  Status AppendNulls(int64_t length);
 
   Status Reserve(int64_t values);
 
