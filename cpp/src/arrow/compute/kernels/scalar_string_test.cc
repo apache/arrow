@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
@@ -2292,6 +2293,16 @@ TYPED_TEST(TestStringKernels, Strptime) {
       Strptime(ArrayFromJSON(this->type(), input1), options));
 }
 
+TYPED_TEST(TestStringKernels, StrptimeDictionaryIgnoresUnreferencedValues) {
+  auto values = ArrayFromJSON(this->type(), R"(["5/1/2020", "not-a-date"])");
+  ASSERT_OK_AND_ASSIGN(auto input, DictionaryArray::FromArrays(
+                                       ArrayFromJSON(int8(), "[0, 0, null]"), values));
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, /*error_is_null=*/false);
+
+  this->CheckUnary("strptime", input, timestamp(TimeUnit::MICRO),
+                   R"(["2020-05-01", "2020-05-01", null])", &options);
+}
+
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
 #ifdef __EMSCRIPTEN__
   GTEST_SKIP()
@@ -2486,6 +2497,17 @@ TYPED_TEST(TestStringKernels, TrimUTF8) {
   auto input = ArrayFromJSON(this->type(), "[\"foo\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8"),
                                   CallFunction("utf8_trim", {input}, &options_invalid));
+}
+
+TYPED_TEST(TestStringKernels, TrimUTF8Dictionary) {
+  auto input =
+      ArrayFromJSON(dictionary(int64(), this->type()), R"(["bcabc", "b", "a", null])");
+  auto options = TrimOptions{"bc"};
+  this->CheckUnary("utf8_trim", input, this->type(), R"(["a", "", "a", null])", &options);
+  this->CheckUnary("utf8_ltrim", input, this->type(), R"(["abc", "", "a", null])",
+                   &options);
+  this->CheckUnary("utf8_rtrim", input, this->type(), R"(["bca", "", "a", null])",
+                   &options);
 }
 #endif
 
