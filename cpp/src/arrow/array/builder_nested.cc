@@ -301,33 +301,6 @@ std::shared_ptr<DataType> StructBuilder::type() const {
   return struct_(std::move(fields));
 }
 
-template <typename TYPE>
-Status VarLengthListLikeBuilder<TYPE>::AppendScalar(const Scalar& scalar,
-                                                    int64_t n_repeats) {
-  ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
-  const auto& s = internal::checked_cast<const BaseListScalar&>(scalar);
-  if (s.is_valid) {
-    const Array& list = *s.value;
-    RETURN_NOT_OK(value_builder_->Reserve(list.length() * n_repeats));
-    for (int64_t r = 0; r < n_repeats; ++r) {
-      if constexpr (TYPE::type_id == Type::MAP ||
-                    TYPE::type_id == Type::FIXED_SIZE_LIST) {
-        RETURN_NOT_OK(Append());
-      } else {
-        RETURN_NOT_OK(Append(/*is_valid=*/true, list.length()));
-      }
-      for (int64_t i = 0; i < list.length(); ++i) {
-        ARROW_ASSIGN_OR_RAISE(auto child_scalar, list.GetScalar(i));
-        RETURN_NOT_OK(value_builder_->AppendScalar(*child_scalar));
-      }
-    }
-  } else {
-    for (int64_t r = 0; r < n_repeats; ++r) {
-      RETURN_NOT_OK(AppendNull());
-    }
-  }
-  return Status::OK();
-}
 
 Status MapBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
   ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));

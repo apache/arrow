@@ -76,16 +76,18 @@ Status ArrayBuilder::Resize(int64_t capacity) {
 namespace internal {
 
 Status ValidateAppendScalar(const ArrayBuilder& builder, const Scalar& scalar) {
-  if (!scalar.type->Equals(*builder.type())) {
+  const auto type = builder.type();
+  if (!scalar.type->Equals(*type)) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", builder.type()->ToString());
+                           " to builder for type ", type->ToString());
   }
   return Status::OK();
 }
 
 Status ValidateAppendScalars(const ArrayBuilder& builder, const ScalarVector& scalars) {
   if (scalars.empty()) return Status::OK();
-  const auto& ty = *builder.type();
+  const auto type = builder.type();
+  const auto& ty = *type;
   for (const auto& scalar : scalars) {
     if (!scalar->type->Equals(ty)) {
       return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),

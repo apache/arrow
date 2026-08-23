@@ -140,6 +140,7 @@ class BaseBinaryBuilder
     return Status::OK();
   }
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
     if (scalar.type->id() == Type::NA) {
       return AppendNulls(n_repeats);
@@ -724,6 +725,7 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
   Status AppendScalars(const ScalarVector& scalars) override;
 
@@ -843,6 +845,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status AppendNull() final;
   Status AppendNulls(int64_t length) final;
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
   Status AppendScalars(const ScalarVector& scalars) override;
 

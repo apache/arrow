@@ -803,6 +803,16 @@ TEST_F(TestArray, TestAppendScalarValidation) {
   ASSERT_OK_AND_ASSIGN(auto child_array, child_builder.Finish());
   FixedSizeListScalar fsl_scalar(child_array, fixed_size_list(int32(), 5));
   ASSERT_RAISES(Invalid, fsl_builder_ptr->AppendScalar(fsl_scalar, 1));
+
+  // 1-argument AppendScalar call directly on concrete builders (verifying no method hiding)
+  ASSERT_OK(int_builder.AppendScalar(*MakeScalar<int32_t>(42)));
+  FixedSizeBinaryScalar valid_fsb_scalar(Buffer::FromString("123"), fixed_size_binary(3));
+  ASSERT_OK(fsb_builder.AppendScalar(valid_fsb_scalar));
+  Decimal128Scalar valid_dec_scalar(Decimal128(12345), decimal128(10, 2));
+  ASSERT_OK(dec_builder.AppendScalar(valid_dec_scalar));
+  // ValidateAppendScalars with temporary builder type
+  ScalarVector fsb_scalars = {std::make_shared<FixedSizeBinaryScalar>(valid_fsb_scalar)};
+  ASSERT_OK(fsb_builder.AppendScalars(fsb_scalars));
 }
 
 TEST_F(TestArray, TestAppendScalarsAtomicPreValidation) {

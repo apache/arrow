@@ -60,6 +60,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
   Status Append(std::nullptr_t) { return AppendNull(); }
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
     if (!scalar.type->Equals(type())) {
       return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
@@ -161,6 +162,7 @@ class NumericBuilder
     return Status::OK();
   }
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
     ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
     const auto& s =
@@ -587,6 +589,7 @@ class ARROW_EXPORT BooleanBuilder
     return Status::OK();
   }
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
     ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
     const auto& s = internal::checked_cast<const BooleanScalar&>(scalar);

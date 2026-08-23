@@ -159,7 +159,32 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    ARROW_RETURN_NOT_OK(internal::ValidateAppendScalar(*this, scalar));
+    const auto& s = internal::checked_cast<const BaseListScalar&>(scalar);
+    if (s.is_valid) {
+      const Array& list = *s.value;
+      RETURN_NOT_OK(value_builder_->Reserve(list.length() * n_repeats));
+      for (int64_t r = 0; r < n_repeats; ++r) {
+        if constexpr (TYPE::type_id == Type::MAP ||
+                      TYPE::type_id == Type::FIXED_SIZE_LIST) {
+          RETURN_NOT_OK(Append());
+        } else {
+          RETURN_NOT_OK(Append(/*is_valid=*/true, list.length()));
+        }
+        for (int64_t i = 0; i < list.length(); ++i) {
+          ARROW_ASSIGN_OR_RAISE(auto child_scalar, list.GetScalar(i));
+          RETURN_NOT_OK(value_builder_->AppendScalar(*child_scalar));
+        }
+      }
+    } else {
+      for (int64_t r = 0; r < n_repeats; ++r) {
+        RETURN_NOT_OK(AppendNull());
+      }
+    }
+    return Status::OK();
+  }
 
   /// \brief Vector append
   ///
@@ -563,6 +588,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final;
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
 
   Status AppendEmptyValue() final;
@@ -698,6 +724,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// automatically.
   Status AppendNulls(int64_t length) final;
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
 
   Status ValidateOverflow(int64_t new_elements);
@@ -813,6 +840,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  using ArrayBuilder::AppendScalar;
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
 
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
