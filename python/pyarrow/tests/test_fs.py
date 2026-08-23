@@ -1757,99 +1757,54 @@ def test_is_likely_uri():
     assert not _is_likely_uri("dätä/file.parquet")    # non-ASCII, no scheme
 
 
-def test_resolve_filesystem_and_path_uri_with_spaces():
+@pytest.mark.parametrize('uri', [
+    # Un-encoded spaces
+    "s3://bucket/path with space/file.parquet",
+    "gs://bucket/path with space/file.csv",
+    "abfss://container@account/dir with space/file",
+    # Un-encoded non-ASCII
+    "s3://asdf/äöü",
+    "s3://bucket/über/daten.parquet",
+    "s3://bucket/数据/file.parquet",
+    "gs://bucket/äöü/x.csv",
+    "abfss://container@account/äöü",
+])
+def test_resolve_filesystem_and_path_uri_unencoded(uri):
     """
-    URIs with a recognised scheme but un-encoded spaces must raise
-    ValueError — NOT silently fall back to LocalFileSystem.
-    (GH-41365)
-    """
-    from pyarrow.fs import _resolve_filesystem_and_path
-
-    # S3 URI with spaces should raise, not return LocalFileSystem
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("s3://bucket/path with space/file.parquet")
-
-    # GCS URI with spaces should also raise
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("gs://bucket/path with space/file.csv")
-
-    # abfss URI with spaces
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path(
-            "abfss://container@account/dir with space/file"
-        )
-
-
-def test_resolve_filesystem_and_path_local_with_spaces():
-    """
-    Local paths (no scheme) with spaces should still resolve to
-    LocalFileSystem — they must NOT be confused with malformed URIs.
-    """
-    from pyarrow.fs import _resolve_filesystem_and_path
-
-    # Absolute local path with spaces → LocalFileSystem
-    fs, path = _resolve_filesystem_and_path("/tmp/path with spaces/data")
-    assert isinstance(fs, LocalFileSystem)
-
-    # Non-existent absolute path → still LocalFileSystem
-    fs, path = _resolve_filesystem_and_path("/nonexistent/path")
-    assert isinstance(fs, LocalFileSystem)
-
-
-def test_resolve_filesystem_and_path_uri_with_non_ascii():
-    """
-    URIs with a recognised scheme but un-encoded non-ASCII characters must
-    raise ValueError — NOT silently fall back to LocalFileSystem.  This is
-    the same failure mode as un-encoded spaces: the URI parser rejects any
-    byte outside the RFC 3986 character set, so such paths have to be
+    A URI with a recognised scheme but un-encoded characters must raise
+    ValueError — NOT silently fall back to LocalFileSystem.  The URI parser
+    rejects any byte outside the RFC 3986 set, so such paths have to be
     percent-encoded (e.g. "s3://asdf/%C3%A4%C3%B6%C3%BC").
     (GH-41365)
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
-    # S3 URI with umlauts should raise, not return LocalFileSystem
     with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("s3://asdf/äöü")
-
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("s3://bucket/über/daten.parquet")
-
-    # Non-Latin scripts fail the same way
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("s3://bucket/数据/file.parquet")
-
-    # GCS URI with umlauts should also raise
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("gs://bucket/äöü/x.csv")
-
-    # abfss URI with umlauts
-    with pytest.raises(ValueError, match="Cannot parse URI"):
-        _resolve_filesystem_and_path("abfss://container@account/äöü")
+        _resolve_filesystem_and_path(uri)
 
 
-def test_resolve_filesystem_and_path_local_with_non_ascii():
-    """
-    Local paths (no scheme) containing non-ASCII characters should still
-    resolve to LocalFileSystem — they must NOT be confused with malformed
-    URIs.
-    """
-    from pyarrow.fs import _resolve_filesystem_and_path
-
-    # Absolute local path with umlauts → LocalFileSystem
-    fs, path = _resolve_filesystem_and_path("/tmp/äöü/data")
-    assert isinstance(fs, LocalFileSystem)
-
-    # Absolute local path with a non-Latin script → LocalFileSystem
-    fs, path = _resolve_filesystem_and_path("/tmp/数据/data")
-    assert isinstance(fs, LocalFileSystem)
-
+@pytest.mark.parametrize('path', [
+    # Spaces
+    "/tmp/path with spaces/data",
+    "/nonexistent/path",
+    # Non-ASCII
+    "/tmp/äöü/data",
+    "/tmp/数据/data",
     # Relative non-ASCII paths do reach the URI parser and fail with
     # "Cannot parse URI", but _is_likely_uri() rejects them as URIs, so
     # they must still fall back to LocalFileSystem.
-    fs, path = _resolve_filesystem_and_path("dätä/file.parquet")
-    assert isinstance(fs, LocalFileSystem)
+    "dätä/file.parquet",
+    "dätä/fi:le.parquet",
+])
+def test_resolve_filesystem_and_path_local_unencoded(path):
+    """
+    Local paths (no scheme) containing spaces or non-ASCII characters should
+    still resolve to LocalFileSystem — they must NOT be confused with
+    malformed URIs.
+    """
+    from pyarrow.fs import _resolve_filesystem_and_path
 
-    fs, path = _resolve_filesystem_and_path("dätä/fi:le.parquet")
+    fs, _ = _resolve_filesystem_and_path(path)
     assert isinstance(fs, LocalFileSystem)
 
 

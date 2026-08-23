@@ -531,7 +531,7 @@ struct S3Path {
   std::vector<std::string> key_parts;
 
   static Result<S3Path> FromString(const std::string& s) {
-    if (internal::IsLikelyUri(s)) {
+    if (IsLikelyUri(s)) {
       return Status::Invalid(
           "Expected an S3 object path of the form 'bucket/key...', got a URI: '", s, "'");
     }
@@ -3660,7 +3660,7 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
   RETURN_NOT_OK(CheckS3Initialized());
 
   if (bucket.empty() || bucket.find_first_of(kSep) != bucket.npos ||
-      internal::IsLikelyUri(bucket)) {
+      IsLikelyUri(bucket)) {
     return Status::Invalid("Not a valid bucket name: '", bucket, "'");
   }
 
