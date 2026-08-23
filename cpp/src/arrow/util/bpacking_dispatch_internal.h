@@ -55,11 +55,12 @@ ARROW_FORCE_INLINE void unpack_full(const uint8_t* in, Uint* out, int batch_size
       //   1. A constant-size memcpy for the load, not SafeLoadAs: SafeLoadAs
       //      builds an AlignedStorage per element and the vectorizer refuses it,
       //      while a fixed-size memcpy is just an unaligned load.
-      //   2. __restrict__: `in` is a uint8_t*, so it may alias anything,
-      //      including `out`. Without restating that they are distinct the
-      //      compiler has to assume overlap and emits a scalar loop.
-      const uint8_t* __restrict__ src = in;
-      Uint* __restrict__ dst = out;
+      //   2. A restrict qualifier: `in` is a uint8_t*, so it may alias
+      //      anything, including `out`. Without restating that they are
+      //      distinct the compiler has to assume overlap and emits a scalar
+      //      loop.
+      const uint8_t* ARROW_RESTRICT src = in;
+      Uint* ARROW_RESTRICT dst = out;
       for (int k = 0; k < batch_size; k += 1) {
         Uint val;
         std::memcpy(&val, src + (k * sizeof(Uint)), sizeof(Uint));
