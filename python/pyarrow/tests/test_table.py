@@ -913,6 +913,11 @@ def test_table_from_struct_array_invalid():
         pa.Table.from_struct_array(pa.array(range(5)))
 
 
+def test_table_from_struct_array_empty_chunked_array_invalid():
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
+        pa.Table.from_struct_array(pa.chunked_array([], type=pa.int64()))
+
+
 def test_table_from_struct_array():
     struct_array = pa.array(
         [{"ints": 1}, {"floats": 1.0}],
