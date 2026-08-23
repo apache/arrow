@@ -6292,6 +6292,8 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     promote_options : str, default none
         Accepts strings "none", "default" and "permissive".
     **kwargs : dict, optional
+        Additional arguments. The deprecated ``promote`` argument is accepted
+        for backward compatibility.
 
     Examples
     --------
@@ -6320,6 +6322,12 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         Table table
         CConcatenateTablesOptions options = (
             CConcatenateTablesOptions.Defaults())
+
+    unexpected_kwargs = [key for key in kwargs if key != "promote"]
+    if unexpected_kwargs:
+        raise TypeError(
+            f"concat_tables() got an unexpected keyword argument "
+            f"'{unexpected_kwargs[0]}'")
 
     if "promote" in kwargs:
         warnings.warn(
