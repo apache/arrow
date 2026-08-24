@@ -269,7 +269,8 @@ TEST(ChunkerTest, Errors) {
   ASSERT_EQ(std::string_view(*rest), parts[1]);
   auto status =
       chunker->ProcessWithPartial(rest, Buffer::FromString(parts[2]), &completion, &rest);
-  EXPECT_THAT(status.message(), ::testing::StartsWith("JSON parse error: Invalid value"));
+  EXPECT_THAT(status.message(),
+              ::testing::StartsWith("JSON chunk error: invalid data at end of document"));
 }
 
 TEST_P(BaseChunkerTest, StraddlingEmpty) {
