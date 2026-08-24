@@ -16,17 +16,19 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function header = getTabularHeader(className, numRows, numColumns)
-    import arrow.internal.display.boldFontIfPossible
+function header = getTabularHeader(fullClassName, numRows, numColumns)
+    import arrow.internal.display.getClassNameForDisplay
+    import arrow.internal.display.getNumString
     import arrow.internal.display.pluralizeStringIfNeeded
 
-    numRowsString = boldFontIfPossible(numRows);
-    numColsString = boldFontIfPossible(numColumns);
+    className = getClassNameForDisplay(fullClassName);
+    numRowsString = getNumString(numRows);
+    numColsString = getNumString(numColumns);
     rowWordString = pluralizeStringIfNeeded(numRows, "row");
     colWordString = pluralizeStringIfNeeded(numColumns, "column");
     formatSpec = "  Arrow %s with %s %s and %s %s";
     if numColumns > 0
         formatSpec = formatSpec + ":";
     end
-    header = compose(formatSpec,className, numRowsString, rowWordString, numColsString, colWordString);
+    header = compose(formatSpec, className, numRowsString, rowWordString, numColsString, colWordString);
 end
