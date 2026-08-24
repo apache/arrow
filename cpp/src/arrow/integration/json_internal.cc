@@ -113,9 +113,10 @@ std::string GetTimeUnitName(TimeUnit::type unit) {
 }
 
 Result<std::string_view> GetStringView(const JsonValue& value) {
-  ARROW_ASSIGN_OR_RAISE(auto string, internal::ResolveSimdjsonResult(
-                                         value.get_string(), "field was not a string"));
-  return std::string_view(string);
+  ARROW_ASSIGN_OR_RAISE(
+      auto string_view,
+      internal::ResolveSimdjsonResult(value.get_string(), "field was not a string"));
+  return string_view;
 }
 
 class SchemaWriter {
@@ -897,9 +898,10 @@ Result<bool> GetMemberBool(const JsonObject& obj, std::string_view key) {
 Result<std::string> GetMemberString(const JsonObject& obj, std::string_view key) {
   ARROW_ASSIGN_OR_RAISE(
       auto value, internal::ResolveSimdjsonResult(obj[key], "Failed to get JSON field"));
-  ARROW_ASSIGN_OR_RAISE(auto string, internal::ResolveSimdjsonResult(
-                                         value.get_string(), "field was not a string"));
-  return std::string(string);
+  ARROW_ASSIGN_OR_RAISE(
+      auto string_view,
+      internal::ResolveSimdjsonResult(value.get_string(), "field was not a string"));
+  return std::string(string_view);
 }
 
 Result<JsonObject> GetMemberObject(const JsonObject& obj, std::string_view key) {
@@ -1447,20 +1449,19 @@ class ArrayReader {
           "JSON OFFSET array size differs from advertised array length + 1");
     }
 
-    for (auto [i, is_valid, json_val] :
-         Zip(Enumerate<size_t>, is_valid_, json_data_arr)) {
+    auto offset_it = json_offsets.begin();
+
+    for (auto [is_valid, json_val] : Zip(is_valid_, json_data_arr)) {
+      auto offset_start_json = *offset_it;
+      ++offset_it;
+      auto offset_end_json = *offset_it;
+
       if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-      ARROW_ASSIGN_OR_RAISE(auto val, GetStringView(json_val));
 
-      ARROW_ASSIGN_OR_RAISE(auto offset_start_json,
-                            internal::ResolveSimdjsonResult(
-                                json_offsets.at(i), "Failed to get start offset"));
-      ARROW_ASSIGN_OR_RAISE(auto offset_end_json,
-                            internal::ResolveSimdjsonResult(json_offsets.at(i + 1),
-                                                            "Failed to get end offset"));
+      ARROW_ASSIGN_OR_RAISE(auto val, GetStringView(json_val));
 
       ARROW_ASSIGN_OR_RAISE(auto offset_start, ParseOffset(offset_start_json));
       ARROW_ASSIGN_OR_RAISE(auto offset_end, ParseOffset(offset_end_json));
@@ -1745,6 +1746,8 @@ class ArrayReader {
             internal::ResolveSimdjsonResult(val.get_int64(), "Expected integer value"));
         values[i] = static_cast<T>(integer);
       } else {
+        // Read 64-bit integers as strings, as JSON numbers cannot represent
+        // them exactly.
         ARROW_ASSIGN_OR_RAISE(auto string,
                               internal::ResolveSimdjsonResult(
                                   val.get_string(), "Expected integer value as string"));

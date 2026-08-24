@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/integration/json_internal.h"
@@ -138,9 +139,11 @@ class IntegrationJsonReader::Impl {
 
     ARROW_ASSIGN_OR_RAISE(schema_, json::ReadSchema(doc_, pool_, &dictionary_memo_));
 
-    ARROW_ASSIGN_OR_RAISE(record_batches_,
+    ARROW_ASSIGN_OR_RAISE(auto batches,
                           internal::ResolveSimdjsonResult(doc_["batches"].get_array(),
                                                           "Failed to get batches"));
+
+    batches.get_values(record_batches_);
 
     return Status::OK();
   }
@@ -150,11 +153,7 @@ class IntegrationJsonReader::Impl {
       return Status::IndexError("record batch index ", i, " out of bounds");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto batch,
-                          internal::ResolveSimdjsonResult(record_batches_.at(i),
-                                                          "Failed to get record batch"));
-
-    return json::ReadRecordBatch(batch, schema_, &dictionary_memo_, pool_);
+    return json::ReadRecordBatch(record_batches_[i], schema_, &dictionary_memo_, pool_);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -167,7 +166,7 @@ class IntegrationJsonReader::Impl {
 
   simdjson::dom::parser parser_;
   JsonValue doc_;
-  JsonArray record_batches_;
+  std::vector<JsonValue> record_batches_;
 
   std::shared_ptr<Schema> schema_;
   DictionaryMemo dictionary_memo_;
