@@ -86,8 +86,7 @@ class AlpCodec {
   ///         `vector_size` a power of two in
   ///         `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
   static Status EncodeWithPreset(const T* input, int64_t num_elements,
-                                 const AlpSamplerResult& preset,
-                                 int32_t vector_size,
+                                 const AlpSamplerResult& preset, int32_t vector_size,
                                  uint8_t* output, int64_t* output_size);
 
   /// \brief Encode floating point values using ALP decimal compression
@@ -109,14 +108,13 @@ class AlpCodec {
   ///         violated: `num_elements >= 0`, `num_elements <= INT32_MAX`, and
   ///         `vector_size` a power of two in
   ///         `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
-  static Status Encode(const T* input, int64_t num_elements,
-                       int32_t vector_size,
+  static Status Encode(const T* input, int64_t num_elements, int32_t vector_size,
                        uint8_t* output, int64_t* output_size);
 
   /// \brief Convenience overload with default vector_size = kAlpVectorSize.
   ///        Same preconditions and error returns as the four-argument overload.
-  static Status Encode(const T* input, int64_t num_elements,
-                       uint8_t* output, int64_t* output_size);
+  static Status Encode(const T* input, int64_t num_elements, uint8_t* output,
+                       int64_t* output_size);
 
   /// \brief Decode floating point values
   ///
@@ -143,8 +141,7 @@ class AlpCodec {
   ///         Status::Invalid if `num_elements < 0` or `vector_size` is not a
   ///         power of two in `[2^kMinLogVectorSize, 2^kMaxLogVectorSize]`.
   static Result<int64_t> GetMaxCompressedSize(
-      int64_t num_elements,
-      int32_t vector_size = AlpConstants::kAlpVectorSize);
+      int64_t num_elements, int32_t vector_size = AlpConstants::kAlpVectorSize);
 
  private:
   struct AlpHeader;
@@ -199,11 +196,11 @@ class AlpCodec {
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static Result<DecompressionProgress> DecodeAlp(int64_t num_elements,
-                                                  const uint8_t* input, int64_t input_size,
-                                                  AlpIntegerEncoding integer_encoding,
-                                                  int32_t vector_size,
-                                                  int32_t total_elements,
-                                                  TargetType* output);
+                                                 const uint8_t* input, int64_t input_size,
+                                                 AlpIntegerEncoding integer_encoding,
+                                                 int32_t vector_size,
+                                                 int32_t total_elements,
+                                                 TargetType* output);
 
   /// \brief Load the AlpHeader from compressed data
   ///

@@ -26,9 +26,9 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/alp/alp_sampler.h"
-#include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
 
@@ -53,9 +53,8 @@ template <typename T>
                 "IsBitwiseEqual is for float/double only");
   using Bits = typename std::conditional<sizeof(T) == 4, uint32_t, uint64_t>::type;
   if (actual.size() != expected.size()) {
-    return ::testing::AssertionFailure()
-        << "size mismatch: actual=" << actual.size()
-        << " expected=" << expected.size();
+    return ::testing::AssertionFailure() << "size mismatch: actual=" << actual.size()
+                                         << " expected=" << expected.size();
   }
   for (size_t i = 0; i < actual.size(); ++i) {
     Bits a_bits = 0, e_bits = 0;
@@ -63,9 +62,9 @@ template <typename T>
     std::memcpy(&e_bits, &expected[i], sizeof(T));
     if (a_bits != e_bits) {
       return ::testing::AssertionFailure()
-          << "bit-mismatch at index " << i << ": actual=" << actual[i]
-          << " (bits 0x" << std::hex << a_bits << "), expected=" << std::dec
-          << expected[i] << " (bits 0x" << std::hex << e_bits << ")";
+             << "bit-mismatch at index " << i << ": actual=" << actual[i] << " (bits 0x"
+             << std::hex << a_bits << "), expected=" << std::dec << expected[i]
+             << " (bits 0x" << std::hex << e_bits << ")";
     }
   }
   return ::testing::AssertionSuccess();
@@ -147,9 +146,8 @@ TEST_F(AlpCompressionFloatTest, SmallValues) {
 }
 
 TEST_F(AlpCompressionFloatTest, MixedValues) {
-  std::vector<float> input = {100.5f,       200.25f,       300.125f,   400.0625f,
-                              500.03125f,   600.015625f,   700.0078125f,
-                              800.00390625f};
+  std::vector<float> input = {100.5f,     200.25f,     300.125f,     400.0625f,
+                              500.03125f, 600.015625f, 700.0078125f, 800.00390625f};
   TestCompressDecompressFloat(input);
 }
 
@@ -235,8 +233,8 @@ TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
   // `int64(v * 10^e * 10^-f)`, so values outside the range where that fits
   // in int64 must fall through to the exception path. Lossless recovery
   // here is exactly the contract being tested.
-  std::uniform_real_distribution<TypeParam> dist(
-      static_cast<TypeParam>(-1e20), static_cast<TypeParam>(1e20));
+  std::uniform_real_distribution<TypeParam> dist(static_cast<TypeParam>(-1e20),
+                                                 static_cast<TypeParam>(1e20));
 
   std::vector<TypeParam> input(1024);
   for (auto& v : input) {
@@ -248,7 +246,7 @@ TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
   const std::array<TypeParam, 10> extremes = {
       std::numeric_limits<TypeParam>::lowest(),
       std::numeric_limits<TypeParam>::max(),
-      std::numeric_limits<TypeParam>::min(),       // smallest normal
+      std::numeric_limits<TypeParam>::min(),         // smallest normal
       std::numeric_limits<TypeParam>::denorm_min(),  // smallest subnormal
       static_cast<TypeParam>(0.0),
       static_cast<TypeParam>(-0.0),
@@ -263,12 +261,10 @@ TYPED_TEST(AlpIntegrationTest, RandomAndExtremes) {
 
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded =
-      compressor.CompressVector(input.data(), input.size(), preset);
+  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack,
-                              output.data());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
   // Bit-exact: lossless contract holds for everything, including the
   // extremes that went through the exception path.
@@ -306,8 +302,9 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripFloat) {
   std::vector<uint8_t> buffer(AlpEncodedForVectorInfo<float>::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
 
-  ASSERT_OK_AND_ASSIGN(AlpEncodedForVectorInfo<float> loaded,
-                       AlpEncodedForVectorInfo<float>::Load({buffer.data(), buffer.size()}));
+  ASSERT_OK_AND_ASSIGN(
+      AlpEncodedForVectorInfo<float> loaded,
+      AlpEncodedForVectorInfo<float>::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference(), 0x12345678U);
   EXPECT_EQ(loaded.bit_width(), 12);
@@ -322,8 +319,9 @@ TEST(AlpEncodedForVectorInfoTest, StoreLoadRoundTripDouble) {
   std::vector<uint8_t> buffer(AlpEncodedForVectorInfo<double>::kStoredSize + 10);
   info.Store({buffer.data(), buffer.size()});
 
-  ASSERT_OK_AND_ASSIGN(AlpEncodedForVectorInfo<double> loaded,
-                       AlpEncodedForVectorInfo<double>::Load({buffer.data(), buffer.size()}));
+  ASSERT_OK_AND_ASSIGN(
+      AlpEncodedForVectorInfo<double> loaded,
+      AlpEncodedForVectorInfo<double>::Load({buffer.data(), buffer.size()}));
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference(), 0x123456789ABCDEF0ULL);
   EXPECT_EQ(loaded.bit_width(), 20);
@@ -387,8 +385,8 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
 
   // Decode zero elements
   std::vector<TypeParam> output;
-  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(0, buffer.data(),
-                                                              comp_size, output.data()));
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(0, buffer.data(), comp_size,
+                                                            output.data()));
 
   // Both should be empty
   EXPECT_EQ(input.size(), output.size());
@@ -430,26 +428,24 @@ TYPED_TEST(AlpEdgeCaseTest, JustOverVectorSize) {
   AlpEncodingParameters preset{};
 
   // Process first vector
-  auto encoded1 = compressor.CompressVector(input.data(),
-                                            AlpConstants::kAlpVectorSize, preset);
+  auto encoded1 =
+      compressor.CompressVector(input.data(), AlpConstants::kAlpVectorSize, preset);
   std::vector<TypeParam> output1(AlpConstants::kAlpVectorSize);
   compressor.DecompressVector(encoded1, AlpIntegerEncoding::kForBitPack, output1.data());
 
   // Process remaining element
-  auto encoded2 = compressor.CompressVector(
-      input.data() + AlpConstants::kAlpVectorSize, 1, preset);
+  auto encoded2 =
+      compressor.CompressVector(input.data() + AlpConstants::kAlpVectorSize, 1, preset);
   std::vector<TypeParam> output2(1);
   compressor.DecompressVector(encoded2, AlpIntegerEncoding::kForBitPack, output2.data());
 
   // Verify (first vector covers input[0:kAlpVectorSize], second covers the
   // trailing element).
   EXPECT_TRUE(IsBitwiseEqual(
-      output1,
-      std::vector<TypeParam>(input.begin(),
-                             input.begin() + AlpConstants::kAlpVectorSize)));
+      output1, std::vector<TypeParam>(input.begin(),
+                                      input.begin() + AlpConstants::kAlpVectorSize)));
   EXPECT_TRUE(IsBitwiseEqual(
-      output2,
-      std::vector<TypeParam>{input[AlpConstants::kAlpVectorSize]}));
+      output2, std::vector<TypeParam>{input[AlpConstants::kAlpVectorSize]}));
 }
 
 // ============================================================================
@@ -472,8 +468,7 @@ TYPED_TEST(AlpEdgeCaseTest, NegativeZero) {
   // -0.0 should be preserved bit-exactly
   std::vector<TypeParam> input(100);
   for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = (i % 2 == 0) ? static_cast<TypeParam>(0.0)
-                            : static_cast<TypeParam>(-0.0);
+    input[i] = (i % 2 == 0) ? static_cast<TypeParam>(0.0) : static_cast<TypeParam>(-0.0);
   }
   this->TestCompressDecompress(input);
 }
@@ -528,17 +523,16 @@ TYPED_TEST(AlpEdgeCaseTest, MixedCompressibleAndExceptions) {
 // ============================================================================
 
 TYPED_TEST(AlpEdgeCaseTest, MaxMinValues) {
-  std::vector<TypeParam> input = {
-      std::numeric_limits<TypeParam>::max(),
-      std::numeric_limits<TypeParam>::min(),
-      std::numeric_limits<TypeParam>::lowest(),
-      std::numeric_limits<TypeParam>::denorm_min(),
-      std::numeric_limits<TypeParam>::epsilon(),
-      -std::numeric_limits<TypeParam>::max(),
-      -std::numeric_limits<TypeParam>::min(),
-      -std::numeric_limits<TypeParam>::denorm_min(),
-      -std::numeric_limits<TypeParam>::epsilon(),
-      static_cast<TypeParam>(0.0)};
+  std::vector<TypeParam> input = {std::numeric_limits<TypeParam>::max(),
+                                  std::numeric_limits<TypeParam>::min(),
+                                  std::numeric_limits<TypeParam>::lowest(),
+                                  std::numeric_limits<TypeParam>::denorm_min(),
+                                  std::numeric_limits<TypeParam>::epsilon(),
+                                  -std::numeric_limits<TypeParam>::max(),
+                                  -std::numeric_limits<TypeParam>::min(),
+                                  -std::numeric_limits<TypeParam>::denorm_min(),
+                                  -std::numeric_limits<TypeParam>::epsilon(),
+                                  static_cast<TypeParam>(0.0)};
   this->TestCompressDecompress(input);
 }
 
@@ -584,8 +578,8 @@ TYPED_TEST(AlpEdgeCaseTest, AlternatingSignValues) {
   // Test values alternating between positive and negative
   std::vector<TypeParam> input(1024);
   for (size_t i = 0; i < input.size(); ++i) {
-    TypeParam sign = (i % 2 == 0) ? static_cast<TypeParam>(1.0)
-                                  : static_cast<TypeParam>(-1.0);
+    TypeParam sign =
+        (i % 2 == 0) ? static_cast<TypeParam>(1.0) : static_cast<TypeParam>(-1.0);
     input[i] = sign * static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
   this->TestCompressDecompress(input);
@@ -617,10 +611,9 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
   encoded.Store({buffer.data(), buffer.size()});
 
   // Load (pass num_elements since it's not stored in the buffer)
-  ASSERT_OK_AND_ASSIGN(
-      auto loaded,
-      AlpEncodedVector<TypeParam>::Load(
-          {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
+  ASSERT_OK_AND_ASSIGN(auto loaded, AlpEncodedVector<TypeParam>::Load(
+                                        {buffer.data(), buffer.size()},
+                                        static_cast<uint16_t>(input.size())));
 
   // Verify metadata
   EXPECT_EQ(encoded.alp_info(), loaded.alp_info());
@@ -693,10 +686,9 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   encoded.Store({buffer.data(), buffer.size()});
 
   // Load using zero-copy view - this was where the ubsan error occurred
-  ASSERT_OK_AND_ASSIGN(
-      auto view,
-      AlpEncodedVectorView<TypeParam>::LoadView(
-          {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
+  ASSERT_OK_AND_ASSIGN(auto view, AlpEncodedVectorView<TypeParam>::LoadView(
+                                      {buffer.data(), buffer.size()},
+                                      static_cast<uint16_t>(input.size())));
 
   // Verify view loaded correctly
   EXPECT_EQ(view.alp_info(), encoded.alp_info());
@@ -715,8 +707,9 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
 }
 
 // Test specifically designed to create misaligned buffer offsets.
-// VectorInfo is 10 bytes for float, 14 for double. If bit_packed_size is odd, exception_positions
-// starts at an odd offset (14 + odd = odd), violating uint16_t alignment.
+// VectorInfo is 10 bytes for float, 14 for double. If bit_packed_size is odd,
+// exception_positions starts at an odd offset (14 + odd = odd), violating uint16_t
+// alignment.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
@@ -762,10 +755,9 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
                std::to_string(exception_pos_offset % alignof(uint16_t) == 0));
 
   // Load using view - with old code, this would trigger ubsan if misaligned
-  ASSERT_OK_AND_ASSIGN(
-      auto view,
-      AlpEncodedVectorView<TypeParam>::LoadView(
-          {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size())));
+  ASSERT_OK_AND_ASSIGN(auto view, AlpEncodedVectorView<TypeParam>::LoadView(
+                                      {buffer.data(), buffer.size()},
+                                      static_cast<uint16_t>(input.size())));
 
   // Access exceptions explicitly - with old code using spans, this would
   // be undefined behavior if the buffer wasn't properly aligned
@@ -815,19 +807,17 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
     encoded.Store(buffer);
 
     // Load view from potentially misaligned buffer
-    ASSERT_OK_AND_ASSIGN(
-        auto view,
-        AlpEncodedVectorView<TypeParam>::LoadView(
-            {buffer_start, static_cast<size_t>(encoded.GetStoredSize())},
-            static_cast<uint16_t>(input.size())));
+    ASSERT_OK_AND_ASSIGN(auto view,
+                         AlpEncodedVectorView<TypeParam>::LoadView(
+                             {buffer_start, static_cast<size_t>(encoded.GetStoredSize())},
+                             static_cast<uint16_t>(input.size())));
 
     // Decompress - this is where the fix matters
     std::vector<TypeParam> output(input.size());
     compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
     // Verify
-    EXPECT_TRUE(IsBitwiseEqual(output, input))
-        << "Failed at buffer offset " << offset;
+    EXPECT_TRUE(IsBitwiseEqual(output, input)) << "Failed at buffer offset " << offset;
   }
 }
 
@@ -846,8 +836,7 @@ class AlpCodecTest : public ::testing::Test {
 
     // Encode
     int64_t comp_size = max_comp_size;
-    ASSERT_OK(AlpCodec<T>::Encode(input.data(),
-                                  static_cast<int64_t>(input.size()),
+    ASSERT_OK(AlpCodec<T>::Encode(input.data(), static_cast<int64_t>(input.size()),
                                   comp_buffer.data(), &comp_size));
 
     EXPECT_GT(comp_size, 0);
@@ -855,9 +844,9 @@ class AlpCodecTest : public ::testing::Test {
 
     // Decode
     std::vector<T> output(input.size());
-    ASSERT_OK(AlpCodec<T>::template Decode<T>(
-        static_cast<int32_t>(input.size()), comp_buffer.data(),
-        comp_size, output.data()));
+    ASSERT_OK(AlpCodec<T>::template Decode<T>(static_cast<int32_t>(input.size()),
+                                              comp_buffer.data(), comp_size,
+                                              output.data()));
 
     // Verify
     EXPECT_TRUE(IsBitwiseEqual(output, input));
@@ -910,9 +899,8 @@ TYPED_TEST(AlpCodecTest, GetMaxCompressedSizeAdequate) {
       }
     }
 
-    ASSERT_OK_AND_ASSIGN(
-        int64_t max_comp_size,
-        AlpCodec<TypeParam>::GetMaxCompressedSize(static_cast<int64_t>(size)));
+    ASSERT_OK_AND_ASSIGN(int64_t max_comp_size, AlpCodec<TypeParam>::GetMaxCompressedSize(
+                                                    static_cast<int64_t>(size)));
     std::vector<uint8_t> comp_buffer(max_comp_size);
     int64_t comp_size = max_comp_size;
 
@@ -921,8 +909,7 @@ TYPED_TEST(AlpCodecTest, GetMaxCompressedSizeAdequate) {
 
     EXPECT_LE(comp_size, max_comp_size)
         << "Compressed size exceeded max for " << size << " elements";
-    EXPECT_GT(comp_size, 0)
-        << "Compression produced 0 bytes for " << size << " elements";
+    EXPECT_GT(comp_size, 0) << "Compression produced 0 bytes for " << size << " elements";
   }
 }
 
@@ -934,9 +921,8 @@ TYPED_TEST(AlpCodecTest, WideningDecode) {
       input[i] = static_cast<float>(i) * 0.5f;
     }
 
-    ASSERT_OK_AND_ASSIGN(
-        int64_t max_comp_size,
-        AlpCodec<float>::GetMaxCompressedSize(static_cast<int64_t>(input.size())));
+    ASSERT_OK_AND_ASSIGN(int64_t max_comp_size, AlpCodec<float>::GetMaxCompressedSize(
+                                                    static_cast<int64_t>(input.size())));
     std::vector<uint8_t> comp_buffer(max_comp_size);
     int64_t comp_size = max_comp_size;
 
@@ -945,9 +931,9 @@ TYPED_TEST(AlpCodecTest, WideningDecode) {
 
     // Decode as double
     std::vector<double> output(input.size());
-    ASSERT_OK(AlpCodec<float>::template Decode<double>(
-        static_cast<int32_t>(input.size()), comp_buffer.data(), comp_size,
-        output.data()));
+    ASSERT_OK(AlpCodec<float>::template Decode<double>(static_cast<int32_t>(input.size()),
+                                                       comp_buffer.data(), comp_size,
+                                                       output.data()));
 
     // Verify values match (as double)
     for (size_t i = 0; i < input.size(); ++i) {
@@ -996,8 +982,7 @@ TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
     std::vector<TypeParam> output(input.size());
     compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
-    EXPECT_TRUE(IsBitwiseEqual(output, input))
-        << "Failed for bit_range=" << bit_range;
+    EXPECT_TRUE(IsBitwiseEqual(output, input)) << "Failed for bit_range=" << bit_range;
   }
 }
 
@@ -1029,8 +1014,8 @@ TYPED_TEST(AlpCodecTest, VeryLargeDataset) {
   std::vector<TypeParam> input(kLargeSize);
 
   std::mt19937 rng(12345);
-  std::uniform_real_distribution<TypeParam> dist(
-      static_cast<TypeParam>(-1000.0), static_cast<TypeParam>(1000.0));
+  std::uniform_real_distribution<TypeParam> dist(static_cast<TypeParam>(-1000.0),
+                                                 static_cast<TypeParam>(1000.0));
 
   for (auto& v : input) {
     v = dist(rng);
@@ -1067,20 +1052,19 @@ TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
   std::vector<uint8_t> comp_buffer1(max_comp_size);
   int64_t comp_size1 = max_comp_size;
 
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), num_elements,
-                                        comp_buffer1.data(), &comp_size1));
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), num_elements, comp_buffer1.data(),
+                                        &comp_size1));
 
   // Now, use the preset-based API
   ASSERT_OK_AND_ASSIGN(
-      auto preset,
-      AlpCodec<TypeParam>::CreateSamplingPreset(input.data(), num_elements));
+      auto preset, AlpCodec<TypeParam>::CreateSamplingPreset(input.data(), num_elements));
 
   std::vector<uint8_t> comp_buffer2(max_comp_size);
   int64_t comp_size2 = max_comp_size;
 
-  ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(
-      input.data(), num_elements, preset, AlpConstants::kAlpVectorSize,
-      comp_buffer2.data(), &comp_size2));
+  ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(input.data(), num_elements, preset,
+                                                  AlpConstants::kAlpVectorSize,
+                                                  comp_buffer2.data(), &comp_size2));
 
   // Both should produce identical output
   EXPECT_EQ(comp_size1, comp_size2);
@@ -1108,9 +1092,8 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
 
   // Create preset from first batch
   const int64_t num_elements = static_cast<int64_t>(kBatchSize);
-  ASSERT_OK_AND_ASSIGN(
-      auto preset,
-      AlpCodec<TypeParam>::CreateSamplingPreset(batch1.data(), num_elements));
+  ASSERT_OK_AND_ASSIGN(auto preset, AlpCodec<TypeParam>::CreateSamplingPreset(
+                                        batch1.data(), num_elements));
 
   ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
                        AlpCodec<TypeParam>::GetMaxCompressedSize(num_elements));
@@ -1118,16 +1101,16 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   // Encode batch1 with preset
   std::vector<uint8_t> comp1(max_comp_size);
   int64_t comp_size1 = max_comp_size;
-  ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(
-      batch1.data(), num_elements, preset, AlpConstants::kAlpVectorSize,
-      comp1.data(), &comp_size1));
+  ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(batch1.data(), num_elements, preset,
+                                                  AlpConstants::kAlpVectorSize,
+                                                  comp1.data(), &comp_size1));
 
   // Encode batch2 with same preset (reuse)
   std::vector<uint8_t> comp2(max_comp_size);
   int64_t comp_size2 = max_comp_size;
-  ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(
-      batch2.data(), num_elements, preset, AlpConstants::kAlpVectorSize,
-      comp2.data(), &comp_size2));
+  ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(batch2.data(), num_elements, preset,
+                                                  AlpConstants::kAlpVectorSize,
+                                                  comp2.data(), &comp_size2));
 
   // Both should encode successfully
   EXPECT_GT(comp_size1, 0);
@@ -1174,8 +1157,8 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
 
   // Verify the preset works for compression
   AlpCompression<TypeParam> compressor;
-  auto encoded = compressor.CompressVector(data.data(),
-      static_cast<uint16_t>(std::min(data.size(), size_t(1024))), preset);
+  auto encoded = compressor.CompressVector(
+      data.data(), static_cast<uint16_t>(std::min(data.size(), size_t(1024))), preset);
 
   std::vector<TypeParam> output(std::min(data.size(), size_t(1024)));
   compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
@@ -1190,8 +1173,8 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationMixedData) {
 
   std::vector<TypeParam> data(10000);
   std::mt19937 rng(42);
-  std::uniform_real_distribution<TypeParam> dist(
-      static_cast<TypeParam>(0.0), static_cast<TypeParam>(1000.0));
+  std::uniform_real_distribution<TypeParam> dist(static_cast<TypeParam>(0.0),
+                                                 static_cast<TypeParam>(1000.0));
 
   for (auto& v : data) {
     v = dist(rng);
@@ -1251,16 +1234,16 @@ TYPED_TEST(AlpCodecTest, EmptyInput) {
   int64_t comp_size = max_comp_size;
 
   // Encode 0 bytes (0 elements)
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(empty_input.data(), 0, comp_buffer.data(),
-                                        &comp_size));
+  ASSERT_OK(
+      AlpCodec<TypeParam>::Encode(empty_input.data(), 0, comp_buffer.data(), &comp_size));
 
   // Should produce at least the header
   EXPECT_GT(comp_size, 0);
 
   // Decode 0 elements
   std::vector<TypeParam> output;
-  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
-      0, comp_buffer.data(), comp_size, output.data()));
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(0, comp_buffer.data(),
+                                                            comp_size, output.data()));
   // No crash = success
 }
 
@@ -1275,9 +1258,8 @@ TEST(AlpRobustnessTest, TruncatedHeader) {
   std::vector<uint8_t> tiny_buffer(5);  // Less than header size (7 bytes)
 
   std::vector<double> output(100);
-  ASSERT_NOT_OK(
-      AlpCodec<double>::Decode(100, tiny_buffer.data(),
-                              static_cast<int64_t>(tiny_buffer.size()), output.data()));
+  ASSERT_NOT_OK(AlpCodec<double>::Decode(
+      100, tiny_buffer.data(), static_cast<int64_t>(tiny_buffer.size()), output.data()));
 }
 
 TEST(AlpRobustnessTest, TruncatedData) {
@@ -1295,8 +1277,8 @@ TEST(AlpRobustnessTest, TruncatedData) {
   std::vector<uint8_t> buffer(max_size);
   int64_t comp_size = max_size;
 
-  ASSERT_OK(AlpCodec<double>::Encode(input.data(), num_elements, buffer.data(),
-                                     &comp_size));
+  ASSERT_OK(
+      AlpCodec<double>::Encode(input.data(), num_elements, buffer.data(), &comp_size));
 
   // Sanity: full buffer round-trips.
   std::vector<double> output(input.size());
@@ -1307,14 +1289,13 @@ TEST(AlpRobustnessTest, TruncatedData) {
   // Truncate to just below the compressed size and expect a decode error.
   // We try several truncation points to exercise different decode-state
   // boundaries (header, offset table, vector body).
-  for (int64_t truncated_size : {int64_t{0}, int64_t{3}, comp_size / 4,
-                                  comp_size / 2, comp_size - 1}) {
+  for (int64_t truncated_size :
+       {int64_t{0}, int64_t{3}, comp_size / 4, comp_size / 2, comp_size - 1}) {
     if (truncated_size >= comp_size) continue;
     SCOPED_TRACE("truncated_size=" + std::to_string(truncated_size));
     std::fill(output.begin(), output.end(), 0.0);
     ASSERT_NOT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()),
-                                           buffer.data(), truncated_size,
-                                           output.data()));
+                                           buffer.data(), truncated_size, output.data()));
   }
 }
 
@@ -1329,9 +1310,8 @@ TYPED_TEST(AlpEdgeCaseTest, CompressionDeterminism) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.123);
   }
 
-  ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       AlpCodec<TypeParam>::GetMaxCompressedSize(
-                           static_cast<int64_t>(input.size())));
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, AlpCodec<TypeParam>::GetMaxCompressedSize(
+                                             static_cast<int64_t>(input.size())));
 
   std::vector<uint8_t> buffer1(max_size);
   std::vector<uint8_t> buffer2(max_size);
@@ -1339,11 +1319,9 @@ TYPED_TEST(AlpEdgeCaseTest, CompressionDeterminism) {
   int64_t size2 = buffer2.size();
 
   // Compress twice
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
-                                        static_cast<int64_t>(input.size()),
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(input.size()),
                                         buffer1.data(), &size1));
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
-                                        static_cast<int64_t>(input.size()),
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(input.size()),
                                         buffer2.data(), &size2));
 
   // Sizes should match
@@ -1360,24 +1338,22 @@ TYPED_TEST(AlpEdgeCaseTest, DecompressionDeterminism) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.5);
   }
 
-  ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       AlpCodec<TypeParam>::GetMaxCompressedSize(
-                           static_cast<int64_t>(input.size())));
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, AlpCodec<TypeParam>::GetMaxCompressedSize(
+                                             static_cast<int64_t>(input.size())));
   std::vector<uint8_t> buffer(max_size);
   int64_t comp_size = buffer.size();
 
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
-                                        static_cast<int64_t>(input.size()),
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(input.size()),
                                         buffer.data(), &comp_size));
 
   std::vector<TypeParam> output1(input.size());
   std::vector<TypeParam> output2(input.size());
 
   // Decompress twice
-  ASSERT_OK(AlpCodec<TypeParam>::Decode(static_cast<int32_t>(input.size()),
-                                          buffer.data(), comp_size, output1.data()));
-  ASSERT_OK(AlpCodec<TypeParam>::Decode(static_cast<int32_t>(input.size()),
-                                          buffer.data(), comp_size, output2.data()));
+  ASSERT_OK(AlpCodec<TypeParam>::Decode(static_cast<int32_t>(input.size()), buffer.data(),
+                                        comp_size, output1.data()));
+  ASSERT_OK(AlpCodec<TypeParam>::Decode(static_cast<int32_t>(input.size()), buffer.data(),
+                                        comp_size, output2.data()));
 
   // Outputs should be identical
   EXPECT_TRUE(IsBitwiseEqual(output1, output2));
@@ -1398,7 +1374,7 @@ TYPED_TEST(AlpCodecTest, RoundTripAtMultipleVectorSizes) {
 
     // Test 4 data size categories per vector_size
     const std::vector<size_t> data_sizes = {
-        static_cast<size_t>(vs / 2),      // less than one vector
+        static_cast<size_t>(vs / 2),       // less than one vector
         static_cast<size_t>(vs),           // exactly one vector
         static_cast<size_t>(vs * 3),       // exact multiple
         static_cast<size_t>(vs * 2 + 17),  // not a multiple (exercises remainder)
@@ -1412,14 +1388,13 @@ TYPED_TEST(AlpCodecTest, RoundTripAtMultipleVectorSizes) {
         input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.123);
       }
 
-      ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
-                           AlpCodec<TypeParam>::GetMaxCompressedSize(
-                               static_cast<int64_t>(n), vs));
+      ASSERT_OK_AND_ASSIGN(
+          int64_t max_comp_size,
+          AlpCodec<TypeParam>::GetMaxCompressedSize(static_cast<int64_t>(n), vs));
       std::vector<uint8_t> comp_buffer(max_comp_size);
       int64_t comp_size = comp_buffer.size();
 
-      ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
-                                            static_cast<int64_t>(n), vs,
+      ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(n), vs,
                                             comp_buffer.data(), &comp_size));
 
       EXPECT_GT(comp_size, 0);
@@ -1429,9 +1404,9 @@ TYPED_TEST(AlpCodecTest, RoundTripAtMultipleVectorSizes) {
       ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
           static_cast<int32_t>(n), comp_buffer.data(), comp_size, output.data()));
 
-      EXPECT_TRUE(IsBitwiseEqual(
-          std::vector<TypeParam>(output.begin(), output.begin() + n),
-          std::vector<TypeParam>(input.begin(), input.begin() + n)));
+      EXPECT_TRUE(
+          IsBitwiseEqual(std::vector<TypeParam>(output.begin(), output.begin() + n),
+                         std::vector<TypeParam>(input.begin(), input.begin() + n)));
     }
   }
 }
@@ -1448,20 +1423,17 @@ TYPED_TEST(AlpCodecTest, EncodeWithPresetAtDifferentVectorSizes) {
       input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.01);
     }
 
-    ASSERT_OK_AND_ASSIGN(auto preset,
-                         AlpCodec<TypeParam>::CreateSamplingPreset(
-                             input.data(), static_cast<int64_t>(n)));
+    ASSERT_OK_AND_ASSIGN(auto preset, AlpCodec<TypeParam>::CreateSamplingPreset(
+                                          input.data(), static_cast<int64_t>(n)));
 
-    ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
-                         AlpCodec<TypeParam>::GetMaxCompressedSize(
-                             static_cast<int64_t>(n), vs));
+    ASSERT_OK_AND_ASSIGN(int64_t max_comp_size, AlpCodec<TypeParam>::GetMaxCompressedSize(
+                                                    static_cast<int64_t>(n), vs));
     std::vector<uint8_t> comp_buffer(max_comp_size);
     int64_t comp_size = comp_buffer.size();
 
-    ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(input.data(),
-                                                    static_cast<int64_t>(n),
-                                                    preset, vs,
-                                                    comp_buffer.data(), &comp_size));
+    ASSERT_OK(AlpCodec<TypeParam>::EncodeWithPreset(input.data(), static_cast<int64_t>(n),
+                                                    preset, vs, comp_buffer.data(),
+                                                    &comp_size));
 
     EXPECT_GT(comp_size, 0u);
 
@@ -1469,9 +1441,8 @@ TYPED_TEST(AlpCodecTest, EncodeWithPresetAtDifferentVectorSizes) {
     ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
         static_cast<int32_t>(n), comp_buffer.data(), comp_size, output.data()));
 
-    EXPECT_TRUE(IsBitwiseEqual(
-        std::vector<TypeParam>(output.begin(), output.begin() + n),
-        std::vector<TypeParam>(input.begin(), input.begin() + n)));
+    EXPECT_TRUE(IsBitwiseEqual(std::vector<TypeParam>(output.begin(), output.begin() + n),
+                               std::vector<TypeParam>(input.begin(), input.begin() + n)));
   }
 }
 
@@ -1498,10 +1469,9 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeZero) {
   std::vector<uint8_t> buffer(4096);
   int64_t comp_size = buffer.size();
 
-  ASSERT_RAISES(Invalid,
-                AlpCodec<TypeParam>::Encode(input.data(),
-                                            static_cast<int64_t>(input.size()), 0,
-                                            buffer.data(), &comp_size));
+  ASSERT_RAISES(Invalid, AlpCodec<TypeParam>::Encode(input.data(),
+                                                     static_cast<int64_t>(input.size()),
+                                                     0, buffer.data(), &comp_size));
 }
 
 TYPED_TEST(AlpCodecTest, InvalidVectorSizeNotPowerOfTwo) {
@@ -1512,10 +1482,9 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeNotPowerOfTwo) {
   std::vector<uint8_t> buffer(4096);
   int64_t comp_size = buffer.size();
 
-  ASSERT_RAISES(Invalid,
-                AlpCodec<TypeParam>::Encode(input.data(),
-                                            static_cast<int64_t>(input.size()), 3,
-                                            buffer.data(), &comp_size));
+  ASSERT_RAISES(Invalid, AlpCodec<TypeParam>::Encode(input.data(),
+                                                     static_cast<int64_t>(input.size()),
+                                                     3, buffer.data(), &comp_size));
 }
 
 TYPED_TEST(AlpCodecTest, InvalidVectorSizeExceedsMax) {
@@ -1526,10 +1495,9 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeExceedsMax) {
   std::vector<uint8_t> buffer(4096);
   int64_t comp_size = buffer.size();
 
-  ASSERT_RAISES(Invalid,
-                AlpCodec<TypeParam>::Encode(input.data(),
-                                            static_cast<int64_t>(input.size()),
-                                            1 << 16, buffer.data(), &comp_size));
+  ASSERT_RAISES(Invalid, AlpCodec<TypeParam>::Encode(input.data(),
+                                                     static_cast<int64_t>(input.size()),
+                                                     1 << 16, buffer.data(), &comp_size));
 }
 
 // ============================================================================
@@ -1553,13 +1521,13 @@ TYPED_TEST(AlpEdgeCaseTest, AllExceptionsAtMaxVectorSize) {
 
   // Every NaN is an exception: NaN != NaN, so decode(encode(v)) never
   // compares equal to the input and the encoder must take the fallback path.
-  const std::vector<TypeParam> input(
-      kMaxVectorSize, std::numeric_limits<TypeParam>::quiet_NaN());
+  const std::vector<TypeParam> input(kMaxVectorSize,
+                                     std::numeric_limits<TypeParam>::quiet_NaN());
 
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(),
-                                           static_cast<int32_t>(input.size()), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   // The count must survive as 32768, not wrap negative.
   EXPECT_EQ(encoded.alp_info().num_exceptions(), kMaxVectorSize);
@@ -1575,8 +1543,8 @@ TYPED_TEST(AlpEdgeCaseTest, AllExceptionsAtMaxVectorSize) {
 // serializes and reloads the vector header.
 TYPED_TEST(AlpCodecTest, AllExceptionsAtMaxVectorSizeRoundTrip) {
   constexpr int32_t kMaxVectorSize = 1 << AlpConstants::kMaxLogVectorSize;
-  const std::vector<TypeParam> input(
-      kMaxVectorSize, std::numeric_limits<TypeParam>::quiet_NaN());
+  const std::vector<TypeParam> input(kMaxVectorSize,
+                                     std::numeric_limits<TypeParam>::quiet_NaN());
 
   ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
                        AlpCodec<TypeParam>::GetMaxCompressedSize(
@@ -1584,16 +1552,13 @@ TYPED_TEST(AlpCodecTest, AllExceptionsAtMaxVectorSizeRoundTrip) {
   std::vector<uint8_t> comp_buffer(max_comp_size);
   int64_t comp_size = comp_buffer.size();
 
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
-                                        static_cast<int64_t>(input.size()),
-                                        kMaxVectorSize, comp_buffer.data(),
-                                        &comp_size));
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(input.size()),
+                                        kMaxVectorSize, comp_buffer.data(), &comp_size));
   EXPECT_GT(comp_size, 0);
 
   std::vector<TypeParam> output(input.size());
   ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
-      static_cast<int32_t>(input.size()), comp_buffer.data(), comp_size,
-      output.data()));
+      static_cast<int32_t>(input.size()), comp_buffer.data(), comp_size, output.data()));
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
@@ -1611,8 +1576,8 @@ TYPED_TEST(AlpEdgeCaseTest, ExceptionAtMaxPosition) {
 
   AlpCompression<TypeParam> compressor;
   AlpEncodingParameters preset{};
-  auto encoded = compressor.CompressVector(input.data(),
-                                           static_cast<int32_t>(input.size()), preset);
+  auto encoded =
+      compressor.CompressVector(input.data(), static_cast<int32_t>(input.size()), preset);
 
   ASSERT_EQ(encoded.alp_info().num_exceptions(), 1);
   EXPECT_EQ(encoded.exception_positions().front(), kMaxVectorSize - 1);
@@ -1660,7 +1625,8 @@ TYPED_TEST(AlpCodecTest, RoundTripAtMinVectorSize) {
   static_assert(kMinVectorSize == 8, "expected an 8-element min vector");
 
   // Cover a partial vector, an exact vector, and a remainder.
-  for (const size_t n : {size_t{1}, size_t{kMinVectorSize}, size_t{kMinVectorSize * 3 + 5}}) {
+  for (const size_t n :
+       {size_t{1}, size_t{kMinVectorSize}, size_t{kMinVectorSize * 3 + 5}}) {
     SCOPED_TRACE("num_elements=" + std::to_string(n));
     std::vector<TypeParam> input(n);
     for (size_t i = 0; i < n; ++i) {
@@ -1696,10 +1662,9 @@ TYPED_TEST(AlpCodecTest, InvalidVectorSizeBelowMin) {
     SCOPED_TRACE("vector_size=" + std::to_string(vs));
     std::vector<uint8_t> buffer(4096);
     int64_t comp_size = buffer.size();
-    ASSERT_RAISES(Invalid,
-                  AlpCodec<TypeParam>::Encode(input.data(),
-                                              static_cast<int64_t>(input.size()), vs,
-                                              buffer.data(), &comp_size));
+    ASSERT_RAISES(Invalid, AlpCodec<TypeParam>::Encode(input.data(),
+                                                       static_cast<int64_t>(input.size()),
+                                                       vs, buffer.data(), &comp_size));
     ASSERT_RAISES(Invalid, AlpCodec<TypeParam>::GetMaxCompressedSize(
                                static_cast<int64_t>(input.size()), vs));
   }
@@ -1713,21 +1678,18 @@ TYPED_TEST(AlpCodecTest, RejectsOutOfRangeLogVectorSizeInHeader) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
 
-  ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
-                       AlpCodec<TypeParam>::GetMaxCompressedSize(
-                           static_cast<int64_t>(input.size())));
+  ASSERT_OK_AND_ASSIGN(int64_t max_comp_size, AlpCodec<TypeParam>::GetMaxCompressedSize(
+                                                  static_cast<int64_t>(input.size())));
   std::vector<uint8_t> comp_buffer(max_comp_size);
   int64_t comp_size = comp_buffer.size();
-  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(),
-                                        static_cast<int64_t>(input.size()),
+  ASSERT_OK(AlpCodec<TypeParam>::Encode(input.data(), static_cast<int64_t>(input.size()),
                                         comp_buffer.data(), &comp_size));
 
   // log_vector_size is byte 2 of the page header.
   std::vector<TypeParam> output(input.size());
   for (const uint8_t bad : {uint8_t{0}, uint8_t{1}, uint8_t{2}, uint8_t{16}}) {
     SCOPED_TRACE("log_vector_size=" + std::to_string(bad));
-    std::vector<uint8_t> corrupted(comp_buffer.begin(),
-                                   comp_buffer.begin() + comp_size);
+    std::vector<uint8_t> corrupted(comp_buffer.begin(), comp_buffer.begin() + comp_size);
     corrupted[2] = bad;
     ASSERT_RAISES(Invalid, (AlpCodec<TypeParam>::template Decode<TypeParam>(
                                static_cast<int32_t>(input.size()), corrupted.data(),
@@ -1743,9 +1705,8 @@ std::vector<uint8_t> EncodeSmallPage(std::vector<T>* input) {
   for (size_t i = 0; i < input->size(); ++i) {
     (*input)[i] = static_cast<T>(i) * static_cast<T>(0.1);
   }
-  EXPECT_OK_AND_ASSIGN(
-      int64_t max_comp_size,
-      AlpCodec<T>::GetMaxCompressedSize(static_cast<int64_t>(input->size())));
+  EXPECT_OK_AND_ASSIGN(int64_t max_comp_size, AlpCodec<T>::GetMaxCompressedSize(
+                                                  static_cast<int64_t>(input->size())));
   std::vector<uint8_t> comp_buffer(max_comp_size);
   int64_t comp_size = comp_buffer.size();
   EXPECT_OK(AlpCodec<T>::Encode(input->data(), static_cast<int64_t>(input->size()),
@@ -1777,11 +1738,10 @@ TYPED_TEST(AlpCodecTest, RejectsUnsupportedCompressionModeInHeader) {
     SCOPED_TRACE("compression_mode=" + std::to_string(bad));
     std::vector<uint8_t> corrupted = comp_buffer;
     corrupted[0] = bad;
-    ExpectInvalidWithSubstring(
-        AlpCodec<TypeParam>::template Decode<TypeParam>(
-            static_cast<int32_t>(input.size()), corrupted.data(),
-            static_cast<int64_t>(corrupted.size()), output.data()),
-        "unsupported compression mode");
+    ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                   static_cast<int32_t>(input.size()), corrupted.data(),
+                                   static_cast<int64_t>(corrupted.size()), output.data()),
+                               "unsupported compression mode");
   }
 }
 
@@ -1800,11 +1760,10 @@ TYPED_TEST(AlpCodecTest, RejectsUnsupportedIntegerEncodingInHeader) {
     SCOPED_TRACE("integer_encoding=" + std::to_string(bad));
     std::vector<uint8_t> corrupted = comp_buffer;
     corrupted[1] = bad;
-    ExpectInvalidWithSubstring(
-        AlpCodec<TypeParam>::template Decode<TypeParam>(
-            static_cast<int32_t>(input.size()), corrupted.data(),
-            static_cast<int64_t>(corrupted.size()), output.data()),
-        "unsupported integer encoding");
+    ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                   static_cast<int32_t>(input.size()), corrupted.data(),
+                                   static_cast<int64_t>(corrupted.size()), output.data()),
+                               "unsupported integer encoding");
   }
 }
 
@@ -1836,11 +1795,10 @@ TYPED_TEST(AlpCodecTest, RejectsOutOfRangeForBitWidth) {
     SCOPED_TRACE("bit_width=" + std::to_string(bad));
     std::vector<uint8_t> corrupted = comp_buffer;
     corrupted[bit_width_pos] = bad;
-    ExpectInvalidWithSubstring(
-        AlpCodec<TypeParam>::template Decode<TypeParam>(
-            static_cast<int32_t>(input.size()), corrupted.data(),
-            static_cast<int64_t>(corrupted.size()), output.data()),
-        "bit_width out of range");
+    ExpectInvalidWithSubstring(AlpCodec<TypeParam>::template Decode<TypeParam>(
+                                   static_cast<int32_t>(input.size()), corrupted.data(),
+                                   static_cast<int64_t>(corrupted.size()), output.data()),
+                               "bit_width out of range");
   }
 }
 
