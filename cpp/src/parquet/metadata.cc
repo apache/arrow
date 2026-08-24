@@ -285,11 +285,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
               column_ordinal, /*page_ordinal=*/static_cast<int16_t>(-1));
           auto decryptor = file_decryptor->GetColumnMetaDecryptor(
               path->ToDotString(), key_metadata, aad_column_metadata);
-          auto len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
           ThriftDeserializer deserializer(properties_);
           deserializer.DeserializeMessage(
               reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
-              &len, &decrypted_metadata_, decryptor.get());
+              column->encrypted_column_metadata.size(), &decrypted_metadata_,
+              decryptor.get());
           column_metadata_ = &decrypted_metadata_;
         } else {
           throw ParquetException(
@@ -779,7 +779,7 @@ class FileMetaData::FileMetaDataImpl {
   FileMetaDataImpl() = default;
 
   explicit FileMetaDataImpl(
-      const void* metadata, uint32_t* metadata_len, ReaderProperties properties,
+      const void* metadata, int64_t metadata_len, ReaderProperties properties,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : properties_(std::move(properties)), file_decryptor_(std::move(file_decryptor)) {
     metadata_ = std::make_unique<format::FileMetaData>();
@@ -788,10 +788,9 @@ class FileMetaData::FileMetaDataImpl {
         file_decryptor_ != nullptr ? file_decryptor_->GetFooterDecryptor() : nullptr;
 
     ThriftDeserializer deserializer(properties_);
-    deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(metadata),
-                                    metadata_len, metadata_.get(),
-                                    footer_decryptor.get());
-    metadata_len_ = *metadata_len;
+    metadata_len_ = deserializer.DeserializeMessage(
+        reinterpret_cast<const uint8_t*>(metadata), metadata_len, metadata_.get(),
+        footer_decryptor.get());
 
     if (metadata_->__isset.created_by) {
       writer_version_ = ApplicationVersion(metadata_->created_by);
@@ -810,11 +809,8 @@ class FileMetaData::FileMetaDataImpl {
       throw ParquetException("Decryption not set properly. cannot verify signature");
     }
     // serialize the footer
-    uint8_t* serialized_data;
-    uint32_t serialized_len = metadata_len_;
     ThriftSerializer serializer;
-    serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
-    std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
+    auto serialized_data_span = serializer.SerializeToBuffer(metadata_.get());
 
     // encrypt with nonce
     std::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
@@ -829,7 +825,8 @@ class FileMetaData::FileMetaDataImpl {
                                                         true, false /*write_length*/);
 
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
-        file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
+        file_decryptor_->pool(), aes_encryptor->CiphertextLength(
+                                     static_cast<int64_t>(serialized_data_span.size())));
     int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data_span, key.as_span(), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
@@ -838,7 +835,7 @@ class FileMetaData::FileMetaDataImpl {
                   tag, encryption::kGcmTagLength);
   }
 
-  inline uint32_t size() const { return metadata_len_; }
+  inline int64_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
   inline int64_t num_rows() const { return metadata_->num_rows; }
   inline int num_row_groups() const {
@@ -868,17 +865,16 @@ class FileMetaData::FileMetaDataImpl {
     // Only in encrypted files with plaintext footers the
     // encryption_algorithm is set in footer
     if (is_encryption_algorithm_set()) {
-      uint8_t* serialized_data;
-      uint32_t serialized_len;
-      serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
-      std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
+      const auto serialized_data_span = serializer.SerializeToBuffer(metadata_.get());
+      const auto serialized_data_len = static_cast<int64_t>(serialized_data_span.size());
 
       // encrypt the footer key
-      std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
+      std::vector<uint8_t> encrypted_data(
+          encryptor->CiphertextLength(serialized_data_len));
       int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
-      PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
+      PARQUET_THROW_NOT_OK(dst->Write(serialized_data_span.data(), serialized_data_len));
       // Write signature (nonce and tag)
       PARQUET_THROW_NOT_OK(
           dst->Write(encrypted_data.data() + 4, encryption::kNonceLength));
@@ -1000,9 +996,7 @@ class FileMetaData::FileMetaDataImpl {
       return ss.str();
     } else {
       ThriftSerializer serializer;
-      std::string out;
-      serializer.SerializeToString(&md, &out);
-      return out;
+      return std::string(serializer.SerializeToString(&md));
     }
   }
 
@@ -1016,7 +1010,7 @@ class FileMetaData::FileMetaDataImpl {
 
  private:
   friend FileMetaDataBuilder;
-  uint32_t metadata_len_ = 0;
+  int64_t metadata_len_ = 0;
   std::unique_ptr<format::FileMetaData> metadata_;
   SchemaDescriptor schema_;
   ApplicationVersion writer_version_;
@@ -1057,14 +1051,24 @@ class FileMetaData::FileMetaDataImpl {
 };
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(
-    const void* metadata, uint32_t* metadata_len, const ReaderProperties& properties,
+    const void* metadata, int64_t metadata_len, const ReaderProperties& properties,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
       new FileMetaData(metadata, metadata_len, properties, std::move(file_decryptor)));
 }
 
-FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
+// (deprecated)
+std::shared_ptr<FileMetaData> FileMetaData::Make(
+    const void* metadata, uint32_t* metadata_len, const ReaderProperties& properties,
+    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
+  auto ptr =
+      FileMetaData::Make(metadata, *metadata_len, properties, std::move(file_decryptor));
+  *metadata_len = static_cast<uint32_t>(ptr->size());
+  return ptr;
+}
+
+FileMetaData::FileMetaData(const void* metadata, int64_t metadata_len,
                            const ReaderProperties& properties,
                            std::shared_ptr<InternalFileDecryptor> file_decryptor)
     : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
@@ -1086,7 +1090,7 @@ bool FileMetaData::VerifySignature(const void* signature) {
   return impl_->VerifySignature(signature);
 }
 
-uint32_t FileMetaData::size() const { return impl_->size(); }
+int64_t FileMetaData::size() const { return impl_->size(); }
 
 int FileMetaData::num_columns() const { return impl_->num_columns(); }
 
@@ -1212,11 +1216,10 @@ class FileCryptoMetaData::FileCryptoMetaDataImpl {
  public:
   FileCryptoMetaDataImpl() = default;
 
-  explicit FileCryptoMetaDataImpl(const uint8_t* metadata, uint32_t* metadata_len,
+  explicit FileCryptoMetaDataImpl(const uint8_t* metadata, int64_t metadata_len,
                                   const ReaderProperties& properties) {
     ThriftDeserializer deserializer(properties);
-    deserializer.DeserializeMessage(metadata, metadata_len, &metadata_);
-    metadata_len_ = *metadata_len;
+    metadata_len_ = deserializer.DeserializeMessage(metadata, metadata_len, &metadata_);
   }
 
   EncryptionAlgorithm encryption_algorithm() const {
@@ -1230,10 +1233,12 @@ class FileCryptoMetaData::FileCryptoMetaDataImpl {
     serializer.Serialize(&metadata_, dst);
   }
 
+  int64_t size() const { return metadata_len_; }
+
  private:
   friend FileMetaDataBuilder;
   format::FileCryptoMetaData metadata_;
-  uint32_t metadata_len_;
+  int64_t metadata_len_;
 };
 
 EncryptionAlgorithm FileCryptoMetaData::encryption_algorithm() const {
@@ -1244,15 +1249,26 @@ const std::string& FileCryptoMetaData::key_metadata() const {
   return impl_->key_metadata();
 }
 
+int64_t FileCryptoMetaData::size() const { return impl_->size(); }
+
 std::shared_ptr<FileCryptoMetaData> FileCryptoMetaData::Make(
-    const uint8_t* serialized_metadata, uint32_t* metadata_len,
+    const uint8_t* serialized_metadata, int64_t metadata_len,
     const ReaderProperties& properties) {
   return std::shared_ptr<FileCryptoMetaData>(
       new FileCryptoMetaData(serialized_metadata, metadata_len, properties));
 }
 
+// (deprecated)
+std::shared_ptr<FileCryptoMetaData> FileCryptoMetaData::Make(
+    const uint8_t* serialized_metadata, uint32_t* metadata_len,
+    const ReaderProperties& properties) {
+  auto ptr = FileCryptoMetaData::Make(serialized_metadata, *metadata_len, properties);
+  *metadata_len = static_cast<uint32_t>(ptr->size());
+  return ptr;
+}
+
 FileCryptoMetaData::FileCryptoMetaData(const uint8_t* serialized_metadata,
-                                       uint32_t* metadata_len,
+                                       int64_t metadata_len,
                                        const ReaderProperties& properties)
     : impl_(new FileCryptoMetaDataImpl(serialized_metadata, metadata_len, properties)) {}
 
@@ -1771,20 +1787,18 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         // Serialize and encrypt ColumnMetadata separately
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
-        uint8_t* serialized_data;
-        uint32_t serialized_len;
+        auto serialized_data_span =
+            serializer.SerializeToBuffer(&column_chunk_->meta_data);
 
-        serializer.SerializeToBuffer(&column_chunk_->meta_data, &serialized_len,
-                                     &serialized_data);
-        std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
-
-        std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-        int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
-
-        const char* temp =
-            const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
-        std::string encrypted_column_metadata(temp, encrypted_len);
-        column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
+        std::string encrypted_metadata;
+        encrypted_metadata.resize(encryptor->CiphertextLength(
+            static_cast<int64_t>(serialized_data_span.size())));
+        int32_t encrypted_len = encryptor->Encrypt(
+            serialized_data_span,
+            std::span(reinterpret_cast<uint8_t*>(encrypted_metadata.data()),
+                      encrypted_metadata.size()));
+        encrypted_metadata.resize(encrypted_len);
+        column_chunk_->__set_encrypted_column_metadata(std::move(encrypted_metadata));
 
         if (encrypted_footer) {
           column_chunk_->__isset.meta_data = false;
