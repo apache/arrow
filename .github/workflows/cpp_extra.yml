@@ -64,6 +64,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARROW_ENABLE_TIMING_TESTS: OFF
+  DOCKER_VOLUME_PREFIX: ".docker/"
+
 jobs:
   check-labels:
     uses: ./.github/workflows/check_labels.yml
@@ -128,10 +133,6 @@ jobs:
               -e ARROW_CXXFLAGS=-march=x86-64
             runs-on: ubuntu-latest
             title: AMD64 Debian SIMD Level NONE
-    env:
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v7
@@ -491,9 +492,6 @@ jobs:
       fail-fast: false
     env:
       ARCH: amd64
-      ARCHERY_DEBUG: 1
-      ARROW_ENABLE_TIMING_TESTS: OFF
-      DOCKER_VOLUME_PREFIX: ".docker/"
       UBUNTU: 24.04
     steps:
       - name: Checkout Arrow
