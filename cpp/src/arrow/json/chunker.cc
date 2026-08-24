@@ -31,8 +31,6 @@
 
 namespace arrow {
 
-using std::string_view;
-
 namespace json {
 
 static size_t ConsumeWhitespace(std::string_view view) {
@@ -43,7 +41,7 @@ static size_t ConsumeWhitespace(std::string_view view) {
   return ws_count;
 }
 
-static size_t ConsumeWholeObject(string_view input) {
+static size_t ConsumeWholeObject(std::string_view input) {
   if (input.empty()) {
     return 0;
   }
@@ -98,7 +96,7 @@ static size_t ConsumeWholeObject(string_view input) {
             return end_pos;
           }
 
-          return string_view::npos;
+          return std::string_view::npos;
         } else if (depth < 0) {
           return 0;
         }
@@ -106,7 +104,7 @@ static size_t ConsumeWholeObject(string_view input) {
     }
   }
 
-  return string_view::npos;
+  return std::string_view::npos;
 }
 
 namespace {
@@ -124,12 +122,12 @@ class ParsingBoundaryFinder : public BoundaryFinder {
 
     const size_t start = ConsumeWhitespace(combined);
     if (start < combined.size() && combined[start] != '{' && combined[start] != '[') {
-      return Status::Invalid("JSON parse error: Invalid value");
+      return Status::Invalid("JSON chunk error: invalid data at end of document");
     }
 
     const auto length = ConsumeWholeObject(combined);
 
-    if (length == string_view::npos) {
+    if (length == std::string_view::npos) {
       *out_pos = -1;
     } else if (ARROW_PREDICT_FALSE(length < partial.size())) {
       return Status::Invalid("JSON parse error: Invalid value");
@@ -155,7 +153,7 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     while (consumed_length < block_length) {
       const auto length = ConsumeWholeObject(block);
 
-      if (length == string_view::npos || length == 0) {
+      if (length == std::string_view::npos || length == 0) {
         const size_t start = ConsumeWhitespace(block);
 
         if (start < block.size()) {
