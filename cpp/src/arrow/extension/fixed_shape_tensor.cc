@@ -153,6 +153,9 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     }
   }
 
+  // Validate product of shape dimensions matches storage type list_size.
+  // This check is intentionally after field parsing so that metadata-level errors
+  // (type mismatches, size mismatches) are reported first.
   ARROW_ASSIGN_OR_RAISE(auto ext_type, FixedShapeTensorType::Make(
                                            value_type, shape, permutation, dim_names));
 

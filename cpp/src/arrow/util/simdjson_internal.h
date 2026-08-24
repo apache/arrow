@@ -19,8 +19,11 @@
 
 #include <concepts>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <simdjson.h>
 
@@ -89,6 +92,122 @@ Result<T> ResolveSimdjsonResult(simdjson::simdjson_result<T> result,
     return Status::Invalid(error, ": ", simdjson::error_message(error_code));
   }
   return value;
+}
+
+inline const char* JsonTypeName(simdjson::dom::element_type type) {
+  switch (type) {
+    case simdjson::dom::element_type::ARRAY:
+      return "array";
+    case simdjson::dom::element_type::OBJECT:
+      return "object";
+    case simdjson::dom::element_type::INT64:
+    case simdjson::dom::element_type::UINT64:
+    case simdjson::dom::element_type::DOUBLE:
+    case simdjson::dom::element_type::BIGINT:
+      return "number";
+    case simdjson::dom::element_type::STRING:
+      return "string";
+    case simdjson::dom::element_type::BOOL:
+      return "boolean";
+    case simdjson::dom::element_type::NULL_VALUE:
+      return "null";
+  }
+  return "unknown";
+}
+
+inline Result<simdjson::dom::array> GetJsonArray(simdjson::dom::element value,
+                                                 std::string_view name) {
+  if (!value.is_array()) {
+    return Status::Invalid(name, " must be an array, got ", JsonTypeName(value.type()));
+  }
+  return ResolveSimdjsonResult(value.get_array(), "Failed to get JSON array");
+}
+
+inline Result<int64_t> GetJsonInt(simdjson::dom::element value, std::string_view name,
+                                  std::string_view expected) {
+  if (!value.is_int64()) {
+    return Status::Invalid(name, " must contain ", expected, ", got ",
+                           JsonTypeName(value.type()));
+  }
+  return ResolveSimdjsonResult(value.get_int64(), "Failed to get JSON integer");
+}
+
+inline Result<simdjson::dom::object> ParseJsonObject(simdjson::dom::parser& parser,
+                                                     const std::string& json) {
+  return ResolveSimdjsonResult(parser.parse(json).get_object(),
+                               "Invalid serialized JSON data");
+}
+
+// object.at_key() performs a linear search. This is acceptable here
+// since these objects are expected to contain only a small number of fields.
+inline Result<std::optional<simdjson::dom::element>> GetOptionalJsonField(
+    const simdjson::dom::object& object, std::string_view key) {
+  auto field = object.at_key(key);
+  if (field.error() == simdjson::NO_SUCH_FIELD) {
+    return std::nullopt;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto value,
+      ResolveSimdjsonResult(std::move(field), "Failed to get JSON object field"));
+
+  return std::optional<simdjson::dom::element>(value);
+}
+
+inline Result<std::vector<int64_t>> GetJsonIntArray(simdjson::dom::element value,
+                                                    std::string_view name) {
+  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonArray(value, name));
+
+  std::vector<int64_t> result;
+  result.reserve(array.size());
+
+  for (auto element : array) {
+    ARROW_ASSIGN_OR_RAISE(auto number, GetJsonInt(element, name, "integers"));
+    result.push_back(number);
+  }
+
+  return result;
+}
+
+inline Result<std::vector<std::optional<int64_t>>> GetJsonNullableIntArray(
+    simdjson::dom::element value, std::string_view name) {
+  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonArray(value, name));
+
+  std::vector<std::optional<int64_t>> result;
+  result.reserve(array.size());
+
+  for (auto element : array) {
+    if (element.is_null()) {
+      result.emplace_back(std::nullopt);
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto number, GetJsonInt(element, name, "integers or nulls"));
+      result.emplace_back(number);
+    }
+  }
+
+  return result;
+}
+
+inline Result<std::vector<std::string>> GetJsonStringArray(simdjson::dom::element value,
+                                                           std::string_view name) {
+  ARROW_ASSIGN_OR_RAISE(auto array, GetJsonArray(value, name));
+
+  std::vector<std::string> result;
+  result.reserve(array.size());
+
+  for (auto element : array) {
+    if (!element.is_string()) {
+      return Status::Invalid(name, " must contain strings, got ",
+                             JsonTypeName(element.type()));
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto string,
+        ResolveSimdjsonResult(element.get_string(), "Failed to get JSON string"));
+    result.emplace_back(string);
+  }
+
+  return result;
 }
 
 template <typename ObjectFn, typename ArrayFn, typename StringFn, typename BoolFn,
