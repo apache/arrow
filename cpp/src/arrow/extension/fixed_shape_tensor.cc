@@ -119,183 +119,45 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   auto fsl_type = internal::checked_pointer_cast<FixedSizeListType>(storage_type);
   auto value_type = fsl_type->value_type();
 
-  simdjson::padded_string padded_json(serialized_data);
-  simdjson::ondemand::parser parser;
+  simdjson::dom::parser parser;
+  ARROW_ASSIGN_OR_RAISE(auto object, internal::ParseJsonObject(parser, serialized_data));
 
-  ARROW_ASSIGN_OR_RAISE(auto document,
-                        internal::ResolveSimdjsonResult(parser.iterate(padded_json),
+  ARROW_ASSIGN_OR_RAISE(auto shape_value,
+                        internal::ResolveSimdjsonResult(object.at_key("shape"),
                                                         "Invalid serialized JSON data"));
+  ARROW_ASSIGN_OR_RAISE(auto shape, internal::GetJsonIntArray(shape_value, "shape"));
+  ARROW_ASSIGN_OR_RAISE(auto permutation_value,
+                        internal::GetOptionalJsonField(object, "permutation"));
 
-  ARROW_ASSIGN_OR_RAISE(auto object,
-                        internal::ResolveSimdjsonResult(document.get_object(),
-                                                        "Invalid serialized JSON data"));
-
-  std::vector<int64_t> shape;
   std::vector<int64_t> permutation;
-  std::vector<std::string> dim_names;
+  if (permutation_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(permutation,
+                          internal::GetJsonIntArray(*permutation_value, "permutation"));
 
-  bool has_shape = false;
-
-  for (auto field_result : object) {
-    ARROW_ASSIGN_OR_RAISE(auto field, internal::ResolveSimdjsonResult(
-                                          field_result, "Failed to iterate JSON object"));
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto key, internal::ResolveSimdjsonResult(field.unescaped_key(),
-                                                  "Failed to get JSON object key"));
-
-    auto value = field.value();
-
-    if (key == "shape") {
-      has_shape = true;
-
-      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
-                                           value.type(), "Invalid serialized JSON data"));
-
-      if (type != simdjson::ondemand::json_type::array) {
-        return Status::Invalid("shape must be an array, got ",
-                               internal::JsonTypeName(type));
-      }
-
-      ARROW_ASSIGN_OR_RAISE(auto array,
-                            internal::ResolveSimdjsonResult(value.get_array(),
-                                                            "Failed to get shape array"));
-
-      for (auto element_result : array) {
-        ARROW_ASSIGN_OR_RAISE(auto element,
-                              internal::ResolveSimdjsonResult(
-                                  element_result, "Failed to iterate shape array"));
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto element_type,
-            internal::ResolveSimdjsonResult(
-                element.type(), "Failed to determine shape element JSON type"));
-
-        if (element_type != simdjson::ondemand::json_type::number) {
-          return Status::Invalid("shape must contain integers, got ",
-                                 internal::JsonTypeName(element_type));
-        }
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto number_type,
-            internal::ResolveSimdjsonResult(element.get_number_type(),
-                                            "Failed to determine shape number type"));
-
-        if (number_type != simdjson::ondemand::number_type::signed_integer) {
-          return Status::Invalid("shape must contain integers, got ",
-                                 internal::JsonNumberTypeName(number_type));
-        }
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto number, internal::ResolveSimdjsonResult(element.get_int64(),
-                                                         "Failed to get shape integer"));
-
-        shape.emplace_back(number);
-      }
-
-    } else if (key == "permutation") {
-      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
-                                           value.type(), "Invalid serialized JSON data"));
-
-      if (type != simdjson::ondemand::json_type::array) {
-        return Status::Invalid("permutation must be an array, got ",
-                               internal::JsonTypeName(type));
-      }
-
-      ARROW_ASSIGN_OR_RAISE(
-          auto array, internal::ResolveSimdjsonResult(value.get_array(),
-                                                      "Failed to get permutation array"));
-
-      for (auto element_result : array) {
-        ARROW_ASSIGN_OR_RAISE(auto element,
-                              internal::ResolveSimdjsonResult(
-                                  element_result, "Failed to iterate permutation array"));
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto element_type,
-            internal::ResolveSimdjsonResult(
-                element.type(), "Failed to determine permutation element JSON type"));
-
-        if (element_type != simdjson::ondemand::json_type::number) {
-          return Status::Invalid("permutation must contain integers, got ",
-                                 internal::JsonTypeName(element_type));
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto number_type,
-                              internal::ResolveSimdjsonResult(
-                                  element.get_number_type(),
-                                  "Failed to determine permutation number type"));
-
-        if (number_type != simdjson::ondemand::number_type::signed_integer) {
-          return Status::Invalid("permutation must contain integers, got ",
-                                 internal::JsonNumberTypeName(number_type));
-        }
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto number, internal::ResolveSimdjsonResult(
-                             element.get_int64(), "Failed to get permutation integer"));
-
-        permutation.emplace_back(number);
-      }
-
-    } else if (key == "dim_names") {
-      ARROW_ASSIGN_OR_RAISE(auto type, internal::ResolveSimdjsonResult(
-                                           value.type(), "Invalid serialized JSON data"));
-
-      if (type != simdjson::ondemand::json_type::array) {
-        return Status::Invalid("dim_names must be an array, got ",
-                               internal::JsonTypeName(type));
-      }
-
-      ARROW_ASSIGN_OR_RAISE(
-          auto array, internal::ResolveSimdjsonResult(value.get_array(),
-                                                      "Failed to get dim_names array"));
-
-      for (auto element_result : array) {
-        ARROW_ASSIGN_OR_RAISE(auto element,
-                              internal::ResolveSimdjsonResult(
-                                  element_result, "Failed to iterate dim_names array"));
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto element_type,
-            internal::ResolveSimdjsonResult(
-                element.type(), "Failed to determine dim_names element JSON type"));
-
-        if (element_type != simdjson::ondemand::json_type::string) {
-          return Status::Invalid("dim_names must contain strings, got ",
-                                 internal::JsonTypeName(element_type));
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto name,
-                              internal::ResolveSimdjsonResult(element.get_string(),
-                                                              "Failed to get dim_name"));
-
-        dim_names.emplace_back(name);
-      }
-    }
-  }
-
-  if (!has_shape) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
-
-  if (!permutation.empty()) {
     if (shape.size() != permutation.size()) {
       return Status::Invalid("Invalid permutation");
     }
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
-  if (!dim_names.empty() && shape.size() != dim_names.size()) {
-    return Status::Invalid("Invalid dim_names");
+  ARROW_ASSIGN_OR_RAISE(auto dim_names_value,
+                        internal::GetOptionalJsonField(object, "dim_names"));
+
+  std::vector<std::string> dim_names;
+  if (dim_names_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(dim_names,
+                          internal::GetJsonStringArray(*dim_names_value, "dim_names"));
+
+    if (shape.size() != dim_names.size()) {
+      return Status::Invalid("Invalid dim_names");
+    }
   }
 
-  // Validate product of shape dimensions matches storage type list_size.
-  // This check is intentionally after field parsing so that metadata-level errors
-  // (type mismatches, size mismatches) are reported first.
   ARROW_ASSIGN_OR_RAISE(auto ext_type, FixedShapeTensorType::Make(
                                            value_type, shape, permutation, dim_names));
+
   const auto& fst_type = internal::checked_cast<const FixedShapeTensorType&>(*ext_type);
+
   ARROW_ASSIGN_OR_RAISE(const int64_t expected_size,
                         internal::ComputeShapeProduct(fst_type.shape()));
 

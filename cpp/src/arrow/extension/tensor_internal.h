@@ -21,8 +21,11 @@
 #include <span>
 #include <vector>
 
+#include <simdjson.h>
+
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/simdjson_internal.h"
 
 namespace arrow::internal {
 
@@ -48,5 +51,20 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> SliceTensorBuffer(const Array& data_array,
                                                   const DataType& value_type,
                                                   std::span<const int64_t> shape);
+
+Result<simdjson::dom::object> ParseJsonObject(simdjson::dom::parser& parser,
+                                              const std::string& json);
+
+Result<std::optional<simdjson::dom::element>> GetOptionalJsonField(
+    const simdjson::dom::object& object, std::string_view key);
+
+Result<std::vector<int64_t>> GetJsonIntArray(simdjson::dom::element value,
+                                             std::string_view name);
+
+Result<std::vector<std::optional<int64_t>>> GetJsonNullableIntArray(
+    simdjson::dom::element value, std::string_view name);
+
+Result<std::vector<std::string>> GetJsonStringArray(simdjson::dom::element value,
+                                                    std::string_view name);
 
 }  // namespace arrow::internal
