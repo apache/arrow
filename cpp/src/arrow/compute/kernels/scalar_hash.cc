@@ -100,10 +100,10 @@ bool NeedsRecursiveHash(Type::type type_id) {
 // and run-end-encoded, which ArraySpan::IsValid computes specially, never reach here.
 void WriteOwnValidity(const ArraySpan& array, uint8_t* out_validity) {
   if (array.GetBuffer(0) == nullptr) {
-    // No bitmap: every row shares one answer, all valid or (for NA, whose null_count
-    // SetSlice keeps equal to length) all null.
+    // No bitmap: every row shares one answer, all valid except for NullType, which is
+    // implicitly all-null.
     bit_util::SetBitsTo(out_validity, 0, array.length,
-                        /*bits_are_set=*/array.null_count != array.length);
+                        /*bits_are_set=*/array.type->id() != Type::NA);
     return;
   }
   ::arrow::internal::CopyBitmap(array.GetBuffer(0)->data(), array.offset, array.length,
@@ -191,6 +191,9 @@ struct FastHashScalar {
           ::arrow::internal::BitmapAnd(out_validity, 0, child.GetBuffer(0)->data(),
                                        child.offset + array.offset, array.length, 0,
                                        out_validity);
+        } else if (child.type->id() == Type::NA) {
+          // No bitmap, but NullType is implicitly all-null: invalidates every row.
+          bit_util::SetBitsTo(out_validity, 0, array.length, false);
         }
         ARROW_ASSIGN_OR_RAISE(auto column, ToColumnArray(child));
         columns[i] = column.Slice(child.offset + array.offset, array.length);

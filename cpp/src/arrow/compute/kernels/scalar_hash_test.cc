@@ -1017,6 +1017,22 @@ TEST_F(TestScalarHash, StructFieldDictionaryNullValueProducesNull) {
   }
 }
 
+// A NullType field has no validity buffer at all (every row is null implicitly), unlike
+// other independently-null fields which carry an explicit bitmap. HashStructArray must
+// still fold that implicit nullness into the row's validity, same as any other field.
+TEST_F(TestScalarHash, StructFieldNullTypeProducesNull) {
+  auto null_field = ArrayFromJSON(null(), "[null, null]");
+  ASSERT_OK_AND_ASSIGN(auto struct_array,
+                       StructArray::Make({null_field}, {field("f0", null())}));
+
+  for (const std::string func : {"hash32", "hash64"}) {
+    ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func, {struct_array}));
+    auto result_array = result.array();
+    ASSERT_TRUE(result_array->IsNull(0));
+    ASSERT_TRUE(result_array->IsNull(1));
+  }
+}
+
 // HashStructArray's combined hash VALUE for an all-zero-bits field can legitimately be
 // a raw 0 (see ZeroValueIsValid) -- but that must never affect the struct row's real,
 // independently-computed validity (own validity AND every field's, see HashStructArray),
