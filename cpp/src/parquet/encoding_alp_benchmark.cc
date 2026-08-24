@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <unistd.h>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -23,7 +24,6 @@
 #include <iostream>
 #include <memory>
 #include <random>
-#include <unistd.h>
 #include <unordered_set>
 #include <vector>
 
@@ -138,9 +138,8 @@ struct RealComprBenchmarkData {
   void PrepareBenchmarkData(uint64_t element_count, EncodingType encoding_type) {
     FillUncompressedInput(element_count);
 
-    using DType =
-        typename std::conditional<std::is_same<T, float>::value, FloatType,
-                                  DoubleType>::type;
+    using DType = typename std::conditional<std::is_same<T, float>::value, FloatType,
+                                            DoubleType>::type;
     auto descr = MakeColumnDescriptor<DType>();
 
     // Select encoding based on type
@@ -368,9 +367,11 @@ std::string GetDataDirectory() {
 
 namespace {
 
-::arrow::Result<std::vector<double>> ReadCsvDoubleColumn(
-    const std::string& path, const std::string& column_name,
-    char delimiter, bool autogenerate_names, int32_t skip_rows) {
+::arrow::Result<std::vector<double>> ReadCsvDoubleColumn(const std::string& path,
+                                                         const std::string& column_name,
+                                                         char delimiter,
+                                                         bool autogenerate_names,
+                                                         int32_t skip_rows) {
   ARROW_ASSIGN_OR_RAISE(auto input, ::arrow::io::ReadableFile::Open(path));
 
   auto read_opts = ::arrow::csv::ReadOptions::Defaults();
@@ -384,10 +385,9 @@ namespace {
   convert_opts.include_columns = {column_name};
   convert_opts.column_types[column_name] = ::arrow::float64();
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto reader,
-      ::arrow::csv::TableReader::Make(::arrow::io::default_io_context(), input,
-                                      read_opts, parse_opts, convert_opts));
+  ARROW_ASSIGN_OR_RAISE(auto reader, ::arrow::csv::TableReader::Make(
+                                         ::arrow::io::default_io_context(), input,
+                                         read_opts, parse_opts, convert_opts));
   ARROW_ASSIGN_OR_RAISE(auto table, reader->Read());
 
   std::vector<double> values;
@@ -412,8 +412,8 @@ std::vector<double> LoadCsvDoubleByName(const std::string& path,
   auto result = ReadCsvDoubleColumn(path, column_name, delimiter,
                                     /*autogenerate_names=*/false, /*skip_rows=*/0);
   if (!result.ok()) {
-    std::cerr << "Failed to read CSV column '" << column_name << "' from " << path
-              << ": " << result.status().ToString() << std::endl;
+    std::cerr << "Failed to read CSV column '" << column_name << "' from " << path << ": "
+              << result.status().ToString() << std::endl;
     return {};
   }
   return std::move(result).ValueOrDie();
@@ -422,8 +422,7 @@ std::vector<double> LoadCsvDoubleByName(const std::string& path,
 // Load a double column by 0-based index. Use `has_header=true` to skip the
 // first row when the file carries a header we don't want to match by name.
 std::vector<double> LoadCsvDoubleByIndex(const std::string& path, int column_index,
-                                         char delimiter = ',',
-                                         bool has_header = true) {
+                                         char delimiter = ',', bool has_header = true) {
   const std::string column_name = "f" + std::to_string(column_index);
   auto result = ReadCsvDoubleColumn(path, column_name, delimiter,
                                     /*autogenerate_names=*/true,
@@ -439,8 +438,8 @@ std::vector<double> LoadCsvDoubleByIndex(const std::string& path, int column_ind
 std::vector<double> LoadSpotifyColumn(const std::string& column_name,
                                       const std::string& filename) {
   static const std::unordered_set<std::string> kValidFloatColumns = {
-      "danceability", "energy",    "loudness", "speechiness", "acousticness",
-      "instrumentalness", "liveness", "valence", "tempo"};
+      "danceability",     "energy",   "loudness", "speechiness", "acousticness",
+      "instrumentalness", "liveness", "valence",  "tempo"};
   if (kValidFloatColumns.find(column_name) == kValidFloatColumns.end()) {
     std::cerr << "Column '" << column_name << "' is not a supported double column"
               << std::endl;
@@ -489,8 +488,8 @@ struct SpotifyData2 : public RealComprBenchmarkData<T> {
 
 // Load AvgTemperature column from City Temperature CSV data
 std::vector<double> LoadCityTemperatureColumn() {
-  return LoadCsvDoubleByIndex(
-      GetDataDirectory() + "/floatingpoint_citytemperature.csv", 0);
+  return LoadCsvDoubleByIndex(GetDataDirectory() + "/floatingpoint_citytemperature.csv",
+                              0);
 }
 
 // Load any double-point column from POI CSV data
@@ -507,8 +506,7 @@ std::vector<double> LoadPoiColumn(const std::string& column_name) {
 
 // Load Bird Migration data
 std::vector<double> LoadBirdMigrationData() {
-  return LoadCsvDoubleByIndex(
-      GetDataDirectory() + "/floatingpoint_birdmigration.csv", 0);
+  return LoadCsvDoubleByIndex(GetDataDirectory() + "/floatingpoint_birdmigration.csv", 0);
 }
 
 // Load Common Government column
@@ -521,11 +519,12 @@ std::vector<double> LoadCommonGovernmentColumn(const std::string& column_name) {
     return {};
   }
   int column_index = 0;
-  if (column_name == "amount2") column_index = 1;
-  else if (column_name == "amount3") column_index = 2;
-  return LoadCsvDoubleByIndex(
-      GetDataDirectory() + "/floatingpoint_commongovernment.csv",
-      column_index, '|', /*has_header=*/false);
+  if (column_name == "amount2")
+    column_index = 1;
+  else if (column_name == "amount3")
+    column_index = 2;
+  return LoadCsvDoubleByIndex(GetDataDirectory() + "/floatingpoint_commongovernment.csv",
+                              column_index, '|', /*has_header=*/false);
 }
 
 // Load Arade column
@@ -538,9 +537,12 @@ std::vector<double> LoadAradeColumn(const std::string& column_name) {
     return {};
   }
   int column_index = 0;
-  if (column_name == "value2") column_index = 1;
-  else if (column_name == "value3") column_index = 2;
-  else if (column_name == "value4") column_index = 3;
+  if (column_name == "value2")
+    column_index = 1;
+  else if (column_name == "value3")
+    column_index = 2;
+  else if (column_name == "value4")
+    column_index = 3;
   return LoadCsvDoubleByIndex(GetDataDirectory() + "/floatingpoint_arade.csv",
                               column_index, '|', /*has_header=*/false);
 }
@@ -603,7 +605,7 @@ struct PoiData : public RealComprBenchmarkData<T> {
 
 template <typename T>
 struct BirdMigrationData : public RealComprBenchmarkData<T> {
-  explicit BirdMigrationData() {}
+  BirdMigrationData() {}
 
   void FillUncompressedInput(uint64_t /*element_count*/) override {
     std::vector<double> values = LoadBirdMigrationData();
@@ -647,7 +649,7 @@ struct AradeData : public RealComprBenchmarkData<T> {
 // Generic template for FPC single-column datasets
 template <typename T, std::vector<double> (*LoaderFunc)()>
 struct FpcDataset : public RealComprBenchmarkData<T> {
-  explicit FpcDataset() {}
+  FpcDataset() {}
 
   void FillUncompressedInput(uint64_t /*element_count*/) override {
     std::vector<double> values = LoaderFunc();
@@ -718,9 +720,8 @@ class DoubleBenchmark : public benchmark::Fixture {
   }
 
   void Compress() {
-    using DType =
-        typename std::conditional<std::is_same<T, float>::value, FloatType,
-                                  DoubleType>::type;
+    using DType = typename std::conditional<std::is_same<T, float>::value, FloatType,
+                                            DoubleType>::type;
     auto descr = MakeColumnDescriptor<DType>();
 
     if (encoding_type_ == EncodingType::kALP) {
@@ -774,9 +775,8 @@ class DoubleBenchmark : public benchmark::Fixture {
   }
 
   void Decompress() {
-    using DType =
-        typename std::conditional<std::is_same<T, float>::value, FloatType,
-                                  DoubleType>::type;
+    using DType = typename std::conditional<std::is_same<T, float>::value, FloatType,
+                                            DoubleType>::type;
     auto descr = MakeColumnDescriptor<DType>();
 
     if (encoding_type_ == EncodingType::kALP) {
@@ -836,10 +836,9 @@ class DoubleBenchmark : public benchmark::Fixture {
     const uint64_t overall_time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-    state.counters["MB/s"] =
-        static_cast<double>(bd_->input_uncompressed.size() * sizeof(T) *
-                            iteration_count) /
-        (overall_time_us);
+    state.counters["MB/s"] = static_cast<double>(bd_->input_uncompressed.size() *
+                                                 sizeof(T) * iteration_count) /
+                             (overall_time_us);
 
     VerifyDataCompress();
     state.counters["Compression Ratio Percent"] =
@@ -862,10 +861,9 @@ class DoubleBenchmark : public benchmark::Fixture {
     const uint64_t overall_time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-    state.counters["MB/s"] =
-        static_cast<double>(bd_->input_uncompressed.size() * sizeof(T) *
-                            iteration_count) /
-        (overall_time_us);
+    state.counters["MB/s"] = static_cast<double>(bd_->input_uncompressed.size() *
+                                                 sizeof(T) * iteration_count) /
+                             (overall_time_us);
 
     VerifyDataDecompress();
   }
@@ -878,32 +876,32 @@ class DoubleBenchmark : public benchmark::Fixture {
 // Column Lists
 // ============================================================================
 
-#define COLUMN_LIST                      \
-  X(Valence, "valence")                  \
-  X(Acousticness, "acousticness")        \
-  X(Danceability, "danceability")        \
-  X(Energy, "energy")                    \
-  X(Instrumentalness, "instrumentalness")\
-  X(Liveness, "liveness")                \
-  X(Loudness, "loudness")                \
-  X(Tempo, "tempo")                      \
+#define COLUMN_LIST                       \
+  X(Valence, "valence")                   \
+  X(Acousticness, "acousticness")         \
+  X(Danceability, "danceability")         \
+  X(Energy, "energy")                     \
+  X(Instrumentalness, "instrumentalness") \
+  X(Liveness, "liveness")                 \
+  X(Loudness, "loudness")                 \
+  X(Tempo, "tempo")                       \
   X(Speechiness, "speechiness")
 
 // For new dataset (Spotify2), we need lowercase identifiers
-#define COLUMN_LIST_NEW    \
-  X(valence)               \
-  X(acousticness)          \
-  X(danceability)          \
-  X(energy)                \
-  X(instrumentalness)      \
-  X(liveness)              \
-  X(loudness)              \
-  X(tempo)                 \
+#define COLUMN_LIST_NEW \
+  X(valence)            \
+  X(acousticness)       \
+  X(danceability)       \
+  X(energy)             \
+  X(instrumentalness)   \
+  X(liveness)           \
+  X(loudness)           \
+  X(tempo)              \
   X(speechiness)
 
 // POI dataset columns
-#define POI_COLUMN_LIST                    \
-  X(LatitudeRadian, "latitude_radian")     \
+#define POI_COLUMN_LIST                \
+  X(LatitudeRadian, "latitude_radian") \
   X(LongitudeRadian, "longitude_radian")
 
 // Common Government dataset columns
@@ -913,16 +911,16 @@ class DoubleBenchmark : public benchmark::Fixture {
   X(Amount3, "amount3")
 
 // Arade dataset columns
-#define ARADE_COLUMN_LIST   \
-  X(Value1, "value1")       \
-  X(Value2, "value2")       \
-  X(Value3, "value3")       \
+#define ARADE_COLUMN_LIST \
+  X(Value1, "value1")     \
+  X(Value2, "value2")     \
+  X(Value3, "value3")     \
   X(Value4, "value4")
 
 // Algorithm list for all benchmarks
-#define ALGORITHM_LIST                  \
-  X(ALP, kALP)                          \
-  X(BYTESTREAMSPLIT, kByteStreamSplit)  \
+#define ALGORITHM_LIST                 \
+  X(ALP, kALP)                         \
+  X(BYTESTREAMSPLIT, kByteStreamSplit) \
   X(ZSTD, kZSTD)
 
 // ============================================================================
@@ -930,448 +928,399 @@ class DoubleBenchmark : public benchmark::Fixture {
 // ============================================================================
 
 // Synthetic data benchmark macros
-#define BENCHMARK_SYNTHETIC_COMPRESS(ALGO, NAME, CLASS, ENGINE)                      \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NAME##Float, double)         \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<CLASS<double>>()),                                      \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_SYNTHETIC_COMPRESS(ALGO, NAME, CLASS, ENGINE)              \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NAME##Float, double) \
+  (benchmark::State & state) {                                               \
+    BenchmarkCompress(state,                                                 \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(       \
+                          std::make_unique<CLASS<double>>()),                \
+                      EncodingType::ENGINE);                                 \
   }
 
-#define BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, NAME, CLASS, ENGINE)                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NAME##Float, double)       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<CLASS<double>>()),                                      \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, NAME, CLASS, ENGINE)              \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NAME##Float, double) \
+  (benchmark::State & state) {                                                 \
+    BenchmarkDecompress(state,                                                 \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(       \
+                            std::make_unique<CLASS<double>>()),                \
+                        EncodingType::ENGINE);                                 \
   }
 
 // Original Spotify dataset (Dataset 1) benchmark macros
-#define BENCHMARK_ORIGINAL_DATASET_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)  \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Spotify##COLUMN_CAP##Float,  \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<SpotifyData<double>>(COLUMN_LOWER)),                    \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_ORIGINAL_DATASET_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE) \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Spotify##COLUMN_CAP##Float, \
+                       double)                                                      \
+  (benchmark::State & state) {                                                      \
+    BenchmarkCompress(state,                                                        \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(              \
+                          std::make_unique<SpotifyData<double>>(COLUMN_LOWER)),     \
+                      EncodingType::ENGINE);                                        \
   }
 
-#define BENCHMARK_ORIGINAL_DATASET_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER,        \
-                                              ENGINE)                                \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark,                                              \
-                       ALGO##decompress##Spotify##COLUMN_CAP##Float, double)         \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<SpotifyData<double>>(COLUMN_LOWER)),                    \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_ORIGINAL_DATASET_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE) \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Spotify##COLUMN_CAP##Float, \
+                       double)                                                        \
+  (benchmark::State & state) {                                                        \
+    BenchmarkDecompress(state,                                                        \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(              \
+                            std::make_unique<SpotifyData<double>>(COLUMN_LOWER)),     \
+                        EncodingType::ENGINE);                                        \
   }
 
 // New Spotify dataset (Dataset 2) benchmark macros
-#define BENCHMARK_NEW_DATASET_COMPRESS(ALGO, COLUMN, ENGINE)                         \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Spotify##COLUMN##2Float,     \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<SpotifyData2<double>>(#COLUMN)),                        \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NEW_DATASET_COMPRESS(ALGO, COLUMN, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Spotify##COLUMN##2Float, double) \
+  (benchmark::State & state) {                                                           \
+    BenchmarkCompress(state,                                                             \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(                   \
+                          std::make_unique<SpotifyData2<double>>(#COLUMN)),              \
+                      EncodingType::ENGINE);                                             \
   }
 
-#define BENCHMARK_NEW_DATASET_DECOMPRESS(ALGO, COLUMN, ENGINE)                       \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Spotify##COLUMN##2Float,   \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<SpotifyData2<double>>(#COLUMN)),                        \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NEW_DATASET_DECOMPRESS(ALGO, COLUMN, ENGINE)                     \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Spotify##COLUMN##2Float, \
+                       double)                                                     \
+  (benchmark::State & state) {                                                     \
+    BenchmarkDecompress(state,                                                     \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                            std::make_unique<SpotifyData2<double>>(#COLUMN)),      \
+                        EncodingType::ENGINE);                                     \
   }
 
 // City Temperature dataset benchmark macros
-#define BENCHMARK_CITY_TEMP_COMPRESS(ALGO, ENGINE)                                   \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##CityTemperatureFloat,        \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<CityTemperatureData<double>>()),                        \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_CITY_TEMP_COMPRESS(ALGO, ENGINE)                                    \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##CityTemperatureFloat, double) \
+  (benchmark::State & state) {                                                        \
+    BenchmarkCompress(state,                                                          \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(                \
+                          std::make_unique<CityTemperatureData<double>>()),           \
+                      EncodingType::ENGINE);                                          \
   }
 
-#define BENCHMARK_CITY_TEMP_DECOMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##CityTemperatureFloat,      \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<CityTemperatureData<double>>()),                        \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_CITY_TEMP_DECOMPRESS(ALGO, ENGINE)                                    \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##CityTemperatureFloat, double) \
+  (benchmark::State & state) {                                                          \
+    BenchmarkDecompress(state,                                                          \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(                \
+                            std::make_unique<CityTemperatureData<double>>()),           \
+                        EncodingType::ENGINE);                                          \
   }
 
 // POI dataset benchmark macros
-#define BENCHMARK_POI_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)               \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Poi##COLUMN_CAP##Float,      \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<PoiData<double>>(COLUMN_LOWER)),                        \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_POI_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)                  \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Poi##COLUMN_CAP##Float, double) \
+  (benchmark::State & state) {                                                          \
+    BenchmarkCompress(state,                                                            \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(                  \
+                          std::make_unique<PoiData<double>>(COLUMN_LOWER)),             \
+                      EncodingType::ENGINE);                                            \
   }
 
-#define BENCHMARK_POI_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)             \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Poi##COLUMN_CAP##Float,    \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<PoiData<double>>(COLUMN_LOWER)),                        \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_POI_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)          \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Poi##COLUMN_CAP##Float, \
+                       double)                                                    \
+  (benchmark::State & state) {                                                    \
+    BenchmarkDecompress(state,                                                    \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(          \
+                            std::make_unique<PoiData<double>>(COLUMN_LOWER)),     \
+                        EncodingType::ENGINE);                                    \
   }
 
 // Bird Migration dataset benchmark macros
-#define BENCHMARK_BIRD_MIGRATION_COMPRESS(ALGO, ENGINE)                              \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##BirdMigrationFloat, double)  \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<BirdMigrationData<double>>()),                          \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_BIRD_MIGRATION_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##BirdMigrationFloat, double) \
+  (benchmark::State & state) {                                                      \
+    BenchmarkCompress(state,                                                        \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(              \
+                          std::make_unique<BirdMigrationData<double>>()),           \
+                      EncodingType::ENGINE);                                        \
   }
 
-#define BENCHMARK_BIRD_MIGRATION_DECOMPRESS(ALGO, ENGINE)                            \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##BirdMigrationFloat,        \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<BirdMigrationData<double>>()),                          \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_BIRD_MIGRATION_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##BirdMigrationFloat, double) \
+  (benchmark::State & state) {                                                        \
+    BenchmarkDecompress(state,                                                        \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(              \
+                            std::make_unique<BirdMigrationData<double>>()),           \
+                        EncodingType::ENGINE);                                        \
   }
 
 // Common Government dataset benchmark macros
-#define BENCHMARK_COMMON_GOVERNMENT_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE) \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark,                                              \
-                       ALGO##compress##CommonGovernment##COLUMN_CAP##Float, double)  \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<CommonGovernmentData<double>>(COLUMN_LOWER)),           \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_COMMON_GOVERNMENT_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)     \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark,                                                  \
+                       ALGO##compress##CommonGovernment##COLUMN_CAP##Float, double)      \
+  (benchmark::State & state) {                                                           \
+    BenchmarkCompress(state,                                                             \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(                   \
+                          std::make_unique<CommonGovernmentData<double>>(COLUMN_LOWER)), \
+                      EncodingType::ENGINE);                                             \
   }
 
-#define BENCHMARK_COMMON_GOVERNMENT_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER,       \
-                                               ENGINE)                               \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark,                                              \
-                       ALGO##decompress##CommonGovernment##COLUMN_CAP##Float,        \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<CommonGovernmentData<double>>(COLUMN_LOWER)),           \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_COMMON_GOVERNMENT_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE) \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark,                                                \
+                       ALGO##decompress##CommonGovernment##COLUMN_CAP##Float, double)  \
+  (benchmark::State & state) {                                                         \
+    BenchmarkDecompress(                                                               \
+        state,                                                                         \
+        std::unique_ptr<RealComprBenchmarkData<double>>(                               \
+            std::make_unique<CommonGovernmentData<double>>(COLUMN_LOWER)),             \
+        EncodingType::ENGINE);                                                         \
   }
 
 // Arade dataset benchmark macros
-#define BENCHMARK_ARADE_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)             \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Arade##COLUMN_CAP##Float,    \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<AradeData<double>>(COLUMN_LOWER)),                      \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_ARADE_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)          \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##Arade##COLUMN_CAP##Float, \
+                       double)                                                    \
+  (benchmark::State & state) {                                                    \
+    BenchmarkCompress(state,                                                      \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(            \
+                          std::make_unique<AradeData<double>>(COLUMN_LOWER)),     \
+                      EncodingType::ENGINE);                                      \
   }
 
-#define BENCHMARK_ARADE_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)           \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Arade##COLUMN_CAP##Float,  \
-                       double)                                                       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<AradeData<double>>(COLUMN_LOWER)),                      \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_ARADE_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)          \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##Arade##COLUMN_CAP##Float, \
+                       double)                                                      \
+  (benchmark::State & state) {                                                      \
+    BenchmarkDecompress(state,                                                      \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(            \
+                            std::make_unique<AradeData<double>>(COLUMN_LOWER)),     \
+                        EncodingType::ENGINE);                                      \
   }
 
 // FPC dataset benchmark macros (generic for single-column datasets)
-#define BENCHMARK_NUM_BRAIN_COMPRESS(ALGO, ENGINE)                                   \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumBrainFloat, double)       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumBrainData<double>>()),                               \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_BRAIN_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumBrainFloat, double) \
+  (benchmark::State & state) {                                                 \
+    BenchmarkCompress(state,                                                   \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(         \
+                          std::make_unique<NumBrainData<double>>()),           \
+                      EncodingType::ENGINE);                                   \
   }
 
-#define BENCHMARK_NUM_BRAIN_DECOMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumBrainFloat, double)     \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumBrainData<double>>()),                               \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_BRAIN_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumBrainFloat, double) \
+  (benchmark::State & state) {                                                   \
+    BenchmarkDecompress(state,                                                   \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(         \
+                            std::make_unique<NumBrainData<double>>()),           \
+                        EncodingType::ENGINE);                                   \
   }
 
-#define BENCHMARK_NUM_COMET_COMPRESS(ALGO, ENGINE)                                   \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumCometFloat, double)       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumCometData<double>>()),                               \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_COMET_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumCometFloat, double) \
+  (benchmark::State & state) {                                                 \
+    BenchmarkCompress(state,                                                   \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(         \
+                          std::make_unique<NumCometData<double>>()),           \
+                      EncodingType::ENGINE);                                   \
   }
 
-#define BENCHMARK_NUM_COMET_DECOMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumCometFloat, double)     \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumCometData<double>>()),                               \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_COMET_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumCometFloat, double) \
+  (benchmark::State & state) {                                                   \
+    BenchmarkDecompress(state,                                                   \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(         \
+                            std::make_unique<NumCometData<double>>()),           \
+                        EncodingType::ENGINE);                                   \
   }
 
-#define BENCHMARK_NUM_CONTROL_COMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumControlFloat, double)     \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumControlData<double>>()),                             \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_CONTROL_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumControlFloat, double) \
+  (benchmark::State & state) {                                                   \
+    BenchmarkCompress(state,                                                     \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                          std::make_unique<NumControlData<double>>()),           \
+                      EncodingType::ENGINE);                                     \
   }
 
-#define BENCHMARK_NUM_CONTROL_DECOMPRESS(ALGO, ENGINE)                               \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumControlFloat, double)   \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumControlData<double>>()),                             \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_CONTROL_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumControlFloat, double) \
+  (benchmark::State & state) {                                                     \
+    BenchmarkDecompress(state,                                                     \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                            std::make_unique<NumControlData<double>>()),           \
+                        EncodingType::ENGINE);                                     \
   }
 
-#define BENCHMARK_NUM_PLASMA_COMPRESS(ALGO, ENGINE)                                  \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumPlasmaFloat, double)      \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumPlasmaData<double>>()),                              \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_PLASMA_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##NumPlasmaFloat, double) \
+  (benchmark::State & state) {                                                  \
+    BenchmarkCompress(state,                                                    \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(          \
+                          std::make_unique<NumPlasmaData<double>>()),           \
+                      EncodingType::ENGINE);                                    \
   }
 
-#define BENCHMARK_NUM_PLASMA_DECOMPRESS(ALGO, ENGINE)                                \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumPlasmaFloat, double)    \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<NumPlasmaData<double>>()),                              \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_NUM_PLASMA_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##NumPlasmaFloat, double) \
+  (benchmark::State & state) {                                                    \
+    BenchmarkDecompress(state,                                                    \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(          \
+                            std::make_unique<NumPlasmaData<double>>()),           \
+                        EncodingType::ENGINE);                                    \
   }
 
-#define BENCHMARK_OBS_ERROR_COMPRESS(ALGO, ENGINE)                                   \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsErrorFloat, double)       \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsErrorData<double>>()),                               \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_ERROR_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsErrorFloat, double) \
+  (benchmark::State & state) {                                                 \
+    BenchmarkCompress(state,                                                   \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(         \
+                          std::make_unique<ObsErrorData<double>>()),           \
+                      EncodingType::ENGINE);                                   \
   }
 
-#define BENCHMARK_OBS_ERROR_DECOMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsErrorFloat, double)     \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsErrorData<double>>()),                               \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_ERROR_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsErrorFloat, double) \
+  (benchmark::State & state) {                                                   \
+    BenchmarkDecompress(state,                                                   \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(         \
+                            std::make_unique<ObsErrorData<double>>()),           \
+                        EncodingType::ENGINE);                                   \
   }
 
-#define BENCHMARK_OBS_INFO_COMPRESS(ALGO, ENGINE)                                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsInfoFloat, double)        \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsInfoData<double>>()),                                \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_INFO_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsInfoFloat, double) \
+  (benchmark::State & state) {                                                \
+    BenchmarkCompress(state,                                                  \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(        \
+                          std::make_unique<ObsInfoData<double>>()),           \
+                      EncodingType::ENGINE);                                  \
   }
 
-#define BENCHMARK_OBS_INFO_DECOMPRESS(ALGO, ENGINE)                                  \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsInfoFloat, double)      \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsInfoData<double>>()),                                \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_INFO_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsInfoFloat, double) \
+  (benchmark::State & state) {                                                  \
+    BenchmarkDecompress(state,                                                  \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(        \
+                            std::make_unique<ObsInfoData<double>>()),           \
+                        EncodingType::ENGINE);                                  \
   }
 
-#define BENCHMARK_OBS_SPITZER_COMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsSpitzerFloat, double)     \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsSpitzerData<double>>()),                             \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_SPITZER_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsSpitzerFloat, double) \
+  (benchmark::State & state) {                                                   \
+    BenchmarkCompress(state,                                                     \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                          std::make_unique<ObsSpitzerData<double>>()),           \
+                      EncodingType::ENGINE);                                     \
   }
 
-#define BENCHMARK_OBS_SPITZER_DECOMPRESS(ALGO, ENGINE)                               \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsSpitzerFloat, double)   \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsSpitzerData<double>>()),                             \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_SPITZER_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsSpitzerFloat, double) \
+  (benchmark::State & state) {                                                     \
+    BenchmarkDecompress(state,                                                     \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                            std::make_unique<ObsSpitzerData<double>>()),           \
+                        EncodingType::ENGINE);                                     \
   }
 
-#define BENCHMARK_OBS_TEMP_COMPRESS(ALGO, ENGINE)                                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsTempFloat, double)        \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsTempData<double>>()),                                \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_TEMP_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##ObsTempFloat, double) \
+  (benchmark::State & state) {                                                \
+    BenchmarkCompress(state,                                                  \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(        \
+                          std::make_unique<ObsTempData<double>>()),           \
+                      EncodingType::ENGINE);                                  \
   }
 
-#define BENCHMARK_OBS_TEMP_DECOMPRESS(ALGO, ENGINE)                                  \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsTempFloat, double)      \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<ObsTempData<double>>()),                                \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_OBS_TEMP_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##ObsTempFloat, double) \
+  (benchmark::State & state) {                                                  \
+    BenchmarkDecompress(state,                                                  \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(        \
+                            std::make_unique<ObsTempData<double>>()),           \
+                        EncodingType::ENGINE);                                  \
   }
 
-#define BENCHMARK_MSG_BT_COMPRESS(ALGO, ENGINE)                                      \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgBtFloat, double)          \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgBtData<double>>()),                                  \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_BT_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgBtFloat, double) \
+  (benchmark::State & state) {                                              \
+    BenchmarkCompress(state,                                                \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(      \
+                          std::make_unique<MsgBtData<double>>()),           \
+                      EncodingType::ENGINE);                                \
   }
 
-#define BENCHMARK_MSG_BT_DECOMPRESS(ALGO, ENGINE)                                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgBtFloat, double)        \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgBtData<double>>()),                                  \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_BT_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgBtFloat, double) \
+  (benchmark::State & state) {                                                \
+    BenchmarkDecompress(state,                                                \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(      \
+                            std::make_unique<MsgBtData<double>>()),           \
+                        EncodingType::ENGINE);                                \
   }
 
-#define BENCHMARK_MSG_LU_COMPRESS(ALGO, ENGINE)                                      \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgLuFloat, double)          \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgLuData<double>>()),                                  \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_LU_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgLuFloat, double) \
+  (benchmark::State & state) {                                              \
+    BenchmarkCompress(state,                                                \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(      \
+                          std::make_unique<MsgLuData<double>>()),           \
+                      EncodingType::ENGINE);                                \
   }
 
-#define BENCHMARK_MSG_LU_DECOMPRESS(ALGO, ENGINE)                                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgLuFloat, double)        \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgLuData<double>>()),                                  \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_LU_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgLuFloat, double) \
+  (benchmark::State & state) {                                                \
+    BenchmarkDecompress(state,                                                \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(      \
+                            std::make_unique<MsgLuData<double>>()),           \
+                        EncodingType::ENGINE);                                \
   }
 
-#define BENCHMARK_MSG_SP_COMPRESS(ALGO, ENGINE)                                      \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgSpFloat, double)          \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgSpData<double>>()),                                  \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_SP_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgSpFloat, double) \
+  (benchmark::State & state) {                                              \
+    BenchmarkCompress(state,                                                \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(      \
+                          std::make_unique<MsgSpData<double>>()),           \
+                      EncodingType::ENGINE);                                \
   }
 
-#define BENCHMARK_MSG_SP_DECOMPRESS(ALGO, ENGINE)                                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgSpFloat, double)        \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgSpData<double>>()),                                  \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_SP_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgSpFloat, double) \
+  (benchmark::State & state) {                                                \
+    BenchmarkDecompress(state,                                                \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(      \
+                            std::make_unique<MsgSpData<double>>()),           \
+                        EncodingType::ENGINE);                                \
   }
 
-#define BENCHMARK_MSG_SPPM_COMPRESS(ALGO, ENGINE)                                    \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgSppmFloat, double)        \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgSppmData<double>>()),                                \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_SPPM_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgSppmFloat, double) \
+  (benchmark::State & state) {                                                \
+    BenchmarkCompress(state,                                                  \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(        \
+                          std::make_unique<MsgSppmData<double>>()),           \
+                      EncodingType::ENGINE);                                  \
   }
 
-#define BENCHMARK_MSG_SPPM_DECOMPRESS(ALGO, ENGINE)                                  \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgSppmFloat, double)      \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgSppmData<double>>()),                                \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_SPPM_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgSppmFloat, double) \
+  (benchmark::State & state) {                                                  \
+    BenchmarkDecompress(state,                                                  \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(        \
+                            std::make_unique<MsgSppmData<double>>()),           \
+                        EncodingType::ENGINE);                                  \
   }
 
-#define BENCHMARK_MSG_SWEEP3D_COMPRESS(ALGO, ENGINE)                                 \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgSweep3dFloat, double)     \
-  (benchmark::State & state) {                                                       \
-    BenchmarkCompress(                                                               \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgSweep3dData<double>>()),                             \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_SWEEP3D_COMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##compress##MsgSweep3dFloat, double) \
+  (benchmark::State & state) {                                                   \
+    BenchmarkCompress(state,                                                     \
+                      std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                          std::make_unique<MsgSweep3dData<double>>()),           \
+                      EncodingType::ENGINE);                                     \
   }
 
-#define BENCHMARK_MSG_SWEEP3D_DECOMPRESS(ALGO, ENGINE)                               \
-  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgSweep3dFloat, double)   \
-  (benchmark::State & state) {                                                       \
-    BenchmarkDecompress(                                                             \
-        state,                                                                       \
-        std::unique_ptr<RealComprBenchmarkData<double>>(                             \
-            std::make_unique<MsgSweep3dData<double>>()),                             \
-        EncodingType::ENGINE);                                                       \
+#define BENCHMARK_MSG_SWEEP3D_DECOMPRESS(ALGO, ENGINE)                             \
+  BENCHMARK_TEMPLATE_F(DoubleBenchmark, ALGO##decompress##MsgSweep3dFloat, double) \
+  (benchmark::State & state) {                                                     \
+    BenchmarkDecompress(state,                                                     \
+                        std::unique_ptr<RealComprBenchmarkData<double>>(           \
+                            std::make_unique<MsgSweep3dData<double>>()),           \
+                        EncodingType::ENGINE);                                     \
   }
 
 // ============================================================================
@@ -1380,42 +1329,42 @@ class DoubleBenchmark : public benchmark::Fixture {
 // ============================================================================
 
 #if 0
-#define GENERATE_SYNTHETIC_BENCHMARKS(ALGO, ENGINE)                \
-  BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Constant, ConstantValues, ENGINE)     \
-  BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Constant, ConstantValues, ENGINE)   \
-  BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Increasing, IncreasingValues, ENGINE) \
-  BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Increasing, IncreasingValues, ENGINE)     \
-  BENCHMARK_SYNTHETIC_COMPRESS(ALGO, SmallRange, DecimalSmallRange, ENGINE)      \
-  BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, SmallRange, DecimalSmallRange, ENGINE)    \
-  BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Range, DecimalRange, ENGINE)                \
-  BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Range, DecimalRange, ENGINE)              \
-  BENCHMARK_SYNTHETIC_COMPRESS(ALGO, LargeRange, DecimalLargeRange, ENGINE)      \
-  BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, LargeRange, DecimalLargeRange, ENGINE)    \
-  BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Random, RandomValues, ENGINE)               \
-  BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Random, RandomValues, ENGINE)
+#  define GENERATE_SYNTHETIC_BENCHMARKS(ALGO, ENGINE)                           \
+    BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Constant, ConstantValues, ENGINE)        \
+    BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Constant, ConstantValues, ENGINE)      \
+    BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Increasing, IncreasingValues, ENGINE)    \
+    BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Increasing, IncreasingValues, ENGINE)  \
+    BENCHMARK_SYNTHETIC_COMPRESS(ALGO, SmallRange, DecimalSmallRange, ENGINE)   \
+    BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, SmallRange, DecimalSmallRange, ENGINE) \
+    BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Range, DecimalRange, ENGINE)             \
+    BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Range, DecimalRange, ENGINE)           \
+    BENCHMARK_SYNTHETIC_COMPRESS(ALGO, LargeRange, DecimalLargeRange, ENGINE)   \
+    BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, LargeRange, DecimalLargeRange, ENGINE) \
+    BENCHMARK_SYNTHETIC_COMPRESS(ALGO, Random, RandomValues, ENGINE)            \
+    BENCHMARK_SYNTHETIC_DECOMPRESS(ALGO, Random, RandomValues, ENGINE)
 
-#define X(ALGO, ENGINE) GENERATE_SYNTHETIC_BENCHMARKS(ALGO, ENGINE)
+#  define X(ALGO, ENGINE) GENERATE_SYNTHETIC_BENCHMARKS(ALGO, ENGINE)
 ALGORITHM_LIST
-#undef X
+#  undef X
 #endif
 
 // ============================================================================
 // Benchmark Registrations - Spotify Dataset 1 (All Algorithms x 9 columns)
 // ============================================================================
 
-#define GENERATE_SPOTIFY_BENCHMARKS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE) \
-  BENCHMARK_ORIGINAL_DATASET_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)     \
+#define GENERATE_SPOTIFY_BENCHMARKS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)   \
+  BENCHMARK_ORIGINAL_DATASET_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE) \
   BENCHMARK_ORIGINAL_DATASET_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)
 
-#define GENERATE_ALGORITHM_FOR_SPOTIFY(ALGO, ENGINE)                         \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Valence, "valence", ENGINE)              \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Acousticness, "acousticness", ENGINE)    \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Danceability, "danceability", ENGINE)    \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Energy, "energy", ENGINE)                \
+#define GENERATE_ALGORITHM_FOR_SPOTIFY(ALGO, ENGINE)                              \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Valence, "valence", ENGINE)                   \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Acousticness, "acousticness", ENGINE)         \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Danceability, "danceability", ENGINE)         \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Energy, "energy", ENGINE)                     \
   GENERATE_SPOTIFY_BENCHMARKS(ALGO, Instrumentalness, "instrumentalness", ENGINE) \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Liveness, "liveness", ENGINE)            \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Loudness, "loudness", ENGINE)            \
-  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Tempo, "tempo", ENGINE)                  \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Liveness, "liveness", ENGINE)                 \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Loudness, "loudness", ENGINE)                 \
+  GENERATE_SPOTIFY_BENCHMARKS(ALGO, Tempo, "tempo", ENGINE)                       \
   GENERATE_SPOTIFY_BENCHMARKS(ALGO, Speechiness, "speechiness", ENGINE)
 
 #define X(ALGO, ENGINE) GENERATE_ALGORITHM_FOR_SPOTIFY(ALGO, ENGINE)
@@ -1430,15 +1379,15 @@ ALGORITHM_LIST
   BENCHMARK_NEW_DATASET_COMPRESS(ALGO, COLUMN, ENGINE)     \
   BENCHMARK_NEW_DATASET_DECOMPRESS(ALGO, COLUMN, ENGINE)
 
-#define GENERATE_ALGORITHM_FOR_SPOTIFY2(ALGO, ENGINE)      \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, valence, ENGINE)      \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, acousticness, ENGINE) \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, danceability, ENGINE) \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, energy, ENGINE)       \
+#define GENERATE_ALGORITHM_FOR_SPOTIFY2(ALGO, ENGINE)          \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, valence, ENGINE)          \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, acousticness, ENGINE)     \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, danceability, ENGINE)     \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, energy, ENGINE)           \
   GENERATE_SPOTIFY2_BENCHMARKS(ALGO, instrumentalness, ENGINE) \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, liveness, ENGINE)     \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, loudness, ENGINE)     \
-  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, tempo, ENGINE)        \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, liveness, ENGINE)         \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, loudness, ENGINE)         \
+  GENERATE_SPOTIFY2_BENCHMARKS(ALGO, tempo, ENGINE)            \
   GENERATE_SPOTIFY2_BENCHMARKS(ALGO, speechiness, ENGINE)
 
 #define X(ALGO, ENGINE) GENERATE_ALGORITHM_FOR_SPOTIFY2(ALGO, ENGINE)
@@ -1465,10 +1414,10 @@ ALGORITHM_LIST
   BENCHMARK_POI_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)           \
   BENCHMARK_POI_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)
 
-#define GENERATE_ALGORITHMS_FOR_POI_COLUMN(COLUMN_CAP, COLUMN_LOWER)           \
-  GENERATE_ALGORITHM_FOR_POI(COLUMN_CAP, COLUMN_LOWER, ALP, kALP)              \
-  GENERATE_ALGORITHM_FOR_POI(COLUMN_CAP, COLUMN_LOWER, BYTESTREAMSPLIT,        \
-                             kByteStreamSplit)                                 \
+#define GENERATE_ALGORITHMS_FOR_POI_COLUMN(COLUMN_CAP, COLUMN_LOWER)    \
+  GENERATE_ALGORITHM_FOR_POI(COLUMN_CAP, COLUMN_LOWER, ALP, kALP)       \
+  GENERATE_ALGORITHM_FOR_POI(COLUMN_CAP, COLUMN_LOWER, BYTESTREAMSPLIT, \
+                             kByteStreamSplit)                          \
   GENERATE_ALGORITHM_FOR_POI(COLUMN_CAP, COLUMN_LOWER, ZSTD, kZSTD)
 
 #define X(COLUMN_CAP, COLUMN_LOWER) \
@@ -1492,15 +1441,14 @@ ALGORITHM_LIST
 // Benchmark Registrations - Common Government Dataset (3 columns x 3 algorithms)
 // ============================================================================
 
-#define GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER, ALGO, \
-                                                 ENGINE)                         \
-  BENCHMARK_COMMON_GOVERNMENT_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)   \
+#define GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER, ALGO, ENGINE) \
+  BENCHMARK_COMMON_GOVERNMENT_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)           \
   BENCHMARK_COMMON_GOVERNMENT_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)
 
-#define GENERATE_ALGORITHMS_FOR_COMMON_GOVERNMENT_COLUMN(COLUMN_CAP, COLUMN_LOWER) \
-  GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER, ALP, kALP)    \
-  GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER,               \
-                                           BYTESTREAMSPLIT, kByteStreamSplit)      \
+#define GENERATE_ALGORITHMS_FOR_COMMON_GOVERNMENT_COLUMN(COLUMN_CAP, COLUMN_LOWER)    \
+  GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER, ALP, kALP)       \
+  GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER, BYTESTREAMSPLIT, \
+                                           kByteStreamSplit)                          \
   GENERATE_ALGORITHM_FOR_COMMON_GOVERNMENT(COLUMN_CAP, COLUMN_LOWER, ZSTD, kZSTD)
 
 #define X(COLUMN_CAP, COLUMN_LOWER) \
@@ -1516,10 +1464,10 @@ COMMON_GOVERNMENT_COLUMN_LIST
   BENCHMARK_ARADE_COMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)           \
   BENCHMARK_ARADE_DECOMPRESS(ALGO, COLUMN_CAP, COLUMN_LOWER, ENGINE)
 
-#define GENERATE_ALGORITHMS_FOR_ARADE_COLUMN(COLUMN_CAP, COLUMN_LOWER)          \
-  GENERATE_ALGORITHM_FOR_ARADE(COLUMN_CAP, COLUMN_LOWER, ALP, kALP)             \
-  GENERATE_ALGORITHM_FOR_ARADE(COLUMN_CAP, COLUMN_LOWER, BYTESTREAMSPLIT,       \
-                               kByteStreamSplit)                                \
+#define GENERATE_ALGORITHMS_FOR_ARADE_COLUMN(COLUMN_CAP, COLUMN_LOWER)    \
+  GENERATE_ALGORITHM_FOR_ARADE(COLUMN_CAP, COLUMN_LOWER, ALP, kALP)       \
+  GENERATE_ALGORITHM_FOR_ARADE(COLUMN_CAP, COLUMN_LOWER, BYTESTREAMSPLIT, \
+                               kByteStreamSplit)                          \
   GENERATE_ALGORITHM_FOR_ARADE(COLUMN_CAP, COLUMN_LOWER, ZSTD, kZSTD)
 
 #define X(COLUMN_CAP, COLUMN_LOWER) \
