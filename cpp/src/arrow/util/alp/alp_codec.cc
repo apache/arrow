@@ -125,7 +125,7 @@ struct AlpHeader {
   static uint8_t Log2(int32_t value) {
     ARROW_CHECK(::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(value)))
         << "value_must_be_power_of_2: " << value;
-    return static_cast<uint8_t>(__builtin_ctz(static_cast<unsigned>(value)));
+    return static_cast<uint8_t>(std::countr_zero(static_cast<uint32_t>(value)));
   }
 
   /// \brief Calculate the number of elements for a given vector index
