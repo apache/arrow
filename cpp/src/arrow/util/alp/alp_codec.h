@@ -173,16 +173,17 @@ class AlpCodec {
   ///
   /// \param[in] input array of floating point numbers to compress
   /// \param[in] element_count the number of floating point numbers
-  /// \param[out] output the buffer to be compressed into
-  /// \param[in] output_size the size of the compression buffer
   /// \param[in] preset the encoding preset to use (contains the candidate
   ///            exponent/factor combinations, best estimated size, and the
   ///            integer encoding to apply)
+  /// \param[in] vector_size number of elements per vector
+  /// \param[out] output the buffer to be compressed into
+  /// \param[in] output_size the size of the compression buffer
   /// \return the compression progress
   static CompressionProgress EncodeAlp(const T* input, int64_t element_count,
-                                       uint8_t* output, int64_t output_size,
                                        const AlpEncodingParameters& preset,
-                                       int32_t vector_size);
+                                       int32_t vector_size, uint8_t* output,
+                                       int64_t output_size);
 
   /// \brief Decompress a buffer using ALP
   ///
