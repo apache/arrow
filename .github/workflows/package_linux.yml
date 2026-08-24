@@ -187,7 +187,7 @@ jobs:
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@bc817c8e9ad7d8216aab74223e32ea391e233b2c
+        uses: apache/infrastructure-actions/stash/restore@69afc125e535c4c41e7f1b7470f583087e0f344b
         with:
           path: ${{ env.BUILD_DIR }}/${{ env.TARGET }}
           key: package-linux-${{ matrix.id }}
