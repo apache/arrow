@@ -23,7 +23,7 @@
 #    $ARGN - arguments for executable
 #
 
-set -e
+set -euo pipefail
 
 OUTPUT_ROOT="$1"
 shift
