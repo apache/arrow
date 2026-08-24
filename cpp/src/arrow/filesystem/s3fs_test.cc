@@ -1655,8 +1655,9 @@ TEST_F(TestS3FS, OpenOutputStreamMetadata) {
                           testing::IsSupersetOf(implicit_metadata->sorted_pairs()));
 
   // Create new file with explicit metadata
-  auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
-                                         {"x-arrow/test6", "2016-02-05T20:08:35Z"});
+  auto metadata = KeyValueMetadata::Make(
+      {"Content-Encoding", "Content-Type", "Expires"},
+      {"gzip", "x-arrow/test6", "2016-02-05T20:08:35Z"});
   AssertMetadataRoundtrip("bucket/mdfile1", metadata,
                           testing::IsSupersetOf(metadata->sorted_pairs()));
 
@@ -1666,8 +1667,9 @@ TEST_F(TestS3FS, OpenOutputStreamMetadata) {
   AssertMetadataRoundtrip("bucket/mdfile2", metadata, testing::_);
 
   // Create new file with default metadata
-  auto default_metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
-                                                 {"image/png", "fr_FR"});
+  auto default_metadata = KeyValueMetadata::Make(
+      {"Content-Encoding", "Content-Type", "Content-Language"},
+      {"br", "image/png", "fr_FR"});
   options_.default_metadata = default_metadata;
   MakeFileSystem();
   // (null, then empty metadata argument)
