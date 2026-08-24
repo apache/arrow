@@ -17,7 +17,9 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <random>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -1730,6 +1732,115 @@ TYPED_TEST(AlpCodecTest, RejectsOutOfRangeLogVectorSizeInHeader) {
     ASSERT_RAISES(Invalid, (AlpCodec<TypeParam>::template Decode<TypeParam>(
                                static_cast<int32_t>(input.size()), corrupted.data(),
                                comp_size, output.data())));
+  }
+}
+
+// Encode a small page and return the compressed bytes, for tests that corrupt a
+// single field and check that decode rejects the result.
+template <typename T>
+std::vector<uint8_t> EncodeSmallPage(std::vector<T>* input) {
+  input->resize(64);
+  for (size_t i = 0; i < input->size(); ++i) {
+    (*input)[i] = static_cast<T>(i) * static_cast<T>(0.1);
+  }
+  EXPECT_OK_AND_ASSIGN(
+      int64_t max_comp_size,
+      AlpCodec<T>::GetMaxCompressedSize(static_cast<int64_t>(input->size())));
+  std::vector<uint8_t> comp_buffer(max_comp_size);
+  int64_t comp_size = comp_buffer.size();
+  EXPECT_OK(AlpCodec<T>::Encode(input->data(), static_cast<int64_t>(input->size()),
+                                comp_buffer.data(), &comp_size));
+  comp_buffer.resize(comp_size);
+  return comp_buffer;
+}
+
+// Asserts that decoding failed with Invalid *and* that the message names the
+// specific guard under test, so a test cannot pass by tripping some other
+// validation check on the way to the one it claims to cover.
+void ExpectInvalidWithSubstring(const Status& status, const std::string& needle) {
+  ASSERT_TRUE(status.IsInvalid()) << "expected Invalid, got: " << status.ToString();
+  ASSERT_NE(status.message().find(needle), std::string::npos)
+      << "message did not mention \"" << needle << "\": " << status.ToString();
+}
+
+// A page written by a future ALP variant (e.g. ALP-RD) carries a compression_mode
+// this reader does not know. Nothing else in the decode path inspects this byte,
+// so without this check such a page decodes as kAlp and returns wrong values
+// with an OK status.
+TYPED_TEST(AlpCodecTest, RejectsUnsupportedCompressionModeInHeader) {
+  std::vector<TypeParam> input;
+  const std::vector<uint8_t> comp_buffer = EncodeSmallPage(&input);
+  std::vector<TypeParam> output(input.size());
+
+  // compression_mode is byte 0 of the page header.
+  for (const uint8_t bad : {uint8_t{1}, uint8_t{2}, uint8_t{255}}) {
+    SCOPED_TRACE("compression_mode=" + std::to_string(bad));
+    std::vector<uint8_t> corrupted = comp_buffer;
+    corrupted[0] = bad;
+    ExpectInvalidWithSubstring(
+        AlpCodec<TypeParam>::template Decode<TypeParam>(
+            static_cast<int32_t>(input.size()), corrupted.data(),
+            static_cast<int64_t>(corrupted.size()), output.data()),
+        "unsupported compression mode");
+  }
+}
+
+// Same forward-compatibility guarantee for the integer encoding field. A
+// second check further down the decode path also rejects an unknown encoding,
+// so this test pins the header-level check specifically: it is the one the
+// format spec requires, and without a test it could be dropped while the page
+// still happened to be rejected for an unrelated reason.
+TYPED_TEST(AlpCodecTest, RejectsUnsupportedIntegerEncodingInHeader) {
+  std::vector<TypeParam> input;
+  const std::vector<uint8_t> comp_buffer = EncodeSmallPage(&input);
+  std::vector<TypeParam> output(input.size());
+
+  // integer_encoding is byte 1 of the page header.
+  for (const uint8_t bad : {uint8_t{1}, uint8_t{2}, uint8_t{255}}) {
+    SCOPED_TRACE("integer_encoding=" + std::to_string(bad));
+    std::vector<uint8_t> corrupted = comp_buffer;
+    corrupted[1] = bad;
+    ExpectInvalidWithSubstring(
+        AlpCodec<TypeParam>::template Decode<TypeParam>(
+            static_cast<int32_t>(input.size()), corrupted.data(),
+            static_cast<int64_t>(corrupted.size()), output.data()),
+        "unsupported integer encoding");
+  }
+}
+
+// A FOR bit_width wider than the encoded integer type is malformed and must be
+// rejected when the metadata is loaded. A downstream buffer-size check also
+// rejects such a page, so this test pins the early check that reports the
+// actual problem rather than a confusing buffer-size error.
+TYPED_TEST(AlpCodecTest, RejectsOutOfRangeForBitWidth) {
+  std::vector<TypeParam> input;
+  const std::vector<uint8_t> comp_buffer = EncodeSmallPage(&input);
+  std::vector<TypeParam> output(input.size());
+
+  // AlpHeader is only forward-declared in alp_codec.h, so spell its size here.
+  // Layout: [header][vector offsets][AlpInfo | ForInfo | Data]..., where each
+  // offset is relative to the start of the body and bit_width is the last byte
+  // of ForInfo.
+  constexpr int64_t kHeaderSize = 7;
+  AlpConstants::OffsetType first_vector_offset = 0;
+  std::memcpy(&first_vector_offset, comp_buffer.data() + kHeaderSize,
+              sizeof(first_vector_offset));
+  const int64_t bit_width_pos = kHeaderSize + first_vector_offset +
+                                AlpEncodedVectorInfo::kStoredSize +
+                                AlpEncodedForVectorInfo<TypeParam>::kStoredSize - 1;
+  ASSERT_LT(bit_width_pos, static_cast<int64_t>(comp_buffer.size()));
+
+  using ExactType = typename AlpEncodedForVectorInfo<TypeParam>::ExactType;
+  constexpr uint8_t kMaxBitWidth = sizeof(ExactType) * 8;
+  for (const uint8_t bad : {static_cast<uint8_t>(kMaxBitWidth + 1), uint8_t{255}}) {
+    SCOPED_TRACE("bit_width=" + std::to_string(bad));
+    std::vector<uint8_t> corrupted = comp_buffer;
+    corrupted[bit_width_pos] = bad;
+    ExpectInvalidWithSubstring(
+        AlpCodec<TypeParam>::template Decode<TypeParam>(
+            static_cast<int32_t>(input.size()), corrupted.data(),
+            static_cast<int64_t>(corrupted.size()), output.data()),
+        "bit_width out of range");
   }
 }
 
