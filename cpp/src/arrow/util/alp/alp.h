@@ -20,13 +20,13 @@
 #pragma once
 
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/span.h"
 
 namespace arrow {
 namespace util {
@@ -216,12 +216,12 @@ class AlpEncodedVectorInfo {
   ///
   /// \pre output_buffer.size() >= kStoredSize. The precondition is enforced
   ///      via `ARROW_CHECK`, which aborts the process on violation.
-  void Store(arrow::util::span<uint8_t> output_buffer) const;
+  void Store(std::span<uint8_t> output_buffer) const;
 
   /// \brief Load ALP metadata from an input buffer
   ///
   /// \return the loaded metadata, or Status::Invalid if the buffer is too small
-  static Result<AlpEncodedVectorInfo> Load(arrow::util::span<const uint8_t> input_buffer);
+  static Result<AlpEncodedVectorInfo> Load(std::span<const uint8_t> input_buffer);
 
   /// \brief Get serialized size of the ALP metadata
   static int64_t GetStoredSize() { return kStoredSize; }
@@ -305,20 +305,18 @@ class AlpEncodedForVectorInfo {
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
 
   /// Size of the serialized portion (5 bytes for float, 9 for double)
-  static constexpr int64_t kStoredSize =
-      sizeof(frame_of_reference_) + sizeof(bit_width_);
+  static constexpr int64_t kStoredSize = sizeof(frame_of_reference_) + sizeof(bit_width_);
 
   /// \brief Store the FOR metadata into an output buffer
   ///
   /// \pre output_buffer.size() >= kStoredSize. The precondition is enforced
   ///      via `ARROW_CHECK`, which aborts the process on violation.
-  void Store(arrow::util::span<uint8_t> output_buffer) const;
+  void Store(std::span<uint8_t> output_buffer) const;
 
   /// \brief Load FOR metadata from an input buffer
   ///
   /// \return the loaded metadata, or Status::Invalid if the buffer is too small
-  static Result<AlpEncodedForVectorInfo> Load(
-      arrow::util::span<const uint8_t> input_buffer);
+  static Result<AlpEncodedForVectorInfo> Load(std::span<const uint8_t> input_buffer);
 
   /// \brief Get serialized size of the FOR metadata
   static int64_t GetStoredSize() { return kStoredSize; }
@@ -332,7 +330,8 @@ class AlpEncodedForVectorInfo {
     const int64_t bit_packed_size =
         bit_util::BytesForBits(int64_t{num_elements} * bit_width_);
     return bit_packed_size +
-           num_exceptions * static_cast<int64_t>(sizeof(AlpConstants::PositionType) + sizeof(T));
+           num_exceptions *
+               static_cast<int64_t>(sizeof(AlpConstants::PositionType) + sizeof(T));
   }
 
   bool operator==(const AlpEncodedForVectorInfo& other) const {
@@ -340,7 +339,9 @@ class AlpEncodedForVectorInfo {
            bit_width_ == other.bit_width_;
   }
 
-  bool operator!=(const AlpEncodedForVectorInfo& other) const { return !(*this == other); }
+  bool operator!=(const AlpEncodedForVectorInfo& other) const {
+    return !(*this == other);
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -458,7 +459,7 @@ class AlpEncodedVector {
   ///      `ARROW_CHECK`, which aborts the process on violation; the vector's
   ///      internal invariant (`alp_info_.num_exceptions() == exceptions_.size()`)
   ///      is also `ARROW_CHECK`-asserted.
-  void Store(arrow::util::span<uint8_t> output_buffer) const;
+  void Store(std::span<uint8_t> output_buffer) const;
 
   /// \brief Store only the data section (without metadata) into an output buffer
   ///
@@ -468,7 +469,7 @@ class AlpEncodedVector {
   /// \param[out] output_buffer the buffer to store the data section into
   /// \pre output_buffer.size() >= GetDataStoredSize(...). The precondition is
   ///      enforced via `ARROW_CHECK`, which aborts the process on violation.
-  void StoreDataOnly(arrow::util::span<uint8_t> output_buffer) const;
+  void StoreDataOnly(std::span<uint8_t> output_buffer) const;
 
   /// \brief Get the size of the data section only (without metadata)
   ///
@@ -482,7 +483,7 @@ class AlpEncodedVector {
   /// \param[in] input_buffer the buffer to load from
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the loaded AlpEncodedVector, or Status::Invalid if data is malformed
-  static Result<AlpEncodedVector> Load(arrow::util::span<const uint8_t> input_buffer,
+  static Result<AlpEncodedVector> Load(std::span<const uint8_t> input_buffer,
                                        int32_t num_elements);
 
   bool operator==(const AlpEncodedVector<T>& other) const;
@@ -532,8 +533,8 @@ class AlpEncodedVectorView {
   int32_t num_elements() const { return num_elements_; }
   void set_num_elements(int32_t n) { num_elements_ = n; }
 
-  arrow::util::span<const uint8_t> packed_values() const { return packed_values_; }
-  void set_packed_values(arrow::util::span<const uint8_t> v) { packed_values_ = v; }
+  std::span<const uint8_t> packed_values() const { return packed_values_; }
+  void set_packed_values(std::span<const uint8_t> v) { packed_values_ = v; }
 
   const std::vector<AlpConstants::PositionType>& exception_positions() const {
     return exception_positions_;
@@ -551,13 +552,14 @@ class AlpEncodedVectorView {
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
-  /// Expects format: [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues]
+  /// Expects format:
+  /// [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues]
   ///
   /// \param[in] input_buffer the buffer to create a view into
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data, or Status::Invalid if data is malformed
-  static Result<AlpEncodedVectorView> LoadView(
-      arrow::util::span<const uint8_t> input_buffer, int32_t num_elements);
+  static Result<AlpEncodedVectorView> LoadView(std::span<const uint8_t> input_buffer,
+                                               int32_t num_elements);
 
   /// \brief Create a zero-copy view from data-only buffer (metadata provided separately)
   ///
@@ -571,10 +573,8 @@ class AlpEncodedVectorView {
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data, or Status::Invalid if data is malformed
   static Result<AlpEncodedVectorView> LoadViewDataOnly(
-      arrow::util::span<const uint8_t> input_buffer,
-      const AlpEncodedVectorInfo& alp_info,
-      const AlpEncodedForVectorInfo<T>& for_info,
-      int32_t num_elements);
+      std::span<const uint8_t> input_buffer, const AlpEncodedVectorInfo& alp_info,
+      const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
 
   /// \brief Get the stored size of this vector in the buffer
   ///
@@ -592,7 +592,7 @@ class AlpEncodedVectorView {
   AlpEncodedVectorInfo alp_info_;
   AlpEncodedForVectorInfo<T> for_info_;
   int32_t num_elements_ = 0;
-  arrow::util::span<const uint8_t> packed_values_;
+  std::span<const uint8_t> packed_values_;
   std::vector<AlpConstants::PositionType> exception_positions_;
   std::vector<T> exceptions_;
 };
@@ -663,8 +663,7 @@ class AlpCompression {
   /// \param[in] num_elements the number of values to be compressed
   /// \param[in] preset the preset to be used for compression
   /// \return an ALP encoded vector
-  static AlpEncodedVector<T> CompressVector(const T* input_vector,
-                                            int32_t num_elements,
+  static AlpEncodedVector<T> CompressVector(const T* input_vector, int32_t num_elements,
                                             const AlpEncodingParameters& preset);
 
   /// \brief Decompress a compressed vector with ALP
@@ -707,7 +706,7 @@ class AlpCompression {
   ///
   /// \param[in] input the input vector to sample from
   /// \return a vector containing a representative subsample of input values
-  static std::vector<T> CreateSample(arrow::util::span<const T> input);
+  static std::vector<T> CreateSample(std::span<const T> input);
 
   /// \brief Perform a dry-compression to estimate the compressed size
   ///
@@ -717,8 +716,7 @@ class AlpCompression {
   /// \return the estimated compressed size in bytes, or std::nullopt if the
   ///         data is not compressible using these settings
   static std::optional<int64_t> EstimateCompressedSize(
-      const std::vector<T>& input_vector,
-      AlpExponentAndFactor exponent_and_factor,
+      const std::vector<T>& input_vector, AlpExponentAndFactor exponent_and_factor,
       bool penalize_exceptions);
 
   /// \brief Find the best exponent and factor combination for an input vector
@@ -730,8 +728,7 @@ class AlpCompression {
   /// \param[in] combinations candidate exponent/factor combinations from preset
   /// \return the exponent and factor combination yielding best compression
   static AlpExponentAndFactor FindBestExponentAndFactor(
-      arrow::util::span<const T> input,
-      const std::vector<AlpExponentAndFactor>& combinations);
+      std::span<const T> input, const std::vector<AlpExponentAndFactor>& combinations);
 
   /// \brief Helper struct to encapsulate the result from EncodeVector()
   struct EncodingResult {
@@ -747,7 +744,7 @@ class AlpCompression {
   /// \param[in] input_vector the input vector of floating point values
   /// \param[in] exponent_and_factor the exponent/factor for decimal encoding
   /// \return an EncodingResult containing encoded integers, exceptions, etc.
-  static EncodingResult EncodeVector(arrow::util::span<const T> input_vector,
+  static EncodingResult EncodeVector(std::span<const T> input_vector,
                                      AlpExponentAndFactor exponent_and_factor);
 
   /// \brief Decode a vector of integers back to floating point values
@@ -760,11 +757,10 @@ class AlpCompression {
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void DecodeVector(arrow::util::span<ExactType> input_vector,
+  static void DecodeVector(std::span<ExactType> input_vector,
                            const AlpEncodedVectorInfo& alp_info,
                            const AlpEncodedForVectorInfo<T>& for_info,
-                           int32_t num_elements,
-                           TargetType* output_vector);
+                           int32_t num_elements, TargetType* output_vector);
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
@@ -782,8 +778,8 @@ class AlpCompression {
   /// \param[in] min_max_diff the difference between max and min values,
   ///            used to determine the required bit width
   /// \return a BitPackingResult with packed bytes, bit width, and packed size
-  static BitPackingResult BitPackIntegers(
-      arrow::util::span<const SignedExactType> integers, uint64_t min_max_diff);
+  static BitPackingResult BitPackIntegers(std::span<const SignedExactType> integers,
+                                          uint64_t min_max_diff);
 
   /// \brief Unpack bitpacked integers back to their original representation
   ///
@@ -794,7 +790,7 @@ class AlpCompression {
   /// \param[in] num_elements number of elements to unpack
   /// \return a vector of unpacked integers (still with frame of reference)
   static std::vector<ExactType> BitUnpackIntegers(
-      arrow::util::span<const uint8_t> packed_integers,
+      std::span<const uint8_t> packed_integers,
       const AlpEncodedForVectorInfo<T>& for_info, int32_t num_elements);
 
   /// \brief Patch exceptions into the decoded output vector
@@ -808,9 +804,10 @@ class AlpCompression {
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void PatchExceptions(arrow::util::span<const T> exceptions,
-                              arrow::util::span<const AlpConstants::PositionType> exception_positions,
-                              TargetType* output);
+  static void PatchExceptions(
+      std::span<const T> exceptions,
+      std::span<const AlpConstants::PositionType> exception_positions,
+      TargetType* output);
 };
 
 }  // namespace alp

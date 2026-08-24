@@ -52,9 +52,8 @@ void AlpSampler<T>::AddSample(arrow::util::span<const T> input) {
 template <typename T>
 void AlpSampler<T>::AddSampleVector(arrow::util::span<const T> input) {
   const int64_t input_size = static_cast<int64_t>(input.size());
-  const bool must_skip_current_vector =
-      MustSkipSamplingFromCurrentVector(vectors_count_, vectors_sampled_count_,
-                                        input_size);
+  const bool must_skip_current_vector = MustSkipSamplingFromCurrentVector(
+      vectors_count_, vectors_sampled_count_, input_size);
 
   vectors_count_ += 1;
   total_values_count_ += input_size;
@@ -103,14 +102,12 @@ typename AlpSampler<T>::AlpSamplerResult AlpSampler<T>::Finalize() {
 template <typename T>
 typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParameters(
     int64_t num_current_vector_values) {
-  const int64_t num_lookup_values =
-      std::min(num_current_vector_values,
-               static_cast<int64_t>(AlpConstants::kAlpVectorSize));
+  const int64_t num_lookup_values = std::min(
+      num_current_vector_values, static_cast<int64_t>(AlpConstants::kAlpVectorSize));
   // Sample equidistant values within a vector; jump a fixed number of values.
-  const int64_t num_sampled_increments =
-      std::max(int64_t{1}, static_cast<int64_t>(std::ceil(
-                               static_cast<double>(num_lookup_values) /
-                               samples_per_vector_)));
+  const int64_t num_sampled_increments = std::max(
+      int64_t{1}, static_cast<int64_t>(std::ceil(static_cast<double>(num_lookup_values) /
+                                                 samples_per_vector_)));
   const int64_t num_sampled_values = static_cast<int64_t>(
       std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments));
 
@@ -118,7 +115,8 @@ typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParam
   // num_sampled_increments >= 1 (line 109), so num_sampled_values =
   // ceil(num_lookup_values / num_sampled_increments) <= kAlpVectorSize.
   // This check is a defensive invariant, not a runtime error path.
-  ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize) << "alp_sample_too_large";
+  ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize)
+      << "alp_sample_too_large";
 
   return AlpSamplingParameters{num_lookup_values, num_sampled_increments,
                                num_sampled_values};
