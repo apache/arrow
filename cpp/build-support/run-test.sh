@@ -23,12 +23,11 @@
 #    $ARGN - arguments for executable
 #
 
+set -euo pipefail
+
 OUTPUT_ROOT="$1"
 shift
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || {
-  echo "Failed to determine project root directory" >&2
-  exit 1
-}
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 TEST_LOGDIR="$OUTPUT_ROOT/build/$1-logs"
 mkdir -p "$TEST_LOGDIR"
@@ -38,10 +37,7 @@ shift
 TEST_DEBUGDIR="$OUTPUT_ROOT/build/$RUN_TYPE-debug"
 mkdir -p "$TEST_DEBUGDIR"
 
-TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd) || {
-  echo "Failed to change to test directory: $(dirname "$1")" >&2
-  exit 1
-}
+TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd)
 TEST_FILENAME=$(basename "$1")
 shift
 TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
@@ -50,10 +46,7 @@ TEST_NAME=$(echo "$TEST_FILENAME" | sed -E -e 's/\..+$//') # Remove path and ext
 # We run each test in its own subdir to avoid core file related races.
 TEST_WORKDIR="$OUTPUT_ROOT/build/test-work/$TEST_NAME"
 mkdir -p "$TEST_WORKDIR"
-pushd "$TEST_WORKDIR" >/dev/null || {
-  echo "Failed to change to test working directory: $TEST_WORKDIR" >&2
-  exit 1
-}
+pushd "$TEST_WORKDIR"
 rm -f ./*
 
 set -o pipefail
@@ -243,10 +236,7 @@ fi
 
 print_coredumps
 
-popd || {
-  echo "Failed to restore the previous working directory" >&2
-  exit 1
-}
+popd
 rm -Rf "$TEST_WORKDIR"
 
 exit "$STATUS"
