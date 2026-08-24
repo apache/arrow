@@ -36,15 +36,15 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_codec.h"
+#include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
-#include "arrow/util/alp/alp.h"
-#include "arrow/util/alp/alp_constants.h"
-#include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
@@ -2410,8 +2410,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // Fast path: decode directly into output buffer if requesting all values
     if (needs_decode_ && max_values >= this->num_values_) {
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, this->data_, this->len_,
-          buffer));
+          this->num_values_, this->data_, this->len_, buffer));
 
       const int decoded = this->num_values_;
       this->num_values_ = 0;
@@ -2424,15 +2423,13 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, this->data_, this->len_,
-          decoded_buffer_.data()));
+          this->num_values_, this->data_, this->len_, decoded_buffer_.data()));
       needs_decode_ = false;
     }
 
     // Copy from intermediate buffer
-    const int values_to_decode = std::min(
-        max_values,
-        static_cast<int>(decoded_buffer_.size() - current_offset_));
+    const int values_to_decode =
+        std::min(max_values, static_cast<int>(decoded_buffer_.size() - current_offset_));
 
     if (values_to_decode > 0) {
       std::memcpy(buffer, decoded_buffer_.data() + current_offset_,
@@ -2451,7 +2448,8 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
       ParquetException::EofException(
           "ALP DecodeArrow: Not enough values available. "
-          "Available: " + std::to_string(this->num_values_) +
+          "Available: " +
+          std::to_string(this->num_values_) +
           ", Requested: " + std::to_string(values_to_decode));
     }
 
@@ -2459,15 +2457,14 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
-          this->num_values_, this->data_, this->len_,
-          decoded_buffer_.data()));
+          this->num_values_, this->data_, this->len_, decoded_buffer_.data()));
       needs_decode_ = false;
     }
 
     if (null_count == 0) {
       // Fast path: no nulls
-      PARQUET_THROW_NOT_OK(builder->AppendValues(
-          decoded_buffer_.data() + current_offset_, values_to_decode));
+      PARQUET_THROW_NOT_OK(builder->AppendValues(decoded_buffer_.data() + current_offset_,
+                                                 values_to_decode));
       current_offset_ += values_to_decode;
       this->num_values_ -= values_to_decode;
       return values_to_decode;
@@ -2476,7 +2473,8 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
       int value_idx = 0;
       for (int i = 0; i < num_values; ++i) {
         if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-          PARQUET_THROW_NOT_OK(builder->Append(decoded_buffer_[current_offset_ + value_idx]));
+          PARQUET_THROW_NOT_OK(
+              builder->Append(decoded_buffer_[current_offset_ + value_idx]));
           ++value_idx;
         } else {
           PARQUET_THROW_NOT_OK(builder->AppendNull());

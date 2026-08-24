@@ -5547,9 +5547,9 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
   }
 
   // Compare an Arrow table against expected float values bit-exactly.
-  void AssertTableMatchesCSVFloat(const std::shared_ptr<Table>& table,
-                                  const std::vector<std::string>& column_names,
-                                  const std::vector<std::vector<float>>& expected_columns) {
+  void AssertTableMatchesCSVFloat(
+      const std::shared_ptr<Table>& table, const std::vector<std::string>& column_names,
+      const std::vector<std::vector<float>>& expected_columns) {
     ASSERT_EQ(table->num_columns(), static_cast<int64_t>(column_names.size()));
     ASSERT_GT(expected_columns[0].size(), 0u);
     ASSERT_EQ(table->num_rows(), static_cast<int64_t>(expected_columns[0].size()));
@@ -5559,8 +5559,7 @@ class TestArrowReadAlpEncoding : public ::testing::Test {
       auto chunked = table->column(col);
       int64_t row = 0;
       for (int chunk = 0; chunk < chunked->num_chunks(); chunk++) {
-        auto array =
-            std::static_pointer_cast<::arrow::FloatArray>(chunked->chunk(chunk));
+        auto array = std::static_pointer_cast<::arrow::FloatArray>(chunked->chunk(chunk));
         for (int64_t i = 0; i < array->length(); i++, row++) {
           float actual = array->Value(i);
           float expected = expected_columns[col][row];
@@ -6359,14 +6358,16 @@ class ParquetAlpEncodingTest : public ::testing::Test {
 TEST_F(ParquetAlpEncodingTest, SimpleFloatTable) {
   auto schema = ::arrow::schema({::arrow::field("floats", ::arrow::float32())});
   auto table = ::arrow::TableFromJSON(
-      schema, {R"([[1.5], [2.5], [3.5], [4.5], [5.5], [6.5], [7.5], [8.5], [9.5], [10.5]])"});
+      schema,
+      {R"([[1.5], [2.5], [3.5], [4.5], [5.5], [6.5], [7.5], [8.5], [9.5], [10.5]])"});
   TestAlpRoundTrip(table);
 }
 
 TEST_F(ParquetAlpEncodingTest, SimpleDoubleTable) {
   auto schema = ::arrow::schema({::arrow::field("doubles", ::arrow::float64())});
   auto table = ::arrow::TableFromJSON(
-      schema, {R"([[1.123], [2.234], [3.345], [4.456], [5.567], [6.678], [7.789], [8.890], [9.901]])"});
+      schema,
+      {R"([[1.123], [2.234], [3.345], [4.456], [5.567], [6.678], [7.789], [8.890], [9.901]])"});
   TestAlpRoundTrip(table);
 }
 
@@ -6375,8 +6376,7 @@ TEST_F(ParquetAlpEncodingTest, MixedTypesWithFloatDouble) {
                                  ::arrow::field("value_f", ::arrow::float32()),
                                  ::arrow::field("value_d", ::arrow::float64()),
                                  ::arrow::field("name", ::arrow::utf8())});
-  auto table =
-      ::arrow::TableFromJSON(schema, {R"([[1, 1.5, 1.125, "a"],
+  auto table = ::arrow::TableFromJSON(schema, {R"([[1, 1.5, 1.125, "a"],
                                           [2, 2.5, 2.250, "b"],
                                           [3, 3.5, 3.375, "c"],
                                           [4, 4.5, 4.500, "d"],
@@ -6435,15 +6435,14 @@ TEST_F(ParquetAlpEncodingTest, SpecialFloatValues) {
   auto schema = ::arrow::schema({::arrow::field("specials", ::arrow::float64())});
 
   // TableFromJSON doesn't support Infinity/NaN literals, so we create the array manually
-  std::vector<double> values = {
-      1.0,
-      std::numeric_limits<double>::infinity(),
-      -std::numeric_limits<double>::infinity(),
-      std::numeric_limits<double>::quiet_NaN(),
-      0.0,
-      -0.0,
-      2.5,
-      3.5};
+  std::vector<double> values = {1.0,
+                                std::numeric_limits<double>::infinity(),
+                                -std::numeric_limits<double>::infinity(),
+                                std::numeric_limits<double>::quiet_NaN(),
+                                0.0,
+                                -0.0,
+                                2.5,
+                                3.5};
 
   std::shared_ptr<::arrow::Array> array;
   ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
@@ -6455,8 +6454,8 @@ TEST_F(ParquetAlpEncodingTest, SpecialFloatValues) {
 TEST_F(ParquetAlpEncodingTest, FloatWithNulls) {
   // Test with null values
   auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
-  auto table =
-      ::arrow::TableFromJSON(schema, {R"([[1.5], [null], [3.5], [null], [5.5], [6.5], [null], [8.5]])"});
+  auto table = ::arrow::TableFromJSON(
+      schema, {R"([[1.5], [null], [3.5], [null], [5.5], [6.5], [null], [8.5]])"});
 
   TestAlpRoundTrip(table);
 }
@@ -6469,10 +6468,8 @@ TEST_F(ParquetAlpEncodingTest, MultipleRowGroups) {
   auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
 
   // Write with small row group size to create multiple row groups
-  auto writer_props = WriterProperties::Builder()
-                          .disable_dictionary()
-                          ->encoding(Encoding::ALP)
-                          ->build();
+  auto writer_props =
+      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::ALP)->build();
 
   std::shared_ptr<Table> result;
   DoRoundtrip(table, /*row_group_size=*/1000, &result, writer_props);
@@ -6556,22 +6553,15 @@ TEST_F(ParquetAlpEncodingTest, DoubleAtEncodedIntegerBounds) {
   constexpr int64_t kIntMin = std::numeric_limits<int64_t>::lowest();
 
   std::vector<double> values = {
-      0.0,
-      1.0,
-      -1.0,
-      static_cast<double>(kIntMax),
-      static_cast<double>(kIntMin),
+      0.0, 1.0, -1.0, static_cast<double>(kIntMax), static_cast<double>(kIntMin),
       std::nextafter(static_cast<double>(kIntMax),
                      std::numeric_limits<double>::infinity()),
       std::nextafter(static_cast<double>(kIntMin),
                      -std::numeric_limits<double>::infinity()),
-      std::numeric_limits<double>::max(),
-      std::numeric_limits<double>::lowest(),
+      std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
       // A small decimal alongside them, so the vector still picks a scaling
       // exponent rather than degenerating to all-exceptions.
-      1.25,
-      2.5,
-      3.75};
+      1.25, 2.5, 3.75};
 
   std::shared_ptr<::arrow::Array> array;
   ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
@@ -6591,8 +6581,7 @@ TEST_F(ParquetAlpEncodingTest, FloatAtEncodedIntegerBounds) {
       -1.0f,
       static_cast<float>(kIntMax),
       static_cast<float>(kIntMin),
-      std::nextafter(static_cast<float>(kIntMax),
-                     std::numeric_limits<float>::infinity()),
+      std::nextafter(static_cast<float>(kIntMax), std::numeric_limits<float>::infinity()),
       std::nextafter(static_cast<float>(kIntMin),
                      -std::numeric_limits<float>::infinity()),
       std::numeric_limits<float>::max(),
@@ -6637,7 +6626,8 @@ TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
   auto chunked = result->column(0);
   int64_t seen = 0;
   for (const auto& chunk : chunked->chunks()) {
-    const auto& doubles = ::arrow::internal::checked_cast<const ::arrow::DoubleArray&>(*chunk);
+    const auto& doubles =
+        ::arrow::internal::checked_cast<const ::arrow::DoubleArray&>(*chunk);
     for (int64_t i = 0; i < doubles.length(); ++i) {
       ASSERT_FALSE(doubles.IsNull(i));
       ASSERT_TRUE(std::isnan(doubles.Value(i))) << "row " << seen;

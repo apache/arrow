@@ -33,13 +33,13 @@
 #include "arrow/array.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_codec.h"
+#include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
-#include "arrow/util/alp/alp.h"
-#include "arrow/util/alp/alp_constants.h"
-#include "arrow/util/alp/alp_codec.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
@@ -1045,12 +1045,11 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using ArrowType = typename EncodingTraits<DType>::ArrowType;
   using TypedEncoder<DType>::Put;
 
-  explicit AlpEncoder(const ColumnDescriptor* descr,
-                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-                      int32_t vector_size = ::arrow::util::alp::AlpConstants::kAlpVectorSize)
-      : EncoderImpl(descr, Encoding::ALP, pool),
-        sink_{pool},
-        vector_size_(vector_size) {
+  explicit AlpEncoder(
+      const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      int32_t vector_size = ::arrow::util::alp::AlpConstants::kAlpVectorSize)
+      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool}, vector_size_(vector_size) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
                   "ALP only supports float and double types");
     if (!::arrow::bit_util::IsPowerOf2(static_cast<int64_t>(vector_size_))) {
@@ -1062,10 +1061,9 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     constexpr int32_t kMaxVectorSize =
         1 << ::arrow::util::alp::AlpConstants::kMaxLogVectorSize;
     if (vector_size_ < kMinVectorSize || vector_size_ > kMaxVectorSize) {
-      throw ParquetException("ALP vector_size must be in [" +
-                             std::to_string(kMinVectorSize) + ", " +
-                             std::to_string(kMaxVectorSize) + "], got " +
-                             std::to_string(vector_size_));
+      throw ParquetException(
+          "ALP vector_size must be in [" + std::to_string(kMinVectorSize) + ", " +
+          std::to_string(kMaxVectorSize) + "], got " + std::to_string(vector_size_));
     }
   }
 
@@ -1080,21 +1078,16 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
     // Call AlpCodec::Encode() - it handles sampling, preset selection, and compression
     const int64_t num_elements = sink_.length() / static_cast<int64_t>(sizeof(T));
-    PARQUET_ASSIGN_OR_THROW(
-        int64_t comp_size,
-        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(num_elements,
-                                                              vector_size_));
+    PARQUET_ASSIGN_OR_THROW(int64_t comp_size,
+                            ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(
+                                num_elements, vector_size_));
 
-    PARQUET_ASSIGN_OR_THROW(
-        auto compressed_buffer,
-        ::arrow::AllocateResizableBuffer(comp_size, this->memory_pool()));
+    PARQUET_ASSIGN_OR_THROW(auto compressed_buffer, ::arrow::AllocateResizableBuffer(
+                                                        comp_size, this->memory_pool()));
 
     PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Encode(
-        reinterpret_cast<const T*>(sink_.data()),
-        num_elements,
-        vector_size_,
-        compressed_buffer->mutable_data(),
-        &comp_size));
+        reinterpret_cast<const T*>(sink_.data()), num_elements, vector_size_,
+        compressed_buffer->mutable_data(), &comp_size));
 
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(comp_size));
     sink_.Reset();
@@ -1104,9 +1097,8 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
   void Put(const T* buffer, int num_values) override {
     if (num_values > 0) {
-      PARQUET_THROW_NOT_OK(
-          sink_.Append(reinterpret_cast<const uint8_t*>(buffer),
-                       num_values * static_cast<int64_t>(sizeof(T))));
+      PARQUET_THROW_NOT_OK(sink_.Append(reinterpret_cast<const uint8_t*>(buffer),
+                                        num_values * static_cast<int64_t>(sizeof(T))));
     }
   }
 

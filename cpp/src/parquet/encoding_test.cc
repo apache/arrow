@@ -38,13 +38,13 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/alp/alp_codec.h"
+#include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/string.h"
-#include "arrow/util/alp/alp_codec.h"
-#include "arrow/util/alp/alp_constants.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -2874,9 +2874,9 @@ TYPED_TEST(TestAlpEncoding, RandomData) {
   ASSERT_EQ(decoded, arr->length());
 
   // Verify round-trip
-  auto typed_arr = std::static_pointer_cast<
-      typename std::conditional<std::is_same_v<c_type, float>,
-                                ::arrow::FloatArray, ::arrow::DoubleArray>::type>(arr);
+  auto typed_arr = std::static_pointer_cast<typename std::conditional<
+      std::is_same_v<c_type, float>, ::arrow::FloatArray, ::arrow::DoubleArray>::type>(
+      arr);
   ASSERT_THAT(output,
               ::testing::ElementsAreArray(typed_arr->raw_values(), arr->length()));
 }
@@ -2922,8 +2922,7 @@ TYPED_TEST(TestAlpEncoding, AllExceptions) {
 
   // Bit-exact: NaN != NaN under ==, so memcmp on the raw bytes is the
   // contract being verified.
-  ASSERT_EQ(
-      0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
+  ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
 }
 
 TYPED_TEST(TestAlpEncoding, SingleElement) {
@@ -2972,8 +2971,7 @@ TYPED_TEST(TestAlpEncoding, BoundaryValues) {
   ASSERT_EQ(decoded, static_cast<int>(data.size()));
 
   // Bit-exact comparison (handles -0.0 / NaN signatures correctly).
-  ASSERT_EQ(
-      0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
+  ASSERT_EQ(0, std::memcmp(data.data(), output.data(), data.size() * sizeof(c_type)));
 }
 
 TEST(AlpEncodingAdHoc, InvalidDataTypes) {
@@ -3010,22 +3008,18 @@ TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
           input[i] = static_cast<double>(i) * 0.123;
         }
 
-        ASSERT_OK_AND_ASSIGN(
-            int64_t max_comp,
-            ::arrow::util::alp::AlpCodec<double>::GetMaxCompressedSize(
-                static_cast<int64_t>(n), vs));
+        ASSERT_OK_AND_ASSIGN(int64_t max_comp,
+                             ::arrow::util::alp::AlpCodec<double>::GetMaxCompressedSize(
+                                 static_cast<int64_t>(n), vs));
         std::vector<uint8_t> comp(max_comp);
         int64_t comp_size = comp.size();
 
         ASSERT_OK(::arrow::util::alp::AlpCodec<double>::Encode(
-            input.data(), static_cast<int64_t>(n), vs,
-            comp.data(), &comp_size));
+            input.data(), static_cast<int64_t>(n), vs, comp.data(), &comp_size));
         ASSERT_GT(comp_size, 0u);
 
         auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP, descr.get());
-        decoder->SetData(static_cast<int>(n),
-                         comp.data(),
-                         static_cast<int>(comp_size));
+        decoder->SetData(static_cast<int>(n), comp.data(), static_cast<int>(comp_size));
 
         std::vector<double> output(n);
         int decoded = decoder->Decode(output.data(), static_cast<int>(n));
@@ -3050,22 +3044,18 @@ TEST(AlpEncodingAdHoc, NonDefaultVectorSizeRoundTrip) {
           input[i] = static_cast<float>(i) * 0.123f;
         }
 
-        ASSERT_OK_AND_ASSIGN(
-            int64_t max_comp,
-            ::arrow::util::alp::AlpCodec<float>::GetMaxCompressedSize(
-                static_cast<int64_t>(n), vs));
+        ASSERT_OK_AND_ASSIGN(int64_t max_comp,
+                             ::arrow::util::alp::AlpCodec<float>::GetMaxCompressedSize(
+                                 static_cast<int64_t>(n), vs));
         std::vector<uint8_t> comp(max_comp);
         int64_t comp_size = comp.size();
 
         ASSERT_OK(::arrow::util::alp::AlpCodec<float>::Encode(
-            input.data(), static_cast<int64_t>(n), vs,
-            comp.data(), &comp_size));
+            input.data(), static_cast<int64_t>(n), vs, comp.data(), &comp_size));
         ASSERT_GT(comp_size, 0u);
 
         auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP, descr.get());
-        decoder->SetData(static_cast<int>(n),
-                         comp.data(),
-                         static_cast<int>(comp_size));
+        decoder->SetData(static_cast<int>(n), comp.data(), static_cast<int>(comp_size));
 
         std::vector<float> output(n);
         int decoded = decoder->Decode(output.data(), static_cast<int>(n));
