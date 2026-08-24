@@ -1257,6 +1257,61 @@ TEST(TestBinaryViewCompareKernel, MixedTypes) {
   }
 }
 
+TEST(TestBinaryViewCompareKernel, MixedTypesNullPropagation) {
+  for (const auto& ty1 : {binary_view(), utf8_view()}) {
+    for (const auto& ty2 : {binary(), utf8(), large_binary(), large_utf8()}) {
+      auto arr1 = ArrayFromJSON(ty1, R"(["abc", null, "def", null])");
+      auto arr2 = ArrayFromJSON(ty2, R"(["abc", "xyz", null, null])");
+
+      CheckScalarBinary("equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([true, null, null, null])"));
+      CheckScalarBinary("not_equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([false, null, null, null])"));
+    }
+  }
+}
+
+TEST(TestBinaryViewCompareKernel, MixedTypesAllOperators) {
+  for (const auto& ty1 : {binary_view(), utf8_view()}) {
+    for (const auto& ty2 : {binary(), utf8(), large_binary(), large_utf8()}) {
+      auto arr1 = ArrayFromJSON(ty1, R"(["abc", "xyz", "def", null])");
+      auto arr2 = ArrayFromJSON(ty2, R"(["abc", "abc", "xyz", "xyz"])");
+
+      CheckScalarBinary("equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([true, false, false, null])"));
+      CheckScalarBinary("not_equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([false, true, true, null])"));
+      CheckScalarBinary("greater", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([false, true, false, null])"));
+      CheckScalarBinary("greater_equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([true, true, false, null])"));
+      CheckScalarBinary("less", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([false, false, true, null])"));
+      CheckScalarBinary("less_equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([true, false, true, null])"));
+    }
+  }
+}
+
+TEST(TestBinaryViewCompareKernel, MixedTypesBoundaryAndSlices) {
+  for (const auto& ty1 : {binary_view(), utf8_view()}) {
+    for (const auto& ty2 : {binary(), utf8(), large_binary(), large_utf8()}) {
+      // 12 bytes is the inline threshold
+      auto arr1 = ArrayFromJSON(ty1, R"(["inline", "longer_than_twelve_bytes_string", "suffix_diff_A", "suffix_diff_longer_A"])");
+      auto arr2 = ArrayFromJSON(ty2, R"(["inline", "longer_than_twelve_bytes_string", "suffix_diff_B", "suffix_diff_longer_B"])");
+
+      CheckScalarBinary("equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([true, true, false, false])"));
+
+      // Test slicing
+      auto sliced1 = arr1->Slice(1, 2);
+      auto sliced2 = arr2->Slice(1, 2);
+      CheckScalarBinary("equal", sliced1, sliced2,
+                        ArrayFromJSON(boolean(), R"([true, false])"));
+    }
+  }
+}
+
 
 template <typename T>
 class TestVarArgsCompare : public ::testing::Test {
