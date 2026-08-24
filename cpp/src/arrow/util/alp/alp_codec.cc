@@ -261,8 +261,8 @@ Status AlpCodec<T>::EncodeWithPreset(const T* input, int64_t num_elements,
   const int64_t remaining_output_size = *output_size - static_cast<int64_t>(AlpHeader::kSize);
 
   const CompressionProgress compression_progress =
-      EncodeAlp(input, num_elements, body, remaining_output_size,
-                preset.alp_parameters, vector_size);
+      EncodeAlp(input, num_elements, preset.alp_parameters, vector_size, body,
+                remaining_output_size);
 
   AlpHeader header{};
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
@@ -355,9 +355,8 @@ Result<int64_t> AlpCodec<T>::GetMaxCompressedSize(int64_t num_elements,
 
 template <typename T>
 typename AlpCodec<T>::CompressionProgress AlpCodec<T>::EncodeAlp(
-    const T* input, int64_t element_count, uint8_t* output,
-    int64_t output_size, const AlpEncodingParameters& preset,
-    int32_t vector_size) {
+    const T* input, int64_t element_count, const AlpEncodingParameters& preset,
+    int32_t vector_size, uint8_t* output, int64_t output_size) {
   // OFFSET-BASED LAYOUT
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
   // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
