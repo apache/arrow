@@ -447,19 +447,5 @@ inline Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
   return ConsumeJsonValue(value);
 }
 
-inline const char* JsonNumberTypeName(simdjson::ondemand::number_type type) {
-  switch (type) {
-    case simdjson::ondemand::number_type::signed_integer:
-      return "signed integer";
-    case simdjson::ondemand::number_type::unsigned_integer:
-      return "unsigned integer";
-    case simdjson::ondemand::number_type::floating_point_number:
-      return "floating-point number";
-    case simdjson::ondemand::number_type::big_integer:
-      return "big integer";
-  }
-  return "unknown";
-}
-
 }  // namespace internal
 }  // namespace arrow
