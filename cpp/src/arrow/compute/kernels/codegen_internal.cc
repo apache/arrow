@@ -356,9 +356,11 @@ TypeHolder CommonBinary(const TypeHolder* begin, size_t count) {
     // a common varbinary type is only possible if all types are binary like
     switch (id) {
       case Type::STRING:
+      case Type::STRING_VIEW:
         all_fixed_width = false;
         continue;
       case Type::BINARY:
+      case Type::BINARY_VIEW:
         all_fixed_width = false;
         all_utf8 = false;
         continue;

@@ -1245,6 +1245,19 @@ TEST(TestBinaryViewCompareKernel, ArrayScalar) {
   }
 }
 
+TEST(TestBinaryViewCompareKernel, MixedTypes) {
+  for (const auto& ty1 : {binary_view(), utf8_view()}) {
+    for (const auto& ty2 : {binary(), utf8(), large_binary(), large_utf8()}) {
+      auto arr1 = ArrayFromJSON(ty1, R"(["abc", "abcdefghijklmnop", null])");
+      auto arr2 = ArrayFromJSON(ty2, R"(["abc", "xyz", null])");
+
+      CheckScalarBinary("equal", arr1, arr2,
+                        ArrayFromJSON(boolean(), R"([true, false, null])"));
+    }
+  }
+}
+
+
 template <typename T>
 class TestVarArgsCompare : public ::testing::Test {
  protected:
