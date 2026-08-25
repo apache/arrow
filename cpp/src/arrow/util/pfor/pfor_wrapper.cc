@@ -155,8 +155,8 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
 // Decode
 
 template <typename T>
-Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp,
-                              int64_t comp_size) {
+Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,
+                              T* values) {
   if (num_values <= 0) {
     return Status::Invalid("PFOR num_values must be positive: ", num_values);
   }

@@ -288,7 +288,7 @@ TEST(PforWrapperTest, Int32SmallPage) {
 
   std::vector<int32_t> decoded(5);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), 5, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 5, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -305,7 +305,7 @@ TEST(PforWrapperTest, Int32ExactOneVector) {
 
   std::vector<int32_t> decoded(1024);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1024, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -326,7 +326,7 @@ TEST(PforWrapperTest, Int32MultipleVectors) {
 
   std::vector<int32_t> decoded(n);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -347,7 +347,7 @@ TEST(PforWrapperTest, Int32WithOutliers) {
 
   std::vector<int32_t> decoded(1024);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1024, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -370,7 +370,7 @@ TEST(PforWrapperTest, Int64MultipleVectors) {
 
   std::vector<int64_t> decoded(n);
   ASSERT_OK(
-      PforWrapper<int64_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+      PforWrapper<int64_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -386,7 +386,7 @@ TEST(PforWrapperTest, Int32SingleElement) {
 
   std::vector<int32_t> decoded(1);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), 1, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -405,7 +405,7 @@ TEST(PforWrapperTest, Int32AllZeros) {
 
   std::vector<int32_t> decoded(1024);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, 1024, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -426,7 +426,7 @@ TEST(PforWrapperTest, Int32LargeRandom) {
 
   std::vector<int32_t> decoded(n);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
 
   EXPECT_EQ(values, decoded);
 }
@@ -453,7 +453,7 @@ TEST(PforWrapperTest, Int32ZeroMinWithExceptions) {
 
   std::vector<int32_t> decoded(n);
   ASSERT_OK(
-      PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+      PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
   EXPECT_EQ(values, decoded);
 }
 
@@ -512,9 +512,9 @@ TEST(PforCorruptPageTest, BufferTooSmallForHeader) {
   auto compressed = EncodeInt32(values);
 
   std::vector<int32_t> decoded(values.size());
-  ASSERT_RAISES(Invalid,
-                PforWrapper<int32_t>::Decode(decoded.data(), 5, compressed.data(),
-                                             PforConstants::kHeaderSize - 1));
+  ASSERT_RAISES(
+      Invalid, PforWrapper<int32_t>::Decode(
+                   compressed.data(), PforConstants::kHeaderSize - 1, 5, decoded.data()));
 }
 
 TEST(PforCorruptPageTest, ElementCountExceedsOutputCapacity) {
@@ -526,7 +526,7 @@ TEST(PforCorruptPageTest, ElementCountExceedsOutputCapacity) {
 
   std::vector<int32_t> decoded(values.size());
   ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             decoded.data(), 5, compressed.data(), compressed.size()));
+                             compressed.data(), compressed.size(), 5, decoded.data()));
 }
 
 TEST(PforCorruptPageTest, OffsetArrayTruncated) {
@@ -537,9 +537,9 @@ TEST(PforCorruptPageTest, OffsetArrayTruncated) {
   auto compressed = EncodeInt32(values);
 
   std::vector<int32_t> decoded(values.size());
-  ASSERT_RAISES(Invalid,
-                PforWrapper<int32_t>::Decode(decoded.data(), 4096, compressed.data(),
-                                             PforConstants::kHeaderSize + 8));
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(compressed.data(),
+                                                      PforConstants::kHeaderSize + 8,
+                                                      4096, decoded.data()));
 }
 
 TEST(PforCorruptPageTest, VectorOffsetPastEndOfBuffer) {
@@ -553,7 +553,7 @@ TEST(PforCorruptPageTest, VectorOffsetPastEndOfBuffer) {
 
   std::vector<int32_t> decoded(values.size());
   ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
-                             decoded.data(), 2048, compressed.data(), compressed.size()));
+                             compressed.data(), compressed.size(), 2048, decoded.data()));
 }
 
 }  // namespace arrow::util::pfor

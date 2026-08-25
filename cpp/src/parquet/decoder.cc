@@ -2404,8 +2404,7 @@ class PforDecoder : public TypedDecoderImpl<DType> {
     if (decoded_values_.empty() && this->num_values_ > 0) {
       decoded_values_.resize(this->num_values_);
       PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Decode(
-          decoded_values_.data(), static_cast<uint32_t>(this->num_values_), data_,
-          static_cast<size_t>(data_len_)));
+          data_, data_len_, this->num_values_, decoded_values_.data()));
     }
 
     std::memcpy(buffer, decoded_values_.data() + values_decoded_,

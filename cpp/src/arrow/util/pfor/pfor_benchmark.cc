@@ -38,6 +38,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/util/logging.h"
 #include "arrow/util/pfor/pfor.h"
 #include "arrow/util/pfor/pfor_wrapper.h"
 
@@ -193,7 +194,8 @@ void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
   std::vector<T> decoded(num_values);
 
   for (auto _ : state) {
-    PforWrapper<T>::Decode(decoded.data(), num_values, compressed.data(), comp_size);
+    ARROW_CHECK_OK(
+        PforWrapper<T>::Decode(compressed.data(), comp_size, num_values, decoded.data()));
     benchmark::ClobberMemory();
   }
 

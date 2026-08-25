@@ -522,7 +522,7 @@ static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
   std::vector<T> decoded(num_values);
   for (auto _ : state) {
     auto status = ::arrow::util::pfor::PforWrapper<T>::Decode(
-        decoded.data(), static_cast<int32_t>(num_values), compressed.data(), comp_size);
+        compressed.data(), comp_size, static_cast<int32_t>(num_values), decoded.data());
     ARROW_CHECK_OK(status);
     benchmark::ClobberMemory();
   }

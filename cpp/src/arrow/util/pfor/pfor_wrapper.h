@@ -59,13 +59,13 @@ class PforWrapper {
 
   /// \brief Decode a PFOR-compressed page
   ///
-  /// \param[out] values pointer to output buffer
-  /// \param[in] num_values number of values to decode (from page context)
   /// \param[in] comp pointer to compressed data
   /// \param[in] comp_size size of compressed data
+  /// \param[in] num_values number of values to decode (from page context)
+  /// \param[out] values pointer to output buffer, sized for num_values
   /// \return Status::OK on success, or an error if the data is malformed
-  static Status Decode(T* values, int32_t num_values, const uint8_t* comp,
-                       int64_t comp_size);
+  static Status Decode(const uint8_t* comp, int64_t comp_size, int32_t num_values,
+                       T* values);
 
   /// \brief Get the maximum compressed size for a given number of values
   ///
