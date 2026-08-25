@@ -91,7 +91,8 @@ void GetColumn(const BlockParser& parser, int32_t col_index,
                std::vector<std::string>* out, std::vector<bool>* out_quoted = nullptr) {
   std::vector<std::string> values;
   std::vector<bool> quoted_values;
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
+                   bool missing) -> Status {
     values.push_back(std::string(reinterpret_cast<const char*>(data), size));
     if (out_quoted) {
       quoted_values.push_back(quoted);
@@ -109,7 +110,8 @@ void GetLastRow(const BlockParser& parser, std::vector<std::string>* out,
                 std::vector<bool>* out_quoted = nullptr) {
   std::vector<std::string> values;
   std::vector<bool> quoted_values;
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
+                   bool missing) -> Status {
     values.push_back(std::string(reinterpret_cast<const char*>(data), size));
     if (out_quoted) {
       quoted_values.push_back(quoted);
@@ -910,10 +912,12 @@ TEST(BlockParser, RowNumberAppendedToError) {
     BlockParser parser(options, -1, 0);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
     int row = 0;
-    auto status = parser.VisitColumn(
-        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
-          return ++row == 2 ? Status::Invalid("Bad value") : Status::OK();
-        });
+    auto status = parser.VisitColumn(0,
+                                     [row](const uint8_t* data, uint32_t size,
+                                           bool quoted, bool missing) mutable -> Status {
+                                       return ++row == 2 ? Status::Invalid("Bad value")
+                                                         : Status::OK();
+                                     });
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #1: Bad value"),
                                     status);
   }
@@ -922,10 +926,12 @@ TEST(BlockParser, RowNumberAppendedToError) {
     BlockParser parser(options, -1, 100);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
     int row = 0;
-    auto status = parser.VisitColumn(
-        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
-          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
-        });
+    auto status = parser.VisitColumn(0,
+                                     [row](const uint8_t* data, uint32_t size,
+                                           bool quoted, bool missing) mutable -> Status {
+                                       return ++row == 3 ? Status::Invalid("Bad value")
+                                                         : Status::OK();
+                                     });
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #102: Bad value"),
                                     status);
   }
@@ -935,10 +941,12 @@ TEST(BlockParser, RowNumberAppendedToError) {
     BlockParser parser(options, -1, -1);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
     int row = 0;
-    auto status = parser.VisitColumn(
-        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
-          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
-        });
+    auto status = parser.VisitColumn(0,
+                                     [row](const uint8_t* data, uint32_t size,
+                                           bool quoted, bool missing) mutable -> Status {
+                                       return ++row == 3 ? Status::Invalid("Bad value")
+                                                         : Status::OK();
+                                     });
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::Not(testing::HasSubstr("Row")),
                                     status);
   }
@@ -952,10 +960,12 @@ TEST(BlockParser, RowNumberAppendedToError) {
     BlockParser parser(opts, /*num_cols=*/2, /*first_row=*/1);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\nf,g\nh\ni\nj,k\nl\n"));
     int row = 0;
-    auto status = parser.VisitColumn(
-        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
-          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
-        });
+    auto status = parser.VisitColumn(0,
+                                     [row](const uint8_t* data, uint32_t size,
+                                           bool quoted, bool missing) mutable -> Status {
+                                       return ++row == 3 ? Status::Invalid("Bad value")
+                                                         : Status::OK();
+                                     });
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #6: Bad value"),
                                     status);

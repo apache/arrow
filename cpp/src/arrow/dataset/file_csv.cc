@@ -188,8 +188,8 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
     return column_names;
   }
 
-  RETURN_NOT_OK(
-      parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+  RETURN_NOT_OK(parser.VisitLastRow(
+      [&](const uint8_t* data, uint32_t size, bool quoted, bool missing) -> Status {
         std::string_view view{reinterpret_cast<const char*>(data), size};
         column_names.emplace_back(view);
         return Status::OK();

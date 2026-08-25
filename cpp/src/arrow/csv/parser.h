@@ -20,10 +20,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string_view>
-#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -92,8 +91,7 @@ class ARROW_EXPORT DataBatch {
         if (row_has_missing_fields) {
           ++missing_index;
         }
-        Status status = InvokeVisitor(std::forward<Visitor>(visit), parsed_ + start,
-                                      stop - start, quoted, missing);
+        Status status = visit(parsed_ + start, stop - start, quoted, missing);
         if (ARROW_PREDICT_FALSE(!status.ok())) {
           return DecorateWithRowNumber(std::move(status), first_row, batch_row);
         }
@@ -119,24 +117,12 @@ class ARROW_EXPORT DataBatch {
       auto quoted = values[start_pos + col_index + 1].quoted;
       const bool missing = last_row_has_missing_fields &&
                            col_index >= missing_fields_.back().first_missing_column;
-      ARROW_RETURN_NOT_OK(InvokeVisitor(std::forward<Visitor>(visit), parsed_ + start,
-                                        stop - start, quoted, missing));
+      ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted, missing));
     }
     return Status::OK();
   }
 
  protected:
-  template <typename Visitor>
-  static Status InvokeVisitor(Visitor&& visit, const uint8_t* data, uint32_t size,
-                              bool quoted, bool missing) {
-    if constexpr (std::is_invocable_r_v<Status, Visitor&&, const uint8_t*, uint32_t, bool,
-                                        bool>) {
-      return std::invoke(visit, data, size, quoted, missing);
-    } else {
-      return std::invoke(visit, data, size, quoted);
-    }
-  }
-
   Status DecorateWithRowNumber(Status&& status, int64_t first_row,
                                int32_t batch_row) const {
     if (first_row >= 0) {
@@ -241,7 +227,6 @@ class ARROW_EXPORT BlockParser {
   /// \brief Visit parsed values in a column
   ///
   /// The signature of the visitor is
-  /// Status(const uint8_t* data, uint32_t size, bool quoted) or
   /// Status(const uint8_t* data, uint32_t size, bool quoted, bool missing)
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
