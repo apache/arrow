@@ -29,6 +29,7 @@ RUN apk add \
         R-dev \
         R-doc \
         bash \
+        ccache \
         checkbashisms \
         cmake \
         curl-dev \
@@ -40,6 +41,7 @@ RUN apk add \
         musl-locales \
         openssl-dev \
         pkgconfig \
+        sccache \
         zlib-dev && \
     rm -rf /var/cache/apk/* && \
     ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
