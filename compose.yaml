@@ -293,7 +293,7 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       # WORKAROUND: Remove after S3 is moved out of libarrow (GH-50194)
-      CXXFLAGS: "-fvisibility-inlines-hidden"
+      ARROW_CMAKE_ARGS: "-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON"
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
       ARROW_BUILD_OPENMP_BENCHMARKS: "ON"
@@ -330,7 +330,7 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       # WORKAROUND: Remove after S3 is moved out of libarrow (GH-50194)
-      CXXFLAGS: "-fvisibility-inlines-hidden"
+      ARROW_CMAKE_ARGS: "-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON"
       # Shrink test runtime by enabling minimal optimizations
       ARROW_C_FLAGS_DEBUG: "-g1 -Og"
       ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
