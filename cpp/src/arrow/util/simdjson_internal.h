@@ -151,7 +151,7 @@ inline Result<std::optional<simdjson::dom::element>> GetOptionalJsonField(
       auto value,
       ResolveSimdjsonResult(std::move(field), "Failed to get JSON object field"));
 
-  return std::optional<simdjson::dom::element>(value);
+  return std::optional<simdjson::dom::element>(std::move(value));
 }
 
 inline Result<std::vector<int64_t>> GetJsonIntArray(simdjson::dom::element value,
