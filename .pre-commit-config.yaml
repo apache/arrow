@@ -155,6 +155,8 @@ repos:
           - "--no-pycodestyle"
         files: >-
           ^python/
+        additional_dependencies:
+        - Cython==3.2.9
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.8
     hooks:
