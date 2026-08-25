@@ -292,6 +292,8 @@ services:
     ulimits: *ulimits
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
+      # WORKAROUND: Remove after S3 is moved out of libarrow (GH-50194)
+      CXXFLAGS: "-fvisibility-inlines-hidden"
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
       ARROW_BUILD_OPENMP_BENCHMARKS: "ON"
@@ -327,6 +329,8 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
+      # WORKAROUND: Remove after S3 is moved out of libarrow (GH-50194)
+      CXXFLAGS: "-fvisibility-inlines-hidden"
       # Shrink test runtime by enabling minimal optimizations
       ARROW_C_FLAGS_DEBUG: "-g1 -Og"
       ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
