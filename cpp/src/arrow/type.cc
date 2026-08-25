@@ -1336,6 +1336,7 @@ std::unordered_multimap<std::string_view, int> CreateNameToIndexMap(
   name_to_index.reserve(fields.size());
   for (size_t i = 0; i < fields.size(); ++i) {
     const std::string_view name = fields[i]->name();
+    // The find() hint avoids libc++'s quadratic scan of equal keys on plain emplace.
     name_to_index.emplace_hint(name_to_index.find(name), name, static_cast<int>(i));
   }
   return name_to_index;
