@@ -50,12 +50,13 @@ class PforWrapper {
   ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
   /// \param[out] comp pointer to output buffer (caller must ensure sufficient size)
   /// \param[in,out] comp_size input: available buffer size; output: bytes written
-  static void Encode(const T* values, int32_t num_values, int32_t vector_size,
-                     uint8_t* comp, int64_t* comp_size);
+  /// \return Status::OK on success, or an error if the arguments are invalid
+  static Status Encode(const T* values, int32_t num_values, int32_t vector_size,
+                       uint8_t* comp, int64_t* comp_size);
 
   /// Convenience overload with default vector_size = kPforVectorSize
-  static void Encode(const T* values, int32_t num_values, uint8_t* comp,
-                     int64_t* comp_size);
+  static Status Encode(const T* values, int32_t num_values, uint8_t* comp,
+                       int64_t* comp_size);
 
   /// \brief Decode a PFOR-compressed page
   ///

@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/pfor/pfor.h"
 #include "arrow/util/pfor/pfor_wrapper.h"
 
@@ -283,7 +284,8 @@ TEST(PforWrapperTest, Int32SmallPage) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), 5, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), 5, compressed.data(), &comp_size));
   EXPECT_GT(comp_size, 0);
 
   std::vector<int32_t> decoded(5);
@@ -301,7 +303,8 @@ TEST(PforWrapperTest, Int32ExactOneVector) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
 
   std::vector<int32_t> decoded(1024);
   ASSERT_OK(
@@ -322,7 +325,8 @@ TEST(PforWrapperTest, Int32MultipleVectors) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size));
 
   std::vector<int32_t> decoded(n);
   ASSERT_OK(
@@ -343,7 +347,8 @@ TEST(PforWrapperTest, Int32WithOutliers) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
 
   std::vector<int32_t> decoded(1024);
   ASSERT_OK(
@@ -366,7 +371,8 @@ TEST(PforWrapperTest, Int64MultipleVectors) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int64_t>::Encode(values.data(), n, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int64_t>::Encode(values.data(), n, compressed.data(), &comp_size));
 
   std::vector<int64_t> decoded(n);
   ASSERT_OK(
@@ -382,7 +388,8 @@ TEST(PforWrapperTest, Int32SingleElement) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), 1, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), 1, compressed.data(), &comp_size));
 
   std::vector<int32_t> decoded(1);
   ASSERT_OK(
@@ -398,7 +405,8 @@ TEST(PforWrapperTest, Int32AllZeros) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
 
   // Should compress very well (bit_width = 0)
   EXPECT_LT(comp_size, 100);
@@ -422,7 +430,8 @@ TEST(PforWrapperTest, Int32LargeRandom) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size));
 
   std::vector<int32_t> decoded(n);
   ASSERT_OK(
@@ -449,12 +458,40 @@ TEST(PforWrapperTest, Int32ZeroMinWithExceptions) {
   int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(n);
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
-  PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size));
 
   std::vector<int32_t> decoded(n);
   ASSERT_OK(
       PforWrapper<int32_t>::Decode(compressed.data(), comp_size, n, decoded.data()));
   EXPECT_EQ(values, decoded);
+}
+
+// ======================================================================
+// Encode Argument Validation
+
+TEST(PforWrapperTest, EncodeRejectsEmptyInput) {
+  std::vector<int32_t> values = {1, 2, 3};
+  std::vector<uint8_t> compressed(64);
+  int64_t comp_size = 64;
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 0, compressed.data(),
+                                                      &comp_size));
+}
+
+TEST(PforWrapperTest, EncodeRejectsUnrepresentableVectorSize) {
+  std::vector<int32_t> values = {1, 2, 3};
+  std::vector<uint8_t> compressed(64);
+
+  // Not a power of two.
+  int64_t comp_size = 64;
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 3, 1000,
+                                                      compressed.data(), &comp_size));
+
+  // A power of two, but the header's log_vector_size field cannot describe it.
+  comp_size = 64;
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 3,
+                                                      PforConstants::kMaxVectorSize * 2,
+                                                      compressed.data(), &comp_size));
 }
 
 // ======================================================================
@@ -472,7 +509,8 @@ TEST(PforCompressionRatioTest, ClusteredDataCompresses) {
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
-  PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size);
+  ASSERT_OK(
+      PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size));
 
   // PLAIN would be 4096 bytes. PFOR should be much smaller.
   size_t plain_size = 1024 * sizeof(int32_t);
@@ -493,8 +531,8 @@ std::vector<uint8_t> EncodeInt32(const std::vector<int32_t>& values) {
   int64_t comp_size =
       PforWrapper<int32_t>::GetMaxCompressedSize(static_cast<int32_t>(values.size()));
   std::vector<uint8_t> compressed(comp_size);
-  PforWrapper<int32_t>::Encode(values.data(), static_cast<int32_t>(values.size()),
-                               compressed.data(), &comp_size);
+  ARROW_CHECK_OK(PforWrapper<int32_t>::Encode(
+      values.data(), static_cast<int32_t>(values.size()), compressed.data(), &comp_size));
   compressed.resize(comp_size);
   return compressed;
 }

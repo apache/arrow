@@ -89,12 +89,29 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
 // Encode
 
 template <typename T>
-void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
-                            uint8_t* comp, int64_t* comp_size) {
-  ARROW_DCHECK(num_values > 0);
-  ARROW_DCHECK(comp != nullptr);
-  ARROW_DCHECK(comp_size != nullptr);
-  ARROW_DCHECK(std::has_single_bit(static_cast<uint32_t>(vector_size)));
+Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_size,
+                              uint8_t* comp, int64_t* comp_size) {
+  if (num_values <= 0) {
+    return Status::Invalid("PFOR num_values must be positive: ", num_values);
+  }
+  if (values == nullptr) {
+    return Status::Invalid("PFOR input pointer is null");
+  }
+  if (comp == nullptr) {
+    return Status::Invalid("PFOR output pointer is null");
+  }
+  if (comp_size == nullptr) {
+    return Status::Invalid("PFOR output size pointer is null");
+  }
+  // A vector size the header cannot describe would encode a page that Decode
+  // then rejects, so refuse it here instead.
+  if (!std::has_single_bit(static_cast<uint32_t>(vector_size)) ||
+      vector_size < (1 << PforConstants::kMinLogVectorSize) ||
+      vector_size > PforConstants::kMaxVectorSize) {
+    return Status::Invalid("PFOR vector_size must be a power of two in [",
+                           1 << PforConstants::kMinLogVectorSize, ", ",
+                           PforConstants::kMaxVectorSize, "]: ", vector_size);
+  }
 
   const int32_t num_vectors =
       static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
@@ -143,12 +160,13 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
   }
 
   *comp_size = static_cast<int64_t>(write_ptr - dest);
+  return Status::OK();
 }
 
 template <typename T>
-void PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
-                            int64_t* comp_size) {
-  Encode(values, num_values, kVectorSize, comp, comp_size);
+Status PforWrapper<T>::Encode(const T* values, int32_t num_values, uint8_t* comp,
+                              int64_t* comp_size) {
+  return Encode(values, num_values, kVectorSize, comp, comp_size);
 }
 
 // ----------------------------------------------------------------------

@@ -483,13 +483,13 @@ static void PforEncodeImpl(benchmark::State& state, GenT<T> gen) {
 
   // Compute comp_size once for the counter
   int64_t comp_size = max_size;
-  ::arrow::util::pfor::PforWrapper<T>::Encode(
-      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size);
+  ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size));
 
   for (auto _ : state) {
     int64_t sz = max_size;
-    ::arrow::util::pfor::PforWrapper<T>::Encode(
-        values.data(), static_cast<int32_t>(num_values), compressed.data(), &sz);
+    ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
+        values.data(), static_cast<int32_t>(num_values), compressed.data(), &sz));
     benchmark::DoNotOptimize(sz);
     benchmark::ClobberMemory();
   }
@@ -516,8 +516,8 @@ static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
       static_cast<int32_t>(num_values));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
-  ::arrow::util::pfor::PforWrapper<T>::Encode(
-      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size);
+  ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
+      values.data(), static_cast<int32_t>(num_values), compressed.data(), &comp_size));
 
   std::vector<T> decoded(num_values);
   for (auto _ : state) {

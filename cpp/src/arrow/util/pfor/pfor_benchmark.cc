@@ -164,7 +164,8 @@ void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
 
   for (auto _ : state) {
     int64_t comp_size = max_size;
-    PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size);
+    ARROW_CHECK_OK(
+        PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
     benchmark::DoNotOptimize(comp_size);
     benchmark::ClobberMemory();
   }
@@ -175,7 +176,8 @@ void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
 
   // Report compression ratio
   int64_t comp_size = max_size;
-  PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size);
+  ARROW_CHECK_OK(
+      PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
   state.counters["CompRatio%"] =
       benchmark::Counter(100.0 * static_cast<double>(comp_size) /
                          static_cast<double>(num_values * sizeof(T)));
@@ -189,7 +191,8 @@ void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
   int64_t max_size = PforWrapper<T>::GetMaxCompressedSize(num_values);
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
-  PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size);
+  ARROW_CHECK_OK(
+      PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size));
 
   std::vector<T> decoded(num_values);
 

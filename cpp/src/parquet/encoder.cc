@@ -1795,8 +1795,8 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
                             ::arrow::AllocateResizableBuffer(max_size, pool_));
 
     int64_t comp_size = max_size;
-    ::arrow::util::pfor::PforWrapper<T>::Encode(values_.data(), num_values,
-                                                buffer->mutable_data(), &comp_size);
+    PARQUET_THROW_NOT_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
+        values_.data(), num_values, buffer->mutable_data(), &comp_size));
 
     PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
     values_.clear();
