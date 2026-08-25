@@ -264,6 +264,32 @@ TEST(BlockParser, Basics) {
   }
 }
 
+TEST(BlockParser, PadShortRows) {
+  auto options = ParseOptions::Defaults();
+  options.pad_short_rows = true;
+
+  BlockParser parser(options, /*num_cols=*/3);
+  AssertParseOk(parser, "1,2\n3,4,5\n");
+  AssertColumnsEq(parser, {{"1", "3"}, {"2", "4"}, {"", "5"}});
+  std::vector<bool> missing;
+  ASSERT_OK(parser.VisitColumn(
+      2, [&](const uint8_t*, uint32_t, bool, bool is_missing) -> Status {
+        missing.push_back(is_missing);
+        return Status::OK();
+      }));
+  ASSERT_EQ(missing, std::vector<bool>({true, false}));
+
+  BlockParser last_row_parser(options, /*num_cols=*/3);
+  AssertParseOk(last_row_parser, "1,2\n");
+  std::vector<bool> last_row_missing;
+  ASSERT_OK(last_row_parser.VisitLastRow(
+      [&](const uint8_t*, uint32_t, bool, bool is_missing) -> Status {
+        last_row_missing.push_back(is_missing);
+        return Status::OK();
+      }));
+  ASSERT_EQ(last_row_missing, std::vector<bool>({false, false, true}));
+}
+
 TEST(BlockParser, EmptyHeader) {
   // Cannot infer number of columns
   uint32_t out_size;

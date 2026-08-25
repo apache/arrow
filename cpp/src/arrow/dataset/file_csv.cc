@@ -367,7 +367,8 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
          parse_options.escaping == other_parse_options.escaping &&
          parse_options.escape_char == other_parse_options.escape_char &&
          parse_options.newlines_in_values == other_parse_options.newlines_in_values &&
-         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines;
+         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines &&
+         parse_options.pad_short_rows == other_parse_options.pad_short_rows;
 }
 
 Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {
