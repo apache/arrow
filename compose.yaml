@@ -292,8 +292,6 @@ services:
     ulimits: *ulimits
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
-      # WORKAROUND: Remove after S3 is moved out of libarrow (GH-50194)
-      ARROW_CMAKE_ARGS: "-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON"
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
       ARROW_BUILD_OPENMP_BENCHMARKS: "ON"
@@ -304,8 +302,10 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
+    # WORKAROUND: Revert export after S3 is moved out of libarrow (GH-50194)
     command: &conda-cpp-command
       ["
+        export ARROW_CMAKE_ARGS=-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
@@ -329,8 +329,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
-      # WORKAROUND: Remove after S3 is moved out of libarrow (GH-50194)
-      ARROW_CMAKE_ARGS: "-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON"
       # Shrink test runtime by enabling minimal optimizations
       ARROW_C_FLAGS_DEBUG: "-g1 -Og"
       ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
