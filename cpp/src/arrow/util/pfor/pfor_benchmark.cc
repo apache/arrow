@@ -154,8 +154,7 @@ std::vector<T> GenTpcdsQuantity(int64_t n) {
 // Benchmark Core
 
 template <typename T>
-void BM_PforEncodeImpl(benchmark::State& state,
-                       std::vector<T> (*generator)(int64_t)) {
+void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int64_t)) {
   const int64_t num_values = state.range(0);
   auto values = generator(num_values);
 
@@ -164,8 +163,7 @@ void BM_PforEncodeImpl(benchmark::State& state,
 
   for (auto _ : state) {
     int64_t comp_size = max_size;
-    PforWrapper<T>::Encode(values.data(), num_values,
-                           compressed.data(), &comp_size);
+    PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size);
     benchmark::DoNotOptimize(comp_size);
     benchmark::ClobberMemory();
   }
@@ -177,14 +175,13 @@ void BM_PforEncodeImpl(benchmark::State& state,
   // Report compression ratio
   int64_t comp_size = max_size;
   PforWrapper<T>::Encode(values.data(), num_values, compressed.data(), &comp_size);
-  state.counters["CompRatio%"] = benchmark::Counter(
-      100.0 * static_cast<double>(comp_size) /
-      static_cast<double>(num_values * sizeof(T)));
+  state.counters["CompRatio%"] =
+      benchmark::Counter(100.0 * static_cast<double>(comp_size) /
+                         static_cast<double>(num_values * sizeof(T)));
 }
 
 template <typename T>
-void BM_PforDecodeImpl(benchmark::State& state,
-                       std::vector<T> (*generator)(int64_t)) {
+void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int64_t)) {
   const int64_t num_values = state.range(0);
   auto values = generator(num_values);
 
@@ -196,8 +193,7 @@ void BM_PforDecodeImpl(benchmark::State& state,
   std::vector<T> decoded(num_values);
 
   for (auto _ : state) {
-    PforWrapper<T>::Decode(decoded.data(), num_values,
-                           compressed.data(), comp_size);
+    PforWrapper<T>::Decode(decoded.data(), num_values, compressed.data(), comp_size);
     benchmark::ClobberMemory();
   }
 
@@ -234,93 +230,75 @@ static void CustomArgs(benchmark::internal::Benchmark* b) {
 // ======================================================================
 // INT32 Encode
 
-BENCHMARK_CAPTURE(BM_PforEncodeInt32, Constant, &GenConstant<int32_t>)
-    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32, Constant, &GenConstant<int32_t>)->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, Sequential, &GenSequential<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, SmallRange, &GenSmallRange<int32_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt32, HighBaseSmallRange,
-                  &GenHighBaseSmallRange<int32_t>)
+BENCHMARK_CAPTURE(BM_PforEncodeInt32, HighBaseSmallRange, &GenHighBaseSmallRange<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, WithOutliers, &GenWithOutliers<int32_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt32, Random, &GenRandom<int32_t>)
-    ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt32, TpcdsSoldDateSk,
-                  &GenTpcdsSoldDateSk<int32_t>)
+BENCHMARK_CAPTURE(BM_PforEncodeInt32, Random, &GenRandom<int32_t>)->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt32, TpcdsSoldDateSk, &GenTpcdsSoldDateSk<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, TpcdsStoreSk, &GenTpcdsStoreSk<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt32, TpcdsItemSk, &GenTpcdsItemSk<int32_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt32, TpcdsQuantity,
-                  &GenTpcdsQuantity<int32_t>)
+BENCHMARK_CAPTURE(BM_PforEncodeInt32, TpcdsQuantity, &GenTpcdsQuantity<int32_t>)
     ->Apply(CustomArgs);
 
 // INT32 Decode
 
-BENCHMARK_CAPTURE(BM_PforDecodeInt32, Constant, &GenConstant<int32_t>)
-    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32, Constant, &GenConstant<int32_t>)->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, Sequential, &GenSequential<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, SmallRange, &GenSmallRange<int32_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt32, HighBaseSmallRange,
-                  &GenHighBaseSmallRange<int32_t>)
+BENCHMARK_CAPTURE(BM_PforDecodeInt32, HighBaseSmallRange, &GenHighBaseSmallRange<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, WithOutliers, &GenWithOutliers<int32_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt32, Random, &GenRandom<int32_t>)
-    ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsSoldDateSk,
-                  &GenTpcdsSoldDateSk<int32_t>)
+BENCHMARK_CAPTURE(BM_PforDecodeInt32, Random, &GenRandom<int32_t>)->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsSoldDateSk, &GenTpcdsSoldDateSk<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsStoreSk, &GenTpcdsStoreSk<int32_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsItemSk, &GenTpcdsItemSk<int32_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsQuantity,
-                  &GenTpcdsQuantity<int32_t>)
+BENCHMARK_CAPTURE(BM_PforDecodeInt32, TpcdsQuantity, &GenTpcdsQuantity<int32_t>)
     ->Apply(CustomArgs);
 
 // ======================================================================
 // INT64 Encode
 
-BENCHMARK_CAPTURE(BM_PforEncodeInt64, Constant, &GenConstant<int64_t>)
-    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt64, Constant, &GenConstant<int64_t>)->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt64, Sequential, &GenSequential<int64_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt64, SmallRange, &GenSmallRange<int64_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt64, HighBaseSmallRange,
-                  &GenHighBaseSmallRange<int64_t>)
+BENCHMARK_CAPTURE(BM_PforEncodeInt64, HighBaseSmallRange, &GenHighBaseSmallRange<int64_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforEncodeInt64, WithOutliers, &GenWithOutliers<int64_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt64, Random, &GenRandom<int64_t>)
-    ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforEncodeInt64, TpcdsSoldDateSk,
-                  &GenTpcdsSoldDateSk<int64_t>)
+BENCHMARK_CAPTURE(BM_PforEncodeInt64, Random, &GenRandom<int64_t>)->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforEncodeInt64, TpcdsSoldDateSk, &GenTpcdsSoldDateSk<int64_t>)
     ->Apply(CustomArgs);
 
 // INT64 Decode
 
-BENCHMARK_CAPTURE(BM_PforDecodeInt64, Constant, &GenConstant<int64_t>)
-    ->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt64, Constant, &GenConstant<int64_t>)->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt64, Sequential, &GenSequential<int64_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt64, SmallRange, &GenSmallRange<int64_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt64, HighBaseSmallRange,
-                  &GenHighBaseSmallRange<int64_t>)
+BENCHMARK_CAPTURE(BM_PforDecodeInt64, HighBaseSmallRange, &GenHighBaseSmallRange<int64_t>)
     ->Apply(CustomArgs);
 BENCHMARK_CAPTURE(BM_PforDecodeInt64, WithOutliers, &GenWithOutliers<int64_t>)
     ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt64, Random, &GenRandom<int64_t>)
-    ->Apply(CustomArgs);
-BENCHMARK_CAPTURE(BM_PforDecodeInt64, TpcdsSoldDateSk,
-                  &GenTpcdsSoldDateSk<int64_t>)
+BENCHMARK_CAPTURE(BM_PforDecodeInt64, Random, &GenRandom<int64_t>)->Apply(CustomArgs);
+BENCHMARK_CAPTURE(BM_PforDecodeInt64, TpcdsSoldDateSk, &GenTpcdsSoldDateSk<int64_t>)
     ->Apply(CustomArgs);
 
 }  // namespace

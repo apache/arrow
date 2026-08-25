@@ -522,8 +522,7 @@ static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
   std::vector<T> decoded(num_values);
   for (auto _ : state) {
     auto status = ::arrow::util::pfor::PforWrapper<T>::Decode(
-        decoded.data(), static_cast<int32_t>(num_values), compressed.data(),
-        comp_size);
+        decoded.data(), static_cast<int32_t>(num_values), compressed.data(), comp_size);
     ARROW_CHECK_OK(status);
     benchmark::ClobberMemory();
   }
@@ -718,8 +717,8 @@ static void RleBitPackEncodeImpl(benchmark::State& state, GenT<T> gen) {
   // Compute comp_size once for the counter
   int64_t comp_size;
   {
-    ::arrow::util::RleBitPackedEncoder enc(buffer.data(),
-                                           static_cast<int>(max_buf), bit_width);
+    ::arrow::util::RleBitPackedEncoder enc(buffer.data(), static_cast<int>(max_buf),
+                                           bit_width);
     for (int64_t i = 0; i < num_values; ++i) {
       enc.Put(static_cast<uint64_t>(static_cast<U>(values[i])));
     }
@@ -727,8 +726,8 @@ static void RleBitPackEncodeImpl(benchmark::State& state, GenT<T> gen) {
   }
 
   for (auto _ : state) {
-    ::arrow::util::RleBitPackedEncoder encoder(buffer.data(),
-                                             static_cast<int>(max_buf), bit_width);
+    ::arrow::util::RleBitPackedEncoder encoder(buffer.data(), static_cast<int>(max_buf),
+                                               bit_width);
     for (int64_t i = 0; i < num_values; ++i) {
       encoder.Put(static_cast<uint64_t>(static_cast<U>(values[i])));
     }
@@ -761,8 +760,8 @@ static void RleBitPackDecodeImpl(benchmark::State& state, GenT<T> gen) {
       ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width);
   std::vector<uint8_t> buffer(max_buf);
 
-  ::arrow::util::RleBitPackedEncoder encoder(buffer.data(),
-                                           static_cast<int>(max_buf), bit_width);
+  ::arrow::util::RleBitPackedEncoder encoder(buffer.data(), static_cast<int>(max_buf),
+                                             bit_width);
   for (int64_t i = 0; i < num_values; ++i) {
     encoder.Put(static_cast<uint64_t>(static_cast<U>(values[i])));
   }
@@ -777,8 +776,7 @@ static void RleBitPackDecodeImpl(benchmark::State& state, GenT<T> gen) {
       int64_t* idx;
       int64_t max_values;
       int32_t bw;
-      ::arrow::util::RleBitPackedParser::ControlFlow OnRleRun(
-          ::arrow::util::RleRun run) {
+      ::arrow::util::RleBitPackedParser::ControlFlow OnRleRun(::arrow::util::RleRun run) {
         ::arrow::util::RleRunDecoder<T> dec(run, bw);
         auto want = static_cast<int32_t>(
             std::min(static_cast<int64_t>(run.values_count()), max_values - *idx));
@@ -848,8 +846,7 @@ static void BssCodecEncodeImpl(benchmark::State& state, GenT<T> gen,
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(num_values));
     auto buf = encoder->FlushValues();
-    auto sz =
-        *codec->Compress(buf->size(), buf->data(), max_comp, compressed.data());
+    auto sz = *codec->Compress(buf->size(), buf->data(), max_comp, compressed.data());
     benchmark::DoNotOptimize(sz);
   }
 
@@ -936,38 +933,38 @@ static void BM_BssLz464Decode(benchmark::State& state, Gen64 gen) {
 static void CustomArgs(benchmark::internal::Benchmark* b) { b->Arg(102400); }
 
 // Macro to register all algorithms for a given dataset
-#define REGISTER_DATASET(Name, GenFunc)                                          \
-  BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);          \
-  BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);          \
-  BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);  \
-  BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);  \
-  BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_PlainLz4Decode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_RleBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_RleBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);    \
-  BENCHMARK_CAPTURE(BM_BssZstdEncode, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);        \
+#define REGISTER_DATASET(Name, GenFunc)                                        \
+  BENCHMARK_CAPTURE(BM_PforEncode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_PforDecode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_DeltaBitPackEncode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_DeltaBitPackDecode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PlainZstdEncode, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_PlainZstdDecode, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_PlainLz4Encode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PlainLz4Decode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_RleBitPackEncode, Name, &GenFunc)->Apply(CustomArgs);   \
+  BENCHMARK_CAPTURE(BM_RleBitPackDecode, Name, &GenFunc)->Apply(CustomArgs);   \
+  BENCHMARK_CAPTURE(BM_BssZstdEncode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_BssZstdDecode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_BssLz4Encode, Name, &GenFunc)->Apply(CustomArgs);       \
   BENCHMARK_CAPTURE(BM_BssLz4Decode, Name, &GenFunc)->Apply(CustomArgs);
 
 // Same as REGISTER_DATASET but for int64 (BIGINT) columns; benchmark names get
 // the "64" codec suffix (e.g. BM_Pfor64Encode) to distinguish them.
-#define REGISTER_DATASET64(Name, GenFunc)                                          \
-  BENCHMARK_CAPTURE(BM_Pfor64Encode, Name, &GenFunc)->Apply(CustomArgs);           \
-  BENCHMARK_CAPTURE(BM_Pfor64Decode, Name, &GenFunc)->Apply(CustomArgs);           \
-  BENCHMARK_CAPTURE(BM_DeltaBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_DeltaBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);   \
-  BENCHMARK_CAPTURE(BM_PlainZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_PlainZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);      \
-  BENCHMARK_CAPTURE(BM_PlainLz464Encode, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_PlainLz464Decode, Name, &GenFunc)->Apply(CustomArgs);       \
-  BENCHMARK_CAPTURE(BM_RleBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_RleBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);     \
-  BENCHMARK_CAPTURE(BM_BssZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);        \
-  BENCHMARK_CAPTURE(BM_BssZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);        \
-  BENCHMARK_CAPTURE(BM_BssLz464Encode, Name, &GenFunc)->Apply(CustomArgs);         \
+#define REGISTER_DATASET64(Name, GenFunc)                                        \
+  BENCHMARK_CAPTURE(BM_Pfor64Encode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_Pfor64Decode, Name, &GenFunc)->Apply(CustomArgs);         \
+  BENCHMARK_CAPTURE(BM_DeltaBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_DeltaBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs); \
+  BENCHMARK_CAPTURE(BM_PlainZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_PlainZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);    \
+  BENCHMARK_CAPTURE(BM_PlainLz464Encode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_PlainLz464Decode, Name, &GenFunc)->Apply(CustomArgs);     \
+  BENCHMARK_CAPTURE(BM_RleBitPack64Encode, Name, &GenFunc)->Apply(CustomArgs);   \
+  BENCHMARK_CAPTURE(BM_RleBitPack64Decode, Name, &GenFunc)->Apply(CustomArgs);   \
+  BENCHMARK_CAPTURE(BM_BssZstd64Encode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_BssZstd64Decode, Name, &GenFunc)->Apply(CustomArgs);      \
+  BENCHMARK_CAPTURE(BM_BssLz464Encode, Name, &GenFunc)->Apply(CustomArgs);       \
   BENCHMARK_CAPTURE(BM_BssLz464Decode, Name, &GenFunc)->Apply(CustomArgs);
 
 // ClickBench datasets

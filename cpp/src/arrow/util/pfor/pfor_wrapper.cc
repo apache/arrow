@@ -43,8 +43,7 @@ namespace pfor {
 // Header serialization
 
 template <typename T>
-void PforWrapper<T>::StoreHeader(std::span<uint8_t> dest,
-                                 const PforHeader& header) {
+void PforWrapper<T>::StoreHeader(std::span<uint8_t> dest, const PforHeader& header) {
   uint8_t* ptr = dest.data();
   util::SafeStore(ptr + 0, header.packing_mode);
   util::SafeStore(ptr + 1, header.log_vector_size);
@@ -56,8 +55,8 @@ template <typename T>
 Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
     std::span<const uint8_t> src) {
   if (src.size() < static_cast<size_t>(PforConstants::kHeaderSize)) {
-    return Status::Invalid("PFOR compressed buffer too small for header: ",
-                           src.size(), " < ", PforConstants::kHeaderSize);
+    return Status::Invalid("PFOR compressed buffer too small for header: ", src.size(),
+                           " < ", PforConstants::kHeaderSize);
   }
   PforHeader header;
   const uint8_t* ptr = src.data();
@@ -71,9 +70,9 @@ Result<typename PforWrapper<T>::PforHeader> PforWrapper<T>::LoadHeader(
                            static_cast<int>(header.packing_mode));
   }
   if (header.value_byte_width != sizeof(T)) {
-    return Status::Invalid("PFOR value_byte_width mismatch: ",
-                           static_cast<int>(header.value_byte_width),
-                           " vs expected ", sizeof(T));
+    return Status::Invalid(
+        "PFOR value_byte_width mismatch: ", static_cast<int>(header.value_byte_width),
+        " vs expected ", sizeof(T));
   }
   if (header.log_vector_size < PforConstants::kMinLogVectorSize ||
       header.log_vector_size > PforConstants::kMaxLogVectorSize) {
@@ -129,13 +128,12 @@ void PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vector_
 
     // Determine elements in this vector
     int32_t start_idx = v * vector_size;
-    int32_t elements_in_vector =
-        std::min(vector_size, num_values - start_idx);
+    int32_t elements_in_vector = std::min(vector_size, num_values - start_idx);
 
     // Encode vector (EncodeVector itself falls back to BitPack for partial
     // tails or 64-bit T, so it's safe to pass `mode` unconditionally).
-    auto encoded = PforCompression<T>::EncodeVector(
-        values + start_idx, elements_in_vector);
+    auto encoded =
+        PforCompression<T>::EncodeVector(values + start_idx, elements_in_vector);
 
     // Serialize to output
     int64_t bytes_written = PforCompression<T>::SerializeVector(
@@ -169,9 +167,8 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
   const uint8_t* src = comp;
 
   // Step 1: Read header
-  ARROW_ASSIGN_OR_RAISE(
-      PforHeader header,
-      LoadHeader(std::span<const uint8_t>(src, comp_size)));
+  ARROW_ASSIGN_OR_RAISE(PforHeader header,
+                        LoadHeader(std::span<const uint8_t>(src, comp_size)));
 
   const int32_t vector_size = 1 << header.log_vector_size;
   const int32_t num_vectors =
@@ -188,8 +185,7 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
     const uint8_t* vector_data = offset_array_start + offset;
 
     int32_t start_idx = v * vector_size;
-    int32_t elements_in_vector =
-        std::min(vector_size, header.num_elements - start_idx);
+    int32_t elements_in_vector = std::min(vector_size, header.num_elements - start_idx);
 
     ARROW_RETURN_NOT_OK(PforCompression<T>::DecodeVector(
         values + start_idx,
@@ -209,14 +205,15 @@ int64_t PforWrapper<T>::GetMaxCompressedSize(int32_t num_values, int32_t vector_
       static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
 
   // Header + offset array
-  int64_t size = PforConstants::kHeaderSize +
-                 num_vectors * static_cast<int64_t>(sizeof(uint32_t));
+  int64_t size =
+      PforConstants::kHeaderSize + num_vectors * static_cast<int64_t>(sizeof(uint32_t));
 
   // Worst case per vector: full bit width + all exceptions
-  int64_t max_vector_size = PforVectorInfo<T>::kStoredSize
-      + vector_size * static_cast<int64_t>(sizeof(T))       // packed at full width
-      + vector_size * static_cast<int64_t>(sizeof(int16_t)) // exception positions
-      + vector_size * static_cast<int64_t>(sizeof(T));      // exception values
+  int64_t max_vector_size =
+      PforVectorInfo<T>::kStoredSize +
+      vector_size * static_cast<int64_t>(sizeof(T))          // packed at full width
+      + vector_size * static_cast<int64_t>(sizeof(int16_t))  // exception positions
+      + vector_size * static_cast<int64_t>(sizeof(T));       // exception values
 
   size += num_vectors * max_vector_size;
   return size;

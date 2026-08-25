@@ -273,7 +273,7 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
         constexpr bool kUnpackerTakesBias =
             requires(const uint8_t* i, UnpackedUInt* o, UnpackedUInt b) {
               UnpackerForWidth::unpack(i, o, b);
-            };
+            };  // NOLINT(readability/braces)
 
         // Running the optimized kernel for batch extraction
         while ((batch_size >= kValuesUnpacked) && (in <= in_last)) {

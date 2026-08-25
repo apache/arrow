@@ -43,8 +43,7 @@ namespace arrow {
 namespace util {
 namespace pfor {
 
-static_assert(ARROW_LITTLE_ENDIAN,
-              "PFOR serialization assumes little-endian byte order");
+static_assert(ARROW_LITTLE_ENDIAN, "PFOR serialization assumes little-endian byte order");
 
 // ----------------------------------------------------------------------
 // FindOptimalBitWidth: histogram-based cost model
@@ -174,9 +173,8 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 // DecodeVector
 
 template <typename T>
-Result<int64_t> PforCompression<T>::DecodeVector(T* values,
-                                                  std::span<const uint8_t> data,
-                                                  int32_t num_elements) {
+Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint8_t> data,
+                                                 int32_t num_elements) {
   // Step 1: Read vector info
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
@@ -198,10 +196,9 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values,
       // second (add-FOR) pass. This is the common case (any column whose
       // minimum is 0) and decodes at the raw unpack speed. Exceptions are
       // still patched below in Step 4.
-      arrow::internal::unpack(
-          read_ptr, reinterpret_cast<UnsignedT*>(values),
-          arrow::internal::UnpackOptions{static_cast<int>(num_elements),
-                                         info.bit_width()});
+      arrow::internal::unpack(read_ptr, reinterpret_cast<UnsignedT*>(values),
+                              arrow::internal::UnpackOptions{
+                                  static_cast<int>(num_elements), info.bit_width()});
     } else {
       // FOR is non-zero: hand it to the unpacker as a bias, so the add happens
       // inside the kernel before its store and the output is traversed once.
@@ -299,11 +296,11 @@ template class PforEncodedVectorView<int64_t>;
 
 template <typename T>
 int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec,
-                                                  int32_t num_elements) {
+                                                 int32_t num_elements) {
   int64_t size = PforVectorInfo<T>::kStoredSize;
   if (vec.info().bit_width() > 0) {
-    size += bit_util::BytesForBits(
-        static_cast<int64_t>(num_elements) * vec.info().bit_width());
+    size += bit_util::BytesForBits(static_cast<int64_t>(num_elements) *
+                                   vec.info().bit_width());
   }
   size += vec.info().num_exceptions() * static_cast<int64_t>(sizeof(int16_t));
   size += vec.info().num_exceptions() * static_cast<int64_t>(sizeof(T));

@@ -40,9 +40,9 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/pfor/pfor_wrapper.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/spaced_internal.h"
-#include "arrow/util/pfor/pfor_wrapper.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
@@ -1831,9 +1831,8 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
       PARQUET_ASSIGN_OR_THROW(auto buffer,
                               ::arrow::AllocateBuffer(num_values * sizeof(T), pool_));
       T* dest = reinterpret_cast<T*>(buffer->mutable_data());
-      int num_valid =
-          ::arrow::util::internal::SpacedCompress<T>(src, num_values, valid_bits,
-                                                     valid_bits_offset, dest);
+      int num_valid = ::arrow::util::internal::SpacedCompress<T>(
+          src, num_values, valid_bits, valid_bits_offset, dest);
       Put(dest, num_valid);
     } else {
       Put(src, num_values);

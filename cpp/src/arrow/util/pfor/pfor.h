@@ -89,8 +89,8 @@ class PforVectorInfo {
   /// \brief Load this info from a byte buffer (little-endian)
   static Result<PforVectorInfo> Load(std::span<const uint8_t> src) {
     if (src.size() < static_cast<size_t>(kStoredSize)) {
-      return Status::Invalid("PFOR vector info buffer too small: ", src.size(),
-                             " < ", kStoredSize);
+      return Status::Invalid("PFOR vector info buffer too small: ", src.size(), " < ",
+                             kStoredSize);
     }
     PforVectorInfo info;
     const uint8_t* ptr = src.data();
@@ -103,8 +103,7 @@ class PforVectorInfo {
                              static_cast<int>(info.bit_width_));
     }
     if (info.num_exceptions_ < 0) {
-      return Status::Invalid("PFOR num_exceptions negative: ",
-                             info.num_exceptions_);
+      return Status::Invalid("PFOR num_exceptions negative: ", info.num_exceptions_);
     }
     return info;
   }
@@ -189,8 +188,8 @@ class PforEncodedVectorView {
   /// \param[in] data span over the serialized vector data
   /// \param[in] num_elements number of elements in this vector
   /// \return the view, or an error if the buffer is too small
-  static Result<PforEncodedVectorView> LoadView(
-      std::span<const uint8_t> data, int32_t num_elements);
+  static Result<PforEncodedVectorView> LoadView(std::span<const uint8_t> data,
+                                                int32_t num_elements);
 
  private:
   PforVectorInfo<T> info_;
@@ -257,8 +256,7 @@ class PforCompression {
   /// \param[in] num_elements number of elements
   /// \param[out] dest output buffer (must be large enough)
   /// \return number of bytes written
-  static int64_t SerializeVector(const PforEncodedVector<T>& vec,
-                                 int32_t num_elements,
+  static int64_t SerializeVector(const PforEncodedVector<T>& vec, int32_t num_elements,
                                  std::span<uint8_t> dest);
 };
 

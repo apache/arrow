@@ -36,8 +36,7 @@ namespace arrow::util::pfor {
 
 TEST(PforConstantsTest, VectorSizeIsPowerOfTwo) {
   EXPECT_EQ(PforConstants::kPforVectorSize, 1024);
-  EXPECT_EQ(1 << PforConstants::kDefaultLogVectorSize,
-            PforConstants::kPforVectorSize);
+  EXPECT_EQ(1 << PforConstants::kDefaultLogVectorSize, PforConstants::kPforVectorSize);
 }
 
 TEST(PforConstantsTest, VectorInfoSizes) {
@@ -105,7 +104,8 @@ TEST(PforVectorInfoTest, Int64RoundTrip) {
 TEST(PforCostModelTest, AllIdentical) {
   // All deltas are 0 => bit_width should be 0, no exceptions
   std::vector<uint32_t> deltas(100, 0);
-  auto result = PforCompression<int32_t>::FindOptimalBitWidth(deltas.data(), 100);  // NOLINT
+  auto result =
+      PforCompression<int32_t>::FindOptimalBitWidth(deltas.data(), 100);  // NOLINT
   EXPECT_EQ(result.bit_width, 0);
   EXPECT_EQ(result.num_exceptions, 0);
 }
@@ -143,8 +143,7 @@ TEST(PforVectorTest, Int32SimpleSequence) {
   EXPECT_EQ(encoded.info().num_exceptions(), 0);
 
   // Serialize then decode
-  size_t serialized_size =
-      PforCompression<int32_t>::SerializedVectorSize(encoded, 64);
+  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 64);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int32_t>::SerializeVector(encoded, 64, buffer);
 
@@ -161,8 +160,7 @@ TEST(PforVectorTest, Int32WithOutlier) {
   EXPECT_EQ(encoded.info().frame_of_reference(), 99);
   EXPECT_GT(encoded.info().num_exceptions(), 0);
 
-  size_t serialized_size =
-      PforCompression<int32_t>::SerializedVectorSize(encoded, 8);
+  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 8);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int32_t>::SerializeVector(encoded, 8, buffer);
 
@@ -179,8 +177,7 @@ TEST(PforVectorTest, Int32AllIdentical) {
   EXPECT_EQ(encoded.info().bit_width(), 0);
   EXPECT_EQ(encoded.info().num_exceptions(), 0);
 
-  size_t serialized_size =
-      PforCompression<int32_t>::SerializedVectorSize(encoded, 100);
+  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 100);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int32_t>::SerializeVector(encoded, 100, buffer);
 
@@ -196,8 +193,7 @@ TEST(PforVectorTest, Int32NegativeValues) {
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 5);
   EXPECT_EQ(encoded.info().frame_of_reference(), -200);
 
-  size_t serialized_size =
-      PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
+  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int32_t>::SerializeVector(encoded, 5, buffer);
 
@@ -209,12 +205,11 @@ TEST(PforVectorTest, Int32NegativeValues) {
 
 TEST(PforVectorTest, Int32MinMaxEdge) {
   std::vector<int32_t> values = {std::numeric_limits<int32_t>::min(),
-                                  std::numeric_limits<int32_t>::max(), 0, -1, 1};
+                                 std::numeric_limits<int32_t>::max(), 0, -1, 1};
 
   auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 5);
 
-  size_t serialized_size =
-      PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
+  size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int32_t>::SerializeVector(encoded, 5, buffer);
 
@@ -230,8 +225,7 @@ TEST(PforVectorTest, Int64SimpleSequence) {
 
   auto encoded = PforCompression<int64_t>::EncodeVector(values.data(), 64);
 
-  size_t serialized_size =
-      PforCompression<int64_t>::SerializedVectorSize(encoded, 64);
+  size_t serialized_size = PforCompression<int64_t>::SerializedVectorSize(encoded, 64);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int64_t>::SerializeVector(encoded, 64, buffer);
 
@@ -248,8 +242,7 @@ TEST(PforVectorTest, Int64WithOutlier) {
   auto encoded = PforCompression<int64_t>::EncodeVector(values.data(), 100);
   EXPECT_GT(encoded.info().num_exceptions(), 0);
 
-  size_t serialized_size =
-      PforCompression<int64_t>::SerializedVectorSize(encoded, 100);
+  size_t serialized_size = PforCompression<int64_t>::SerializedVectorSize(encoded, 100);
   std::vector<uint8_t> buffer(serialized_size);
   PforCompression<int64_t>::SerializeVector(encoded, 100, buffer);
 
@@ -273,7 +266,8 @@ TEST(PforWrapperTest, Int32SmallPage) {
   EXPECT_GT(comp_size, 0);
 
   std::vector<int32_t> decoded(5);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), 5, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), 5, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -289,7 +283,8 @@ TEST(PforWrapperTest, Int32ExactOneVector) {
   PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size);
 
   std::vector<int32_t> decoded(1024);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -309,7 +304,8 @@ TEST(PforWrapperTest, Int32MultipleVectors) {
   PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
 
   std::vector<int32_t> decoded(n);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -329,7 +325,8 @@ TEST(PforWrapperTest, Int32WithOutliers) {
   PforWrapper<int32_t>::Encode(values.data(), 1024, compressed.data(), &comp_size);
 
   std::vector<int32_t> decoded(1024);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -351,7 +348,8 @@ TEST(PforWrapperTest, Int64MultipleVectors) {
   PforWrapper<int64_t>::Encode(values.data(), n, compressed.data(), &comp_size);
 
   std::vector<int64_t> decoded(n);
-  ASSERT_OK(PforWrapper<int64_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int64_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -366,7 +364,8 @@ TEST(PforWrapperTest, Int32SingleElement) {
   PforWrapper<int32_t>::Encode(values.data(), 1, compressed.data(), &comp_size);
 
   std::vector<int32_t> decoded(1);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), 1, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), 1, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -384,7 +383,8 @@ TEST(PforWrapperTest, Int32AllZeros) {
   EXPECT_LT(comp_size, 100);
 
   std::vector<int32_t> decoded(1024);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), 1024, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -393,9 +393,8 @@ TEST(PforWrapperTest, Int32LargeRandom) {
   const int32_t n = 10000;
   std::vector<int32_t> values(n);
   std::mt19937 rng(99);
-  std::uniform_int_distribution<int32_t> dist(
-      std::numeric_limits<int32_t>::min(),
-      std::numeric_limits<int32_t>::max());
+  std::uniform_int_distribution<int32_t> dist(std::numeric_limits<int32_t>::min(),
+                                              std::numeric_limits<int32_t>::max());
   for (auto& v : values) v = dist(rng);
 
   int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(n);
@@ -405,7 +404,8 @@ TEST(PforWrapperTest, Int32LargeRandom) {
   PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
 
   std::vector<int32_t> decoded(n);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
 
   EXPECT_EQ(values, decoded);
 }
@@ -431,8 +431,8 @@ TEST(PforWrapperTest, Int32ZeroMinWithExceptions) {
   PforWrapper<int32_t>::Encode(values.data(), n, compressed.data(), &comp_size);
 
   std::vector<int32_t> decoded(n);
-  ASSERT_OK(PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(),
-                                         comp_size));
+  ASSERT_OK(
+      PforWrapper<int32_t>::Decode(decoded.data(), n, compressed.data(), comp_size));
   EXPECT_EQ(values, decoded);
 }
 
