@@ -168,6 +168,38 @@ class ARROW_TESTING_EXPORT MetadataOptionalExtensionType : public ExtensionType 
   }
 };
 
+class ARROW_TESTING_EXPORT UnionExtensionArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+/// \brief An extension type over an arbitrary union storage type.
+///
+/// The storage type and extension name are given at construction, so that a
+/// dense-union-backed and a sparse-union-backed extension type can coexist in
+/// the same extension type registry.
+class ARROW_TESTING_EXPORT UnionExtensionType : public ExtensionType {
+ public:
+  UnionExtensionType(std::shared_ptr<DataType> storage_type, std::string extension_name)
+      : ExtensionType(std::move(storage_type)),
+        extension_name_(std::move(extension_name)) {}
+
+  std::string extension_name() const override { return extension_name_; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override;
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override;
+
+  std::string Serialize() const override { return extension_name_; }
+
+ private:
+  std::string extension_name_;
+};
+
 class ARROW_TESTING_EXPORT Complex128Array : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
@@ -212,6 +244,12 @@ std::shared_ptr<DataType> binary_view_extension_type();
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<DataType> complex128();
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<DataType> dense_union_extension_type();
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<DataType> sparse_union_extension_type();
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Array> ExampleUuid();
