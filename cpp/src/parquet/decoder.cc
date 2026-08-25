@@ -2379,7 +2379,8 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
 // TODO: support incremental decode. Partial reads currently decode the
 // entire page into `decoded_values_` on first call and copy out the
 // requested range; a future revision should decode only the requested
-// values, with state tracking for cross-call resumption.
+// values, with state tracking for cross-call resumption. This is deferred
+// to a follow-up change; the encoder carries the matching TODO.
 template <typename DType>
 class PforDecoder : public TypedDecoderImpl<DType> {
  public:

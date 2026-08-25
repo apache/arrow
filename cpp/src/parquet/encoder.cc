@@ -1772,7 +1772,8 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 // whole buffer in one shot. A future revision should encode complete
 // vectors as `Put` calls fill them, holding only a partial-vector tail
 // across calls, so the encoder can produce output progressively and use
-// bounded memory.
+// bounded memory. This is deferred to a follow-up change; the decoder
+// carries the matching TODO.
 template <typename DType>
 class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
