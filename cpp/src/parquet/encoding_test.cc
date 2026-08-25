@@ -1044,6 +1044,71 @@ class EncodingAdHocTyped : public ::testing::Test {
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
+  void Pfor(int seed) {
+    if (!std::is_same<ParquetType, Int32Type>::value &&
+        !std::is_same<ParquetType, Int64Type>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder =
+        MakeTypedEncoder<ParquetType>(Encoding::PFOR,
+                                      /*use_dictionary=*/false, column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PFOR, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(size_, result->length());
+    ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
+  }
+
+  void PforDict(int seed) {
+    if constexpr (!std::is_same_v<ParquetType, Int32Type> &&
+                  !std::is_same_v<ParquetType, Int64Type>) {
+      return;
+    } else {
+      auto values = GetValues(seed);
+      auto encoder =
+          MakeTypedEncoder<ParquetType>(Encoding::PFOR,
+                                        /*use_dictionary=*/false, column_descr());
+      auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PFOR, column_descr());
+
+      ASSERT_NO_THROW(encoder->Put(*values));
+      auto buf = encoder->FlushValues();
+
+      int num_values = static_cast<int>(values->length() - values->null_count());
+      decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+      DictBuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+      ASSERT_EQ(num_values,
+                decoder->DecodeArrow(static_cast<int>(values->length()),
+                                     static_cast<int>(values->null_count()),
+                                     values->null_bitmap_data(), values->offset(), &acc));
+
+      std::shared_ptr<::arrow::Array> result;
+      ASSERT_OK(acc.Finish(&result));
+      ASSERT_OK(result->ValidateFull());
+      ASSERT_EQ(size_, result->length());
+
+      // The accumulator produced a DictionaryArray; compare it densely.
+      ASSERT_OK_AND_ASSIGN(auto dense_datum,
+                           ::arrow::compute::Cast(::arrow::Datum(result), arrow_type()));
+      ::arrow::AssertArraysEqual(*values, *dense_datum.make_array(), /*verbose=*/true);
+    }
+  }
+
   void Dict(int seed) {
     if (std::is_same<ParquetType, BooleanType>::value) {
       return;
@@ -1225,6 +1290,27 @@ TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
   this->null_probability_ = 0;
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->DeltaBitPack(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PforArrowDirectPut) {
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->Pfor(seed);
+  }
+  // Same, but without nulls (this could trigger different code paths)
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->Pfor(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PforArrowDirectPutDictBuilder) {
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->PforDict(seed);
+  }
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->PforDict(seed);
   }
 }
 

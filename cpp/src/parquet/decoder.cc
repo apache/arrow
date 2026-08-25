@@ -2414,31 +2414,49 @@ class PforDecoder : public TypedDecoderImpl<DType> {
     return values_to_decode;
   }
 
+  // `num_values` counts output slots; only the non-null ones are backed by
+  // encoded values, so decode that many and spread them over the valid runs.
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* out) override {
-    if (null_count != 0) {
-      ParquetException::NYI("PFOR DecodeArrow with null slots");
+    const int values_decoded = num_values - null_count;
+    std::vector<T> values(values_decoded);
+    if (Decode(values.data(), values_decoded) != values_decoded) {
+      ParquetException::EofException();
     }
-    std::vector<T> values(num_values);
-    int decoded_count = Decode(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
-    return decoded_count;
+
+    const T* data = values.data();
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    PARQUET_THROW_NOT_OK(
+        VisitBitRuns(valid_bits, valid_bits_offset, num_values,
+                     [&](int64_t position, int64_t run_length, bool is_valid) {
+                       if (is_valid) {
+                         RETURN_NOT_OK(out->AppendValues(data, run_length));
+                         data += run_length;
+                       } else {
+                         RETURN_NOT_OK(out->AppendNulls(run_length));
+                       }
+                       return Status::OK();
+                     }));
+    return values_decoded;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* out) override {
-    if (null_count != 0) {
-      ParquetException::NYI("PFOR DecodeArrow with null slots");
+    const int values_decoded = num_values - null_count;
+    std::vector<T> values(values_decoded);
+    if (Decode(values.data(), values_decoded) != values_decoded) {
+      ParquetException::EofException();
     }
-    std::vector<T> values(num_values);
-    int decoded_count = Decode(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
-    for (int i = 0; i < decoded_count; ++i) {
-      PARQUET_THROW_NOT_OK(out->Append(values[i]));
-    }
-    return decoded_count;
+
+    const T* data = values.data();
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() { PARQUET_THROW_NOT_OK(out->Append(*data++)); },
+        [&]() { PARQUET_THROW_NOT_OK(out->AppendNull()); });
+    return values_decoded;
   }
 
  private:
