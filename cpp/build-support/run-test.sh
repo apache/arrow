@@ -23,12 +23,11 @@
 #    $ARGN - arguments for executable
 #
 
+set -e
+
 OUTPUT_ROOT="$1"
 shift
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || {
-  echo "Failed to determine project root directory" >&2
-  exit 1
-}
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 TEST_LOGDIR="$OUTPUT_ROOT/build/$1-logs"
 mkdir -p "$TEST_LOGDIR"
@@ -38,10 +37,7 @@ shift
 TEST_DEBUGDIR="$OUTPUT_ROOT/build/$RUN_TYPE-debug"
 mkdir -p "$TEST_DEBUGDIR"
 
-TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd) || {
-  echo "Failed to change to test directory: $(dirname "$1")" >&2
-  exit 1
-}
+TEST_DIRNAME=$(cd "$(dirname "$1")" && pwd)
 TEST_FILENAME=$(basename "$1")
 shift
 TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
@@ -50,10 +46,7 @@ TEST_NAME=$(echo "$TEST_FILENAME" | sed -E -e 's/\..+$//') # Remove path and ext
 # We run each test in its own subdir to avoid core file related races.
 TEST_WORKDIR="$OUTPUT_ROOT/build/test-work/$TEST_NAME"
 mkdir -p "$TEST_WORKDIR"
-pushd "$TEST_WORKDIR" >/dev/null || {
-  echo "Failed to change to test working directory: $TEST_WORKDIR" >&2
-  exit 1
-}
+pushd "$TEST_WORKDIR" >/dev/null
 rm -f ./*
 
 set -o pipefail
@@ -101,8 +94,11 @@ function run_test() {
   # even when retries are successful.
   rm -f "$XMLFILE"
 
-  "$TEST_EXECUTABLE" "$@" > "${LOGFILE}.raw" 2>&1
-  STATUS=$?
+  if "$TEST_EXECUTABLE" "$@" > "${LOGFILE}.raw" 2>&1 ; then
+    STATUS=0
+  else
+    STATUS=1
+  fi
   cat "${LOGFILE}.raw" \
     | "${PYTHON:-python}" "${ROOT}/build-support/asan_symbolize.py" \
     | "${CXXFILT:-c++filt}" \
@@ -144,9 +140,8 @@ function print_coredumps() {
   # the pattern for the first 15 characters
   FILENAME=$(basename "${TEST_EXECUTABLE}")
   FILENAME=$(echo "${FILENAME}" | cut -c-15)
-  PATTERN="^core\.${FILENAME}"
 
-  COREFILES=$(find /tmp -maxdepth 1 -type f -exec basename {} \; | grep "$PATTERN")
+  COREFILES=$(find /tmp -maxdepth 1 -type f -name "core.${FILENAME}*" -exec basename {} \;)
   if [ -n "$COREFILES" ]; then
     for COREFILE in $COREFILES; do
       COREPATH="/tmp/${COREFILE}"
@@ -184,8 +179,11 @@ function post_process_tests() {
 
 function run_other() {
   # Generic run function for test like executables that aren't actually gtest
-  "$TEST_EXECUTABLE" "$@" 2>&1 | "$pipe_cmd" > "$LOGFILE"
-  STATUS=$?
+  if "$TEST_EXECUTABLE" "$@" 2>&1 | "$pipe_cmd" > "$LOGFILE" ; then
+    STATUS=0
+  else
+    STATUS=1
+  fi
 }
 
 if [ "$RUN_TYPE" = "test" ]; then
@@ -243,10 +241,7 @@ fi
 
 print_coredumps
 
-popd || {
-  echo "Failed to restore the previous working directory" >&2
-  exit 1
-}
+popd
 rm -Rf "$TEST_WORKDIR"
 
 exit "$STATUS"
