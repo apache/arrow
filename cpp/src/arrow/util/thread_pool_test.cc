@@ -16,8 +16,15 @@
 // under the License.
 
 #ifndef _WIN32
+#  include <sys/resource.h>
 #  include <sys/types.h>
+#  include <sys/wait.h>
 #  include <unistd.h>
+#endif
+
+#ifdef __APPLE__
+#  include <pthread.h>
+#  include <sys/sysctl.h>
 #endif
 
 #include <algorithm>
@@ -28,6 +35,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -1047,6 +1055,103 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
       ASSERT_OK(pool->Shutdown());
     }
   }
+}
+
+namespace {
+
+constexpr int kChildOk = 0;
+constexpr int kLaunchDidNotFail = 1;
+constexpr int kStateNotRestored = 2;
+constexpr int kShutdownFailed = 3;
+constexpr int kCouldNotForceFailure = 42;
+
+#  ifdef __APPLE__
+
+void* ParkUntilExit(void*) {
+  SleepFor(3600);
+  return nullptr;
+}
+
+bool ExhaustTaskThreads() {
+  int max_threads = 0;
+  size_t size = sizeof(max_threads);
+  if (sysctlbyname("kern.num_taskthreads", &max_threads, &size, nullptr, 0) != 0) {
+    return false;
+  }
+  pthread_attr_t attr;
+  if (pthread_attr_init(&attr) != 0) {
+    return false;
+  }
+  bool creation_failed = false;
+  if (pthread_attr_setstacksize(&attr, 32 * 1024) == 0 &&
+      pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) == 0) {
+    for (int i = 0; i < max_threads && !creation_failed; ++i) {
+      pthread_t thread;
+      creation_failed = pthread_create(&thread, &attr, ParkUntilExit, nullptr) != 0;
+    }
+  }
+  pthread_attr_destroy(&attr);
+  return creation_failed;
+}
+
+#  endif
+
+bool ForceThreadCreationFailure() {
+  if (geteuid() == 0) {
+    return false;
+  }
+  struct rlimit limit;
+  if (getrlimit(RLIMIT_NPROC, &limit) != 0) {
+    return false;
+  }
+  limit.rlim_cur = 1;
+  if (setrlimit(RLIMIT_NPROC, &limit) != 0) {
+    return false;
+  }
+  try {
+    std::thread([] { SleepFor(3600); }).detach();
+  } catch (const std::system_error&) {
+    return true;
+  }
+#  ifdef __APPLE__
+  return ExhaustTaskThreads();
+#  else
+  return false;
+#  endif
+}
+
+}  // namespace
+
+TEST_F(TestThreadPoolForkSafety, FailedWorkerLaunch) {
+#  ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#  endif
+  auto child_pid = fork();
+  if (child_pid == 0) {
+    alarm(60);
+    auto pool = this->MakeThreadPool(4);
+    if (!ForceThreadCreationFailure()) {
+      std::exit(kCouldNotForceFailure);
+    }
+    try {
+      ARROW_UNUSED(pool->Spawn([] {}));
+      std::exit(kLaunchDidNotFail);
+    } catch (const std::system_error&) {
+    }
+    if (pool->GetActualCapacity() != 0 || pool->GetNumTasks() != 0) {
+      std::exit(kStateNotRestored);
+    }
+    std::exit(pool->Shutdown().ok() ? kChildOk : kShutdownFailed);
+  }
+
+  ASSERT_GT(child_pid, 0);
+  int child_status = 0;
+  ASSERT_EQ(waitpid(child_pid, &child_status, 0), child_pid);
+  ASSERT_TRUE(WIFEXITED(child_status)) << "Child status = " << child_status;
+  if (WEXITSTATUS(child_status) == kCouldNotForceFailure) {
+    GTEST_SKIP() << "Could not make thread creation fail";
+  }
+  ASSERT_EQ(WEXITSTATUS(child_status), kChildOk);
 }
 
 #endif

@@ -698,10 +698,15 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
   for (int i = 0; i < threads; i++) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
-    *it = std::thread([this, state, it] {
-      SetCurrentThreadPool(this);
-      WorkerLoop(state, it);
-    });
+    try {
+      *it = std::thread([this, state, it] {
+        SetCurrentThreadPool(this);
+        WorkerLoop(state, it);
+      });
+    } catch (...) {
+      state_->workers_.erase(it);
+      throw;
+    }
   }
 }
 
@@ -729,12 +734,12 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       return Status::Invalid("operation forbidden during or after shutdown");
     }
     CollectFinishedWorkersUnlocked();
-    state_->tasks_queued_or_running_++;
-    if (static_cast<int>(state_->workers_.size()) < state_->tasks_queued_or_running_ &&
+    if (static_cast<int>(state_->workers_.size()) <= state_->tasks_queued_or_running_ &&
         state_->desired_capacity_ > static_cast<int>(state_->workers_.size())) {
       // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
     }
+    state_->tasks_queued_or_running_++;
     state_->pending_tasks_.push(
         QueuedTask{{std::move(task), std::move(stop_token), std::move(stop_callback)},
                    hints.priority,
