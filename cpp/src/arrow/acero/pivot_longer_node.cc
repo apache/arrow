@@ -109,7 +109,7 @@ class PivotLongerNode : public ExecNode, public TracedNode {
       for (std::size_t i = 0; i < row_template.feature_values.size(); i++) {
         if (feature_types[i]) {
           if (!feature_types[i]->Equals(row_template.feature_values[i]->type)) {
-            return Status::Invalid(
+            return Status::TypeError(
                 "Mixed feature types at column ", options.feature_field_names[i],
                 ".  Some row templates had the type ", feature_types[i]->ToString(),
                 " but later row templates had the type ",

@@ -784,6 +784,8 @@ struct ARROW_ACERO_EXPORT PivotLongerRowTemplate {
                          std::vector<std::optional<FieldRef>> measurement_values)
       : feature_values(std::move(feature_values)),
         measurement_values(std::move(measurement_values)) {}
+  PivotLongerRowTemplate(std::vector<std::string> feature_values,
+                         std::vector<std::optional<FieldRef>> measurement_values);
   /// A (typically unique) set of feature values for the template, usually derived from a
   /// column name
   ///
