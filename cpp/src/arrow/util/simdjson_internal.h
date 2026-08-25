@@ -103,7 +103,6 @@ inline const char* JsonTypeName(simdjson::dom::element_type type) {
     case simdjson::dom::element_type::INT64:
     case simdjson::dom::element_type::UINT64:
     case simdjson::dom::element_type::DOUBLE:
-    case simdjson::dom::element_type::BIGINT:
       return "number";
     case simdjson::dom::element_type::STRING:
       return "string";
@@ -111,8 +110,9 @@ inline const char* JsonTypeName(simdjson::dom::element_type type) {
       return "boolean";
     case simdjson::dom::element_type::NULL_VALUE:
       return "null";
+    default:
+      return "unknown";
   }
-  return "unknown";
 }
 
 inline Result<simdjson::dom::array> GetJsonArray(simdjson::dom::element value,
