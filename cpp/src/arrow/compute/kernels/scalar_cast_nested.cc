@@ -148,7 +148,6 @@ struct CastListView {
   using src_offset_type = typename SrcType::offset_type;
   using dest_offset_type = typename DestType::offset_type;
 
-  static constexpr bool is_upcast = sizeof(src_offset_type) < sizeof(dest_offset_type);
   static constexpr bool is_downcast = sizeof(src_offset_type) > sizeof(dest_offset_type);
 
   static bool IsContiguous(const ArraySpan& in_array) {
@@ -183,7 +182,7 @@ struct CastListView {
           out_array->buffers[1],
           ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
       auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
-      
+
       src_offset_type start_offset = in_array.length > 0 ? offsets[0] : 0;
       for (int64_t i = 0; i < in_array.length; ++i) {
         dest_offsets[i] = static_cast<dest_offset_type>(offsets[i] - start_offset);
@@ -196,7 +195,8 @@ struct CastListView {
       }
 
       if (is_downcast && in_array.length > 0) {
-        if (dest_offsets[in_array.length] > std::numeric_limits<dest_offset_type>::max()) {
+        if (dest_offsets[in_array.length] >
+            std::numeric_limits<dest_offset_type>::max()) {
           return Status::Invalid("ListView too large to convert to List");
         }
       }
@@ -243,7 +243,7 @@ struct CastListView {
       }
 
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> take_indices, builder.Finish());
-      
+
       // Call take function
       ExecContext* exec_ctx = ctx->exec_context();
       ARROW_ASSIGN_OR_RAISE(

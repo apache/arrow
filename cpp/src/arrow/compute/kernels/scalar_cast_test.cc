@@ -3663,20 +3663,25 @@ TEST(Cast, ListViewToList) {
   auto values = ArrayFromJSON(int16(), "[10, 20, 999, 30, 40, 50]");
   auto offsets = ArrayFromJSON(int32(), "[0, 3]");
   auto sizes = ArrayFromJSON(int32(), "[2, 3]");
-  ASSERT_OK_AND_ASSIGN(auto gapped_src, ListViewArray::FromArrays(*offsets, *sizes, *values));
+  ASSERT_OK_AND_ASSIGN(auto gapped_src,
+                       ListViewArray::FromArrays(*offsets, *sizes, *values));
   auto gapped_expected = ArrayFromJSON(list(int16()), "[[10, 20], [30, 40, 50]]");
   CheckCast(gapped_src, gapped_expected);
 
   // 3. Overlapping ListView
   auto overlapping_offsets = ArrayFromJSON(int32(), "[0, 1]");
   auto overlapping_sizes = ArrayFromJSON(int32(), "[2, 2]");
-  ASSERT_OK_AND_ASSIGN(auto overlapping_src, ListViewArray::FromArrays(*overlapping_offsets, *overlapping_sizes, *values));
+  ASSERT_OK_AND_ASSIGN(
+      auto overlapping_src,
+      ListViewArray::FromArrays(*overlapping_offsets, *overlapping_sizes, *values));
   auto overlapping_expected = ArrayFromJSON(list(int16()), "[[10, 20], [20, 999]]");
   CheckCast(overlapping_src, overlapping_expected);
 
   // 4. Large ListView to List and vice versa
-  auto large_contiguous_src = ArrayFromJSON(large_list_view(int16()), "[[10, 20], [30], [40, 50]]");
-  auto large_contiguous_expected = ArrayFromJSON(large_list(int16()), "[[10, 20], [30], [40, 50]]");
+  auto large_contiguous_src =
+      ArrayFromJSON(large_list_view(int16()), "[[10, 20], [30], [40, 50]]");
+  auto large_contiguous_expected =
+      ArrayFromJSON(large_list(int16()), "[[10, 20], [30], [40, 50]]");
   CheckCast(large_contiguous_src, large_contiguous_expected);
   CheckCast(contiguous_src, large_contiguous_expected);
   CheckCast(large_contiguous_src, contiguous_expected);
@@ -3687,8 +3692,10 @@ TEST(Cast, ListViewToList) {
   CheckCast(nulls_src, nulls_expected);
 
   // 6. Generic and Nested Type casting
-  auto string_src = ArrayFromJSON(list_view(utf8()), "[[\"a\", \"b\"], [\"c\"], [\"d\", \"e\"]]");
-  auto string_expected = ArrayFromJSON(list(utf8()), "[[\"a\", \"b\"], [\"c\"], [\"d\", \"e\"]]");
+  auto string_src =
+      ArrayFromJSON(list_view(utf8()), "[[\"a\", \"b\"], [\"c\"], [\"d\", \"e\"]]");
+  auto string_expected =
+      ArrayFromJSON(list(utf8()), "[[\"a\", \"b\"], [\"c\"], [\"d\", \"e\"]]");
   CheckCast(string_src, string_expected);
 
   auto type_change_src = ArrayFromJSON(list_view(int16()), "[[10, 20], [30], [40, 50]]");
