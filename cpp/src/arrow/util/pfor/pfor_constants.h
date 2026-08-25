@@ -46,7 +46,13 @@ class PforConstants {
   using OffsetType = uint32_t;
 
   /// Type used to store exception positions within a compressed vector.
-  using PositionType = int16_t;
+  ///
+  /// Unsigned: a vector holds up to 2^kMaxLogVectorSize elements and every one
+  /// of them can be an exception, so a count of 32768 has to be representable.
+  using PositionType = uint16_t;
+
+  /// Largest vector the format allows, in elements.
+  static constexpr int32_t kMaxVectorSize = 1 << kMaxLogVectorSize;
 
   /// Page header size in bytes.
   static constexpr int64_t kHeaderSize = 7;

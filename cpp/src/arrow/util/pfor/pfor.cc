@@ -19,7 +19,7 @@
 //
 // Implementation notes:
 //   - Vector size: 1024
-//   - Max exceptions: int16
+//   - Max exceptions: uint16
 //   - Exception values: original integers (not FOR offsets)
 //   - Bit packing: Arrow's BitWriter/unpack
 
@@ -74,14 +74,14 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   // Evaluate each candidate bit width
   int64_t best_cost = std::numeric_limits<int64_t>::max();
   uint8_t best_bit_width = max_bits;
-  int16_t best_num_exceptions = 0;
+  uint16_t best_num_exceptions = 0;
 
   int64_t exceptions_above = num_elements;
 
   for (uint8_t b = 0; b <= max_bits; ++b) {
     exceptions_above -= histogram[b];
 
-    if (exceptions_above > std::numeric_limits<int16_t>::max()) {
+    if (exceptions_above > std::numeric_limits<uint16_t>::max()) {
       continue;
     }
 
@@ -92,7 +92,7 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
     if (total_cost < best_cost) {
       best_cost = total_cost;
       best_bit_width = b;
-      best_num_exceptions = static_cast<int16_t>(exceptions_above);
+      best_num_exceptions = static_cast<uint16_t>(exceptions_above);
     }
   }
 
@@ -145,7 +145,8 @@ PforEncodedVector<T> PforCompression<T>::EncodeVector(const T* values,
 
     for (int32_t i = 0; i < num_elements; ++i) {
       if (deltas[i] > mask) {
-        result.mutable_exception_positions().push_back(static_cast<int16_t>(i));
+        result.mutable_exception_positions().push_back(
+            static_cast<PforConstants::PositionType>(i));
         result.mutable_exception_values().push_back(values[i]);
         deltas[i] = 0;
       }
@@ -227,18 +228,19 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
   }
 
   // Step 4: Patch exceptions (stored as original values at their positions).
-  const int16_t num_exceptions = info.num_exceptions();
+  const uint16_t num_exceptions = info.num_exceptions();
   if (num_exceptions > 0) {
     const uint8_t* positions_ptr = read_ptr;
-    read_ptr += num_exceptions * sizeof(int16_t);
+    read_ptr += num_exceptions * sizeof(PforConstants::PositionType);
 
     const uint8_t* values_ptr = read_ptr;
     read_ptr += num_exceptions * sizeof(T);
 
 #pragma GCC unroll PforConstants::kLoopUnrolls
 #pragma GCC ivdep
-    for (int16_t i = 0; i < num_exceptions; ++i) {
-      int16_t pos = util::SafeLoadAs<int16_t>(positions_ptr + i * sizeof(int16_t));
+    for (uint16_t i = 0; i < num_exceptions; ++i) {
+      PforConstants::PositionType pos = util::SafeLoadAs<PforConstants::PositionType>(
+          positions_ptr + i * sizeof(PforConstants::PositionType));
       T value = util::SafeLoadAs<T>(values_ptr + i * sizeof(T));
       values[static_cast<size_t>(pos)] = value;
     }
@@ -277,8 +279,8 @@ Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
   if (info.num_exceptions() > 0) {
     view.mutable_exception_positions().resize(info.num_exceptions());
     std::memcpy(view.mutable_exception_positions().data(), ptr,
-                info.num_exceptions() * sizeof(int16_t));
-    ptr += info.num_exceptions() * sizeof(int16_t);
+                info.num_exceptions() * sizeof(PforConstants::PositionType));
+    ptr += info.num_exceptions() * sizeof(PforConstants::PositionType);
 
     view.mutable_exception_values().resize(info.num_exceptions());
     std::memcpy(view.mutable_exception_values().data(), ptr,
@@ -302,7 +304,8 @@ int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec
     size += bit_util::BytesForBits(static_cast<int64_t>(num_elements) *
                                    vec.info().bit_width());
   }
-  size += vec.info().num_exceptions() * static_cast<int64_t>(sizeof(int16_t));
+  size += vec.info().num_exceptions() *
+          static_cast<int64_t>(sizeof(PforConstants::PositionType));
   size += vec.info().num_exceptions() * static_cast<int64_t>(sizeof(T));
   return size;
 }
@@ -326,8 +329,8 @@ int64_t PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
   // Write exception positions
   if (vec.info().num_exceptions() > 0) {
     std::memcpy(write_ptr, vec.exception_positions().data(),
-                vec.info().num_exceptions() * sizeof(int16_t));
-    write_ptr += vec.info().num_exceptions() * sizeof(int16_t);
+                vec.info().num_exceptions() * sizeof(PforConstants::PositionType));
+    write_ptr += vec.info().num_exceptions() * sizeof(PforConstants::PositionType);
 
     // Write exception values (original integers)
     std::memcpy(write_ptr, vec.exception_values().data(),

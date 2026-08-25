@@ -47,6 +47,9 @@ namespace pfor {
 /// For INT32 (7 bytes): [frame_of_reference(4B)] [bit_width(1B)] [num_exceptions(2B)]
 /// For INT64 (11 bytes): [frame_of_reference(8B)] [bit_width(1B)] [num_exceptions(2B)]
 ///
+/// num_exceptions is unsigned: a vector holds up to kMaxVectorSize elements,
+/// so the count has to reach 32768, which a signed 16-bit field cannot hold.
+///
 /// The bit_width byte stores the actual bit width in bits 0..6; bit 7 is
 /// reserved (always written as 0 and ignored on load), leaving room for a
 /// future flag without changing the layout of existing buffers.
@@ -62,20 +65,20 @@ class PforVectorInfo {
   static constexpr uint8_t kBitWidthMask = 0x7F;
 
   PforVectorInfo() = default;
-  PforVectorInfo(T frame_of_reference, uint8_t bit_width, int16_t num_exceptions)
+  PforVectorInfo(T frame_of_reference, uint8_t bit_width, uint16_t num_exceptions)
       : frame_of_reference_(frame_of_reference),
         bit_width_(bit_width),
         num_exceptions_(num_exceptions) {}
 
   T frame_of_reference() const { return frame_of_reference_; }
   uint8_t bit_width() const { return bit_width_; }
-  int16_t num_exceptions() const { return num_exceptions_; }
+  uint16_t num_exceptions() const { return num_exceptions_; }
 
   void set_frame_of_reference(T frame_of_reference) {
     frame_of_reference_ = frame_of_reference;
   }
   void set_bit_width(uint8_t bit_width) { bit_width_ = bit_width; }
-  void set_num_exceptions(int16_t num_exceptions) { num_exceptions_ = num_exceptions; }
+  void set_num_exceptions(uint16_t num_exceptions) { num_exceptions_ = num_exceptions; }
 
   /// \brief Store this info to a byte buffer (little-endian)
   void Store(std::span<uint8_t> dest) const {
@@ -97,13 +100,14 @@ class PforVectorInfo {
     info.frame_of_reference_ = util::SafeLoadAs<T>(ptr);
     // Mask off the reserved high bits (6..7).
     info.bit_width_ = static_cast<uint8_t>(ptr[sizeof(T)] & kBitWidthMask);
-    info.num_exceptions_ = util::SafeLoadAs<int16_t>(ptr + sizeof(T) + 1);
+    info.num_exceptions_ = util::SafeLoadAs<uint16_t>(ptr + sizeof(T) + 1);
     if (info.bit_width_ > PforTypeTraits<T>::kMaxBitWidth) {
       return Status::Invalid("PFOR bit_width out of range: ",
                              static_cast<int>(info.bit_width_));
     }
-    if (info.num_exceptions_ < 0) {
-      return Status::Invalid("PFOR num_exceptions negative: ", info.num_exceptions_);
+    if (info.num_exceptions_ > PforConstants::kMaxVectorSize) {
+      return Status::Invalid("PFOR num_exceptions exceeds the maximum vector size: ",
+                             info.num_exceptions_);
     }
     return info;
   }
@@ -114,7 +118,7 @@ class PforVectorInfo {
  private:
   T frame_of_reference_ = 0;
   uint8_t bit_width_ = 0;
-  int16_t num_exceptions_ = 0;
+  uint16_t num_exceptions_ = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -134,9 +138,13 @@ class PforEncodedVector {
   std::vector<uint8_t>& mutable_packed_values() { return packed_values_; }
   void set_packed_values(std::vector<uint8_t> v) { packed_values_ = std::move(v); }
 
-  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
-  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
-  void set_exception_positions(std::vector<int16_t> v) {
+  const std::vector<PforConstants::PositionType>& exception_positions() const {
+    return exception_positions_;
+  }
+  std::vector<PforConstants::PositionType>& mutable_exception_positions() {
+    return exception_positions_;
+  }
+  void set_exception_positions(std::vector<PforConstants::PositionType> v) {
     exception_positions_ = std::move(v);
   }
 
@@ -147,7 +155,7 @@ class PforEncodedVector {
  private:
   PforVectorInfo<T> info_;
   std::vector<uint8_t> packed_values_;
-  std::vector<int16_t> exception_positions_;
+  std::vector<PforConstants::PositionType> exception_positions_;
   std::vector<T> exception_values_;
 };
 
@@ -173,9 +181,13 @@ class PforEncodedVectorView {
   std::span<const uint8_t> packed_values() const { return packed_values_; }
   void set_packed_values(std::span<const uint8_t> v) { packed_values_ = v; }
 
-  const std::vector<int16_t>& exception_positions() const { return exception_positions_; }
-  std::vector<int16_t>& mutable_exception_positions() { return exception_positions_; }
-  void set_exception_positions(std::vector<int16_t> v) {
+  const std::vector<PforConstants::PositionType>& exception_positions() const {
+    return exception_positions_;
+  }
+  std::vector<PforConstants::PositionType>& mutable_exception_positions() {
+    return exception_positions_;
+  }
+  void set_exception_positions(std::vector<PforConstants::PositionType> v) {
     exception_positions_ = std::move(v);
   }
 
@@ -195,7 +207,7 @@ class PforEncodedVectorView {
   PforVectorInfo<T> info_;
   int32_t num_elements_ = 0;
   std::span<const uint8_t> packed_values_;
-  std::vector<int16_t> exception_positions_;
+  std::vector<PforConstants::PositionType> exception_positions_;
   std::vector<T> exception_values_;
 };
 
@@ -205,7 +217,7 @@ class PforEncodedVectorView {
 /// \brief Result of the optimal bit width search
 struct BitWidthResult {
   uint8_t bit_width = 0;
-  int16_t num_exceptions = 0;
+  uint16_t num_exceptions = 0;
 };
 
 // ----------------------------------------------------------------------

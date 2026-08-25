@@ -98,6 +98,27 @@ TEST(PforVectorInfoTest, Int64RoundTrip) {
   EXPECT_EQ(loaded.num_exceptions(), 30000);
 }
 
+// Every element of a maximum-size vector can be an exception, so the count has
+// to reach kMaxVectorSize. A signed 16-bit field stopped one short of that.
+TEST(PforVectorInfoTest, NumExceptionsAtMaxVectorSize) {
+  PforVectorInfo<int32_t> info;
+  info.set_bit_width(3);
+  info.set_num_exceptions(PforConstants::kMaxVectorSize);
+
+  uint8_t buf[7];
+  info.Store(std::span<uint8_t>(buf, 7));
+  ASSERT_OK_AND_ASSIGN(auto loaded,
+                       PforVectorInfo<int32_t>::Load(std::span<const uint8_t>(buf, 7)));
+
+  EXPECT_EQ(loaded.num_exceptions(), PforConstants::kMaxVectorSize);
+}
+
+TEST(PforVectorInfoTest, RejectsNumExceptionsAboveMaxVectorSize) {
+  // [FOR 4B] [bit_width 1B] [num_exceptions 2B], with a count no vector can have.
+  uint8_t buf[7] = {0, 0, 0, 0, 3, 0xFF, 0xFF};
+  ASSERT_RAISES(Invalid, PforVectorInfo<int32_t>::Load(std::span<const uint8_t>(buf, 7)));
+}
+
 // ======================================================================
 // Cost Model Tests
 

@@ -227,9 +227,10 @@ int64_t PforWrapper<T>::GetMaxCompressedSize(int32_t num_values, int32_t vector_
   // Worst case per vector: full bit width + all exceptions
   int64_t max_vector_size =
       PforVectorInfo<T>::kStoredSize +
-      vector_size * static_cast<int64_t>(sizeof(T))          // packed at full width
-      + vector_size * static_cast<int64_t>(sizeof(int16_t))  // exception positions
-      + vector_size * static_cast<int64_t>(sizeof(T));       // exception values
+      vector_size * static_cast<int64_t>(sizeof(T))  // packed at full width
+      + vector_size *
+            static_cast<int64_t>(sizeof(PforConstants::PositionType))  // positions
+      + vector_size * static_cast<int64_t>(sizeof(T));                 // exception values
 
   size += num_vectors * max_vector_size;
   return size;
