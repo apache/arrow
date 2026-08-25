@@ -2578,8 +2578,8 @@ std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
       return {Encoding::PLAIN, Encoding::RLE};
     case Type::INT32:
     case Type::INT64:
-      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
-              Encoding::BYTE_STREAM_SPLIT};
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED, Encoding::BYTE_STREAM_SPLIT,
+              Encoding::PFOR};
     case Type::INT96:
       return {Encoding::PLAIN};
     case Type::FLOAT:
