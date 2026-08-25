@@ -434,8 +434,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
   while (seen_num_values_ < total_num_values_) {
-    uint32_t header_size = 0;
-    uint32_t allowed_page_size = kDefaultPageHeaderSize;
+    int64_t header_size = 0;
+    int64_t allowed_page_size = kDefaultPageHeaderSize;
 
     // Page headers can be very large because of page statistics
     // We try to deserialize a larger buffer progressively
@@ -444,8 +444,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       PARQUET_ASSIGN_OR_THROW(auto view, stream_->Peek(allowed_page_size));
       if (view.size() == 0) return nullptr;
 
-      // This gets used, then set by DeserializeThriftMsg
-      header_size = static_cast<uint32_t>(view.size());
       try {
         if (meta_decryptor_ != nullptr) {
           UpdateDecryption(meta_decryptor_.get(), encryption::kDictionaryPageHeader,
@@ -453,9 +451,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         }
         // Reset current page header to avoid unclearing the __isset flag.
         current_page_header_ = format::PageHeader();
-        deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
-                                        &header_size, &current_page_header_,
-                                        meta_decryptor_.get());
+        header_size = deserializer.DeserializeMessage(
+            reinterpret_cast<const uint8_t*>(view.data()), view.size(),
+            &current_page_header_, meta_decryptor_.get());
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again

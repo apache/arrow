@@ -88,7 +88,7 @@ bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
 }
 }  // namespace
 
-static constexpr uint32_t kFooterSize = 8;
+static constexpr int64_t kFooterSize = 8;
 
 // For PARQUET-816
 static constexpr int64_t kMaxDictHeaderSize = 100;
@@ -441,7 +441,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_ASSIGN_OR_THROW(
         auto footer_buffer,
         source_->ReadAt(source_size_ - footer_read_size, footer_read_size));
-    uint32_t metadata_len = ParseFooterLength(footer_buffer, footer_read_size);
+    int64_t metadata_len = ParseFooterLength(footer_buffer, footer_read_size);
     int64_t metadata_start = source_size_ - kFooterSize - metadata_len;
 
     std::shared_ptr<::arrow::Buffer> metadata_buffer;
@@ -460,12 +460,10 @@ class SerializedFile : public ParquetFileReader::Contents {
     std::shared_ptr<InternalFileDecryptor> file_decryptor;
     if (is_encrypted_footer) {
       // Encrypted file with Encrypted footer.
-      const std::pair<int64_t, uint32_t> read_size =
+      std::tie(metadata_start, metadata_len) =
           ParseMetaDataOfEncryptedFileWithEncryptedFooter(metadata_buffer, metadata_len,
                                                           &file_decryptor);
       // Read the actual footer
-      metadata_start = read_size.first;
-      metadata_len = read_size.second;
       PARQUET_ASSIGN_OR_THROW(
           metadata_buffer,
           source_->ReadAt(metadata_start, metadata_len, /*allow_short_read=*/false));
@@ -490,8 +488,8 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   // Validate the magic bytes and get the length of the full footer.
-  uint32_t ParseFooterLength(const std::shared_ptr<::arrow::Buffer>& footer_buffer,
-                             const int64_t footer_read_size) {
+  int64_t ParseFooterLength(const std::shared_ptr<::arrow::Buffer>& footer_buffer,
+                            const int64_t footer_read_size) {
     // Check if all bytes are read. Check if last 4 bytes read have the magic bits
     if (footer_buffer->size() != footer_read_size ||
         (memcmp(footer_buffer->data() + footer_read_size - 4, kParquetMagic, 4) != 0 &&
@@ -501,7 +499,7 @@ class SerializedFile : public ParquetFileReader::Contents {
           "is not a parquet file.");
     }
     // Both encrypted/unencrypted footers have the same footer length check.
-    uint32_t metadata_len =
+    int64_t metadata_len =
         ::arrow::bit_util::FromLittleEndian(::arrow::util::SafeLoadAs<uint32_t>(
             reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
             kFooterSize));
@@ -523,7 +521,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     return source_->ReadAsync(source_size_ - footer_read_size, footer_read_size)
         .Then([this, footer_read_size](
                   const std::shared_ptr<::arrow::Buffer>& footer_buffer) -> Future<> {
-          uint32_t metadata_len;
+          int64_t metadata_len;
           BEGIN_PARQUET_CATCH_EXCEPTIONS
           metadata_len = ParseFooterLength(footer_buffer, footer_read_size);
           END_PARQUET_CATCH_EXCEPTIONS
@@ -552,21 +550,20 @@ class SerializedFile : public ParquetFileReader::Contents {
   Future<> ParseMaybeEncryptedMetaDataAsync(
       std::shared_ptr<::arrow::Buffer> footer_buffer,
       std::shared_ptr<::arrow::Buffer> metadata_buffer, int64_t footer_read_size,
-      uint32_t metadata_len) {
+      int64_t metadata_len) {
     // Parse the footer depending on encryption type
     const bool is_encrypted_footer =
         memcmp(footer_buffer->data() + footer_read_size - 4, kParquetEMagic, 4) == 0;
     std::shared_ptr<InternalFileDecryptor> file_decryptor;
     if (is_encrypted_footer) {
       // Encrypted file with Encrypted footer.
-      std::pair<int64_t, uint32_t> read_size;
+      int64_t metadata_start;
       BEGIN_PARQUET_CATCH_EXCEPTIONS
-      read_size = ParseMetaDataOfEncryptedFileWithEncryptedFooter(
-          metadata_buffer, metadata_len, &file_decryptor);
+      std::tie(metadata_start, metadata_len) =
+          ParseMetaDataOfEncryptedFileWithEncryptedFooter(metadata_buffer, metadata_len,
+                                                          &file_decryptor);
       END_PARQUET_CATCH_EXCEPTIONS
       // Read the actual footer
-      int64_t metadata_start = read_size.first;
-      metadata_len = read_size.second;
       return source_->ReadAsync(metadata_start, metadata_len, /*allow_short_read=*/false)
           .Then([this, metadata_len, is_encrypted_footer,
                  file_decryptor = std::move(file_decryptor)](
@@ -588,9 +585,9 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   // Continuation
   void ParseMetaDataFinal(std::shared_ptr<::arrow::Buffer> metadata_buffer,
-                          uint32_t metadata_len, const bool is_encrypted_footer,
+                          int64_t metadata_len, const bool is_encrypted_footer,
                           std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-    const uint32_t read_metadata_len = ParseUnencryptedFileMetadata(
+    const int64_t read_metadata_len = ParseUnencryptedFileMetadata(
         metadata_buffer, metadata_len, std::move(file_decryptor));
     auto file_decryption_properties = properties_.file_decryption_properties();
     if (is_encrypted_footer) {
@@ -622,8 +619,8 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
 
   // \return The true length of the metadata in bytes
-  uint32_t ParseUnencryptedFileMetadata(
-      const std::shared_ptr<Buffer>& footer_buffer, const uint32_t metadata_len,
+  int64_t ParseUnencryptedFileMetadata(
+      const std::shared_ptr<Buffer>& footer_buffer, const int64_t metadata_len,
       std::shared_ptr<InternalFileDecryptor> file_decryptor);
 
   std::string HandleAadPrefix(
@@ -632,35 +629,35 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   void ParseMetaDataOfEncryptedFileWithPlaintextFooter(
       const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
-      const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
-      uint32_t read_metadata_len);
+      const std::shared_ptr<Buffer>& metadata_buffer, int64_t metadata_len,
+      int64_t read_metadata_len);
 
   // \return The position and size of the actual footer
-  std::pair<int64_t, uint32_t> ParseMetaDataOfEncryptedFileWithEncryptedFooter(
-      const std::shared_ptr<Buffer>& crypto_metadata_buffer, uint32_t footer_len,
+  std::pair<int64_t, int64_t> ParseMetaDataOfEncryptedFileWithEncryptedFooter(
+      const std::shared_ptr<Buffer>& crypto_metadata_buffer, int64_t footer_len,
       std::shared_ptr<InternalFileDecryptor>* file_decryptor);
 };
 
-uint32_t SerializedFile::ParseUnencryptedFileMetadata(
-    const std::shared_ptr<Buffer>& metadata_buffer, const uint32_t metadata_len,
+int64_t SerializedFile::ParseUnencryptedFileMetadata(
+    const std::shared_ptr<Buffer>& metadata_buffer, int64_t metadata_len,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   if (metadata_buffer->size() != metadata_len) {
     throw ParquetException("Failed reading metadata buffer (requested " +
                            std::to_string(metadata_len) + " bytes but got " +
                            std::to_string(metadata_buffer->size()) + " bytes)");
   }
-  uint32_t read_metadata_len = metadata_len;
+  int64_t read_metadata_len = metadata_len;
   // The encrypted read path falls through to here, so pass in the decryptor
-  file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len,
+  file_metadata_ = FileMetaData::Make(metadata_buffer->data(), read_metadata_len,
                                       properties_, std::move(file_decryptor));
-  return read_metadata_len;
+  return file_metadata_->size();
 }
 
-std::pair<int64_t, uint32_t>
+std::pair<int64_t, int64_t>
 SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     const std::shared_ptr<::arrow::Buffer>& crypto_metadata_buffer,
     // both metadata & crypto metadata length
-    const uint32_t footer_len, std::shared_ptr<InternalFileDecryptor>* file_decryptor) {
+    const int64_t footer_len, std::shared_ptr<InternalFileDecryptor>* file_decryptor) {
   // encryption with encrypted footer
   // Check if the footer_buffer contains the entire metadata
   if (crypto_metadata_buffer->size() != footer_len) {
@@ -673,9 +670,9 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     throw ParquetException(
         "Could not read encrypted metadata, no decryption found in reader's properties");
   }
-  uint32_t crypto_metadata_len = footer_len;
   std::shared_ptr<FileCryptoMetaData> file_crypto_metadata =
-      FileCryptoMetaData::Make(crypto_metadata_buffer->data(), &crypto_metadata_len);
+      FileCryptoMetaData::Make(crypto_metadata_buffer->data(), footer_len);
+  int64_t crypto_metadata_len = file_crypto_metadata->size();
   // Handle AAD prefix
   EncryptionAlgorithm algo = file_crypto_metadata->encryption_algorithm();
   std::string file_aad = HandleAadPrefix(file_decryption_properties, algo);
@@ -684,14 +681,14 @@ SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
       file_crypto_metadata->key_metadata(), properties_.memory_pool());
 
   int64_t metadata_offset = source_size_ - kFooterSize - footer_len + crypto_metadata_len;
-  uint32_t metadata_len = footer_len - crypto_metadata_len;
+  int64_t metadata_len = footer_len - crypto_metadata_len;
   return std::make_pair(metadata_offset, metadata_len);
 }
 
 void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties,
-    const std::shared_ptr<Buffer>& metadata_buffer, uint32_t metadata_len,
-    uint32_t read_metadata_len) {
+    const std::shared_ptr<Buffer>& metadata_buffer, int64_t metadata_len,
+    int64_t read_metadata_len) {
   // Providing decryption properties in plaintext footer mode is not mandatory, for
   // example when reading by legacy reader.
   if (file_decryption_properties != nullptr) {
