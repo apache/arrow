@@ -68,6 +68,7 @@ jobs:
       - name: Build wheel
         shell: bash
         env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
           if [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
