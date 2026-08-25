@@ -267,6 +267,14 @@ TEST(BlockParser, Null) {
        R"([{"plain": null}, {"plain": null}])"});
 }
 
+TEST(BlockParser, NullsInList) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseColumns(options, R"({"a": [null, null], "b": [null, "hi", null]})",
+                     {field("a", list(null())), field("b", list(utf8()))},
+                     {"[[null, null]]", R"([[null, "hi", null]])"});
+}
+
 TEST(BlockParser, InferNewFields) {
   std::string src = R"(
     {}
