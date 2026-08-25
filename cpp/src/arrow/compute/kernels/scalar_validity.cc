@@ -21,8 +21,10 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
 
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 
@@ -101,6 +103,60 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
+template <typename IndexType, typename ValueType>
+static void SetNanBitsDictionary(const ArraySpan& arr, const ArraySpan& dict_span,
+                                 uint8_t* out_bitmap, int64_t out_offset) {
+  const IndexType* indices = arr.GetValues<IndexType>(1);
+  const ValueType* dict_values = dict_span.GetValues<ValueType>(1);
+  for (int64_t i = 0; i < arr.length; ++i) {
+    auto dict_index = indices[i];
+    bool is_nan;
+    if constexpr (std::is_same_v<ValueType, uint16_t>) {
+      is_nan = Float16::FromBits(dict_values[dict_index]).is_nan();
+    } else {
+      is_nan = std::isnan(dict_values[dict_index]);
+    }
+    if (is_nan) {
+      bit_util::SetBit(out_bitmap, i + out_offset);
+    }
+  }
+}
+
+template <typename ValueType>
+static void DispatchIndexType(const ArraySpan& arr, const ArraySpan& dict_span,
+                              uint8_t* out_bitmap, int64_t out_offset) {
+  const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
+  switch (dict_type.index_type()->id()) {
+    case Type::INT8:
+      SetNanBitsDictionary<int8_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::INT16:
+      SetNanBitsDictionary<int16_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::INT32:
+      SetNanBitsDictionary<int32_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::INT64:
+      SetNanBitsDictionary<int64_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::UINT8:
+      SetNanBitsDictionary<uint8_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::UINT16:
+      SetNanBitsDictionary<uint16_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::UINT32:
+      SetNanBitsDictionary<uint32_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    case Type::UINT64:
+      SetNanBitsDictionary<uint64_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+    default:
+      SetNanBitsDictionary<int32_t, ValueType>(arr, dict_span, out_bitmap, out_offset);
+      break;
+  }
+}
+
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
   ArraySpan* out_span = out->array_span_mutable();
@@ -135,6 +191,24 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       default:
         return Status::NotImplemented("NaN detection not implemented for type ",
                                       arr.type->ToString());
+    }
+  } else if (arr.type->id() == Type::DICTIONARY && options.nan_is_null) {
+    const auto& dict_type = checked_cast<const DictionaryType&>(*arr.type);
+    if (is_floating(dict_type.value_type()->id())) {
+      const ArraySpan& dict_span = arr.dictionary();
+      switch (dict_type.value_type()->id()) {
+        case Type::FLOAT:
+          DispatchIndexType<float>(arr, dict_span, out_bitmap, out_span->offset);
+          break;
+        case Type::DOUBLE:
+          DispatchIndexType<double>(arr, dict_span, out_bitmap, out_span->offset);
+          break;
+        case Type::HALF_FLOAT:
+          DispatchIndexType<uint16_t>(arr, dict_span, out_bitmap, out_span->offset);
+          break;
+        default:
+          break;
+      }
     }
   }
   return Status::OK();
