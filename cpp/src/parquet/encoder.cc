@@ -1785,23 +1785,22 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   std::shared_ptr<Buffer> FlushValues() override {
     if (values_.empty()) {
       PARQUET_ASSIGN_OR_THROW(auto empty_buf, ::arrow::AllocateBuffer(0, pool_));
-      return std::move(empty_buf);
+      return empty_buf;
     }
 
     const uint32_t num_values = static_cast<uint32_t>(values_.size());
     int64_t max_size =
         ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values);
-    PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateResizableBuffer(
-                                             max_size, pool_));
+    PARQUET_ASSIGN_OR_THROW(auto buffer,
+                            ::arrow::AllocateResizableBuffer(max_size, pool_));
 
     int64_t comp_size = max_size;
-    ::arrow::util::pfor::PforWrapper<T>::Encode(
-        values_.data(), num_values,
-        buffer->mutable_data(), &comp_size);
+    ::arrow::util::pfor::PforWrapper<T>::Encode(values_.data(), num_values,
+                                                buffer->mutable_data(), &comp_size);
 
     PARQUET_THROW_NOT_OK(buffer->Resize(comp_size));
     values_.clear();
-    return std::move(buffer);
+    return buffer;
   }
 
   int64_t EstimatedDataEncodedSize() override {
