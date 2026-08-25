@@ -436,9 +436,9 @@ table Interval {
 /// would yield a value that is possibly a few seconds off from the true elapsed
 /// time.
 ///
-///  The resolution defaults to millisecond, but can be any of the other
-///  supported TimeUnit values as with Timestamp and Time types.  This type is
-///  always represented as an 8-byte integer.
+/// The resolution defaults to millisecond, but can be any of the other
+/// supported TimeUnit values as with Timestamp and Time types.  This type is
+/// always represented as an 8-byte integer.
 table Duration {
   unit: TimeUnit = MILLISECOND;
 }
