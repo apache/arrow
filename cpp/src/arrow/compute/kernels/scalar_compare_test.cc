@@ -1297,8 +1297,12 @@ TEST(TestBinaryViewCompareKernel, MixedTypesBoundaryAndSlices) {
   for (const auto& ty1 : {binary_view(), utf8_view()}) {
     for (const auto& ty2 : {binary(), utf8(), large_binary(), large_utf8()}) {
       // 12 bytes is the inline threshold
-      auto arr1 = ArrayFromJSON(ty1, R"(["inline", "longer_than_twelve_bytes_string", "suffix_diff_A", "suffix_diff_longer_A"])");
-      auto arr2 = ArrayFromJSON(ty2, R"(["inline", "longer_than_twelve_bytes_string", "suffix_diff_B", "suffix_diff_longer_B"])");
+      auto arr1 = ArrayFromJSON(
+          ty1,
+          R"(["inline", "longer_than_twelve_bytes_string", "suffix_diff_A", "suffix_diff_longer_A"])");
+      auto arr2 = ArrayFromJSON(
+          ty2,
+          R"(["inline", "longer_than_twelve_bytes_string", "suffix_diff_B", "suffix_diff_longer_B"])");
 
       CheckScalarBinary("equal", arr1, arr2,
                         ArrayFromJSON(boolean(), R"([true, true, false, false])"));
@@ -1311,7 +1315,6 @@ TEST(TestBinaryViewCompareKernel, MixedTypesBoundaryAndSlices) {
     }
   }
 }
-
 
 template <typename T>
 class TestVarArgsCompare : public ::testing::Test {
