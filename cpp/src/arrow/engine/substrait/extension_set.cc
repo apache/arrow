@@ -26,8 +26,10 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -36,6 +38,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 namespace engine {
 namespace {
@@ -757,6 +760,19 @@ static std::vector<std::string> kRoundModes = {
     "TIE_UP", "TIE_TOWARDS_ZERO", "TIE_AWAY_FROM_ZERO", "TIE_TO_EVEN",    "TIE_TO_ODD"};
 static EnumParser<compute::RoundMode> kRoundModeParser(kRoundModes);
 
+// The case_sensitivity option used by the Substrait string functions
+// (starts_with / ends_with / contains).  Arrow's MatchSubstringOptions only
+// distinguishes case sensitive from case insensitive, so CASE_INSENSITIVE_ASCII
+// is parsed but not implemented.
+enum class CaseSensitivity {
+  kCaseSensitive = 0,
+  kCaseInsensitive,
+  kCaseInsensitiveAscii
+};
+static std::vector<std::string> kCaseSensitivityOptions = {
+    "CASE_SENSITIVE", "CASE_INSENSITIVE", "CASE_INSENSITIVE_ASCII"};
+static EnumParser<CaseSensitivity> kCaseSensitivityParser(kCaseSensitivityOptions);
+
 template <typename Enum>
 Result<Enum> ParseOptionOrElse(const SubstraitCall& call, std::string_view option_name,
                                const EnumParser<Enum>& parser,
@@ -961,6 +977,71 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeConcatMapping() {
   };
 }
 
+// Substrait's starts_with / ends_with / contains take the pattern as a second
+// value argument.  The matching Arrow kernels (starts_with / ends_with /
+// match_substring) are unary and carry the pattern in MatchSubstringOptions, so
+// the second argument must be a string literal.
+ExtensionIdRegistry::SubstraitCallToArrow DecodeMatchSubstringMapping(
+    const std::string& function_name) {
+  return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
+    if (call.size() != 2) {
+      return Status::NotImplemented("Acero does not have a kernel for ", function_name,
+                                    " that receives ", call.size(), " arguments");
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        CaseSensitivity case_sensitivity,
+        ParseOptionOrElse(
+            call, "case_sensitivity", kCaseSensitivityParser,
+            {CaseSensitivity::kCaseSensitive, CaseSensitivity::kCaseInsensitive},
+            CaseSensitivity::kCaseSensitive));
+    ARROW_ASSIGN_OR_RAISE(compute::Expression input, call.GetValueArg(0));
+    ARROW_ASSIGN_OR_RAISE(compute::Expression substring, call.GetValueArg(1));
+    const Datum* pattern = substring.literal();
+    if (pattern == nullptr || !pattern->is_scalar()) {
+      return Status::NotImplemented(
+          "The Arrow ", function_name,
+          " kernel requires the substring argument to be a literal");
+    }
+    const std::shared_ptr<Scalar>& pattern_scalar = pattern->scalar();
+    if (!pattern_scalar->is_valid || (!is_base_binary_like(pattern_scalar->type->id()) &&
+                                      !is_binary_view_like(pattern_scalar->type->id()))) {
+      return Status::NotImplemented(
+          "The Arrow ", function_name,
+          " kernel requires the substring argument to be a non-null string literal");
+    }
+    auto options = std::make_shared<compute::MatchSubstringOptions>(
+        std::string(checked_cast<const BaseBinaryScalar&>(*pattern_scalar).view()),
+        /*ignore_case=*/case_sensitivity == CaseSensitivity::kCaseInsensitive);
+    return compute::call(function_name, {std::move(input)}, std::move(options));
+  };
+}
+
+ExtensionIdRegistry::ArrowToSubstraitCall EncodeMatchSubstring(Id substrait_fn_id) {
+  return
+      [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
+        if (call.arguments.size() != 1) {
+          return Status::Invalid("Expected the call to ", call.function_name,
+                                 " to have exactly one argument but it had ",
+                                 call.arguments.size());
+        }
+        if (call.options == nullptr) {
+          return Status::Invalid("The call to ", call.function_name,
+                                 " is missing its MatchSubstringOptions");
+        }
+        auto match_options =
+            checked_pointer_cast<compute::MatchSubstringOptions>(call.options);
+        // nullable=true errs on the side of caution
+        SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
+                                     /*nullable=*/true);
+        substrait_call.SetValueArg(0, call.arguments[0]);
+        substrait_call.SetValueArg(1, compute::literal(match_options->pattern));
+        substrait_call.SetOption(
+            "case_sensitivity",
+            {match_options->ignore_case ? "CASE_INSENSITIVE" : "CASE_SENSITIVE"});
+        return substrait_call;
+      };
+}
+
 ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
     const std::string& arrow_function_name) {
   return [arrow_function_name](const SubstraitCall& call) -> Result<compute::Aggregate> {
@@ -1147,6 +1228,13 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
                                       DecodeTemporalExtractionMapping()));
     DCHECK_OK(AddSubstraitCallToArrow({kSubstraitStringFunctionsUri, "concat"},
                                       DecodeConcatMapping()));
+    for (const auto& fn_pair : std::vector<std::pair<std::string_view, std::string>>{
+             {"starts_with", "starts_with"},
+             {"ends_with", "ends_with"},
+             {"contains", "match_substring"}}) {
+      DCHECK_OK(AddSubstraitCallToArrow({kSubstraitStringFunctionsUri, fn_pair.first},
+                                        DecodeMatchSubstringMapping(fn_pair.second)));
+    }
     DCHECK_OK(
         AddSubstraitCallToArrow({kSubstraitComparisonFunctionsUri, "is_null"},
                                 DecodeOptionlessBasicMapping("is_null", /*max_args=*/1)));
@@ -1239,6 +1327,15 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
 
     DCHECK_OK(AddArrowToSubstraitCall(
         "is_null", EncodeIsNull({kSubstraitComparisonFunctionsUri, "is_null"})));
+
+    for (const auto& fn_pair : std::vector<std::pair<std::string, std::string_view>>{
+             {"starts_with", "starts_with"},
+             {"ends_with", "ends_with"},
+             {"match_substring", "contains"}}) {
+      DCHECK_OK(AddArrowToSubstraitCall(
+          fn_pair.first,
+          EncodeMatchSubstring({kSubstraitStringFunctionsUri, fn_pair.second})));
+    }
   }
 };
 
