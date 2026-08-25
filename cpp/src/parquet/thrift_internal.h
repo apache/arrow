@@ -612,7 +612,7 @@ class ThriftDeserializer {
         throw ParquetException("Couldn't decrypt buffer\n");
       }
       int64_t read_bytes = decryptor->CiphertextLength(decrypted_buffer_len);
-      ARROW_DCHECK_LE(read_bytes, len);  // XXX should they be equal?
+      ARROW_DCHECK_LE(read_bytes, len);
       DeserializeUnencryptedMessage(decrypted_buffer->data(), decrypted_buffer_len,
                                     deserialized_msg);
       return read_bytes;
@@ -626,7 +626,7 @@ class ThriftDeserializer {
   std::shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf, int64_t len) {
     if (len >= static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
       std::stringstream ss;
-      ss << "Cannot decrypt deserialize Thrift message with length " << len
+      ss << "Cannot deserialize Thrift message with length " << len
          << ", which overflows uint32\n";
       throw ParquetException(ss.str());
     }
