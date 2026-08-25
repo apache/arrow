@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <bit>
 #include <cstdint>
 #include <type_traits>
 
@@ -71,8 +72,7 @@ struct PforTypeTraits<int32_t> {
   static constexpr int64_t kVectorInfoSize = 7;
 
   static uint8_t BitsRequired(uint32_t value) {
-    if (value == 0) return 0;
-    return static_cast<uint8_t>(32 - __builtin_clz(value));
+    return static_cast<uint8_t>(std::bit_width(value));
   }
 };
 
@@ -86,8 +86,7 @@ struct PforTypeTraits<int64_t> {
   static constexpr int64_t kVectorInfoSize = 11;
 
   static uint8_t BitsRequired(uint64_t value) {
-    if (value == 0) return 0;
-    return static_cast<uint8_t>(64 - __builtin_clzll(value));
+    return static_cast<uint8_t>(std::bit_width(value));
   }
 };
 

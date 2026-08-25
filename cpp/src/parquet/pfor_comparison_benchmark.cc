@@ -22,6 +22,7 @@
 // Data generators mimic ClickBench and TPC-DS column distributions.
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -452,9 +453,9 @@ static int32_t ComputeBitWidth(const std::vector<T>& values) {
   }
   if (max_val == 0) return 1;
   if constexpr (sizeof(T) == 8) {
-    return static_cast<int32_t>(64 - __builtin_clzll(static_cast<uint64_t>(max_val)));
+    return static_cast<int32_t>(std::bit_width(static_cast<uint64_t>(max_val)));
   } else {
-    return static_cast<int32_t>(32 - __builtin_clz(static_cast<uint32_t>(max_val)));
+    return static_cast<int32_t>(std::bit_width(static_cast<uint32_t>(max_val)));
   }
 }
 
