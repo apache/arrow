@@ -458,4 +458,81 @@ TEST(PforCompressionRatioTest, ClusteredDataCompresses) {
   EXPECT_LT(comp_size, plain_size / 2);
 }
 
+// ======================================================================
+// Corrupt Page Tests
+//
+// A PFOR page can come from anywhere, so Decode has to reject a header that
+// disagrees with the buffer it arrived in rather than trusting it and reading
+// or writing out of bounds.
+
+namespace {
+
+// Encode `values` and return the compressed bytes, sized exactly.
+std::vector<uint8_t> EncodeInt32(const std::vector<int32_t>& values) {
+  int64_t comp_size =
+      PforWrapper<int32_t>::GetMaxCompressedSize(static_cast<int32_t>(values.size()));
+  std::vector<uint8_t> compressed(comp_size);
+  PforWrapper<int32_t>::Encode(values.data(), static_cast<int32_t>(values.size()),
+                               compressed.data(), &comp_size);
+  compressed.resize(comp_size);
+  return compressed;
+}
+
+void StoreLE32(uint8_t* dest, uint32_t value) {
+  for (int i = 0; i < 4; ++i) {
+    dest[i] = static_cast<uint8_t>(value >> (8 * i));
+  }
+}
+
+}  // namespace
+
+TEST(PforCorruptPageTest, BufferTooSmallForHeader) {
+  std::vector<int32_t> values = {10, 20, 30, 40, 50};
+  auto compressed = EncodeInt32(values);
+
+  std::vector<int32_t> decoded(values.size());
+  ASSERT_RAISES(Invalid,
+                PforWrapper<int32_t>::Decode(decoded.data(), 5, compressed.data(),
+                                             PforConstants::kHeaderSize - 1));
+}
+
+TEST(PforCorruptPageTest, ElementCountExceedsOutputCapacity) {
+  std::vector<int32_t> values = {10, 20, 30, 40, 50};
+  auto compressed = EncodeInt32(values);
+
+  // num_elements lives at header byte 3.
+  StoreLE32(compressed.data() + 3, 6);
+
+  std::vector<int32_t> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
+                             decoded.data(), 5, compressed.data(), compressed.size()));
+}
+
+TEST(PforCorruptPageTest, OffsetArrayTruncated) {
+  // Four vectors, so the offset array is 16 bytes; hand Decode a buffer with
+  // room for only two of them.
+  std::vector<int32_t> values(4096);
+  std::iota(values.begin(), values.end(), 0);
+  auto compressed = EncodeInt32(values);
+
+  std::vector<int32_t> decoded(values.size());
+  ASSERT_RAISES(Invalid,
+                PforWrapper<int32_t>::Decode(decoded.data(), 4096, compressed.data(),
+                                             PforConstants::kHeaderSize + 8));
+}
+
+TEST(PforCorruptPageTest, VectorOffsetPastEndOfBuffer) {
+  std::vector<int32_t> values(2048);
+  std::iota(values.begin(), values.end(), 0);
+  auto compressed = EncodeInt32(values);
+
+  // Point the second vector past the end of the buffer.
+  StoreLE32(compressed.data() + PforConstants::kHeaderSize + 4,
+            static_cast<uint32_t>(compressed.size()));
+
+  std::vector<int32_t> decoded(values.size());
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
+                             decoded.data(), 2048, compressed.data(), compressed.size()));
+}
+
 }  // namespace arrow::util::pfor

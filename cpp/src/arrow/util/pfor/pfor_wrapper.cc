@@ -170,17 +170,33 @@ Status PforWrapper<T>::Decode(T* values, int32_t num_values, const uint8_t* comp
   ARROW_ASSIGN_OR_RAISE(PforHeader header,
                         LoadHeader(std::span<const uint8_t>(src, comp_size)));
 
+  // The caller sized `values` for num_values, so a header claiming more than
+  // that would have us write past the end of it.
+  if (header.num_elements > num_values) {
+    return Status::Invalid("PFOR header element count ", header.num_elements,
+                           " exceeds output capacity ", num_values);
+  }
+
   const int32_t vector_size = 1 << header.log_vector_size;
   const int32_t num_vectors =
       static_cast<int32_t>(bit_util::CeilDiv(header.num_elements, vector_size));
 
   // Step 2: Read offset array
   const uint8_t* offset_array_start = src + PforConstants::kHeaderSize;
+  const int64_t offset_array_size = num_vectors * static_cast<int64_t>(sizeof(uint32_t));
+  if (PforConstants::kHeaderSize + offset_array_size > comp_size) {
+    return Status::Invalid("PFOR offset array for ", num_vectors,
+                           " vectors does not fit in ", comp_size, " bytes");
+  }
 
   // Step 3: Decode each vector
   for (int32_t v = 0; v < num_vectors; ++v) {
     uint32_t offset =
         util::SafeLoadAs<uint32_t>(offset_array_start + v * sizeof(uint32_t));
+    if (PforConstants::kHeaderSize + static_cast<int64_t>(offset) >= comp_size) {
+      return Status::Invalid("PFOR vector ", v, " offset ", offset,
+                             " is past the end of the ", comp_size, " byte buffer");
+    }
 
     const uint8_t* vector_data = offset_array_start + offset;
 
