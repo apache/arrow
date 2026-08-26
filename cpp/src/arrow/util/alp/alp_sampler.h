@@ -20,10 +20,10 @@
 #pragma once
 
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "arrow/util/alp/alp.h"
-#include "arrow/util/span.h"
 
 namespace arrow {
 namespace util {
@@ -56,13 +56,13 @@ class AlpSampler {
   /// is called.
   ///
   /// \param[in] input the input data to sample from
-  void AddSample(arrow::util::span<const T> input);
+  void AddSample(std::span<const T> input);
 
   /// \brief Add a single vector as a sample
   ///
   /// \param[in] input the input vector to add.
   ///            Size should be <= AlpConstants::kAlpVectorSize.
-  void AddSampleVector(arrow::util::span<const T> input);
+  void AddSampleVector(std::span<const T> input);
 
   /// \brief Finalize sampling and generate the encoding preset
   ///
