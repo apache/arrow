@@ -26,6 +26,7 @@
 #include "arrow/compare.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
@@ -297,11 +298,26 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 
 namespace internal {
 
+Result<int64_t> ComputeSparseCSXIndptrLength(SparseMatrixCompressedAxis compressed_axis,
+                                             const std::vector<int64_t>& shape) {
+  if (shape.size() != 2) {
+    return Status::Invalid("Invalid shape length for a sparse matrix");
+  }
+  const int64_t compressed_axis_size =
+      compressed_axis == SparseMatrixCompressedAxis::ROW ? shape[0] : shape[1];
+  const auto indptr_length =
+      AddWithOverflow<int64_t>({compressed_axis_size, static_cast<int64_t>(1)});
+  if (!indptr_length.has_value()) {
+    return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+  }
+  return indptr_length.value();
+}
+
 Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::shared_ptr<DataType>& indices_type,
                               const std::vector<int64_t>& indptr_shape,
                               const std::vector<int64_t>& indices_shape,
-                              char const* type_name) {
+                              const char* type_name) {
   if (!is_integer(indptr_type->id())) {
     return Status::TypeError("Type of ", type_name, " indptr must be integer");
   }
@@ -325,7 +341,7 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
                                  const std::shared_ptr<DataType>& indices_type,
                                  const std::vector<int64_t>& indptr_shape,
                                  const std::vector<int64_t>& indices_shape,
-                                 char const* type_name) {
+                                 const char* type_name) {
   ARROW_CHECK_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
                                         indices_shape, type_name));
 }
@@ -405,13 +421,20 @@ SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indpt
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
 
 bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
-  for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i) {
-    if (!indices()[i]->Equals(*other.indices()[i])) return false;
-  }
-  for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i) {
-    if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
-  }
-  return axis_order() == other.axis_order();
+  auto eq = [](const auto& a, const auto& b) { return a->Equals(*b); };
+// TODO: remove the use of std::equal when we no longer have partial C++20 support with
+// CRAN.
+#if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
+  return axis_order() == other.axis_order() &&
+         std::ranges::equal(indices(), other.indices(), eq) &&
+         std::ranges::equal(indptr(), other.indptr(), eq);
+#else
+  return axis_order() == other.axis_order() &&
+         std::equal(indices().begin(), indices().end(), other.indices().begin(),
+                    other.indices().end(), eq) &&
+         std::equal(indptr().begin(), indptr().end(), other.indptr().begin(),
+                    other.indptr().end(), eq);
+#endif
 }
 
 // ----------------------------------------------------------------------

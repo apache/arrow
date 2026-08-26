@@ -50,6 +50,9 @@ StreamReader::StreamReader(std::unique_ptr<ParquetFileReader> reader)
   auto schema = file_metadata_->schema();
   auto group_node = schema->group_node();
 
+  if (schema->num_columns() == 0) {
+    throw ParquetException("StreamReader does not support empty schemas.");
+  }
   nodes_.resize(schema->num_columns());
 
   for (auto i = 0; i < schema->num_columns(); ++i) {

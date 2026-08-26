@@ -30,10 +30,19 @@ prefix=$2
 mkdir -p /tmp/ccache
 case $(uname) in
   MINGW64*)
-    url="https://github.com/ccache/ccache/releases/download/v${version}/ccache-${version}-windows-x86_64.zip"
+    declare -A archs
+    archs=([64-bit]="x86_64"
+           [ARM 64-bit Processor]="aarch64")
+    arch=$(powershell -Command "(Get-CimInstance Win32_OperatingSystem).OSArchitecture")
+    if [ -z "${archs[$arch]}" ]; then
+      echo "Unsupported architecture on Windows: ${arch}"
+      exit 0
+    fi
+    arch=${archs[$arch]}
+    url="https://github.com/ccache/ccache/releases/download/v${version}/ccache-${version}-windows-${arch}.zip"
     pushd /tmp/ccache
     curl --fail --location --remote-name "${url}"
-    unzip -j "ccache-${version}-windows-x86_64.zip"
+    unzip -j "ccache-${version}-windows-${arch}.zip"
     chmod +x ccache.exe
     mv ccache.exe "${prefix}/bin/"
     popd

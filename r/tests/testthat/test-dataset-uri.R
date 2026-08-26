@@ -42,10 +42,10 @@ test_that("dataset from single local file path", {
   ds <- open_dataset(files[1])
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7) %>%
-      collect() %>%
+    ds |>
+      select(chr, dbl) |>
+      filter(dbl > 7) |>
+      collect() |>
       arrange(dbl),
     df1[8:10, c("chr", "dbl")]
   )
@@ -55,10 +55,10 @@ test_that("dataset from vector of file paths", {
   ds <- open_dataset(files)
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
+    ds |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53L) |>
+      collect() |>
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -72,10 +72,10 @@ test_that("dataset from directory URI", {
   ds <- open_dataset(uri, partitioning = schema(part = uint8()))
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
+    ds |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53L) |>
+      collect() |>
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -89,10 +89,10 @@ test_that("dataset from single file URI", {
   ds <- open_dataset(uri)
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7) %>%
-      collect() %>%
+    ds |>
+      select(chr, dbl) |>
+      filter(dbl > 7) |>
+      collect() |>
       arrange(dbl),
     df1[8:10, c("chr", "dbl")]
   )
@@ -103,10 +103,10 @@ test_that("dataset from vector of file URIs", {
   ds <- open_dataset(uris)
   expect_r6_class(ds, "Dataset")
   expect_equal(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
+    ds |>
+      select(chr, dbl) |>
+      filter(dbl > 7 & dbl < 53L) |>
+      collect() |>
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],

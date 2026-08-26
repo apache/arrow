@@ -41,6 +41,7 @@ struct ARROW_EXPORT ArrayStatistics {
   using ValueType = std::variant<bool, int64_t, uint64_t, double, std::string>;
   using NumericType = std::variant<int64_t, double>;
   using CountType = NumericType;
+  using SizeType = NumericType;
 
   static const std::shared_ptr<DataType>& ValueToArrowType(
       const std::optional<ValueType>& value,
@@ -74,13 +75,26 @@ struct ARROW_EXPORT ArrayStatistics {
     return std::visit(visitor, value.value());
   }
 
+  /// \brief The number of rows, may not be set
+  /// Note: when set to `int64_t`, it represents `exact_row_count`,
+  /// and when set to `double`, it represents `approximate_row_count`.
+  /// Note: this value is not used by \ref arrow::RecordBatch::MakeStatisticsArray.
+  std::optional<CountType> row_count = std::nullopt;
+
   /// \brief The number of null values, may not be set
-  std::optional<int64_t> null_count = std::nullopt;
+  /// Note: when set to `int64_t`, it represents `exact_null_count`,
+  /// and when set to `double`, it represents `approximate_null_count`.
+  std::optional<CountType> null_count = std::nullopt;
 
   /// \brief The number of distinct values, may not be set
   /// Note: when set to `int64_t`, it represents `exact_distinct_count`,
   /// and when set to `double`, it represents `approximate_distinct_count`.
   std::optional<CountType> distinct_count = std::nullopt;
+
+  /// \brief The maximum length in bytes of the rows in an array; may not be set
+  /// Note: when the type is `int64_t`, it represents `max_byte_width_exact`,
+  /// and when the type is `double`, it represents `max_byte_width_approximate`.
+  std::optional<SizeType> max_byte_width = std::nullopt;
 
   /// \brief The average size in bytes of a row in an array, may not be set.
   std::optional<double> average_byte_width = std::nullopt;

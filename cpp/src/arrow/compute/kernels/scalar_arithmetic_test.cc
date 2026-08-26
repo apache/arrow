@@ -241,7 +241,10 @@ class TestUnaryArithmetic : public TestBaseUnaryArithmetic<T, ArithmeticOptions>
  protected:
   using Base = TestBaseUnaryArithmetic<T, ArithmeticOptions>;
   using Base::options_;
-  void SetOverflowCheck(bool value) { options_.check_overflow = value; }
+  void SetOverflowCheck(bool value) {
+    ARROW_SCOPED_TRACE("check_overflow = ", value);
+    options_.check_overflow = value;
+  }
 };
 
 template <typename T>
@@ -421,7 +424,10 @@ class TestBinaryArithmetic : public TestBaseArithmetic<T> {
     AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
-  void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
+  void SetOverflowCheck(bool value) {
+    ARROW_SCOPED_TRACE("check_overflow = ", value);
+    options_.check_overflow = value;
+  }
 
   void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
@@ -1142,6 +1148,10 @@ TEST(TestBinaryArithmetic, DispatchBest) {
   CheckDispatchBest("atan2", {float32(), float64()}, {float64(), float64()});
   // Integer always promotes to double
   CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
+
+  CheckDispatchBest("hypot", {float32(), float32()}, {float32(), float32()});
+  CheckDispatchBest("hypot", {float32(), float64()}, {float64(), float64()});
+  CheckDispatchBest("hypot", {int32(), uint8()}, {float64(), float64()});
 }
 
 TEST(TestBinaryArithmetic, Null) {
@@ -1153,7 +1163,8 @@ TEST(TestBinaryArithmetic, Null) {
     }
   }
 
-  for (std::string name : {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor"}) {
+  for (std::string name :
+       {"atan2", "bit_wise_and", "bit_wise_or", "bit_wise_xor", "hypot"}) {
     AssertNullToNull(name);
   }
 }
@@ -1942,14 +1953,14 @@ TEST_F(TestBinaryArithmeticDecimal, DispatchExact) {
       name += suffix;
       ARROW_SCOPED_TRACE(name);
 
-      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 1)});
-      CheckDispatchExact(name, {decimal128(3, 1), decimal128(2, 1)});
-      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 0)});
+      CheckDispatchExactFails(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(2, 1), decimal128(2, 0)});
       CheckDispatchExactFails(name, {decimal128(2, 0), decimal128(2, 1)});
 
-      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 1)});
-      CheckDispatchExact(name, {decimal256(3, 1), decimal256(2, 1)});
-      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 0)});
+      CheckDispatchExactFails(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(2, 1), decimal256(2, 0)});
       CheckDispatchExactFails(name, {decimal256(2, 0), decimal256(2, 1)});
     }
   }
@@ -2025,24 +2036,36 @@ TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
       name += suffix;
       SCOPED_TRACE(name);
 
-      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
-                        {decimal128(23, 4), decimal128(1, 0)});
-      CheckDispatchBest(name, {decimal128(1, 0), int64()},
-                        {decimal128(21, 20), decimal128(19, 0)});
+      CheckDispatchBestWithCastedTypes(name, {int64(), decimal128(1, 0)},
+                                       {decimal128(23, 4), decimal128(1, 0)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(1, 0), int64()},
+                                       {decimal128(21, 20), decimal128(19, 0)});
 
-      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
-                        {decimal128(6, 5), decimal128(2, 1)});
-      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
-                        {decimal256(6, 5), decimal256(2, 1)});
-      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
-                        {decimal256(6, 5), decimal256(2, 1)});
-      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
-                        {decimal256(6, 5), decimal256(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 1), decimal128(2, 1)},
+                                       {decimal128(6, 5), decimal128(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal256(2, 1), decimal256(2, 1)},
+                                       {decimal256(6, 5), decimal256(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 1), decimal256(2, 1)},
+                                       {decimal256(6, 5), decimal256(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal256(2, 1), decimal128(2, 1)},
+                                       {decimal256(6, 5), decimal256(2, 1)});
 
-      CheckDispatchBest(name, {decimal128(2, 0), decimal128(2, 1)},
-                        {decimal128(7, 5), decimal128(2, 1)});
-      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 0)},
-                        {decimal128(5, 4), decimal128(2, 0)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 0), decimal128(2, 1)},
+                                       {decimal128(7, 5), decimal128(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 1), decimal128(2, 0)},
+                                       {decimal128(5, 4), decimal128(2, 0)});
+
+      // GH-39875: Expression call to decimal(3 ,2) / decimal(15, 2) wrong result type.
+      // decimal128(3, 2) / decimal128(15, 2)
+      // -> decimal128(19, 18) / decimal128(15, 2) = decimal128(19, 16)
+      CheckDispatchBestWithCastedTypes(name, {decimal128(3, 2), decimal128(15, 2)},
+                                       {decimal128(19, 18), decimal128(15, 2)});
+
+      // GH-40911: Expression call to decimal(7 ,2) / decimal(6, 1) wrong result type.
+      // decimal128(7, 2) / decimal128(6, 1)
+      // -> decimal128(14, 9) / decimal128(6, 1) = decimal128(14, 8)
+      CheckDispatchBestWithCastedTypes(name, {decimal128(7, 2), decimal128(6, 1)},
+                                       {decimal128(14, 9), decimal128(6, 1)});
     }
   }
   for (std::string name : {"atan2", "logb", "logb_checked", "power", "power_checked"}) {
@@ -2332,6 +2355,14 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
     CheckScalarBinary("divide", left, right, expected);
   }
 
+  // decimal(p1, s1) decimal(p2, s2) where s1 < s2
+  {
+    auto left = ScalarFromJSON(decimal128(6, 5), R"("2.71828")");
+    auto right = ScalarFromJSON(decimal128(7, 6), R"("3.141592")");
+    auto expected = ScalarFromJSON(decimal128(14, 7), R"("0.8652555")");
+    CheckScalarBinary("divide", left, right, expected);
+  }
+
   // decimal128 decimal256
   {
     auto left = ScalarFromJSON(decimal256(6, 5), R"("2.71828")");
@@ -2464,6 +2495,29 @@ TEST_F(TestBinaryArithmeticDecimal, Power) {
                                  ArrayFromJSON(int64(), R"([1, null, 3])")});
       CheckDecimalToFloat(func, {ArrayFromJSON(int64(), R"([1, 2, null])"),
                                  ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+    }
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, ErrorOnNonCastable) {
+  for (const auto& name : {"add", "subtract", "multiply", "divide"}) {
+    for (const auto& suffix : {"", "_checked"}) {
+      auto func = std::string(name) + suffix;
+      SCOPED_TRACE(func);
+      for (const auto& dec_ty : PositiveScaleTypes()) {
+        SCOPED_TRACE(dec_ty->ToString());
+        auto dec_arr = ArrayFromJSON(dec_ty, R"([])");
+        for (const auto& other_ty : {boolean(), fixed_size_binary(42), utf8()}) {
+          SCOPED_TRACE(other_ty->ToString());
+          auto other_arr = ArrayFromJSON(other_ty, R"([])");
+          EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                          ::testing::HasSubstr("has no kernel matching"),
+                                          CallFunction(func, {dec_arr, other_arr}));
+          EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                          ::testing::HasSubstr("has no kernel matching"),
+                                          CallFunction(func, {other_arr, dec_arr}));
+        }
+      }
     }
   }
 }
@@ -2756,6 +2810,50 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                     "[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, Inf, -Inf]",
                     MakeArray(0, 0, -0.0, M_PI, -M_PI, 0, M_PI_2, M_PI, -M_PI_2, M_PI_2,
                               -M_PI_2, 0, M_PI));
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, Hypot) {
+  SKIP_IF_HALF_FLOAT();
+
+  this->SetNansEqual(true);
+  auto hypot = [](const Datum& x, const Datum& y, ArithmeticOptions, ExecContext* ctx) {
+    return Hypot(x, y, ctx);
+  };
+  this->AssertBinop(hypot, "[]", "[]", "[]");
+  // Pythagorean triples; result is independent of the sign of either argument,
+  // and hypot(0, 0) == 0.
+  this->AssertBinop(hypot, "[3, -3, 5, -8, 0]", "[4, -4, -12, 15, 0]",
+                    "[5, 5, 13, 17, 0]");
+  // Null propagation.
+  this->AssertBinop(hypot, "[1, null, 0]", "[null, 1, 0]", "[null, null, 0]");
+  // NaN propagates, unless the other argument is infinite (per C99/IEEE 754,
+  // hypot(+/-Inf, NaN) == +Inf).
+  this->AssertBinop(hypot, "[NaN, 1, NaN, Inf]", "[1, NaN, NaN, NaN]",
+                    "[NaN, NaN, NaN, Inf]");
+  // +/-infinity in either argument yields +infinity.
+  this->AssertBinop(hypot, "[Inf, -Inf, 3]", "[4, 0, -Inf]", "[Inf, Inf, Inf]");
+}
+
+// hypot avoids overflow/underflow at intermediate stages: for float32 the
+// squares below overflow to +Inf, so a naive sqrt(x*x + y*y) would return Inf,
+// while the kernel (like std::hypot) returns the correct finite result.
+TEST(TestBinaryArithmetic, HypotOverflowSafety) {
+  std::vector<float> xs = {3.0e30f, 5.0e37f, -2.0e30f};
+  std::vector<float> ys = {4.0e30f, 1.2e38f, 0.0f};
+  ASSERT_TRUE(std::isinf(xs[0] * xs[0]));  // the naive intermediate overflows
+
+  std::vector<float> expected_vals;
+  for (size_t i = 0; i < xs.size(); ++i) {
+    expected_vals.push_back(std::hypot(xs[i], ys[i]));
+  }
+
+  std::shared_ptr<Array> x, y, expected;
+  ArrayFromVector<FloatType>(xs, &x);
+  ArrayFromVector<FloatType>(ys, &y);
+  ArrayFromVector<FloatType>(expected_vals, &expected);
+
+  ASSERT_OK_AND_ASSIGN(Datum result, Hypot(x, y));
+  AssertArraysEqual(*expected, *result.make_array(), /*verbose=*/true);
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, TrigAtanh) {

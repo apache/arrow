@@ -28,5 +28,17 @@ GArrowExpression *
 garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression);
 
 GARROW_EXTERN
+GArrowExpression *
+garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression,
+                          const gchar *first_property_name,
+                          ...);
+
+GARROW_EXTERN
+GArrowExpression *
+garrow_expression_new_raw_valist(const arrow::compute::Expression &arrow_expression,
+                                 const gchar *first_property_name,
+                                 va_list args);
+
+GARROW_EXTERN
 arrow::compute::Expression *
 garrow_expression_get_raw(GArrowExpression *expression);

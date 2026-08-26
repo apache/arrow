@@ -341,43 +341,50 @@ struct GrouperImpl : public Grouper {
     impl->ctx_ = ctx;
 
     for (size_t i = 0; i < key_types.size(); ++i) {
-      // TODO(wesm): eliminate this probably unneeded shared_ptr copy
-      std::shared_ptr<DataType> key = key_types[i].GetSharedPtr();
+      const auto& key_type = key_types[i];
 
-      if (key->id() == Type::BOOL) {
+      if (key_type.id() == Type::BOOL) {
         impl->encoders_[i] = std::make_unique<internal::BooleanKeyEncoder>();
         continue;
       }
 
-      if (key->id() == Type::DICTIONARY) {
+      if (key_type.id() == Type::DICTIONARY) {
+        impl->encoders_[i] = std::make_unique<internal::DictionaryKeyEncoder>(
+            key_type.GetSharedPtr(), ctx->memory_pool());
+        continue;
+      }
+
+      if (is_fixed_width(key_type.id())) {
         impl->encoders_[i] =
-            std::make_unique<internal::DictionaryKeyEncoder>(key, ctx->memory_pool());
+            std::make_unique<internal::FixedWidthKeyEncoder>(key_type.GetSharedPtr());
         continue;
       }
 
-      if (is_fixed_width(key->id())) {
-        impl->encoders_[i] = std::make_unique<internal::FixedWidthKeyEncoder>(key);
+      if (is_binary_like(key_type.id())) {
+        impl->encoders_[i] = std::make_unique<internal::VarLengthKeyEncoder<BinaryType>>(
+            key_type.GetSharedPtr());
         continue;
       }
 
-      if (is_binary_like(key->id())) {
+      if (is_large_binary_like(key_type.id())) {
         impl->encoders_[i] =
-            std::make_unique<internal::VarLengthKeyEncoder<BinaryType>>(key);
+            std::make_unique<internal::VarLengthKeyEncoder<LargeBinaryType>>(
+                key_type.GetSharedPtr());
         continue;
       }
 
-      if (is_large_binary_like(key->id())) {
+      if (is_binary_view_like(key_type.id())) {
         impl->encoders_[i] =
-            std::make_unique<internal::VarLengthKeyEncoder<LargeBinaryType>>(key);
+            std::make_unique<internal::BinaryViewKeyEncoder>(key_type.GetSharedPtr());
         continue;
       }
 
-      if (key->id() == Type::NA) {
+      if (key_type.id() == Type::NA) {
         impl->encoders_[i] = std::make_unique<internal::NullKeyEncoder>();
         continue;
       }
 
-      return Status::NotImplemented("Keys of type ", *key);
+      return Status::NotImplemented("Keys of type ", *key_type);
     }
 
     return impl;
@@ -555,7 +562,10 @@ struct GrouperFastImpl : public Grouper {
     }
 #if ARROW_LITTLE_ENDIAN
     for (size_t i = 0; i < key_types.size(); ++i) {
-      if (is_large_binary_like(key_types[i].id())) {
+      // View keys fall back to GrouperImpl; the fast row format can't hold
+      // their variadic buffers.
+      if (is_large_binary_like(key_types[i].id()) ||
+          is_binary_view_like(key_types[i].id())) {
         return false;
       }
     }

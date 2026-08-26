@@ -106,7 +106,11 @@ class ARROW_EXPORT SlowRandomAccessFile : public SlowInputStreamBase<RandomAcces
   Result<int64_t> Read(int64_t nbytes, void* out) override;
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, bool allow_short_read,
+                         void* out) override;
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes,
+                                         bool allow_short_read) override;
   Result<std::string_view> Peek(int64_t nbytes) override;
 
   Result<int64_t> GetSize() override;

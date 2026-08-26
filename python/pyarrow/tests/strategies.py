@@ -46,11 +46,28 @@ except ImportError:
 import pyarrow as pa
 
 
-# TODO(kszucs): alphanum_text, surrogate_text
+# Text generation strategies for various character sets
 custom_text = st.text(
     alphabet=st.characters(
         min_codepoint=0x41,
         max_codepoint=0x7E
+    )
+)
+
+# alphanum_text: Only alphanumeric characters (a-z, A-Z, 0-9)
+alphanum_text = st.text(
+    alphabet=st.characters(
+        whitelist_categories=('Ll', 'Lu', 'Nd'),  # Lowercase, Uppercase, Decimal Number
+        min_codepoint=0x30,  # Start from '0' (U+0030)
+        max_codepoint=0x7A   # End at 'z' (U+007A)
+    )
+)
+
+# surrogate_text: Unicode supplementary planes (U+10000 to U+10FFFF)
+surrogate_text = st.text(
+    alphabet=st.characters(
+        min_codepoint=0x10000,  # Start of Plane 1 (Supplementary Multilingual Plane)
+        max_codepoint=0x10FFFF  # End of valid Unicode range (last code point)
     )
 )
 
@@ -126,14 +143,33 @@ time_types = st.sampled_from([
     pa.time64('ns')
 ])
 
+# UTC-12 to UTC+14, minute offsets 0/30/45 cover all real-world IANA offsets
+_fixed_offset_timezone_list = [
+    datetime.timezone(datetime.timedelta(hours=h, minutes=m))
+    for h in range(-12, 15)
+    for m in [0, 30, 45]
+    if datetime.timedelta(hours=-12)
+    <= datetime.timedelta(hours=h, minutes=m)
+    <= datetime.timedelta(hours=14)
+]
+
+
+@st.composite
+def _draw_fixed_offset_timezone(draw):
+    return draw(st.sampled_from(_fixed_offset_timezone_list))
+
+
+fixed_offset_timezones = _draw_fixed_offset_timezone()
+
 if tzst and zoneinfo:
-    timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
+    timezones = st.one_of(
+        st.none(), tzst.timezones(), st.timezones(), fixed_offset_timezones)
 elif tzst:
-    timezones = st.one_of(st.none(), tzst.timezones())
+    timezones = st.one_of(st.none(), tzst.timezones(), fixed_offset_timezones)
 elif zoneinfo:
-    timezones = st.one_of(st.none(), st.timezones())
+    timezones = st.one_of(st.none(), st.timezones(), fixed_offset_timezones)
 else:
-    timezones = st.none()
+    timezones = st.one_of(st.none(), fixed_offset_timezones)
 timestamp_types = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
@@ -164,8 +200,10 @@ metadata = st.dictionaries(st.text(), st.text())
 
 
 @st.composite
-def fields(draw, type_strategy=primitive_types):
-    name = draw(custom_text)
+def fields(draw, type_strategy=primitive_types, name_strategy=None):
+    if name_strategy is None:
+        name_strategy = custom_text
+    name = draw(name_strategy)
     typ = draw(type_strategy)
     if pa.types.is_null(typ):
         nullable = True
@@ -243,7 +281,11 @@ all_types = st.deferred(
         struct_types(all_types)
     )
 )
-all_fields = fields(all_types)
+all_fields = st.one_of(
+    fields(all_types),  # custom_text
+    fields(all_types, name_strategy=alphanum_text),
+    fields(all_types, name_strategy=surrogate_text)
+)
 all_schemas = schemas(all_types)
 
 
@@ -314,18 +356,35 @@ def arrays(draw, type, size=None, nullable=True):
         max_datetime = datetime.datetime.fromtimestamp(
             max_int64 // 10**9) - datetime.timedelta(hours=12)
         try:
-            offset = ty.tz.split(":")
-            offset_hours = int(offset[0])
-            offset_min = int(offset[1])
-            tz = datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            offset_hours, offset_min = ty.tz.split(":")
+            sign = -1 if offset_hours.startswith("-") else 1
+            offset = datetime.timedelta(
+                hours=abs(int(offset_hours)), minutes=int(offset_min))
+            tz = datetime.timezone(sign * offset)
         except ValueError:
             tz = zoneinfo.ZoneInfo(ty.tz)
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
-        value = st.timedeltas()
+        if ty.unit in ('s', 'ms'):
+            min_value = datetime.timedelta.min
+            max_value = datetime.timedelta.max
+        elif ty.unit == 'us':
+            max_int64 = 2**63 - 1
+            max_days = max_int64 // (86400 * 10**6)
+            min_value = datetime.timedelta(days=-max_days)
+            max_value = datetime.timedelta(days=max_days)
+        else:  # 'ns'
+            # Empirically tested value
+            min_value = datetime.timedelta(days=-96_075)
+            max_value = datetime.timedelta(days=96_075)
+        value = st.timedeltas(min_value=min_value, max_value=max_value)
     elif pa.types.is_interval(ty):
-        value = st.timedeltas()
+        # Empirically tested value
+        value = st.timedeltas(
+            min_value=datetime.timedelta(days=-96_075),
+            max_value=datetime.timedelta(days=96_075)
+        )
     elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
         value = st.binary()
     elif pa.types.is_string(ty) or pa.types.is_large_string(ty):
@@ -370,9 +429,6 @@ def chunked_arrays(draw, type, min_chunks=0, max_chunks=None, chunk_size=None):
     if isinstance(type, st.SearchStrategy):
         type = draw(type)
 
-    # TODO(kszucs): remove it, field metadata is not kept
-    h.assume(not pa.types.is_struct(type))
-
     chunk = arrays(type, size=chunk_size)
     chunks = st.lists(chunk, min_size=min_chunks, max_size=max_chunks)
 
@@ -390,8 +446,6 @@ def record_batches(draw, type, rows=None, max_fields=None):
 
     schema = draw(schemas(type, max_fields=max_fields))
     children = [draw(arrays(field.type, size=rows)) for field in schema]
-    # TODO(kszucs): the names and schema arguments are not consistent with
-    #               Table.from_array's arguments
     return pa.RecordBatch.from_arrays(children, schema=schema)
 
 

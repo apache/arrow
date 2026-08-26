@@ -42,7 +42,7 @@ class ARROW_FLIGHT_EXPORT TracingServerMiddleware : public ServerMiddleware {
  public:
   ~TracingServerMiddleware();
 
-  static constexpr char const kMiddlewareName[] =
+  static constexpr const char kMiddlewareName[] =
       "arrow::flight::TracingServerMiddleware";
 
   std::string name() const override { return kMiddlewareName; }

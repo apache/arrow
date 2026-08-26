@@ -146,6 +146,406 @@ class ArrayBuilderTest < Test::Unit::TestCase
                        ["Apache Arrow"],
                      ])
       end
+
+      sub_test_case("nested integer list") do
+        test("list<uint8>s") do
+          values = [
+            [0, 1, 2],
+            [3, 4],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint8)
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 1, 2],
+                           [3, 4],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int8>s boundary") do
+          values = [
+            [0, GLib::MININT8],
+            [GLib::MAXINT8],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int8)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MININT8],
+                           [GLib::MAXINT8],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int16>s inferred from int8 underflow") do
+          values = [
+            [0, GLib::MININT8 - 1],
+            [GLib::MAXINT8],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int16)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MININT8 - 1],
+                           [GLib::MAXINT8],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int16>s inferred from int8 overflow") do
+          values = [
+            [0, GLib::MAXINT8 + 1],
+            [GLib::MININT8],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int16)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXINT8 + 1],
+                           [GLib::MININT8],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int16>s boundary") do
+          values = [
+            [0, GLib::MININT16],
+            [GLib::MAXINT16],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int16)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MININT16],
+                           [GLib::MAXINT16],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int32>s inferred from int16 underflow") do
+          values = [
+            [0, GLib::MININT16 - 1],
+            [GLib::MAXINT16],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int32)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MININT16 - 1],
+                           [GLib::MAXINT16],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int32>s inferred from int16 overflow") do
+          values = [
+            [0, GLib::MAXINT16 + 1],
+            [GLib::MININT16],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int32)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXINT16 + 1],
+                           [GLib::MININT16],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int32>s boundary") do
+          values = [
+            [0, GLib::MININT32],
+            [GLib::MAXINT32],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int32)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MININT32],
+                           [GLib::MAXINT32],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int64>s inferred from int32 underflow") do
+          values = [
+            [0, GLib::MININT32 - 1],
+            [GLib::MAXINT32],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int64)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MININT32 - 1],
+                           [GLib::MAXINT32],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int64>s inferred from int32 overflow") do
+          values = [
+            [0, GLib::MAXINT32 + 1],
+            [GLib::MININT32],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:int64)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXINT32 + 1],
+                           [GLib::MININT32],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("string fallback from nested int64 array overflow") do
+          values = [
+            [0, GLib::MAXINT64 + 1],
+            [GLib::MININT64],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:string)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           ["0", "#{GLib::MAXINT64 + 1}"],
+                           ["#{GLib::MININT64}"],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("string fallback from nested int64 array underflow") do
+          values = [
+            [0, GLib::MININT64 - 1],
+            [GLib::MAXINT64],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:string)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           ["0", "#{GLib::MININT64 - 1}"],
+                           ["#{GLib::MAXINT64}"],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint8>s boundary") do
+          values = [
+            [0, GLib::MAXUINT8],
+            [GLib::MAXUINT8],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint8)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXUINT8],
+                           [GLib::MAXUINT8],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint16>s") do
+          values = [
+            [0, GLib::MAXUINT8 + 1],
+            [GLib::MAXUINT8],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint16)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXUINT8 + 1],
+                           [GLib::MAXUINT8],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint16>s boundary") do
+          values = [
+            [0, GLib::MAXUINT16],
+            [GLib::MAXUINT16],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint16)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXUINT16],
+                           [GLib::MAXUINT16],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint32>s") do
+          values = [
+            [0, GLib::MAXUINT16 + 1],
+            [GLib::MAXUINT16],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint32)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXUINT16 + 1],
+                           [GLib::MAXUINT16],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint32>s boundary") do
+          values = [
+            [0, GLib::MAXUINT32],
+            [GLib::MAXUINT32],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint32)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXUINT32],
+                           [GLib::MAXUINT32],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint64>s") do
+          values = [
+            [0, GLib::MAXUINT32 + 1],
+            [GLib::MAXUINT32],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:uint64)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, GLib::MAXUINT32 + 1],
+                           [GLib::MAXUINT32],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("string fallback from nested uint64 array overflow") do
+          values = [
+            [0, GLib::MAXUINT64 + 1],
+            [GLib::MAXUINT64],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(:string)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           ["0", "#{GLib::MAXUINT64 + 1}"],
+                           ["#{GLib::MAXUINT64}"],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+      end
     end
 
     sub_test_case("specific builder") do

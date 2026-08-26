@@ -21,16 +21,31 @@ arrow_install_all_headers("arrow/integration")
 # - an executable that can be called to answer integration test requests
 # - a self-(unit)test for the C++ side of integration testing
 if(ARROW_BUILD_TESTS)
-  add_arrow_test(json_integration_test EXTRA_LINK_LIBS RapidJSON ${GFLAGS_LIBRARIES})
+  add_arrow_test(json_integration_test
+                 EXTRA_LINK_LIBS
+                 RapidJSON
+                 simdjson::simdjson
+                 ${GFLAGS_LIBRARIES})
   add_dependencies(arrow-integration arrow-json-integration-test)
 elseif(ARROW_BUILD_INTEGRATION)
   add_executable(arrow-json-integration-test json_integration_test.cc)
   target_link_libraries(arrow-json-integration-test
                         RapidJSON
+                        simdjson::simdjson
                         ${ARROW_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES}
                         ${ARROW_GTEST_GTEST})
 
   add_dependencies(arrow-json-integration-test arrow arrow_testing)
   add_dependencies(arrow-integration arrow-json-integration-test)
+endif()
+
+if(ARROW_BUILD_INTEGRATION)
+  add_arrow_lib(arrow_c_data_integration
+                SOURCES
+                c_data_integration_internal.cc
+                SHARED_LINK_LIBS
+                arrow_testing_shared
+                STATIC_LINK_LIBS
+                arrow_testing_static)
 endif()

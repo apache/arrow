@@ -1,14 +1,34 @@
 [
     {
-        "name": "22.0 (dev)",
+        "name": "26.0 (dev)",
         "version": "dev/",
         "url": "https://arrow.apache.org/docs/dev/"
     },
     {
-        "name": "21.0 (stable)",
+        "name": "25.0 (stable)",
         "version": "",
         "url": "https://arrow.apache.org/docs/",
         "preferred": true
+    },
+    {
+        "name": "24.0",
+        "version": "24.0/",
+        "url": "https://arrow.apache.org/docs/24.0/"
+    },
+    {
+        "name": "23.0",
+        "version": "23.0/",
+        "url": "https://arrow.apache.org/docs/23.0/"
+    },
+    {
+        "name": "22.0",
+        "version": "22.0/",
+        "url": "https://arrow.apache.org/docs/22.0/"
+    },
+    {
+        "name": "21.0",
+        "version": "21.0/",
+        "url": "https://arrow.apache.org/docs/21.0/"
     },
     {
         "name": "20.0",
@@ -118,6 +138,6 @@
     {
         "name": "1.0",
         "version": "1.0/",
-        "url": "https://arrow.apache.org/docs/dev/"
+        "url": "https://arrow.apache.org/docs/1.0/"
     }
 ]

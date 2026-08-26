@@ -36,9 +36,14 @@ set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.c
 
 set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF})
 
-set(FLIGHT_SQL_PROTOC_COMMAND
-    ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
-    "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}")
+set(FLIGHT_SQL_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}")
+# Add protobuf include directory for well-known types (e.g., descriptor.proto)
+# This is needed when using vendored protobuf where protoc doesn't have built-in paths
+if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
+  list(APPEND FLIGHT_SQL_PROTOC_COMMAND "-I${Protobuf_INCLUDE_DIRS}")
+endif()
+list(APPEND FLIGHT_SQL_PROTOC_COMMAND
+     "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}")
 if(Protobuf_VERSION VERSION_LESS 3.15)
   list(APPEND FLIGHT_SQL_PROTOC_COMMAND "--experimental_allow_proto3_optional")
 endif()
@@ -90,7 +95,7 @@ endif()
 
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts)
-  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_FLAGS "/wd4267")
+  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_OPTIONS "/wd4267")
 endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)

@@ -20,6 +20,7 @@
 #include <cassert>
 #include <map>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -49,22 +50,7 @@ using ColumnPathToEncryptionPropertiesMap =
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
   /// \brief Retrieve a key.
-  /// \deprecated Deprecated since 22.0.0.
-  ///             Implement GetKeyById(const std::string&) instead.
-  ARROW_DEPRECATED(
-      "Deprecated in 22.0.0. "
-      "Implement GetKeyById(const std::string&) instead.")
-  virtual std::string GetKey(const std::string& key_id) {
-    throw ParquetException("Not implemented");
-  }
-
-  /// \brief Retrieve a key by its id.
-  virtual ::arrow::util::SecureString GetKeyById(const std::string& key_id) {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    auto key = ::arrow::util::SecureString(GetKey(key_id));
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-    return key;
-  }
+  virtual ::arrow::util::SecureString GetKey(const std::string& key_id) = 0;
 
   virtual ~DecryptionKeyRetriever() {}
 };
@@ -74,17 +60,15 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(uint32_t key_id, ::arrow::util::SecureString key);
 
-  ::arrow::util::SecureString GetKeyById(const std::string& key_id_string) override {
+  ::arrow::util::SecureString GetKey(const std::string& key_id_string) override {
     // key_id_string is string but for IntegerKeyIdRetriever it encodes
     // a native-endian 32 bit unsigned integer key_id
     uint32_t key_id;
     assert(key_id_string.size() == sizeof(key_id));
     memcpy(&key_id, key_id_string.data(), sizeof(key_id));
 
-    return GetKeyById(key_id);
+    return key_map_.at(key_id);
   }
-
-  ::arrow::util::SecureString GetKeyById(uint32_t key_id) { return key_map_.at(key_id); }
 
  private:
   std::map<uint32_t, ::arrow::util::SecureString> key_map_;
@@ -94,7 +78,7 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
 class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(std::string key_id, ::arrow::util::SecureString key);
-  ::arrow::util::SecureString GetKeyById(const std::string& key_id) override;
+  ::arrow::util::SecureString GetKey(const std::string& key_id) override;
 
  private:
   std::map<std::string, ::arrow::util::SecureString> key_map_;
@@ -112,14 +96,7 @@ class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
       : ParquetException(columnPath.c_str()) {}
 };
 
-inline const uint8_t* str2bytes(const std::string& str) {
-  if (str.empty()) return NULLPTR;
-
-  char* cbytes = const_cast<char*>(str.c_str());
-  return reinterpret_cast<const uint8_t*>(cbytes);
-}
-
-inline ::arrow::util::span<const uint8_t> str2span(const std::string& str) {
+inline std::span<const uint8_t> str2span(const std::string& str) {
   if (str.empty()) {
     return {};
   }
@@ -131,23 +108,13 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// Convenience builder for encrypted columns.
-    explicit Builder(std::string name) : Builder(std::move(name), true) {}
-
-    /// Convenience builder for encrypted columns.
-    explicit Builder(const schema::ColumnPath& path)
-        : Builder(path.ToDotString(), true) {}
+    Builder() = default;
 
     /// Set a column-specific key.
     /// If key is not set on an encrypted column, the column will
     /// be encrypted with the footer key.
     /// keyBytes Key length must be either 16, 24 or 32 bytes.
     /// Caller is responsible for wiping out the input key array.
-    /// \deprecated "Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead."
-    ARROW_DEPRECATED("Deprecated in 22.0.0. Use key(arrow::util::SecureString) instead.")
-    Builder* key(std::string column_key);
-
-    /// \copydoc key(std::string)
     Builder* key(::arrow::util::SecureString column_key);
 
     /// Set a key retrieval metadata.
@@ -162,33 +129,31 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(
-          new ColumnEncryptionProperties(encrypted_, column_path_, key_, key_metadata_));
+          new ColumnEncryptionProperties(encrypted_, key_, key_metadata_));
     }
 
    private:
-    std::string column_path_;
-    bool encrypted_;
+    bool encrypted_ = true;
     ::arrow::util::SecureString key_;
     std::string key_metadata_;
-
-    Builder(std::string path, bool encrypted)
-        : column_path_(std::move(path)), encrypted_(encrypted) {}
   };
 
-  const std::string& column_path() const { return column_path_; }
   bool is_encrypted() const { return encrypted_; }
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
   const ::arrow::util::SecureString& key() const { return key_; }
   const std::string& key_metadata() const { return key_metadata_; }
 
+  static std::shared_ptr<ColumnEncryptionProperties> Unencrypted();
+  static std::shared_ptr<ColumnEncryptionProperties> WithFooterKey();
+  static std::shared_ptr<ColumnEncryptionProperties> WithColumnKey(
+      ::arrow::util::SecureString key, std::string key_metadata = "");
+
  private:
-  std::string column_path_;
   bool encrypted_;
   bool encrypted_with_footer_key_;
   ::arrow::util::SecureString key_;
   std::string key_metadata_;
-  explicit ColumnEncryptionProperties(bool encrypted, std::string column_path,
-                                      ::arrow::util::SecureString key,
+  explicit ColumnEncryptionProperties(bool encrypted, ::arrow::util::SecureString key,
                                       std::string key_metadata);
 };
 
@@ -259,14 +224,6 @@ class PARQUET_EXPORT FileDecryptionProperties {
     /// will be wiped out (array values set to 0).
     /// Caller is responsible for wiping out the input key array.
     /// param footerKey Key length must be either 16, 24 or 32 bytes.
-    /// \deprecated Deprecated since 22.0.0.
-    ///             Use footer_key(arrow::util::SecureString) instead.
-    ARROW_DEPRECATED(
-        "Deprecated in 22.0.0. "
-        "Use footer_key(arrow::util::SecureString) instead.")
-    Builder* footer_key(std::string footer_key);
-
-    /// \copydoc footer_key(std::string footer_key)
     Builder* footer_key(::arrow::util::SecureString footer_key);
 
     /// Set explicit column keys (decryption properties).
@@ -376,14 +333,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// \deprecated Deprecated since 22.0.0. Use Builder(arrow::util::SecureString)
-    /// instead.
-    ARROW_DEPRECATED(
-        "Deprecated in 22.0.0. "
-        "Use Builder(arrow::util::SecureString) instead")
-    explicit Builder(std::string footer_key)
-        : Builder(::arrow::util::SecureString(std::move(footer_key))) {}
-
     explicit Builder(::arrow::util::SecureString footer_key)
         : parquet_cipher_(kDefaultEncryptionAlgorithm),
           encrypted_footer_(kDefaultEncryptedFooter),

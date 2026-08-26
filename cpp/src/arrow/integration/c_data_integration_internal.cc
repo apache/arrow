@@ -28,12 +28,18 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 
 namespace arrow::internal::integration {
 namespace {
+
+// Make sure the extension types referenced in test data are registered.
+[[nodiscard]] auto RequireExtensionTypes() {
+  return ExtensionTypeGuard({uuid(), dict_extension_type()});
+}
 
 template <typename Func>
 const char* StatusToErrorString(Func&& func) {
@@ -113,30 +119,39 @@ Status ImportBatchAndCompareToJson(std::string json_path, int num_batch,
 const char* ArrowCpp_CDataIntegration_ExportSchemaFromJson(const char* json_path,
                                                            ArrowSchema* out) {
   using namespace arrow::internal::integration;  // NOLINT(build/namespaces)
-  return StatusToErrorString([=]() { return ExportSchemaFromJson(json_path, out); });
+  return StatusToErrorString([=]() {
+    auto guard = RequireExtensionTypes();
+    return ExportSchemaFromJson(json_path, out);
+  });
 }
 
 const char* ArrowCpp_CDataIntegration_ImportSchemaAndCompareToJson(const char* json_path,
                                                                    ArrowSchema* schema) {
   using namespace arrow::internal::integration;  // NOLINT(build/namespaces)
-  return StatusToErrorString(
-      [=]() { return ImportSchemaAndCompareToJson(json_path, schema); });
+  return StatusToErrorString([=]() {
+    auto guard = RequireExtensionTypes();
+    return ImportSchemaAndCompareToJson(json_path, schema);
+  });
 }
 
 const char* ArrowCpp_CDataIntegration_ExportBatchFromJson(const char* json_path,
                                                           int num_batch,
                                                           ArrowArray* out) {
   using namespace arrow::internal::integration;  // NOLINT(build/namespaces)
-  return StatusToErrorString(
-      [=]() { return ExportBatchFromJson(json_path, num_batch, out); });
+  return StatusToErrorString([=]() {
+    auto guard = RequireExtensionTypes();
+    return ExportBatchFromJson(json_path, num_batch, out);
+  });
 }
 
 const char* ArrowCpp_CDataIntegration_ImportBatchAndCompareToJson(const char* json_path,
                                                                   int num_batch,
                                                                   ArrowArray* batch) {
   using namespace arrow::internal::integration;  // NOLINT(build/namespaces)
-  return StatusToErrorString(
-      [=]() { return ImportBatchAndCompareToJson(json_path, num_batch, batch); });
+  return StatusToErrorString([=]() {
+    auto guard = RequireExtensionTypes();
+    return ImportBatchAndCompareToJson(json_path, num_batch, batch);
+  });
 }
 
 int64_t ArrowCpp_BytesAllocated() {

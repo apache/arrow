@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -53,6 +54,11 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
+
 namespace bit_util = arrow::bit_util;
 
 using arrow::Status;
@@ -87,11 +93,7 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
   // If estimated_data_length is provided, it will also reserve the estimated data length.
   Status Prepare(int64_t length, std::optional<int64_t> estimated_data_length = {}) {
     entries_remaining_ = length;
-    RETURN_NOT_OK(builder_->Reserve(entries_remaining_));
-    if (estimated_data_length.has_value()) {
-      RETURN_NOT_OK(builder_->ReserveData(
-          std::min<int64_t>(*estimated_data_length, this->chunk_space_remaining_)));
-    }
+    RETURN_NOT_OK(ReserveInitialChunkData(estimated_data_length));
     return Status::OK();
   }
 
@@ -105,11 +107,7 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
       // This element would exceed the capacity of a chunk
       RETURN_NOT_OK(PushChunk());
       // Reserve entries and data in new chunk
-      RETURN_NOT_OK(builder_->Reserve(entries_remaining_));
-      if (estimated_remaining_data_length.has_value()) {
-        RETURN_NOT_OK(builder_->ReserveData(
-            std::min<int64_t>(*estimated_remaining_data_length, chunk_space_remaining_)));
-      }
+      RETURN_NOT_OK(ReserveInitialChunkData(estimated_remaining_data_length));
     }
     chunk_space_remaining_ -= length;
     --entries_remaining_;
@@ -139,6 +137,16 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
     ARROW_ASSIGN_OR_RAISE(auto chunk, acc_->builder->Finish());
     acc_->chunks.push_back(std::move(chunk));
     chunk_space_remaining_ = ::arrow::kBinaryMemoryLimit;
+    return Status::OK();
+  }
+
+  Status ReserveInitialChunkData(std::optional<int64_t> estimated_remaining_data_length) {
+    RETURN_NOT_OK(builder_->Reserve(entries_remaining_));
+    if (estimated_remaining_data_length.has_value()) {
+      int64_t required_capacity =
+          std::min(*estimated_remaining_data_length, chunk_space_remaining_);
+      RETURN_NOT_OK(builder_->ReserveData(required_capacity));
+    }
     return Status::OK();
   }
 
@@ -749,44 +757,59 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_values_decoded) {
+    // We're going to decode `num_values - null_count` PLAIN values,
+    // and each value has a 4-byte length header that doesn't count for the
+    // Arrow binary data length.
+    int64_t estimated_data_length =
+        len_ - 4 * static_cast<int64_t>(num_values - null_count);
+    if (ARROW_PREDICT_FALSE(estimated_data_length < 0)) {
+      return Status::Invalid("Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
+    }
+
     auto visit_binary_helper = [&](auto* helper) {
       int values_decoded = 0;
 
-      RETURN_NOT_OK(VisitBitRuns(
-          valid_bits, valid_bits_offset, num_values,
-          [&](int64_t position, int64_t run_length, bool is_valid) {
-            if (is_valid) {
-              for (int64_t i = 0; i < run_length; ++i) {
-                if (ARROW_PREDICT_FALSE(len_ < 4)) {
-                  return Status::Invalid(
-                      "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
-                }
-                auto value_len = SafeLoadAs<int32_t>(data_);
-                if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > len_ - 4)) {
-                  return Status::Invalid(
-                      "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
-                }
-                RETURN_NOT_OK(
-                    helper->AppendValue(data_ + 4, value_len,
-                                        /*estimated_remaining_data_length=*/len_));
-                auto increment = value_len + 4;
-                data_ += increment;
-                len_ -= increment;
-              }
-              values_decoded += static_cast<int>(run_length);
-              return Status::OK();
-            } else {
-              return helper->AppendNulls(run_length);
+      auto visit_run = [&](int64_t position, int64_t run_length, bool is_valid) {
+        if (is_valid) {
+          for (int64_t i = 0; i < run_length; ++i) {
+            // We ensure `len_` is sufficient thanks to:
+            //   1. the initial `estimated_data_length` check above,
+            //   2. the running `value_len > estimated_data_length` check below.
+            // This precondition follows from those two checks.
+            DCHECK_GE(len_, 4);
+            auto value_len = SafeLoadAs<int32_t>(data_);
+            // This check also ensures that `value_len <= len_ - 4` due to the way
+            // `estimated_data_length` is computed.
+            if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > estimated_data_length)) {
+              return Status::Invalid(
+                  "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
             }
-          }));
+            RETURN_NOT_OK(
+                helper->AppendValue(data_ + 4, value_len, estimated_data_length));
+            auto increment = value_len + 4;
+            data_ += increment;
+            len_ -= increment;
+            estimated_data_length -= value_len;
+            DCHECK_GE(estimated_data_length, 0);
+          }
+          values_decoded += static_cast<int>(run_length);
+          DCHECK_LE(values_decoded, num_values);
+          return Status::OK();
+        } else {
+          return helper->AppendNulls(run_length);
+        }
+      };
+
+      RETURN_NOT_OK(
+          VisitBitRuns(valid_bits, valid_bits_offset, num_values, std::move(visit_run)));
 
       num_values_ -= values_decoded;
       *out_values_decoded = values_decoded;
       return Status::OK();
     };
 
-    return DispatchArrowBinaryHelper<ByteArrayType>(out, num_values, len_,
-                                                    visit_binary_helper);
+    return DispatchArrowBinaryHelper<ByteArrayType>(
+        out, num_values, estimated_data_length, visit_binary_helper);
   }
 
   template <typename BuilderType>
@@ -861,7 +884,8 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
     this->num_values_ = num_values;
     if (len == 0) {
       // Initialize dummy decoder to avoid crashes later on
-      idx_decoder_ = ::arrow::util::RleDecoder(data, len, /*bit_width=*/1);
+      idx_decoder_ =
+          ::arrow::util::RleBitPackedDecoder<int32_t>(data, len, /*bit_width=*/1);
       return;
     }
     uint8_t bit_width = *data;
@@ -869,7 +893,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
       throw ParquetException("Invalid or corrupted bit_width " +
                              std::to_string(bit_width) + ". Maximum allowed is 32.");
     }
-    idx_decoder_ = ::arrow::util::RleDecoder(++data, --len, bit_width);
+    idx_decoder_ = ::arrow::util::RleBitPackedDecoder<int32_t>(++data, --len, bit_width);
   }
 
   int Decode(T* buffer, int num_values) override {
@@ -978,8 +1002,9 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
 
   inline void DecodeDict(TypedDecoder<Type>* dictionary) {
     dictionary_length_ = static_cast<int32_t>(dictionary->values_left());
-    PARQUET_THROW_NOT_OK(dictionary_->Resize(dictionary_length_ * sizeof(T),
-                                             /*shrink_to_fit=*/false));
+    PARQUET_THROW_NOT_OK(
+        dictionary_->Resize(static_cast<int64_t>(dictionary_length_) * sizeof(T),
+                            /*shrink_to_fit=*/false));
     dictionary->Decode(dictionary_->mutable_data_as<T>(), dictionary_length_);
   }
 
@@ -1003,7 +1028,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
   // BinaryDictionary32Builder
   std::shared_ptr<ResizableBuffer> indices_scratch_space_;
 
-  ::arrow::util::RleDecoder idx_decoder_;
+  ::arrow::util::RleBitPackedDecoder<int32_t> idx_decoder_;
 };
 
 template <typename Type>
@@ -1022,15 +1047,15 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
 
   auto* dict_values = dictionary_->mutable_data_as<ByteArray>();
 
-  int total_size = 0;
+  int64_t total_size = 0;
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
-  PARQUET_THROW_NOT_OK(
-      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                  /*shrink_to_fit=*/false));
+  PARQUET_THROW_NOT_OK(byte_array_offsets_->Resize(
+      (static_cast<int64_t>(dictionary_length_) + 1) * sizeof(int32_t),
+      /*shrink_to_fit=*/false));
 
   int32_t offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
@@ -1051,7 +1076,7 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
   auto* dict_values = dictionary_->mutable_data_as<FLBA>();
 
   int fixed_len = this->type_length_;
-  int total_size = dictionary_length_ * fixed_len;
+  int64_t total_size = static_cast<int64_t>(dictionary_length_) * fixed_len;
 
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
@@ -1454,34 +1479,57 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
-    }
-    std::vector<T> values(num_values);
-    int decoded_count = GetInternal(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
-    return decoded_count;
+    auto reserve = [out](int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    };
+    auto append_values = [out](T* values, int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->AppendValues(values, num_values));
+    };
+    return DecodeArrowInternal(num_values, null_count, valid_bits, valid_bits_offset,
+                               reserve, append_values);
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
-    }
-    std::vector<T> values(num_values);
-    int decoded_count = GetInternal(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
-    for (int i = 0; i < decoded_count; ++i) {
-      PARQUET_THROW_NOT_OK(out->Append(values[i]));
-    }
-    return decoded_count;
+    auto reserve = [out](int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    };
+    auto append_values = [out](T* values, int64_t num_values) {
+      for (int i = 0; i < num_values; ++i) {
+        PARQUET_THROW_NOT_OK(out->Append(values[i]));
+      }
+    };
+    return DecodeArrowInternal(num_values, null_count, valid_bits, valid_bits_offset,
+                               reserve, append_values);
   }
 
  private:
   static constexpr int kMaxDeltaBitWidth = static_cast<int>(sizeof(T) * 8);
+
+  template <typename ReserveFunc, typename AppendValuesFunc>
+  int DecodeArrowInternal(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset, ReserveFunc&& reserve_func,
+                          AppendValuesFunc&& append_values_func) {
+    if (null_count != 0) {
+      // TODO(ARROW-34660): implement DecodeArrow with null slots.
+      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
+    }
+    reserve_func(num_values);
+    constexpr int kBatchSize = 1024;
+    std::array<T, kBatchSize> values;
+    int offset = 0;
+    while (offset < num_values) {
+      const int batch_size = std::min(num_values - offset, kBatchSize);
+      int decoded_count = GetInternal(values.data(), batch_size);
+      if (decoded_count != batch_size) {
+        ParquetException::EofException("Not enough values in data page");
+      }
+      append_values_func(values.data(), batch_size);
+      offset += batch_size;
+    }
+    return num_values;
+  }
 
   void InitHeader() {
     if (!decoder_->GetVlqInt(&values_per_block_) ||
@@ -1596,16 +1644,27 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
       int values_decode = std::min(values_remaining_current_mini_block_,
                                    static_cast<uint32_t>(max_values - i));
-      if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
-          values_decode) {
-        ParquetException::EofException();
-      }
-      for (int j = 0; j < values_decode; ++j) {
-        // Addition between min_delta, packed int and last_value should be treated as
-        // unsigned addition. Overflow is as expected.
-        buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                        static_cast<UT>(last_value_);
-        last_value_ = buffer[i + j];
+      if (delta_bit_width_ == 0) {
+        // Fast path that avoids a back-to-back dependency between two consecutive
+        // computations: we know all deltas decode to zero. We actually don't
+        // even need to decode them.
+        for (int j = 0; j < values_decode; ++j) {
+          buffer[i + j] = static_cast<UT>(last_value_) +
+                          static_cast<UT>(j + 1) * static_cast<UT>(min_delta_);
+        }
+        last_value_ += static_cast<UT>(values_decode) * static_cast<UT>(min_delta_);
+      } else {
+        if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
+            values_decode) {
+          ParquetException::EofException();
+        }
+        for (int j = 0; j < values_decode; ++j) {
+          // Addition between min_delta, packed int and last_value should be treated as
+          // unsigned addition. Overflow is as expected.
+          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
+                          static_cast<UT>(last_value_);
+          last_value_ = buffer[i + j];
+        }
       }
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
@@ -1657,6 +1716,7 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
   explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : Base(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
+        pool_(pool),
         len_decoder_(nullptr, pool),
         buffered_length_(AllocateBuffer(pool, 0)) {}
 
@@ -1745,15 +1805,19 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values - null_count);
-    const int num_valid_values = Decode(values.data(), num_values - null_count);
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        ::arrow::AllocateBuffer(sizeof(ByteArray) * (num_values - null_count), pool_));
+    auto values_data = values_buffer->template mutable_data_as<ByteArray>();
+
+    const int num_valid_values = Decode(values_data, num_values - null_count);
     if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
       throw ParquetException("Expected to decode ", num_values - null_count,
                              " values, but decoded ", num_valid_values, " values.");
     }
 
     auto visit_binary_helper = [&](auto* helper) {
-      auto values_ptr = values.data();
+      auto values_ptr = reinterpret_cast<const ByteArray*>(values_data);
       int value_idx = 0;
 
       RETURN_NOT_OK(
@@ -1778,6 +1842,7 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
         out, num_values, /*estimated_data_length=*/{}, visit_binary_helper);
   }
 
+  MemoryPool* pool_;
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_{0};
@@ -1810,8 +1875,9 @@ class RleBooleanDecoder : public TypedDecoderImpl<BooleanType>, public BooleanDe
 
     auto decoder_data = data + 4;
     if (decoder_ == nullptr) {
-      decoder_ = std::make_shared<::arrow::util::RleDecoder>(decoder_data, num_bytes,
-                                                             /*bit_width=*/1);
+      decoder_ = std::make_shared<::arrow::util::RleBitPackedDecoder<bool>>(
+          decoder_data, num_bytes,
+          /*bit_width=*/1);
     } else {
       decoder_->Reset(decoder_data, num_bytes, /*bit_width=*/1);
     }
@@ -1898,7 +1964,7 @@ class RleBooleanDecoder : public TypedDecoderImpl<BooleanType>, public BooleanDe
   }
 
  private:
-  std::shared_ptr<::arrow::util::RleDecoder> decoder_;
+  std::shared_ptr<::arrow::util::RleBitPackedDecoder<bool>> decoder_;
 };
 
 // ----------------------------------------------------------------------
@@ -2062,6 +2128,17 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     if (num_valid_values_ == 0) {
       last_value_in_previous_page_ = last_value_;
     }
+
+    if constexpr (std::is_same_v<DType, FLBAType>) {
+      // Checks all values
+      for (int i = 0; i < max_values; i++) {
+        if (buffer[i].len != static_cast<uint32_t>(this->type_length_)) {
+          throw ParquetException("FLBA type requires fixed-length ", this->type_length_,
+                                 " but got ", buffer[i].len);
+        }
+      }
+    }
+
     return max_values;
   }
 
@@ -2069,12 +2146,19 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::Accumulator* out,
                           int* out_num_values) {
-    std::vector<ByteArray> values(num_values);
-    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
-    DCHECK_EQ(num_values - null_count, num_valid_values);
+    ARROW_ASSIGN_OR_RAISE(
+        auto values_buffer,
+        ::arrow::AllocateBuffer(sizeof(ByteArray) * (num_values - null_count), pool_));
+    auto values_data = values_buffer->template mutable_data_as<ByteArray>();
+
+    const int num_valid_values = GetInternal(values_data, num_values - null_count);
+    if (ARROW_PREDICT_FALSE(num_values - null_count != num_valid_values)) {
+      throw ParquetException("Expected to decode ", num_values - null_count,
+                             " values, but decoded ", num_valid_values, " values.");
+    }
 
     auto visit_binary_helper = [&](auto* helper) {
-      auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
+      auto values_ptr = reinterpret_cast<const ByteArray*>(values_data);
       int value_idx = 0;
 
       PARQUET_THROW_NOT_OK(
@@ -2112,7 +2196,7 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
   int num_valid_values_{0};
   uint32_t prefix_len_offset_{0};
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
-  // buffer for decoded strings, which gurantees the lifetime of the decoded strings
+  // buffer for decoded strings, which guarantees the lifetime of the decoded strings
   // until the next call of Decode.
   std::shared_ptr<ResizableBuffer> buffered_data_;
 };
@@ -2223,11 +2307,13 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
  protected:
   int DecodeRaw(uint8_t* out_buffer, int max_values) {
     const int values_to_decode = std::min(this->num_values_, max_values);
-    ::arrow::util::internal::ByteStreamSplitDecode(this->data_, this->type_length_,
-                                                   values_to_decode, stride_, out_buffer);
-    this->data_ += values_to_decode;
-    this->num_values_ -= values_to_decode;
-    this->len_ -= this->type_length_ * values_to_decode;
+    if (ARROW_PREDICT_TRUE(values_to_decode > 0)) {
+      ::arrow::util::internal::ByteStreamSplitDecode(
+          this->data_, this->type_length_, values_to_decode, stride_, out_buffer);
+      this->data_ += values_to_decode;
+      this->num_values_ -= values_to_decode;
+      this->len_ -= this->type_length_ * values_to_decode;
+    }
     return values_to_decode;
   }
 
@@ -2398,4 +2484,28 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
+
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return {Encoding::PLAIN, Encoding::RLE};
+    case Type::INT32:
+    case Type::INT64:
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
+              Encoding::BYTE_STREAM_SPLIT};
+    case Type::INT96:
+      return {Encoding::PLAIN};
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
+    case Type::BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
+              Encoding::DELTA_BYTE_ARRAY};
+    default:
+      throw ParquetException("Invalid physical type");
+  }
+}
+
 }  // namespace parquet

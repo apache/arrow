@@ -36,7 +36,8 @@
 #'
 #' @rdname FileInfo
 #' @export
-FileInfo <- R6Class("FileInfo",
+FileInfo <- R6Class(
+  "FileInfo",
   inherit = ArrowObject,
   public = list(
     base_name = function() fs___FileInfo__base_name(self),
@@ -96,7 +97,8 @@ FileInfo <- R6Class("FileInfo",
 #'
 #' @rdname FileSelector
 #' @export
-FileSelector <- R6Class("FileSelector",
+FileSelector <- R6Class(
+  "FileSelector",
   inherit = ArrowObject,
   active = list(
     base_dir = function() fs___FileSelector__base_dir(self),
@@ -187,6 +189,31 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `default_metadata`: default metadata to write in new objects.
 #' - `project_id`: the project to use for creating buckets.
 #'
+#' `AzureFileSystem$create()` takes following required argument:
+#'
+#' - `account_name`: Azure Blob Storage account name.
+#'
+#' `AzureFileSystem$create()` takes following optional arguments:
+#'
+#' - `account_key`: Account key of the storage account. Cannot be used with
+#'   `sas_token`.
+#' - `blob_storage_authority`: Hostname of the blob service, defaulting to
+#'   `"blob.core.windows.net"`.
+#' - `blob_storage_scheme`: Either `"http"` or `"https"` (the default).
+#' - `client_id`: The client/application ID for Azure Active Directory
+#'   authentication. If used with `client_secret` and `tenant_id` then it is the
+#'   application ID for a registered Azure AD application. Otherwise, it is the
+#'   client ID of a user-assigned managed identity.
+#' - `client_secret`: Client secret for Azure Active Directory authentication.
+#'   Must be provided with both `client_id` and `tenant_id`.
+#' - `dfs_storage_authority`: Hostname of the data lake (gen 2) service,
+#'   defaulting to `"dfs.core.windows.net"`.
+#' - `dfs_storage_scheme`: Either `"http"` or `"https"` (the default).
+#' - `sas_token`: Shared access signature (SAS) token for the storage account.
+#'   Cannot be used with `account key`.
+#' - `tenant_id`: Tenant ID for Azure Active Directory authentication. Must
+#'   be provided with both `client_id` and `client_secret`.
+#'
 #' @section Methods:
 #'
 #' - `path(x)`: Create a `SubTreeFileSystem` from the current `FileSystem`
@@ -251,6 +278,13 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' (the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
 #' 'OFF'.
 #'
+#' On `AzureFileSystem`, passing no arguments for authentication uses the
+#' `AzureDefaultCredential` for authentication, so that several authentication
+#' types are tried until one succeeds.
+#'
+#' `AzureFileSystem` is not presently supported on Windows due to upstream
+#' compatibility issues between the Azure C++ SDK and the MinGW toolchain.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -258,7 +292,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' @rdname FileSystem
 #' @name FileSystem
 #' @export
-FileSystem <- R6Class("FileSystem",
+FileSystem <- R6Class(
+  "FileSystem",
   inherit = ArrowObject,
   public = list(
     GetFileInfo = function(x) {
@@ -403,7 +438,8 @@ LocalFileSystem$create <- function() {
 #' @rdname FileSystem
 #' @importFrom utils modifyList
 #' @export
-S3FileSystem <- R6Class("S3FileSystem",
+S3FileSystem <- R6Class(
+  "S3FileSystem",
   inherit = FileSystem,
   active = list(
     region = function() fs___S3FileSystem__region(self)
@@ -414,8 +450,15 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
   if (anonymous) {
     invalid_args <- intersect(
       c(
-        "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion",
+        "access_key",
+        "secret_key",
+        "session_token",
+        "role_arn",
+        "session_name",
+        "external_id",
+        "load_frequency",
+        "allow_bucket_creation",
+        "allow_bucket_deletion",
         "check_directory_existence_before_creation"
       ),
       names(args)
@@ -488,13 +531,13 @@ default_s3_options <- list(
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
-#' bucket <- s3_bucket("voltrondata-labs-datasets")
+#' bucket <- s3_bucket("arrow-datasets")
 #'
 #' @examplesIf FALSE
 #' # Turn on debug logging. The following line of code should be run in a fresh
 #' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
 #' Sys.setenv("ARROW_S3_LOG_LEVEL" = "DEBUG")
-#' bucket <- s3_bucket("voltrondata-labs-datasets")
+#' bucket <- s3_bucket("arrow-datasets")
 #'
 #' @export
 s3_bucket <- function(bucket, ...) {
@@ -530,7 +573,7 @@ s3_bucket <- function(bucket, ...) {
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
-#' bucket <- gs_bucket("voltrondata-labs-datasets")
+#' bucket <- gs_bucket("arrow-datasets")
 #' @export
 gs_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
@@ -545,7 +588,8 @@ gs_bucket <- function(bucket, ...) {
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-GcsFileSystem <- R6Class("GcsFileSystem",
+GcsFileSystem <- R6Class(
+  "GcsFileSystem",
   inherit = FileSystem,
   active = list(
     options = function() {
@@ -593,8 +637,14 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
   }
 
   valid_opts <- c(
-    "access_token", "expiration", "json_credentials", "endpoint_override",
-    "scheme", "default_bucket_location", "default_metadata", "project_id"
+    "access_token",
+    "expiration",
+    "json_credentials",
+    "endpoint_override",
+    "scheme",
+    "default_bucket_location",
+    "default_metadata",
+    "project_id"
   )
 
   invalid_opts <- setdiff(names(options), valid_opts)
@@ -630,14 +680,107 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
+#' @importFrom utils modifyList
 #' @export
-SubTreeFileSystem <- R6Class("SubTreeFileSystem",
+AzureFileSystem <- R6Class(
+  "AzureFileSystem",
+  inherit = FileSystem
+)
+
+AzureFileSystem$create <- function(account_name, ...) {
+  options <- list(...)
+  valid_opts <- c(
+    "account_key",
+    "blob_storage_authority",
+    "blob_storage_scheme",
+    "client_id",
+    "client_secret",
+    "dfs_storage_authority",
+    "dfs_storage_scheme",
+    "sas_token",
+    "tenant_id"
+  )
+
+  invalid_opts <- setdiff(names(options), valid_opts)
+  if (length(invalid_opts)) {
+    stop(
+      "Invalid options for AzureFileSystem: ",
+      oxford_paste(invalid_opts),
+      call. = FALSE
+    )
+  }
+  # The c++ code assumes that the various combinations of authentication methods
+  # have been validated in this function.
+  if (!is.null(options$tenant_id) || !is.null(options$client_id) || !is.null(options$client_secret)) {
+    if (is.null(options$client_id)) {
+      stop(
+        "`client_id` must be given with `tenant_id` and `client_secret`",
+        call. = FALSE
+      )
+    }
+    if (sum(is.null(options$tenant_id), is.null(options$client_secret)) == 1) {
+      stop(
+        "Provide only `client_id` to authenticate with ",
+        "Managed Identity Credential, or provide `client_id`, `tenant_id`, ",
+        "and`client_secret` to authenticate with Client Secret Credential",
+        call. = FALSE
+      )
+    }
+  } else if (!is.null(options$account_key) && !is.null(options$sas_token)) {
+    stop(
+      "Cannot specify both `account_key` and `sas_token`",
+      call. = FALSE
+    )
+  }
+
+  fs___AzureFileSystem__Make(c(account_name = account_name, options))
+}
+
+#' Connect to an Azure Blob Storage container
+#'
+#' `az_conainer` is a convenience function to create an `AzureFileSystem` object
+#' that provides a file system interface for blob storage containers in an Azure
+#' Storage Account.
+#'
+#' @param container_path string Container name or path.
+#' @param ... Additional connection options, passed to `AzureFileSystem$create()`.
+#'
+#' @return A `SubTreeFileSystem` containing an `AzureFileSystem` and the container's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the container's contents.
+#' @examplesIf FALSE
+#' container_fs <- az_container(
+#'   container_path = "arrow-datasets",
+#'   account_name = azurite_account_name,
+#'   account_key = azurite_account_key,
+#'   blob_storage_authority = azurite_blob_storage_authority,
+#'   blob_storage_scheme = azurite_blob_storage_scheme
+#' )
+#' @export
+az_container <- function(container_path, ...) {
+  assert_that(is.string(container_path))
+  args <- list2(...)
+
+  fs <- exec(AzureFileSystem$create, !!!args)
+
+  SubTreeFileSystem$create(container_path, fs)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @export
+SubTreeFileSystem <- R6Class(
+  "SubTreeFileSystem",
   inherit = FileSystem,
   public = list(
     print = function(...) {
       cat(
         "SubTreeFileSystem: ",
-        self$url_scheme, "://", self$base_path, "\n",
+        self$url_scheme,
+        "://",
+        self$base_path,
+        "\n",
         sep = ""
       )
       invisible(self)

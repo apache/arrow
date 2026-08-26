@@ -2000,6 +2000,74 @@ TEST_P(GroupBy, MinMaxScalar) {
   }
 }
 
+TEST_P(GroupBy, MinMaxWithNaN) {
+  auto in_schema = schema({
+      field("argument1", float32()),
+      field("argument2", float64()),
+      field("key", int64()),
+  });
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table = TableFromJSON(in_schema, {R"([
+    [NaN,  NaN,  1],
+    [NaN,  NaN,  2],
+    [NaN,  NaN,  3]
+])",
+                                           R"([
+    [NaN,  NaN,  1],
+    [-Inf, -Inf, 2],
+    [Inf,  Inf,  3]
+])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 table->GetColumnByName("argument1"),
+                                 table->GetColumnByName("argument1"),
+                                 table->GetColumnByName("argument1"),
+                                 table->GetColumnByName("argument2"),
+                                 table->GetColumnByName("argument2"),
+                                 table->GetColumnByName("argument2"),
+                             },
+                             {table->GetColumnByName("key")},
+                             {
+                                 {"hash_min", nullptr},
+                                 {"hash_max", nullptr},
+                                 {"hash_min_max", nullptr},
+                                 {"hash_min", nullptr},
+                                 {"hash_max", nullptr},
+                                 {"hash_min_max", nullptr},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("key_0", int64()),
+                                        field("hash_min", float32()),
+                                        field("hash_max", float32()),
+                                        field("hash_min_max", struct_({
+                                                                  field("min", float32()),
+                                                                  field("max", float32()),
+                                                              })),
+                                        field("hash_min", float64()),
+                                        field("hash_max", float64()),
+                                        field("hash_min_max", struct_({
+                                                                  field("min", float64()),
+                                                                  field("max", float64()),
+                                                              })),
+                                    }),
+                                    R"([
+    [1, NaN,  NaN,  {"min": NaN,  "max": NaN},  NaN,  NaN,  {"min": NaN,  "max": NaN}],
+    [2, -Inf, -Inf, {"min": -Inf, "max": -Inf}, -Inf, -Inf, {"min": -Inf, "max": -Inf}],
+    [3, Inf,  Inf,  {"min": Inf,  "max": Inf},  Inf,  Inf,  {"min": Inf,  "max": Inf}]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
 TEST_P(GroupBy, AnyAndAll) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
@@ -2086,6 +2154,44 @@ TEST_P(GroupBy, AnyAndAll) {
   ])"),
                       aggregated_and_grouped,
                       /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, AnyAllSlicedNullableBoolean) {
+  auto table = TableFromJSON(schema({field("any_arg", boolean()),
+                                     field("all_arg", boolean()), field("key", int64())}),
+                             {R"([
+    [true,  false, 99],
+    [false, true,  10],
+    [null,  null,  10]
+  ])"});
+  auto sliced = table->Slice(1);
+
+  // GH-50043: hash_any/hash_all should respect the slice offset.
+  // After Slice(1), any_arg=[false, null] and all_arg=[true, null].
+  auto expected = ArrayFromJSON(struct_({
+                                    field("key_0", int64()),
+                                    field("hash_any", boolean()),
+                                    field("hash_all", boolean()),
+                                }),
+                                R"([
+      [10, false, true]
+    ])");
+
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    ASSERT_OK_AND_ASSIGN(auto actual, GroupByTest({sliced->GetColumnByName("any_arg"),
+                                                   sliced->GetColumnByName("all_arg")},
+                                                  {sliced->GetColumnByName("key")},
+                                                  {
+                                                      {"hash_any", nullptr},
+                                                      {"hash_all", nullptr},
+                                                  },
+                                                  use_threads));
+    ValidateOutput(actual);
+
+    AssertDatumsEqual(expected, actual, /*verbose=*/true);
   }
 }
 
@@ -4702,6 +4808,83 @@ TEST_P(GroupBy, PivotScalarKey) {
       ])");
   auto options = std::make_shared<PivotWiderOptions>(
       PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"hash_pivot_wider", options,
+                      std::vector<FieldRef>{"pivot_key", "pivot_value"}, "pivoted"};
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+    ValidateOutput(actual);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, PivotNonMonotonicGroupId) {
+  // Hard-coded test for GH-48679: FastGrouperImpl can yield non-mononotonic group ids
+  // and the pivot_wider implementation has to account for that.
+
+  // NOTE The precise keys to trigger this situation rely on implementation details
+  // of FastGrouperImpl. Any internal change might lead to this test not exercising
+  // the desired situation anymore.
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {
+      R"([
+        [1, "k", 10.5],
+        [2, "l", 11.5]
+      ])",
+      R"([
+        [2, "m", 12.5]
+      ])",
+      R"([
+        [3, "k", 13.5],
+        [1, "n", 14.5],
+        [1, "o", 15.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"k": 10.5, "n": 14.5, "o": 15.5} ],
+      [2, {"l": 11.5, "m": 12.5} ],
+      [3, {"k": 13.5} ]
+  ])";
+  for (auto unexpected_key_behavior :
+       {PivotWiderOptions::kIgnore, PivotWiderOptions::kRaise}) {
+    PivotWiderOptions options(/*key_names=*/{"k", "l", "m", "n", "o"},
+                              unexpected_key_behavior);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotNonMonotonicGroupIdWithScalarKey) {
+  // Like PivotNonMonotonicGroupId, but with a scalar key.
+  BatchesWithSchema input;
+  std::vector<TypeHolder> types = {int32(), utf8(), float32()};
+  std::vector<ArgShape> shapes = {ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::ARRAY};
+  input.batches = {
+      ExecBatchFromJSON(types, shapes, R"([
+        [1, "m", 10.5],
+        [2, "m", 11.5]
+        ])"),
+      ExecBatchFromJSON(types, shapes, R"([
+        [2, "o", 12.5]
+        ])"),
+      ExecBatchFromJSON(types, shapes, R"([
+        [3, "n", 13.5],
+        [1, "n", 14.5]
+        ])"),
+  };
+  input.schema = schema({field("group_key", int32()), field("pivot_key", utf8()),
+                         field("pivot_value", float32())});
+  Datum expected = ArrayFromJSON(
+      struct_({field("group_key", int32()),
+               field("pivoted", struct_({field("m", float32()), field("n", float32()),
+                                         field("o", float32())}))}),
+      R"([
+        [1, {"m": 10.5, "n": 14.5} ],
+        [2, {"m": 11.5, "o": 12.5} ],
+        [3, {"n": 13.5} ]
+      ])");
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"m", "n", "o"}));
   Aggregate aggregate{"hash_pivot_wider", options,
                       std::vector<FieldRef>{"pivot_key", "pivot_value"}, "pivoted"};
   for (bool use_threads : {false, true}) {

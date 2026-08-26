@@ -124,7 +124,7 @@ else()
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
 endif()
 
-set(PARQUET_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS} thrift::thrift Boost::headers)
+set(PARQUET_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS} thrift::thrift)
 if(APPLE)
   list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 elseif(NOT MSVC)
@@ -144,22 +144,24 @@ set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp
-                              PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
+                              PROPERTIES COMPILE_OPTIONS -Wno-unused-variable)
 endif()
 
 #
 # Library config
 
 set(PARQUET_SRCS
+    arrow/fuzz_encoding_internal.cc
+    arrow/fuzz_internal.cc
     arrow/path_internal.cc
     arrow/reader.cc
     arrow/reader_internal.cc
     arrow/schema.cc
     arrow/schema_internal.cc
-    arrow/variant_internal.cc
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    bloom_filter_writer.cc
     chunker_internal.cc
     column_reader.cc
     column_scanner.cc
@@ -193,20 +195,22 @@ set(PARQUET_SRCS
 
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
-  list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
+  list(APPEND
+       PARQUET_SRCS
+       level_comparison_avx2.cc
+       level_conversion_bmi2.cc
+       bloom_filter_avx2.cc)
   # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
-  #
-  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
-  # CMake 3.11 or later.
-  set(AVX2_FLAGS "${ARROW_AVX2_FLAG}")
+  set(AVX2_FLAGS ${ARROW_AVX2_FLAGS})
   if(NOT MSVC)
-    string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
+    separate_arguments(RELEASE_FLAGS NATIVE_COMMAND "${CMAKE_CXX_FLAGS_RELEASE}")
+    list(APPEND AVX2_FLAGS ${RELEASE_FLAGS})
   endif()
-  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_FLAGS
-                                                                  "${AVX2_FLAGS}")
+  set_source_files_properties(level_comparison_avx2.cc bloom_filter_avx2.cc
+                              PROPERTIES COMPILE_OPTIONS "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -216,26 +220,25 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
-  #
-  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
-  # CMake 3.11 or later.
   if(ARROW_HAVE_RUNTIME_BMI2)
     # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
     # the BMI2 path.
-    set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
-    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_FLAGS
+    set(BMI2_FLAGS ${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2)
+    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS
                                                                     "${BMI2_FLAGS}")
   endif()
+elseif(ARROW_SIMD_LEVEL MATCHES "^(AVX2|AVX512)$")
+  # AVX2 baseline without runtime dispatch: the dispatch table still references
+  # FindHashBlockAvx2, so the kernel must be built (no extra flags needed here).
+  list(APPEND PARQUET_SRCS bloom_filter_avx2.cc)
 endif()
 
 set(PARQUET_SHARED_LINK_LIBS)
 set(PARQUET_SHARED_PRIVATE_LINK_LIBS)
 
-if(ARROW_USE_XSIMD)
-  list(APPEND PARQUET_SHARED_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
-endif()
+list(APPEND PARQUET_SHARED_LINK_LIBS ${ARROW_XSIMD})
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
@@ -260,9 +263,9 @@ endif()
 
 list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-# Add RapidJSON libraries
-list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
-list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+# Add simdjson libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS simdjson::simdjson)
+list(APPEND PARQUET_STATIC_LINK_LIBS simdjson::simdjson)
 
 # These are libraries that we will link privately with parquet_shared (as they
 # do not need to be linked transitively by other linkers)
@@ -320,7 +323,7 @@ if(ARROW_TESTING)
   # "link" our dependencies so that include paths are configured
   # correctly
   target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing simdjson::simdjson)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
@@ -372,10 +375,11 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLU
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_reader_test.cc
+                 bloom_filter_reader_writer_test.cc
                  bloom_filter_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
+                 geospatial/util_json_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
                  properties_test.cc
@@ -408,6 +412,8 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
 
+add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
+
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
 
@@ -417,6 +423,7 @@ add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
+                   encryption/bloom_filter_encryption_test.cc
                    encryption/encryption_internal_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc

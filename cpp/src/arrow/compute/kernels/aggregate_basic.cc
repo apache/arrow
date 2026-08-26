@@ -103,7 +103,7 @@ struct CountImpl : public ScalarAggregator {
       this->non_nulls += batch.length;
     } else if (batch[0].is_array()) {
       const ArraySpan& input = batch[0].array;
-      const int64_t nulls = input.GetNullCount();
+      const int64_t nulls = input.ComputeLogicalNullCount();
       this->nulls += nulls;
       this->non_nulls += input.length - nulls;
     } else {

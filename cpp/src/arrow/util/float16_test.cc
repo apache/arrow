@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cmath>
+#include <span>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -24,7 +25,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/span.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow::util {
@@ -45,7 +45,7 @@ class Float16ConversionTest : public ::testing::Test {
     T output;
   };
 
-  static void TestRoundTrip(span<const RoundTripTestCase> test_cases) {
+  static void TestRoundTrip(std::span<const RoundTripTestCase> test_cases) {
     for (size_t index = 0; index < test_cases.size(); ++index) {
       ARROW_SCOPED_TRACE("i=", index);
       const auto& tc = test_cases[index];
@@ -61,7 +61,7 @@ class Float16ConversionTest : public ::testing::Test {
     }
   }
 
-  static void TestRoundTripFromNaN(span<const T> test_cases) {
+  static void TestRoundTripFromNaN(std::span<const T> test_cases) {
     for (size_t i = 0; i < test_cases.size(); ++i) {
       ARROW_SCOPED_TRACE("i=", i);
       const auto input = test_cases[i];
@@ -109,7 +109,7 @@ class Float16ConversionTest : public ::testing::Test {
 
 template <>
 void Float16ConversionTest<float>::TestRoundTrip() {
-  // Expected values were also manually validated with numpy-1.24.3
+  // Expected values were also manually validated with NumPy 1.24.3
   const RoundTripTestCase test_cases[] = {
       // +/-0.0f
       {F32(0x80000000u), 0b1000000000000000u, -0.0f},
@@ -143,12 +143,12 @@ void Float16ConversionTest<float>::TestRoundTrip() {
       {Limits<float>::lowest(), 0b1111110000000000u, -Limits<float>::infinity()},
   };
 
-  TestRoundTrip(span(test_cases, std::size(test_cases)));
+  TestRoundTrip(std::span(test_cases, std::size(test_cases)));
 }
 
 template <>
 void Float16ConversionTest<double>::TestRoundTrip() {
-  // Expected values were also manually validated with numpy-1.24.3
+  // Expected values were also manually validated with NumPy 1.24.3
   const RoundTripTestCase test_cases[] = {
       // +/-0.0
       {F64(0x8000000000000000u), 0b1000000000000000u, -0.0},
@@ -182,7 +182,7 @@ void Float16ConversionTest<double>::TestRoundTrip() {
       {Limits<double>::lowest(), 0b1111110000000000u, -Limits<double>::infinity()},
   };
 
-  TestRoundTrip(span(test_cases, std::size(test_cases)));
+  TestRoundTrip(std::span(test_cases, std::size(test_cases)));
 }
 
 template <>
@@ -190,7 +190,7 @@ void Float16ConversionTest<float>::TestRoundTripFromNaN() {
   const float test_cases[] = {
       Limits<float>::quiet_NaN(), F32(0x7f800001u), F32(0xff800001u), F32(0x7fc00000u),
       F32(0xffc00000u),           F32(0x7fffffffu), F32(0xffffffffu)};
-  TestRoundTripFromNaN(span(test_cases, std::size(test_cases)));
+  TestRoundTripFromNaN(std::span(test_cases, std::size(test_cases)));
 }
 
 template <>
@@ -199,7 +199,7 @@ void Float16ConversionTest<double>::TestRoundTripFromNaN() {
                                F64(0xfff0000000000001u),    F64(0x7ff8000000000000u),
                                F64(0xfff8000000000000u),    F64(0x7fffffffffffffffu),
                                F64(0xffffffffffffffffu)};
-  TestRoundTripFromNaN(span(test_cases, std::size(test_cases)));
+  TestRoundTripFromNaN(std::span(test_cases, std::size(test_cases)));
 }
 
 using NativeFloatTypes = ::testing::Types<float, double>;

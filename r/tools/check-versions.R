@@ -68,7 +68,8 @@ check_versions <- function(r_version, cpp_version) {
     cat(
       sprintf(
         "**** C++ library version %s is supported by R version %s\n",
-        cpp_version, r_version
+        cpp_version,
+        r_version
       )
     )
   }

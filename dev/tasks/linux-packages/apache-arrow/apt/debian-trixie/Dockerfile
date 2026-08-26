@@ -39,6 +39,7 @@ RUN \
   apt install -y -V ${quiet} \
     base-files \
     build-essential \
+    ccache \
     clang \
     cmake \
     debhelper \
@@ -46,11 +47,11 @@ RUN \
     gi-docgen \
     git \
     libboost-filesystem-dev \
-    libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
     libc-ares-dev \
     libcurl4-openssl-dev \
+    libfaketime \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \
@@ -59,6 +60,7 @@ RUN \
     libgtest-dev \
     liblz4-dev \
     libmimalloc-dev \
+    libopentelemetry-proto-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libre2-dev \
@@ -73,6 +75,7 @@ RUN \
     meson \
     ninja-build \
     nlohmann-json3-dev \
+    opentelemetry-cpp-dev \
     pkg-config \
     protobuf-compiler-grpc \
     python3-dev \
@@ -81,6 +84,8 @@ RUN \
     tzdata \
     valac \
     zlib1g-dev && \
+  # Ensure updating symlinks in /usr/lib/ccache/
+  update-ccache-symlinks && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit && \
     # GH-44358: Workaround for non-existent path error

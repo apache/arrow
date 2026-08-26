@@ -27,12 +27,6 @@ except ImportError:
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
-from pyarrow.vendored.version import Version
-
-try:
-    import pandas as pd
-except ImportError:
-    pass
 
 
 def test_schema_constructor_errors():
@@ -55,11 +49,9 @@ def test_type_integers():
 @pytest.mark.pandas
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
-    if Version(pd.__version__) < Version("2.0.0"):
-        M8 = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
-        (pa.bool_(), np.bool_),
+        (pa.bool_(), np.bool),
         (pa.int8(), np.int8),
         (pa.int16(), np.int16),
         (pa.int32(), np.int32),
@@ -480,6 +472,28 @@ def test_schema_set_field():
     s3 = s2.set(0, s2.field(0).with_nullable(False))
     assert s2.field(0).nullable is True
     assert s3.field(0).nullable is False
+
+
+def test_schema_hash_metadata():
+    fields = [
+        pa.field("foo", pa.int32()),
+    ]
+
+    schema1 = pa.schema(fields, metadata={b'foo': b'bar'})
+    schema2 = pa.schema(fields, metadata={b'foo': b'bar'})
+    schema3 = pa.schema(fields, metadata={b'foo_different': b'bar'})
+    schema4 = pa.schema(fields, metadata={b'foo': b'bar_different'})
+
+    assert hash(schema1) == hash(schema2)
+    assert hash(schema1) != hash(schema3)
+    assert hash(schema1) != hash(schema4)
+    assert hash(schema3) != hash(schema4)
+
+    schema_empty1 = pa.schema(fields, metadata={})
+    schema_empty2 = pa.schema(fields, metadata=None)
+
+    assert hash(schema_empty1) == hash(schema_empty2)
+    assert hash(schema_empty1) != hash(schema1)
 
 
 def test_schema_equals():

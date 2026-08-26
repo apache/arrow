@@ -19,9 +19,11 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -34,6 +36,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/json/json_writer_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -48,7 +51,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
-#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
@@ -62,6 +64,8 @@ using arrow::internal::Zip;
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
 using arrow::ipc::internal::FieldPosition;
+
+using JsonWriter = arrow::json::JsonWriter;
 
 namespace arrow::internal::integration::json {
 
@@ -117,7 +121,7 @@ Result<std::string_view> GetStringView(const rj::Value& str) {
 class SchemaWriter {
  public:
   explicit SchemaWriter(const Schema& schema, const DictionaryFieldMapper& mapper,
-                        RjWriter* writer)
+                        JsonWriter* writer)
       : schema_(schema), mapper_(mapper), writer_(writer) {}
 
   Status Write() {
@@ -459,7 +463,7 @@ class SchemaWriter {
  private:
   const Schema& schema_;
   const DictionaryFieldMapper& mapper_;
-  RjWriter* writer_;
+  JsonWriter* writer_;
 };
 
 Status SchemaWriter::VisitType(const DataType& type) {
@@ -468,7 +472,7 @@ Status SchemaWriter::VisitType(const DataType& type) {
 
 class ArrayWriter {
  public:
-  ArrayWriter(const std::string& name, const Array& array, RjWriter* writer)
+  ArrayWriter(const std::string& name, const Array& array, JsonWriter* writer)
       : name_(name), array_(array), writer_(writer) {}
 
   Status Write() { return VisitArray(name_, array_); }
@@ -489,11 +493,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(std::string_view v) {
-    // Avoid RawNumber() as it misleadingly adds quotes
-    // (see https://github.com/Tencent/rapidjson/pull/1155)
-    writer_->RawValue(v.data(), v.size(), rj::kNumberType);
-  }
+  void WriteRawNumber(std::string_view v) { writer_->RawValue(v); }
 
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
             typename CType = typename TypeClass::c_type>
@@ -521,11 +521,10 @@ class ArrayWriter {
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
         fmt(arr.Value(i), [&](std::string_view repr) {
-          writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
+          writer_->String(std::string_view(repr.data(), repr.size()));
         });
       } else {
-        writer_->String(null_string.data(),
-                        static_cast<rj::SizeType>(null_string.size()));
+        writer_->String(std::string_view(null_string.data(), null_string.size()));
       }
     }
   }
@@ -552,7 +551,7 @@ class ArrayWriter {
       if constexpr (Type::is_utf8) {
         // UTF8 string, write as is
         auto view = arr.GetView(i);
-        writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+        writer_->String(std::string_view(view.data(), view.size()));
       } else {
         // Binary, encode to hexadecimal.
         writer_->String(HexEncode(arr.GetView(i)));
@@ -597,7 +596,7 @@ class ArrayWriter {
         const Decimal32 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -609,7 +608,7 @@ class ArrayWriter {
         const Decimal64 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -621,7 +620,7 @@ class ArrayWriter {
         const Decimal128 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -633,7 +632,7 @@ class ArrayWriter {
         const Decimal256 value(arr.GetValue(i));
         writer_->String(value.ToIntegerString());
       } else {
-        writer_->String(null_string, sizeof(null_string));
+        writer_->String(std::string_view(null_string));
       }
     }
   }
@@ -669,7 +668,7 @@ class ArrayWriter {
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
       auto append = [this](std::string_view v) {
-        writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
+        writer_->String(std::string_view(v.data(), v.size()));
         return Status::OK();
       };
       for (int i = 0; i < length; ++i) {
@@ -691,7 +690,8 @@ class ArrayWriter {
       if (s.is_inline()) {
         writer_->Key("INLINED");
         if constexpr (ArrayType::TypeClass::is_utf8) {
-          writer_->String(reinterpret_cast<const char*>(s.inline_data()), s.size());
+          writer_->String(
+              std::string_view(reinterpret_cast<const char*>(s.inline_data()), s.size()));
         } else {
           writer_->String(HexEncode(s.inline_data(), s.size()));
         }
@@ -862,7 +862,7 @@ class ArrayWriter {
  private:
   const std::string& name_;
   const Array& array_;
-  RjWriter* writer_;
+  JsonWriter* writer_;
 };
 
 Result<TimeUnit::type> GetUnitFromString(const std::string& unit_str) {
@@ -1461,11 +1461,10 @@ class ArrayReader {
                           GetMemberArray(obj_, "VARIADIC_DATA_BUFFERS"));
 
     using internal::Zip;
-    using util::span;
 
     BufferVector buffers;
     buffers.resize(json_variadic_bufs.Size() + 2);
-    for (auto [json_buf, buf] : Zip(json_variadic_bufs, span{buffers}.subspan(2))) {
+    for (auto [json_buf, buf] : Zip(json_variadic_bufs, std::span{buffers}.subspan(2))) {
       ARROW_ASSIGN_OR_RAISE(auto hex_string, GetStringView(json_buf));
       ARROW_ASSIGN_OR_RAISE(
           buf, AllocateBuffer(static_cast<int64_t>(hex_string.size()) / 2, pool_));
@@ -1482,8 +1481,8 @@ class ArrayReader {
     ARROW_ASSIGN_OR_RAISE(
         buffers[1], AllocateBuffer(length_ * sizeof(BinaryViewType::c_type), pool_));
 
-    span views{buffers[1]->mutable_data_as<BinaryViewType::c_type>(),
-               static_cast<size_t>(length_)};
+    std::span views{buffers[1]->mutable_data_as<BinaryViewType::c_type>(),
+                    static_cast<size_t>(length_)};
 
     int64_t null_count = 0;
     for (auto [json_view, out_view, is_valid] : Zip(json_views, views, is_valid_)) {
@@ -1498,8 +1497,11 @@ class ArrayReader {
 
       auto json_size = json_view_obj.FindMember("SIZE");
       RETURN_NOT_INT("SIZE", json_size, json_view_obj);
-      DCHECK_GE(json_size->value.GetInt64(), 0);
-      auto size = static_cast<int32_t>(json_size->value.GetInt64());
+      auto size = json_size->value.GetInt();
+      if (size < 0) {
+        return Status::Invalid("Invalid binary view SIZE: ", size,
+                               ". Expected a non-negative value");
+      }
 
       if (size <= BinaryViewType::kInlineSize) {
         auto json_inlined = json_view_obj.FindMember("INLINED");
@@ -1507,11 +1509,19 @@ class ArrayReader {
         out_view.inlined = {size, {}};
 
         if constexpr (ViewType::is_utf8) {
-          DCHECK_LE(json_inlined->value.GetStringLength(), BinaryViewType::kInlineSize);
+          if (json_inlined->value.GetStringLength() != static_cast<rj::SizeType>(size)) {
+            return Status::Invalid("Invalid binary view INLINED length: ",
+                                   json_inlined->value.GetStringLength(),
+                                   ". Expected exactly ", size, " bytes");
+          }
           memcpy(&out_view.inlined.data, json_inlined->value.GetString(), size);
         } else {
-          DCHECK_LE(json_inlined->value.GetStringLength(),
-                    BinaryViewType::kInlineSize * 2);
+          if (json_inlined->value.GetStringLength() !=
+              static_cast<rj::SizeType>(size * 2)) {
+            return Status::Invalid("Invalid binary view INLINED hex length: ",
+                                   json_inlined->value.GetStringLength(),
+                                   ". Expected exactly ", size * 2, " characters");
+          }
           ARROW_ASSIGN_OR_RAISE(auto inlined, GetStringView(json_inlined->value));
           RETURN_NOT_OK(ParseHexValues(inlined, out_view.inlined.data.data()));
         }
@@ -1525,20 +1535,46 @@ class ArrayReader {
       RETURN_NOT_INT("BUFFER_INDEX", json_buffer_index, json_view_obj);
       RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
 
+      const auto buffer_index = json_buffer_index->value.GetInt();
+      const auto offset = json_offset->value.GetInt();
+      if (buffer_index < 0) {
+        return Status::Invalid("Invalid binary view BUFFER_INDEX: ", buffer_index,
+                               ". Expected a non-negative value");
+      }
+      if (offset < 0) {
+        return Status::Invalid("Invalid binary view OFFSET: ", offset,
+                               ". Expected a non-negative value");
+      }
+      if (json_prefix->value.GetStringLength() != BinaryViewType::kPrefixSize * 2) {
+        return Status::Invalid("Invalid binary view PREFIX_HEX length: ",
+                               json_prefix->value.GetStringLength(),
+                               ". Expected exactly ", BinaryViewType::kPrefixSize * 2,
+                               " characters");
+      }
+
+      const int64_t num_variadic_buffers = static_cast<int64_t>(buffers.size()) - 2;
+      if (buffer_index >= num_variadic_buffers) {
+        return Status::Invalid("Invalid binary view BUFFER_INDEX: ", buffer_index,
+                               ". Expected < ", num_variadic_buffers);
+      }
+
+      const int64_t data_buffer_size = buffers[buffer_index + 2]->size();
+      if (static_cast<int64_t>(offset) > data_buffer_size ||
+          static_cast<int64_t>(size) > data_buffer_size - static_cast<int64_t>(offset)) {
+        return Status::Invalid("Invalid binary view range [offset=", offset,
+                               ", size=", size, "] for data buffer of size ",
+                               data_buffer_size);
+      }
+
       out_view.ref = {
           size,
           {},
-          static_cast<int32_t>(json_buffer_index->value.GetInt64()),
-          static_cast<int32_t>(json_offset->value.GetInt64()),
+          buffer_index,
+          offset,
       };
 
-      DCHECK_EQ(json_prefix->value.GetStringLength(), BinaryViewType::kPrefixSize * 2);
       ARROW_ASSIGN_OR_RAISE(auto prefix, GetStringView(json_prefix->value));
       RETURN_NOT_OK(ParseHexValues(prefix, out_view.ref.prefix.data()));
-
-      DCHECK_LE(static_cast<size_t>(out_view.ref.buffer_index), buffers.size() - 2);
-      DCHECK_LE(static_cast<int64_t>(out_view.ref.offset) + out_view.size(),
-                buffers[out_view.ref.buffer_index + 2]->size());
     }
 
     data_ = ArrayData::Make(type_, length_, std::move(buffers), null_count);
@@ -1998,13 +2034,13 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 }
 
 Status WriteSchema(const Schema& schema, const DictionaryFieldMapper& mapper,
-                   RjWriter* json_writer) {
+                   JsonWriter* json_writer) {
   SchemaWriter converter(schema, mapper, json_writer);
   return converter.Write();
 }
 
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
-                       RjWriter* writer) {
+                       JsonWriter* writer) {
   writer->StartObject();
   writer->Key("id");
   writer->Int(static_cast<int32_t>(id));
@@ -2018,7 +2054,7 @@ Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
   return Status::OK();
 }
 
-Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
+Status WriteRecordBatch(const RecordBatch& batch, JsonWriter* writer) {
   writer->StartObject();
   writer->Key("count");
   writer->Int(static_cast<int32_t>(batch.num_rows()));
@@ -2039,7 +2075,7 @@ Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
   return Status::OK();
 }
 
-Status WriteArray(const std::string& name, const Array& array, RjWriter* json_writer) {
+Status WriteArray(const std::string& name, const Array& array, JsonWriter* json_writer) {
   ArrayWriter converter(name, array, json_writer);
   return converter.Write();
 }

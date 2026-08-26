@@ -850,11 +850,13 @@ cdef class Dataset(_Weakrefable):
 
         Parameters
         ----------
-        sorting : str or list[tuple(name, order)]
+        sorting : str or list[tuple(name, order, null_placement)]
             Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+            and nulls and NaNs are placed 
+            at the start or at the end ("at_start" or "at_end")
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -865,7 +867,7 @@ cdef class Dataset(_Weakrefable):
             A new dataset sorted according to the sort keys.
         """
         if isinstance(sorting, str):
-            sorting = [(sorting, "ascending")]
+            sorting = [(sorting, "ascending", "at_end")]
 
         res = _pac()._sort_source(
             self, output_type=InMemoryDataset, sort_keys=sorting, **kwargs
@@ -2012,13 +2014,18 @@ cdef class FileFragment(Fragment):
             c_string c_path
             NativeFile out = NativeFile()
 
+        # Handle each of the cases in _make_file_source
         if self.buffer is not None:
             return pa.BufferReader(self.buffer)
 
-        c_path = tobytes(self.file_fragment.source().path())
-        with nogil:
-            c_filesystem = self.file_fragment.source().filesystem()
-            opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+        if self.file_fragment.source().filesystem() != nullptr:
+            c_path = tobytes(self.file_fragment.source().path())
+            with nogil:
+                c_filesystem = self.file_fragment.source().filesystem()
+                opened = GetResultValue(c_filesystem.get().OpenInputFile(c_path))
+        else:
+            with nogil:
+                opened = GetResultValue(self.file_fragment.source().Open())
 
         out.set_random_access_file(opened)
         out.is_readable = True
@@ -2248,7 +2255,17 @@ cdef class CsvFileFormat(FileFormat):
         """
         cdef CsvFileWriteOptions opts = \
             <CsvFileWriteOptions> FileFormat.make_write_options(self)
-        opts.write_options = WriteOptions(**kwargs)
+        # Start from the C++ defaults, which carry over fields from the
+        # format's parse_options (e.g. the delimiter), and apply caller
+        # overrides on top instead of replacing the WriteOptions object
+        # and discarding those defaults. None is treated as "unspecified"
+        # to match the previous WriteOptions(**kwargs) semantics.
+        write_options = opts.write_options
+        for key, value in kwargs.items():
+            if value is None:
+                continue
+            setattr(write_options, key, value)
+        opts.write_options = write_options
         return opts
 
     @property
@@ -3236,7 +3253,7 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
     partitioning : Partitioning/PartitioningFactory, optional
        Apply the Partitioning to every discovered Fragment. See Partitioning or
        PartitioningFactory documentation.
-    exclude_invalid_files : bool, optional (default True)
+    exclude_invalid_files : bool, optional (default False)
         If True, invalid files will be excluded (file format specific check).
         This will incur IO for each files in a serial and single threaded
         fashion. Disabling this feature will skip the IO, but unsupported

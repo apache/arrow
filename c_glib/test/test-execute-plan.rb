@@ -28,8 +28,8 @@ class TestExecutePlan < Test::Unit::TestCase
   end
 
   sub_test_case("aggregate") do
-    def build_plan
-      plan = Arrow::ExecutePlan.new
+    def build_plan(context = nil)
+      plan = Arrow::ExecutePlan.new(context)
 
       record_batch =
         build_record_batch(number: build_int8_array([1, 2, 3, 4, 5]),
@@ -60,6 +60,22 @@ class TestExecutePlan < Test::Unit::TestCase
         assert_equal(build_table("string" => build_string_array(["a", "b"]),
                                  "sum(number)" => build_int64_array([9, 6]),
                                  "count(number)" => build_int64_array([3, 2])),
+                     reader.read_all)
+      end
+    end
+
+    def test_hash_first_with_single_thread
+      thread_pool = Arrow::ThreadPool.new(1)
+      context = Arrow::ExecuteContext.new(thread_pool)
+      plan, reader = build_plan(context) do
+        aggregations = [
+          Arrow::Aggregation.new("hash_first", nil, "number", "first(number)"),
+        ]
+        Arrow::AggregateNodeOptions.new(aggregations, ["string"])
+      end
+      execute(plan) do
+        assert_equal(build_table("string" => build_string_array(["a", "b"]),
+                                 "first(number)" => build_int8_array([1, 2])),
                      reader.read_all)
       end
     end

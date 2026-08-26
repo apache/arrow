@@ -17,8 +17,8 @@ file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
 \item \code{format}: A string identifier of the file format. Currently supported values:
 \itemize{
 \item "parquet"
-\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-only version 2 files are supported
+\item "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+this is deprecated)
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
@@ -51,7 +51,7 @@ It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFile
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
 ## Semi-colon delimited files
 # Set up directory for examples
 tf <- tempfile()

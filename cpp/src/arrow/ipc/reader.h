@@ -59,6 +59,11 @@ struct ReadStats {
   /// Number of replaced dictionaries (i.e. where a dictionary batch replaces
   /// an existing dictionary with an unrelated new dictionary).
   int64_t num_replaced_dictionaries = 0;
+
+  /// The original endianness of the schema in the IPC file or stream.
+  /// This is not reflected in the schema returned by the RecordBatchReader
+  /// unless IpcReadOptions.ensure_native_endian is set to false.
+  Endianness original_endianness = Endianness::Native;
 };
 
 /// \brief Synchronous batch stream reader that reads from io::InputStream

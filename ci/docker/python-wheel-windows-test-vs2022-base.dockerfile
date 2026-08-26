@@ -35,7 +35,7 @@ RUN `
     --installPath "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools" `
     --add Microsoft.VisualStudio.Component.VC.CoreBuildTools `
     --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-    --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
+    --add Microsoft.VisualStudio.Component.Windows11SDK.26100 `
     --add Microsoft.VisualStudio.Component.VC.CMake.Project `
     || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
     && del /q vs_buildtools.exe
@@ -51,7 +51,7 @@ SHELL ["cmd", "/S", "/C"]
 
 # Install git, wget, minio
 RUN choco install --no-progress -r -y git wget
-RUN curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z `
+RUN curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2025-01-20T14-49-07Z `
     --output "C:\Windows\Minio.exe"
 
 # Install the GCS testbench using a well-known Python version.

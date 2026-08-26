@@ -191,8 +191,8 @@ test_that("vctrs extension type works", {
 
   tf <- tempfile()
   on.exit(unlink(tf))
-  write_feather(arrow_table(col = array_in), tf)
-  table_out <- read_feather(tf, as_data_frame = FALSE)
+  write_ipc_file(arrow_table(col = array_in), tf)
+  table_out <- read_ipc_file(tf, as_data_frame = FALSE)
   array_out <- table_out$col$chunk(0)
 
   expect_r6_class(array_out$type, "VctrsExtensionType")
@@ -322,7 +322,7 @@ test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
     letter = letters,
     stringsAsFactors = FALSE,
     KEEP.OUT.ATTRS = FALSE
-  ) %>%
+  ) |>
     tibble::as_tibble()
 
   df$extension <- vctrs::new_vctr(df$letter, class = "arrow_custom_vctr")
@@ -333,12 +333,12 @@ test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
     extension = vctrs_extension_array(df$extension)
   )
 
-  table %>%
-    dplyr::group_by(number) %>%
+  table |>
+    dplyr::group_by(number) |>
     write_dataset(tf)
 
-  roundtripped <- open_dataset(tf) %>%
-    dplyr::select(number, letter, extension) %>%
+  roundtripped <- open_dataset(tf) |>
+    dplyr::select(number, letter, extension) |>
     dplyr::collect()
 
   expect_identical(unclass(roundtripped$extension), roundtripped$letter)

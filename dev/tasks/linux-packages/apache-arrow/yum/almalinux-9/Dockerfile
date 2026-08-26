@@ -37,7 +37,6 @@ RUN \
     cmake \
     curl-devel \
     flex \
-    gcc-c++ \
     gflags-devel \
     git \
     gobject-introspection-devel \
@@ -61,6 +60,7 @@ RUN \
     snappy-devel \
     tar \
     thrift-devel \
+    unixODBC-devel \
     utf8proc-devel \
     vala \
     which \

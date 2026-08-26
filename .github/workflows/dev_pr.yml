@@ -34,7 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  # Required for the GraphQL convertPullRequestToDraft mutation.
+  contents: write
   pull-requests: write
   issues: write
   
@@ -43,7 +44,7 @@ jobs:
     name: Process
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v7
         with:
           repository: apache/arrow
           ref: main
@@ -53,7 +54,7 @@ jobs:
         if: |
           (github.event.action == 'opened' ||
            github.event.action == 'edited')
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -64,7 +65,7 @@ jobs:
         if: |
           (github.event.action == 'opened' ||
            github.event.action == 'edited')
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -75,7 +76,7 @@ jobs:
         if: |
           (github.event.action == 'opened' ||
            github.event.action == 'edited')
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@v9
         with:
           debug: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +88,7 @@ jobs:
         if: |
           (github.event.action == 'opened' ||
            github.event.action == 'synchronize')
-        uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0
+        uses: actions/labeler@v7
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/workflows/dev_pr/labeler.yml

@@ -315,7 +315,7 @@ the input to a single output value.
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Grouped aggregations are not directly invokable, but are used as part of a
+Grouped aggregations are not directly invocable, but are used as part of a
 SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
 reduce multiple input values to a single output value. Instead of aggregating
 all values of the input, however, grouped aggregations partition the input
@@ -512,6 +512,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+-------------------------------+-------+
 | expm1            | Unary  | Numeric                 | Float32/Float64               |       |
 +------------------+--------+-------------------------+-------------------------------+-------+
+| hypot            | Binary | Numeric                 | Float32/Float64               | \(3)  |
++------------------+--------+-------------------------+-------------------------------+-------+
 | multiply         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
 +------------------+--------+-------------------------+-------------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
@@ -559,6 +561,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 * \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.  NaN
   values return NaN.  Integral and decimal values return signedness as Int8 and
   floating-point values return it with the same type as the input values.
+
+* \(3) Computes ``sqrt(x^2 + y^2)`` without undue overflow or underflow at
+  intermediate stages of the computation.  If either argument is infinite, the
+  result is ``+Inf`` even if the other argument is NaN.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~

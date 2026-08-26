@@ -29,7 +29,9 @@
 #include <cstdint>
 #include <cstring>
 
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+// ARROW_HAVE_RUNTIME_SSE4_2 is used on x86-64 to indicate
+// ARROW_RUNTIME_SIMD_LEVEL != NONE.
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  include <xsimd/xsimd.hpp>
 #  define ARROW_HAVE_SIMD_SPLIT
 #endif
@@ -120,8 +122,8 @@ void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_value
 
 // Like xsimd::zip_lo, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> const& b)
-    -> xsimd::batch<int8_t, Arch> {
+auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a,
+              const xsimd::batch<int8_t, Arch>& b) -> xsimd::batch<int8_t, Arch> {
   using arrow::internal::SizedInt;
   using simd_batch = xsimd::batch<int8_t, Arch>;
   // For signed arithmetic
@@ -144,8 +146,8 @@ auto zip_lo_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> co
 
 // Like xsimd::zip_hi, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_hi_n(xsimd::batch<int8_t, Arch> const& a, xsimd::batch<int8_t, Arch> const& b)
-    -> xsimd::batch<int8_t, Arch> {
+auto zip_hi_n(const xsimd::batch<int8_t, Arch>& a,
+              const xsimd::batch<int8_t, Arch>& b) -> xsimd::batch<int8_t, Arch> {
   using simd_batch = xsimd::batch<int8_t, Arch>;
   using arrow::internal::SizedInt;
   // For signed arithmetic
@@ -284,10 +286,30 @@ void ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
   }
 }
 
-#  if defined(ARROW_HAVE_RUNTIME_AVX2)
-
 // The extern template declaration are used internally and need export
 // to be used in tests and benchmarks.
+
+#  if defined(ARROW_HAVE_RUNTIME_SSE4_2) && !defined(ARROW_HAVE_SSE4_2)
+
+// instantiated in byte_stream_split_internal_sse4_2.cc
+
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::sse4_2, 2>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::sse4_2, 4>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::sse4_2, 8>(
+    const uint8_t*, int, int64_t, int64_t, uint8_t*);
+
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimd<xsimd::sse4_2, 2>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimd<xsimd::sse4_2, 4>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitEncodeSimd<xsimd::sse4_2, 8>(
+    const uint8_t*, int, const int64_t, uint8_t*);
+
+#  endif
+
+#  if defined(ARROW_HAVE_RUNTIME_AVX2)
 
 extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimd<xsimd::avx2, 2>(
     const uint8_t*, int, int64_t, int64_t, uint8_t*);
@@ -419,14 +441,28 @@ void ByteStreamSplitEncodeScalar(const uint8_t* raw_values, int width,
   DoSplitStreams(raw_values, kNumStreams, num_values, dest_streams.data());
 }
 
+// If changing this value, please check that TestByteStreamSplitLargeWidth still
+// exercises the slow path.
+constexpr inline int kByteStreamSplitMaxTemporaryAlloc = 8192;
+
 inline void ByteStreamSplitEncodeScalarDynamic(const uint8_t* raw_values, int width,
                                                const int64_t num_values, uint8_t* out) {
-  ::arrow::internal::SmallVector<uint8_t*, 16> dest_streams;
-  dest_streams.resize(width);
-  for (int stream = 0; stream < width; ++stream) {
-    dest_streams[stream] = &out[stream * num_values];
+  if (ARROW_PREDICT_TRUE(width < kByteStreamSplitMaxTemporaryAlloc / 8)) {
+    ::arrow::internal::SmallVector<uint8_t*, 32> dest_streams;
+    dest_streams.resize(width);
+    for (int stream = 0; stream < width; ++stream) {
+      dest_streams[stream] = &out[stream * num_values];
+    }
+    DoSplitStreams(raw_values, width, num_values, dest_streams.data());
+  } else {
+    // Slow path to avoid an oversized `dest_streams` container above.
+    for (int stream = 0; stream < width; ++stream) {
+      uint8_t* dest_stream = &out[stream * num_values];
+      for (int64_t i = 0; i < num_values; ++i) {
+        dest_stream[i] = raw_values[stream + i * width];
+      }
+    }
   }
-  DoSplitStreams(raw_values, width, num_values, dest_streams.data());
 }
 
 template <int kNumStreams>
@@ -443,17 +479,28 @@ void ByteStreamSplitDecodeScalar(const uint8_t* data, int width, int64_t num_val
 inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
                                                int64_t num_values, int64_t stride,
                                                uint8_t* out) {
-  ::arrow::internal::SmallVector<const uint8_t*, 16> src_streams;
-  src_streams.resize(width);
-  for (int stream = 0; stream < width; ++stream) {
-    src_streams[stream] = &data[stream * stride];
+  if (ARROW_PREDICT_TRUE(width < kByteStreamSplitMaxTemporaryAlloc / 8)) {
+    ::arrow::internal::SmallVector<const uint8_t*, 32> src_streams;
+    src_streams.resize(width);
+    for (int stream = 0; stream < width; ++stream) {
+      src_streams[stream] = &data[stream * stride];
+    }
+    DoMergeStreams(src_streams.data(), width, num_values, out);
+  } else {
+    // Slow path to avoid an oversized `src_streams` container above.
+    for (int stream = 0; stream < width; ++stream) {
+      const uint8_t* src_stream = &data[stream * stride];
+      for (int64_t i = 0; i < num_values; ++i) {
+        out[stream + i * width] = src_stream[i];
+      }
+    }
   }
-  DoMergeStreams(src_streams.data(), width, num_values, out);
 }
 
 template <int kNumStreams>
-void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width, int64_t num_values,
-                                       int64_t stride, uint8_t* out);
+ARROW_EXPORT void ByteStreamSplitDecodeSimdDispatch(const uint8_t* data, int width,
+                                                    int64_t num_values, int64_t stride,
+                                                    uint8_t* out);
 
 extern template ARROW_TEMPLATE_EXPORT void ByteStreamSplitDecodeSimdDispatch<2>(
     const uint8_t*, int, int64_t, int64_t, uint8_t*);

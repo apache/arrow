@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <any>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -29,6 +30,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/testing/examplefs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/io_util.h"
@@ -82,6 +84,12 @@ Result<std::shared_ptr<FileSystem>> FSFromUriOrPath(const std::string& uri,
 
 ////////////////////////////////////////////////////////////////////////////
 // Registered FileSystemFactory tests
+
+struct ConcreteTypedOption : ExampleTypedOption {
+  explicit ConcreteTypedOption(int value) : value_(value) {}
+  int value() const override { return value_; }
+  int value_;
+};
 
 class SlowFileSystemPublicProps : public SlowFileSystem {
  public:
@@ -144,7 +152,6 @@ TEST(FileSystemFromUri, LoadedRegisteredFactory) {
   EXPECT_THAT(FileSystemFromUri("example:///hey/yo", &path), Raises(StatusCode::Invalid));
 
   EXPECT_THAT(LoadFileSystemFactories(ARROW_FILESYSTEM_EXAMPLE_LIBPATH), Ok());
-
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("example:///hey/yo", &path));
   EXPECT_EQ(path, "/hey/yo");
   EXPECT_EQ(fs->type_name(), "local");
@@ -171,10 +178,21 @@ TEST(FileSystemFromUri, RuntimeRegisteredFactory) {
 }
 
 FileSystemRegistrar kSegfaultFileSystemModule[]{
-    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
-    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
-    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
-};
+    ARROW_REGISTER_FILESYSTEM(
+        "segfault",
+        std::function<Result<std::shared_ptr<FileSystem>>(
+            const Uri&, const io::IOContext&, std::string*)>(nullptr),
+        {}),
+    ARROW_REGISTER_FILESYSTEM(
+        "segfault",
+        std::function<Result<std::shared_ptr<FileSystem>>(
+            const Uri&, const io::IOContext&, std::string*)>(nullptr),
+        {}),
+    ARROW_REGISTER_FILESYSTEM(
+        "segfault",
+        std::function<Result<std::shared_ptr<FileSystem>>(
+            const Uri&, const io::IOContext&, std::string*)>(nullptr),
+        {})};
 TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
   // Since multiple registrars are defined in this translation unit which all
   // register factories for the 'segfault' scheme, using that scheme in FileSystemFromUri
@@ -185,6 +203,46 @@ TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
   // other schemes are not affected by the collision
   EXPECT_THAT(FileSystemFromUri("slowfile:///hey/yo", &path), Ok());
 }
+
+TEST(FileSystemFromUriAndOptions, LoadedRegisteredFactory) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Emscripten dynamic library testing disabled";
+#endif
+  std::string path;
+  EXPECT_THAT(LoadFileSystemFactories(ARROW_FILESYSTEM_EXAMPLE_LIBPATH), Ok());
+  // Validate extra options are forwarded to the factory.
+  FileSystemFactoryOptions options{
+      {"example_option_string", std::string("example_value")},
+      {"example_option_int", 42},
+      {"example_typed_option",
+       std::shared_ptr<ExampleTypedOption>(std::make_shared<ConcreteTypedOption>(12345))},
+  };
+  ASSERT_OK_AND_ASSIGN(auto fs,
+                       FileSystemFromUriAndOptions("example:///hey/yo", options, &path));
+  EXPECT_EQ(path, "/hey/yo/example_value/42/12345");
+  EXPECT_EQ(fs->type_name(), "local");
+}
+
+TEST(FileSystemFromUriAndOptions, RuntimeRegisteredFactory) {
+  std::string path;
+  EXPECT_THAT(FileSystemFromUriAndOptions("slowfile3:///hey/yo", {}, &path),
+              Raises(StatusCode::Invalid));
+
+  EXPECT_THAT(
+      RegisterFileSystemFactory("slowfile3", {SlowFileSystemFactory, __FILE__, __LINE__}),
+      Ok());
+
+  ASSERT_OK_AND_ASSIGN(auto fs,
+                       FileSystemFromUriAndOptions("slowfile3:///hey/yo", {}, &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "slow");
+
+  // Validate that legacy (3-arg) factories reject non-empty options.
+  FileSystemFactoryOptions unsupported{{"some_option", 1}};
+  EXPECT_THAT(FileSystemFromUriAndOptions("slowfile3:///hey/yo", unsupported, &path),
+              Raises(StatusCode::NotImplemented));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Misc tests
 

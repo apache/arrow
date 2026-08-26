@@ -37,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visit_type_inline.h"
 
@@ -58,7 +59,26 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   std::shared_ptr<DataType> type;
 
   /// \brief Whether the value is valid (not null) or not
+  ///
+  /// Note that this may not reflect logical nullness for all types; see
+  /// IsLogicalNull().
   bool is_valid = false;
+
+  /// \brief Whether the value is logically null
+  ///
+  /// For most types this is simply !is_valid. For dictionary scalars, however,
+  /// is_valid only reflects the validity of the index: a valid index can still
+  /// refer to a null dictionary value, in which case the scalar is logically
+  /// null. The result is undefined for ill-formed scalars; Validate() catches
+  /// those, except for an out-of-bounds dictionary index, which only
+  /// ValidateFull() detects.
+  ///
+  /// Like the array-level logical null computation, this does not recurse into
+  /// nested values: a dictionary value wrapped in a union, run-end encoded or
+  /// extension scalar is reported according to the wrapper's own is_valid.
+  ///
+  /// \see ArrayData::ComputeLogicalNullCount
+  virtual bool IsLogicalNull() const { return !is_valid; }
 
   bool Equals(const Scalar& other,
               const EqualOptions& options = EqualOptions::Defaults()) const;
@@ -245,6 +265,12 @@ struct ARROW_EXPORT UInt64Scalar : public NumericScalar<UInt64Type> {
 
 struct ARROW_EXPORT HalfFloatScalar : public NumericScalar<HalfFloatType> {
   using NumericScalar<HalfFloatType>::NumericScalar;
+
+  explicit HalfFloatScalar(util::Float16 value)
+      : NumericScalar(value.bits(), float16()) {}
+
+  HalfFloatScalar(util::Float16 value, std::shared_ptr<DataType> type)
+      : NumericScalar(value.bits(), std::move(type)) {}
 };
 
 struct ARROW_EXPORT FloatScalar : public NumericScalar<FloatType> {
@@ -853,7 +879,8 @@ struct ARROW_EXPORT RunEndEncodedScalar
 /// \brief A Scalar value for DictionaryType
 ///
 /// `is_valid` denotes the validity of the `index`, regardless of
-/// the corresponding value in the `dictionary`.
+/// the corresponding value in the `dictionary`; use IsLogicalNull()
+/// to also account for the referenced dictionary value.
 struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
   using TypeClass = DictionaryType;
   struct ValueType {
@@ -871,6 +898,8 @@ struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
                                                 std::shared_ptr<Array> dict);
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
+
+  bool IsLogicalNull() const override;
 
   const void* data() const override {
     return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index).data();
@@ -966,6 +995,18 @@ struct MakeScalarImpl {
     // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
     out_ = std::make_shared<ScalarType>(
         static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
+    return Status::OK();
+  }
+
+  // This isn't captured by the generic case above because `util::Float16` isn't implicity
+  // convertible to `uint16_t` (HalfFloat's ValueType)
+  template <typename T>
+  std::enable_if_t<std::is_same_v<std::decay_t<ValueRef>, util::Float16> &&
+                       is_half_float_type<T>::value,
+                   Status>
+  Visit(const T& t) {
+    out_ = std::make_shared<HalfFloatScalar>(static_cast<ValueRef>(value_),
+                                             std::move(type_));
     return Status::OK();
   }
 

@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -124,11 +122,13 @@ if have_gi
         dependencies: declare_dependency(sources: arrow_glib_gir),
         export_packages: 'gandiva-glib',
         extra_args: gir_scanner_extra_args + [
-            '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+            '--include-uninstalled=arrow-glib/Arrow-@0@.gir'.format(
+                gi_api_version,
+            ),
         ],
         header: 'gandiva-glib/gandiva-glib.h',
         identifier_prefix: 'GGandiva',
-        includes: ['Arrow-1.0'],
+        includes: ['Arrow-@0@'.format(gi_api_version)],
         kwargs: generate_gi_common_args,
         namespace: 'Gandiva',
         sources: sources + c_headers + enums,

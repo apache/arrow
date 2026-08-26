@@ -138,6 +138,8 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_EQ("0x696a6b6c6d6e6f70", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax));
 
   // Decimal
+
+  // If the physical type is INT32 or INT64, the decimal storage is little-endian.
   int32_t int32_decimal = 1024;
   smin = std::string(reinterpret_cast<char*>(&int32_decimal), sizeof(int32_t));
   ASSERT_EQ("10.24", FormatStatValue(Type::INT32, smin, LogicalType::Decimal(6, 2)));
@@ -147,7 +149,8 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_EQ("10240000.0000",
             FormatStatValue(Type::INT64, smin, LogicalType::Decimal(18, 4)));
 
-  std::vector<char> bytes = {0x11, 0x22, 0x33, 0x44};
+  // If the physical type is BYTE_ARRAY or FLBA, the decimal storage is big-endian.
+  std::vector<uint8_t> bytes = {0x11, 0x22, 0x33, 0x44};
   smin = std::string(bytes.begin(), bytes.end());
   ASSERT_EQ("28745.4020",
             FormatStatValue(Type::BYTE_ARRAY, smin, LogicalType::Decimal(10, 4)));
@@ -156,11 +159,42 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_EQ("0x11223344", FormatStatValue(Type::BYTE_ARRAY, smin));
   ASSERT_EQ("0x11223344", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin));
 
+  bytes = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xcf, 0xc7};
+  smin = std::string(bytes.begin(), bytes.end());
+  ASSERT_EQ("-12.345",
+            FormatStatValue(Type::BYTE_ARRAY, smin, LogicalType::Decimal(40, 3)));
+  ASSERT_EQ("-12.345", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin,
+                                       LogicalType::Decimal(40, 3)));
+  ASSERT_EQ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcfc7",
+            FormatStatValue(Type::BYTE_ARRAY, smin));
+  ASSERT_EQ("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcfc7",
+            FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin));
+
   // Float16
   bytes = {0x1c, 0x50};
   smin = std::string(bytes.begin(), bytes.end());
   ASSERT_EQ("32.875",
             FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin, LogicalType::Float16()));
+}
+
+TEST(TypePrinter, StatisticsTypesShortValue) {
+  // The Parquet spec allows truncated statistics, so a min/max may be shorter
+  // than the column's physical type. FormatStatValue must format it without
+  // reading past the end of the value buffer (caught here under ASan).
+  ASSERT_NO_THROW(FormatStatValue(Type::BOOLEAN, std::string()));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT32, std::string("abc")));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT64, std::string("abcdefg")));
+  ASSERT_NO_THROW(FormatStatValue(Type::FLOAT, std::string()));
+  ASSERT_NO_THROW(FormatStatValue(Type::DOUBLE, std::string("1234567")));
+  ASSERT_NO_THROW(FormatStatValue(Type::INT96, std::string("12345678901")));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::INT32, std::string("abc"), LogicalType::Decimal(6, 2)));
+  ASSERT_NO_THROW(
+      FormatStatValue(Type::INT64, std::string("abcdefg"), LogicalType::Decimal(18, 4)));
+  ASSERT_NO_THROW(FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, std::string("a"),
+                                  LogicalType::Float16()));
 }
 
 TEST(TestInt96Timestamp, Decoding) {

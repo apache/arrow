@@ -22,8 +22,10 @@ set -e
 arrow_dir=${1}
 build_dir=${2}
 
+# For backward compatibility.
 : "${ARROW_INTEGRATION_CPP:=ON}"
-: "${ARROW_INTEGRATION_CSHARP:=ON}"
+: "${ARCHERY_INTEGRATION_WITH_CPP:=$([ "${ARROW_INTEGRATION_CPP}" = "ON" ] && echo "1" || echo "0")}"
+: "${ARCHERY_INTEGRATION_WITH_RUBY:=1}"
 
 . "${arrow_dir}/ci/scripts/util_log.sh"
 
@@ -42,14 +44,15 @@ fi
 github_actions_group_end
 
 github_actions_group_begin "Integration: Build: C++"
-if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
+if [ "${ARCHERY_INTEGRATION_WITH_CPP}" -gt "0" ]; then
     "${arrow_dir}/ci/scripts/cpp_build.sh" "${arrow_dir}" "${build_dir}"
 fi
 github_actions_group_end
 
-github_actions_group_begin "Integration: Build: C#"
-if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
-    "${arrow_dir}/ci/scripts/csharp_build.sh" "${arrow_dir}" "${build_dir}"
+github_actions_group_begin "Integration: Build: .NET"
+if [ "${ARCHERY_INTEGRATION_WITH_DOTNET}" -gt "0" ]; then
+    "${arrow_dir}/dotnet/ci/scripts/build.sh" "${arrow_dir}/dotnet"
+    cp -a "${arrow_dir}/dotnet" "${build_dir}/dotnet"
 fi
 github_actions_group_end
 
@@ -67,5 +70,11 @@ github_actions_group_begin "Integration: Build: JavaScript"
 if [ "${ARCHERY_INTEGRATION_WITH_JS}" -gt "0" ]; then
     "${arrow_dir}/js/ci/scripts/build.sh" "${arrow_dir}/js"
     cp -a "${arrow_dir}/js" "${build_dir}/js"
+fi
+github_actions_group_end
+
+github_actions_group_begin "Integration: Build: Ruby"
+if [ "${ARCHERY_INTEGRATION_WITH_RUBY}" -gt "0" ]; then
+    rake -C "${arrow_dir}/ruby/red-arrow-format" install
 fi
 github_actions_group_end

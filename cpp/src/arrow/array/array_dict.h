@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
@@ -118,8 +119,10 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;
 
-  // Lazily initialized when invoking dictionary()
+  // Lazily initialized when invoking dictionary().
+  // Thread-safe initialization is ensured by dictionary_init_flag_.
   mutable std::shared_ptr<Array> dictionary_;
+  mutable std::once_flag dictionary_init_flag_;
 };
 
 /// \brief Helper class for incremental dictionary unification

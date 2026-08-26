@@ -399,8 +399,13 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
 
   if (output_type_id == arrow::Type::BOOL) {
     SetPackedBitValue(output_ref, loop_var, output_value->data());
-  } else if (arrow::is_primitive(output_type_id) ||
-             output_type_id == arrow::Type::DECIMAL) {
+  } else if (output_type_id == arrow::Type::DECIMAL) {
+    // Arrow decimal128 data is only 8-byte aligned, not 16-byte aligned.
+    // Use CreateAlignedStore with 8-byte alignment to match Arrow's actual alignment.
+    auto slot_offset =
+        builder->CreateGEP(types()->IRType(output_type_id), output_ref, loop_var);
+    builder->CreateAlignedStore(output_value->data(), slot_offset, llvm::MaybeAlign(8));
+  } else if (arrow::is_primitive(output_type_id)) {
     auto slot_offset =
         builder->CreateGEP(types()->IRType(output_type_id), output_ref, loop_var);
     builder->CreateStore(output_value->data(), slot_offset);
@@ -602,7 +607,12 @@ void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
 
     case arrow::Type::DECIMAL: {
       auto slot_offset = builder->CreateGEP(types->i128_type(), slot_ref, slot_index);
-      slot_value = builder->CreateLoad(types->i128_type(), slot_offset, dex.FieldName());
+      // Arrow decimal128 data is only 8-byte aligned, not 16-byte aligned.
+      // Using CreateLoad with default alignment (16 for i128) causes crashes on
+      // misaligned data. Use CreateAlignedLoad with 8-byte alignment to match Arrow's
+      // actual alignment.
+      slot_value = builder->CreateAlignedLoad(
+          types->i128_type(), slot_offset, llvm::MaybeAlign(8), false, dex.FieldName());
       lvalue = generator_->BuildDecimalLValue(slot_value, dex.FieldType());
       break;
     }
@@ -1108,9 +1118,16 @@ void LLVMGenerator::Visitor::VisitInExpression<gandiva::DecimalScalar128>(
   const InExprDex<gandiva::DecimalScalar128>& dex_instance =
       dynamic_cast<const InExprDex<gandiva::DecimalScalar128>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast =
-      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
-  params.push_back(ptr_int_cast);
+  // Switch to the entry block and load the holder pointer
+  auto builder = ir_builder();
+  llvm::BasicBlock* saved_block = builder->GetInsertBlock();
+  builder->SetInsertPoint(entry_block_);
+
+  llvm::Value* in_holder = generator_->LoadVectorAtIndex(
+      arg_holder_ptrs_, types->i64_type(), dex_instance.get_holder_idx(), "in_holder");
+
+  builder->SetInsertPoint(saved_block);
+  params.push_back(in_holder);
 
   /* eval expr result */
   for (auto& pair : dex.args()) {

@@ -146,20 +146,20 @@ test_that("FileSystem$from_uri", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  fs_and_path <- FileSystem$from_uri("s3://voltrondata-labs-datasets")
+  fs_and_path <- FileSystem$from_uri("s3://arrow-datasets")
   expect_r6_class(fs_and_path$fs, "S3FileSystem")
-  expect_identical(fs_and_path$fs$region, "us-east-2")
+  expect_identical(fs_and_path$fs$region, "us-east-1")
 })
 
 test_that("SubTreeFileSystem$create() with URI", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  fs <- SubTreeFileSystem$create("s3://voltrondata-labs-datasets")
+  fs <- SubTreeFileSystem$create("s3://arrow-datasets")
   expect_r6_class(fs, "SubTreeFileSystem")
   expect_identical(
     capture.output(print(fs)),
-    "SubTreeFileSystem: s3://voltrondata-labs-datasets/"
+    "SubTreeFileSystem: s3://arrow-datasets/"
   )
 })
 
@@ -178,27 +178,27 @@ test_that("s3_bucket", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  bucket <- s3_bucket("ursa-labs-r-test")
+  bucket <- s3_bucket("arrow-datasets")
   expect_r6_class(bucket, "SubTreeFileSystem")
   expect_r6_class(bucket$base_fs, "S3FileSystem")
-  expect_identical(bucket$region, "us-west-2")
+  expect_identical(bucket$region, "us-east-1")
   expect_identical(
     capture.output(print(bucket)),
-    "SubTreeFileSystem: s3://ursa-labs-r-test/"
+    "SubTreeFileSystem: s3://arrow-datasets/"
   )
-  expect_identical(bucket$base_path, "ursa-labs-r-test/")
+  expect_identical(bucket$base_path, "arrow-datasets/")
 })
 
 test_that("gs_bucket", {
   skip_on_cran()
   skip_if_not_available("gcs")
   skip_if_offline()
-  bucket <- gs_bucket("voltrondata-labs-datasets")
+  bucket <- gs_bucket("arrow-datasets")
   expect_r6_class(bucket, "SubTreeFileSystem")
   expect_r6_class(bucket$base_fs, "GcsFileSystem")
   expect_identical(
     capture.output(print(bucket)),
-    "SubTreeFileSystem: gs://voltrondata-labs-datasets/"
+    "SubTreeFileSystem: gs://arrow-datasets/"
   )
-  expect_identical(bucket$base_path, "voltrondata-labs-datasets/")
+  expect_identical(bucket$base_path, "arrow-datasets/")
 })

@@ -22,10 +22,11 @@ exc = executable(
         'chunker_test.cc',
         'converter_test.cc',
         'from_string_test.cc',
+        'json_writer_internal_test.cc',
         'parser_test.cc',
         'reader_test.cc',
     ],
-    dependencies: [arrow_test_dep, rapidjson_dep],
+    dependencies: [arrow_test_dep, rapidjson_dep, simdjson_dep],
 )
 test('arrow-json-test', exc)
 
@@ -44,7 +45,6 @@ install_headers(
         'converter.h',
         'from_string.h',
         'object_parser.h',
-        'object_writer.h',
         'options.h',
         'parser.h',
         'rapidjson_defs.h',
@@ -54,6 +54,12 @@ install_headers(
     ],
     subdir: 'arrow/json',
 )
+
+arrow_json_dep = declare_dependency(
+    include_directories: include_directories('.'),
+    dependencies: arrow_dep,
+)
+meson.override_dependency('arrow-json', arrow_json_dep)
 
 pkg.generate(
     filebase: 'arrow-json',

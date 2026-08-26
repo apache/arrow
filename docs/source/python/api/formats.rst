@@ -82,6 +82,7 @@ Parquet Files
    ParquetDataset
    ParquetFile
    ParquetWriter
+   filters_to_expression
    read_table
    read_metadata
    read_pandas
@@ -118,6 +119,8 @@ Encrypted Parquet Files
    KmsConnectionConfig
    EncryptionConfiguration
    DecryptionConfiguration
+   create_encryption_properties
+   create_decryption_properties
 
 .. _api.orc:
 

@@ -886,6 +886,10 @@ Status FlightPayload::Validate() const {
   return Status::OK();
 }
 
+arrow::Result<BufferVector> FlightPayload::SerializeToBuffers() const {
+  return internal::SerializePayloadToBuffers(*this);
+}
+
 std::string ActionType::ToString() const {
   return arrow::internal::JoinToString("<ActionType type='", type, "' description='",
                                        description, "'>");
@@ -1167,7 +1171,7 @@ std::string TransportStatusDetail::ToString() const {
     repr += "{\"";
     repr += key;
     repr += "\", ";
-    if (arrow::internal::EndsWith(key, "-bin")) {
+    if (key.ends_with("-bin")) {
       repr += arrow::util::base64_encode(value);
     } else {
       repr += "\"";

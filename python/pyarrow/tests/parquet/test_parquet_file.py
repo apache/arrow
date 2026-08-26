@@ -346,6 +346,7 @@ def test_read_statistics():
     buf.seek(0)
 
     statistics = pq.ParquetFile(buf).read().columns[0].chunks[0].statistics
+    assert statistics.is_null_count_exact is True
     assert statistics.null_count == 1
     assert statistics.distinct_count is None
     # TODO: add tests for is_distinct_count_exact == None and True

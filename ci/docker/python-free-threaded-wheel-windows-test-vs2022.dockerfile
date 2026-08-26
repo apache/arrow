@@ -24,11 +24,19 @@ ARG base
 # hadolint ignore=DL3006
 FROM ${base}
 
-ARG python=3.13
+ARG python=3.14
+
+# PYTHON_RELEASE is the python.org ftp directory, which for a pre-release is the
+# final release it leads to, e.g. 3.15.0/python-3.15.0rc1-amd64.exe
+# hadolint ignore=SC1072
+RUN (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.7" && setx PYTHON_RELEASE "3.14.7") & \
+    (if "%python%"=="3.15" setx PYTHON_VERSION "3.15.0rc1" && setx PYTHON_RELEASE "3.15.0")
 
 SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-RUN $filename = 'python-3.13.1-amd64.exe'; \
-    $url = 'https://www.python.org/ftp/python/3.13.1/' + $filename; \
+RUN $version = $env:PYTHON_VERSION; \
+    $release = $env:PYTHON_RELEASE; \
+    $filename = 'python-' + $version + '-amd64.exe'; \
+    $url = 'https://www.python.org/ftp/python/' + $release + '/' + $filename; \
     Invoke-WebRequest -Uri $url -OutFile $filename; \
     Start-Process -FilePath $filename -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
 
@@ -38,15 +46,7 @@ SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-test.txt C:/arrow/python/
-# Cython and Pandas wheels for 3.13 free-threaded are not released yet
-RUN %PYTHON_CMD% -m pip install \
-    --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
-    --pre \
-    --prefer-binary \
-    -r C:/arrow/python/requirements-wheel-test.txt
-# cffi-based tests would crash when importing cffi.
-# hadolint ignore=DL3059
-RUN %PYTHON_CMD% -m pip uninstall -y cffi
+RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-test.txt
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0

@@ -198,7 +198,7 @@ Docker Build Parameters
 The build time parameters are pushed down to the dockerfiles to make the
 image building more flexible. These parameters are usually called as docker
 build args, but we pass these values as environment variables to
-docker-compose.yml. The build parameters are extensively used for:
+compose.yaml. The build parameters are extensively used for:
 
 - defining the docker registry used for caching
 - platform architectures
@@ -206,7 +206,7 @@ docker-compose.yml. The build parameters are extensively used for:
 - defining various versions if dependencies
 
 The default parameter values are stored in the top level .env file.
-For detailed examples see the docker-compose.yml.
+For detailed examples see the compose.yaml.
 
 Build Scripts
 ~~~~~~~~~~~~~
@@ -232,9 +232,9 @@ variables with useful defaults to keep the build configurations declarative.
 A good example is ``cpp_build.sh`` build script which forwards environment
 variables as CMake options - so the same scripts can be invoked in various
 configurations without the necessity of changing it. For examples see how the
-environment variables are passed in the docker-compose.yml's C++ images.
+environment variables are passed in the compose.yaml's C++ images.
 
 Adding New Images
 ~~~~~~~~~~~~~~~~~
 
-See the inline comments available in the docker-compose.yml file.
+See the inline comments available in the compose.yaml file.

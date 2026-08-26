@@ -23,7 +23,7 @@
 #include "parquet/api/reader.h"
 
 int main(int argc, char** argv) {
-  if (argc > 4 || argc < 1) {
+  if (argc > 4 || argc < 2) {
     std::cerr << "Usage: parquet-scan [--batch-size=] [--columns=...] <file>"
               << std::endl;
     return -1;

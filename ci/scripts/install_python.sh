@@ -25,12 +25,14 @@ platforms=([windows]=Windows
            [linux]=Linux)
 
 declare -A versions
-versions=([3.9]=3.9.13
-          [3.10]=3.10.11
-          [3.11]=3.11.9
-          [3.12]=3.12.9
-          [3.13]=3.13.2
-          [3.13t]=3.13.2)
+versions=([3.11]=3.11.9
+          [3.12]=3.12.10
+          [3.13]=3.13.14
+          [3.14]=3.14.7
+          [3.14t]=3.14.7
+          [3.15]=3.15.0rc1
+          [3.15t]=3.15.0rc1
+          )
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -47,16 +49,16 @@ full_version=${versions[$2]}
 if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$(uname -m)" = "x86_64" ] && [ "$version" = "3.9" ];
-    then
-        fname="python-${full_version}-macosx10.9.pkg"
-    else
-        fname="python-${full_version}-macos11.pkg"
-    fi
-    wget "https://www.python.org/ftp/python/${full_version}/${fname}"
+    # Match python.org directory by truncating any pre-release suffix: 
+    # 3.15.0rc1 is https://www.python.org/ftp/python/3.15.0/python-3.15.0rc1-macos11.pkg
+    release_version="${full_version%%[abrc]*}"
+    fname="python-${full_version}-macos11.pkg"
+    wget "https://www.python.org/ftp/python/${release_version}/${fname}"
 
     echo "Installing Python..."
-    if [[ $2 == "3.13t" ]]; then
+    if [[ $2 == *t ]]; then
+        # Extract the base version without 't' suffix
+        base_version="${version%t}"
         # See https://github.com/python/cpython/issues/120098#issuecomment-2151122033 for more info on this.
         cat > ./choicechanges.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -69,7 +71,7 @@ if [ "$platform" = "macOS" ]; then
                 <key>choiceAttribute</key>
                 <string>selected</string>
                 <key>choiceIdentifier</key>
-                <string>org.python.Python.PythonTFramework-3.13</string>
+                <string>org.python.Python.PythonTFramework-${base_version}</string>
         </dict>
 </array>
 </plist>
@@ -82,8 +84,9 @@ EOF
     rm "$fname"
 
     python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    if [[ $2 == "3.13t" ]]; then
-        python="/Library/Frameworks/PythonT.framework/Versions/3.13/bin/python3.13t"
+    if [[ $2 == *t ]]; then
+        base_version="${version%t}"
+        python="/Library/Frameworks/PythonT.framework/Versions/${base_version}/bin/python${base_version}t"
     fi
 
     echo "Installing Pip..."

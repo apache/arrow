@@ -46,6 +46,7 @@ arrow_info <- function() {
       json = arrow_with_json(),
       s3 = arrow_with_s3(),
       gcs = arrow_with_gcs(),
+      azure = arrow_with_azure(),
       utf8proc = "utf8_upper" %in% compute_funcs,
       re2 = "replace_substring_regex" %in% compute_funcs,
       vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
@@ -73,12 +74,6 @@ arrow_info <- function() {
   structure(out, class = "arrow_info")
 }
 
-#' @rdname arrow_info
-#' @export
-arrow_available <- function() {
-  .Deprecated(msg = "Arrow C++ is always available as of 7.0.0")
-  TRUE
-}
 
 #' @rdname arrow_info
 #' @export
@@ -130,6 +125,15 @@ arrow_with_gcs <- function() {
 
 #' @rdname arrow_info
 #' @export
+arrow_with_azure <- function() {
+  tryCatch(.Call(`_azure_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
+
+#' @rdname arrow_info
+#' @export
 arrow_with_json <- function() {
   tryCatch(.Call(`_json_available`), error = function(e) {
     return(FALSE)
@@ -157,11 +161,14 @@ print.arrow_info <- function(x, ...) {
     cat("\n")
   }
   cat("Arrow package version: ", format(x$version), "\n\n", sep = "")
-  print_key_values("Capabilities", c(
-    x$capabilities,
-    jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
-    mimalloc = "mimalloc" %in% x$memory_pool$available_backends
-  ))
+  print_key_values(
+    "Capabilities",
+    c(
+      x$capabilities,
+      jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
+      mimalloc = "mimalloc" %in% x$memory_pool$available_backends
+    )
+  )
   if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
     # Only on linux because (e.g.) we disable certain features on purpose on rtools35
     cat(
@@ -177,22 +184,31 @@ print.arrow_info <- function(x, ...) {
   format_bytes <- function(b, units = "auto", digits = 2L, ...) {
     format(structure(b, class = "object_size"), units = units, digits = digits, ...)
   }
-  print_key_values("Memory", c(
-    Allocator = x$memory_pool$backend_name,
-    # utils:::format.object_size is not properly vectorized
-    Current = format_bytes(x$memory_pool$bytes_allocated, ...),
-    Max = format_bytes(x$memory_pool$max_memory, ...)
-  ))
-  print_key_values("Runtime", c(
-    `SIMD Level` = x$runtime_info$simd_level,
-    `Detected SIMD Level` = x$runtime_info$detected_simd_level
-  ))
-  print_key_values("Build", c(
-    `C++ Library Version` = x$build_info$cpp_version,
-    `C++ Compiler` = x$build_info$cpp_compiler,
-    `C++ Compiler Version` = x$build_info$cpp_compiler_version,
-    `Git ID` = x$build_info$git_id
-  ))
+  print_key_values(
+    "Memory",
+    c(
+      Allocator = x$memory_pool$backend_name,
+      # utils:::format.object_size is not properly vectorized
+      Current = format_bytes(x$memory_pool$bytes_allocated, ...),
+      Max = format_bytes(x$memory_pool$max_memory, ...)
+    )
+  )
+  print_key_values(
+    "Runtime",
+    c(
+      `SIMD Level` = x$runtime_info$simd_level,
+      `Detected SIMD Level` = x$runtime_info$detected_simd_level
+    )
+  )
+  print_key_values(
+    "Build",
+    c(
+      `C++ Library Version` = x$build_info$cpp_version,
+      `C++ Compiler` = x$build_info$cpp_compiler,
+      `C++ Compiler Version` = x$build_info$cpp_compiler_version,
+      `Git ID` = x$build_info$git_id
+    )
+  )
 
   invisible(x)
 }

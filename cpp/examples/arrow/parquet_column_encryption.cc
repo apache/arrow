@@ -19,6 +19,7 @@
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/json/from_string.h"
 #include "arrow/util/secure_string.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/test_in_memory_kms.h"
@@ -30,73 +31,28 @@ namespace fs = arrow::fs;
 namespace ds = arrow::dataset;
 
 arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
-  auto int_builder = arrow::Int32Builder();
-
-  std::shared_ptr<arrow::Array> arr_i;
-  ARROW_RETURN_NOT_OK(int_builder.AppendValues({1, 3, 5, 7, 1}));
-  ARROW_RETURN_NOT_OK(int_builder.Finish(&arr_i));
-
+  const auto& int_type = arrow::int32();
   auto struct_type = arrow::struct_({{"a", arrow::int32()}, {"b", arrow::int64()}});
-  auto pool = arrow::default_memory_pool();
-  auto a_builder = std::make_shared<arrow::Int32Builder>();
-  auto b_builder = std::make_shared<arrow::Int64Builder>();
-  auto struct_builder = arrow::StructBuilder(struct_type, pool, {a_builder, b_builder});
-
-  std::shared_ptr<arrow::Array> arr_struct;
-  ARROW_RETURN_NOT_OK(struct_builder.Append());
-  ARROW_RETURN_NOT_OK(a_builder->Append(2));
-  ARROW_RETURN_NOT_OK(b_builder->Append(20));
-  ARROW_RETURN_NOT_OK(struct_builder.Append());
-  ARROW_RETURN_NOT_OK(a_builder->Append(4));
-  ARROW_RETURN_NOT_OK(b_builder->Append(40));
-  ARROW_RETURN_NOT_OK(struct_builder.Append());
-  ARROW_RETURN_NOT_OK(a_builder->Append(6));
-  ARROW_RETURN_NOT_OK(b_builder->Append(60));
-  ARROW_RETURN_NOT_OK(struct_builder.Append());
-  ARROW_RETURN_NOT_OK(a_builder->Append(8));
-  ARROW_RETURN_NOT_OK(b_builder->Append(80));
-  ARROW_RETURN_NOT_OK(struct_builder.Append());
-  ARROW_RETURN_NOT_OK(a_builder->Append(10));
-  ARROW_RETURN_NOT_OK(b_builder->Append(100));
-  ARROW_RETURN_NOT_OK(struct_builder.Finish(&arr_struct));
-
   auto map_type = arrow::map(arrow::int32(), arrow::utf8());
-  auto key_builder = std::make_shared<arrow::Int32Builder>();
-  auto item_builder = std::make_shared<arrow::StringBuilder>();
-  auto map_builder = arrow::MapBuilder(pool, key_builder, item_builder, map_type);
-
-  std::shared_ptr<arrow::Array> arr_map;
-  ARROW_RETURN_NOT_OK(map_builder.Append());
-  ARROW_RETURN_NOT_OK(key_builder->AppendValues({2, 4}));
-  ARROW_RETURN_NOT_OK(item_builder->AppendValues({"2", "4"}));
-  ARROW_RETURN_NOT_OK(map_builder.Append());
-  ARROW_RETURN_NOT_OK(key_builder->AppendValues({6}));
-  ARROW_RETURN_NOT_OK(item_builder->AppendValues({"6"}));
-  ARROW_RETURN_NOT_OK(map_builder.Append());
-  ARROW_RETURN_NOT_OK(map_builder.Append());
-  ARROW_RETURN_NOT_OK(key_builder->AppendValues({8, 10}));
-  ARROW_RETURN_NOT_OK(item_builder->AppendValues({"8", "10"}));
-  ARROW_RETURN_NOT_OK(map_builder.Append());
-  ARROW_RETURN_NOT_OK(map_builder.Finish(&arr_map));
-
   auto list_type = arrow::list(arrow::int32());
-  auto value_builder = std::make_shared<arrow::Int32Builder>();
-  auto list_builder = arrow::ListBuilder(pool, value_builder, list_type);
 
-  std::shared_ptr<arrow::Array> arr_list;
-  ARROW_RETURN_NOT_OK(list_builder.Append());
-  ARROW_RETURN_NOT_OK(value_builder->AppendValues({1, 2, 3}));
-  ARROW_RETURN_NOT_OK(list_builder.Append());
-  ARROW_RETURN_NOT_OK(value_builder->AppendValues({4, 5, 6}));
-  ARROW_RETURN_NOT_OK(list_builder.Append());
-  ARROW_RETURN_NOT_OK(value_builder->AppendValues({7}));
-  ARROW_RETURN_NOT_OK(list_builder.Append());
-  ARROW_RETURN_NOT_OK(value_builder->AppendValues({8}));
-  ARROW_RETURN_NOT_OK(list_builder.Append());
-  ARROW_RETURN_NOT_OK(list_builder.Finish(&arr_list));
+  ARROW_ASSIGN_OR_RAISE(auto arr_i,
+                        arrow::json::ArrayFromJSONString(int_type, "[1, 3, 5, 7, 1]"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto arr_struct,
+      arrow::json::ArrayFromJSONString(
+          struct_type, "[[2, 20], [4, 40], [6, 60], [8, 80], [10, 100]]"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto arr_map,
+      arrow::json::ArrayFromJSONString(
+          map_type,
+          R"([[[2, "2"], [4, "4"]], [[6, "6"]], [], [[8, "8"], [10, "10"]], null])"));
+  ARROW_ASSIGN_OR_RAISE(auto arr_list,
+                        arrow::json::ArrayFromJSONString(
+                            list_type, "[[1, 2, 3], [4, 5, 6], [7], [8], null]"));
 
   auto schema = arrow::schema({
-      arrow::field("i", arrow::int32()),
+      arrow::field("i", int_type),
       arrow::field("s", struct_type),
       arrow::field("m", map_type),
       arrow::field("l", list_type),
@@ -131,8 +87,7 @@ arrow::Status WriteEncryptedFile(const std::string& path_to_file) {
   // Set write options with encryption configuration.
   auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
       std::string("footerKeyId"));
-  encryption_config->column_keys =
-      "columnKeyId: i, s.a, s.b, m.key_value.key, m.key_value.value, l.list.element";
+  encryption_config->column_keys = "columnKeyId: i, s, m, l";
 
   auto parquet_encryption_config = std::make_shared<ds::ParquetEncryptionConfig>();
   // Directly assign shared_ptr objects to ParquetEncryptionConfig members.

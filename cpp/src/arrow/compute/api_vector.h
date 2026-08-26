@@ -24,6 +24,7 @@
 #include "arrow/compute/ordering.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace compute {
@@ -44,7 +45,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
   };
 
   explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
-  static constexpr char const kTypeName[] = "FilterOptions";
+  static constexpr const char kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
@@ -53,7 +54,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
  public:
   explicit TakeOptions(bool boundscheck = true);
-  static constexpr char const kTypeName[] = "TakeOptions";
+  static constexpr const char kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
@@ -73,7 +74,7 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   };
 
   explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
-  static constexpr char const kTypeName[] = "DictionaryEncodeOptions";
+  static constexpr const char kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
@@ -83,7 +84,7 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
 class ARROW_EXPORT RunEndEncodeOptions : public FunctionOptions {
  public:
   explicit RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type = int32());
-  static constexpr char const kTypeName[] = "RunEndEncodeOptions";
+  static constexpr const char kTypeName[] = "RunEndEncodeOptions";
   static RunEndEncodeOptions Defaults() { return RunEndEncodeOptions(); }
 
   std::shared_ptr<DataType> run_end_type;
@@ -93,7 +94,7 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending,
                             NullPlacement null_placement = NullPlacement::AtEnd);
-  static constexpr char const kTypeName[] = "ArraySortOptions";
+  static constexpr const char kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
   /// Sorting order
@@ -104,30 +105,60 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  explicit SortOptions(std::vector<SortKey> sort_keys = {},
-                       NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit SortOptions(std::vector<SortKey> sort_keys = {});
+
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  SortOptions(SortOptions&&) = default;
+  SortOptions(const SortOptions&) = default;
+  SortOptions& operator=(SortOptions&&) = default;
+  SortOptions& operator=(const SortOptions&) = default;
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  explicit SortOptions(std::vector<SortKey> sort_keys,
+                       std::optional<NullPlacement> null_placement);
+
   explicit SortOptions(const Ordering& ordering);
-  static constexpr char const kTypeName[] = "SortOptions";
+  static constexpr const char kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
   /// Convenience constructor to create an ordering from SortOptions
   ///
   /// Note: Both classes contain the exact same information.  However,
   /// sort_options should only be used in a "function options" context while Ordering
   /// is used more generally.
-  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
-  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
+  Ordering AsOrdering() && { return Ordering{std::move(sort_keys)}; }
+  Ordering AsOrdering() const& { return Ordering{sort_keys}; }
+
+  /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  std::vector<SortKey> GetSortKeys() const {
+    if (!null_placement.has_value()) {
+      return sort_keys;
+    }
+    auto overwritten_sort_keys = sort_keys;
+    for (auto& sort_key : overwritten_sort_keys) {
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(Deprecated in arrow 25.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
 };
 
 /// \brief SelectK options
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
-  static constexpr char const kTypeName[] = "SelectKOptions";
+  static constexpr const char kTypeName[] = "SelectKOptions";
   static SelectKOptions Defaults() { return SelectKOptions(); }
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
@@ -152,6 +183,11 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
     return SelectKOptions{k, keys};
   }
 
+  /// Get sort_keys
+  /// will be removed after null_placement has been removed from other
+  /// SortOptions-like structs
+  std::vector<SortKey> GetSortKeys() const { return sort_keys; }
+
   /// The number of `k` elements to keep.
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
@@ -175,22 +211,48 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
-  explicit RankOptions(std::vector<SortKey> sort_keys = {},
-                       NullPlacement null_placement = NullPlacement::AtEnd,
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  explicit RankOptions(std::vector<SortKey> sort_keys,
+                       std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
-  explicit RankOptions(SortOrder order,
-                       NullPlacement null_placement = NullPlacement::AtEnd,
+  explicit RankOptions(SortOrder order, NullPlacement null_placement,
                        Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+      : RankOptions({SortKey("", order, null_placement)}, tiebreaker) {}
 
-  static constexpr char const kTypeName[] = "RankOptions";
+  explicit RankOptions(std::vector<SortKey> sort_keys = {},
+                       Tiebreaker tiebreaker = RankOptions::First);
+
+  /// Convenience constructor for array inputs
+  explicit RankOptions(SortOrder order, Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions({SortKey("", order)}, tiebreaker) {}
+
+  static constexpr const char kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
+
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
+  std::vector<SortKey> GetSortKeys() const {
+    if (!null_placement.has_value()) {
+      return sort_keys;
+    }
+    auto overwritten_sort_keys = sort_keys;
+    for (auto& sort_key : overwritten_sort_keys) {
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
 };
@@ -198,20 +260,41 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
 /// \brief Quantile rank options
 class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
  public:
-  explicit RankQuantileOptions(std::vector<SortKey> sort_keys = {},
-                               NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit RankQuantileOptions(
+      std::vector<SortKey> sort_keys = {},
+      std::optional<NullPlacement> null_placement = std::nullopt);
+
   /// Convenience constructor for array inputs
   explicit RankQuantileOptions(SortOrder order,
-                               NullPlacement null_placement = NullPlacement::AtEnd)
+                               std::optional<NullPlacement> null_placement = std::nullopt)
       : RankQuantileOptions({SortKey("", order)}, null_placement) {}
 
-  static constexpr char const kTypeName[] = "RankQuantileOptions";
+  static constexpr const char kTypeName[] = "RankQuantileOptions";
   static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
+
+  /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  std::vector<SortKey> GetSortKeys() const {
+    if (!null_placement.has_value()) {
+      return sort_keys;
+    }
+    auto overwritten_sort_keys = sort_keys;
+    for (auto& sort_key : overwritten_sort_keys) {
+      sort_key.null_placement = null_placement.value();
+    }
+    return overwritten_sort_keys;
+  }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+
+  // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
+  /// Will overwrite null ordering of sort keys
+  ARROW_DEPRECATED("Deprecated in arrow 25.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
 };
 
 /// \brief Partitioning options for NthToIndices
@@ -220,7 +303,7 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   explicit PartitionNthOptions(int64_t pivot,
                                NullPlacement null_placement = NullPlacement::AtEnd);
   PartitionNthOptions() : PartitionNthOptions(0) {}
-  static constexpr char const kTypeName[] = "PartitionNthOptions";
+  static constexpr const char kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
@@ -232,7 +315,7 @@ class ARROW_EXPORT WinsorizeOptions : public FunctionOptions {
  public:
   WinsorizeOptions(double lower_limit, double upper_limit);
   WinsorizeOptions() : WinsorizeOptions(0, 1) {}
-  static constexpr char const kTypeName[] = "WinsorizeOptions";
+  static constexpr const char kTypeName[] = "WinsorizeOptions";
 
   /// The quantile below which all values are replaced with the quantile's value.
   ///
@@ -254,7 +337,7 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
   explicit CumulativeOptions(bool skip_nulls = false);
   explicit CumulativeOptions(double start, bool skip_nulls = false);
   explicit CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
-  static constexpr char const kTypeName[] = "CumulativeOptions";
+  static constexpr const char kTypeName[] = "CumulativeOptions";
   static CumulativeOptions Defaults() { return CumulativeOptions(); }
 
   /// Optional starting value for cumulative operation computation, default depends on the
@@ -276,7 +359,7 @@ using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
  public:
   explicit PairwiseOptions(int64_t periods = 1);
-  static constexpr char const kTypeName[] = "PairwiseOptions";
+  static constexpr const char kTypeName[] = "PairwiseOptions";
   static PairwiseOptions Defaults() { return PairwiseOptions(); }
 
   /// Periods to shift for applying the binary operation, accepts negative values.
@@ -287,7 +370,7 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
 class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
  public:
   explicit ListFlattenOptions(bool recursive = false);
-  static constexpr char const kTypeName[] = "ListFlattenOptions";
+  static constexpr const char kTypeName[] = "ListFlattenOptions";
   static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
 
   /// \brief If true, the list is flattened recursively until a non-list
@@ -298,9 +381,10 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
 /// \brief Options for inverse_permutation function
 class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
  public:
-  explicit InversePermutationOptions(int64_t max_index = -1,
-                                     std::shared_ptr<DataType> output_type = NULLPTR);
-  static constexpr char const kTypeName[] = "InversePermutationOptions";
+  explicit InversePermutationOptions(
+      int64_t max_index = -1,
+      std::optional<std::shared_ptr<DataType>> output_type = std::nullopt);
+  static constexpr const char kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
   /// \brief The max value in the input indices to allow. The length of the function's
@@ -308,18 +392,18 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   /// of the input indices minus 1 and the length of the function's output will be the
   /// length of the input indices.
   int64_t max_index = -1;
-  /// \brief The type of the output inverse permutation. If null, the output will be of
-  /// the same type as the input indices, otherwise must be signed integer type. An
+  /// \brief The data type for the output array of inverse permutation. Defaults to the
+  /// type of the input indices when `nullopt`. Must be a signed integer type. An
   /// invalid error will be reported if this type is not able to store the length of the
   /// input indices.
-  std::shared_ptr<DataType> output_type = NULLPTR;
+  std::optional<std::shared_ptr<DataType>> output_type;
 };
 
 /// \brief Options for scatter function
 class ARROW_EXPORT ScatterOptions : public FunctionOptions {
  public:
   explicit ScatterOptions(int64_t max_index = -1);
-  static constexpr char const kTypeName[] = "ScatterOptions";
+  static constexpr const char kTypeName[] = "ScatterOptions";
   static ScatterOptions Defaults() { return ScatterOptions(); }
 
   /// \brief The max value in the input indices to allow. The length of the function's

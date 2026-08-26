@@ -4,7 +4,9 @@ local({
     rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
     # See https://github.com/rstudio/r-docker#releases-and-tags,
     # but note that RSPM still uses "centos8"
-    supported_os <- c("bionic", "focal", "jammy", "centos7", "centos8", "opensuse153")
+    supported_os <- c("bionic", "focal", "jammy", "centos7", "centos8", "opensuse153", "rhel9")
+    # Amazon Linux 2023 is compatible with RHEL 9 binaries
+    amzn_to_rhel <- c("2023" = "rhel9")
 
     if (nzchar(Sys.which("lsb_release"))) {
       os <- tolower(system("lsb_release -cs", intern = TRUE))
@@ -26,6 +28,13 @@ local({
           os <- paste0("opensuse", version)
           if (os %in% supported_os) {
             return(sprintf(rspm_template, os))
+          }
+        }
+        # Amazon Linux: map to compatible RHEL version
+        if (gsub('"', '', vals["ID"]) == "amzn") {
+          version <- gsub('"', '', vals["VERSION_ID"])
+          if (version %in% names(amzn_to_rhel)) {
+            return(sprintf(rspm_template, amzn_to_rhel[version]))
           }
         }
       }

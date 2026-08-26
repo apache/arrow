@@ -26,12 +26,14 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/pcg_random.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using util::Float16;
 
 namespace random {
 
@@ -242,8 +244,14 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
   auto array = this->Downcast(batch->column(0));
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
-    ASSERT_GE(slot, typename TypeParam::c_type(0));
-    ASSERT_LE(slot, typename TypeParam::c_type(127));
+    if constexpr (is_half_float_type<TypeParam>::value) {
+      const auto f16_slot = Float16::FromBits(*slot);
+      ASSERT_GE(f16_slot, Float16(0));
+      ASSERT_LE(f16_slot, Float16(127));
+    } else {
+      ASSERT_GE(slot, typename TypeParam::c_type(0));
+      ASSERT_LE(slot, typename TypeParam::c_type(127));
+    }
   }
 }
 
@@ -256,7 +264,11 @@ TYPED_TEST(RandomNumericArrayTest, EmptyRange) {
   auto array = this->Downcast(batch->column(0));
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
-    ASSERT_EQ(slot, typename TypeParam::c_type(42));
+    if constexpr (is_half_float_type<TypeParam>::value) {
+      ASSERT_EQ(Float16::FromBits(*slot), Float16(42));
+    } else {
+      ASSERT_EQ(slot, typename TypeParam::c_type(42));
+    }
   }
 }
 
@@ -357,6 +369,18 @@ TEST(TypeSpecificTests, DictionaryValues) {
   auto array = internal::checked_pointer_cast<DictionaryArray>(base_array);
   ASSERT_OK(array->ValidateFull());
   ASSERT_EQ(16, array->dictionary()->length());
+}
+
+TEST(TypeSpecificTests, Float16Nan) {
+  auto field = arrow::field("float16", float16(),
+                            key_value_metadata({{"nan_probability", "1.0"}}));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<NumericArray<HalfFloatType>>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  for (const auto& value : *array) {
+    ASSERT_TRUE(!value.has_value() || Float16::FromBits(*value).is_nan());
+  }
 }
 
 TEST(TypeSpecificTests, Float32Nan) {

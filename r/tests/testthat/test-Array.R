@@ -310,7 +310,8 @@ test_that("array uses local timezone for POSIXct without timezone", {
       "2019-02-03 12:34:56",
       format = "%Y-%m-%d %H:%M:%S",
       tz = "Asia/Katmandu"
-    ) + 1:10
+    ) +
+      1:10
     expect_equal(attr(times, "tzone"), "Asia/Katmandu")
     expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
   })
@@ -323,6 +324,17 @@ test_that("array uses local timezone for POSIXct without timezone", {
   })
 })
 
+test_that("zero-length POSIXct can be converted (GH-48832)", {
+  # In R 4.5.2+, zero-length POSIXct vectors are integer type, not double
+  x <- as.POSIXct(x = NULL)
+
+  # Should behave the same as non-empty POSIXct with empty tzone
+  expect_type_equal(infer_type(x), timestamp("us"))
+  arr <- Array$create(x)
+  expect_equal(arr$length(), 0L)
+  expect_type_equal(arr, timestamp("us"))
+})
+
 test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(
@@ -331,12 +343,12 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   )
   if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
-    expect_false(any(df$no_tz == df$yes_tz))
+    expect_all_false(df$no_tz == df$yes_tz)
   }
-  feather_file <- tempfile()
-  on.exit(unlink(feather_file))
-  write_feather(df, feather_file)
-  expect_identical(read_feather(feather_file), df)
+  ipc_file <- tempfile()
+  on.exit(unlink(ipc_file))
+  write_ipc_file(df, ipc_file)
+  expect_identical(read_ipc_file(ipc_file), df)
 })
 
 test_that("array supports integer64", {
@@ -509,23 +521,25 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   expect_as_vector(a, u8)
 })
 
-test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
+test_that("Arrays of uint32 and int64 convert to integer if they can fit", {
   u32 <- arrow_array(1L)$cast(uint32())
   expect_identical(as.vector(u32), 1L)
-
-  u64 <- arrow_array(1L)$cast(uint64())
-  expect_identical(as.vector(u64), 1L)
 
   i64 <- arrow_array(bit64::as.integer64(1:10))
   expect_identical(as.vector(i64), 1:10)
 })
 
-test_that("Arrays of uint{32,64} convert to numeric if they can't fit integer", {
+test_that("Arrays of uint32 convert to numeric if they can't fit integer", {
   u32 <- arrow_array(bit64::as.integer64(1) + MAX_INT)$cast(uint32())
   expect_identical(as.vector(u32), 1 + MAX_INT)
+})
 
-  u64 <- arrow_array(bit64::as.integer64(1) + MAX_INT)$cast(uint64())
-  expect_identical(as.vector(u64), 1 + MAX_INT)
+test_that("Arrays of uint64 always convert to numeric (double)", {
+  u64_small <- arrow_array(1L)$cast(uint64())
+  expect_identical(as.vector(u64_small), 1)
+
+  u64_large <- arrow_array(bit64::as.integer64(1) + MAX_INT)$cast(uint64())
+  expect_identical(as.vector(u64_large), 1 + MAX_INT)
 })
 
 test_that("arrow_array() recognise arrow::Array (ARROW-3815)", {
@@ -541,7 +555,8 @@ test_that("arrow_array() handles data frame -> struct arrays (ARROW-3811)", {
 
   df <- structure(
     list(col = list(list(list(1)))),
-    class = "data.frame", row.names = c(NA, -1L)
+    class = "data.frame",
+    row.names = c(NA, -1L)
   )
   a <- arrow_array(df)
   expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
@@ -629,6 +644,13 @@ test_that("arrow_array() handles vector -> list arrays (ARROW-7662)", {
   # factor
   expect_array_roundtrip(list(factor(c("b", "a"), levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
   expect_array_roundtrip(list(factor(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8())))
+
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+  expect_array_roundtrip(list(ordered(NA, levels = c("a", "b"))), list_of(dictionary(int8(), utf8(), ordered = TRUE)))
 
   # struct
   expect_array_roundtrip(
@@ -729,6 +751,13 @@ test_that("arrow_array() handles vector -> large list arrays", {
     as = large_list_of(dictionary(int8(), utf8()))
   )
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    large_list_of(dictionary(int8(), utf8(), ordered = TRUE)),
+    as = large_list_of(dictionary(int8(), utf8(), ordered = TRUE))
+  )
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = integer(0), b = integer(0), c = character(0), d = logical(0))),
@@ -796,6 +825,13 @@ test_that("arrow_array() handles vector -> fixed size list arrays", {
     as = fixed_size_list_of(dictionary(int8(), utf8()), 2L)
   )
 
+  # ordered factor (GH-49689)
+  expect_array_roundtrip(
+    list(ordered(c("b", "a"), levels = c("a", "b"))),
+    fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L),
+    as = fixed_size_list_of(dictionary(int8(), utf8(), ordered = TRUE), 2L)
+  )
+
   # struct
   expect_array_roundtrip(
     list(tibble::tibble(a = 1L, b = 1L, c = "", d = TRUE)),
@@ -837,7 +873,8 @@ test_that("Handling string data with embedded nuls", {
 
   # attempting materialization -> error
 
-  expect_error(v[],
+  expect_error(
+    v[],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -846,7 +883,8 @@ test_that("Handling string data with embedded nuls", {
   )
 
   # also error on materializing v[3]
-  expect_error(v[3],
+  expect_error(
+    v[3],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -1338,7 +1376,6 @@ test_that("Array to C-interface", {
 test_that("Can convert R integer/double to decimal (ARROW-11631)", {
   # Check all of decimal32, decimal64, decimal128 and decimal256
 
-
   decimal32_from_dbl <- arrow_array(c(1, NA_real_), type = decimal32(9, 2))
   decimal64_from_dbl <- arrow_array(c(1, NA_real_), type = decimal64(12, 2))
   decimal32_from_int <- arrow_array(c(1L, NA_integer_), type = decimal32(9, 2))
@@ -1385,7 +1422,6 @@ test_that("Can convert R integer/double to decimal (ARROW-11631)", {
     arrow_array(c(1, NA))$cast(decimal64(12, 2))
   )
 
-
   expect_equal(
     decimal128_from_int,
     arrow_array(c(1, NA))$cast(decimal128(12, 2))
@@ -1418,4 +1454,15 @@ test_that("Array handles negative fractional dates correctly (GH-46873)", {
   d <- as.Date(-0.1, origin = "1970-01-01")
   arr <- arrow_array(d)
   expect_equal(as.vector(arr), as.Date("1969-12-31", origin = "1970-01-01"))
+})
+
+test_that("uint64 inside list columns always converts to double (GH-50339)", {
+  list_arr <- arrow_array(
+    list(1, 9999999999),
+    type = list_of(uint64())
+  )
+
+  result <- as.vector(list_arr)
+  expect_type(result[[1]], "double")
+  expect_type(result[[2]], "double")
 })

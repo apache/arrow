@@ -21,6 +21,18 @@ class ColumnTest < Test::Unit::TestCase
     @column = table.visible
   end
 
+  test("#to_arrow") do
+    assert_equal(@column.data, @column.to_arrow)
+  end
+
+  test("#to_arrow_array") do
+    assert_equal(@column.data.chunks[0], @column.to_arrow_chunked_array)
+  end
+
+  test("#to_arrow_chunked_array") do
+    assert_equal(@column.data, @column.to_arrow_chunked_array)
+  end
+
   test("#name") do
     assert_equal("visible", @column.name)
   end

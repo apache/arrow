@@ -24,14 +24,14 @@ csv_convert_options(
 
 \item{null_values}{Character vector of recognized spellings for null values.
 Analogous to the \code{na.strings} argument to
-\code{\link[utils:read.table]{read.csv()}} or \code{na} in \code{\link[readr:read_delim]{readr::read_csv()}}.}
+\code{\link[utils:read.csv]{read.csv()}} or \code{na} in \code{\link[readr:read_csv]{readr::read_csv()}}.}
 
 \item{true_values}{Character vector of recognized spellings for \code{TRUE} values}
 
 \item{false_values}{Character vector of recognized spellings for \code{FALSE} values}
 
 \item{strings_can_be_null}{Logical: can string / binary columns have
-null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_delim]{readr::read_csv()}}}
+null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_csv]{readr::read_csv()}}}
 
 \item{col_types}{A \code{Schema} or \code{NULL} to infer types}
 
@@ -64,7 +64,7 @@ starting from the beginning of this vector. Possible values are
 CSV Convert Options
 }
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) withAutoprint(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 writeLines("x\n1\nNULL\n2\nNA", tf)

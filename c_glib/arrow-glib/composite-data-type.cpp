@@ -422,6 +422,23 @@ garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type)
   return garrow_data_type_new_raw(&arrow_item_type);
 }
 
+/**
+ * garrow_map_data_type_is_keys_sorted:
+ * @map_data_type: A #GArrowMapDataType.
+ *
+ * Returns: Whether the keys in the map is sorted or not.
+ *
+ * Since: 24.0.0
+ */
+gboolean
+garrow_map_data_type_is_keys_sorted(GArrowMapDataType *map_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(map_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_map_data_type = std::static_pointer_cast<arrow::MapType>(arrow_data_type);
+  return arrow_map_data_type->keys_sorted();
+}
+
 G_DEFINE_ABSTRACT_TYPE(GArrowUnionDataType, garrow_union_data_type, GARROW_TYPE_DATA_TYPE)
 
 static void

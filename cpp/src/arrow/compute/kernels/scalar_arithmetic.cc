@@ -368,6 +368,14 @@ struct Atan2 {
   }
 };
 
+struct Hypot {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 x, Arg1 y, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::hypot(x, y);
+  }
+};
+
 struct LogNatural {
   template <typename T, typename Arg>
   static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
@@ -670,7 +678,6 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
-    constraint = BinaryDecimalScale1GeScale2();
   } else {
     DCHECK(false);
   }
@@ -726,6 +733,17 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
 
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchExact(
+      const std::vector<TypeHolder>& types) const override {
+    if ((name_ == "divide" || name_ == "divide_checked") && HasDecimal(types)) {
+      // Decimal division ALWAYS scales up the dividend, so there will NEVER be an exact
+      // match.
+      return arrow::compute::detail::NoMatchingKernel(this, types);
+    }
+
+    return ScalarFunction::DispatchExact(types);
+  }
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     RETURN_NOT_OK(CheckArity(types->size()));
@@ -1336,14 +1354,22 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             ("The return value is in the range [-pi, pi]."),
                             {"y", "x"}};
 
+const FunctionDoc hypot_doc{
+    "Compute the hypotenuse (Euclidean norm) of x and y",
+    ("The result is equivalent to `sqrt(x^2 + y^2)`, but is computed without\n"
+     "undue overflow or underflow at intermediate stages of the computation.\n"
+     "If either x or y is +/-infinity, +infinity is returned, even if the\n"
+     "other argument is NaN."),
+    {"x", "y"}};
+
 const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
-                            ("NaN is returned for input values x with |x| > 1.\n"
+                            ("NaN is returned for input values x with \\|x\\| > 1.\n"
                              "At x = +/- 1, returns +/- infinity.\n"
                              "To raise an error instead, see \"atanh_checked\"."),
                             {"x"}};
 
 const FunctionDoc atanh_checked_doc{"Compute the inverse hyperbolic tangent",
-                                    ("Input values x with |x| >= 1.0 raise an error\n"
+                                    ("Input values x with \\|x\\| >= 1.0 raise an error\n"
                                      "to return NaN instead, see \"atanh\"."),
                                     {"x"}};
 
@@ -1754,6 +1780,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
       "sqrt_checked", sqrt_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
+
+  // ----------------------------------------------------------------------
+  auto hypot = MakeArithmeticFunctionFloatingPoint<Hypot>("hypot", hypot_doc);
+  DCHECK_OK(registry->AddFunction(std::move(hypot)));
 
   // ----------------------------------------------------------------------
   auto sign =

@@ -97,7 +97,8 @@ quosures_from_setup <- function(setup, quo_env) {
 
     # get new quosures
     new_quo_list <- map2(
-      func_list_full, cols_list_full,
+      func_list_full,
+      cols_list_full,
       ~ as_across_fn_call(.x, .y, quo_env)
     )
   } else {
@@ -164,10 +165,7 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE, ex
     }
   }
 
-  glue_mask <- across_glue_mask(.caller_env,
-    .col = rep(vars, each = length(fns)),
-    .fn  = rep(names_fns, length(vars))
-  )
+  glue_mask <- across_glue_mask(.caller_env, .col = rep(vars, each = length(fns)), .fn = rep(names_fns, length(vars)))
   names <- vctrs::vec_as_names(glue::glue(names, .envir = glue_mask), repair = "check_unique")
 
   if (!inline) {
@@ -180,8 +178,15 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE, ex
       c(
         "`.names` specification must produce (number of columns * number of functions) names.",
         x = paste0(
-          length(vars) * length(fns), " names required (", length(vars), " columns * ", length(fns), " functions)\n  ",
-          length(names), " name(s) produced: ", paste(names, collapse = ",")
+          length(vars) * length(fns),
+          " names required (",
+          length(vars),
+          " columns * ",
+          length(fns),
+          " functions)\n  ",
+          length(names),
+          " name(s) produced: ",
+          paste(names, collapse = ",")
         )
       )
     )
@@ -208,7 +213,8 @@ as_across_fn_call <- function(fn, var, quo_env) {
 }
 
 expr_substitute <- function(expr, old, new) {
-  switch(typeof(expr),
+  switch(
+    typeof(expr),
     language = {
       expr[] <- lapply(expr, expr_substitute, old, new)
       return(expr)

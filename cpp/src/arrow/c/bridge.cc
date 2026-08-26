@@ -24,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -603,10 +604,15 @@ struct ArrayExporter {
                    });
 
     if (need_variadic_buffer_sizes) {
-      auto variadic_buffers = util::span(data->buffers).subspan(2);
+      auto variadic_buffers = std::span(data->buffers).subspan(2);
       export_.variadic_buffer_sizes_.resize(variadic_buffers.size());
       size_t i = 0;
       for (const auto& buf : variadic_buffers) {
+        if (buf == nullptr) {
+          return Status::Invalid("Cannot export array of type ", data->type->ToString(),
+                                 ": null variadic buffer at buffer index #", i + 2,
+                                 " (variadic buffer index #", i, ")");
+        }
         export_.variadic_buffer_sizes_[i++] = buf->size();
       }
       export_.buffers_.back() = export_.variadic_buffer_sizes_.data();
@@ -1259,15 +1265,15 @@ struct SchemaImporter {
       return f_parser_.Invalid();
     }
     if (prec_scale.size() == 2) {
-      type_ = decimal128(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal128Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 32) {
-      type_ = decimal32(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal32Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 64) {
-      type_ = decimal64(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal64Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 128) {
-      type_ = decimal128(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal128Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 256) {
-      type_ = decimal256(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal256Type::Make(prec_scale[0], prec_scale[1]));
     } else {
       return f_parser_.Invalid();
     }

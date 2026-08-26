@@ -21,7 +21,8 @@
 #' @format NULL
 #' @rdname Dataset
 #' @export
-DatasetFactory <- R6Class("DatasetFactory",
+DatasetFactory <- R6Class(
+  "DatasetFactory",
   inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL, unify_schemas = FALSE) {
@@ -37,13 +38,15 @@ DatasetFactory <- R6Class("DatasetFactory",
     }
   )
 )
-DatasetFactory$create <- function(x,
-                                  filesystem = NULL,
-                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
-                                  partitioning = NULL,
-                                  hive_style = NA,
-                                  factory_options = list(),
-                                  ...) {
+DatasetFactory$create <- function(
+  x,
+  filesystem = NULL,
+  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
+  partitioning = NULL,
+  hive_style = NA,
+  factory_options = list(),
+  ...
+) {
   if (is_list_of(x, "DatasetFactory")) {
     return(dataset___UnionDatasetFactory__Make(x))
   }
@@ -162,8 +165,8 @@ handle_partitioning <- function(partitioning, path_and_fs, hive_style) {
 #' @param format A [FileFormat] object, or a string identifier of the format of
 #' the files in `x`. Currently supported values:
 #' * "parquet"
-#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-#'   only version 2 files are supported
+#' * "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+#'   this is deprecated)
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
@@ -220,15 +223,15 @@ dataset_factory <- DatasetFactory$create
 #' @format NULL
 #' @rdname Dataset
 #' @export
-FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory",
-  inherit = DatasetFactory
-)
-FileSystemDatasetFactory$create <- function(filesystem,
-                                            selector = NULL,
-                                            paths = NULL,
-                                            format,
-                                            partitioning = NULL,
-                                            factory_options = list()) {
+FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory", inherit = DatasetFactory)
+FileSystemDatasetFactory$create <- function(
+  filesystem,
+  selector = NULL,
+  paths = NULL,
+  format,
+  partitioning = NULL,
+  factory_options = list()
+) {
   assert_is(filesystem, "FileSystem")
   is.null(selector) || assert_is(selector, "FileSelector")
   is.null(paths) || assert_is(paths, "character")
@@ -282,10 +285,8 @@ fsf_options <- function(factory_options, partitioning) {
   if (!is.null(factory_options$partition_base_dir)) {
     if (
       inherits(partitioning, "HivePartitioning") ||
-        (
-          inherits(partitioning, "PartitioningFactory") &&
-            identical(partitioning$type_name, "hive")
-        )
+        (inherits(partitioning, "PartitioningFactory") &&
+          identical(partitioning$type_name, "hive"))
     ) {
       warning(
         "factory_options$partition_base_dir is not meaningful for Hive partitioning",

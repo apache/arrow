@@ -31,11 +31,22 @@ from pathlib import Path
 from io import BytesIO
 
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 
 
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError):
+            # Browser restart while downloading wheel closes connection
+            # before server response is written so ignore harmless errors
+            pass
+
     def log_request(self, code="-", size="-"):
-        # don't log successful requests
+        # don't log successful requests but log errors
+        if isinstance(code, int) and code >= 400:
+            sys.stderr.write(f"HTTP {code} for {self.path}\n")
         return
 
     def do_GET(self) -> bytes | None:
@@ -45,7 +56,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             with PYARROW_WHEEL_PATH.open(mode="rb") as wheel:
                 self.copyfile(wheel, self.wfile)
-        if self.path.endswith("/test.html"):
+        elif self.path.endswith("/test.html"):
             body = b"""
                 <!doctype html>
                 <html>
@@ -116,7 +127,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
 def run_server_thread(dist_dir, q):
     global _SERVER_ADDRESS
     os.chdir(dist_dir)
-    server = http.server.HTTPServer(("", 0), TemplateOverrider)
+    server = http.server.HTTPServer(("127.0.0.1", 0), TemplateOverrider)
     q.put(server.server_address)
     print(f"Starting server for {dist_dir} at: {server.server_address}")
     server.serve_forever()
@@ -198,18 +209,35 @@ class NodeDriver:
 
 class BrowserDriver:
     def __init__(self, hostname, port, driver):
+        self.url = f"http://{hostname}:{port}/test.html"
         self.driver = driver
-        self.driver.get(f"http://{hostname}:{port}/test.html")
-        self.driver.set_script_timeout(100)
+        self.driver.get(self.url)
+        # Chrome on CI takes longer than locally to compile.
+        self.driver.set_script_timeout(1200)
 
     def load_pyodide(self, dist_dir):
         pass
 
     def load_arrow(self):
-        self.execute_python(
-            f"import pyodide_js as pjs\n"
-            f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n"
-        )
+        code = (f"import pyodide_js as pjs\n"
+                f"await pjs.loadPackage('{PYARROW_WHEEL_PATH.name}')\n")
+        for attempt in range(3):
+            # Set temporary timeout each attempt as Chrome restart creates a driver
+            self.driver.set_script_timeout(300)
+            try:
+                self.execute_python(code)
+            except TimeoutException:
+                if attempt == 2:
+                    raise
+                print("Timed out loading PyArrow in browser. Restarting browser",
+                      flush=True)
+                self.restart_browser()
+            else:
+                self.driver.set_script_timeout(1200)
+                return
+
+    def restart_browser(self):
+        self.driver.get(self.url)
 
     def execute_python(self, code, wait_for_terminate=True):
         if wait_for_terminate:
@@ -253,13 +281,25 @@ class BrowserDriver:
 
 
 class ChromeDriver(BrowserDriver):
-    def __init__(self, hostname, port):
+    @staticmethod
+    def _make_driver():
         from selenium.webdriver.chrome.options import Options
 
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        super().__init__(hostname, port, webdriver.Chrome(options=options))
+        driver = webdriver.Chrome(options=options)
+        driver.command_executor._client_config.timeout = 1200
+        return driver
+
+    def __init__(self, hostname, port):
+        super().__init__(hostname, port, self._make_driver())
+
+    def restart_browser(self):
+        self.driver.quit()
+        self.driver = self._make_driver()
+        self.driver.get(self.url)
+        self.driver.set_script_timeout(1200)
 
 
 class FirefoxDriver(BrowserDriver):
@@ -280,9 +320,18 @@ import micropip
 if "pyarrow" not in sys.modules:
     await micropip.install("hypothesis")
     import pyodide_js as pjs
+    await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")
     import pytest
+    import inspect
+    if "exc_type" not in inspect.signature(pytest.importorskip).parameters:
+        _original_importorskip = pytest.importorskip
+        def _importorskip(modname, minversion=None, reason=None, *,
+                          exc_type=ImportError):
+            return _original_importorskip(modname, minversion=minversion,
+                                          reason=reason)
+        pytest.importorskip = _importorskip
     import pandas # import pandas after pyarrow package load for pandas/pyarrow
                   # functions to work
 import pyarrow
@@ -335,7 +384,9 @@ with launch_server(dist_dir) as (hostname, port):
         """
 import pyarrow,pathlib
 pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
-pytest.main([pyarrow_dir, '-r', 's'])
+# Substrait expression serialization crashes pyodide with a
+# "Cannot convert a BigInt value to a number" error.
+pytest.main([pyarrow_dir, '-r', 's', '-m', 'not substrait'])
 """,
         wait_for_terminate=False,
     )

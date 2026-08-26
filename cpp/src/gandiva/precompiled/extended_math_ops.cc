@@ -24,6 +24,7 @@
 
 extern "C" {
 
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,7 +81,7 @@ ENUMERIC_TYPES_UNARY(LOG10, float64)
 
 FORCE_INLINE
 void set_error_for_logbase(int64_t execution_context, double base) {
-  char const* prefix = "divide by zero error with log of base";
+  const char* prefix = "LOG: divide by zero error with log of base";
   int size = static_cast<int>(strlen(prefix)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s %f", prefix, base);
@@ -251,20 +252,28 @@ static const int64_t kFactorialLookupTable[] = {1,
                                                 121645100408832000,
                                                 2432902008176640000};
 
-#define FACTORIAL(IN_TYPE)                                                          \
-  FORCE_INLINE                                                                      \
-  gdv_int64 factorial_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE value) {               \
-    if (value < 0) {                                                                \
-      gdv_fn_context_set_error_msg(ctx, "Factorial of negative number not exist!"); \
-      return 0;                                                                     \
-    }                                                                               \
-    /* For numbers greater than 20 causes an overflow. */                           \
-    if (value > 20) {                                                               \
-      gdv_fn_context_set_error_msg(ctx, "Numbers greater than 20 cause overflow!"); \
-      return 0;                                                                     \
-    }                                                                               \
-                                                                                    \
-    return kFactorialLookupTable[static_cast<int32_t>(value)];                      \
+#define FACTORIAL(IN_TYPE)                                                               \
+  FORCE_INLINE                                                                           \
+  gdv_int64 factorial_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE value) {                    \
+    if (value < 0) {                                                                     \
+      char err_msg[96];                                                                  \
+      snprintf(err_msg, sizeof(err_msg),                                                 \
+               "FACTORIAL: input must be non-negative, got %" PRId64,                    \
+               static_cast<int64_t>(value));                                             \
+      gdv_fn_context_set_error_msg(ctx, err_msg);                                        \
+      return 0;                                                                          \
+    }                                                                                    \
+    /* For numbers greater than 20 causes an overflow. */                                \
+    if (value > 20) {                                                                    \
+      char err_msg[96];                                                                  \
+      snprintf(err_msg, sizeof(err_msg),                                                 \
+               "FACTORIAL: input %" PRId64 " exceeds maximum 20 (would overflow int64)", \
+               static_cast<int64_t>(value));                                             \
+      gdv_fn_context_set_error_msg(ctx, err_msg);                                        \
+      return 0;                                                                          \
+    }                                                                                    \
+                                                                                         \
+    return kFactorialLookupTable[static_cast<int32_t>(value)];                           \
   }
 
 FACTORIAL(int32)
@@ -386,16 +395,22 @@ gdv_int64 get_power_of_10(gdv_int32 exp) {
 
 FORCE_INLINE
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
+  // For int64 (no fractional digits), positive scale is a no-op
+  if (out_scale >= 0) {
+    return in;
+  }
+  // GetScaleMultiplier only supports scales 0-38
+  if (out_scale < -38) {
+    return 0;
+  }
+
   bool overflow = false;
   arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
   arrow::BasicDecimal128 decimal_with_outscale =
       gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), 38,
                                     out_scale, out_scale, &overflow);
-  if (out_scale < 0) {
-    out_scale = 0;
-  }
   return gandiva::decimalops::ToInt64(
-      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
+      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, 0), &overflow);
 }
 
 FORCE_INLINE

@@ -16,9 +16,7 @@
 # under the License.
 
 #' @importFrom utils getFromNamespace
-glimpse.ArrowTabular <- function(x,
-                                 width = getOption("pillar.width", getOption("width")),
-                                 ...) {
+glimpse.ArrowTabular <- function(x, width = getOption("pillar.width", getOption("width")), ...) {
   # This function is inspired by pillar:::glimpse.tbl(), with some adaptations
 
   # We use cli:: and pillar:: throughout this function. We don't need to check
@@ -44,7 +42,9 @@ glimpse.ArrowTabular <- function(x,
 
   dims <- dim(x)
   cli::cat_line(sprintf(
-    "%s rows x %s columns", pretty_int(dims[1]), pretty_int(dims[2])
+    "%s rows x %s columns",
+    pretty_int(dims[1]),
+    pretty_int(dims[2])
   ))
 
   if (dims[2] == 0) {
@@ -101,9 +101,7 @@ glimpse.ArrowTabular <- function(x,
 # Dataset has an efficient head() method via Scanner so this is fine
 glimpse.Dataset <- glimpse.ArrowTabular
 
-glimpse.arrow_dplyr_query <- function(x,
-                                      width = getOption("pillar.width", getOption("width")),
-                                      ...) {
+glimpse.arrow_dplyr_query <- function(x, width = getOption("pillar.width", getOption("width")), ...) {
   if (any(map_lgl(all_sources(x), ~ inherits(., "RecordBatchReader")))) {
     msg <- paste(
       "Cannot glimpse() data from a RecordBatchReader because it can only be",
@@ -124,9 +122,7 @@ glimpse.arrow_dplyr_query <- function(x,
   }
 }
 
-glimpse.RecordBatchReader <- function(x,
-                                      width = getOption("pillar.width", getOption("width")),
-                                      ...) {
+glimpse.RecordBatchReader <- function(x, width = getOption("pillar.width", getOption("width")), ...) {
   # TODO(ARROW-17038): to_arrow() on duckdb con should hold con not RBR so it
   # can be run more than once (like duckdb does on the other side)
   msg <- paste(

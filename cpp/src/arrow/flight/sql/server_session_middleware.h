@@ -33,7 +33,7 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-static constexpr char const kSessionCookieName[] = "arrow_flight_session_id";
+static constexpr const char kSessionCookieName[] = "arrow_flight_session_id";
 
 class ARROW_FLIGHT_SQL_EXPORT FlightSession {
  protected:
@@ -59,7 +59,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSession {
 /// transport bug.
 class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware {
  public:
-  static constexpr char const kMiddlewareName[] =
+  static constexpr const char kMiddlewareName[] =
       "arrow::flight::sql::ServerSessionMiddleware";
 
   std::string name() const override { return kMiddlewareName; }

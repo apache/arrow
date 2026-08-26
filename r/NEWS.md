@@ -17,7 +17,122 @@
   under the License.
 -->
 
-# arrow 21.0.0.9000
+# arrow 25.0.1.9000
+
+# arrow 25.0.1
+
+# arrow 25.0.0
+
+## Breaking changes
+
+- Arrow `uint64` types are now always converted to R `double` (numeric) vectors,
+  regardless of the values. Previously, small `uint64` values were converted to
+  R `integer`, which could cause inconsistent types within list-columns when
+  different list elements had different value ranges (#50339).
+
+## New features
+
+- `Field` objects now support field-level metadata via `$metadata` and
+  `$with_metadata()` (@max-romagnoli, #33390).
+- Parquet files now support list-columns of ordered factors (ordered
+  dictionaries) (#49689).
+
+## Minor improvements and fixes
+
+- `Array$create()` now gives a clearer error message when given a `POSIXct`
+  object with an invalid timezone (#40886).
+- Dictionary arrays with `large_string` value types now convert correctly to R
+  factors (#39603).
+- `open_dataset()` now gives a clearer error message when providing a mix of
+  `readr` and Arrow options (@Rich-T-kid, #33420).
+- `read_parquet()` no longer triggers a C++ alignment warning from the Acero
+  source node (#46178).
+- `Schema` metadata partial matching on `$metadata$r` no longer errors when
+  other metadata keys start with "r" (#50163).
+- `to_arrow()` now preserves `group_by()` when converting from a dbplyr lazy
+  table (#40640).
+- `write_parquet()` now correctly validates that `max_rows_per_group` is a
+  positive number (#40742).
+- Stale S3 connections no longer cause a segfault during garbage collection
+  (#50009).
+- Spurious warnings are no longer emitted when reading files with custom schema
+  metadata (#48712).
+
+## Installation
+
+- The R package now builds under `r-universe/r-wasm` (#49981).
+
+# arrow 24.0.0
+
+## New features
+
+- `dplyr::when_any()` and `dplyr::when_all()` helper bindings (#49535).
+- `dplyr::filter_out()` binding (@larry77, #49256).
+- `dplyr::recode_values()`, `dplyr::replace_values()`, and `dplyr::replace_when()` bindings (#49536).
+- `write_dataset()` gains a `preserve_order` argument to preserve row ordering within partitions (@marberts, #49343).
+
+## Minor improvements and fixes
+
+- Zero-length `POSIXct` objects with integer storage (as created by `as.POSIXct(NULL)` in R 4.5.2+) are now correctly mapped to timestamp type instead of integer (#49619).
+- `all.equal()` S3 method is now correctly registered (@MichaelChirico, #49481).
+
+## Installation
+
+- arm64 (aarch64) Linux binaries are now available (#48574).
+
+# arrow 23.0.1.2
+
+## Minor improvements and fixes
+
+- Update use of internal function for non-API call CRAN requirements (#49530)
+
+# arrow 23.0.1.1
+
+## Minor improvements and fixes
+
+- Refine checks for ensuring building with macOS libtool instead of GNU libtool (#49370)
+
+# arrow 23.0.1
+
+## Minor improvements and fixes
+
+- Fix C++20 compatibility issue on macOS (#49221).
+- Turn off GCS support by default on macOS; see `vignette("install", package = "arrow")` for details on enabling it (#49068, #48995).
+
+# arrow 23.0.0
+
+## New features
+
+- `nchar()` now supports `keepNA = FALSE` (@HyukjinKwon, #48665).
+- `stringr::str_ilike()` binding for case-insensitive pattern matching (#48262).
+
+## Minor improvements and fixes
+
+- Fix slow performance reading files with large number of columns (#48104).
+- Fix segfault when calling `concat_tables()` on a `RecordBatch` (#47885).
+- Writing partitioned datasets on S3 no longer requires `ListBucket` permissions (@HaochengLIU, #47599).
+
+## Installation
+
+- As of version 23.0.0, `arrow` requires C++20 to build from source. This means that you may need a newer compiler than the default on some older systems. See `vignette("install", package = "arrow")` for guidance.
+
+# arrow 22.0.0.1
+
+## Minor improvements and fixes
+
+- Turn off GCS support by default; bundle if enabled (#48343)
+- Ensure `MAKEFLAGS` being passed during compilation (#48341)
+- Update bundled RE2 to enable Alpine Linux builds (#48011)
+
+# arrow 22.0.0
+
+## New features
+
+- `stringr::str_replace_na()` binding implemented (#47521).
+
+##  Minor improvements and fixes
+
+- Subsecond time variables no longer truncated in  `hms::hms()` bindings (#47278)
 
 # arrow 21.0.0.1
 

@@ -208,7 +208,7 @@ def verify_release_candidate(obj, base_branch, create_pr,
         for flag, group in zip(verify_flags, verify_groups):
             if flag:
                 job_groups += f" --group {group}"
-        response.create_comment(
+        response.create_issue_comment(
             f"{command} {job_groups} --param " +
             f"release={version} --param rc={rc}")
 
@@ -300,6 +300,10 @@ def status(obj, job_name, fetch, task_filters, validate):
 
 
 @crossbow.command()
+@click.option('--base-branch', default='main',
+              help='Set base branch for the PR.')
+@click.option('--head-branch', default=None,
+              help='Set head branch for the PR.')
 @click.option('--arrow-remote', '-r', default=None,
               help='Set GitHub remote explicitly, which is going to be cloned '
                    'on the CI services. Note, that no validation happens '
@@ -313,7 +317,8 @@ def status(obj, job_name, fetch, task_filters, validate):
 @click.option('--pr-title', required=True,
               help='Track the job submitted on PR with given title')
 @click.pass_obj
-def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
+def report_pr(obj, base_branch, head_branch, arrow_remote, crossbow,
+              fetch, job_name, pr_title):
     arrow = obj['arrow']
     queue = obj['queue']
     if fetch:
@@ -322,11 +327,12 @@ def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
 
     report = CommentReport(job, crossbow_repo=crossbow)
     target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
-    pull_request = target_arrow.github_pr(title=pr_title,
+    pull_request = target_arrow.github_pr(base=base_branch, head=head_branch,
+                                          title=pr_title,
                                           github_token=queue.github_token,
                                           create=False)
     # render the response comment's content on the PR
-    pull_request.create_comment(report.show())
+    pull_request.create_issue_comment(report.show())
     click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
@@ -341,6 +347,22 @@ def latest_prefix(obj, prefix, fetch):
         queue.fetch()
     latest = queue.latest_for_prefix(prefix)
     click.echo(latest.branch)
+
+
+class NightlyEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('nightly_report', **kwargs)
+
+    def subject(self):
+        report = self.report
+        n_errors = len(report.tasks_by_state['error'])
+        n_failures = len(report.tasks_by_state['failure'])
+        n_pendings = len(report.tasks_by_state['pending'])
+        return (
+            f'[NIGHTLY] Arrow Build Report for Job {report.job.branch}: '
+            f'{n_errors + n_failures} failed, '
+            f'{n_pendings} pending'
+        )
 
 
 @crossbow.command()
@@ -382,8 +404,9 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         queue.fetch()
 
     job = queue.get(job_name)
-    email_report = EmailReport(
-        report=Report(job),
+    report = Report(job)
+    email_report = NightlyEmailReport(
+        report=report,
         sender_name=sender_name,
         sender_email=sender_email,
         recipient_email=recipient_email
@@ -401,11 +424,10 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=email_report.render("nightly_report")
+            report=email_report
         )
     else:
-        output.write(email_report.render("nightly_report"))
+        output.write(str(email_report.render()))
 
 
 @crossbow.command()
@@ -515,13 +537,13 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                 return False
 
             if need_download():
-                import github3
+                from github import GithubException
                 max_n_retries = 5
                 n_retries = 0
                 while True:
                     try:
-                        asset.download(path)
-                    except github3.exceptions.GitHubException as error:
+                        asset.download_asset(str(path))
+                    except GithubException as error:
                         n_retries += 1
                         if n_retries == max_n_retries:
                             raise
@@ -549,12 +571,11 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
 @click.argument('patterns', nargs=-1, required=True)
 @click.option('--sha', required=True, help='Target committish')
 @click.option('--tag', required=True, help='Target tag')
-@click.option('--method', default='curl', help='Use cURL to upload')
 @click.pass_obj
-def upload_artifacts(obj, tag, sha, patterns, method):
+def upload_artifacts(obj, tag, sha, patterns):
     queue = obj['queue']
     queue.github_overwrite_release_assets(
-        tag_name=tag, target_commitish=sha, method=method, patterns=patterns
+        tag_name=tag, target_commitish=sha, patterns=patterns
     )
 
 
@@ -601,6 +622,17 @@ def delete_old_branches(obj, dry_run, days, maximum):
             print(batch)
 
 
+class TokenExpirationEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('token_expiration', **kwargs)
+
+    def subject(self):
+        token_expiration_date = self.report.token_expiration_date
+        return (
+            f'[CI] Arrow Crossbow Token Expiration in {token_expiration_date}'
+        )
+
+
 @crossbow.command()
 @click.option('--days', default=30,
               help='Notification will be sent if expiration date is '
@@ -645,23 +677,18 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             self.token_expiration_date = token_expiration_date
             self.days_left = days_left
 
-    email_report = EmailReport(
-        report=TokenExpirationReport(
-            token_expiration_date or "ALREADY_EXPIRED", days_left),
-        sender_name=sender_name,
-        sender_email=sender_email,
-        recipient_email=recipient_email
-    )
+    if not token_expiration_date:
+        token_expiration_date = 'ALREADY_EXPIRED'
+    report = TokenExpirationReport(token_expiration_date, days_left)
+    email_report = TokenExpirationEmailReport(report)
 
-    message = email_report.render("token_expiration").strip()
     if send:
         ReportUtils.send_email(
             smtp_user=smtp_user,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=message
+            report=email_report
         )
     else:
-        output.write(message)
+        output.write(str(email_report.render()))

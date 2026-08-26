@@ -107,23 +107,8 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
-  # Arrow Flight SQL ODBC is available only for Windows for now.
-  if(NOT MSVC_TOOLCHAIN)
-    set(ARROW_FLIGHT_SQL_ODBC OFF)
-  endif()
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
-  endif()
-  # Tests are crashed with mold + sanitizer checks.
-  if(ARROW_USE_ASAN
-     OR ARROW_USE_TSAN
-     OR ARROW_USE_UBSAN)
-    if(ARROW_USE_MOLD)
-      message(WARNING "ARROW_USE_MOLD is disabled when one of "
-                      "ARROW_USE_ASAN, ARROW_USE_TSAN or ARROW_USE_UBSAN is specified "
-                      "because it causes some problems.")
-      set(ARROW_USE_MOLD OFF)
-    endif()
   endif()
 
   tsort_bool_option_dependencies()
@@ -170,8 +155,6 @@ if(ARROW_DEFINE_OPTIONS)
   define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available),;\
 takes precedence over ccache if a storage backend is configured" ON)
 
-  define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
-
   define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
@@ -197,6 +180,9 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "SSE4_2"
                        "AVX2"
                        "AVX512"
+                       "SVE128" # fixed size SVE
+                       "SVE256" # "
+                       "SVE512" # "
                        "MAX")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
@@ -213,7 +199,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
 
   #----------------------------------------------------------------------
-  set_option_category("Test and benchmark")
+  set_option_category("Tests and benchmarks")
 
   define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples" OFF)
 
@@ -259,12 +245,20 @@ takes precedence over ccache if a storage backend is configured" ON)
                        "shared"
                        "static")
 
-  define_option(ARROW_FUZZING
-                "Build Arrow Fuzzing executables"
+  define_option(ARROW_BUILD_FUZZING_UTILITIES
+                "Build command line utilities for fuzzing"
                 OFF
                 DEPENDS
                 ARROW_TESTING
-                ARROW_WITH_BROTLI)
+                ARROW_WITH_BROTLI
+                ARROW_WITH_LZ4
+                ARROW_WITH_ZSTD)
+
+  define_option(ARROW_FUZZING
+                "Build Arrow fuzz targets"
+                OFF
+                DEPENDS
+                ARROW_BUILD_FUZZING_UTILITIES)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
@@ -301,7 +295,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_FILESYSTEM)
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow command line utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
 
@@ -335,11 +329,17 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_FLIGHT)
 
   define_option(ARROW_FLIGHT_SQL_ODBC
-                "Build the Arrow Flight SQL ODBC extension"
+                "Build the Arrow Flight SQL ODBC driver"
                 OFF
                 DEPENDS
                 ARROW_FLIGHT_SQL
                 ARROW_COMPUTE)
+
+  define_option(ARROW_FLIGHT_SQL_ODBC_INSTALLER
+                "Build the Arrow Flight SQL ODBC installer"
+                OFF
+                DEPENDS
+                ARROW_FLIGHT_SQL_ODBC)
 
   define_option(ARROW_GANDIVA
                 "Build the Gandiva libraries"
@@ -588,17 +588,19 @@ takes precedence over ccache if a storage backend is configured" ON)
   set_option_category("Parquet")
 
   define_option(PARQUET_BUILD_EXECUTABLES
-                "Build the Parquet executable CLI tools. Requires static libraries to be built."
-                OFF)
+                "Build the Parquet executable CLI tools."
+                OFF
+                DEPENDS
+                ARROW_FILESYSTEM)
 
-  define_option(PARQUET_BUILD_EXAMPLES
-                "Build the Parquet examples. Requires static libraries to be built." OFF)
+  define_option(PARQUET_BUILD_EXAMPLES "Build the Parquet examples." OFF)
 
   define_option(PARQUET_REQUIRE_ENCRYPTION
                 "Build support for encryption. Fail if OpenSSL is not found"
                 OFF
                 DEPENDS
-                ARROW_FILESYSTEM)
+                ARROW_FILESYSTEM
+                ARROW_JSON)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")

@@ -237,9 +237,17 @@ void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
-  ASSERT_EQ(buffer.size(), expected.size()) << "Mismatching buffer size";
-  ASSERT_TRUE(buffer.Equals(expected));
+void AssertBufferEqual(const Buffer& buffer, const Buffer& expected, bool verbose) {
+  ASSERT_EQ(buffer.size(), expected.size())
+      << "Mismatching buffer size, got " << buffer.size() << ", expected "
+      << expected.size();
+  if (verbose) {
+    ASSERT_TRUE(buffer.Equals(expected))
+        << "Mismatching buffers, got : " << buffer.ToHexString()
+        << " but expected: " << expected.ToHexString();
+  } else {
+    ASSERT_TRUE(buffer.Equals(expected));
+  }
 }
 
 template <typename T>
@@ -660,21 +668,24 @@ LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {
 
 LocaleGuard::~LocaleGuard() {}
 
-EnvVarGuard::EnvVarGuard(const std::string& name, const std::string& value)
-    : name_(name) {
-  auto maybe_value = arrow::internal::GetEnvVar(name);
+EnvVarGuard::EnvVarGuard(std::string name, std::optional<std::string> value)
+    : name_(std::move(name)) {
+  auto maybe_value = arrow::internal::GetEnvVar(name_);
   if (maybe_value.ok()) {
-    was_set_ = true;
     old_value_ = *std::move(maybe_value);
   } else {
-    was_set_ = false;
+    old_value_ = std::nullopt;
   }
-  ARROW_CHECK_OK(arrow::internal::SetEnvVar(name, value));
+  if (value.has_value()) {
+    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, *value));
+  } else {
+    ARROW_CHECK_OK(arrow::internal::DelEnvVar(name_));
+  }
 }
 
 EnvVarGuard::~EnvVarGuard() {
-  if (was_set_) {
-    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, old_value_));
+  if (old_value_.has_value()) {
+    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, *old_value_));
   } else {
     ARROW_CHECK_OK(arrow::internal::DelEnvVar(name_));
   }

@@ -642,6 +642,9 @@ TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
   if (adapters::orc::GetOrcMajorVersion() >= 2) {
     GTEST_SKIP() << "Only ORC pre-2.0.0 versions have the time zone database check";
   }
+#ifdef _WIN32
+  GTEST_SKIP() << "GH-47489: Expected error is not thrown on Windows";
+#endif
 
   EnvVarGuard tzdir_guard("TZDIR", "/wrong/path");
   const char* expect_str = "IANA time zone database is unavailable but required by ORC";
@@ -1109,6 +1112,31 @@ TEST(TestWriteReadORCBatch, DenseUnionConversion) {
   auto type = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
   auto array = rand.ArrayOf(type, /*size=*/1024, /*null_probability=*/0.4);
   TestUnionConversion(std::move(array));
+}
+
+TEST(TestWriteReadORCBatch, TimestampOutOfRangeIsRejected) {
+  // A timestamp far past year 2262 does not fit in int64 nanoseconds, so scaling
+  // seconds to nanoseconds overflows. The conversion must report it rather than
+  // produce a garbage value.
+  auto orc_type = liborc::Type::buildTypeFromString("struct<ts:timestamp>");
+
+  MemoryOutputStream mem_stream(kDefaultSmallMemStreamSize);
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+  auto orc_batch = writer->createRowBatch(1);
+
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(orc_batch.get());
+  auto ts_batch =
+      internal::checked_cast<liborc::TimestampVectorBatch*>(struct_batch->fields[0]);
+  ts_batch->data[0] = 10000000000;  // ~year 2286, overflows once scaled to nanos
+  ts_batch->nanoseconds[0] = 0;
+  ts_batch->numElements = 1;
+  ts_batch->hasNulls = false;
+  struct_batch->numElements = 1;
+
+  ASSIGN_OR_ABORT(auto builder, MakeBuilder(timestamp(TimeUnit::NANO)));
+  ASSERT_RAISES(Invalid, adapters::orc::AppendBatch(
+                             orc_type->getSubtype(0), struct_batch->fields[0],
+                             /*offset=*/0, /*length=*/1, builder.get()));
 }
 
 class TestORCWriterMultipleWrite : public ::testing::Test {

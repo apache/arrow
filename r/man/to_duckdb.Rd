@@ -40,15 +40,15 @@ if you don't want to have extra table objects in DuckDB after you've finished
 using them.
 }
 \examples{
-\dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) withAutoprint(\{ # examplesIf}
 library(dplyr)
 
 ds <- InMemoryDataset$create(mtcars)
 
-ds \%>\%
-  filter(mpg < 30) \%>\%
-  group_by(cyl) \%>\%
-  to_duckdb() \%>\%
+ds |>
+  filter(mpg < 30) |>
+  group_by(cyl) |>
+  to_duckdb() |>
   slice_min(disp)
 \dontshow{\}) # examplesIf}
 }

@@ -92,8 +92,8 @@ Extension arrays
 .. doxygenclass:: arrow::ExtensionArray
    :members:
 
-Run-End Encoded Array
----------------------
+Run-end encoded
+---------------
 
 .. doxygenclass:: arrow::RunEndEncodedArray
    :members:
@@ -114,6 +114,17 @@ Chunked Arrays
 
 .. doxygenclass:: arrow::ChunkResolver
    :project: arrow_cpp
+   :members:
+
+Non-owning data class
+=====================
+
+.. warning::
+   As this class doesn't keep alive the objects and data it points to, their
+   lifetime must be ensured separately. We recommend using :class:`arrow::ArrayData`
+   instead.
+
+.. doxygenclass:: arrow::ArraySpan
    :members:
 
 Utilities

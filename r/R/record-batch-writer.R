@@ -15,18 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 #' @title RecordBatchWriter classes
 #' @description Apache Arrow defines two formats for [serializing data for interprocess
 #' communication
 #' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
-#' a "stream" format and a "file" format, known as Feather.
+#' a "stream" format and a "file" format.
 #' `RecordBatchStreamWriter` and `RecordBatchFileWriter` are
 #' interfaces for writing record batches to those formats, respectively.
 #'
 #' For guidance on how to use these classes, see the examples section.
 #'
-#' @seealso [write_ipc_stream()] and [write_feather()] provide a much simpler
+#' @seealso [write_ipc_stream()] and [write_ipc_file()] provide a much simpler
 #' interface for writing data to these formats and are sufficient for many use
 #' cases. [write_to_raw()] is a version that serializes data to a buffer.
 #' @usage NULL
@@ -94,7 +93,8 @@
 #' # Unlike the Writers, we don't have to close RecordBatchReaders,
 #' # but we do still need to close the file connection
 #' read_file_obj$close()
-RecordBatchWriter <- R6Class("RecordBatchWriter",
+RecordBatchWriter <- R6Class(
+  "RecordBatchWriter",
   inherit = ArrowObject,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
@@ -117,14 +117,13 @@ RecordBatchWriter <- R6Class("RecordBatchWriter",
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
-RecordBatchStreamWriter$create <- function(sink,
-                                           schema,
-                                           use_legacy_format = NULL,
-                                           metadata_version = NULL) {
+RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NULL, metadata_version = NULL) {
   if (is.string(sink)) {
     stop(
       "RecordBatchStreamWriter$create() requires an Arrow InputStream. ",
-      "Try providing FileOutputStream$create(", substitute(sink), ")",
+      "Try providing FileOutputStream$create(",
+      substitute(sink),
+      ")",
       call. = FALSE
     )
   }
@@ -144,14 +143,13 @@ RecordBatchStreamWriter$create <- function(sink,
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
-RecordBatchFileWriter$create <- function(sink,
-                                         schema,
-                                         use_legacy_format = NULL,
-                                         metadata_version = NULL) {
+RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL, metadata_version = NULL) {
   if (is.string(sink)) {
     stop(
       "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
-      "Try providing FileOutputStream$create(", substitute(sink), ")",
+      "Try providing FileOutputStream$create(",
+      substitute(sink),
+      ")",
       call. = FALSE
     )
   }
@@ -172,8 +170,10 @@ get_ipc_metadata_version <- function(x) {
     # 4 means "V4", which actually happens to be 3L
     x <- paste0("V", x)
   } else if (is.null(x)) {
-    if (identical(Sys.getenv("ARROW_PRE_1_0_METADATA_VERSION"), "1") ||
-      identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")) {
+    if (
+      identical(Sys.getenv("ARROW_PRE_1_0_METADATA_VERSION"), "1") ||
+        identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")
+    ) {
       # PRE_1_0 is specific for this;
       # if you already set PRE_0_15, PRE_1_0 should be implied
       x <- "V4"

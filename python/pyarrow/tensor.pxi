@@ -300,9 +300,12 @@ strides: {self.strides}"""
         buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
-    def __dlpack__(self, stream=None):
+    def __dlpack__(self, stream=None, max_version=None, dl_device=None, copy=None):
         """
         Export a Tensor as a DLPack capsule.
+
+        Without supplying max_version, it will return a legacy DLPack "dltensor" PyCapsule.
+        Please specify a version as the legacy path is deprecated.
 
         Parameters
         ----------
@@ -310,20 +313,54 @@ strides: {self.strides}"""
             A Python integer representing a pointer to a stream. Currently not supported.
             Stream is provided by the consumer to the producer to instruct the producer
             to ensure that operations can safely be performed on the array.
+        max_version : tuple[int, int], optional
+            The maximum DLPack version the consumer supports, as (major, minor).
+            A capsule of a different version may be returned, so the consumer must
+            check it. Default is None, exporting the unversioned capsule.
+        dl_device : tuple[enum.Enum, int], optional
+            The device of the exported capsule, in the format returned by
+            :meth:`__dlpack_device__`. Default is None, meaning the device of the
+            tensor itself. Since only CPU tensors are supported, any other device
+            raises ``BufferError``.
+        copy : bool, optional
+            If True, the data is always copied. If False, it is never copied and
+            ``BufferError`` is raised if a copy is required. If None (default), the
+            data is copied only if needed, which for CPU tensors is never.
+            A copy is reported to the consumer with ``DLPACK_FLAG_BITMASK_IS_COPIED``.
 
         Returns
         -------
         capsule : PyCapsule
-            A DLPack capsule for the tensor, pointing to a DLManagedTensor.
+            A DLPack capsule for the tensor, pointing to a DLManagedTensorVersioned,
+            or to a DLManagedTensor if ``max_version`` is below (1, 0).
         """
-        if stream is None:
-            dlm_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+        if stream is not None:
+            raise NotImplementedError("Only stream=None is supported.")
+        if dl_device is not None:
+            device = GetResultValue(ExportDevice(self.sp_tensor))
+            if dl_device != (device.device_type, device.device_id):
+                raise BufferError(
+                    f"Cannot export to device {dl_device}, "
+                    f"tensor is on {(device.device_type, device.device_id)}."
+                )
+        if max_version is None or max_version < (1, 0):
+            if copy is not None:
+                raise BufferError(
+                    f"The copy argument is not supported with legacy (pre 1.0) DLPack version."
+                )
+            # Note: from March 2025 onwards, it's okay to raise BufferError here.
+            # Still we keep the V0 version as the V1 was only added in August 2026.
+            warnings.warn(
+                "Exporting an unversioned DLPack capsule is deprecated, "
+                "pass max_version=(1, 0) or higher.",
+                DeprecationWarning, stacklevel=2)
+            legacy_tensor = GetResultValue(ExportTensorToDLPack(self.sp_tensor))
+            return PyCapsule_New(legacy_tensor, 'dltensor', dlpack_pycapsule_deleter)
 
-            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
-        else:
-            raise NotImplementedError(
-                "Only stream=None is supported."
-            )
+        # Currently no major version other than legacy 0 and current 1.3
+        dlm_tensor = GetResultValue(
+            ExportTensorVersionedToDLPack(self.sp_tensor, copy == True))
+        return PyCapsule_New(dlm_tensor, 'dltensor_versioned', dlpack_versioned_pycapsule_deleter)
 
     def __dlpack_device__(self):
         """
@@ -345,7 +382,22 @@ ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
 
 cdef class SparseCOOTensor(_Weakrefable):
     """
-    A sparse COO tensor.
+    A sparse COO (COOrdinate) tensor.
+
+    COO format stores a sparse tensor as a collection of (indices, values)
+    pairs. The indices specify the coordinates of non-zero elements, and
+    the values contain the actual data at those coordinates.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_tensor = np.array([[0, 1, 0], [2, 0, 3]], dtype=np.float32)
+    >>> sparse_coo = pa.SparseCOOTensor.from_dense_numpy(dense_tensor)
+    >>> sparse_coo
+    <pyarrow.SparseCOOTensor>
+    type: float
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -359,7 +411,7 @@ cdef class SparseCOOTensor(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCOOTensor>
+        return f"""<pyarrow.SparseCOOTensor>
 type: {self.type}
 shape: {self.shape}"""
 
@@ -396,6 +448,18 @@ shape: {self.shape}"""
             Shape of the tensor.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        >>> coords = np.array([[0, 1], [1, 0], [1, 2]], dtype=np.int64)
+        >>> sparse_coo = pa.SparseCOOTensor.from_numpy(data, coords, shape=(2, 3))
+        >>> sparse_coo
+        <pyarrow.SparseCOOTensor>
+        type: float
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -650,7 +714,23 @@ shape: {self.shape}"""
 
 cdef class SparseCSRMatrix(_Weakrefable):
     """
-    A sparse CSR matrix.
+    A sparse CSR (Compressed Sparse Row) matrix.
+
+    CSR format stores a sparse matrix by compressing the row information.
+    It uses three arrays: data (non-zero values), indices (column indices),
+    and indptr (row pointers that indicate where each row starts in the
+    data array).
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_matrix = np.array([[1, 0, 2], [0, 0, 3]], dtype=np.float64)
+    >>> sparse_csr = pa.SparseCSRMatrix.from_dense_numpy(dense_matrix)
+    >>> sparse_csr
+    <pyarrow.SparseCSRMatrix>
+    type: double
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -704,6 +784,20 @@ shape: {self.shape}"""
             Shape of the matrix.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+        >>> indptr = np.array([0, 2, 3], dtype=np.int64)
+        >>> indices = np.array([0, 2, 1], dtype=np.int64)
+        >>> sparse_csr = pa.SparseCSRMatrix.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3))
+        >>> sparse_csr
+        <pyarrow.SparseCSRMatrix>
+        type: double
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -891,7 +985,23 @@ shape: {self.shape}"""
 
 cdef class SparseCSCMatrix(_Weakrefable):
     """
-    A sparse CSC matrix.
+    A sparse CSC (Compressed Sparse Column) matrix.
+
+    CSC format stores a sparse matrix by compressing the column information.
+    It uses three arrays: data (non-zero values), indices (row indices),
+    and indptr (column pointers that indicate where each column starts
+    in the data array). CSC is the transpose of CSR format.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_matrix = np.array([[1, 0, 2], [0, 0, 3]], dtype=np.float64)
+    >>> sparse_csc = pa.SparseCSCMatrix.from_dense_numpy(dense_matrix)
+    >>> sparse_csc
+    <pyarrow.SparseCSCMatrix>
+    type: double
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -945,6 +1055,20 @@ shape: {self.shape}"""
             Shape of the matrix.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 3.0, 2.0], dtype=np.float64)
+        >>> indptr = np.array([0, 1, 2, 3], dtype=np.int64)
+        >>> indices = np.array([0, 1, 0], dtype=np.int64)
+        >>> sparse_csc = pa.SparseCSCMatrix.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3))
+        >>> sparse_csc
+        <pyarrow.SparseCSCMatrix>
+        type: double
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -1142,6 +1266,20 @@ cdef class SparseCSFTensor(_Weakrefable):
     of prefix trees. Each path from a root to leaf forms one tensor
     non-zero index. CSF is implemented with two arrays of buffers and one
     arrays of integers.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> # Create a 3D sparse tensor
+    >>> dense_tensor = np.zeros((2, 3, 2), dtype=np.float32)
+    >>> dense_tensor[0, 1, 0] = 1.0
+    >>> dense_tensor[1, 2, 1] = 2.0
+    >>> sparse_csf = pa.SparseCSFTensor.from_dense_numpy(dense_tensor)
+    >>> sparse_csf
+    <pyarrow.SparseCSFTensor>
+    type: float
+    shape: (2, 3, 2)
     """
 
     def __init__(self):
@@ -1204,6 +1342,27 @@ shape: {self.shape}"""
             produce the prefix tree.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0], dtype=np.float32)
+        >>> indptr = [
+        ...     np.array([0, 1, 2], dtype=np.int64),
+        ...     np.array([0, 1, 2], dtype=np.int64),
+        ... ]
+        >>> indices = [
+        ...     np.array([0, 1], dtype=np.int64),
+        ...     np.array([1, 2], dtype=np.int64),
+        ...     np.array([0, 1], dtype=np.int64),
+        ... ]
+        >>> sparse_csf = pa.SparseCSFTensor.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3, 2))
+        >>> sparse_csf
+        <pyarrow.SparseCSFTensor>
+        type: float
+        shape: (2, 3, 2)
         """
         cdef shared_ptr[CSparseCSFTensor] csparse_tensor
         cdef vector[int64_t] c_axis_order

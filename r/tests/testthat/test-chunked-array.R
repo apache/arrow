@@ -245,12 +245,28 @@ test_that("ChunkedArray supports difftime", {
 
 test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
   types <- c(
-    int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
-    uint64(), float32(), float64(), timestamp("ns"), binary(),
-    large_binary(), fixed_size_binary(32), date32(), date64(),
-    decimal32(4, 2), decimal64(4, 2),
-    decimal128(4, 2), decimal256(4, 2),
-    dictionary(), struct(x = int32())
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    float32(),
+    float64(),
+    timestamp("ns"),
+    binary(),
+    large_binary(),
+    fixed_size_binary(32),
+    date32(),
+    date64(),
+    decimal32(4, 2),
+    decimal64(4, 2),
+    decimal128(4, 2),
+    decimal256(4, 2),
+    dictionary(),
+    struct(x = int32())
   )
 
   empty_filter <- ChunkedArray$create(type = bool())
@@ -375,9 +391,7 @@ test_that("ChunkedArray$View() (ARROW-6542)", {
   b <- a$View(float32())
   expect_equal(b$type, float32())
   expect_equal(length(b), 7L)
-  expect_true(all(
-    sapply(b$chunks, function(.x) .x$type == float32())
-  ))
+  expect_all_true(sapply(b$chunks, function(.x) .x$type == float32()))
   # Input validation
   expect_error(a$View("not a type"), "type must be a DataType, not character")
 })

@@ -19,9 +19,11 @@
 #  define M_PI 3.14159265358979323846
 #endif
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -60,11 +62,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int32(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int32(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 
   for (int64_t i = 0; i <= 20; ++i) {
@@ -78,11 +81,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int64(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int64(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 }
 
@@ -124,7 +128,7 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
       log_int32_int32(reinterpret_cast<gdv_int64>(&context), 1 /*base*/, 10 /*value*/);
   VerifyFuzzyEquals(out, 0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"))
       << context.get_error();
 
   gandiva::ExecutionContext context1;
@@ -208,6 +212,18 @@ TEST(TestExtendedMathOps, TestTruncate) {
   EXPECT_EQ(truncate_int64_int32(-1234, -2), -1200);
   EXPECT_EQ(truncate_int64_int32(8124674407369523212, 0), 8124674407369523212);
   EXPECT_EQ(truncate_int64_int32(8124674407369523212, -2), 8124674407369523200);
+
+  // Positive scales are no-op for int64 (no fractional digits)
+  EXPECT_EQ(truncate_int64_int32(12345, std::numeric_limits<int32_t>::max()), 12345);
+  EXPECT_EQ(truncate_int64_int32(-12345, std::numeric_limits<int32_t>::max()), -12345);
+  EXPECT_EQ(truncate_int64_int32(12345, 100), 12345);
+  EXPECT_EQ(truncate_int64_int32(12345, 39), 12345);
+
+  // Scales beyond [-38, 0) truncate all digits
+  EXPECT_EQ(truncate_int64_int32(12345, std::numeric_limits<int32_t>::min()), 0);
+  EXPECT_EQ(truncate_int64_int32(12345, -100), 0);
+  EXPECT_EQ(truncate_int64_int32(12345, -39), 0);
+  EXPECT_EQ(truncate_int64_int32(-99999, -39), 0);
 }
 
 TEST(TestExtendedMathOps, TestTrigonometricFunctions) {

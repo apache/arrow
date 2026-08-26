@@ -20,6 +20,7 @@
 #include <utf8proc.h>
 
 #include <boost/crc.hpp>
+#include <cstdio>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -67,9 +68,30 @@ double gdv_fn_random(int64_t ptr) {
   return (*holder)();
 }
 
-double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
+double gdv_fn_random_with_seed(int64_t ptr, int32_t /*seed*/, bool /*seed_validity*/) {
   gandiva::RandomGeneratorHolder* holder =
       reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+int32_t gdv_fn_rand_integer(int64_t ptr) {
+  gandiva::RandomIntegerGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+int32_t gdv_fn_rand_integer_with_range(int64_t ptr, int32_t /*range*/,
+                                       bool /*range_validity*/) {
+  gandiva::RandomIntegerGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+int32_t gdv_fn_rand_integer_with_min_max(int64_t ptr, int32_t /*min*/,
+                                         bool /*min_validity*/, int32_t /*max*/,
+                                         bool /*max_validity*/) {
+  gandiva::RandomIntegerGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
   return (*holder)();
 }
 
@@ -168,7 +190,10 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   GANDIVA_EXPORT                                                                    \
   int64_t gdv_fn_crc_32_##TYPE(int64_t ctx, const char* input, int32_t input_len) { \
     if (input_len < 0) {                                                            \
-      gdv_fn_context_set_error_msg(ctx, "Input length can't be negative");          \
+      char err_msg[96];                                                             \
+      snprintf(err_msg, sizeof(err_msg),                                            \
+               "CRC32: Input length can't be negative, got %d", input_len);         \
+      gdv_fn_context_set_error_msg(ctx, err_msg);                                   \
       return 0;                                                                     \
     }                                                                               \
     boost::crc_32_type result;                                                      \
@@ -197,14 +222,19 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
                            int32_t x_scale, int32_t* dec_str_len) {
   arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
   std::string dec_str = dec.ToString(x_scale);
-  *dec_str_len = static_cast<int32_t>(dec_str.length());
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *dec_str_len));
+  auto dec_str_length = static_cast<int32_t>(dec_str.length());
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, dec_str_length));
   if (ret == nullptr) {
     std::string err_msg = "Could not allocate memory for string: " + dec_str;
     gdv_fn_context_set_error_msg(context, err_msg.data());
+    // Report zero length so a caller can never combine a positive length with the
+    // null buffer (the original bug: memcpy(dst, nullptr, positive_len) -> SIGSEGV).
+    *dec_str_len = 0;
     return nullptr;
   }
-  memcpy(ret, dec_str.data(), *dec_str_len);
+  *dec_str_len = dec_str_length;
+  memcpy(ret, dec_str.data(), dec_str_length);
   return ret;
 }
 
@@ -212,7 +242,10 @@ GANDIVA_EXPORT
 const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t in_len,
                                         int32_t* out_len) {
   if (in_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");
+    char err_msg[96];
+    snprintf(err_msg, sizeof(err_msg),
+             "BASE64: input length must be non-negative, got %d", in_len);
+    gdv_fn_context_set_error_msg(context, err_msg);
     *out_len = 0;
     return "";
   }
@@ -239,7 +272,10 @@ GANDIVA_EXPORT
 const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
                                       int32_t* out_len) {
   if (in_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");
+    char err_msg[96];
+    snprintf(err_msg, sizeof(err_msg),
+             "UNBASE64: input length must be non-negative, got %d", in_len);
+    gdv_fn_context_set_error_msg(context, err_msg);
     *out_len = 0;
     return "";
   }
@@ -248,7 +284,15 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to decode base64 string
-  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
+  auto result = arrow::util::base64_decode(std::string_view(in, in_len));
+  if (!result.ok()) {
+    gdv_fn_context_set_error_msg(context, result.status().message().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  std::string decoded_str = *result;
+
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -314,7 +358,10 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
                                const char* key_data, int32_t key_data_len,
                                int32_t* out_len) {
   if (data_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid data length to be encrypted");
+    char err_msg[96];
+    snprintf(err_msg, sizeof(err_msg),
+             "AES_ENCRYPT: data length can't be negative, got %d", data_len);
+    gdv_fn_context_set_error_msg(context, err_msg);
     *out_len = 0;
     return "";
   }
@@ -334,8 +381,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
       static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    std::string err_msg =
-        "Could not allocate memory for returning aes encrypt cypher text";
+    std::string err_msg = "AES_ENCRYPT: could not allocate memory for ciphertext output";
     gdv_fn_context_set_error_msg(context, err_msg.data());
     *out_len = 0;
     return nullptr;
@@ -358,7 +404,10 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
                                const char* key_data, int32_t key_data_len,
                                int32_t* out_len) {
   if (data_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid data length to be decrypted");
+    char err_msg[96];
+    snprintf(err_msg, sizeof(err_msg),
+             "AES_DECRYPT: data length can't be negative, got %d", data_len);
+    gdv_fn_context_set_error_msg(context, err_msg);
     *out_len = 0;
     return "";
   }
@@ -378,8 +427,7 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
       static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    std::string err_msg =
-        "Could not allocate memory for returning aes encrypt cypher text";
+    std::string err_msg = "Could not allocate memory for returning aes decrypt plaintext";
     gdv_fn_context_set_error_msg(context, err_msg.data());
     *out_len = 0;
     return nullptr;
@@ -441,7 +489,7 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
   while ((chars_masked < n_to_mask) && (bytes_masked < data_len)) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_masked),
-                         data_len, &utf8_char);
+                         data_len - bytes_masked, &utf8_char);
 
     if (char_len < 0) {
       gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
@@ -549,7 +597,12 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   while ((bytes_read < data_len) && (chars_counter < (num_of_chars - n_to_mask))) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     chars_counter++;
     bytes_read += static_cast<int>(char_len);
   }
@@ -563,7 +616,12 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   while (bytes_read < data_len) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     switch (utf8proc_category(utf8_char)) {
       case 1:
         out[out_idx] = 'X';
@@ -652,7 +710,12 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
   while (bytes_read < data_len) {
     auto char_len =
         utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(data + bytes_read),
-                         data_len, &utf8_char);
+                         data_len - bytes_read, &utf8_char);
+    if (char_len < 0) {
+      gdv_fn_context_set_error_msg(context, utf8proc_errmsg(char_len));
+      *out_len = 0;
+      return nullptr;
+    }
     switch (utf8proc_category(utf8_char)) {
       case UTF8PROC_CATEGORY_LU:
         memcpy(out + out_index, upper, upper_length);
@@ -863,6 +926,22 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {types->i64_type(), types->i32_type(), types->i1_type()};
   engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_random_with_seed));
+
+  // gdv_fn_rand_integer
+  args = {types->i64_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_rand_integer", types->i32_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_rand_integer));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type()};
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_rand_integer_with_range", types->i32_type(), args,
+      reinterpret_cast<void*>(gdv_fn_rand_integer_with_range));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type(), types->i32_type(),
+          types->i1_type()};
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_rand_integer_with_min_max", types->i32_type(), args,
+      reinterpret_cast<void*>(gdv_fn_rand_integer_with_min_max));
 
   // gdv_fn_dec_from_string
   args = {

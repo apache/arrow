@@ -60,7 +60,7 @@ arrow::Status ExportedContextFunctions::AddMappings(Engine* engine) const {
 
 extern "C" {
 
-void gdv_fn_context_set_error_msg(int64_t context_ptr, char const* err_msg) {
+void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg) {
   auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   context->set_error_msg(err_msg);
 }

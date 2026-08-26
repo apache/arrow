@@ -23,12 +23,14 @@ ARG DEBUG
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   dnf update -y ${quiet} && \
+  dnf install -y ${quiet} spal-release && \
   dnf install -y ${quiet} \
     bison \
     boost-devel \
     brotli-devel \
     bzip2-devel \
     c-ares-devel \
+    ccache \
     clang \
     cmake \
     curl-devel \
@@ -55,6 +57,7 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    unixODBC-devel \
     utf8proc-devel \
     vala \
     which \

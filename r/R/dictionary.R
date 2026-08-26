@@ -17,19 +17,43 @@
 
 #' @include type.R
 
-#' @title class DictionaryType
+#' @title DictionaryType class
+#'
+#' @description
+#' `DictionaryType` is a [FixedWidthType] that represents dictionary-encoded data.
+#' Dictionary encoding stores unique values in a dictionary and uses integer-type
+#' indices to reference them, which can be more memory-efficient for data with many
+#' repeated values.
 #'
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
-#' @section Methods:
+#' @section R6 Methods:
 #'
-#' TODO
+#' - `$ToString()`: Return a string representation of the dictionary type
+#' - `$code(namespace = FALSE)`: Return R code to create this dictionary type
+#'
+#' @section Active bindings:
+#'
+#' - `$index_type`: The [DataType] for the dictionary indices (must be an integer type,
+#'   signed or unsigned)
+#' - `$value_type`: The [DataType] for the dictionary values
+#' - `$name`: The name of the type.
+#' - `$ordered`: Whether the dictionary is ordered.
+#'
+#' @section Factory:
+#'
+#' `DictionaryType$create()` takes the following arguments:
+#'
+#' - `index_type`: A [DataType] for the indices (default [int32()])
+#' - `value_type`: A [DataType] for the values (default [utf8()])
+#' - `ordered`: Is this an ordered dictionary (default `FALSE`)?
 #'
 #' @rdname DictionaryType
 #' @name DictionaryType
-DictionaryType <- R6Class("DictionaryType",
+DictionaryType <- R6Class(
+  "DictionaryType",
   inherit = FixedWidthType,
   public = list(
     ToString = function() {
@@ -56,9 +80,7 @@ DictionaryType <- R6Class("DictionaryType",
     ordered = function() DictionaryType__ordered(self)
   )
 )
-DictionaryType$create <- function(index_type = int32(),
-                                  value_type = utf8(),
-                                  ordered = FALSE) {
+DictionaryType$create <- function(index_type = int32(), value_type = utf8(), ordered = FALSE) {
   assert_is(index_type, "DataType")
   assert_is(value_type, "DataType")
   DictionaryType__initialize(index_type, value_type, ordered)

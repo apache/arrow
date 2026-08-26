@@ -35,8 +35,6 @@
 
 namespace arrow {
 
-using internal::StartsWith;
-
 namespace dataset {
 
 namespace {
@@ -49,7 +47,7 @@ bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& pr
   auto parts = fs::internal::SplitAbstractPath(path);
   return std::any_of(parts.cbegin(), parts.cend(), [&](std::string_view part) {
     return std::any_of(prefixes.cbegin(), prefixes.cend(),
-                       [&](std::string_view prefix) { return StartsWith(part, prefix); });
+                       [&](std::string_view prefix) { return part.starts_with(prefix); });
   });
 }
 

@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
@@ -294,6 +295,30 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllPresentEntries) {
   ASSERT_THAT(result.post_list_elements, SizeIs(1));
   EXPECT_THAT(result.post_list_elements[0].start, Eq(0));
   EXPECT_THAT(result.post_list_elements[0].end, Eq(3));
+}
+
+TEST_F(MultipathLevelBuilderTest, ListViewOutOfOrder) {
+  auto values = ::arrow::ArrayFromJSON(::arrow::int64(), "[1, 2, 3, 4, 5]");
+  auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[3, 0, 5, 1]");
+  auto sizes = ::arrow::ArrayFromJSON(::arrow::int32(), "[2, 1, 0, 2]");
+  ASSERT_OK_AND_ASSIGN(
+      auto array,
+      ::arrow::ListViewArray::FromArrays(
+          ::arrow::list_view(field("Entries", ::arrow::int64(), /*nullable=*/false)),
+          *offsets, *sizes, *values, default_memory_pool()));
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/false, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/{1, 1, 1, 0, 1, 1},
+                     /*rep_levels=*/{0, 1, 0, 0, 0, 1});
+  ASSERT_THAT(result.post_list_elements, SizeIs(2));
+  EXPECT_THAT(result.post_list_elements[0].start, Eq(3));
+  EXPECT_THAT(result.post_list_elements[0].end, Eq(5));
+  EXPECT_THAT(result.post_list_elements[1].start, Eq(0));
+  EXPECT_THAT(result.post_list_elements[1].end, Eq(3));
 }
 
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyEntries) {

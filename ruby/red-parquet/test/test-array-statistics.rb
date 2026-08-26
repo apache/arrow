@@ -27,6 +27,16 @@ class TestArrayStatistics < Test::Unit::TestCase
     @statistics = loaded_table[:int64].data.chunks[0].statistics
   end
 
+  def test_null_count
+    assert do
+      @statistics.has_null_count?
+    end
+    assert do
+      @statistics.null_count_exact?
+    end
+    assert_equal(1, @statistics.null_count)
+  end
+
   def test_distinct_count
     assert do
       not @statistics.has_distinct_count?
