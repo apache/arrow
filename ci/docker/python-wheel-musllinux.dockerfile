@@ -34,6 +34,7 @@ RUN apk add --no-cache \
     flex \
     git \
     ninja \
+    sccache \
     unzip \
     wget \
     zip

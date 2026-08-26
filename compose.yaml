@@ -507,6 +507,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
+      # Do not inherit sccache since network is switched off in this build
       <<: [*common, *ccache, *cpp]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_OFFLINE: ON
@@ -668,7 +669,7 @@ services:
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
-      <<: [*common, *ccache, *cpp]
+      <<: [*common, *ccache, *sccache, *cpp]
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       # Avoid creating huge static libraries
@@ -805,7 +806,7 @@ services:
         - ${REPO}:${ARCH_SHORT}-cpp-jni-${VCPKG}
       secrets: *vcpkg-build-secrets
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}cpp-jni-ccache:/ccache:delegated
@@ -833,7 +834,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       BUILD_DOCS_C_GLIB: "ON"
     volumes: *debian-volumes
     command: &c-glib-command >
@@ -862,7 +863,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -893,7 +894,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       BUILD_DOCS_C_GLIB: "ON"
     volumes: *debian-volumes
     command: &ruby-command >
@@ -925,7 +926,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *ubuntu-volumes
     command: *ruby-command
 
@@ -1067,7 +1068,7 @@ services:
         base: ${REPO}:${ARCH_SHORT}-debian-${DEBIAN}-cpp
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *debian-volumes
     command: *python-command
 
@@ -1090,7 +1091,7 @@ services:
         base: ${REPO}:${ARCH_SHORT}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *ubuntu-volumes
     command: *python-command
 
@@ -1113,7 +1114,7 @@ services:
         base: ${REPO}:${ARCH_SHORT}-fedora-${FEDORA}-cpp
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *fedora-volumes
     command: *python-command
 
@@ -1157,7 +1158,7 @@ services:
         base: ${REPO}:${ARCH_SHORT}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       # Bundled build of OpenTelemetry needs a git client
       ARROW_WITH_OPENTELEMETRY: "OFF"
       PYARROW_VERSION: ${PYARROW_VERSION:-}
@@ -1189,7 +1190,7 @@ services:
         - ${REPO}:${ARCH_SHORT}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
       secrets: *vcpkg-build-secrets
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
@@ -1214,7 +1215,7 @@ services:
         - ${REPO}:${ARCH_SHORT}-python-${PYTHON}-wheel-musllinux-1-2-vcpkg-${VCPKG}
       secrets: *vcpkg-build-secrets
     environment:
-      <<: [ *common, *ccache ]
+      <<: [*common, *ccache, *sccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-musllinux-1-2-ccache:/ccache:delegated
@@ -1541,7 +1542,7 @@ services:
     cap_add:
       - SYS_ADMIN
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       ARROW_SUBSTRAIT: "ON"
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
@@ -1583,7 +1584,7 @@ services:
         dask: ${DASK}
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1610,7 +1611,7 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       PYTEST_ARGS:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
@@ -1865,7 +1866,7 @@ services:
         node: ${NODE}
     volumes: *conda-volumes
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       ARCHERY_INTEGRATION_WITH_GO: 0
       ARCHERY_INTEGRATION_WITH_NANOARROW: 0
       ARCHERY_INTEGRATION_WITH_RUST: 0
@@ -1901,7 +1902,7 @@ services:
     cap_add:
       - SYS_ADMIN
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       ARROW_AZURE: "ON"
       ARROW_CUDA: "ON"
       ARROW_CXX_FLAGS_DEBUG: "-g1"
@@ -1979,7 +1980,7 @@ services:
     links:
       - impala:impala
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       ARROW_ENGINE: "OFF"
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
@@ -2021,7 +2022,7 @@ services:
         numpy: ${NUMPY}
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
     volumes: *conda-maven-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -2037,7 +2038,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       CMAKE_GENERATOR: Ninja
       DEBIAN_FRONTEND: "noninteractive"
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
@@ -2070,7 +2071,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}almalinux-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       CMAKE_GENERATOR: Ninja
       SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt  # required due to issue in RHEL-8 based images. See GH-49757
       TEST_APT: 0  # would require docker-in-docker
@@ -2100,7 +2101,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
-      <<: [*common, *ccache]
+      <<: [*common, *ccache, *sccache]
       CMAKE_GENERATOR: Ninja
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
