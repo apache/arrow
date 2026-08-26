@@ -1155,6 +1155,9 @@ function(build_boost)
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(boost)
+  get_directory_property(Boost_VERSION
+                         DIRECTORY "${boost_SOURCE_DIR}"
+                         DEFINITION Boost_VERSION)
 
   set(boost_include_dirs)
   foreach(library ${BOOST_INCLUDE_LIBRARIES})
@@ -1175,22 +1178,27 @@ function(build_boost)
   target_compile_definitions(boost_mpl INTERFACE "BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS")
 
   if(ARROW_BOOST_NEED_MULTIPRECISION)
-    if(ARROW_ENABLE_THREADING)
-      target_link_libraries(boost_headers INTERFACE Boost::multiprecision)
-    else()
+    set(ARROW_BOOST_MULTIPRECISION_TARGET boost_multiprecision)
+    if(NOT ARROW_ENABLE_THREADING)
       # We want to use Boost.multiprecision as standalone mode
       # without threading because non-standalone mode requires
       # threading. We can't use BOOST_MP_STANDALONE CMake variable for
       # this with Boost CMake build. So we create our CMake target for
       # it.
       add_library(arrow::Boost::multiprecision INTERFACE IMPORTED)
+      set(ARROW_BOOST_MULTIPRECISION_TARGET arrow::Boost::multiprecision)
       target_include_directories(arrow::Boost::multiprecision
                                  INTERFACE "${boost_SOURCE_DIR}/libs/multiprecision/include"
       )
       target_compile_definitions(arrow::Boost::multiprecision
                                  INTERFACE BOOST_MP_STANDALONE=1)
-      target_link_libraries(boost_headers INTERFACE arrow::Boost::multiprecision)
     endif()
+    if(MSVC AND Boost_VERSION VERSION_LESS 1.89)
+      # TODO: Remove this workaround after upgrading to Boost 1.89.
+      target_compile_options(${ARROW_BOOST_MULTIPRECISION_TARGET}
+                             INTERFACE /Zc:preprocessor-)
+    endif()
+    target_link_libraries(boost_headers INTERFACE ${ARROW_BOOST_MULTIPRECISION_TARGET})
   endif()
   if(ARROW_WITH_THRIFT)
     if(ARROW_ENABLE_THREADING)
