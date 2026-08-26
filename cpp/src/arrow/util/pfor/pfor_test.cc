@@ -594,4 +594,51 @@ TEST(PforCorruptPageTest, VectorOffsetPastEndOfBuffer) {
                              compressed.data(), compressed.size(), 2048, decoded.data()));
 }
 
+TEST(PforCorruptPageTest, ExceptionPositionPastEndOfVector) {
+  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
+  auto compressed = EncodeInt32(values);
+
+  // Locate the stored exception position: page header, 4-byte offset array,
+  // then the vector info and the packed deltas.
+  const int64_t vector_start = PforConstants::kHeaderSize + 4;
+  const uint8_t bit_width = compressed[vector_start + 4];
+  const int64_t packed_bytes = (5 * bit_width + 7) / 8;
+  const int64_t position_offset =
+      vector_start + PforVectorInfo<int32_t>::kStoredSize + packed_bytes;
+
+  // Point the exception at index 100 of a five-element vector.
+  compressed[position_offset] = 100;
+  compressed[position_offset + 1] = 0;
+
+  std::vector<int32_t> decoded(5);
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
+                             compressed.data(), compressed.size(), 5, decoded.data()));
+}
+
+TEST(PforCorruptPageTest, ExceptionCountExceedsVectorLength) {
+  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
+  auto compressed = EncodeInt32(values);
+
+  // num_exceptions sits at vector info offset 5 for INT32.
+  const int64_t vector_start = PforConstants::kHeaderSize + 4;
+  compressed[vector_start + 5] = 6;
+  compressed[vector_start + 6] = 0;
+
+  std::vector<int32_t> decoded(5);
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
+                             compressed.data(), compressed.size(), 5, decoded.data()));
+}
+
+TEST(PforCorruptPageTest, ExceptionDataTruncated) {
+  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
+  auto compressed = EncodeInt32(values);
+
+  // Drop the trailing exception value, leaving its position behind.
+  std::vector<int32_t> decoded(5);
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Decode(
+                             compressed.data(),
+                             static_cast<int64_t>(compressed.size()) - sizeof(int32_t), 5,
+                             decoded.data()));
+}
+
 }  // namespace arrow::util::pfor

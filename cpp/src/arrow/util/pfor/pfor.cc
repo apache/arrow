@@ -180,6 +180,25 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
   const uint8_t* read_ptr = data.data() + PforVectorInfo<T>::kStoredSize;
 
+  // `values` holds num_elements slots, and everything below is sized by fields
+  // that came off the wire, so check them against it before reading or writing.
+  if (info.num_exceptions() > num_elements) {
+    return Status::Invalid("PFOR vector has ", info.num_exceptions(),
+                           " exceptions but only ", num_elements, " elements");
+  }
+  const int64_t packed_bytes =
+      bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
+  const int64_t exception_bytes =
+      info.num_exceptions() *
+      (static_cast<int64_t>(sizeof(PforConstants::PositionType)) + sizeof(T));
+  if (PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes >
+      static_cast<int64_t>(data.size())) {
+    return Status::Invalid(
+        "PFOR vector needs ",
+        PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes,
+        " bytes but only ", data.size(), " remain");
+  }
+
   // Step 2: Handle constant data (bit_width == 0, no exceptions)
   if (info.bit_width() == 0 && info.num_exceptions() == 0) {
     std::fill(values, values + num_elements, info.frame_of_reference());
@@ -219,9 +238,7 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
                                    unsigned_for);
     }
 
-    int64_t packed_size =
-        bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
-    read_ptr += packed_size;
+    read_ptr += packed_bytes;
   } else {
     // bit_width == 0 but has exceptions - fill with FOR
     std::fill(values, values + num_elements, info.frame_of_reference());
@@ -235,6 +252,20 @@ Result<int64_t> PforCompression<T>::DecodeVector(T* values, std::span<const uint
 
     const uint8_t* values_ptr = read_ptr;
     read_ptr += num_exceptions * sizeof(T);
+
+    // Every position indexes `values`, so one past the end is an out-of-bounds
+    // write. Take the maximum first: a reduction still vectorizes, where a
+    // bounds check with an early return inside the patch loop would not.
+    PforConstants::PositionType max_position = 0;
+    for (uint16_t i = 0; i < num_exceptions; ++i) {
+      max_position = std::max(
+          max_position, util::SafeLoadAs<PforConstants::PositionType>(
+                            positions_ptr + i * sizeof(PforConstants::PositionType)));
+    }
+    if (max_position >= num_elements) {
+      return Status::Invalid("PFOR exception position ", max_position,
+                             " is outside a vector of ", num_elements, " elements");
+    }
 
 #pragma GCC unroll PforConstants::kLoopUnrolls
 #pragma GCC ivdep
