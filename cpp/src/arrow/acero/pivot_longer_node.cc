@@ -107,6 +107,11 @@ class PivotLongerNode : public ExecNode, public TracedNode {
       }
 
       for (std::size_t i = 0; i < row_template.feature_values.size(); i++) {
+        if (!row_template.feature_values[i]) {
+          return Status::Invalid("Feature value at column ",
+                                 options.feature_field_names[i],
+                                 " must not be null");
+        }
         if (feature_types[i]) {
           if (!feature_types[i]->Equals(row_template.feature_values[i]->type)) {
             return Status::TypeError(
