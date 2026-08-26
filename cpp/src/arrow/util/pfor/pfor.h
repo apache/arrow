@@ -266,10 +266,10 @@ class PforCompression {
   ///
   /// \param[in] vec the encoded vector
   /// \param[in] num_elements number of elements
-  /// \param[out] dest output buffer (must be large enough)
-  /// \return number of bytes written
-  static int64_t SerializeVector(const PforEncodedVector<T>& vec, int32_t num_elements,
-                                 std::span<uint8_t> dest);
+  /// \param[out] dest output buffer, at least SerializedVectorSize() bytes
+  /// \return number of bytes written, or an error if `dest` is too small
+  static Result<int64_t> SerializeVector(const PforEncodedVector<T>& vec,
+                                         int32_t num_elements, std::span<uint8_t> dest);
 };
 
 }  // namespace pfor

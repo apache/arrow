@@ -39,6 +39,25 @@ namespace arrow {
 namespace util {
 namespace pfor {
 
+namespace {
+
+/// \brief Accept only the vector sizes the page header can describe
+///
+/// A size outside this range would encode a page that Decode then rejects, so
+/// refuse it up front.
+Status ValidateVectorSize(int32_t vector_size) {
+  if (!std::has_single_bit(static_cast<uint32_t>(vector_size)) ||
+      vector_size < (1 << PforConstants::kMinLogVectorSize) ||
+      vector_size > PforConstants::kMaxVectorSize) {
+    return Status::Invalid("PFOR vector_size must be a power of two in [",
+                           1 << PforConstants::kMinLogVectorSize, ", ",
+                           PforConstants::kMaxVectorSize, "]: ", vector_size);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Header serialization
 
@@ -103,14 +122,17 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
   if (comp_size == nullptr) {
     return Status::Invalid("PFOR output size pointer is null");
   }
-  // A vector size the header cannot describe would encode a page that Decode
-  // then rejects, so refuse it here instead.
-  if (!std::has_single_bit(static_cast<uint32_t>(vector_size)) ||
-      vector_size < (1 << PforConstants::kMinLogVectorSize) ||
-      vector_size > PforConstants::kMaxVectorSize) {
-    return Status::Invalid("PFOR vector_size must be a power of two in [",
-                           1 << PforConstants::kMinLogVectorSize, ", ",
-                           PforConstants::kMaxVectorSize, "]: ", vector_size);
+  RETURN_NOT_OK(ValidateVectorSize(vector_size));
+
+  // Everything below writes into `comp` without re-checking, including the
+  // header and the offset array, so confirm once that the caller gave us the
+  // buffer the API asks for.
+  ARROW_ASSIGN_OR_RAISE(const int64_t max_size,
+                        GetMaxCompressedSize(num_values, vector_size));
+  if (*comp_size < max_size) {
+    return Status::Invalid("PFOR output buffer of ", *comp_size,
+                           " bytes is smaller than the ", max_size, " bytes ", num_values,
+                           " values may need");
   }
 
   const int32_t num_vectors =
@@ -153,9 +175,11 @@ Status PforWrapper<T>::Encode(const T* values, int32_t num_values, int32_t vecto
         PforCompression<T>::EncodeVector(values + start_idx, elements_in_vector);
 
     // Serialize to output
-    int64_t bytes_written = PforCompression<T>::SerializeVector(
-        encoded, elements_in_vector,
-        std::span<uint8_t>(write_ptr, dest + *comp_size - write_ptr));
+    ARROW_ASSIGN_OR_RAISE(
+        const int64_t bytes_written,
+        PforCompression<T>::SerializeVector(
+            encoded, elements_in_vector,
+            std::span<uint8_t>(write_ptr, dest + *comp_size - write_ptr)));
     write_ptr += bytes_written;
   }
 
@@ -234,24 +258,26 @@ Status PforWrapper<T>::Decode(const uint8_t* comp, int64_t comp_size, int32_t nu
 // GetMaxCompressedSize
 
 template <typename T>
-int64_t PforWrapper<T>::GetMaxCompressedSize(int32_t num_values, int32_t vector_size) {
-  const int32_t num_vectors =
-      static_cast<int32_t>(bit_util::CeilDiv(num_values, vector_size));
+Result<int64_t> PforWrapper<T>::GetMaxCompressedSize(int32_t num_values,
+                                                     int32_t vector_size) {
+  if (num_values < 0) {
+    return Status::Invalid("PFOR num_values must be non-negative: ", num_values);
+  }
+  RETURN_NOT_OK(ValidateVectorSize(vector_size));
 
-  // Header + offset array
-  int64_t size =
-      PforConstants::kHeaderSize + num_vectors * static_cast<int64_t>(sizeof(uint32_t));
+  const int64_t num_vectors = bit_util::CeilDiv(num_values, vector_size);
 
-  // Worst case per vector: full bit width + all exceptions
-  int64_t max_vector_size =
-      PforVectorInfo<T>::kStoredSize +
-      vector_size * static_cast<int64_t>(sizeof(T))  // packed at full width
-      + vector_size *
-            static_cast<int64_t>(sizeof(PforConstants::PositionType))  // positions
-      + vector_size * static_cast<int64_t>(sizeof(T));                 // exception values
+  // A vector never serializes to more than its values occupy unpacked.
+  // FindOptimalBitWidth minimises `num_elements * bit_width + num_exceptions *
+  // (16 + 8 * sizeof(T))` bits, and the full-width candidate scores
+  // `num_elements * 8 * sizeof(T)` bits with no exceptions at all, so whatever
+  // width it does pick costs no more than that. Bit packing rounds the packed
+  // section up to a whole byte, hence the trailing byte.
+  const int64_t max_vector_size =
+      PforVectorInfo<T>::kStoredSize + vector_size * static_cast<int64_t>(sizeof(T)) + 1;
 
-  size += num_vectors * max_vector_size;
-  return size;
+  return PforConstants::kHeaderSize +
+         num_vectors * (static_cast<int64_t>(sizeof(uint32_t)) + max_vector_size);
 }
 
 // Explicit template instantiations

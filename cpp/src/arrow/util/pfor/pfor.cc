@@ -81,7 +81,11 @@ BitWidthResult PforCompression<T>::FindOptimalBitWidth(const UnsignedT* deltas,
   for (uint8_t b = 0; b <= max_bits; ++b) {
     exceptions_above -= histogram[b];
 
-    if (exceptions_above > std::numeric_limits<uint16_t>::max()) {
+    // A vector holds at most kMaxVectorSize elements, so that is also the most
+    // exceptions one can name. Skipping the wider counts keeps the cast below
+    // exact; the full-width candidate has none at all, so a best is always
+    // found.
+    if (exceptions_above > PforConstants::kMaxVectorSize) {
       continue;
     }
 
@@ -291,6 +295,26 @@ Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
     std::span<const uint8_t> data, int32_t num_elements) {
   ARROW_ASSIGN_OR_RAISE(auto info, PforVectorInfo<T>::Load(data));
 
+  // The sections below are sized by fields that came off the wire, and both the
+  // view's spans and the patch step that later consumes them are bounded by
+  // num_elements, so check the counts against it first.
+  if (info.num_exceptions() > num_elements) {
+    return Status::Invalid("PFOR vector has ", info.num_exceptions(),
+                           " exceptions but only ", num_elements, " elements");
+  }
+  const int64_t packed_bytes =
+      bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
+  const int64_t exception_bytes =
+      info.num_exceptions() *
+      (static_cast<int64_t>(sizeof(PforConstants::PositionType)) + sizeof(T));
+  if (PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes >
+      static_cast<int64_t>(data.size())) {
+    return Status::Invalid(
+        "PFOR vector needs ",
+        PforVectorInfo<T>::kStoredSize + packed_bytes + exception_bytes,
+        " bytes but only ", data.size(), " remain");
+  }
+
   PforEncodedVectorView<T> view;
   view.set_info(info);
   view.set_num_elements(num_elements);
@@ -298,12 +322,9 @@ Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
   const uint8_t* ptr = data.data() + PforVectorInfo<T>::kStoredSize;
 
   // packed_values: zero-copy span into the buffer
-  int64_t packed_size = 0;
   if (info.bit_width() > 0) {
-    packed_size =
-        bit_util::BytesForBits(static_cast<int64_t>(num_elements) * info.bit_width());
-    view.set_packed_values(std::span<const uint8_t>(ptr, packed_size));
-    ptr += packed_size;
+    view.set_packed_values(std::span<const uint8_t>(ptr, packed_bytes));
+    ptr += packed_bytes;
   }
 
   // Exception positions and values: copy into aligned storage
@@ -316,6 +337,16 @@ Result<PforEncodedVectorView<T>> PforEncodedVectorView<T>::LoadView(
     view.mutable_exception_values().resize(info.num_exceptions());
     std::memcpy(view.mutable_exception_values().data(), ptr,
                 info.num_exceptions() * sizeof(T));
+
+    // Whoever patches with this view writes values[position], so reject a
+    // position outside the vector here rather than leaving it to the caller.
+    const auto& positions = view.exception_positions();
+    const PforConstants::PositionType max_position =
+        *std::max_element(positions.begin(), positions.end());
+    if (max_position >= num_elements) {
+      return Status::Invalid("PFOR exception position ", max_position,
+                             " is outside a vector of ", num_elements, " elements");
+    }
   }
 
   return view;
@@ -342,9 +373,15 @@ int64_t PforCompression<T>::SerializedVectorSize(const PforEncodedVector<T>& vec
 }
 
 template <typename T>
-int64_t PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
-                                            int32_t num_elements,
-                                            std::span<uint8_t> dest) {
+Result<int64_t> PforCompression<T>::SerializeVector(const PforEncodedVector<T>& vec,
+                                                    int32_t num_elements,
+                                                    std::span<uint8_t> dest) {
+  const int64_t needed = SerializedVectorSize(vec, num_elements);
+  if (static_cast<int64_t>(dest.size()) < needed) {
+    return Status::Invalid("PFOR vector needs ", needed, " bytes to serialize but only ",
+                           dest.size(), " remain");
+  }
+
   uint8_t* write_ptr = dest.data();
 
   // Write vector info

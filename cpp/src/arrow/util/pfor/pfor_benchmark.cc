@@ -159,7 +159,8 @@ void BM_PforEncodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
   const int64_t num_values = state.range(0);
   auto values = generator(num_values);
 
-  int64_t max_size = PforWrapper<T>::GetMaxCompressedSize(num_values);
+  int64_t max_size =
+      PforWrapper<T>::GetMaxCompressedSize(static_cast<int32_t>(num_values)).ValueOrDie();
   std::vector<uint8_t> compressed(max_size);
 
   for (auto _ : state) {
@@ -188,7 +189,8 @@ void BM_PforDecodeImpl(benchmark::State& state, std::vector<T> (*generator)(int6
   const int64_t num_values = state.range(0);
   auto values = generator(num_values);
 
-  int64_t max_size = PforWrapper<T>::GetMaxCompressedSize(num_values);
+  int64_t max_size =
+      PforWrapper<T>::GetMaxCompressedSize(static_cast<int32_t>(num_values)).ValueOrDie();
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
   ARROW_CHECK_OK(

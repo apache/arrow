@@ -23,6 +23,7 @@
 #include <numeric>
 #include <random>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
@@ -167,7 +168,7 @@ TEST(PforVectorTest, Int32SimpleSequence) {
   // Serialize then decode
   size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 64);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int32_t>::SerializeVector(encoded, 64, buffer);
+  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 64, buffer));
 
   std::vector<int32_t> decoded(64);
   ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 64));
@@ -184,7 +185,7 @@ TEST(PforVectorTest, Int32WithOutlier) {
 
   size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 8);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int32_t>::SerializeVector(encoded, 8, buffer);
+  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 8, buffer));
 
   std::vector<int32_t> decoded(8);
   ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 8));
@@ -201,7 +202,7 @@ TEST(PforVectorTest, Int32AllIdentical) {
 
   size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 100);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int32_t>::SerializeVector(encoded, 100, buffer);
+  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 100, buffer));
 
   std::vector<int32_t> decoded(100);
   ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 100));
@@ -217,7 +218,7 @@ TEST(PforVectorTest, Int32NegativeValues) {
 
   size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int32_t>::SerializeVector(encoded, 5, buffer);
+  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 5, buffer));
 
   std::vector<int32_t> decoded(5);
   ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 5));
@@ -233,7 +234,7 @@ TEST(PforVectorTest, Int32MinMaxEdge) {
 
   size_t serialized_size = PforCompression<int32_t>::SerializedVectorSize(encoded, 5);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int32_t>::SerializeVector(encoded, 5, buffer);
+  ASSERT_OK(PforCompression<int32_t>::SerializeVector(encoded, 5, buffer));
 
   std::vector<int32_t> decoded(5);
   ASSERT_OK(PforCompression<int32_t>::DecodeVector(decoded.data(), buffer, 5));
@@ -249,7 +250,7 @@ TEST(PforVectorTest, Int64SimpleSequence) {
 
   size_t serialized_size = PforCompression<int64_t>::SerializedVectorSize(encoded, 64);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int64_t>::SerializeVector(encoded, 64, buffer);
+  ASSERT_OK(PforCompression<int64_t>::SerializeVector(encoded, 64, buffer));
 
   std::vector<int64_t> decoded(64);
   ASSERT_OK(PforCompression<int64_t>::DecodeVector(decoded.data(), buffer, 64));
@@ -266,7 +267,7 @@ TEST(PforVectorTest, Int64WithOutlier) {
 
   size_t serialized_size = PforCompression<int64_t>::SerializedVectorSize(encoded, 100);
   std::vector<uint8_t> buffer(serialized_size);
-  PforCompression<int64_t>::SerializeVector(encoded, 100, buffer);
+  ASSERT_OK(PforCompression<int64_t>::SerializeVector(encoded, 100, buffer));
 
   std::vector<int64_t> decoded(100);
   ASSERT_OK(PforCompression<int64_t>::DecodeVector(decoded.data(), buffer, 100));
@@ -280,7 +281,7 @@ TEST(PforVectorTest, Int64WithOutlier) {
 TEST(PforWrapperTest, Int32SmallPage) {
   std::vector<int32_t> values = {10, 20, 30, 40, 50};
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(5);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(5));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -299,7 +300,8 @@ TEST(PforWrapperTest, Int32ExactOneVector) {
   std::vector<int32_t> values(1024);
   std::iota(values.begin(), values.end(), 0);
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(1024);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size,
+                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -321,7 +323,7 @@ TEST(PforWrapperTest, Int32MultipleVectors) {
   std::uniform_int_distribution<int32_t> dist(0, 1000);
   for (auto& v : values) v = dist(rng);
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(n);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(n));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -343,7 +345,8 @@ TEST(PforWrapperTest, Int32WithOutliers) {
   values[500] = 777777;
   values[1023] = -123456;
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(1024);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size,
+                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -367,7 +370,7 @@ TEST(PforWrapperTest, Int64MultipleVectors) {
   values[0] = 9999999999999LL;
   values[1500] = -9999999999999LL;
 
-  int64_t max_size = PforWrapper<int64_t>::GetMaxCompressedSize(n);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int64_t>::GetMaxCompressedSize(n));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -384,7 +387,7 @@ TEST(PforWrapperTest, Int64MultipleVectors) {
 TEST(PforWrapperTest, Int32SingleElement) {
   std::vector<int32_t> values = {42};
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(1);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(1));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -401,7 +404,8 @@ TEST(PforWrapperTest, Int32SingleElement) {
 TEST(PforWrapperTest, Int32AllZeros) {
   std::vector<int32_t> values(1024, 0);
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(1024);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size,
+                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -426,7 +430,7 @@ TEST(PforWrapperTest, Int32LargeRandom) {
                                               std::numeric_limits<int32_t>::max());
   for (auto& v : values) v = dist(rng);
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(n);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(n));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -455,7 +459,7 @@ TEST(PforWrapperTest, Int32ZeroMinWithExceptions) {
   values[1500] = 999'999;
   values[2999] = 500'000;
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(n);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size, PforWrapper<int32_t>::GetMaxCompressedSize(n));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
   ASSERT_OK(
@@ -505,7 +509,8 @@ TEST(PforCompressionRatioTest, ClusteredDataCompresses) {
   for (auto& v : values) v = dist(rng);
   values[500] = 999999;  // One outlier
 
-  int64_t max_size = PforWrapper<int32_t>::GetMaxCompressedSize(1024);
+  ASSERT_OK_AND_ASSIGN(int64_t max_size,
+                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
 
@@ -529,7 +534,8 @@ namespace {
 // Encode `values` and return the compressed bytes, sized exactly.
 std::vector<uint8_t> EncodeInt32(const std::vector<int32_t>& values) {
   int64_t comp_size =
-      PforWrapper<int32_t>::GetMaxCompressedSize(static_cast<int32_t>(values.size()));
+      PforWrapper<int32_t>::GetMaxCompressedSize(static_cast<int32_t>(values.size()))
+          .ValueOrDie();
   std::vector<uint8_t> compressed(comp_size);
   ARROW_CHECK_OK(PforWrapper<int32_t>::Encode(
       values.data(), static_cast<int32_t>(values.size()), compressed.data(), &comp_size));
@@ -639,6 +645,127 @@ TEST(PforCorruptPageTest, ExceptionDataTruncated) {
                              compressed.data(),
                              static_cast<int64_t>(compressed.size()) - sizeof(int32_t), 5,
                              decoded.data()));
+}
+
+// A view hands its spans to whoever patches with it, so it has to reject the
+// same malformed vectors DecodeVector does rather than pointing past the buffer.
+TEST(PforCorruptPageTest, LoadViewRejectsMalformedVector) {
+  std::vector<int32_t> values = {10, 20, 30, 40, 50000};
+  const auto compressed = EncodeInt32(values);
+  const int64_t vector_start = PforConstants::kHeaderSize + 4;
+  const std::span<const uint8_t> vector_data(compressed.data() + vector_start,
+                                             compressed.size() - vector_start);
+  ASSERT_OK(PforEncodedVectorView<int32_t>::LoadView(vector_data, 5));
+
+  {
+    // num_exceptions above the element count.
+    std::vector<uint8_t> corrupted(vector_data.begin(), vector_data.end());
+    corrupted[5] = 6;
+    corrupted[6] = 0;
+    ASSERT_RAISES(Invalid, PforEncodedVectorView<int32_t>::LoadView(corrupted, 5));
+  }
+  {
+    // An exception position outside the vector.
+    std::vector<uint8_t> corrupted(vector_data.begin(), vector_data.end());
+    const int64_t packed_bytes = (5 * corrupted[4] + 7) / 8;
+    const int64_t position_offset = PforVectorInfo<int32_t>::kStoredSize + packed_bytes;
+    corrupted[position_offset] = 100;
+    corrupted[position_offset + 1] = 0;
+    ASSERT_RAISES(Invalid, PforEncodedVectorView<int32_t>::LoadView(corrupted, 5));
+  }
+  {
+    // A buffer that stops before the sections the metadata describes.
+    ASSERT_RAISES(Invalid, PforEncodedVectorView<int32_t>::LoadView(
+                               vector_data.subspan(0, vector_data.size() - 1), 5));
+  }
+}
+
+// ======================================================================
+// Output sizing
+
+TEST(PforMaxCompressedSizeTest, RejectsInvalidArguments) {
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::GetMaxCompressedSize(-1));
+  // A zero vector_size would divide by zero on the way to the answer.
+  for (const int32_t vector_size : {0, 3, 1000, PforConstants::kMaxVectorSize * 2}) {
+    SCOPED_TRACE("vector_size=" + std::to_string(vector_size));
+    ASSERT_RAISES(Invalid, PforWrapper<int32_t>::GetMaxCompressedSize(1024, vector_size));
+    std::vector<int32_t> values(16, 0);
+    int64_t comp_size = 1 << 20;
+    std::vector<uint8_t> compressed(comp_size);
+    ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 16, vector_size,
+                                                        compressed.data(), &comp_size));
+  }
+}
+
+TEST(PforMaxCompressedSizeTest, EncodeRejectsUndersizedOutputBuffer) {
+  std::vector<int32_t> values(1024);
+  std::iota(values.begin(), values.end(), 0);
+  ASSERT_OK_AND_ASSIGN(const int64_t max_size,
+                       PforWrapper<int32_t>::GetMaxCompressedSize(1024));
+
+  std::vector<uint8_t> compressed(max_size);
+  int64_t comp_size = max_size - 1;
+  ASSERT_RAISES(Invalid, PforWrapper<int32_t>::Encode(values.data(), 1024,
+                                                      compressed.data(), &comp_size));
+}
+
+TEST(PforSerializeVectorTest, RejectsUndersizedDestination) {
+  std::vector<int32_t> values(64);
+  std::iota(values.begin(), values.end(), 0);
+  const auto encoded = PforCompression<int32_t>::EncodeVector(values.data(), 64);
+  const int64_t needed = PforCompression<int32_t>::SerializedVectorSize(encoded, 64);
+
+  std::vector<uint8_t> buffer(needed);
+  ASSERT_OK_AND_ASSIGN(const int64_t written,
+                       PforCompression<int32_t>::SerializeVector(encoded, 64, buffer));
+  ASSERT_EQ(needed, written);
+  ASSERT_RAISES(Invalid, PforCompression<int32_t>::SerializeVector(
+                             encoded, 64, std::span<uint8_t>(buffer).subspan(1)));
+}
+
+// GetMaxCompressedSize is what the encoder allocates, and it is derived from the
+// cost model rather than from a worst case that assumes every value is an
+// exception, so inputs that push the model in different directions all have to
+// land inside it.
+TEST(PforMaxCompressedSizeTest, BoundHoldsForAdversarialInputs) {
+  constexpr int32_t kNumValues = 3000;
+  std::mt19937 rng(7);
+  std::uniform_int_distribution<int32_t> full_range(std::numeric_limits<int32_t>::min(),
+                                                    std::numeric_limits<int32_t>::max());
+
+  std::vector<std::vector<int32_t>> inputs;
+  // Incompressible: every delta needs the full width, so the model picks it.
+  inputs.emplace_back(kNumValues);
+  for (auto& v : inputs.back()) v = full_range(rng);
+  // A narrow cluster with a scatter of far-away values, which is the case that
+  // trades bit width against exception count.
+  inputs.emplace_back(kNumValues, 1000);
+  for (int32_t i = 0; i < kNumValues; i += 3) {
+    inputs.back()[i] = full_range(rng);
+  }
+  // Alternating extremes, so the frame of reference cannot help.
+  inputs.emplace_back(kNumValues);
+  for (int32_t i = 0; i < kNumValues; ++i) {
+    inputs.back()[i] = (i % 2 == 0) ? std::numeric_limits<int32_t>::min()
+                                    : std::numeric_limits<int32_t>::max();
+  }
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    SCOPED_TRACE("input " + std::to_string(i));
+    const auto& values = inputs[i];
+    ASSERT_OK_AND_ASSIGN(const int64_t max_size,
+                         PforWrapper<int32_t>::GetMaxCompressedSize(kNumValues));
+    std::vector<uint8_t> compressed(max_size);
+    int64_t comp_size = max_size;
+    ASSERT_OK(PforWrapper<int32_t>::Encode(values.data(), kNumValues, compressed.data(),
+                                           &comp_size));
+    EXPECT_LE(comp_size, max_size);
+
+    std::vector<int32_t> decoded(kNumValues);
+    ASSERT_OK(PforWrapper<int32_t>::Decode(compressed.data(), comp_size, kNumValues,
+                                           decoded.data()));
+    EXPECT_EQ(values, decoded);
+  }
 }
 
 }  // namespace arrow::util::pfor

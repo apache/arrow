@@ -1789,9 +1789,10 @@ class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
       return empty_buf;
     }
 
-    const uint32_t num_values = static_cast<uint32_t>(values_.size());
-    int64_t max_size =
-        ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values);
+    const int32_t num_values = static_cast<int32_t>(values_.size());
+    PARQUET_ASSIGN_OR_THROW(
+        int64_t max_size,
+        ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values));
     PARQUET_ASSIGN_OR_THROW(auto buffer,
                             ::arrow::AllocateResizableBuffer(max_size, pool_));
 

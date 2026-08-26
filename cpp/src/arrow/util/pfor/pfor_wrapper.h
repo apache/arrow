@@ -48,8 +48,11 @@ class PforWrapper {
   /// \param[in] num_values total number of values
   /// \param[in] vector_size number of elements per vector (must be a power of 2,
   ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
-  /// \param[out] comp pointer to output buffer (caller must ensure sufficient size)
-  /// \param[in,out] comp_size input: available buffer size; output: bytes written
+  /// \param[out] comp pointer to output buffer, at least
+  ///             GetMaxCompressedSize(num_values, vector_size) bytes
+  /// \param[in,out] comp_size input: available buffer size, which must be at
+  ///                least GetMaxCompressedSize(num_values, vector_size);
+  ///                output: bytes written
   /// \return Status::OK on success, or an error if the arguments are invalid
   static Status Encode(const T* values, int32_t num_values, int32_t vector_size,
                        uint8_t* comp, int64_t* comp_size);
@@ -71,9 +74,11 @@ class PforWrapper {
   /// \brief Get the maximum compressed size for a given number of values
   ///
   /// \param[in] num_values number of integer values
-  /// \param[in] vector_size number of elements per vector
-  /// \return maximum possible compressed page size in bytes
-  static int64_t GetMaxCompressedSize(
+  /// \param[in] vector_size number of elements per vector (must be a power of 2,
+  ///            in [2^kMinLogVectorSize, 2^kMaxLogVectorSize])
+  /// \return maximum possible compressed page size in bytes, or an error if the
+  ///         arguments are invalid
+  static Result<int64_t> GetMaxCompressedSize(
       int32_t num_values,
       int32_t vector_size = static_cast<int32_t>(PforConstants::kPforVectorSize));
 

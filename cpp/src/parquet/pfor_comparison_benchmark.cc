@@ -478,7 +478,8 @@ static void PforEncodeImpl(benchmark::State& state, GenT<T> gen) {
   const int64_t uncompressed_size = num_values * sizeof(T);
 
   int64_t max_size = ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(
-      static_cast<int32_t>(num_values));
+                         static_cast<int32_t>(num_values))
+                         .ValueOrDie();
   std::vector<uint8_t> compressed(max_size);
 
   // Compute comp_size once for the counter
@@ -513,7 +514,8 @@ static void PforDecodeImpl(benchmark::State& state, GenT<T> gen) {
   const int64_t uncompressed_size = num_values * sizeof(T);
 
   int64_t max_size = ::arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(
-      static_cast<int32_t>(num_values));
+                         static_cast<int32_t>(num_values))
+                         .ValueOrDie();
   std::vector<uint8_t> compressed(max_size);
   int64_t comp_size = max_size;
   ARROW_CHECK_OK(::arrow::util::pfor::PforWrapper<T>::Encode(
