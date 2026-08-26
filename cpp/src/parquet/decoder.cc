@@ -2395,6 +2395,10 @@ class PforDecoder : public TypedDecoderImpl<DType> {
     data_ = data;
     data_len_ = len;
     values_decoded_ = 0;
+    // A decoder is cached per encoding and reused across the data pages of a
+    // column chunk, and a non-empty `decoded_values_` is what marks the page as
+    // already decoded, so it has to be dropped along with the page it came from.
+    decoded_values_.clear();
   }
 
   int Decode(T* buffer, int max_values) override {

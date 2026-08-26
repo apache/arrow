@@ -2121,6 +2121,112 @@ TYPED_TEST(TestDeltaBitPackEncoding, ZeroDeltaBitWidth) {
 }
 
 // ----------------------------------------------------------------------
+// PFOR encode/decode tests.
+
+template <typename Type>
+class TestPforEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+
+  void CheckDecoding(int read_batch_size) {
+    auto decoder = MakeTypedDecoder<Type>(Encoding::PFOR, descr_.get());
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+
+    std::vector<c_type> decoded(num_values_);
+    int values_decoded = 0;
+    while (values_decoded < num_values_) {
+      const int decoded_now =
+          decoder->Decode(decoded.data() + values_decoded, read_batch_size);
+      ASSERT_GT(decoded_now, 0);
+      values_decoded += decoded_now;
+    }
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decoded.data(), draws_, num_values_));
+  }
+
+  void CheckRoundtrip() override {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::PFOR,
+                                          /*use_dictionary=*/false, descr_.get());
+    encoder->Put(draws_, num_values_);
+    encode_buffer_ = encoder->FlushValues();
+
+    // A reader asks for whatever its batch size is, so the page has to come out
+    // the same whether it is drained in one call or in many.
+    for (const int read_batch_size : {1, 11, num_values_}) {
+      if (read_batch_size > 0) {
+        ASSERT_NO_FATAL_FAILURE(CheckDecoding(read_batch_size));
+      }
+    }
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+};
+
+using TestPforEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
+TYPED_TEST_SUITE(TestPforEncoding, TestPforEncodingTypes);
+
+TYPED_TEST(TestPforEncoding, BasicRoundTrip) {
+  // The default vector size is 1024, so cover an empty page, a single value, a
+  // partial vector, an exact multiple, and a partial trailing vector.
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(100, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1024, 4));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(1025, 3));
+}
+
+TYPED_TEST(TestPforEncoding, DecoderReusedAcrossPages) {
+  using c_type = typename TypeParam::c_type;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::PFOR,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
+
+  // A column chunk reuses one decoder for all of its data pages, with only
+  // SetData between them. The second page is the longer one, so a decoder that
+  // kept the first page's values would also read past the end of them.
+  const std::vector<std::vector<c_type>> pages = {
+      {10, 11, 12, 13}, {900, 901, 902, 903, 904, 905, 906, 907}};
+
+  for (const auto& page : pages) {
+    const int page_values = static_cast<int>(page.size());
+    encoder->Put(page.data(), page_values);
+    auto buffer = encoder->FlushValues();
+    decoder->SetData(page_values, buffer->data(), static_cast<int>(buffer->size()));
+
+    std::vector<c_type> decoded(page.size());
+    ASSERT_EQ(page_values, decoder->Decode(decoded.data(), page_values));
+    ASSERT_EQ(page, decoded);
+  }
+}
+
+TYPED_TEST(TestPforEncoding, AllNullPage) {
+  constexpr int kNumValues = 40;
+  auto encoder =
+      MakeTypedEncoder<TypeParam>(Encoding::PFOR,
+                                  /*use_dictionary=*/false, this->descr_.get());
+  auto buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PFOR, this->descr_.get());
+  decoder->SetData(/*num_values=*/0, buffer->data(), static_cast<int>(buffer->size()));
+
+  // All slots are null, so the page carries no encoded values at all.
+  std::vector<uint8_t> valid_bits(bit_util::BytesForBits(kNumValues), 0);
+  typename EncodingTraits<TypeParam>::Accumulator acc;
+  ASSERT_EQ(0, decoder->DecodeArrow(kNumValues, /*null_count=*/kNumValues,
+                                    valid_bits.data(), /*valid_bits_offset=*/0, &acc));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+  ASSERT_EQ(kNumValues, result->length());
+  ASSERT_EQ(kNumValues, result->null_count());
+}
+
+// ----------------------------------------------------------------------
 // Rle for Boolean encode/decode tests.
 
 class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {
