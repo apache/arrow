@@ -211,7 +211,10 @@ Status ValidateVectorInfo(const AlpEncodedVectorInfo& alp_info, int32_t num_elem
     return Status::Invalid("ALP exponent ", static_cast<int>(alp_info.exponent()),
                            " exceeds ", static_cast<int>(Constants::kMaxExponent));
   }
-  // A factor above the exponent would index the table below its first entry.
+  // The encoder scales by 10^(exponent - factor), so factor <= exponent is
+  // what keeps that power non-negative, i.e. keeps the encoded value an
+  // integer the decode can invert. Bounding the factor by the already-checked
+  // exponent also keeps the power-of-ten table index in range.
   if (alp_info.factor() > alp_info.exponent()) {
     return Status::Invalid("ALP factor ", static_cast<int>(alp_info.factor()),
                            " exceeds exponent ", static_cast<int>(alp_info.exponent()));
@@ -478,9 +481,9 @@ class AlpInlines {
 
   /// \brief Check if float is a special value that cannot be converted
   static inline bool IsImpossibleToEncode(const T n) {
-    // We do not have to check for positive or negative infinity, since
-    // std::numeric_limits<T>::infinity() > std::numeric_limits<T>::max()
-    // and vice versa for negative infinity.
+    // The two limit comparisons already cover both infinities: the encoding
+    // limits are finite, so +infinity compares above kEncodingUpperLimit and
+    // -infinity below kEncodingLowerLimit.
     return std::isnan(n) || n > Constants::kEncodingUpperLimit ||
            n < Constants::kEncodingLowerLimit ||
            (n == 0.0 && std::signbit(n));  // Verification for -0.0
@@ -733,7 +736,7 @@ template <typename T>
 AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
     std::span<const T> input, const std::vector<AlpExponentAndFactor>& combinations) {
   // Find the best factor-exponent combination from within the best k combinations.
-  // This is ALP second level sampling.
+  // This search is ALP's second-level sampling.
   if (combinations.size() == 1) {
     return combinations.front();
   }
