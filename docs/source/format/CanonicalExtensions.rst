@@ -477,7 +477,7 @@ binary values look like.
 .. note::
 
    It is also *permissible* for the ``metadata`` field to be dictionary-encoded with a preferred (*but not required*) index type of ``int8``,
-   or run-end-encoded with a preferred (*but not required*) runs type of ``int8``.
+   or run-end-encoded with a preferred (*but not required*) runs type of ``int16``.
 
 .. note::
 
