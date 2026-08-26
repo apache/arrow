@@ -183,21 +183,24 @@ struct CastListView {
       auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
 
       src_offset_type start_offset = in_array.length > 0 ? offsets[0] : 0;
+      src_offset_type end_offset = 0;
+      if (in_array.length > 0) {
+        end_offset = offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset;
+      }
+
+      if (is_downcast && in_array.length > 0) {
+        if (end_offset > std::numeric_limits<dest_offset_type>::max()) {
+          return Status::Invalid("ListView too large to convert to List");
+        }
+      }
+
       for (int64_t i = 0; i < in_array.length; ++i) {
         dest_offsets[i] = static_cast<dest_offset_type>(offsets[i] - start_offset);
       }
       if (in_array.length > 0) {
-        dest_offsets[in_array.length] = static_cast<dest_offset_type>(
-            offsets[in_array.length - 1] + sizes[in_array.length - 1] - start_offset);
+        dest_offsets[in_array.length] = static_cast<dest_offset_type>(end_offset);
       } else {
         dest_offsets[0] = 0;
-      }
-
-      if (is_downcast && in_array.length > 0) {
-        if (dest_offsets[in_array.length] >
-            std::numeric_limits<dest_offset_type>::max()) {
-          return Status::Invalid("ListView too large to convert to List");
-        }
       }
 
       if (in_array.length > 0) {
@@ -212,14 +215,14 @@ struct CastListView {
           ctx->Allocate(sizeof(dest_offset_type) * (in_array.length + 1)));
       auto* dest_offsets = out_array->GetMutableValues<dest_offset_type>(1);
 
-      dest_offset_type current_offset = 0;
+      src_offset_type current_offset = 0;
       dest_offsets[0] = 0;
       for (int64_t i = 0; i < in_array.length; ++i) {
         if (in_array.IsNull(i)) {
-          dest_offsets[i + 1] = current_offset;
+          dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
         } else {
-          current_offset += static_cast<dest_offset_type>(sizes[i]);
-          dest_offsets[i + 1] = current_offset;
+          current_offset += sizes[i];
+          dest_offsets[i + 1] = static_cast<dest_offset_type>(current_offset);
         }
       }
 
