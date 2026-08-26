@@ -732,8 +732,8 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON arrow::simdjson)
-set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow::simdjson arrow_static
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers arrow::simdjson)
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers arrow::simdjson arrow_static
                                    ${ARROW_GTEST_GTEST})
 if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::Boost::process)
