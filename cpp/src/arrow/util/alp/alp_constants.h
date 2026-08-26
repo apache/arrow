@@ -47,7 +47,7 @@ class AlpConstants {
 
   /// Maximum supported log_vector_size value. Capped at 15 because per-vector
   /// element counts are stored as uint16_t (max 65535), and 2^16 = 65536
-  /// would overflow. This allows vector sizes up to 32768.
+  /// would overflow. The cap allows vector sizes up to 32768.
   static constexpr uint8_t kMaxLogVectorSize = 15;
 
   /// Sampling constants below are from the ALP paper (Afroozeh et al.,
@@ -61,10 +61,16 @@ class AlpConstants {
   static constexpr int64_t kSamplerRowgroupSize = 122880;
 
   /// Number of samples to collect per vector during the sampling phase.
-  /// 256 = kSamplerVectorSize / 16, i.e. sample every 16th element.
+  /// 256 = kSamplerVectorSize / 16. Note that AlpSampler caps its lookup
+  /// window at kAlpVectorSize rather than kSamplerVectorSize, so the stride
+  /// actually used is kAlpVectorSize / 256, i.e. every 4th element of the
+  /// first 1024.
   static constexpr int64_t kSamplerSamplesPerVector = 256;
 
-  /// Number of sample vectors to collect per rowgroup.
+  /// Nominal number of sample vectors to collect per rowgroup. AlpSampler
+  /// derives its vector-skip interval from this by integer division, which
+  /// truncates, so the count actually collected can be higher: with these
+  /// defaults the interval is 3 and 10 of a rowgroup's 30 vectors are sampled.
   static constexpr int64_t kSamplerSampleVectorsPerRowgroup = 8;
 
   /// Type used to store vector data offsets (supports pages up to 4GB)
@@ -77,7 +83,8 @@ class AlpConstants {
 
   /// Threshold for early exit during sampling when compression quality is poor.
   /// Used in FindBestExponentAndFactor to stop early if this many consecutive
-  /// combinations yield worse compression than the current best.
+  /// combinations compress no better than the current best. Any improvement
+  /// resets the count.
   static constexpr uint8_t kSamplingEarlyExitThreshold = 4;
 
   /// Maximum number of exponent-factor combinations to try during compression.
@@ -91,8 +98,8 @@ class AlpConstants {
                 "early-exit to be reachable");
 
   /// Loop unroll factor for tight loops in ALP compression/decompression.
-  /// ALP has multiple tight loops that profit from unrolling. Setting this
-  /// might affect performance, so benchmarking is recommended.
+  /// ALP has multiple tight loops that profit from unrolling. Changing this
+  /// factor affects performance, so benchmark before changing it.
   static constexpr int64_t kLoopUnrolls = 4;
 
   /// \brief Get power of ten as uint64_t

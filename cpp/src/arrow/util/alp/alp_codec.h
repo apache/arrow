@@ -52,8 +52,8 @@ class AlpCodec {
   /// \brief Create a sampling preset from input data
   ///
   /// This samples the input data and generates an encoding preset that can be
-  /// reused for encoding. This is useful when you want to pre-compute the preset
-  /// outside of the benchmark loop or encode multiple batches with the same preset.
+  /// reused for encoding. Pre-computing the preset lets you keep sampling out
+  /// of a benchmark loop, or encode multiple batches with one preset.
   ///
   /// \param[in] input pointer to the input data to sample
   /// \param[in] num_elements number of elements to sample
@@ -67,7 +67,7 @@ class AlpCodec {
   /// This encodes the data using a preset that was previously computed via
   /// CreateSamplingPreset(). This avoids the sampling overhead during encoding.
   ///
-  /// \param[in] input pointer to the input that is to be encoded
+  /// \param[in] input pointer to the input to encode
   /// \param[in] num_elements number of elements to encode
   /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
   /// \param[in] vector_size number of elements per vector (must be a power of 2
@@ -91,7 +91,7 @@ class AlpCodec {
 
   /// \brief Encode floating point values using ALP decimal compression
   ///
-  /// \param[in] input pointer to the input that is to be encoded
+  /// \param[in] input pointer to the input to encode
   /// \param[in] num_elements number of elements to encode
   /// \param[in] vector_size number of elements per vector (must be a power of 2
   ///            in the inclusive range [2^kMinLogVectorSize, 2^kMaxLogVectorSize],
@@ -118,7 +118,12 @@ class AlpCodec {
 
   /// \brief Decode floating point values
   ///
-  /// \param[in] num_elements number of elements to decode (from page header)
+  /// \param[in] num_elements number of elements the caller expects, which is
+  ///            also the capacity of `output` in elements. This comes from
+  ///            Parquet's page header (`num_values`), not from the ALP header
+  ///            embedded in `input`; if the ALP header's own element count
+  ///            would overrun this capacity, decoding fails rather than
+  ///            writing past `output`.
   /// \param[in] input pointer to the compressed data
   /// \param[in] input_size size of the compressed data in bytes
   /// \param[out] output pointer to the memory region we will decode into.
@@ -184,12 +189,14 @@ class AlpCodec {
 
   /// \brief Decompress a buffer using ALP
   ///
-  /// \param[in] num_elements the number of elements to decompress
+  /// \param[in] num_elements capacity of `output` in elements; a vector that
+  ///            would write past it is rejected rather than truncated
   /// \param[in] input the compressed buffer
   /// \param[in] input_size the size of the compressed data in bytes
   /// \param[in] integer_encoding the bit packing layout used
   /// \param[in] vector_size the number of elements per vector (from header)
-  /// \param[in] total_elements the total number of elements in the page (from header)
+  /// \param[in] total_elements the total number of elements in the page (from
+  ///            the ALP header); this is what determines the vector count
   /// \param[out] output the buffer to decompress into
   /// \return the decompression progress, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
