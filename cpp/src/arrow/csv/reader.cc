@@ -624,6 +624,7 @@ class ReaderMixin {
         // Read column names from header row
         auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
                          bool missing) -> Status {
+          DCHECK(!missing);
           column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
           return Status::OK();
         };

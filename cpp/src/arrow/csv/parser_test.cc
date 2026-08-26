@@ -93,6 +93,7 @@ void GetColumn(const BlockParser& parser, int32_t col_index,
   std::vector<bool> quoted_values;
   auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
                    bool missing) -> Status {
+    EXPECT_FALSE(missing);
     values.push_back(std::string(reinterpret_cast<const char*>(data), size));
     if (out_quoted) {
       quoted_values.push_back(quoted);
@@ -112,6 +113,7 @@ void GetLastRow(const BlockParser& parser, std::vector<std::string>* out,
   std::vector<bool> quoted_values;
   auto visit = [&](const uint8_t* data, uint32_t size, bool quoted,
                    bool missing) -> Status {
+    EXPECT_FALSE(missing);
     values.push_back(std::string(reinterpret_cast<const char*>(data), size));
     if (out_quoted) {
       quoted_values.push_back(quoted);
@@ -272,13 +274,17 @@ TEST(BlockParser, PadShortRows) {
 
   BlockParser parser(options, /*num_cols=*/3);
   AssertParseOk(parser, "1,2\n3,4,5\n");
-  AssertColumnsEq(parser, {{"1", "3"}, {"2", "4"}, {"", "5"}});
+  AssertColumnEq(parser, 0, {"1", "3"});
+  AssertColumnEq(parser, 1, {"2", "4"});
+  std::vector<std::string> values;
   std::vector<bool> missing;
   ASSERT_OK(parser.VisitColumn(
-      2, [&](const uint8_t*, uint32_t, bool, bool is_missing) -> Status {
+      2, [&](const uint8_t* data, uint32_t size, bool, bool is_missing) -> Status {
+        values.emplace_back(reinterpret_cast<const char*>(data), size);
         missing.push_back(is_missing);
         return Status::OK();
       }));
+  ASSERT_EQ(values, std::vector<std::string>({"", "5"}));
   ASSERT_EQ(missing, std::vector<bool>({true, false}));
 
   BlockParser last_row_parser(options, /*num_cols=*/3);
